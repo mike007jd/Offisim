@@ -311,6 +311,8 @@ export type {
   LoopCompletionContract,
   LoopAcceptanceItem,
   LoopBudgetContract,
+  MissionExecutionBudgetContract,
+  MissionExecutionBudgetOverrides,
   LoopHumanGate,
   LoopSkillBindingRef,
 } from './loops/index.js';

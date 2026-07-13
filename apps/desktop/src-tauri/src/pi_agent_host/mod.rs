@@ -52,18 +52,8 @@ pub fn agent_runtime_reattach(
     stream::reattach_stream(request_id, after_cursor, on_event)
 }
 
-#[tauri::command]
-pub async fn pi_agent_execute(
-    app: AppHandle,
-    req: PiAgentExecuteRequest,
-    on_event: Channel<PiAgentHostEvent>,
-) -> Result<PiAgentHostResponse, String> {
-    execute_impl(app, req, on_event).await
-}
-
 /// Agent-agnostic gateway command. Forwards verbatim to the Pi lane via
-/// `execute_impl` — the renderer's runtime-neutral DesktopAgentRuntime calls this
-/// instead of `pi_agent_execute`; the Pi-specific types ride in the host/driver.
+/// `execute_impl`; the Pi-specific types ride in the host/driver.
 #[tauri::command]
 pub async fn agent_runtime_execute(
     app: AppHandle,
@@ -114,11 +104,6 @@ pub async fn agent_runtime_resume(
     execute_impl(app, req, on_event).await
 }
 
-#[tauri::command]
-pub fn pi_agent_abort(request_id: String) -> Result<(), String> {
-    abort_impl(request_id)
-}
-
 /// Agent-agnostic gateway abort. Forwards verbatim to `abort_impl`.
 #[tauri::command]
 pub fn agent_runtime_abort(request_id: String) -> Result<(), String> {
@@ -134,20 +119,8 @@ pub async fn agent_runtime_control(
     bridge::control_impl(request_id, action, run_id).await
 }
 
-#[tauri::command]
-pub async fn pi_agent_ui_response(
-    request_id: String,
-    id: String,
-    confirmed: Option<bool>,
-    value: Option<String>,
-    cancelled: Option<bool>,
-) -> Result<(), String> {
-    ui_response_impl(request_id, id, confirmed, value, cancelled).await
-}
-
-/// Agent-agnostic gateway: the generic name for an interaction answer. Forwards
-/// verbatim to `ui_response_impl` — the runtime-neutral DesktopAgentRuntime calls
-/// this instead of `pi_agent_ui_response`.
+/// Agent-agnostic gateway for an interaction answer. Forwards verbatim to
+/// `ui_response_impl`.
 #[tauri::command]
 pub async fn agent_runtime_answer(
     request_id: String,

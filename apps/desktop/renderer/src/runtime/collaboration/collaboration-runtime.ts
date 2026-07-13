@@ -113,45 +113,28 @@ function toParticipant(employee: EmployeeRow): CollaborationParticipant {
   };
 }
 
-function assertCollaborationRepos(repos: RuntimeRepositories): void {
-  for (const required of [
-    'collaborationThreads',
-    'collaborationMembers',
-    'collaborationMessages',
-    'collaborationReadState',
-    'collaborationTurns',
-    'employees',
-    'companies',
-  ] as const) {
-    if (!repos[required]) {
-      throw new Error(`Cannot start collaboration runtime: repos.${required} is unavailable.`);
-    }
-  }
-}
-
 async function assembleController(): Promise<CollaborationTurnController> {
   const repos = await getRepos();
-  assertCollaborationRepos(repos);
   const service = createCollaborationService(
     {
-      collaborationThreads: repos.collaborationThreads!,
-      collaborationMembers: repos.collaborationMembers!,
-      collaborationMessages: repos.collaborationMessages!,
-      collaborationReadState: repos.collaborationReadState!,
+      collaborationThreads: repos.collaborationThreads,
+      collaborationMembers: repos.collaborationMembers,
+      collaborationMessages: repos.collaborationMessages,
+      collaborationReadState: repos.collaborationReadState,
       asyncTransact: repos.asyncTransact,
     },
     { newId: () => crypto.randomUUID(), now: () => new Date().toISOString() },
   );
 
   const resolveThread = async (threadId: string): Promise<CollaborationThreadContext> => {
-    const thread = await repos.collaborationThreads!.findById(threadId);
+    const thread = await repos.collaborationThreads.findById(threadId);
     if (!thread) throw new Error(`collaboration thread not found: ${threadId}`);
     const capabilityProfile =
       thread.capability_profile === 'collaboration_read' ? 'collaboration_read' : 'strict';
     const [company, members, allEmployees, piStatus] = await Promise.all([
-      repos.companies!.findById(thread.company_id).catch(() => null),
-      repos.collaborationMembers!.listActiveByThread(threadId),
-      repos.employees!.findByCompany(thread.company_id),
+      repos.companies.findById(thread.company_id).catch(() => null),
+      repos.collaborationMembers.listActiveByThread(threadId),
+      repos.employees.findByCompany(thread.company_id),
       invokeCommand('pi_agent_status').catch(() => null),
     ]);
     const byId = new Map(allEmployees.map((e) => [e.employee_id, e]));
@@ -231,8 +214,8 @@ async function assembleController(): Promise<CollaborationTurnController> {
         return members.map((m) => ({ employeeId: m.employeeId, actorType: m.actorType }));
       },
     },
-    turns: repos.collaborationTurns!,
-    messages: { update: (id, patch) => repos.collaborationMessages!.update(id, patch) },
+    turns: repos.collaborationTurns,
+    messages: { update: (id, patch) => repos.collaborationMessages.update(id, patch) },
     resolveThread,
     recentMessages,
     now: () => new Date().toISOString(),

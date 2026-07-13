@@ -291,7 +291,7 @@ fn has_word_token(haystack: &str, token: &str) -> bool {
 
 fn has_unsafe_rm_target(rest_after_rm_flags: &str) -> bool {
     // Stop at segment boundaries so `rm -rf foo && ls /` doesn't trigger.
-    let segment: &str = match rest_after_rm_flags.find(|c: char| c == ';' || c == '|' || c == '&') {
+    let segment: &str = match rest_after_rm_flags.find([';', '|', '&']) {
         Some(idx) => &rest_after_rm_flags[..idx],
         None => rest_after_rm_flags,
     };

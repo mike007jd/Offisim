@@ -1,12 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import {
-  existsSync,
-  globSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
@@ -20,6 +13,50 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function extractNamedFunction(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  assert(start >= 0, `could not find function ${name}`);
+  const parametersOpen = source.indexOf('(', start);
+  let parameterDepth = 0;
+  let parametersClose = -1;
+  for (let index = parametersOpen; index < source.length; index += 1) {
+    if (source[index] === '(') parameterDepth += 1;
+    if (source[index] === ')') {
+      parameterDepth -= 1;
+      if (parameterDepth === 0) {
+        parametersClose = index;
+        break;
+      }
+    }
+  }
+  assert(parametersClose >= 0, `could not find parameters for function ${name}`);
+  const open = source.indexOf('{', parametersClose);
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  throw new Error(`could not extract function ${name}`);
+}
+
+function extractObjectLiteral(source, marker) {
+  const start = source.indexOf(marker);
+  assert(start >= 0, `could not find object marker ${marker}`);
+  const open = source.indexOf('{', start);
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(open, index + 1);
+    }
+  }
+  throw new Error(`could not extract object marker ${marker}`);
 }
 
 function parseHostResult(stdout, label) {
@@ -96,6 +133,10 @@ const desktopRuntimeScopeSource = readFileSync(
   'apps/desktop/renderer/src/data/employee-persona.ts',
   'utf8',
 );
+const desktopAgentRuntimeSource = readFileSync(
+  'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
+  'utf8',
+);
 
 assert(
   rootPackage.scripts['build:pi-agent-host'] === 'node scripts/build-pi-agent-host.mjs',
@@ -152,11 +193,19 @@ assert(
   'execute sidecar payload must forward employeeId so publish-artifact and mission-bridge events keep employee attribution',
 );
 assert(
+  /delegation_limits: Option<serde_json::Value>/.test(rustHostSource) &&
+    /if let Some\(delegation_limits\)[\s\S]*\.insert\("delegationLimits"\.into\(\), delegation_limits\.clone\(\)\)/.test(
+      executePayloadSource,
+    ) &&
+    /delegationLimits: input\.delegationLimits/.test(desktopAgentRuntimeSource),
+  'optional delegationLimits must cross renderer → opaque Rust → Node without appearing on absent plain-chat requests',
+);
+assert(
   /"skillPaths": req\.skill_paths/.test(executePayloadSource) &&
     /additionalSkillPaths: skillPaths/.test(nodeHostSource) &&
     /additionalSkillPaths: skillPaths/.test(childSupervisorSource) &&
     /additionalSkillPaths: skillPaths/.test(bundledNodeHostSource) &&
-    /repos\.skills\?\.listByCompany\(companyId\)/.test(desktopRuntimeScopeSource) &&
+    /repos\.skills\.listByCompany\(companyId\)/.test(desktopRuntimeScopeSource) &&
     /skillPaths: skillPathsForEmployee\(e\.employee_id\)/.test(desktopRuntimeScopeSource),
   'vault-authoritative company + employee skills must cross the renderer/Rust wire and reach Pi native resource loaders for root and child sessions',
 );
@@ -180,6 +229,115 @@ assert(
   /const projectId = asNonEmptyString\(payload\.projectId\)/.test(nodeHostSource),
   'execute host must declare projectId from the run payload before delegating (a bare projectId reference throws "projectId is not defined")',
 );
+assert(
+  /function normalizeDelegationLimitOverrides\(value\)/.test(nodeHostSource) &&
+    /Number\.isSafeInteger\(requested\)/.test(nodeHostSource) &&
+    /Math\.min\(requested, DELEGATION_DEFAULTS\[key\]\)/.test(nodeHostSource) &&
+    /delegationLimitOverrides === undefined[\s\S]*createDelegationLimits\(\)[\s\S]*createDelegationLimits\(delegationLimitOverrides\)/.test(
+      nodeHostSource,
+    ) &&
+    /Number\.isSafeInteger\(requested\)/.test(bundledNodeHostSource) &&
+    /Math\.min\(requested, DELEGATION_DEFAULTS\w*\[key\]\)/.test(bundledNodeHostSource),
+  'source and bundled Pi hosts must accept only positive integer delegation caps, clamp them to host defaults, and preserve the default constructor for absent/invalid packets',
+);
+
+const delegationDefaults = Function(
+  `return (${extractObjectLiteral(childSupervisorSource, 'export const DELEGATION_DEFAULTS')});`,
+)();
+const normalizeDelegationLimits = Function(
+  'DELEGATION_DEFAULTS',
+  'DELEGATION_LIMIT_KEYS',
+  `${extractNamedFunction(nodeHostSource, 'normalizeDelegationLimitOverrides')}; return normalizeDelegationLimitOverrides;`,
+)(delegationDefaults, [
+  'maxDepth',
+  'maxParallelPerDelegation',
+  'maxTotalChildren',
+  'maxTotalTokens',
+]);
+const buildDelegationLimits = Function(
+  'DELEGATION_DEFAULTS',
+  `${extractNamedFunction(childSupervisorSource, 'createDelegationLimits')}; return createDelegationLimits;`,
+)(delegationDefaults);
+
+assert(
+  normalizeDelegationLimits(undefined) === undefined,
+  'absent delegationLimits must preserve the host default path',
+);
+const validDelegationOverrides = normalizeDelegationLimits({
+  maxDepth: 1,
+  maxParallelPerDelegation: 99,
+  maxTotalChildren: 8,
+  maxTotalTokens: 90_000,
+});
+assert(
+  validDelegationOverrides?.maxDepth === 1 &&
+    validDelegationOverrides.maxParallelPerDelegation ===
+      delegationDefaults.maxParallelPerDelegation &&
+    validDelegationOverrides.maxTotalChildren === 8 &&
+    validDelegationOverrides.maxTotalTokens === 90_000,
+  'valid delegation limits must tighten values below defaults and clamp values above defaults',
+);
+const effectiveDelegationLimits = buildDelegationLimits(validDelegationOverrides);
+assert(
+  effectiveDelegationLimits.maxDepth === 1 &&
+    effectiveDelegationLimits.maxParallelPerDelegation ===
+      delegationDefaults.maxParallelPerDelegation &&
+    effectiveDelegationLimits.maxTotalChildren === 8 &&
+    effectiveDelegationLimits.maxTotalTokens === 90_000,
+  'normalized overrides must reach createDelegationLimits unchanged',
+);
+
+const sharedConcurrency = buildDelegationLimits({
+  maxParallelPerDelegation: 2,
+  maxTotalChildren: 8,
+  maxTotalTokens: 100,
+});
+assert(await sharedConcurrency.acquireConcurrency('branch-a'), 'first branch gets a global lease');
+assert(await sharedConcurrency.acquireConcurrency('branch-b'), 'second branch gets a global lease');
+let thirdBranchStarted = false;
+const thirdBranch = sharedConcurrency.acquireConcurrency('branch-c').then((acquired) => {
+  thirdBranchStarted = acquired;
+  return acquired;
+});
+await Promise.resolve();
+assert(!thirdBranchStarted, 'a third recursive branch queues behind the shared tree cap');
+sharedConcurrency.releaseConcurrency('branch-a');
+assert(await thirdBranch, 'releasing any branch admits the next global waiter');
+assert(sharedConcurrency.concurrencyInUse() === 2, 'global active-agent count never exceeds two');
+assert(
+  sharedConcurrency.suspendConcurrency('branch-b'),
+  'a delegating parent suspends its lease while descendants run',
+);
+assert(
+  await sharedConcurrency.acquireConcurrency('grandchild'),
+  'a grandchild uses the parent slot',
+);
+sharedConcurrency.releaseConcurrency('grandchild');
+assert(
+  await sharedConcurrency.resumeConcurrency('branch-b'),
+  'the parent reacquires before resuming',
+);
+sharedConcurrency.recordTokens({ input: 10, output: 0, turns: 1 });
+sharedConcurrency.recordTokens({ input: 1_000, output: 0, turns: 1 });
+assert(sharedConcurrency.usage().input === 1_010, 'root and child usage share one budget ledger');
+assert(sharedConcurrency.budgetExceeded(), 'combined tree usage exhausts maxTotalTokens');
+sharedConcurrency.releaseConcurrency('branch-b');
+sharedConcurrency.releaseConcurrency('branch-c');
+for (const invalidPacket of [
+  null,
+  [],
+  { maxDepth: 0 },
+  { maxDepth: -1 },
+  { maxDepth: 1.5 },
+  { maxDepth: '1' },
+  { maxDepth: 1, maxTotalTokens: 0 },
+  { maxDepth: 1, childTimeoutMs: 1 },
+]) {
+  assert(
+    normalizeDelegationLimits(invalidPacket) === undefined,
+    `invalid delegation-limit packet must be ignored as a whole: ${JSON.stringify(invalidPacket)}`,
+  );
+}
 assert(
   /const projectId = asNonEmptyString\w*\(payload\.projectId\)/.test(bundledNodeHostSource),
   'bundled Pi Agent host must also declare projectId from the run payload — rebuild with pnpm build:pi-agent-host',

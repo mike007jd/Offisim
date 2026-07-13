@@ -34,6 +34,7 @@ import assert from 'node:assert/strict';
 // keeps it in the reachable graph AND proves it satisfies the injected GitWorktreeOps
 // contract. The factory is constructed but NO method is invoked, so no real Tauri /
 // git_exec call happens (those resolve lazily inside each method).
+import { parsePorcelainV1ZPaths } from '../apps/desktop/renderer/src/runtime/mission/git-porcelain.js';
 import { createTauriGitWorktreeOps } from '../apps/desktop/renderer/src/runtime/mission/workspace/git-worktree-ops.js';
 import {
   type GitWorktreeOps,
@@ -45,7 +46,7 @@ import {
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 14;
+const TOTAL = 16;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -728,6 +729,22 @@ await check(
     );
   },
 );
+
+await check('porcelain -z preserves spaces, Unicode, quotes, and leading whitespace', () => {
+  assert.deepEqual(
+    parsePorcelainV1ZPaths(
+      '?? docs/file with space.md\0 M 中文/"quoted".md\0??  leading-space.md\0',
+    ),
+    ['docs/file with space.md', '中文/"quoted".md', ' leading-space.md'],
+  );
+});
+
+await check('porcelain -z rename returns target and source for explicit staging', () => {
+  assert.deepEqual(parsePorcelainV1ZPaths('R  new name.md\0old name.md\0'), [
+    'new name.md',
+    'old name.md',
+  ]);
+});
 
 if (failed > 0) {
   console.error(`\nworkspace-lease: ${passed}/${TOTAL} passed (${failed} failed)`);

@@ -57,7 +57,7 @@ import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mis
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 5;
+const TOTAL = 6;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -127,18 +127,26 @@ function makeFakeRuntime(
     submitSummary: (attemptNumber: number) => string;
     /** Set to throw on a given attempt → exercises the runtimeError path. */
     throwOnAttempt?: number;
-    /** Root token usage the host reports on the run return → feeds the §19.2
-     *  token budget. Omitted → the run reports no usage (loop debits nothing). */
+    /** Root token usage remains the persistence-only lane. */
     usage?: { input: number; output: number };
+    /** Root + delegated-tree usage is the Mission budget lane. */
+    budgetUsage?: { input: number; output: number };
   },
-): { runtime: DesktopAgentRuntime; prompts: string[]; attempts: number } {
+): {
+  runtime: DesktopAgentRuntime;
+  prompts: string[];
+  inputs: DesktopAgentRunInput[];
+  attempts: number;
+} {
   const prompts: string[] = [];
+  const inputs: DesktopAgentRunInput[] = [];
   let attempts = 0;
   const runtime: DesktopAgentRuntime = {
     async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
       attempts += 1;
       const attemptNumber = attempts;
       prompts.push(input.text);
+      inputs.push(input);
       if (opts.throwOnAttempt === attemptNumber) {
         throw new Error(`scripted transport failure on attempt ${attemptNumber}`);
       }
@@ -163,7 +171,11 @@ function makeFakeRuntime(
         };
         eventBus.emit(event);
       }
-      return { text: 'done', ...(opts.usage ? { usage: opts.usage } : {}) };
+      return {
+        text: 'done',
+        ...(opts.usage ? { usage: opts.usage } : {}),
+        ...(opts.budgetUsage ? { budgetUsage: opts.budgetUsage } : {}),
+      };
     },
     abort() {},
     async answerUiRequest() {},
@@ -174,10 +186,18 @@ function makeFakeRuntime(
     get prompts() {
       return prompts;
     },
+    get inputs() {
+      return inputs;
+    },
     get attempts() {
       return attempts;
     },
-  } as { runtime: DesktopAgentRuntime; prompts: string[]; attempts: number };
+  } as {
+    runtime: DesktopAgentRuntime;
+    prompts: string[];
+    inputs: DesktopAgentRunInput[];
+    attempts: number;
+  };
 }
 
 /**
@@ -239,7 +259,7 @@ await check(
     const criteria = await mission.missionCriteria.listByMission(missionId);
     const criterionId = criteria[0]!.criterion_id;
 
-    const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
+    const { runtime, inputs } = makeFakeRuntime(eventBus, 'co-1', {
       submitCriterionIds: [criterionId],
       submitSummary: () => 'tests green',
     });
@@ -257,6 +277,11 @@ await check(
     const result = await controller.runMission(missionId);
     assert.equal(result.status, 'completed', 'all required criteria PASS → completed');
     assert.equal(result.attempts, 1, 'completed in one attempt');
+    assert.equal(
+      inputs[0]?.delegationLimits,
+      undefined,
+      'a Mission without authored agent caps must preserve the host default path',
+    );
     const finalMission = await mission.missions.findById(missionId);
     assert.equal(finalMission!.status, 'completed', 'MissionService persisted completed');
   },
@@ -485,8 +510,13 @@ await check(
       threadId: 'thr-1',
       projectId: 'proj-1',
       goal: 'Burn the budget',
-      // A tiny token budget the first attempt's usage (10) blows past.
-      budgetJson: JSON.stringify({ tokenBudget: 1 }),
+      // Root usage alone stays below this cap; delegated-tree usage crosses it.
+      budgetJson: JSON.stringify({
+        tokenBudget: 100,
+        maxConcurrentAgents: 3,
+        maxTotalAgents: 7,
+        maxRecursionDepth: 2,
+      }),
       criteria: [
         {
           description: 'tests pass',
@@ -499,10 +529,11 @@ await check(
     const criteria = await mission.missionCriteria.listByMission(missionId);
     const criterionId = criteria[0]!.criterion_id;
 
-    const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
+    const { runtime, inputs } = makeFakeRuntime(eventBus, 'co-1', {
       submitCriterionIds: [criterionId],
       submitSummary: () => 'I tried',
-      usage: { input: 5, output: 5 }, // 10 tokens reported for the attempt
+      usage: { input: 5, output: 5 }, // root-only persistence usage = 10
+      budgetUsage: { input: 1_005, output: 5 }, // root 10 + delegated children 1,000
     });
     const attemptCell = { n: 0 };
     // The command FAILs every attempt, so completion never short-circuits the
@@ -517,6 +548,16 @@ await check(
 
     const result = await controller.runMission(missionId);
     assert.equal(result.stopReason, 'token_budget', 'the exhausted token budget stops the loop');
+    assert.deepEqual(
+      inputs[0]?.delegationLimits,
+      {
+        maxDepth: 2,
+        maxParallelPerDelegation: 3,
+        maxTotalChildren: 7,
+        maxTotalTokens: 100,
+      },
+      'Mission agent caps must map directly into Pi delegation supervisor caps',
+    );
     assert.equal(
       result.attempts,
       1,
@@ -532,6 +573,79 @@ await check(
       attempt.attempt_id,
       'root_run_id stamped with the attempt id (the live runner sets runId === attemptId)',
     );
+  },
+);
+
+await check(
+  '(e) wall-clock timer aborts a never-resolving Pi run → wall_clock_budget, not runtime_incompatible',
+  async () => {
+    const eventBus = new InMemoryEventBus();
+    const { repos } = makeRepos('/tmp/fake-ws');
+    const { missionId } = await createDevMission(repos, {
+      companyId: 'co-1',
+      threadId: 'thr-wall-clock',
+      projectId: 'proj-1',
+      goal: 'Bound the run',
+      budgetJson: JSON.stringify({ wallClockMinutes: 1 }),
+      criteria: [
+        {
+          description: 'tests pass',
+          evaluatorId: 'command_exit_zero',
+          evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+          required: true,
+        },
+      ],
+    });
+
+    let resolveStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      resolveStarted = resolve;
+    });
+    let abortCount = 0;
+    const runtime: DesktopAgentRuntime = {
+      execute: async () => {
+        resolveStarted();
+        return new Promise<DesktopAgentRunResult>(() => {});
+      },
+      resume: async () => ({ text: '' }),
+      abort: () => {
+        abortCount += 1;
+      },
+      abortChild() {},
+      async answerUiRequest() {},
+      async dispose() {},
+    };
+    let fireDeadline: (() => void) | undefined;
+    let cleared = 0;
+    const controller = createMissionRunController({
+      agentRuntime: runtime,
+      repos,
+      evaluatorRegistry: createDefaultEvaluatorRegistry(),
+      eventBus,
+      createEvaluationContext: makeFakeEvaluationContextFactory(() => 0, { n: 1 }),
+      now: () => '2026-01-01T00:00:00.000Z',
+      scheduleDeadline: (callback, delayMs) => {
+        assert.equal(delayMs, 60_000, 'runtime timer uses the canonical absolute deadline');
+        fireDeadline = callback;
+        return 'deadline-handle';
+      },
+      cancelDeadline: (handle) => {
+        assert.equal(handle, 'deadline-handle');
+        cleared += 1;
+      },
+    });
+
+    const resultPromise = controller.runMission(missionId);
+    await started;
+    assert.ok(fireDeadline, 'deadline timer armed while execute remained pending');
+    fireDeadline!();
+    const result = await resultPromise;
+
+    assert.equal(abortCount, 1, 'deadline aborts the active Pi thread exactly once');
+    assert.equal(cleared, 1, 'deadline timer is cleared in finally');
+    assert.equal(result.status, 'failed');
+    assert.equal(result.stopReason, 'wall_clock_budget');
+    assert.notEqual(result.stopReason, 'runtime_incompatible');
   },
 );
 

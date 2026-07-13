@@ -1,3 +1,4 @@
+import type { ToolRichDetail } from '@offisim/shared-types';
 /**
  * Deterministic gate for the office workload-bubble grouping (WAVE 1 shared
  * helper). Asserts the concurrency tiers (small / medium / large), the PRD chip
@@ -15,7 +16,6 @@ import {
   sceneWorkDetailSummary,
 } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 import { compactWorkBenchSummary } from '../apps/desktop/renderer/src/surfaces/office/scene/work-bench/WorkBench.js';
-import type { ToolRichDetail } from '@offisim/shared-types';
 
 let checks = 0;
 let failures = 0;
@@ -127,12 +127,20 @@ const issue = (kind: WorkloadPriorityIssue['kind'], label: string): WorkloadPrio
       activeCount: 1,
       activeRunIds: ['a'],
       workloadChips: [{ runId: 'a', label: 'Read', tone: 'work' }],
-      workloadSummary: summary({ total: 1, byWorkKind: { research: 1 }, byStatus: { working: 1, waiting: 0, blocked: 0, artifact: 0 } }),
+      workloadSummary: summary({
+        total: 1,
+        byWorkKind: { research: 1 },
+        byStatus: { working: 1, waiting: 0, blocked: 0, artifact: 0 },
+      }),
     }),
   );
   check('1 run → tier small', g.tier === 'small', g.tier);
   check('1 run → countLabel null', g.countLabel === null, `${g.countLabel}`);
-  check('1 run → one per-run chip, no count', g.chips.length === 1 && g.chips[0]?.count === undefined, JSON.stringify(g.chips));
+  check(
+    '1 run → one per-run chip, no count',
+    g.chips.length === 1 && g.chips[0]?.count === undefined,
+    JSON.stringify(g.chips),
+  );
   check('1 run → no overflow', g.overflow === false);
 }
 
@@ -147,7 +155,11 @@ const issue = (kind: WorkloadPriorityIssue['kind'], label: string): WorkloadPrio
         { runId: 'b', label: 'Compute', tone: 'work' },
         { runId: 'c', label: 'Review', tone: 'work' },
       ],
-      workloadSummary: summary({ total: 3, byWorkKind: { research: 3 }, byStatus: { working: 3, waiting: 0, blocked: 0, artifact: 0 } }),
+      workloadSummary: summary({
+        total: 3,
+        byWorkKind: { research: 3 },
+        byStatus: { working: 3, waiting: 0, blocked: 0, artifact: 0 },
+      }),
     }),
   );
   check('3 runs → tier small', g.tier === 'small', g.tier);
@@ -173,11 +185,23 @@ const issue = (kind: WorkloadPriorityIssue['kind'], label: string): WorkloadPrio
   );
   check('8 runs → tier medium', g.tier === 'medium', g.tier);
   check('8 runs → ≤ 4 grouped chips', g.chips.length <= 4, `${g.chips.length}`);
-  check('8 runs → issue summary is first (outranks work)', g.chips[0]?.label === 'Resolve issue' && g.chips[0]?.tone === 'risk', JSON.stringify(g.chips[0]));
-  check('8 runs → grouped chips carry counts', g.chips.every((c) => typeof c.count === 'number'), JSON.stringify(g.chips));
+  check(
+    '8 runs → issue summary is first (outranks work)',
+    g.chips[0]?.label === 'Resolve issue' && g.chips[0]?.tone === 'risk',
+    JSON.stringify(g.chips[0]),
+  );
+  check(
+    '8 runs → grouped chips carry counts',
+    g.chips.every((c) => typeof c.count === 'number'),
+    JSON.stringify(g.chips),
+  );
   check('8 runs → blocked count is 2', g.chips[0]?.count === 2, `${g.chips[0]?.count}`);
   check('8 runs → overflow (5 groups > 4 shown)', g.overflow === true);
-  check('8 runs → topIssue is the resource strain', g.topIssue?.kind === 'resource', JSON.stringify(g.topIssue));
+  check(
+    '8 runs → topIssue is the resource strain',
+    g.topIssue?.kind === 'resource',
+    JSON.stringify(g.topIssue),
+  );
 }
 
 // --- large: 58 runs → distribution, ×58 -------------------------------------
@@ -197,8 +221,16 @@ const issue = (kind: WorkloadPriorityIssue['kind'], label: string): WorkloadPrio
   check('58 runs → tier large', g.tier === 'large', g.tier);
   check('58 runs → countLabel ×58', g.countLabel === '×58', `${g.countLabel}`);
   check('58 runs → exactly 4 chips (fixed dims)', g.chips.length === 4, `${g.chips.length}`);
-  check('58 runs → issue summary reserved first', g.chips[0]?.label === 'Resolve issue' && g.chips[0]?.count === 3, JSON.stringify(g.chips[0]));
-  check('58 runs → top work kind is a human summary with count 24', g.chips.some((c) => c.label === 'Research files' && c.count === 24), JSON.stringify(g.chips));
+  check(
+    '58 runs → issue summary reserved first',
+    g.chips[0]?.label === 'Resolve issue' && g.chips[0]?.count === 3,
+    JSON.stringify(g.chips[0]),
+  );
+  check(
+    '58 runs → top work kind is a human summary with count 24',
+    g.chips.some((c) => c.label === 'Research files' && c.count === 24),
+    JSON.stringify(g.chips),
+  );
   check('58 runs → overflow drops the smallest bucket', g.overflow === true);
 }
 
@@ -249,21 +281,48 @@ const issue = (kind: WorkloadPriorityIssue['kind'], label: string): WorkloadPrio
         total: 1,
         byWorkKind: { unclassified: 1 },
         byStatus: { working: 0, waiting: 0, blocked: 1, artifact: 0 },
-        priorityIssues: [{ runId: 'dead', kind: 'failure', label: 'Crashed', severity: 'blocked', terminal: true }],
+        priorityIssues: [
+          { runId: 'dead', kind: 'failure', label: 'Crashed', severity: 'blocked', terminal: true },
+        ],
       }),
     }),
   );
   check('terminal-only → tier small', g.tier === 'small', g.tier);
-  check('terminal-only → countLabel null (no active concurrency)', g.countLabel === null, `${g.countLabel}`);
-  check('terminal-only → synthesizes a risk chip from the top issue', g.chips.length === 1 && g.chips[0]?.tone === 'risk' && g.chips[0]?.label === 'Crashed', JSON.stringify(g.chips));
-  check('terminal-only → topIssue is the failed child', g.topIssue?.terminal === true, JSON.stringify(g.topIssue));
+  check(
+    'terminal-only → countLabel null (no active concurrency)',
+    g.countLabel === null,
+    `${g.countLabel}`,
+  );
+  check(
+    'terminal-only → synthesizes a risk chip from the top issue',
+    g.chips.length === 1 && g.chips[0]?.tone === 'risk' && g.chips[0]?.label === 'Crashed',
+    JSON.stringify(g.chips),
+  );
+  check(
+    'terminal-only → topIssue is the failed child',
+    g.topIssue?.terminal === true,
+    JSON.stringify(g.topIssue),
+  );
 }
 
 // --- inject-proof: a constant grouping would fail the tier assertions -------
 {
   const small = groupedWorkload(proj({ activeCount: 1, workloadSummary: summary({ total: 1 }) }));
-  const large = groupedWorkload(proj({ activeCount: 20, workloadSummary: summary({ total: 20, byWorkKind: { research: 20 }, byStatus: { working: 20, waiting: 0, blocked: 0, artifact: 0 } }) }));
-  check('inject-proof: small ≠ large tier', small.tier !== large.tier, `${small.tier}/${large.tier}`);
+  const large = groupedWorkload(
+    proj({
+      activeCount: 20,
+      workloadSummary: summary({
+        total: 20,
+        byWorkKind: { research: 20 },
+        byStatus: { working: 20, waiting: 0, blocked: 0, artifact: 0 },
+      }),
+    }),
+  );
+  check(
+    'inject-proof: small ≠ large tier',
+    small.tier !== large.tier,
+    `${small.tier}/${large.tier}`,
+  );
 }
 
 console.log(`\nworkload-chips: ${checks - failures}/${checks} checks passed`);

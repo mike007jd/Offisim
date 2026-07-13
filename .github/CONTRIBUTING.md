@@ -48,11 +48,10 @@ Read these before major changes:
 
 - [`CLAUDE.md`](../CLAUDE.md) — repo-wide AI operating rules and architectural context
 - Per-package `CLAUDE.md` where present (`packages/core/CLAUDE.md`, `apps/desktop/CLAUDE.md`, `apps/platform/CLAUDE.md`)
-- [`openspec/specs/`](../openspec/specs/) — capability specifications (rebuild in progress)
 
 ## Verification Guidance
 
-- Offisim no longer maintains automated test suites.
+- Offisim does not maintain ordinary source-level product test suites; runtime and product invariants live in repository harnesses and `pnpm validate`.
 - Validate changes in the real runtime surface affected by the change.
 - For UI/runtime work, include brief manual verification notes when relevant.
 

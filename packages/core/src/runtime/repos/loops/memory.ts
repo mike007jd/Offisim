@@ -69,6 +69,23 @@ export class MemoryLoopDefinitionRepository implements LoopDefinitionRepository 
     });
   }
 
+  async claimScheduledRun(
+    loopId: string,
+    expectedNextRunAt: string,
+    claim: { claimedAt: string; nextRunAt: string },
+  ): Promise<boolean> {
+    const row = this.store.get(loopId);
+    if (!row || row.next_run_at !== expectedNextRunAt) return false;
+    this.store.set(loopId, {
+      ...row,
+      next_run_at: claim.nextRunAt,
+      last_run_at: claim.claimedAt,
+      last_run_result: 'Starting',
+      updated_at: claim.claimedAt,
+    });
+    return true;
+  }
+
   async delete(loopId: string): Promise<void> {
     this.store.delete(loopId);
   }

@@ -1,3 +1,7 @@
+import {
+  isConversationRunActive,
+  useConversationRun,
+} from '@/assistant/runtime/conversation-run-react.js';
 import { useArchiveThread, useDeleteConversation, useRenameThread } from '@/data/queries.js';
 import type { ChatThread } from '@/data/types.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -19,8 +23,9 @@ import {
 } from '@/design-system/primitives/dropdown-menu.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { cn } from '@/lib/utils.js';
+import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { Archive, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 
 interface ConversationActionsMenuProps {
@@ -35,7 +40,8 @@ interface ConversationActionsMenuProps {
   onDeleted?: () => void;
 }
 
-function mutationErrorMessage(result: { missing?: boolean }): string {
+function mutationErrorMessage(result: { active?: boolean; missing?: boolean }): string {
+  if (result.active) return 'Stop the active run before changing this conversation.';
   return result.missing ? 'Conversation no longer exists.' : "Can't save in this build.";
 }
 
@@ -56,7 +62,17 @@ export function ConversationActionsMenu({
   const renameThread = useRenameThread(projectId);
   const archiveThread = useArchiveThread(projectId);
   const deleteConversation = useDeleteConversation(projectId, companyId);
-  const locked = thread.runState === 'running' || thread.runState === 'paused';
+  const liveRun = useConversationRun(thread.id);
+  const missionRuns = useSyncExternalStore(
+    missionRunManager.subscribe,
+    missionRunManager.getSnapshot,
+    missionRunManager.getSnapshot,
+  );
+  const locked =
+    isConversationRunActive(liveRun.phase) ||
+    missionRuns.some((run) => run.threadId === thread.id) ||
+    thread.runState === 'running' ||
+    thread.runState === 'paused';
   const busy = renameThread.isPending || archiveThread.isPending || deleteConversation.isPending;
 
   useEffect(() => {

@@ -22,8 +22,6 @@ A generated loop should contain:
 14. **Stop/escalation rules** — what triggers repair, repartition, budget-exhaustion, or a human decision.
 15. **Cleanup definition** — agents, worktrees, branches, runtime resources, and code debris.
 
-See [EXAMPLE_LOOP.md](EXAMPLE_LOOP.md) for a fully worked instance of all of the above, compiled from a rough requirement.
-
 Scale the document to the tier. At the **light** tier, keep every section present (so the artifact stays uniform and resumable) but let items 8–15 collapse to one or two lines each — do not over-document a one-file change. At **aggressive**, expand topology, variants, and review lanes. The Budget and the three exit states are mandatory at every tier, however small.
 
 ## Do not include

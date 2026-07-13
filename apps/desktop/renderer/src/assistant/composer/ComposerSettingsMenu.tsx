@@ -120,8 +120,7 @@ export function ComposerSettingsMenu({
     return {
       effective: effectiveModel,
       providers: [...groups].map(([provider, items]) => ({ provider, items })),
-      supportsReasoning:
-        list.find((option) => option.value === effectiveModel)?.reasoning ?? false,
+      supportsReasoning: list.find((option) => option.value === effectiveModel)?.reasoning ?? false,
     };
   }, [perThreadModel, models.data]);
 

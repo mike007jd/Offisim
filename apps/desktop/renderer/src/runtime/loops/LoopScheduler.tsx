@@ -36,13 +36,20 @@ export function LoopScheduler() {
         });
         if (decision === 'wait') return;
         inFlightRef.current.add(loop.loopId);
+        let claimed = false;
         try {
           if (decision === 'skip') {
             await service.skipMissedSchedule(loop.loopId);
             return;
           }
           const revisionId = loop.currentRevisionId;
-          if (!revisionId || !projectId) return;
+          const dueSlot = loop.nextRunAt;
+          if (!revisionId || !projectId || !dueSlot) return;
+          // Claim and advance this exact due slot before creating a thread,
+          // Mission, or paid Pi run. A crash after this point cannot dispatch
+          // the same slot again on restart.
+          claimed = await service.claimScheduledRun(loop.loopId, dueSlot);
+          if (!claimed) return;
           const result = await startLoopAsParallelProjectRun({
             loopId: loop.loopId,
             revisionId,
@@ -50,11 +57,31 @@ export function LoopScheduler() {
             companyId,
             projectId,
           });
-          await service.completeScheduledRun(loop.loopId, `Started · ${result.missionId}`);
+          try {
+            await service.completeScheduledRun(loop.loopId, `Started · ${result.missionId}`);
+          } catch (recordError) {
+            // The durable claim already advanced nextRunAt, so this metadata
+            // failure cannot duplicate the run. Keep the successful launch
+            // truthful and leave a diagnostic for the result-label write.
+            console.warn('[loop-scheduler] run started but result metadata could not be saved', {
+              loopId: loop.loopId,
+              missionId: result.missionId,
+              recordError,
+            });
+          }
           toast.success(`Scheduled Loop started: ${loop.title}`);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          await service.completeScheduledRun(loop.loopId, `Failed · ${message}`);
+          if (claimed) {
+            try {
+              await service.completeScheduledRun(loop.loopId, `Failed · ${message}`);
+            } catch (recordError) {
+              console.warn('[loop-scheduler] failed to record claimed run result', {
+                loopId: loop.loopId,
+                recordError,
+              });
+            }
+          }
           toast.error(`Scheduled Loop failed: ${loop.title}`);
         } finally {
           inFlightRef.current.delete(loop.loopId);

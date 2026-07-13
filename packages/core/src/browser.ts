@@ -20,6 +20,7 @@ export type {
   AgentRunRow,
   NewAgentRun,
   AgentRunRepository,
+  AgentRunStatusUpdateOptions,
   GraphThreadRow,
   ToolCallRow,
   HandoffEventRow,
@@ -492,6 +493,12 @@ export type {
   MissionStatus,
   RecordEvaluationInput,
 } from './runtime/mission/mission-service.js';
+export {
+  DEFAULT_MISSION_EXECUTION_BUDGET,
+  MissionBudgetValidationError,
+  parseMissionBudgetJson,
+  resolveMissionExecutionBudget,
+} from './runtime/mission/mission-budget.js';
 
 // --- Loop domain (PR-07 — saveable/versioned/reusable wrapper over Missions) ---
 // Natural language → generic LoopIR via compiler profiles (first: bundled

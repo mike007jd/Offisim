@@ -14,12 +14,14 @@ import {
   persistChatMessage,
 } from '../apps/desktop/renderer/src/data/chat-message-events.js';
 import type { ChatMessage } from '../apps/desktop/renderer/src/data/types.js';
+import { AgentRunPersistenceQueue } from '../apps/desktop/renderer/src/runtime/agent-run-persistence-queue.js';
 import type {
   DesktopAgentRunInput,
   DesktopAgentRunResult,
 } from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
 import {
   InMemoryEventBus,
+  type NewAgentEvent,
   type RuntimeRepositories,
   createMemoryRepositories,
 } from '../packages/core/src/browser.js';
@@ -32,9 +34,12 @@ type ScenarioEvidence = Record<string, unknown>;
 
 /** Install a fresh in-memory agent-event store the faked `reposOrNull` returns.
  *  `setNow` lets a scenario advance the `created_at` clock deterministically so
- *  we can force a long reply's checkpoints to be the newest rows (the eviction
- *  condition that this oracle exercises). */
-function installFakeAgentEvents(): { setNow: (ms: number) => void } {
+ *  we can force a long reply's checkpoints to be the newest writes. */
+function installFakeAgentEvents(): {
+  setNow: (ms: number) => void;
+  chatRowCount: (threadId: string) => Promise<number>;
+  appendRaw: (event: NewAgentEvent) => Promise<void>;
+} {
   const repos = createMemoryRepositories();
   let now = Date.parse('2026-06-24T00:00:00.000Z');
   const agentEvents = repos.agentEvents;
@@ -46,6 +51,15 @@ function installFakeAgentEvents(): { setNow: (ms: number) => void } {
   return {
     setNow: (ms: number) => {
       now = ms;
+    },
+    chatRowCount: async (threadId) =>
+      (
+        await agentEvents.findByThread(threadId, {
+          eventType: 'direct_chat.message',
+        })
+      ).length,
+    appendRaw: async (event) => {
+      await agentEvents.append(event);
     },
   };
 }
@@ -62,9 +76,9 @@ const p1Scenarios: Array<{
   {
     name: 'long reply with 500+ checkpoints does not evict older real messages',
     criteria:
-      'Pass when, after one assistant reply writes 600 streaming checkpoints (all sharing one id) plus a final complete row, reload returns the boss prompt AND prior turns AND the FINAL assistant body — the long stream wins by monotonic seq and evicts nothing.',
+      'Pass when 600 streaming writes plus the final write occupy one projection row for that assistant message, while reload still returns all distinct messages and the final body.',
     run: async () => {
-      const { setNow } = installFakeAgentEvents();
+      const { setNow, chatRowCount } = installFakeAgentEvents();
       try {
         const threadId = 'thread-recovery';
         const baseAt = Date.parse('2026-06-24T09:00:00.000Z');
@@ -122,6 +136,12 @@ const p1Scenarios: Array<{
           projectId: 'prj',
         });
 
+        assert.equal(
+          await chatRowCount(threadId),
+          4,
+          '600 streaming writes must occupy one projection row, not 600 checkpoint rows',
+        );
+
         const loaded = await loadPersistedChatMessages(threadId);
         const ids = loaded.map((m) => m.id);
         const byId = new Map(loaded.map((m) => [m.id, m]));
@@ -136,23 +156,26 @@ const p1Scenarios: Array<{
         assert.equal(byId.get('assistant-2')?.status, 'complete');
         // Deterministic chronological order preserved.
         assert.deepEqual(ids, ['boss-1', 'assistant-1', 'boss-2', 'assistant-2']);
-        return { loadedIds: ids, finalBody: byId.get('assistant-2')?.body };
+        return {
+          persistedRows: await chatRowCount(threadId),
+          loadedIds: ids,
+          finalBody: byId.get('assistant-2')?.body,
+        };
       } finally {
         clearFakeAgentEvents();
       }
     },
   },
   {
-    name: 'final complete row wins over a checkpoint sharing the same created_at',
+    name: 'final complete projection rejects an out-of-order stale checkpoint write',
     criteria:
-      'Pass when a final complete row and an earlier streaming checkpoint collide on the same created_at millisecond — the monotonic seq tiebreaker still picks the final complete body, not the stale partial.',
+      'Pass when the final complete projection remains authoritative after a delayed older checkpoint reaches the repository with the same stable message id.',
     run: async () => {
-      const { setNow } = installFakeAgentEvents();
+      const { setNow, chatRowCount, appendRaw } = installFakeAgentEvents();
       try {
         const threadId = 'thread-tiebreak';
         const at = Date.parse('2026-06-24T10:00:00.000Z');
-        // Both writes pinned to the SAME created_at and the SAME message.at —
-        // only the monotonic write seq distinguishes them.
+        // Both writes share the same stable projection id and visible message timestamp.
         setNow(at);
         await persistChatMessage({
           message: msg(threadId, 'assistant-x', 'employee', 'partial', at, 'streaming'),
@@ -165,7 +188,21 @@ const p1Scenarios: Array<{
           companyId: 'co',
           projectId: 'prj',
         });
+        await appendRaw({
+          event_id: `direct-chat:${threadId}:assistant-x`,
+          project_id: 'prj',
+          thread_id: threadId,
+          company_id: 'co',
+          agent_name: 'desktop-provider',
+          event_type: 'direct_chat.message',
+          payload_json: JSON.stringify({
+            message: msg(threadId, 'assistant-x', 'employee', 'stale partial', at, 'streaming'),
+          }),
+          parent_event_id: null,
+          created_at: '2000-01-01T00:00:00.000Z',
+        });
         const loaded = await loadPersistedChatMessages(threadId);
+        assert.equal(await chatRowCount(threadId), 1);
         assert.equal(loaded.length, 1);
         assert.equal(loaded[0]?.body, 'final');
         assert.equal(loaded[0]?.status, 'complete');
@@ -444,10 +481,71 @@ const p2p3Scenarios: Array<{
 ];
 
 // ---------------------------------------------------------------------------
+// P4 — ordered persistence recovery + stream-cursor coalescing
+// ---------------------------------------------------------------------------
+
+const p4Scenarios: Array<{
+  name: string;
+  criteria: string;
+  run: () => Promise<ScenarioEvidence>;
+}> = [
+  {
+    name: 'P4: one rejected persistence task does not poison later work',
+    criteria:
+      'Pass when a failed task is reported at its own boundary and the next queued task still executes in order.',
+    run: async () => {
+      const order: string[] = [];
+      const errors: Array<{ label: string; message: string }> = [];
+      const queue = new AgentRunPersistenceQueue({
+        onError: (label, error) => {
+          errors.push({
+            label,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        },
+      });
+      queue.enqueue('first write', async () => {
+        order.push('first');
+        throw new Error('transient write failure');
+      });
+      queue.enqueue('terminal write', async () => {
+        order.push('terminal');
+      });
+      await queue.drain();
+      assert.deepEqual(order, ['first', 'terminal']);
+      assert.deepEqual(errors, [{ label: 'first write', message: 'transient write failure' }]);
+      queue.dispose();
+      return { order, errors };
+    },
+  },
+  {
+    name: 'P4: stream cursor writes coalesce to the latest cursor at a semantic checkpoint',
+    criteria:
+      'Pass when several cursor events for one run produce no eager write and one explicit flush persists only the latest cursor.',
+    run: async () => {
+      const writes: number[] = [];
+      const queue = new AgentRunPersistenceQueue({ cursorThrottleMs: 60_000 });
+      const persist = async (cursor: number) => {
+        writes.push(cursor);
+      };
+      queue.queueCursor('run-1', 1, persist);
+      queue.queueCursor('run-1', 5, persist);
+      queue.queueCursor('run-1', 3, persist);
+      assert.deepEqual(writes, [], 'cursor writes should wait for throttle or semantic flush');
+      queue.flushCursor('run-1');
+      await queue.drain();
+      assert.deepEqual(writes, [5]);
+      queue.dispose();
+      return { writes };
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
-const allScenarios = [...p1Scenarios, ...p2p3Scenarios];
+const allScenarios = [...p1Scenarios, ...p2p3Scenarios, ...p4Scenarios];
 const results: Array<{
   name: string;
   criteria: string;

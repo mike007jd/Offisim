@@ -535,7 +535,9 @@ function browserDetailFrom(value: unknown): Extract<ToolRichDetail, { family: 'b
   };
 }
 
-function computerActionFrom(value: unknown): Extract<ToolRichDetail, { family: 'computer' }>['action'] {
+function computerActionFrom(
+  value: unknown,
+): Extract<ToolRichDetail, { family: 'computer' }>['action'] {
   switch (value) {
     case 'click':
     case 'type':
@@ -574,7 +576,9 @@ function computerCoordinatesFrom(
   return x == null || y == null ? undefined : { x, y };
 }
 
-function computerDetailFrom(value: unknown): Extract<ToolRichDetail, { family: 'computer' }> | null {
+function computerDetailFrom(
+  value: unknown,
+): Extract<ToolRichDetail, { family: 'computer' }> | null {
   const root = pickRecord(value);
   const result = pickRecord(root?.result);
   const partialResult = pickRecord(root?.partialResult);
@@ -593,20 +597,30 @@ function computerDetailFrom(value: unknown): Extract<ToolRichDetail, { family: '
     screenshotFromImageValue(container?.image) ??
     screenshotFromImageValue(blocks?.find(isImageBlock));
   const artifactPaths = Array.isArray(computer.artifactPaths)
-    ? computer.artifactPaths.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    ? computer.artifactPaths.filter(
+        (item): item is string => typeof item === 'string' && item.length > 0,
+      )
     : undefined;
   return {
     family: 'computer',
     ...(computerActionFrom(computer.action) ? { action: computerActionFrom(computer.action) } : {}),
-    ...(pickString(computer.targetApp, computer.target_app) ? { targetApp: pickString(computer.targetApp, computer.target_app) } : {}),
-    ...(pickString(computer.targetWindow, computer.target_window) ? { targetWindow: pickString(computer.targetWindow, computer.target_window) } : {}),
+    ...(pickString(computer.targetApp, computer.target_app)
+      ? { targetApp: pickString(computer.targetApp, computer.target_app) }
+      : {}),
+    ...(pickString(computer.targetWindow, computer.target_window)
+      ? { targetWindow: pickString(computer.targetWindow, computer.target_window) }
+      : {}),
     ...(pickString(computer.url) ? { url: pickString(computer.url) } : {}),
-    ...(computerCoordinatesFrom(computer.coordinates) ? { coordinates: computerCoordinatesFrom(computer.coordinates) } : {}),
+    ...(computerCoordinatesFrom(computer.coordinates)
+      ? { coordinates: computerCoordinatesFrom(computer.coordinates) }
+      : {}),
     ...(() => {
       const preview = cappedString(computer.textPreview ?? computer.text_preview, 160);
       return preview ? { textPreview: redactSensitiveText(preview) } : {};
     })(),
-    ...(computerResultStateFrom(computer.resultState ?? computer.result_state) ? { resultState: computerResultStateFrom(computer.resultState ?? computer.result_state) } : {}),
+    ...(computerResultStateFrom(computer.resultState ?? computer.result_state)
+      ? { resultState: computerResultStateFrom(computer.resultState ?? computer.result_state) }
+      : {}),
     ...(screenshot ? { screenshot } : {}),
     ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {}),
   };

@@ -133,6 +133,7 @@ function makeController(
       collaborationMembers: repos.collaborationMembers,
       collaborationMessages: repos.collaborationMessages,
       collaborationReadState: repos.collaborationReadState,
+      asyncTransact: async (fn) => fn(),
     },
     deps,
   );
@@ -601,33 +602,74 @@ await (async () => {
     retriedMsg?.body === 'retried e-kai' && retriedMsg?.status === 'complete',
   );
 
-  // stop: a slow turn aborted mid-flight is interrupted, keeping streamed text.
+  // stop: a slow turn receives the controller's AbortSignal, settles with a
+  // deliberately late "complete" payload, and must still finish interrupted.
   const stopCtx = directCtx();
   const stopTransport = makeFakeTransport();
+  let stopSignal: AbortSignal | undefined;
+  let markStopStarted!: () => void;
+  const stopStarted = new Promise<void>((resolve) => {
+    markStopStarted = resolve;
+  });
   stopTransport.run = async (req, opts) => {
     stopTransport.requests.push(req);
     opts?.onDelta?.('half ');
-    // Abort before resolving.
-    (opts?.signal as AbortSignal | undefined)?.dispatchEvent?.(new Event('abort'));
-    return new Promise<CollaborationTurnResult>(() => {
-      /* never resolves; the controller checks the abort signal */
+    stopSignal = opts?.signal;
+    markStopStarted();
+    return new Promise<CollaborationTurnResult>((resolve) => {
+      opts?.signal?.addEventListener(
+        'abort',
+        () => resolve({ text: 'late completion that must be ignored' }),
+        { once: true },
+      );
     });
   };
-  // Simpler deterministic stop: drive a turn and call stop() synchronously after.
-  const { controller: sc, service: ss } = makeController(stopCtx, makeFakeTransport());
+  const { controller: sc, repos: stopRepos, service: ss } = makeController(stopCtx, stopTransport);
   await seedThread(ss, stopCtx);
+  const stopRun = sc.sendBossMessage(stopCtx.threadId, 'stop this reply');
+  await stopStarted;
+  const activeTurn = sc.getSnapshot(stopCtx.threadId).turns[0];
+  check('(9) stop scenario exposes an active streaming turn', activeTurn?.phase === 'streaming');
+  if (!activeTurn) throw new Error('stop scenario did not create a live turn');
+  sc.stop(activeTurn.turnId);
+  const stopped = await Promise.race([
+    stopRun,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('stop did not settle the in-flight transport')), 250),
+    ),
+  ]);
+  const stoppedTurn = stopped.scheduled.turns[0];
+  const stoppedLedger = (await stopRepos.collaborationTurns.listByThread(stopCtx.threadId))[0];
+  if (!stoppedTurn) throw new Error('stop scenario did not return its interrupted turn');
+  const stoppedMessage = await stopRepos.collaborationMessages.findById(stoppedTurn.messageId);
+  check('(9) stop aborts the transport signal', stopSignal?.aborted === true);
+  check(
+    '(9) stop marks the live turn and durable ledger interrupted',
+    stoppedTurn?.phase === 'interrupted' && stoppedLedger?.status === 'interrupted',
+  );
+  check(
+    '(9) a late transport completion cannot overwrite the stopped message',
+    stoppedMessage?.status === 'interrupted' &&
+      stoppedMessage?.body !== 'late completion that must be ignored',
+  );
+
   // thread switch: snapshots are per-thread and independent.
+  const { controller: threadSwitchController, service: threadSwitchService } = makeController(
+    stopCtx,
+    makeFakeTransport(),
+  );
+  await seedThread(threadSwitchService, stopCtx);
   const other = directCtx();
   other.threadId = 't-other';
   other.directEmployeeId = 'e-kai';
   const { controller: oc, service: os } = makeController(other, makeFakeTransport());
   await os.getOrCreateDirect(other.companyId, 'e-kai', { title: 'Direct Kai' });
-  await sc.sendBossMessage(stopCtx.threadId, 'a');
+  await threadSwitchController.sendBossMessage(stopCtx.threadId, 'a');
   await oc.sendBossMessage(other.threadId, 'b');
   check(
     '(9) thread switch: snapshots are per-thread independent',
-    sc.getSnapshot(stopCtx.threadId).turns.length === 1 &&
-      sc.getSnapshot('t-other').turns.length === 0,
+    threadSwitchController.getSnapshot(stopCtx.threadId).turns.length === 1 &&
+      threadSwitchController.getSnapshot('t-other').turns.length === 0,
   );
 })();
 

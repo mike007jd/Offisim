@@ -25,13 +25,13 @@ import { WorkloadDrilldown } from './WorkloadDrilldown.js';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
 import { OfficeScene3D } from './scene/OfficeScene3D.js';
 import { zoneDefsFromLayout } from './scene/scene-layout.js';
+import { StageSessionReconciler } from './stage-viewer/StageSessionReconciler.js';
 import {
   GameViewOptions,
   StageAutoOpen,
   StageTopBar,
   StageViewer,
 } from './stage-viewer/StageViewer.js';
-import { StageSessionReconciler } from './stage-viewer/StageSessionReconciler.js';
 
 /**
  * Phase → icon for the mission-phase pill. The pill carries the projection's

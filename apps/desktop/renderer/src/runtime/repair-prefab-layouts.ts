@@ -218,8 +218,6 @@ async function repairCompanyPrefabLayout(
 }
 
 export async function repairPersistedPrefabLayouts(repos: RuntimeRepositories): Promise<void> {
-  if (!repos.settings) return;
-
   const companies = (await repos.companies.findAll()).filter(
     (company) => company.status !== 'archived',
   );

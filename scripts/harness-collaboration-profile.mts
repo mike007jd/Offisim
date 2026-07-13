@@ -57,7 +57,10 @@ check('(3) normalize defaults unknown/undefined → strict', () => {
 
 check('(4) INVARIANT: collaboration_read allowlist ∩ forbidden = ∅', () => {
   assert.deepEqual(collaborationForbiddenIntersection(COLLABORATION_READ_TOOL_ALLOWLIST), []);
-  assert.deepEqual(collaborationForbiddenIntersection(collaborationToolAllowlist('collaboration_read')), []);
+  assert.deepEqual(
+    collaborationForbiddenIntersection(collaborationToolAllowlist('collaboration_read')),
+    [],
+  );
 });
 
 check('(5) the forbidden check DETECTS a breach', () => {
@@ -66,7 +69,14 @@ check('(5) the forbidden check DETECTS a breach', () => {
 });
 
 check('(6) forbidden set covers write / shell / mission / publish / delegate', () => {
-  for (const t of ['write', 'edit', 'bash', 'publish_artifact', 'submit_for_evaluation', 'delegate']) {
+  for (const t of [
+    'write',
+    'edit',
+    'bash',
+    'publish_artifact',
+    'submit_for_evaluation',
+    'delegate',
+  ]) {
     assert.ok(
       (COLLABORATION_FORBIDDEN_TOOLS as readonly string[]).includes(t),
       `forbidden set must include ${t}`,

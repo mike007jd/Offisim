@@ -1,4 +1,9 @@
-import type { AgentRunRepository, AgentRunRow, NewAgentRun } from '../../repositories.js';
+import type {
+  AgentRunRepository,
+  AgentRunRow,
+  AgentRunStatusUpdateOptions,
+  NewAgentRun,
+} from '../../repositories.js';
 
 /**
  * In-memory agent-run repository (tests / non-persistent backends). Self-contained
@@ -52,13 +57,7 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
   async updateStatus(
     runId: string,
     status: string,
-    opts?: {
-      resultSummaryJson?: string | null;
-      usageJson?: string | null;
-      finishedAt?: string | null;
-      sessionFile?: string | null;
-      failureKind?: string | null;
-    },
+    opts?: AgentRunStatusUpdateOptions,
   ): Promise<void> {
     const row = this.store.get(runId);
     if (!row) return;
@@ -72,6 +71,27 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
       session_file: opts?.sessionFile !== undefined ? opts.sessionFile : row.session_file,
       failure_kind: opts?.failureKind !== undefined ? opts.failureKind : row.failure_kind,
     });
+  }
+
+  async updateStatusForCompany(
+    companyId: string,
+    runId: string,
+    status: string,
+    opts?: AgentRunStatusUpdateOptions,
+  ): Promise<boolean> {
+    const row = this.store.get(runId);
+    if (!row || row.company_id !== companyId) return false;
+    this.store.set(runId, {
+      ...row,
+      status,
+      result_summary_json:
+        opts?.resultSummaryJson !== undefined ? opts.resultSummaryJson : row.result_summary_json,
+      usage_json: opts?.usageJson !== undefined ? opts.usageJson : row.usage_json,
+      finished_at: opts?.finishedAt !== undefined ? opts.finishedAt : row.finished_at,
+      session_file: opts?.sessionFile !== undefined ? opts.sessionFile : row.session_file,
+      failure_kind: opts?.failureKind !== undefined ? opts.failureKind : row.failure_kind,
+    });
+    return true;
   }
 
   async updateRuntimeContext(runId: string, runtimeContextJson: string | null): Promise<void> {

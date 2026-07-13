@@ -22,7 +22,16 @@ export class MemoryAgentEventRepository implements AgentEventRepository {
       ...event,
       created_at: event.created_at ?? new Date().toISOString(),
     };
-    this.rows.push(row);
+    const existingIndex =
+      row.event_type === 'direct_chat.message'
+        ? this.rows.findIndex((candidate) => candidate.event_id === row.event_id)
+        : -1;
+    if (existingIndex >= 0) {
+      const existing = this.rows[existingIndex];
+      if (!existing || row.created_at >= existing.created_at) this.rows[existingIndex] = row;
+    } else {
+      this.rows.push(row);
+    }
     return row;
   }
 

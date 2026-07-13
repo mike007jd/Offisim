@@ -16,6 +16,8 @@ pub enum McpBridgeError {
     CallTimeout(u64),
     #[error("JSON-RPC error: code={code}, message={message}")]
     JsonRpcError { code: i64, message: String },
+    #[error("MCP protocol error: {0}")]
+    Protocol(String),
     #[error("Process exited unexpectedly with code {0:?}")]
     ProcessExited(Option<i32>),
     #[error("IO error: {0}")]

@@ -178,6 +178,30 @@ await check('fully-valid playbook → valid:true (no runtimeCapabilities supplie
   assert.equal(result.valid, true, `expected valid, errors: ${JSON.stringify(result.errors)}`);
 });
 
+await check('playbook budget caps reject zero before materialization', () => {
+  for (const [key, value] of [
+    ['maxAttempts', 0],
+    ['maxRepairsPerCriterion', 0],
+    ['tokenBudget', 0],
+  ] as const) {
+    const playbook = validPlaybook();
+    playbook.defaultBudget = { ...playbook.defaultBudget, [key]: value };
+    const result = validatePlaybook(playbook, {
+      evaluatorRegistry: registry,
+      trustedSource: true,
+    });
+    assert.equal(result.valid, false, `${key}=0 must be rejected`);
+    if (result.valid) continue;
+    assert.ok(
+      result.errors.some(
+        (error) =>
+          error.path === `defaultBudget.${key}` && error.message.includes('positive integer'),
+      ),
+      `reports positive-integer violation for ${key}`,
+    );
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Structure errors
 // ---------------------------------------------------------------------------

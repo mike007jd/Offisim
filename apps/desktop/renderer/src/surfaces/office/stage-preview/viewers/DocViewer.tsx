@@ -1,5 +1,5 @@
-import { parseAttachment, type ParsedAttachment } from '@offisim/doc-engine';
-import { useEffect, useMemo, useState } from 'react';
+import { type ParsedAttachment, parseAttachment } from '@offisim/doc-engine';
+import { type ReactNode, createElement, useEffect, useMemo, useState } from 'react';
 import type { PreviewData } from '../preview-data.js';
 import type { ResolvedPreviewTarget } from '../preview-target.js';
 import { TextViewer } from './TextViewer.js';
@@ -10,19 +10,98 @@ type ParseState =
   | { status: 'ready'; parsed: ParsedAttachment }
   | { status: 'error'; message: string };
 
-function sanitizeDocHtml(html: string): string {
+const SAFE_DOC_TAGS = new Set([
+  'a',
+  'b',
+  'blockquote',
+  'br',
+  'code',
+  'del',
+  'div',
+  'em',
+  'figcaption',
+  'figure',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'hr',
+  'i',
+  'img',
+  'li',
+  'ol',
+  'p',
+  'pre',
+  's',
+  'span',
+  'strong',
+  'sub',
+  'sup',
+  'table',
+  'tbody',
+  'td',
+  'th',
+  'thead',
+  'tr',
+  'u',
+  'ul',
+]);
+
+const DROPPED_DOC_TAGS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta']);
+
+function safeDocUrl(value: string, image: boolean): string | undefined {
+  const normalized = value.trim();
+  if (/^(?:https?:|mailto:|tel:|#)/i.test(normalized)) return normalized;
+  if (image && /^data:image\/(?:gif|jpe?g|png|webp);base64,/i.test(normalized)) {
+    return normalized;
+  }
+  return undefined;
+}
+
+function renderDocNode(node: ChildNode, key: string): ReactNode {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+  if (!(node instanceof Element)) return null;
+
+  const tagName = node.tagName.toLowerCase();
+  if (DROPPED_DOC_TAGS.has(tagName)) return null;
+
+  const children = Array.from(node.childNodes, (child, index) =>
+    renderDocNode(child, `${key}.${index}`),
+  );
+  if (!SAFE_DOC_TAGS.has(tagName)) return children;
+
+  const props: Record<string, unknown> = { key };
+  const className = node.getAttribute('class');
+  const id = node.getAttribute('id');
+  const title = node.getAttribute('title');
+  if (className) props.className = className;
+  if (id) props.id = id;
+  if (title) props.title = title;
+
+  if (tagName === 'a') {
+    const href = node.getAttribute('href');
+    if (href) props.href = safeDocUrl(href, false);
+  } else if (tagName === 'img') {
+    const src = node.getAttribute('src');
+    const alt = node.getAttribute('alt');
+    if (!src || !safeDocUrl(src, true)) return alt;
+    props.src = safeDocUrl(src, true);
+    if (alt) props.alt = alt;
+  } else if (tagName === 'td' || tagName === 'th') {
+    const colSpan = Number.parseInt(node.getAttribute('colspan') ?? '', 10);
+    const rowSpan = Number.parseInt(node.getAttribute('rowspan') ?? '', 10);
+    if (colSpan > 0) props.colSpan = colSpan;
+    if (rowSpan > 0) props.rowSpan = rowSpan;
+  }
+
+  return createElement(tagName, props, children);
+}
+
+function sanitizeDocHtml(html: string): ReactNode {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  doc.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach((node) => node.remove());
-  doc.querySelectorAll<HTMLElement>('*').forEach((node) => {
-    for (const attr of Array.from(node.attributes)) {
-      const name = attr.name.toLowerCase();
-      const value = attr.value.trim().toLowerCase();
-      if (name.startsWith('on') || value.startsWith('javascript:')) {
-        node.removeAttribute(attr.name);
-      }
-    }
-  });
-  return doc.body.innerHTML;
+  return Array.from(doc.body.childNodes, (node, index) => renderDocNode(node, String(index)));
 }
 
 export function DocViewer({
@@ -40,7 +119,8 @@ export function DocViewer({
     setState({ status: 'loading' });
     void parseAttachment(
       new Uint8Array(data.bytes),
-      resolved.meta.mimeType ?? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      resolved.meta.mimeType ??
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       resolved.meta.title,
     )
       .then((parsed) => {
@@ -48,7 +128,10 @@ export function DocViewer({
       })
       .catch((error) => {
         if (!cancelled) {
-          setState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
+          setState({
+            status: 'error',
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       });
     return () => {
@@ -56,8 +139,8 @@ export function DocViewer({
     };
   }, [data.bytes, resolved.meta.mimeType, resolved.meta.title]);
 
-  const safeHtml = useMemo(() => {
-    if (state.status !== 'ready' || state.parsed.kind !== 'docx') return '';
+  const safeContent = useMemo(() => {
+    if (state.status !== 'ready' || state.parsed.kind !== 'docx') return null;
     return sanitizeDocHtml(state.parsed.html);
   }, [state]);
 
@@ -73,7 +156,12 @@ export function DocViewer({
     return <UnsupportedViewer resolved={resolved} data={{ mode: 'none', reason: state.message }} />;
   }
   if (state.parsed.kind !== 'docx') {
-    return <UnsupportedViewer resolved={resolved} data={{ mode: 'none', reason: 'Document parser did not return DOCX content.' }} />;
+    return (
+      <UnsupportedViewer
+        resolved={resolved}
+        data={{ mode: 'none', reason: 'Document parser did not return DOCX content.' }}
+      />
+    );
   }
   return (
     <div className="off-doc-viewer">
@@ -86,7 +174,7 @@ export function DocViewer({
         <TextViewer text={state.parsed.text} />
       ) : (
         <div className="off-doc-scroll">
-          <div className="off-doc-html" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+          <div className="off-doc-html">{safeContent}</div>
         </div>
       )}
     </div>

@@ -23,7 +23,11 @@
  * Determinism: `now` is injected (no `Date.now()`).
  */
 
-import type { AgentRunRepository, AgentRunRow, RecoveryClassification } from '@offisim/core/browser';
+import type {
+  AgentRunRepository,
+  AgentRunRow,
+  RecoveryClassification,
+} from '@offisim/core/browser';
 import type { AgentRunUsage } from '@offisim/shared-types';
 import { aggregateSubtreeUsage } from './usage-aggregation.js';
 
@@ -99,6 +103,9 @@ function resolveAgentRunWorkspaceRoot(root: AgentRunRow): string | null {
 /** The structured result of a startup run-reconciliation pass. */
 export interface RunReconciliationResult {
   cards: InterruptedRunCard[];
+  /** Roots whose aggregate could not be fully parked. A non-empty result is
+   * retryable and must not mark the company recovery scope hydrated. */
+  failedRootRunIds: string[];
   /**
    * INVARIANT (mirrors M4 §22.3.6): reconciliation NEVER auto-resumes. Always
    * false — part of the contract that the result is presented, not acted on.
@@ -125,8 +132,9 @@ export async function reconcileInterruptedRuns(
 
   // Roots reconcile to `interrupted` (resumable); their running children cancel.
   const roots = running.filter((r) => r.run_id === r.root_run_id);
-  const processedRootIds = new Set(roots.map((r) => r.run_id));
+  const processedRootIds = new Set<string>();
   const cancelledChildIds = new Set<string>();
+  const failedRootRunIds: string[] = [];
   const cards: InterruptedRunCard[] = [];
 
   for (const root of roots) {
@@ -147,13 +155,15 @@ export async function reconcileInterruptedRuns(
       await repo.updateStatus(root.run_id, 'interrupted', { usageJson });
       // Cancel its still-running children — their host died with the root.
       await Promise.all(
-        dangling.map((id) => {
+        dangling.map(async (id) => {
+          await repo.updateStatus(id, 'cancelled', { finishedAt });
           cancelledChildIds.add(id);
-          return repo.updateStatus(id, 'cancelled', { finishedAt });
         }),
       );
+      processedRootIds.add(root.run_id);
       cards.push(buildInterruptedRunCard(root, dangling, usageJson));
     } catch (err) {
+      failedRootRunIds.push(root.run_id);
       console.warn('[reconcile-interrupted-runs] failed to park interrupted root', {
         rootRunId: root.run_id,
         err,
@@ -173,12 +183,10 @@ export async function reconcileInterruptedRuns(
   );
   if (orphans.length > 0) {
     const finishedAt = now();
-    await Promise.all(
-      orphans.map((o) => repo.updateStatus(o.run_id, 'cancelled', { finishedAt })),
-    );
+    await Promise.all(orphans.map((o) => repo.updateStatus(o.run_id, 'cancelled', { finishedAt })));
   }
 
-  return { cards, autoResumed: false };
+  return { cards, failedRootRunIds, autoResumed: false };
 }
 
 function parseUsage(usageJson: string | null): AgentRunUsage | undefined {
@@ -202,8 +210,7 @@ export function buildInterruptedRunCard(
   const workspaceRoot = resolveAgentRunWorkspaceRoot(root) ?? options.resolvedWorkspaceRoot ?? null;
   const wireProtocolVersion =
     typeof context?.wireProtocolVersion === 'number' ? context.wireProtocolVersion : null;
-  const currentWireProtocolVersion =
-    options.currentWireProtocolVersion ?? PI_HOST_PROTOCOL_VERSION;
+  const currentWireProtocolVersion = options.currentWireProtocolVersion ?? PI_HOST_PROTOCOL_VERSION;
   const classificationReasons: string[] = [];
   if (!projectId) {
     classificationReasons.push('original project context is missing');
@@ -244,9 +251,9 @@ export function buildInterruptedRunCard(
       ? `Resume the interrupted run from its Pi session context${workspaceNote}.${cancelledNote}`
       : classification === 'needs_user_confirm'
         ? `No durable session was recorded; resuming restarts this run from its objective${workspaceNote}. Confirm before resuming.${cancelledNote}`
-      : classification === 'incompatible'
-        ? `Resume is blocked for this run. Start a fresh run or discard it.${cancelledNote}`
-        : `Start a fresh run or discard this interrupted run.${cancelledNote}`;
+        : classification === 'incompatible'
+          ? `Resume is blocked for this run. Start a fresh run or discard it.${cancelledNote}`
+          : `Start a fresh run or discard this interrupted run.${cancelledNote}`;
   return {
     runId: root.run_id,
     companyId: root.company_id,

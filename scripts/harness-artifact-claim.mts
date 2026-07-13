@@ -109,7 +109,11 @@ console.log('\n[logs] a non-browser detail with no url/path/deliverable → logs
     kind: 'terminal',
     detail: { family: 'terminal', command: 'pnpm test', exitCode: 0 },
   });
-  check('non-browser detail alone resolves to logs (not preview)', r.kind === 'logs', `got ${r.kind}`);
+  check(
+    'non-browser detail alone resolves to logs (not preview)',
+    r.kind === 'logs',
+    `got ${r.kind}`,
+  );
   check(
     'logs carries the original detail through',
     r.kind === 'logs' && r.detail?.family === 'terminal',

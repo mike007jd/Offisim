@@ -81,7 +81,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'missionContextJson',
       'mcpTools',
     ],
-    ['directDelegation'],
+    ['directDelegation', 'delegationLimits'],
   ),
   enhance: requestSpec(
     ['mode', 'text', 'systemPrompt', 'cwd', 'agentDir', 'model', 'thinkingLevel'],
@@ -138,6 +138,9 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
     mcpTools: payload.mcpTools,
     ...(payload.directDelegation !== undefined
       ? { directDelegation: payload.directDelegation }
+      : {}),
+    ...(payload.delegationLimits !== undefined
+      ? { delegationLimits: payload.delegationLimits }
       : {}),
   }),
   enhance: (payload) => ({

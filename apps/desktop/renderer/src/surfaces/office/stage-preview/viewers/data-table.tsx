@@ -1,10 +1,28 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useRef } from 'react';
 
-export function DataTable({ rows, emptyLabel = 'No rows' }: { rows: string[][]; emptyLabel?: string }) {
+function describeColumns(header: readonly string[], columnCount: number) {
+  const occurrences = new Map<string, number>();
+  return Array.from({ length: columnCount }, (_, position) => {
+    const label = header[position] || `Column ${position + 1}`;
+    const occurrence = occurrences.get(label) ?? 0;
+    occurrences.set(label, occurrence + 1);
+    return {
+      key: JSON.stringify([label, occurrence]),
+      label,
+      position,
+    };
+  });
+}
+
+export function DataTable({
+  rows,
+  emptyLabel = 'No rows',
+}: { rows: string[][]; emptyLabel?: string }) {
   const header = rows[0] ?? [];
   const body = rows.slice(1);
   const columns = Math.max(header.length, ...body.map((row) => row.length), 1);
+  const columnDescriptors = describeColumns(header, columns);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useVirtualizer({
     count: body.length,
@@ -26,8 +44,8 @@ export function DataTable({ rows, emptyLabel = 'No rows' }: { rows: string[][]; 
       <table style={{ minWidth }}>
         <thead>
           <tr>
-            {Array.from({ length: columns }, (_, index) => (
-              <th key={index}>{header[index] || `Column ${index + 1}`}</th>
+            {columnDescriptors.map((column) => (
+              <th key={column.key}>{column.label}</th>
             ))}
           </tr>
         </thead>
@@ -43,8 +61,8 @@ export function DataTable({ rows, emptyLabel = 'No rows' }: { rows: string[][]; 
             >
               <tbody>
                 <tr>
-                  {Array.from({ length: columns }, (_, index) => (
-                    <td key={index}>{row[index] ?? ''}</td>
+                  {columnDescriptors.map((column) => (
+                    <td key={column.key}>{row[column.position] ?? ''}</td>
                   ))}
                 </tr>
               </tbody>

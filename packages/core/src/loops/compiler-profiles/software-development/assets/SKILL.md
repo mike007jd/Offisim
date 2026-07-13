@@ -111,8 +111,6 @@ Determine:
 
 Do not change code during this phase unless the user explicitly requested immediate execution and the first change is already justified by repository evidence.
 
-Read [references/HARNESS_NATIVE.md](references/HARNESS_NATIVE.md) when choosing the native execution mechanism.
-
 ## Phase 2 — Infer, propose, then ask only what you must
 
 The user gives a rough requirement; you do the thinking. After inspection, first **infer and propose** — as recommendations the user can accept or correct, not as an interview:
@@ -135,8 +133,6 @@ Only ask about things that materially affect:
 - whether expensive competing variants are desired for uncertain areas.
 
 Do not repeat anything already answered in the conversation or repository, and do not ask for anything you just inferred and proposed unless the choice is consequential and ambiguous.
-
-Read [references/INTAKE.md](references/INTAKE.md) for the adaptive intake protocol.
 
 ## Phase 3 — Compile the loop
 
@@ -162,7 +158,7 @@ For Design mode, save the generated document only when useful or requested, pref
 
 For Execute mode, present a compact summary of the compiled loop, then begin using native harness orchestration. A persistent loop document is recommended for long, resumable, or cross-harness work, but it is not a custom scheduler and must not mirror every live agent event.
 
-Read [references/LOOP_COMPILATION.md](references/LOOP_COMPILATION.md) for required content and loop shapes, and [references/EXAMPLE_LOOP.md](references/EXAMPLE_LOOP.md) for a fully worked loop document compiled from a rough requirement.
+Read [LOOP_COMPILATION.md](LOOP_COMPILATION.md) for required content and loop shapes.
 
 ## Phase 4 — Parallel discovery and plan selection
 
@@ -192,7 +188,7 @@ Before broad parallel implementation:
 
 Prefer tests or executable checks written independently from the implementation. When deterministic testing is impossible, use structured fresh-context review and a reproducible manual demonstration.
 
-Read [references/VERIFICATION.md](references/VERIFICATION.md).
+Read [VERIFICATION.md](VERIFICATION.md).
 
 ## Phase 6 — Build the task graph and active frontier
 
@@ -212,7 +208,7 @@ The active fleet is the current parallel frontier:
 
 When the implementation frontier narrows, use spare agents for adversarial review, edge-case discovery, additional tests, reproducibility, performance measurement, documentation validation, or investigation of future waves. Do not create duplicate writers merely to keep every slot occupied.
 
-Read [references/PARALLELISM.md](references/PARALLELISM.md).
+Read [PARALLELISM.md](PARALLELISM.md).
 
 ## Phase 7 — Fan out through native harness primitives
 
@@ -311,7 +307,7 @@ Stop temporary servers, containers, databases, queues, port allocations, test ac
 
 Remove only debris introduced by the work: debug logging, temporary flags, obsolete scaffolding, duplicate helpers, stale comments, unused dependencies, and accidental generated files. Do not turn cleanup into an unrelated refactor.
 
-Read [references/INTEGRATION_CLEANUP.md](references/INTEGRATION_CLEANUP.md).
+Read [INTEGRATION_CLEANUP.md](INTEGRATION_CLEANUP.md).
 
 ## Phase 12 — Final report
 

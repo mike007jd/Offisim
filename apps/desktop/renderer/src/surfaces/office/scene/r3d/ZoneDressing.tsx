@@ -1,10 +1,10 @@
 import { memo, useRef } from 'react';
 import type { Group } from 'three';
 import type { ZoneDef } from '../scene-layout.js';
-import { LIGHT_SCENE_3D } from './scene-colors.js';
-import { EmissiveMaterial, SceneMaterial } from './scene-materials.js';
 import { RoundedSlab } from './RoundedSlab.js';
 import { SceneAnnotation } from './SceneAnnotation.js';
+import { LIGHT_SCENE_3D } from './scene-colors.js';
+import { EmissiveMaterial, SceneMaterial } from './scene-materials.js';
 
 const ZONE_TINT: Record<string, string> = {
   workspace: LIGHT_SCENE_3D.zoneWorkspace,

@@ -236,23 +236,27 @@ fn line_window_size_error(kind: &str, path: &Path, roots: &[PathBuf]) -> String 
     )
 }
 
+struct LineWindow<'a> {
+    start_line: u32,
+    selected: Vec<String>,
+    retained_bytes: u64,
+    max_lines: Option<usize>,
+    path: &'a Path,
+    roots: &'a [PathBuf],
+}
+
 fn push_line_window(
     line_no: u32,
-    start_line: u32,
     line: &mut Vec<u8>,
-    selected: &mut Vec<String>,
-    retained_bytes: &mut u64,
-    max_lines: Option<usize>,
-    path: &Path,
-    roots: &[PathBuf],
+    window: &mut LineWindow<'_>,
 ) -> Result<bool, String> {
-    if line_no < start_line {
+    if line_no < window.start_line {
         line.clear();
         return Ok(false);
     }
-    *retained_bytes = retained_bytes.saturating_add(line.len() as u64);
-    if *retained_bytes > MAX_READ_BYTES {
-        return Err(line_window_size_error("window", path, roots));
+    window.retained_bytes = window.retained_bytes.saturating_add(line.len() as u64);
+    if window.retained_bytes > MAX_READ_BYTES {
+        return Err(line_window_size_error("window", window.path, window.roots));
     }
     while line.ends_with(b"\n") || line.ends_with(b"\r") {
         line.pop();
@@ -261,11 +265,13 @@ fn push_line_window(
     let text = String::from_utf8(bytes).map_err(|_| {
         format!(
             "project file line window contains invalid UTF-8: {}",
-            relativize_for_error(path, roots)
+            relativize_for_error(window.path, window.roots)
         )
     })?;
-    selected.push(text);
-    Ok(max_lines.is_some_and(|limit| selected.len() >= limit))
+    window.selected.push(text);
+    Ok(window
+        .max_lines
+        .is_some_and(|limit| window.selected.len() >= limit))
 }
 
 fn deepest_existing_ancestor(path: &Path) -> Result<PathBuf, String> {
@@ -506,11 +512,15 @@ pub async fn project_read_file_lines<R: Runtime>(
         .await
         .map_err(|err| fs_op_error("open project file", &canonical, &roots, err))?;
     let mut reader = BufReader::new(file);
-    let start_line = offset.max(1);
-    let max_lines = limit.map(|value| value.max(1) as usize);
     let mut line_no = 1_u32;
-    let mut selected = Vec::new();
-    let mut retained_bytes = 0_u64;
+    let mut window = LineWindow {
+        start_line: offset.max(1),
+        selected: Vec::new(),
+        retained_bytes: 0,
+        max_lines: limit.map(|value| value.max(1) as usize),
+        path: &canonical,
+        roots: &roots,
+    };
 
     let mut scanned_bytes = 0_u64;
     let mut line = Vec::new();
@@ -521,18 +531,7 @@ pub async fn project_read_file_lines<R: Runtime>(
             .await
             .map_err(|err| fs_op_error("read project file lines", &canonical, &roots, err))?;
         if read == 0 {
-            if !line.is_empty()
-                && push_line_window(
-                    line_no,
-                    start_line,
-                    &mut line,
-                    &mut selected,
-                    &mut retained_bytes,
-                    max_lines,
-                    &canonical,
-                    &roots,
-                )?
-            {
+            if !line.is_empty() && push_line_window(line_no, &mut line, &mut window)? {
                 break;
             }
             break;
@@ -547,27 +546,18 @@ pub async fn project_read_file_lines<R: Runtime>(
                 return Err(line_window_size_error("record", &canonical, &roots));
             }
             if *byte == b'\n' {
-                if push_line_window(
-                    line_no,
-                    start_line,
-                    &mut line,
-                    &mut selected,
-                    &mut retained_bytes,
-                    max_lines,
-                    &canonical,
-                    &roots,
-                )? {
-                    return Ok(format!("{}\n", selected.join("\n")));
+                if push_line_window(line_no, &mut line, &mut window)? {
+                    return Ok(format!("{}\n", window.selected.join("\n")));
                 }
                 line_no = line_no.saturating_add(1);
             }
         }
     }
 
-    if selected.is_empty() {
+    if window.selected.is_empty() {
         Ok(String::new())
     } else {
-        Ok(format!("{}\n", selected.join("\n")))
+        Ok(format!("{}\n", window.selected.join("\n")))
     }
 }
 

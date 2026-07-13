@@ -533,12 +533,12 @@ fn load_pet_bytes_at(root: &Path, pet_id: &str, expected_version: &str) -> Resul
     Ok(validated.spritesheet_bytes)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn codex_pets_list() -> Result<CodexPetCatalog, String> {
     list_catalog_at(pets_location()?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn codex_pet_load(
     pet_id: String,
     expected_version: String,

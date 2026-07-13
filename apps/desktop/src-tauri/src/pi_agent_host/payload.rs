@@ -20,6 +20,10 @@ pub(super) fn app_pi_session_dir<R: tauri::Runtime>(
     let _ = app;
     let base = crate::local_paths::offisim_storage_dir("pi-agent-sessions")
         .map_err(HostError::HostUnavailable)?;
+    Ok(pi_session_dir_under(&base, thread_id))
+}
+
+pub(super) fn pi_session_dir_under(base: &Path, thread_id: &str) -> PathBuf {
     let safe_thread_id = thread_id
         .chars()
         .map(|ch| {
@@ -30,7 +34,7 @@ pub(super) fn app_pi_session_dir<R: tauri::Runtime>(
             }
         })
         .collect::<String>();
-    Ok(base.join("pi-agent-sessions").join(safe_thread_id))
+    base.join(safe_thread_id)
 }
 
 pub(super) fn app_pi_agent_dir<R: tauri::Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
@@ -88,6 +92,12 @@ pub(super) fn sidecar_payload(
             .as_object_mut()
             .expect("execute payload is an object")
             .insert("directDelegation".into(), direct_delegation.clone());
+    }
+    if let Some(delegation_limits) = &req.delegation_limits {
+        payload
+            .as_object_mut()
+            .expect("execute payload is an object")
+            .insert("delegationLimits".into(), delegation_limits.clone());
     }
     payload
 }

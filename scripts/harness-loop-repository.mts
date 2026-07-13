@@ -62,8 +62,8 @@ function makeDeps(): LoopServiceDeps {
 function freshSystem() {
   const repos = createMemoryRepositories();
   const loopRepos: LoopServiceRepos = {
-    loopDefinitions: repos.loopDefinitions!,
-    loopRevisions: repos.loopRevisions!,
+    loopDefinitions: repos.loopDefinitions,
+    loopRevisions: repos.loopRevisions,
     loopSkillBindings: repos.loopSkillBindings!,
     loopInvocations: repos.loopInvocations!,
   };
@@ -97,7 +97,7 @@ const ctx = { companyId: 'co-1', projectId: 'proj-1', repository: { inspected: t
 // Side-effect count helper: how many mission / chat_threads / attempt rows exist.
 // ---------------------------------------------------------------------------
 async function sideEffectCounts(repos: ReturnType<typeof createMemoryRepositories>) {
-  const missions = await repos.missions!.listByCompany('co-1', { limit: 10000 });
+  const missions = await repos.missions.listByCompany('co-1', { limit: 10000 });
   const chatThreads = repos.snapshot().chatThreads.length;
   // Attempts are per-mission; sum across missions.
   let attempts = 0;
@@ -400,14 +400,14 @@ await check('a duplicate loop_definition id THROWS (no silent drop)', async () =
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
   };
-  await repos.loopDefinitions!.insert(row);
+  await repos.loopDefinitions.insert(row);
   await assert.rejects(
-    () => repos.loopDefinitions!.insert({ ...row, title: 'second (should not clobber)' }),
+    () => repos.loopDefinitions.insert({ ...row, title: 'second (should not clobber)' }),
     /loop_definitions PRIMARY KEY|UNIQUE|constraint/i,
     'a duplicate loop_id must throw, not silently no-op',
   );
   // The first row is untouched (the second insert did not clobber or hide it).
-  const persisted = await repos.loopDefinitions!.findById('dup-loop');
+  const persisted = await repos.loopDefinitions.findById('dup-loop');
   assert.equal(persisted?.title, 'first', 'the original definition is intact');
 });
 
@@ -466,9 +466,28 @@ await check('Loop schedule is opt-in, persists next/last state, and never backfi
     'skip',
     'a slot already due when the foreground epoch begins is missed, not backfilled',
   );
+  const dueSlot = configured.nextRunAt!;
+  assert.equal(
+    await svc.claimScheduledRun(loop.loopId, dueSlot),
+    true,
+    'the exact due slot is durably claimed before dispatch',
+  );
+  assert.equal(
+    await svc.claimScheduledRun(loop.loopId, dueSlot),
+    false,
+    'a stale contender cannot claim the same paid slot twice',
+  );
+  const claimed = await svc.getLoop(loop.loopId);
+  assert.notEqual(claimed.nextRunAt, dueSlot, 'claim advances next_run_at immediately');
+  assert.equal(claimed.lastRunResult, 'Starting');
   const completed = await svc.completeScheduledRun(loop.loopId, 'Started · mission-1');
   assert.equal(completed.lastRunResult, 'Started · mission-1');
   assert.ok(completed.lastRunAt);
+  assert.equal(
+    completed.nextRunAt,
+    claimed.nextRunAt,
+    'completion metadata never advances an already-claimed slot again',
+  );
   const manual = await svc.configureSchedule(loop.loopId, null);
   assert.equal(manual.scheduleIntervalMinutes, undefined);
   assert.equal(manual.nextRunAt, undefined);

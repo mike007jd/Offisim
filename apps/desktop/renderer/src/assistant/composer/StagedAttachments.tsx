@@ -1,13 +1,23 @@
+import type { StagedAttachment } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { AlertCircle, FileText, X } from 'lucide-react';
-import { useComposerAttachmentStore } from './composer-attachment-store.js';
+import {
+  type ComposerAttachmentScope,
+  composerAttachmentScopeKey,
+  useComposerAttachmentStore,
+} from './composer-attachment-store.js';
+
+const EMPTY_STAGED_ATTACHMENTS: StagedAttachment[] = [];
 
 /** Staged attachment chips shown between the composer input and its tool row.
  *  Each chip reflects truthful staging state; failed chips carry the canonical
  *  error string so size/dedupe/type rejection is never a silent no-op. */
-export function StagedAttachments() {
-  const staged = useComposerAttachmentStore((s) => s.staged);
+export function StagedAttachments({ scope }: { scope: ComposerAttachmentScope }) {
+  const scopeKey = composerAttachmentScopeKey(scope);
+  const staged = useComposerAttachmentStore(
+    (state) => state.stagedByScope[scopeKey] ?? EMPTY_STAGED_ATTACHMENTS,
+  );
   const removeStaged = useComposerAttachmentStore((s) => s.removeStaged);
 
   if (staged.length === 0) return null;
@@ -31,7 +41,7 @@ export function StagedAttachments() {
             type="button"
             className="off-staged-x off-focusable"
             aria-label={`Remove ${att.name}`}
-            onClick={() => removeStaged(att.id)}
+            onClick={() => removeStaged(scope, att.id)}
           >
             <Icon icon={X} size="sm" />
           </button>

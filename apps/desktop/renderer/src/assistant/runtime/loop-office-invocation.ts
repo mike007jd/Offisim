@@ -17,9 +17,9 @@
  *     mission chat thread (no sidebar pollution).
  *   - The run prompt carries the RESOLVED revision snapshot, so a future revision
  *     edit never changes already-executed history.
- *   - Ordering: invocation → mission → link(setMissionId) → run. If any step after
- *     the invocation insert fails, the invocation is compensated (deleted or marked
- *     failed) so no orphan invocation/mission survives a failed send.
+ *   - Ordering: invocation → mission → link(setMissionId) → run. If mission/link
+ *     materialization fails, every record whose id is known is compensated. A link
+ *     failure removes the complete mission subtree and the invocation.
  */
 
 import {
@@ -63,6 +63,8 @@ export interface MaterializeLoopSendDeps {
    *  renderer wires a hard delete; if a backend cannot delete, it may mark the row
    *  `failed` — either way the invocation never dangles as a phantom `pending`. */
   compensateInvocation: (invocationId: string) => Promise<void>;
+  /** Delete the mission root and every schema-owned child row. */
+  compensateMission: (missionId: string) => Promise<void>;
   newId: () => string;
   /** ISO-8601 now(). */
   now: () => string;
@@ -190,9 +192,9 @@ function loopRunContext(packet: LoopExecutionPacket, revisionNumber: number): Lo
  *   3. create + ready the Mission, REUSING `threadId` (no dedicated thread).
  *   4. link: setMissionId(invocationId, missionId).
  *
- * If step 3 or 4 throws, the invocation is compensated (step 2 undone) so it never
- * orphans. The run itself (LoopRunStarter) is fired by the CALLER after this
- * returns, outside the durable transaction.
+ * If step 3 throws before returning an id, the invocation is compensated. If step
+ * 4 throws, both the complete mission subtree and invocation are compensated. The
+ * run itself is fired by the caller after this returns.
  */
 export async function materializeLoopSend(
   deps: MaterializeLoopSendDeps,
@@ -214,6 +216,7 @@ export async function materializeLoopSend(
     created_at: deps.now(),
   });
 
+  let missionId: string | null = null;
   try {
     // The Mission REUSES the Office thread. The run prompt carries the resolved
     // revision snapshot so executed history is frozen against future edits. The IR
@@ -243,32 +246,92 @@ export async function materializeLoopSend(
         orderIndex: c.orderIndex,
       })),
     });
+    missionId = created.missionId;
     await deps.loopInvocations.setMissionId(invocationId, created.missionId);
     return { invocationId, missionId: created.missionId, packet };
   } catch (error) {
-    // Compensate: the mission create / link failed AFTER the invocation insert.
-    // Undo the invocation so a failed send leaves NO orphan. Compensation failure
-    // is logged by the caller but never masks the original error.
-    try {
-      await deps.compensateInvocation(invocationId);
-    } catch (compensationError) {
-      throw new AggregateLoopSendError(error, compensationError);
-    }
-    throw error;
+    const createdMissionId = missionId;
+    return rethrowAfterCompensation(error, [
+      ...(createdMissionId
+        ? [{ target: 'mission', run: () => deps.compensateMission(createdMissionId) } as const]
+        : []),
+      { target: 'invocation', run: () => deps.compensateInvocation(invocationId) },
+    ]);
   }
 }
 
-/** Raised when BOTH the transaction body and its compensation fail — surfaces both
- *  so the caller can log the leak (an invocation that could not be undone). */
+export interface LoopCompensationFailure {
+  target: 'mission' | 'invocation' | 'thread';
+  error: unknown;
+}
+
+/** Raised when the primary operation and one or more compensations fail. */
 export class AggregateLoopSendError extends Error {
+  readonly compensationError: unknown;
+
   constructor(
     readonly cause: unknown,
-    readonly compensationError: unknown,
+    readonly compensationErrors: readonly LoopCompensationFailure[],
   ) {
     super(
-      `Loop send failed and compensation also failed. cause=${describe(cause)} compensation=${describe(compensationError)}`,
+      `Loop send failed and compensation also failed. cause=${describe(cause)} compensations=${compensationErrors
+        .map((failure) => `${failure.target}:${describe(failure.error)}`)
+        .join('; ')}`,
     );
     this.name = 'AggregateLoopSendError';
+    this.compensationError =
+      compensationErrors.length === 1
+        ? compensationErrors[0]?.error
+        : new AggregateError(
+            compensationErrors.map((failure) => failure.error),
+            'Multiple Loop compensations failed',
+          );
+  }
+}
+
+interface CompensationStep {
+  target: LoopCompensationFailure['target'];
+  run: () => Promise<void>;
+}
+
+async function rethrowAfterCompensation(
+  cause: unknown,
+  compensations: readonly CompensationStep[],
+): Promise<never> {
+  const failures: LoopCompensationFailure[] = [];
+  for (const compensation of compensations) {
+    try {
+      await compensation.run();
+    } catch (error) {
+      failures.push({ target: compensation.target, error });
+    }
+  }
+  if (failures.length > 0) throw new AggregateLoopSendError(cause, failures);
+  throw cause;
+}
+
+export interface CompensatedLoopThreadDeps<T> {
+  /** Fresh read-only gate. It runs before the thread write boundary. */
+  preflight: () => Promise<void>;
+  createThread: () => Promise<void>;
+  persistMessage: () => Promise<void>;
+  materializeAndStart: () => Promise<T>;
+  compensateThread: () => Promise<void>;
+}
+
+/**
+ * Parallel/scheduled Loop boundary: preflight is write-free; once thread creation
+ * starts, any failure deep-deletes that thread graph. Cleanup is compensating, not
+ * atomic with the preceding repository/agent-event writes.
+ */
+export async function runCompensatedLoopThread<T>(deps: CompensatedLoopThreadDeps<T>): Promise<T> {
+  await deps.preflight();
+  try {
+    await deps.createThread();
+    await deps.persistMessage();
+    return await deps.materializeAndStart();
+  } catch (error) {
+    return rethrowAfterCompensation(error, [{ target: 'thread', run: deps.compensateThread }]);
   }
 }
 

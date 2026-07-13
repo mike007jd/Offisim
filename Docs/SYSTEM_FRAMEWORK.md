@@ -38,7 +38,7 @@ vendored Pi fork as the main runtime path.
 
 1. User writes in the desktop renderer.
 2. Renderer persists the user turn into local thread state.
-3. Renderer calls `pi_agent_execute`.
+3. Renderer calls the runtime-neutral `agent_runtime_execute` gateway.
 4. Tauri resolves the selected project workspace as cwd and starts the bundled
    Pi Agent host.
 5. Pi Agent owns model selection, session storage, compaction, tool loop,

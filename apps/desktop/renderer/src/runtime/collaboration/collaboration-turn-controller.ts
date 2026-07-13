@@ -505,6 +505,7 @@ export class CollaborationTurnController {
             turn.body += delta;
             this.emit(ctx.threadId);
           },
+          signal: controller.signal,
         },
       );
     } catch (err) {

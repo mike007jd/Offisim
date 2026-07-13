@@ -299,7 +299,7 @@ export function BoardStage() {
           await recovery.discard(row.runId);
         } else {
           const repos = await getRepos();
-          await repos.agentRuns?.updateStatus(row.runId, 'discarded', {
+          await repos.agentRuns.updateStatus(row.runId, 'discarded', {
             finishedAt: new Date().toISOString(),
           });
         }

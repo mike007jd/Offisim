@@ -99,6 +99,36 @@ interface RectHit {
 
 type Hit = EmployeeHit | RectHit;
 
+interface CanvasBackingStore {
+  width: number;
+  height: number;
+  style: { width: string; height: string };
+}
+
+export function syncOfficeCanvasBackingStore(
+  canvas: CanvasBackingStore,
+  cssWidth: number,
+  cssHeight: number,
+  dpr: number,
+): boolean {
+  const pixelWidth = Math.max(0, Math.round(cssWidth * dpr));
+  const pixelHeight = Math.max(0, Math.round(cssHeight * dpr));
+  const cssWidthValue = `${cssWidth}px`;
+  const cssHeightValue = `${cssHeight}px`;
+  let changed = false;
+  if (canvas.width !== pixelWidth) {
+    canvas.width = pixelWidth;
+    changed = true;
+  }
+  if (canvas.height !== pixelHeight) {
+    canvas.height = pixelHeight;
+    changed = true;
+  }
+  if (canvas.style.width !== cssWidthValue) canvas.style.width = cssWidthValue;
+  if (canvas.style.height !== cssHeightValue) canvas.style.height = cssHeightValue;
+  return changed;
+}
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -247,11 +277,27 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
       const dpr = window.devicePixelRatio || 1;
       const cw = parent.clientWidth;
       const ch = parent.clientHeight;
-      canvas.width = cw * dpr;
-      canvas.height = ch * dpr;
-      canvas.style.width = `${cw}px`;
-      canvas.style.height = `${ch}px`;
+      syncOfficeCanvasBackingStore(canvas, cw, ch, dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#000000';
+      ctx.strokeStyle = '#000000';
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.filter = 'none';
+      ctx.imageSmoothingEnabled = true;
+      ctx.lineWidth = 1;
+      ctx.lineCap = 'butt';
+      ctx.lineJoin = 'miter';
+      ctx.miterLimit = 10;
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
       ctx.clearRect(0, 0, cw, ch);
 
       const pad = 48;

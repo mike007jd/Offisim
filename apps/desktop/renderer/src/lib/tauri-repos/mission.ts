@@ -42,6 +42,9 @@ export function createMissionTauriRepos(db: TauriDrizzleDb): MissionTauriRepos {
         .values(row)
         .onConflictDoNothing({ target: schema.mission.mission_id });
     },
+    async delete(missionId) {
+      await db.delete(schema.mission).where(eq(schema.mission.mission_id, missionId));
+    },
     async findById(missionId) {
       const rows = (await db
         .select()

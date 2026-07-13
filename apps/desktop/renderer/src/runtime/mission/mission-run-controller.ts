@@ -9,7 +9,11 @@ import type {
   RunAttemptInput,
   RuntimeRepositories,
 } from '@offisim/core/browser';
-import { createMissionLoopController, createMissionService } from '@offisim/core/browser';
+import {
+  createMissionLoopController,
+  createMissionService,
+  parseMissionBudgetJson,
+} from '@offisim/core/browser';
 import type { RuntimeEvent } from '@offisim/shared-types';
 import type { DesktopAgentRunInput, DesktopAgentRuntime } from '../desktop-agent-runtime.js';
 import {
@@ -60,6 +64,9 @@ export interface MissionRunControllerDeps {
   /** Deterministic-id / clock factories. Default to crypto.randomUUID + Date. */
   newId?: () => string;
   now?: () => string;
+  /** Timer seams used by the wall-clock hard cap and its deferred harness. */
+  scheduleDeadline?: (callback: () => void, delayMs: number) => unknown;
+  cancelDeadline?: (handle: unknown) => void;
 }
 
 export interface MissionRunController {
@@ -80,18 +87,38 @@ interface MissionContextPacket {
   }>;
 }
 
+function delegationLimitsFromMissionBudget(
+  budget: ReturnType<typeof parseMissionBudgetJson>,
+): NonNullable<DesktopAgentRunInput['delegationLimits']> | undefined {
+  const limits: NonNullable<DesktopAgentRunInput['delegationLimits']> = {
+    ...(budget.maxRecursionDepth === undefined ? {} : { maxDepth: budget.maxRecursionDepth }),
+    ...(budget.maxConcurrentAgents === undefined
+      ? {}
+      : { maxParallelPerDelegation: budget.maxConcurrentAgents }),
+    ...(budget.maxTotalAgents === undefined ? {} : { maxTotalChildren: budget.maxTotalAgents }),
+    ...(budget.tokenBudget === undefined ? {} : { maxTotalTokens: budget.tokenBudget }),
+  };
+  return Object.keys(limits).length > 0 ? limits : undefined;
+}
+
 export function createMissionRunController(deps: MissionRunControllerDeps): MissionRunController {
   const newId = deps.newId ?? (() => crypto.randomUUID());
   const now = deps.now ?? (() => new Date().toISOString());
   const makeEvaluationContext = deps.createEvaluationContext ?? createTauriEvaluationContext;
+  const scheduleDeadline =
+    deps.scheduleDeadline ??
+    ((callback: () => void, delayMs: number) => globalThis.setTimeout(callback, delayMs));
+  const cancelDeadline =
+    deps.cancelDeadline ??
+    ((handle: unknown) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>));
 
   const missionService = createMissionService(
     {
-      missions: requireRepo(deps.repos, 'missions'),
-      missionCriteria: requireRepo(deps.repos, 'missionCriteria'),
-      missionAttempts: requireRepo(deps.repos, 'missionAttempts'),
-      missionEvaluations: requireRepo(deps.repos, 'missionEvaluations'),
-      missionEvents: requireRepo(deps.repos, 'missionEvents'),
+      missions: deps.repos.missions,
+      missionCriteria: deps.repos.missionCriteria,
+      missionAttempts: deps.repos.missionAttempts,
+      missionEvaluations: deps.repos.missionEvaluations,
+      missionEvents: deps.repos.missionEvents,
     },
     { now, newId },
   );
@@ -130,6 +157,11 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
     // §19.2: feed the authored token / attempt budget into the loop. The loop
     // owns the defaults; we only override the caps the user set on the mission.
     const budget = parseMissionBudgetJson(mission.budget_json);
+    // These three authored fields are explicitly Pi delegation-supervisor caps.
+    // The supervisor counts only delegated children (the root never calls
+    // reserveTotal), so maxTotalAgents maps directly to maxTotalChildren — no
+    // root subtraction. This also preserves the valid `maxTotalAgents: 1` case.
+    const delegationLimits = delegationLimitsFromMissionBudget(budget);
 
     const controller = createMissionLoopController({
       missionService,
@@ -142,10 +174,11 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
           criterionById,
           projectId,
           workspaceRoot,
+          delegationLimits,
         }),
       now,
       newId,
-      ...(budget ? { budget } : {}),
+      budget,
     });
 
     return controller.run(missionId);
@@ -166,6 +199,7 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
       criterionById: Map<string, ControllerCriterion>;
       projectId: string | null;
       workspaceRoot: string | null;
+      delegationLimits: DesktopAgentRunInput['delegationLimits'];
     },
   ): Promise<AttemptExecution> {
     const {
@@ -175,6 +209,7 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
       criterionById,
       projectId,
       workspaceRoot,
+      delegationLimits,
     } = ctx;
     // `runId === attemptId` so the host stamps rootRunId = attemptId; the bridge's
     // submit_for_evaluation events then carry runId === attemptId, which is how we
@@ -207,31 +242,93 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
       missionId: input.missionId,
       attemptId: input.attemptId,
       missionContextJson,
+      ...(delegationLimits === undefined ? {} : { delegationLimits }),
     };
 
     let runtimeError: AttemptExecution['runtimeError'];
     let usageTokens: number | undefined;
+    let deadlineTimer: unknown;
+    let wallClockTimedOut = false;
+    let resolveDeadline!: () => void;
+    const deadlineReached = new Promise<void>((resolve) => {
+      resolveDeadline = resolve;
+    });
+    const deadlineMs = input.wallClockDeadlineAt
+      ? Date.parse(input.wallClockDeadlineAt)
+      : undefined;
+    const remainingMs = deadlineMs === undefined ? undefined : deadlineMs - Date.parse(now());
+    const abortForDeadline = () => {
+      wallClockTimedOut = true;
+      resolveDeadline();
+      // The hard return is driven by `deadlineReached`, not by abort success.
+      // Abort stays best-effort cleanup: a missing preflight request or failed
+      // IPC must not keep the Mission state machine waiting past its deadline.
+      queueMicrotask(() => {
+        try {
+          deps.agentRuntime.abort(mission.thread_id);
+        } catch (err) {
+          console.error('[mission-run-controller] wall-clock abort failed', {
+            missionId: input.missionId,
+            attemptId: input.attemptId,
+            err,
+          });
+        }
+      });
+    };
+
+    if (remainingMs !== undefined) {
+      if (!Number.isFinite(remainingMs)) {
+        throw new Error(`Invalid Mission wall-clock deadline: ${input.wallClockDeadlineAt}`);
+      }
+      if (remainingMs <= 0) {
+        abortForDeadline();
+      } else {
+        deadlineTimer = scheduleDeadline(abortForDeadline, remainingMs);
+      }
+    }
+
     try {
-      const result = await deps.agentRuntime.execute(runInput);
+      const runtimeOutcome = wallClockTimedOut
+        ? ({ kind: 'deadline' } as const)
+        : await Promise.race([
+            deps.agentRuntime.execute(runInput).then(
+              (result) => ({ kind: 'result', result }) as const,
+              (error: unknown) => ({ kind: 'error', error }) as const,
+            ),
+            deadlineReached.then(() => ({ kind: 'deadline' }) as const),
+          ]);
+      const result = runtimeOutcome.kind === 'result' ? runtimeOutcome.result : null;
+      if (runtimeOutcome.kind === 'error') throw runtimeOutcome.error;
       // The host reports the run's own token usage on the return (deterministic —
-      // no persist-queue race). Surface it to the controller's §19.2 token budget;
-      // the loop debits `tokenBudget` by `usage.tokens` after the attempt. Sum ALL
-      // token fields (input + output + cache read/write) so the budget cap tracks
-      // the SAME total `reconcileRoot` rolls into agent_runs for cost — a budget
-      // that ignored cache tokens would silently overshoot on cache-heavy runs.
-      if (result.usage) {
-        const u = result.usage;
+      // no persist-queue race). `budgetUsage` is a separate root+delegated-tree
+      // wire used only by Mission debit; `usage` remains root-only so
+      // reconcileRoot can add child rows once without double-counting them.
+      const budgetUsage = result?.budgetUsage ?? result?.usage;
+      if (budgetUsage) {
+        const u = budgetUsage;
         usageTokens = (u.input ?? 0) + (u.output ?? 0) + (u.cacheRead ?? 0) + (u.cacheWrite ?? 0);
+      }
+      if (wallClockTimedOut) {
+        runtimeError = {
+          code: 'wall_clock_budget',
+          message: 'Mission wall-clock budget exhausted; the active Pi run was aborted.',
+        };
       }
     } catch (err) {
       // A thrown agent run is INFRA (transport / runtime) — the controller maps
       // runtimeError → BLOCKED without consuming a repair (§19.2 / §5). A product
       // failure is NEVER signaled by a throw; it is decided by the evaluators.
-      runtimeError = {
-        code: 'runtime_error',
-        message: err instanceof Error ? err.message : String(err),
-      };
+      runtimeError = wallClockTimedOut
+        ? {
+            code: 'wall_clock_budget',
+            message: 'Mission wall-clock budget exhausted; the active Pi run was aborted.',
+          }
+        : {
+            code: 'runtime_error',
+            message: err instanceof Error ? err.message : String(err),
+          };
     } finally {
+      if (deadlineTimer !== undefined) cancelDeadline(deadlineTimer);
       unsubscribe();
     }
 
@@ -240,7 +337,7 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
     // recovery — regardless of outcome (a failed/blocked attempt still produced a
     // run). Best-effort: a write failure here must not fail the attempt.
     try {
-      await deps.repos.missionAttempts?.setRootRunId(input.attemptId, attemptRunId);
+      await deps.repos.missionAttempts.setRootRunId(input.attemptId, attemptRunId);
     } catch (err) {
       console.warn('[mission-run-controller] setRootRunId failed', {
         attemptId: input.attemptId,
@@ -336,43 +433,4 @@ function buildAttemptPrompt(
     '`publish_artifact` so the artifact criteria can see them.',
   );
   return lines.join('\n');
-}
-
-/**
- * Parse the authored mission budget caps from `mission.budget_json` into the
- * loop's {@link MissionLoopBudget} overrides. Only finite numbers are honored;
- * anything else leaves the loop on its §19.2 defaults. Kept inline so the
- * runtime layer does not depend on the UI surface that authors the budget.
- */
-function parseMissionBudgetJson(
-  budgetJson: string | null | undefined,
-): { tokenBudget?: number; maxAttempts?: number } | null {
-  if (!budgetJson) return null;
-  let raw: unknown;
-  try {
-    raw = JSON.parse(budgetJson);
-  } catch {
-    return null;
-  }
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as { tokenBudget?: unknown; maxAttempts?: unknown };
-  const out: { tokenBudget?: number; maxAttempts?: number } = {};
-  if (typeof obj.tokenBudget === 'number' && Number.isFinite(obj.tokenBudget)) {
-    out.tokenBudget = obj.tokenBudget;
-  }
-  if (typeof obj.maxAttempts === 'number' && Number.isFinite(obj.maxAttempts)) {
-    out.maxAttempts = obj.maxAttempts;
-  }
-  return out.tokenBudget !== undefined || out.maxAttempts !== undefined ? out : null;
-}
-
-function requireRepo<K extends keyof RuntimeRepositories>(
-  repos: RuntimeRepositories,
-  key: K,
-): NonNullable<RuntimeRepositories[K]> {
-  const repo = repos[key];
-  if (!repo) {
-    throw new Error(`MissionRunController requires repos.${String(key)}, which is unavailable.`);
-  }
-  return repo as NonNullable<RuntimeRepositories[K]>;
 }

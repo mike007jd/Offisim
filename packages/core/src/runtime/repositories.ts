@@ -287,6 +287,15 @@ export interface TaskRunRepository {
 }
 
 /** Run tree for multi-agent delegation; the tree rebuilds from parent/root ids. */
+export interface AgentRunStatusUpdateOptions {
+  resultSummaryJson?: string | null;
+  usageJson?: string | null;
+  finishedAt?: string | null;
+  sessionFile?: string | null;
+  /** Typed failure cause (RunFailureKind); written on a failed terminal. */
+  failureKind?: string | null;
+}
+
 export interface AgentRunRepository {
   create(run: NewAgentRun): Promise<AgentRunRow>;
   findById(runId: string): Promise<AgentRunRow | null>;
@@ -297,18 +306,18 @@ export interface AgentRunRepository {
    *  durable-resume reconciliation (find `running` → mark `interrupted`) and the
    *  recovery board (list `interrupted`). Empty `statuses` yields no rows. */
   findByStatus(companyId: string, statuses: string[]): Promise<AgentRunRow[]>;
-  updateStatus(
+  updateStatus(runId: string, status: string, opts?: AgentRunStatusUpdateOptions): Promise<void>;
+  /**
+   * Tenant-scoped terminal/status mutation for UI actions that originate from a
+   * company-specific card. Returns false when the run does not exist in that
+   * company, so a stale action can never mutate another company's run.
+   */
+  updateStatusForCompany(
+    companyId: string,
     runId: string,
     status: string,
-    opts?: {
-      resultSummaryJson?: string | null;
-      usageJson?: string | null;
-      finishedAt?: string | null;
-      sessionFile?: string | null;
-      /** Typed failure cause (RunFailureKind); written on a failed terminal. */
-      failureKind?: string | null;
-    },
-  ): Promise<void>;
+    opts?: AgentRunStatusUpdateOptions,
+  ): Promise<boolean>;
   updateRuntimeContext(runId: string, runtimeContextJson: string | null): Promise<void>;
 }
 
@@ -1294,6 +1303,8 @@ export interface MissionStatusUpdate {
 export interface MissionRepository {
   /** Idempotent insert keyed on mission_id (INSERT OR IGNORE semantics). */
   insert(row: NewMission): Promise<void>;
+  /** Delete the Mission aggregate root. Persistent backends cascade every child row. */
+  delete(missionId: string): Promise<void>;
   findById(missionId: string): Promise<MissionRow | null>;
   listByCompany(companyId: string, opts?: { limit?: number }): Promise<MissionRow[]>;
   /**
@@ -1460,6 +1471,15 @@ export interface LoopDefinitionRepository {
   listByCompany(companyId: string, opts?: { limit?: number }): Promise<LoopDefinitionRow[]>;
   /** Patch the mutable definition fields (never the revisions — those are insert-only). */
   update(loopId: string, patch: LoopDefinitionUpdate): Promise<void>;
+  /**
+   * Compare-and-swap one exact scheduler slot. On success, advances next_run_at
+   * before any external run side effect and records a durable `Starting` claim.
+   */
+  claimScheduledRun(
+    loopId: string,
+    expectedNextRunAt: string,
+    claim: { claimedAt: string; nextRunAt: string },
+  ): Promise<boolean>;
   /**
    * Physically delete a definition. The SERVICE forbids this when invocation
    * history exists (archive instead); the repo method itself is unconditional so
@@ -1814,7 +1834,7 @@ export interface RuntimeRepositories {
   assetBindings: AssetBindingRepository;
   memories: MemoryRepository;
   mcpAudit: McpAuditRepository;
-  mcpToolGrants?: McpToolGrantRepository;
+  mcpToolGrants: McpToolGrantRepository;
   toolPermissionApprovals: ToolPermissionApprovalRepository;
   nodeSummaries: NodeSummaryRepository;
   compactSummaries: CompactSummaryRepository;
@@ -1836,16 +1856,16 @@ export interface RuntimeRepositories {
   projects: ProjectRepository;
   projectAssignments: ProjectAssignmentRepository;
   chatThreads: ChatThreadRepository;
-  /** Agent event sourcing — optional for backward compatibility. */
-  agentEvents?: AgentEventRepository;
-  /** Recovery knowledge base — optional for backward compatibility. */
-  recoveryKnowledge?: RecoveryKnowledgeRepository;
-  /** Deliverable artifact history — optional for backward compatibility. */
-  deliverables?: DeliverableRepository;
-  /** Two-tier skills (company-global + employee-specific) — optional for backward compatibility. */
-  skills?: SkillRepository;
-  /** Generic key-value settings (bootstrap markers) — optional for backward compatibility. */
-  settings?: SettingsRepository;
+  /** Agent event sourcing. */
+  agentEvents: AgentEventRepository;
+  /** Recovery knowledge base. */
+  recoveryKnowledge: RecoveryKnowledgeRepository;
+  /** Deliverable artifact history. */
+  deliverables: DeliverableRepository;
+  /** Two-tier skills (company-global + employee-specific). */
+  skills: SkillRepository;
+  /** Generic key-value settings (bootstrap markers). */
+  settings: SettingsRepository;
   /**
    * Wraps a synchronous callback in a DB transaction.
    * Only available on Drizzle (better-sqlite3) repos — memory repos omit this.
@@ -1863,28 +1883,28 @@ export interface RuntimeRepositories {
    *   read committed state (no read-your-own-write isolation).
    * - In-memory: no-op — calls fn() directly.
    */
-  asyncTransact?<T>(fn: (txRepos?: RuntimeRepositories) => Promise<T>): Promise<T>;
+  asyncTransact<T>(fn: (txRepos?: RuntimeRepositories) => Promise<T>): Promise<T>;
 
   /** pi-kernel per-message transcript persistence. */
-  piMessages?: PiMessageRepository;
-  /** Multi-agent delegation run tree — optional for backward compatibility. */
-  agentRuns?: AgentRunRepository;
-  /** Verified Missions core (PRD §17) — optional for backward compatibility. */
-  missions?: MissionRepository;
-  missionCriteria?: MissionCriterionRepository;
-  missionAttempts?: MissionAttemptRepository;
-  missionEvaluations?: MissionEvaluationRepository;
-  runtimeSessionLinks?: RuntimeSessionLinkRepository;
-  missionEvents?: MissionEventRepository;
-  /** Loop domain (PR-07) — optional for backward compatibility. */
-  loopDefinitions?: LoopDefinitionRepository;
-  loopRevisions?: LoopRevisionRepository;
-  loopSkillBindings?: LoopSkillBindingRepository;
-  loopInvocations?: LoopInvocationRepository;
-  /** Company-scoped Collaboration chat (PR-02) — optional for backward compatibility. */
-  collaborationThreads?: CollaborationThreadRepository;
-  collaborationMembers?: CollaborationMemberRepository;
-  collaborationMessages?: CollaborationMessageRepository;
-  collaborationReadState?: CollaborationReadStateRepository;
-  collaborationTurns?: CollaborationTurnRepository;
+  piMessages: PiMessageRepository;
+  /** Multi-agent delegation run tree. */
+  agentRuns: AgentRunRepository;
+  /** Verified Missions core (PRD §17). */
+  missions: MissionRepository;
+  missionCriteria: MissionCriterionRepository;
+  missionAttempts: MissionAttemptRepository;
+  missionEvaluations: MissionEvaluationRepository;
+  runtimeSessionLinks: RuntimeSessionLinkRepository;
+  missionEvents: MissionEventRepository;
+  /** Loop domain (PR-07). */
+  loopDefinitions: LoopDefinitionRepository;
+  loopRevisions: LoopRevisionRepository;
+  loopSkillBindings: LoopSkillBindingRepository;
+  loopInvocations: LoopInvocationRepository;
+  /** Company-scoped Collaboration chat (PR-02). */
+  collaborationThreads: CollaborationThreadRepository;
+  collaborationMembers: CollaborationMemberRepository;
+  collaborationMessages: CollaborationMessageRepository;
+  collaborationReadState: CollaborationReadStateRepository;
+  collaborationTurns: CollaborationTurnRepository;
 }

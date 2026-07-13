@@ -1,6 +1,6 @@
+import { useMemo, useState } from 'react';
 import { parse as parseToml } from 'smol-toml';
 import { parse as parseYaml } from 'yaml';
-import { useMemo, useState } from 'react';
 import type { ResolvedPreviewTarget } from '../preview-target.js';
 import { TextViewer } from './TextViewer.js';
 
@@ -43,7 +43,11 @@ function parseStructured(text: string, resolved: ResolvedPreviewTarget): unknown
   return JSON.parse(text);
 }
 
-function StructuredNode({ label, value, depth = 0 }: { label: string; value: unknown; depth?: number }) {
+function StructuredNode({
+  label,
+  value,
+  depth = 0,
+}: { label: string; value: unknown; depth?: number }) {
   if (value === null || typeof value !== 'object') {
     return (
       <div className="off-structured-row" style={{ paddingLeft: `${depth * 14}px` }}>

@@ -86,6 +86,28 @@ export interface LoopBudgetContract {
   tokenCeiling?: number;
 }
 
+/**
+ * Canonical resolved budget consumed by the Mission execution loop. Loop authoring
+ * uses {@link LoopBudgetContract}; the Loop→Mission adapter must translate into
+ * these names instead of serializing the authoring contract verbatim.
+ */
+export interface MissionExecutionBudgetContract {
+  maxRepairsPerCriterion: number;
+  maxAttempts: number;
+  tokenBudget?: number;
+  /** Pi delegation supervisor cap, carried through from Loop authoring. */
+  maxConcurrentAgents?: number;
+  /** Pi delegation supervisor cap, carried through from Loop authoring. */
+  maxTotalAgents?: number;
+  /** Pi delegation supervisor cap, carried through from Loop authoring. */
+  maxRecursionDepth?: number;
+  /** End-to-end Mission wall-clock ceiling in minutes. */
+  wallClockMinutes?: number;
+}
+
+/** Authored Mission JSON may omit a cap and inherit the runtime default. */
+export type MissionExecutionBudgetOverrides = Partial<MissionExecutionBudgetContract>;
+
 /** A point where a human must decide before the loop proceeds. */
 export interface LoopHumanGate {
   id: string;

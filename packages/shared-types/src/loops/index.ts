@@ -23,6 +23,8 @@ export type {
   LoopCompletionContract,
   LoopAcceptanceItem,
   LoopBudgetContract,
+  MissionExecutionBudgetContract,
+  MissionExecutionBudgetOverrides,
   LoopHumanGate,
   LoopSkillBindingRef,
 } from './ir.js';

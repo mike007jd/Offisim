@@ -25,6 +25,15 @@ import type { LoopIR } from '../packages/shared-types/src/loops/ir.ts';
 let passed = 0;
 let failed = 0;
 
+for (const asset of softwareDevelopmentProfile.referenceAssets) {
+  for (const [, target] of asset.content.matchAll(/\[[^\]]+\]\(([^)]+\.md)\)/gu)) {
+    assert.ok(
+      softwareDevelopmentProfile.referenceAssets.some((candidate) => candidate.name === target),
+      `${asset.name} links missing bundled asset ${target}`,
+    );
+  }
+}
+
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
     await run();
@@ -289,6 +298,33 @@ function minimalValidIR(overrides?: Partial<LoopIR>): LoopIR {
 await check('validator: a clean minimal IR is OK', () => {
   const v = validateLoopIR(minimalValidIR());
   assert.equal(v.ok, true, `minimal IR should validate: ${JSON.stringify(v.findings)}`);
+});
+
+await check('validator: every Loop budget cap must be a positive safe integer', () => {
+  const invalidCaps: Array<[keyof NonNullable<LoopIR['budget']>, number]> = [
+    ['maxConcurrentAgents', 0],
+    ['maxTotalAgents', 1.5],
+    ['maxRecursionDepth', Number.MAX_SAFE_INTEGER + 1],
+    ['maxFixWavesPerGate', 0],
+    ['wallClockMinutes', 0],
+    ['tokenCeiling', 2.5],
+  ];
+  for (const [key, value] of invalidCaps) {
+    const budget: NonNullable<LoopIR['budget']> = {
+      tier: 'standard',
+      maxConcurrentAgents: 1,
+      maxTotalAgents: 2,
+      maxRecursionDepth: 1,
+      maxFixWavesPerGate: 3,
+    };
+    Object.assign(budget, { [key]: value });
+    const result = validateLoopIR(minimalValidIR({ budget }));
+    assert.equal(result.ok, false, `${key}=${value} must be rejected`);
+    assert.ok(
+      result.findings.some((finding) => finding.code === `budget.${key}`),
+      `reports budget.${key}`,
+    );
+  }
 });
 
 await check('validator: dangling edge (to a missing node) → INVALID', () => {

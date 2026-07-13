@@ -35,6 +35,7 @@ import {
   useState,
 } from 'react';
 import { toast } from 'sonner';
+import { LatestRequestCoordinator } from './latest-request-coordinator.js';
 
 let providerModelRowSeq = 0;
 
@@ -423,6 +424,7 @@ export function PiAgentPane() {
   const [isLoading, setIsLoading] = useState(false);
   const [savingProvider, setSavingProvider] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const statusRequestsRef = useRef(new LatestRequestCoordinator());
   const loadedProviderRef = useRef<string | null>(null);
   const [selection, setSelection] = useState<ProviderSelection>({ mode: 'none' });
   const [templateSearch, setTemplateSearch] = useState('');
@@ -521,17 +523,20 @@ export function PiAgentPane() {
       setError('Runtime status requires the release desktop runtime.');
       return;
     }
+    const requestGeneration = statusRequestsRef.current.begin();
     setIsLoading(true);
     setError(null);
     try {
       const next = await loadPiAgentStatus();
+      if (!statusRequestsRef.current.isCurrent(requestGeneration)) return;
       setStatus(next);
     } catch (err) {
+      if (!statusRequestsRef.current.isCurrent(requestGeneration)) return;
       const message = safeErrorMessage(err);
       setError(message);
       toast.error('Runtime status failed', { description: message });
     } finally {
-      setIsLoading(false);
+      if (statusRequestsRef.current.isCurrent(requestGeneration)) setIsLoading(false);
     }
   }, [desktopAvailable]);
 
@@ -653,15 +658,22 @@ export function PiAgentPane() {
       toast.error('API key is required for a new provider');
       return;
     }
+    const requestGeneration = statusRequestsRef.current.begin();
+    // Saving is now the authoritative status operation. Any older refresh is
+    // stale and must neither keep the spinner alive nor overwrite this result.
+    setIsLoading(false);
+    setError(null);
     setSavingProvider(true);
     try {
       const next = await savePiProvider(form, models);
+      if (!statusRequestsRef.current.isCurrent(requestGeneration)) return;
       setStatus(next);
       loadedProviderRef.current = null;
       setSelection({ mode: 'edit', provider: form.providerId.trim() });
       setForm((current) => ({ ...current, apiKey: '', keepExistingApiKey: true }));
       toast.success('Provider saved to ~/.pi/agent/models.json');
     } catch (err) {
+      if (!statusRequestsRef.current.isCurrent(requestGeneration)) return;
       toast.error('Provider save failed', { description: safeErrorMessage(err) });
     } finally {
       setSavingProvider(false);
@@ -702,7 +714,7 @@ export function PiAgentPane() {
         <Button
           variant="outline"
           size="md"
-          disabled={isLoading || !desktopAvailable}
+          disabled={isLoading || savingProvider || !desktopAvailable}
           onClick={() => void refresh()}
         >
           <Icon icon={RefreshCw} size="sm" />
@@ -932,7 +944,7 @@ export function PiAgentPane() {
 
               <div className="off-set-provider-form-actions">
                 <Button
-                  disabled={savingProvider || !desktopAvailable}
+                  disabled={savingProvider || isLoading || !desktopAvailable}
                   onClick={() => void handleSaveProvider()}
                 >
                   {savingProvider ? 'Saving...' : 'Save provider'}
@@ -1075,7 +1087,7 @@ export function PiAgentPane() {
 
               <div className="off-set-provider-form-actions">
                 <Button
-                  disabled={savingProvider || !desktopAvailable}
+                  disabled={savingProvider || isLoading || !desktopAvailable}
                   onClick={() => void handleSaveProvider()}
                 >
                   {savingProvider ? 'Saving...' : 'Save changes'}

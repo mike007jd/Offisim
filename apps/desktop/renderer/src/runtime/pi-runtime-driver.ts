@@ -32,6 +32,9 @@ export interface PiAgentHostResponse {
   /** Root Pi session's own rolled-up usage; folded into the root agent_runs row
    *  by reconcileRoot (the solo path otherwise records no root usage). */
   usage?: AgentRunUsage;
+  /** Root + delegated-tree usage for Mission budget enforcement. Not persisted
+   *  as root usage because child rows are already rolled up separately. */
+  budgetUsage?: AgentRunUsage;
 }
 
 export type PiAgentHostEvent =

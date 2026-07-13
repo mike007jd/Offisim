@@ -4,6 +4,7 @@ import {
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
+import { conversationThreadLifecycle } from '@/runtime/thread-lifecycle-guard.js';
 import { type MissionLoopResult, createDefaultEvaluatorRegistry } from '@offisim/core/browser';
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { toast } from 'sonner';
@@ -53,6 +54,7 @@ interface ActiveMissionRun {
    *  abort the in-flight agent call (collapsing the running↔cancelled window). */
   runtime: DesktopAgentRuntime | null;
   threadId: string | null;
+  releaseThreadRun: (() => void) | null;
 }
 
 interface ActiveMissionRunSnapshot {
@@ -85,6 +87,7 @@ class MissionRunManager {
       startedAt: Date.now(),
       runtime: null,
       threadId: null,
+      releaseThreadRun: null,
     };
     this.activeRuns.set(missionId, entry);
     this.notify();
@@ -92,14 +95,23 @@ class MissionRunManager {
     let threadId: string;
     try {
       const repos = await getRepos();
-      const mission = await repos.missions?.findById(missionId);
+      const mission = await repos.missions.findById(missionId);
       if (!mission) throw new Error('This mission no longer exists.');
+      if (mission.company_id !== companyId) {
+        throw new Error('This mission does not belong to the active company.');
+      }
       threadId = mission.thread_id;
+      const releaseThreadRun = conversationThreadLifecycle.beginRun(threadId);
+      if (!releaseThreadRun) {
+        throw new Error('This conversation is being archived or deleted.');
+      }
+      entry.releaseThreadRun = releaseThreadRun;
+      entry.threadId = threadId;
+      this.notify();
       const runtime = await getDesktopAgentRuntime(companyId);
       // Record the runtime + thread so a concurrent cancel can abort the in-flight
       // agent call (see requestAbort) instead of leaving the run spinning.
       entry.runtime = runtime;
-      entry.threadId = threadId;
       const controller = createMissionRunController({
         agentRuntime: runtime,
         repos,
@@ -114,6 +126,7 @@ class MissionRunManager {
       // Assembly failed before the loop started: release the slot and rethrow so
       // the Start handler can toast it. No status event was emitted in this path.
       this.activeRuns.delete(missionId);
+      entry.releaseThreadRun?.();
       this.notify();
       throw err;
     }
@@ -121,6 +134,10 @@ class MissionRunManager {
 
   isRunning(missionId: string): boolean {
     return this.activeRuns.has(missionId);
+  }
+
+  isThreadRunning(threadId: string): boolean {
+    return conversationThreadLifecycle.isRunActive(threadId);
   }
 
   getSnapshot = (): readonly ActiveMissionRunSnapshot[] => this.snapshot;
@@ -175,7 +192,9 @@ class MissionRunManager {
     } catch (err) {
       error = err;
     } finally {
+      const entry = this.activeRuns.get(missionId);
       this.activeRuns.delete(missionId);
+      entry?.releaseThreadRun?.();
       this.notify();
     }
 

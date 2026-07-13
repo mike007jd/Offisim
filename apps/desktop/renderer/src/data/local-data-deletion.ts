@@ -12,7 +12,7 @@ import { isTauriRuntime } from './adapters.js';
  * cache.
  */
 
-interface LocalDbTransactionStatement {
+export interface LocalDbTransactionStatement {
   sql: string;
   params?: unknown[];
 }
@@ -73,7 +73,39 @@ export async function deleteConversationDeep(
   // Contract C-B (rows-first): delete the DB rows atomically FIRST, then clean up
   // attachment blobs best-effort. The reverse order could delete the blobs and
   // then fail the DB write, leaving rows that reference gone files (dangling refs).
+  await localDbTransaction(conversationDeletionStatements(threadId));
+  // Best-effort FS cleanup after the DB commit — a failure here orphans blobs the
+  // DB no longer references (collectible), never a dangling reference.
+  try {
+    await deleteThreadAttachments(threadId, companyId);
+  } catch {
+    // attachment blobs orphaned; surfaced via the desktop GC, not a hard failure
+  }
+}
+
+/** Delete one Mission aggregate. Criteria, attempts, evaluations, runtime session
+ * links, and mission events are schema-owned ON DELETE CASCADE children. */
+export async function deleteMissionDeep(missionId: string): Promise<void> {
+  await localDbTransaction(missionDeletionStatements(missionId));
+}
+
+/** Atomically compensate a prepared Office Loop before its user message exists. */
+export async function deleteMaterializedLoopSend(
+  invocationId: string,
+  missionId: string,
+): Promise<void> {
   await localDbTransaction([
+    { sql: 'DELETE FROM loop_invocations WHERE invocation_id = $1', params: [invocationId] },
+    ...missionDeletionStatements(missionId),
+  ]);
+}
+
+export function missionDeletionStatements(missionId: string): LocalDbTransactionStatement[] {
+  return [{ sql: 'DELETE FROM mission WHERE mission_id = $1', params: [missionId] }];
+}
+
+export function conversationDeletionStatements(threadId: string): LocalDbTransactionStatement[] {
+  return [
     { sql: 'DELETE FROM tool_permission_approvals WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM compact_summaries WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM node_summaries WHERE thread_id = $1', params: [threadId] },
@@ -91,6 +123,10 @@ export async function deleteConversationDeep(
     { sql: 'DELETE FROM meeting_sessions WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM mcp_audit_log WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM handoff_events WHERE thread_id = $1', params: [threadId] },
+    { sql: 'DELETE FROM loop_invocations WHERE thread_id = $1', params: [threadId] },
+    // Mission children (criteria, attempts, evaluations, session links, events)
+    // are schema-owned ON DELETE CASCADE rows.
+    { sql: 'DELETE FROM mission WHERE thread_id = $1', params: [threadId] },
     {
       sql: `DELETE FROM llm_calls
             WHERE thread_id = $1
@@ -117,14 +153,7 @@ export async function deleteConversationDeep(
     { sql: 'DELETE FROM task_runs WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM graph_threads WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM chat_threads WHERE thread_id = $1', params: [threadId] },
-  ]);
-  // Best-effort FS cleanup after the DB commit — a failure here orphans blobs the
-  // DB no longer references (collectible), never a dangling reference.
-  try {
-    await deleteThreadAttachments(threadId, companyId);
-  } catch {
-    // attachment blobs orphaned; surfaced via the desktop GC, not a hard failure
-  }
+  ];
 }
 
 export async function deleteCompanyDeep(companyId: string): Promise<DeleteCompanyDeepResult> {

@@ -1,13 +1,13 @@
 import { Icon } from '@/design-system/icons/Icon.js';
 import { parseAttachment, resolvePdfWorkerSrc } from '@offisim/doc-engine';
 import { ChevronDown, ChevronUp, Search, ZoomIn, ZoomOut } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  getDocument,
   GlobalWorkerOptions,
   type PDFDocumentProxy,
   type PDFPageProxy,
+  getDocument,
 } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PreviewData } from '../preview-data.js';
 import type { ResolvedPreviewTarget } from '../preview-target.js';
 import { UnsupportedViewer } from './UnsupportedViewer.js';
@@ -97,7 +97,11 @@ function PdfCanvasPage({
     >
       <div className="off-pdf-page-meta">
         <span>Page {pageNumber}</span>
-        {size ? <span>{Math.round(size.width)} x {Math.round(size.height)}</span> : null}
+        {size ? (
+          <span>
+            {Math.round(size.width)} x {Math.round(size.height)}
+          </span>
+        ) : null}
       </div>
       <canvas ref={canvasRef} style={size ? undefined : { minWidth: 320, minHeight: 420 }} />
     </div>
@@ -142,7 +146,10 @@ export function PdfViewer({
       })
       .catch((error) => {
         if (!cancelled) {
-          setState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
+          setState({
+            status: 'error',
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       });
     return () => {

@@ -17,12 +17,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
 import { parseToolRichDetail } from '../packages/shared-types/src/index.js';
+import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 23;
+const TOTAL = 25;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -170,6 +170,64 @@ async function main(): Promise<void> {
     assert.equal(unknown.isError, true);
   });
 
+  await check('(4b) duplicate names require a stable server-qualified identity', async () => {
+    const archiveRead = { ...READ_TOOL, server: 'archive' };
+    const { tool } = build([READ_TOOL, archiveRead], noop);
+
+    const search = await tool('mcp_search_tools').execute('search-duplicates', {
+      query: 'read_file',
+    });
+    assert.match(search.content[0].text ?? '', /filesystem::read_file/);
+    assert.match(search.content[0].text ?? '', /archive::read_file/);
+
+    const filtered = await tool('mcp_search_tools').execute('search-server', {
+      query: 'read_file',
+      server: 'archive',
+    });
+    assert.match(filtered.content[0].text ?? '', /archive::read_file/);
+    assert.doesNotMatch(filtered.content[0].text ?? '', /filesystem::read_file/);
+
+    const ambiguous = await tool('mcp_describe_tool').execute('describe-ambiguous', {
+      name: 'read_file',
+    });
+    assert.equal(ambiguous.isError, true);
+    assert.match(ambiguous.content[0].text ?? '', /Ambiguous MCP tool/);
+    assert.match(ambiguous.content[0].text ?? '', /archive::read_file/);
+    assert.match(ambiguous.content[0].text ?? '', /filesystem::read_file/);
+
+    const described = await tool('mcp_describe_tool').execute('describe-qualified', {
+      name: 'read_file',
+      server: 'archive',
+    });
+    const body = JSON.parse(described.content[0].text ?? '{}');
+    assert.equal(body.server, 'archive');
+    assert.equal(body.qualifiedName, 'archive::read_file');
+
+    const qualified = await tool('mcp_describe_tool').execute('describe-qualified-name', {
+      name: 'filesystem::read_file',
+    });
+    assert.equal(JSON.parse(qualified.content[0].text ?? '{}').server, 'filesystem');
+
+    const delimiterTool = { ...READ_TOOL, server: 'archive::cold', name: 'read::file' };
+    const delimiterEnv = build([delimiterTool], noop);
+    const delimiterSearch = await delimiterEnv
+      .tool('mcp_search_tools')
+      .execute('search-delimiter', {
+        query: 'read',
+      });
+    assert.match(
+      delimiterSearch.content[0].text ?? '',
+      /archive%3A%3Acold::read%3A%3Afile/,
+      'qualified identities percent-encode both tuple members',
+    );
+    const delimiterDescribe = await delimiterEnv
+      .tool('mcp_describe_tool')
+      .execute('describe-delimiter', { name: 'archive%3A%3Acold::read%3A%3Afile' });
+    const delimiterBody = JSON.parse(delimiterDescribe.content[0].text ?? '{}');
+    assert.equal(delimiterBody.server, 'archive::cold');
+    assert.equal(delimiterBody.name, 'read::file');
+  });
+
   await check('(5) mcp_call routes to requestMcpResult and returns content', async () => {
     const calls: Array<[string, string, object]> = [];
     const req = async (server: string, t: string, args: object) => {
@@ -187,6 +245,46 @@ async function main(): Promise<void> {
     assert.equal(res.content[0].text, 'file body');
     assert.notEqual(res.isError, true);
   });
+
+  await check(
+    '(5b) duplicate-name calls fail ambiguous and route only with server identity',
+    async () => {
+      const archiveRead = { ...READ_TOOL, server: 'archive' };
+      const calls: Array<[string, string, object]> = [];
+      const { tool } = build(
+        [READ_TOOL, archiveRead],
+        async (server: string, name: string, args: object) => {
+          calls.push([server, name, args]);
+          return { ok: true, content: [{ type: 'text', text: server }] };
+        },
+      );
+
+      const ambiguous = await tool('mcp_call').execute('call-ambiguous', {
+        name: 'read_file',
+        input: { path: 'a' },
+      });
+      assert.equal(ambiguous.isError, true);
+      assert.match(ambiguous.content[0].text ?? '', /Ambiguous MCP tool/);
+      assert.deepEqual(calls, [], 'ambiguous bare names must never pick a server by array order');
+
+      const explicit = await tool('mcp_call').execute('call-explicit', {
+        name: 'read_file',
+        server: 'archive',
+        input: { path: 'b' },
+      });
+      assert.equal(explicit.content[0].text, 'archive');
+
+      const qualified = await tool('mcp_call').execute('call-qualified', {
+        name: 'filesystem::read_file',
+        input: { path: 'c' },
+      });
+      assert.equal(qualified.content[0].text, 'filesystem');
+      assert.deepEqual(calls, [
+        ['archive', 'read_file', { path: 'b' }],
+        ['filesystem', 'read_file', { path: 'c' }],
+      ]);
+    },
+  );
 
   await check('(6) mcp_call emits a neutral audit agentRun line', async () => {
     const emitted: unknown[] = [];

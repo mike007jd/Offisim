@@ -74,7 +74,7 @@ assertNoMatch(
 const agentBridgePermission = await source('apps/desktop/src-tauri/permissions/agent-bridges.toml');
 assertIncludesAll(
   agentBridgePermission,
-  ['"pi_agent_execute"', '"pi_agent_abort"', '"pi_agent_status"'],
+  ['"agent_runtime_execute"', '"agent_runtime_abort"', '"pi_agent_status"'],
   'Tauri permissions must expose the Pi Agent host commands.',
 );
 assertNoMatch(
@@ -86,7 +86,7 @@ assertNoMatch(
 const rustLib = await source('apps/desktop/src-tauri/src/lib.rs');
 assertIncludesAll(
   rustLib,
-  ['mod pi_agent_host;', 'pi_agent_execute', 'pi_agent_abort', 'pi_agent_status'],
+  ['mod pi_agent_host;', 'agent_runtime_execute', 'agent_runtime_abort', 'pi_agent_status'],
   'Rust command registry must mount only the Pi Agent host for AI execution.',
 );
 assertNoMatch(
@@ -114,7 +114,10 @@ assertNoMatch(
 );
 assertIncludesAll(
   desktopRuntime,
-  ['answerUiRequest(answer: AgentUiAnswer): Promise<void>', "await invokeCommand('agent_runtime_answer'"],
+  [
+    'answerUiRequest(answer: AgentUiAnswer): Promise<void>',
+    "await invokeCommand('agent_runtime_answer'",
+  ],
   'Agent UI answers must be awaited and failures surfaced to the approval bar.',
 );
 const answerUiRequestStart = desktopRuntime.indexOf('async answerUiRequest');
@@ -126,7 +129,7 @@ assert(
 const answerUiRequestMethod = desktopRuntime.slice(answerUiRequestStart, answerUiRequestEnd);
 assertNoMatch(
   answerUiRequestMethod,
-  /void invoke\('pi_agent_ui_response'/u,
+  /void invoke\('agent_runtime_answer'/u,
   'answerUiRequest must not fire-and-forget Pi UI responses.',
 );
 assertNoMatch(

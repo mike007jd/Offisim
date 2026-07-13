@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import type { RuntimeEvent } from '@offisim/shared-types';
 import {
+  composerAttachmentScopeKey,
+  useComposerAttachmentStore,
+} from '../apps/desktop/renderer/src/assistant/composer/composer-attachment-store.js';
+import {
   ConversationRunAlreadyActiveError,
   type ConversationRunController,
+  ConversationRunMutationLockedError,
   createConversationRunController,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
 import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
@@ -303,9 +308,8 @@ function makeEnv(
     }),
     persistMessage: async (call) => {
       persistCalls += 1;
-      // Optionally fail the FIRST persist (the loop turn's user-message write, which
-      // runs AFTER loopExecution.start succeeded) so the controller falls into
-      // failRun → saveRetryRecord — the path the retry-strip scenario exercises.
+      // Optionally fail the first durable user-message write. A Loop Mission must
+      // not have started yet at this boundary.
       if (options.failPersistFirst && persistCalls === 1) {
         throw new Error('persist failed after loop materialization');
       }
@@ -369,6 +373,117 @@ const scenarios: Array<{
   criteria: string;
   run: () => Promise<ScenarioEvidence>;
 }> = [
+  {
+    name: 'conversation mutation lock blocks submit and retry during archive/delete',
+    criteria:
+      'Pass when an idle thread can be locked, submit and retry are rejected while locked without starting Pi, and both succeed after the mutation releases it.',
+    run: async () => {
+      const env = makeEnv();
+      const release = env.controller.acquireMutationLock('thread-1');
+      assert.ok(release);
+      await assert.rejects(() => submitDefault(env.controller), ConversationRunMutationLockedError);
+      release();
+      await submitDefault(env.controller);
+      await waitFor(
+        'post-mutation run complete',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+
+      const retryEnv = makeEnv();
+      let attempt = 0;
+      retryEnv.runtime.onExecute = async () => {
+        attempt += 1;
+        if (attempt === 1) throw new Error('seed a retryable failed attempt');
+        return { text: 'retry completed after mutation release' };
+      };
+      const failed = await submitDefault(retryEnv.controller);
+      await waitFor(
+        'retryable run failure',
+        () => retryEnv.controller.getSnapshot('thread-1').phase === 'failed',
+      );
+      const releaseRetry = retryEnv.controller.acquireMutationLock('thread-1');
+      assert.ok(releaseRetry);
+      await assert.rejects(
+        () => retryEnv.controller.retry('thread-1', failed.attemptId),
+        ConversationRunMutationLockedError,
+      );
+      assert.equal(retryEnv.runtime.executeCalls.length, 1, 'locked retry must not start Pi');
+      releaseRetry();
+      await retryEnv.controller.retry('thread-1', failed.attemptId);
+      await waitFor(
+        'post-mutation retry complete',
+        () => retryEnv.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      return {
+        submitBlockedWhileLocked: true,
+        retryBlockedWhileLocked: true,
+        completedAfterRelease: true,
+      };
+    },
+  },
+  {
+    name: 'attachment drafts are scope-isolated and survive pre-accept persistence failure',
+    criteria:
+      'Pass when project/thread B cannot see A attachments, a failed first user-message persist leaves A staged, and the successful retry consumes only A.',
+    run: async () => {
+      const scopeA = { companyId: 'co', projectId: 'prj-a', threadId: 'thread-1' };
+      const scopeB = { companyId: 'co', projectId: 'prj-b', threadId: 'thread-b' };
+      const keyA = composerAttachmentScopeKey(scopeA);
+      const keyB = composerAttachmentScopeKey(scopeB);
+      useComposerAttachmentStore.setState({ stagedByScope: {}, storageAvailable: true });
+      await useComposerAttachmentStore
+        .getState()
+        .stageFiles(scopeA, [{ name: 'private-a.md', bytes: 12, type: 'text/markdown' }]);
+      await useComposerAttachmentStore
+        .getState()
+        .stageFiles(scopeB, [{ name: 'brief-b.txt', bytes: 9, type: 'text/plain' }]);
+      assert.deepEqual(
+        useComposerAttachmentStore.getState().stagedByScope[keyA]?.map((item) => item.name),
+        ['private-a.md'],
+      );
+      assert.deepEqual(
+        useComposerAttachmentStore.getState().stagedByScope[keyB]?.map((item) => item.name),
+        ['brief-b.txt'],
+      );
+
+      const env = makeEnv({ failPersistFirst: true });
+      const stagedA = useComposerAttachmentStore.getState().stagedByScope[keyA] ?? [];
+      await submitDefault(env.controller, {
+        stagedAttachments: stagedA,
+        onMessagePersisted: () =>
+          useComposerAttachmentStore.getState().consumeStaged(
+            scopeA,
+            stagedA.map((item) => item.id),
+          ),
+      });
+      await waitFor(
+        'failed pre-accept persist',
+        () => env.controller.getSnapshot(scopeA.threadId).phase === 'failed',
+      );
+      assert.equal(useComposerAttachmentStore.getState().stagedByScope[keyA]?.length, 1);
+
+      await submitDefault(env.controller, {
+        text: 'Retry with the retained attachment',
+        stagedAttachments: stagedA,
+        onMessagePersisted: () =>
+          useComposerAttachmentStore.getState().consumeStaged(
+            scopeA,
+            stagedA.map((item) => item.id),
+          ),
+      });
+      await waitFor(
+        'attachment retry complete',
+        () => env.controller.getSnapshot(scopeA.threadId).phase === 'completed',
+      );
+      assert.equal(useComposerAttachmentStore.getState().stagedByScope[keyA], undefined);
+      assert.deepEqual(
+        useComposerAttachmentStore.getState().stagedByScope[keyB]?.map((item) => item.name),
+        ['brief-b.txt'],
+      );
+      useComposerAttachmentStore.setState({ stagedByScope: {} });
+      return { failedDraftRetained: true, retryConsumedAOnly: true, bCount: 1 };
+    },
+  },
   {
     name: 'office success with attachment, reasoning, content and persistence',
     criteria:
@@ -538,25 +653,26 @@ const scenarios: Array<{
     },
   },
   {
-    name: 'PR-10: retry of a Loop-backed turn NEVER re-materializes (loopExecution stripped from retry record)',
+    name: 'Loop persist failure compensates before paid start and retry rematerializes once',
     criteria:
-      'Pass when a Loop turn whose message-persist fails AFTER loopExecution.start succeeded leaves a retry record with NO loopExecution: retry runs a plain agent (start called exactly once, no second invocation/mission), never a re-materialize.',
+      'Pass when durable message failure starts no Mission, compensates the prepared records, and retry creates exactly one replacement before starting it.',
     run: async () => {
-      // Persist fails on the first (loop) turn, AFTER start() already ran — so the
-      // controller falls into failRun → saveRetryRecord. The retry must not re-fire
-      // start (which would double-materialize) nor silently run a plain agent on a
-      // mission-linked message — it runs a clean plain retry because the record was
-      // stripped of loopExecution.
       const env = makeEnv({ failPersistFirst: true });
+      let materializeCalls = 0;
       let startCalls = 0;
-      env.runtime.onExecute = async (input) => {
-        env.runtime.emitContent(input, 'plain retry reply');
-        return { text: 'plain retry reply' };
-      };
+      let compensateCalls = 0;
       await submitDefault(env.controller, {
         loopExecution: {
-          start: async () => {
-            startCalls += 1;
+          materialize: async () => {
+            materializeCalls += 1;
+            return {
+              start: async () => {
+                startCalls += 1;
+              },
+              compensate: async () => {
+                compensateCalls += 1;
+              },
+            };
           },
         },
       });
@@ -564,24 +680,156 @@ const scenarios: Array<{
         'loop turn failed on persist',
         () => env.controller.getSnapshot('thread-1').phase === 'failed',
       );
-      assert.equal(startCalls, 1, 'loopExecution.start ran once on the original send');
+      assert.equal(materializeCalls, 1);
+      assert.equal(compensateCalls, 1, 'failed persist compensated the prepared records');
+      assert.equal(startCalls, 0, 'paid Mission never starts before durable message persistence');
       const failedSnapshot = env.controller.getSnapshot('thread-1');
 
-      // Retry the failed loop turn. It must run the plain agent path (executeAttempt),
-      // NOT re-fire start.
       await env.controller.retry('thread-1', failedSnapshot.attemptId ?? '');
       await waitFor(
-        'retry completed via plain agent',
+        'retry completed via replacement Mission',
         () => env.controller.getSnapshot('thread-1').phase === 'completed',
       );
-      assert.equal(startCalls, 1, 'retry did NOT re-fire loopExecution.start (no re-materialize)');
-      const snapshot = env.controller.getSnapshot('thread-1');
-      assert.equal(
-        snapshot.liveMessages[1]?.body,
-        'plain retry reply',
-        'retry ran the plain agent',
+      assert.equal(materializeCalls, 2, 'retry creates one replacement after compensation');
+      assert.equal(compensateCalls, 1);
+      assert.equal(startCalls, 1, 'only the durably-visible replacement Mission starts');
+      assert.equal(env.runtime.executeCalls.length, 0, 'Loop retry never degrades into plain chat');
+      return { materializeCalls, compensateCalls, startCalls };
+    },
+  },
+  {
+    name: 'Loop start failure retries the same ready Mission without duplicate materialization',
+    criteria:
+      'Pass when start failure leaves the durable message and ready Mission recoverable, and retry starts that exact Mission without another message write or materialization.',
+    run: async () => {
+      const env = makeEnv();
+      let materializeCalls = 0;
+      let startCalls = 0;
+      let compensateCalls = 0;
+      await submitDefault(env.controller, {
+        loopExecution: {
+          materialize: async () => {
+            materializeCalls += 1;
+            return {
+              start: async () => {
+                startCalls += 1;
+                if (startCalls === 1) throw new Error('runtime assembly unavailable');
+              },
+              compensate: async () => {
+                compensateCalls += 1;
+              },
+            };
+          },
+        },
+      });
+      await waitFor(
+        'recoverable Loop start failure',
+        () => env.controller.getSnapshot('thread-1').phase === 'failed',
       );
-      return { startCalls, retryPhase: snapshot.phase };
+      assert.equal(materializeCalls, 1);
+      assert.equal(startCalls, 1);
+      assert.equal(compensateCalls, 0, 'durable message keeps its ready Mission linked');
+      assert.equal(env.persisted.length, 1, 'user message is already durable');
+
+      const failedSnapshot = env.controller.getSnapshot('thread-1');
+      await env.controller.retry('thread-1', failedSnapshot.attemptId ?? '');
+      await waitFor(
+        'same ready Mission starts on retry',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      assert.equal(materializeCalls, 1, 'retry does not create a second Mission');
+      assert.equal(startCalls, 2, 'retry calls start on the existing prepared Mission');
+      assert.equal(env.persisted.length, 1, 'retry does not duplicate the durable user message');
+      assert.equal(env.runtime.executeCalls.length, 0);
+      return { materializeCalls, startCalls, persistedMessages: env.persisted.length };
+    },
+  },
+  {
+    name: 'Stop while Loop materialization is pending compensates without persist or paid start',
+    criteria:
+      'Pass when Stop wins a deferred materialization race, the returned preparation is compensated, and neither the user message nor Mission run starts.',
+    run: async () => {
+      const env = makeEnv();
+      const materializeStarted = new Deferred<void>();
+      const releaseMaterialize = new Deferred<void>();
+      let compensateCalls = 0;
+      let startCalls = 0;
+      await submitDefault(env.controller, {
+        loopExecution: {
+          materialize: async () => {
+            materializeStarted.resolve(undefined);
+            await releaseMaterialize.promise;
+            return {
+              start: async () => {
+                startCalls += 1;
+              },
+              compensate: async () => {
+                compensateCalls += 1;
+              },
+            };
+          },
+        },
+      });
+      await materializeStarted.promise;
+      await env.controller.stopAndWait('thread-1');
+      releaseMaterialize.resolve(undefined);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      assert.equal(compensateCalls, 1);
+      assert.equal(startCalls, 0);
+      assert.equal(env.persisted.length, 0);
+      assert.equal(env.controller.getSnapshot('thread-1').phase, 'interrupted');
+      return { compensateCalls, startCalls, persistedMessages: env.persisted.length };
+    },
+  },
+  {
+    name: 'Stop while Loop message persistence is pending retains one recoverable ready Mission',
+    criteria:
+      'Pass when a deferred durable write resolves after Stop, no Mission starts, and retry starts the same prepared Mission without another materialization or message write.',
+    run: async () => {
+      const env = makeEnv();
+      const persistStarted = new Deferred<void>();
+      const releasePersist = new Deferred<void>();
+      let materializeCalls = 0;
+      let persistCalls = 0;
+      let startCalls = 0;
+      const handle = await submitDefault(env.controller, {
+        persistMessage: async () => {
+          persistCalls += 1;
+          persistStarted.resolve(undefined);
+          await releasePersist.promise;
+        },
+        loopExecution: {
+          materialize: async () => {
+            materializeCalls += 1;
+            return {
+              start: async () => {
+                startCalls += 1;
+              },
+              compensate: async () => {},
+            };
+          },
+        },
+      });
+      await persistStarted.promise;
+      await env.controller.stopAndWait('thread-1');
+      releasePersist.resolve(undefined);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      assert.equal(materializeCalls, 1);
+      assert.equal(persistCalls, 1);
+      assert.equal(startCalls, 0, 'Stop after durable write still blocks paid start');
+      assert.equal(env.controller.getSnapshot('thread-1').phase, 'interrupted');
+
+      await env.controller.retry('thread-1', handle.attemptId);
+      await waitFor(
+        'stopped ready Mission starts on explicit retry',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      assert.equal(materializeCalls, 1, 'retry reuses the exact ready Mission');
+      assert.equal(persistCalls, 1, 'durable message is not written twice');
+      assert.equal(startCalls, 1);
+      return { materializeCalls, persistCalls, startCalls };
     },
   },
   {

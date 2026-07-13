@@ -21,6 +21,10 @@ import type {
   LoopRevision,
   LoopSkillBinding,
 } from '@offisim/shared-types';
+import {
+  DEFAULT_MISSION_EXECUTION_BUDGET,
+  resolveMissionExecutionBudget,
+} from '../runtime/mission/mission-budget.js';
 
 /** A compiled Mission criterion the packet carries (mirrors mission_criterion). */
 export interface CompiledMissionCriterion {
@@ -137,7 +141,25 @@ export function buildLoopExecutionPacket(
     revisionId: revision.revisionId,
   });
 
-  const budgetJson = JSON.stringify(ir.budget ?? {});
+  const budgetJson = JSON.stringify(
+    resolveMissionExecutionBudget(
+      ir.budget
+        ? {
+            maxRepairsPerCriterion: ir.budget.maxFixWavesPerGate,
+            maxAttempts: DEFAULT_MISSION_EXECUTION_BUDGET.maxAttempts,
+            maxConcurrentAgents: ir.budget.maxConcurrentAgents,
+            maxTotalAgents: ir.budget.maxTotalAgents,
+            maxRecursionDepth: ir.budget.maxRecursionDepth,
+            ...(ir.budget.tokenCeiling === undefined
+              ? {}
+              : { tokenBudget: ir.budget.tokenCeiling }),
+            ...(ir.budget.wallClockMinutes === undefined
+              ? {}
+              : { wallClockMinutes: ir.budget.wallClockMinutes }),
+          }
+        : undefined,
+    ),
+  );
 
   return {
     loopId: revision.loopId,

@@ -8,7 +8,7 @@ Offisim has one active AI runtime: Pi Agent.
 
 The desktop renderer uses `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`
 as a thin client. It sends user turns to the Tauri command
-`pi_agent_execute`, receives Pi session events, and projects them into:
+`agent_runtime_execute`, receives Pi session events, and projects them into:
 
 - assistant-ui message state
 - run/tool telemetry

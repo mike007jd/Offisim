@@ -14,6 +14,7 @@ import {
   classifyRunFailure,
 } from '@offisim/shared-types';
 import { Channel } from '@tauri-apps/api/core';
+import { AgentRunPersistenceQueue } from './agent-run-persistence-queue.js';
 import {
   MISSION_EVALUATION_SUBMITTED_EVENT,
   type MissionEvaluationSubmittedPayload,
@@ -37,6 +38,7 @@ export type { MissionEvaluationSubmittedPayload };
 import { resolveThreadMode } from './pi-thread-mode-store.js';
 import { resolveThreadThinkingOverride } from './pi-thread-thinking-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
+import { persistRunCostAndNotify } from './run-cost-refresh.js';
 
 /**
  * Frozen, additive capability profile for the agent runtime request (PR-03).
@@ -117,6 +119,17 @@ export interface DesktopAgentRunInput {
   missionContextJson?: string;
   /** Deterministic Task Board dispatch through the existing supervisor.runSingle lane. */
   directDelegation?: DirectDelegationInput;
+  /**
+   * Optional per-run delegation caps supplied by a higher-level controller.
+   * The Node host validates and clamps these against its own hard defaults;
+   * this renderer type only carries the opaque request packet across Tauri.
+   */
+  delegationLimits?: {
+    maxDepth?: number;
+    maxParallelPerDelegation?: number;
+    maxTotalChildren?: number;
+    maxTotalTokens?: number;
+  };
 }
 
 export interface DesktopAgentRunResult {
@@ -130,6 +143,9 @@ export interface DesktopAgentRunResult {
    * queue. Absent when the run threw before returning usage.
    */
   usage?: AgentRunUsage;
+  /** Root + delegated-tree usage for synchronous Mission budget debit only.
+   *  Never persist this as root usage: child rows are already rolled up there. */
+  budgetUsage?: AgentRunUsage;
 }
 
 /** The user's answer to an `agent.ui.request`. `requestId` locates the paused run;
@@ -278,21 +294,31 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   // the invoke with empty text (not an error), so execute() consults this to
   // classify the root run's terminal as cancelled rather than completed/failed.
   private readonly abortedRequests = new Set<string>();
-  // Serializes all agent_runs writes in event-arrival order. agentRun events
-  // stream in order on the Channel, but each persist is async — chaining them
-  // guarantees a child's run.started row is created before its run.completed
-  // update (and the root row before any child), instead of racing as bare
-  // fire-and-forget writes would. Each step self-guards, so one failure never
-  // breaks the chain or the live run.
-  private persistQueue: Promise<void> = Promise.resolve();
+  // Serializes agent-run persistence in event order, catches failures at each
+  // task boundary, and coalesces high-frequency stream cursors per run.
+  private readonly persistQueue = new AgentRunPersistenceQueue();
 
   constructor(
     private readonly companyId: string,
     private readonly repos: RuntimeRepositories,
   ) {}
 
-  private enqueuePersist(work: () => Promise<void>): void {
-    this.persistQueue = this.persistQueue.then(work);
+  private enqueuePersist(work: () => Promise<void>, label = 'agent runtime persistence'): void {
+    this.persistQueue.enqueue(label, work);
+  }
+
+  private queueRunStreamCursor(
+    runId: string,
+    context: Partial<PersistedRunContext>,
+    cursor: number,
+  ): void {
+    this.persistQueue.queueCursor(runId, cursor, (latest) =>
+      this.persistRunStreamCursor(runId, context, latest),
+    );
+  }
+
+  private flushRunStreamCursor(runId: string): void {
+    this.persistQueue.flushCursor(runId);
   }
 
   private async persistRunStreamCursor(
@@ -302,8 +328,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   ): Promise<void> {
     const nextCursor = normalizeStreamCursor(cursor);
     if (nextCursor <= normalizeStreamCursor(context.streamCursor)) return;
+    const nextContext = { ...context, streamCursor: nextCursor };
+    await this.repos.agentRuns.updateRuntimeContext(runId, JSON.stringify(nextContext));
     context.streamCursor = nextCursor;
-    await this.repos.agentRuns?.updateRuntimeContext(runId, JSON.stringify(context));
   }
 
   async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
@@ -312,7 +339,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
   async resume(runId: string): Promise<DesktopAgentRunResult> {
     const repo = this.repos.agentRuns;
-    if (!repo) throw new Error('Cannot resume Agent runtime run: agentRuns repo is unavailable.');
     const row = await repo.findById(runId);
     if (!row || row.company_id !== this.companyId) {
       throw new Error('Cannot resume Agent runtime run: run not found for this company.');
@@ -386,7 +412,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
   async reattachLiveRuns(): Promise<void> {
     const repo = this.repos.agentRuns;
-    if (!repo) return;
     const rows = await repo.findByStatus(this.companyId, ['running']).catch(() => []);
     for (const row of rows) {
       if (row.parent_run_id) continue;
@@ -423,29 +448,22 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       const onEvent = new Channel<PiAgentHostEvent>();
       onEvent.onmessage = (event) => {
         if (event.kind === 'streamCursor') {
-          this.enqueuePersist(() =>
-            this.persistRunStreamCursor(row.run_id, runtimeContext, event.cursor),
-          );
+          this.queueRunStreamCursor(row.run_id, runtimeContext, event.cursor);
           return;
         }
         if (event.kind === 'started') {
           const actualModel = hostModelRef(event.model);
           if (actualModel && runtimeContext.model !== actualModel) {
             runtimeContext.model = actualModel;
-            this.enqueuePersist(
-              () =>
-                this.repos.agentRuns?.updateRuntimeContext(
-                  row.run_id,
-                  JSON.stringify(runtimeContext),
-                ) ?? Promise.resolve(),
+            this.enqueuePersist(() =>
+              this.repos.agentRuns.updateRuntimeContext(row.run_id, JSON.stringify(runtimeContext)),
             );
           }
           if (event.sessionFile) {
-            this.enqueuePersist(
-              () =>
-                this.repos.agentRuns?.updateStatus(row.run_id, 'running', {
-                  sessionFile: event.sessionFile,
-                }) ?? Promise.resolve(),
+            this.enqueuePersist(() =>
+              this.repos.agentRuns.updateStatus(row.run_id, 'running', {
+                sessionFile: event.sessionFile,
+              }),
             );
           }
           return;
@@ -589,6 +607,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           return;
         }
         if (event.kind === 'result') {
+          this.flushRunStreamCursor(row.run_id);
           emitRootBus(
             rootRun('run.completed', {
               status: 'completed',
@@ -605,6 +624,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           return;
         }
         if (event.kind === 'error') {
+          this.flushRunStreamCursor(row.run_id);
           // A host error message is this lane's free-text ORIGIN — classify the
           // typed kind here (a provider 429 is token strain, not machinery),
           // defaulting to 'runtime' for transport/host failures.
@@ -701,29 +721,25 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     const onEvent = new Channel<PiAgentHostEvent>();
     onEvent.onmessage = (event) => {
       if (event.kind === 'streamCursor') {
-        this.enqueuePersist(() =>
-          this.persistRunStreamCursor(runScope.runId, runtimeContext, event.cursor),
-        );
+        this.queueRunStreamCursor(runScope.runId, runtimeContext, event.cursor);
         return;
       }
       if (event.kind === 'started') {
         const actualModel = hostModelRef(event.model);
         if (actualModel && runtimeContext.model !== actualModel) {
           runtimeContext.model = actualModel;
-          this.enqueuePersist(
-            () =>
-              this.repos.agentRuns?.updateRuntimeContext(
-                runScope.runId,
-                JSON.stringify(runtimeContext),
-              ) ?? Promise.resolve(),
+          this.enqueuePersist(() =>
+            this.repos.agentRuns.updateRuntimeContext(
+              runScope.runId,
+              JSON.stringify(runtimeContext),
+            ),
           );
         }
         if (event.sessionFile) {
-          this.enqueuePersist(
-            () =>
-              this.repos.agentRuns?.updateStatus(runScope.runId, 'running', {
-                sessionFile: event.sessionFile,
-              }) ?? Promise.resolve(),
+          this.enqueuePersist(() =>
+            this.repos.agentRuns.updateStatus(runScope.runId, 'running', {
+              sessionFile: event.sessionFile,
+            }),
           );
         }
         return;
@@ -899,12 +915,14 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
       if (event.kind === 'result') {
         finalText = event.response.text || finalText;
+        this.flushRunStreamCursor(runScope.runId);
         this.enqueuePersist(() =>
           this.reconcileRoot(runScope.runId, 'completed', event.response.usage),
         );
         return;
       }
       if (event.kind === 'error') {
+        this.flushRunStreamCursor(runScope.runId);
         channelError = new Error(event.message);
       }
     };
@@ -941,12 +959,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         resolvedThinkingLevel = runtimeSelection.thinkingLevel;
         runtimeContext.model = resolvedModel ?? null;
         runtimeContext.thinkingLevel = resolvedThinkingLevel ?? null;
-        this.enqueuePersist(
-          () =>
-            this.repos.agentRuns?.updateRuntimeContext(
-              runScope.runId,
-              JSON.stringify(runtimeContext),
-            ) ?? Promise.resolve(),
+        this.enqueuePersist(() =>
+          this.repos.agentRuns.updateRuntimeContext(runScope.runId, JSON.stringify(runtimeContext)),
         );
       }
       const mcpTools = await buildMcpScope(
@@ -987,6 +1001,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           missionContextJson: input.missionContextJson?.trim() || undefined,
           mcpTools,
           directDelegation: input.directDelegation,
+          ...(input.delegationLimits !== undefined
+            ? { delegationLimits: input.delegationLimits }
+            : {}),
         },
         onEvent,
       })) as PiAgentHostResponse;
@@ -994,6 +1011,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // reconcileRoot (children come from their own rows). Only in scope in this
       // try-branch; the catch branch's invoke threw before returning.
       const rootUsage = commandResponse.usage;
+      this.flushRunStreamCursor(runScope.runId);
       if (commandResponse.reasoning && !reasoningText.trim()) {
         runtimeEventBus.emit(
           llmStreamChunk(
@@ -1024,10 +1042,12 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         );
         this.enqueuePersist(() => this.reconcileRoot(runScope.runId, 'completed', rootUsage));
       }
+      await this.persistQueue.drain();
       return {
         text: finalText,
         ...(reasoning ? { reasoning } : {}),
         ...(rootUsage ? { usage: rootUsage } : {}),
+        ...(commandResponse.budgetUsage ? { budgetUsage: commandResponse.budgetUsage } : {}),
       };
     } catch (err) {
       // A thrown invoke / channel error is a failure unless the user aborted —
@@ -1039,6 +1059,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // classify the typed kind from it (provider messages surface here too);
       // a cancel never carries a failureKind.
       const failureKind = aborted ? undefined : classifyRunFailure(message);
+      this.flushRunStreamCursor(runScope.runId);
       emitRootBus(
         aborted
           ? rootRun('run.cancelled', { status, summary: message })
@@ -1047,6 +1068,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // rootUsage isn't in scope here — the invoke threw before returning it, so
       // there is no root usage to fold in. reconcileRoot still sums any children.
       this.enqueuePersist(() => this.reconcileRoot(runScope.runId, status, undefined, failureKind));
+      await this.persistQueue.drain();
       throw err;
     } finally {
       this.abortedRequests.delete(requestId);
@@ -1068,7 +1090,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     failureKind?: RunFailureKind,
   ): Promise<void> {
     const repo = this.repos.agentRuns;
-    if (!repo) return;
     const finishedAt = new Date().toISOString();
     try {
       const children = await repo.findByRoot(rootRunId);
@@ -1080,16 +1101,25 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // so children + root sum with no double-count. Shared with the startup
       // interrupted-run reconciler (DR-003).
       const { usageJson, dangling } = aggregateSubtreeUsage(children, rootRunId, rootUsage);
-      await Promise.all([
-        repo.updateStatus(rootRunId, status, {
-          finishedAt,
-          usageJson,
-          // The root's typed failure cause is only meaningful on a failed
-          // terminal; completed/cancelled roots never write one.
-          ...(status === 'failed' ? { failureKind: failureKind ?? null } : {}),
-        }),
-        ...dangling.map((id) => repo.updateStatus(id, 'cancelled', { finishedAt })),
-      ]);
+      const root = children.find((run) => run.run_id === rootRunId);
+      await persistRunCostAndNotify({
+        persist: async () => {
+          await Promise.all([
+            repo.updateStatus(rootRunId, status, {
+              finishedAt,
+              usageJson,
+              // The root's typed failure cause is only meaningful on a failed
+              // terminal; completed/cancelled roots never write one.
+              ...(status === 'failed' ? { failureKind: failureKind ?? null } : {}),
+            }),
+            ...dangling.map((id) => repo.updateStatus(id, 'cancelled', { finishedAt })),
+          ]);
+        },
+        eventSink: runtimeEventBus,
+        companyId: this.companyId,
+        threadId: root?.thread_id ?? '',
+        runId: rootRunId,
+      });
     } catch (err) {
       console.warn('[desktop-agent-runtime] finalize root agent_run failed', { rootRunId, err });
     }
@@ -1101,7 +1131,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
    *  transient. */
   private async persistAgentRun(evt: AgentRunEvent): Promise<void> {
     const repo = this.repos.agentRuns;
-    if (!repo) return;
     try {
       if (evt.type === 'run.started') {
         const payload = evt.payload as AgentRunStartedPayload;
@@ -1148,7 +1177,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     fallbackProjectId: string | null,
   ): Promise<void> {
     const repo = this.repos.agentEvents;
-    if (!repo) return;
     const payload =
       event.payload && typeof event.payload === 'object'
         ? (event.payload as Record<string, unknown>)
@@ -1225,12 +1253,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       return;
     }
     const repo = this.repos.deliverables;
-    if (!repo) {
-      console.warn(
-        '[desktop-agent-runtime] deliverables repo unavailable — artifact not persisted',
-      );
-      return;
-    }
     const basename = path.split(/[\\/]/).pop() || path;
     try {
       await repo.insert({

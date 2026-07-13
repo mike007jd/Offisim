@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -5,11 +6,13 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use tauri::ipc::Channel;
+use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{resolved_request_cwd, HostError};
 
 use super::bridge::PiUiResponse;
-use super::payload::{collaborate_payload, enhance_payload, sidecar_payload};
+use super::payload::{collaborate_payload, enhance_payload, pi_session_dir_under, sidecar_payload};
+use super::run::{run_pi_sidecar_jsonl_inner, PiSidecarRun};
 use super::stream::{
     begin_run_stream, cleanup_terminal_run_streams, finish_run_stream, finish_run_stream_at,
     pi_run_streams_guard, publish_host_event, PI_RUN_STREAMS, PI_RUN_STREAM_TERMINAL_TTL,
@@ -63,6 +66,169 @@ fn pi_cwd_rejects_outside_project_workspace() {
     assert!(matches!(err, HostError::Request(message) if message.contains("outside")));
 }
 
+#[test]
+fn pi_session_dir_has_one_storage_segment() {
+    let base = Path::new("/home/test/.offisim/pi-agent-sessions");
+    let actual = pi_session_dir_under(base, "thread/with:unsafe");
+    let expected = base.join("thread_with_unsafe");
+
+    assert_eq!(actual, expected);
+}
+
+struct TestSidecar {
+    root: PathBuf,
+    script: PathBuf,
+    pid_file: PathBuf,
+}
+
+impl Drop for TestSidecar {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+fn test_sidecar(label: &str, body: &str) -> TestSidecar {
+    let root = temp_project_root(label);
+    let script = root.join("hostile-sidecar.mjs");
+    let pid_file = root.join("pid");
+    let pid_path = serde_json::to_string(&pid_file.to_string_lossy()).expect("encode pid path");
+    std::fs::write(
+        &script,
+        format!(
+            "import fs from 'node:fs';\nfs.writeFileSync({pid_path}, String(process.pid));\n{body}\n"
+        ),
+    )
+    .expect("write test sidecar");
+    TestSidecar {
+        root,
+        script,
+        pid_file,
+    }
+}
+
+fn sidecar_pid(sidecar: &TestSidecar) -> u32 {
+    std::fs::read_to_string(&sidecar.pid_file)
+        .expect("sidecar wrote pid")
+        .parse()
+        .expect("sidecar pid is numeric")
+}
+
+#[cfg(unix)]
+fn process_is_alive(pid: u32) -> bool {
+    let result = unsafe { libc::kill(pid as i32, 0) };
+    result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+}
+
+async fn run_test_sidecar(
+    sidecar: &TestSidecar,
+    token: CancellationToken,
+) -> Result<serde_json::Value, HostError> {
+    run_pi_sidecar_jsonl_inner::<tauri::Wry>(
+        None,
+        PiSidecarRun {
+            script_path: &sidecar.script,
+            cwd: &sidecar.root,
+            workspace_root: None,
+            env: HashMap::new(),
+            payload: serde_json::json!({ "mode": "test" }),
+            token,
+            on_event: None,
+            register_stdin: None,
+            stream_request_id: None,
+        },
+    )
+    .await
+}
+
+#[tokio::test]
+async fn pi_sidecar_success_waits_for_clean_exit() {
+    let sidecar = test_sidecar(
+        "success-cleanup",
+        r#"
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 7 }));
+console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
+"#,
+    );
+
+    let response = run_test_sidecar(&sidecar, CancellationToken::new())
+        .await
+        .expect("successful sidecar");
+    assert_eq!(response["text"], "done");
+    #[cfg(unix)]
+    assert!(!process_is_alive(sidecar_pid(&sidecar)));
+}
+
+#[tokio::test]
+async fn pi_sidecar_protocol_failure_kills_and_reaps_hostile_child() {
+    let sidecar = test_sidecar(
+        "protocol-cleanup",
+        r#"
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 7 }));
+console.log(JSON.stringify({ kind: 'tool', status: 'started', toolCallId: 'call-1' }));
+setInterval(() => {}, 1_000);
+"#,
+    );
+
+    let error = run_test_sidecar(&sidecar, CancellationToken::new())
+        .await
+        .expect_err("malformed known event must fail");
+    assert!(matches!(error, HostError::Protocol(message) if message.contains("tool")));
+    #[cfg(unix)]
+    assert!(!process_is_alive(sidecar_pid(&sidecar)));
+}
+
+#[tokio::test]
+async fn pi_sidecar_ready_mismatch_kills_and_reaps_hostile_child() {
+    let sidecar = test_sidecar(
+        "ready-cleanup",
+        r#"
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 999 }));
+setInterval(() => {}, 1_000);
+"#,
+    );
+
+    let error = run_test_sidecar(&sidecar, CancellationToken::new())
+        .await
+        .expect_err("ready mismatch must fail");
+    assert!(
+        matches!(error, HostError::Protocol(message) if message.contains("does not match runtime"))
+    );
+    #[cfg(unix)]
+    assert!(!process_is_alive(sidecar_pid(&sidecar)));
+}
+
+#[tokio::test]
+async fn pi_sidecar_abort_kills_and_reaps_hostile_child() {
+    let sidecar = test_sidecar(
+        "abort-cleanup",
+        r#"
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 7 }));
+setInterval(() => {}, 1_000);
+"#,
+    );
+    let token = CancellationToken::new();
+    let cancel = token.clone();
+    let pid_file = sidecar.pid_file.clone();
+    let cancel_task = tokio::spawn(async move {
+        for _ in 0..100 {
+            if pid_file.exists() {
+                cancel.cancel();
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        cancel.cancel();
+    });
+
+    let error = run_test_sidecar(&sidecar, token)
+        .await
+        .expect_err("cancelled sidecar must abort");
+    cancel_task.await.expect("join cancel task");
+    assert!(matches!(error, HostError::Aborted));
+    #[cfg(unix)]
+    assert!(!process_is_alive(sidecar_pid(&sidecar)));
+}
+
 // Root-usage passthrough: the Node host puts `usage` on the result-line response;
 // PiAgentHostResponse must carry it through parse + re-serialize, or solo-run
 // usage_json stays null at the renderer (the field would be silently dropped by
@@ -71,7 +237,8 @@ fn pi_cwd_rejects_outside_project_workspace() {
 fn pi_response_preserves_root_usage() {
     let value = serde_json::json!({
         "text": "done",
-        "usage": { "input": 10, "output": 5, "cost": 0.001, "turns": 1 }
+        "usage": { "input": 10, "output": 5, "cost": 0.001, "turns": 1 },
+        "budgetUsage": { "input": 1010, "output": 5, "cost": 0.021, "turns": 2 }
     });
     let response = parse_response(value).expect("decode response with usage");
     let usage = response
@@ -83,6 +250,7 @@ fn pi_response_preserves_root_usage() {
     // And it must re-serialize back out to the renderer as camelCase `usage`.
     let back = serde_json::to_value(&response).expect("re-serialize");
     assert_eq!(back["usage"]["turns"], serde_json::json!(1));
+    assert_eq!(back["budgetUsage"]["input"], serde_json::json!(1010));
 }
 
 // Wire-contract guards. The Node host (scripts/tauri-pi-agent-host.entry.mjs) emits
@@ -613,6 +781,28 @@ fn pi_request_fixture_encodes_across_languages() {
             case.mode
         );
     }
+}
+
+#[test]
+fn pi_execute_payload_omits_absent_delegation_limits() {
+    let req: PiAgentExecuteRequest = serde_json::from_value(serde_json::json!({
+        "requestId": "plain-request",
+        "text": "Plain chat",
+        "companyId": "company-1",
+        "threadId": "thread-1"
+    }))
+    .expect("decode minimal plain-chat request");
+
+    let payload = sidecar_payload(
+        &req,
+        Path::new("/fixture/project"),
+        Path::new("/fixture/sessions/thread-1"),
+        None,
+    );
+    assert!(
+        payload.get("delegationLimits").is_none(),
+        "plain-chat payload must not gain a delegationLimits key"
+    );
 }
 
 #[test]

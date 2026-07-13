@@ -1,6 +1,7 @@
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { EvaluationContext } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
+import { parsePorcelainV1ZPaths } from './git-porcelain.js';
 
 /**
  * Tauri-backed {@link EvaluationContext} (PRD §14.2 / §20.3, slice MS-005).
@@ -182,7 +183,7 @@ export function createTauriEvaluationContext(
       try {
         const result = await invokeCommand('git_exec', {
           projectId,
-          args: ['status', '--porcelain'],
+          args: ['status', '--porcelain=v1', '-z'],
           cwd: null,
         });
         // git_exec failed (non-git workspace, git missing, repo error) — the
@@ -192,7 +193,7 @@ export function createTauriEvaluationContext(
         // known boundary). `[]` here means the tree is truly clean — a real
         // outcome the evaluator treats as "no policy violation". A
         // committed-baseline diff is Tier C and out of scope.
-        return parsePorcelainPaths(result.stdout);
+        return parsePorcelainV1ZPaths(result.stdout);
       } catch {
         // Thrown invoke (git unavailable, classifier reject, etc.) — capability
         // failure, so report `null` (unknowable), never `[]` (false-clean).
@@ -202,7 +203,6 @@ export function createTauriEvaluationContext(
 
     async listArtifacts(): Promise<Array<{ kind: string; title: string; contentHash: string }>> {
       const repo = repos.deliverables;
-      if (!repo) return [];
       try {
         const rows = await repo.listByRunId(attemptRunId);
         return rows.map((row) => ({
@@ -224,24 +224,4 @@ export function createTauriEvaluationContext(
       return null;
     },
   };
-}
-
-/**
- * Parse `git status --porcelain` output into the changed paths relative to the
- * workspace root. Handles staged/unstaged markers (the first two columns) and
- * rename arrows (`R  old -> new` → the new path), mirroring the git-workbench
- * porcelain parser's path extraction.
- */
-function parsePorcelainPaths(stdout: string): string[] {
-  const paths: string[] = [];
-  for (const rawLine of stdout.split('\n')) {
-    const line = rawLine.replace(/\r$/, '');
-    if (!line || line.startsWith('##')) continue;
-    // Porcelain v1: 2 status columns + a space, then the path.
-    const pathPart = line.slice(3).trim();
-    if (!pathPart) continue;
-    const path = pathPart.includes(' -> ') ? (pathPart.split(' -> ').at(-1) ?? pathPart) : pathPart;
-    if (path) paths.push(path);
-  }
-  return paths;
 }

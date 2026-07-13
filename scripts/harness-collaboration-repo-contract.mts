@@ -190,11 +190,19 @@ interface Backend {
   repos: CollaborationServiceRepos;
 }
 
+function withAtomicBoundary(
+  repos: Omit<CollaborationServiceRepos, 'asyncTransact'>,
+): CollaborationServiceRepos {
+  return { ...repos, asyncTransact: async (fn) => fn() };
+}
+
 function betterBackend(): Backend {
   const db = new Database(':memory:');
   seed(db);
-  const repos = createCollaborationDrizzleRepos(
-    drizzleBetter(db) as BetterSQLite3Database<Record<string, never>>,
+  const repos = withAtomicBoundary(
+    createCollaborationDrizzleRepos(
+      drizzleBetter(db) as BetterSQLite3Database<Record<string, never>>,
+    ),
   );
   return { label: 'better-sqlite3', db, repos };
 }
@@ -202,7 +210,7 @@ function betterBackend(): Backend {
 function proxyBackend(): Backend {
   const db = new Database(':memory:');
   seed(db);
-  const repos = createCollaborationTauriRepos(makeProxyDb(db));
+  const repos = withAtomicBoundary(createCollaborationTauriRepos(makeProxyDb(db)));
   return { label: 'sqlite-proxy', db, repos };
 }
 

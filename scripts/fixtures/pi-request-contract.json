@@ -29,6 +29,12 @@
           }
         ],
         "missionContextJson": "{\"missionId\":\"mission-1\"}",
+        "delegationLimits": {
+          "maxDepth": 1,
+          "maxParallelPerDelegation": 2,
+          "maxTotalChildren": 8,
+          "maxTotalTokens": 100000
+        },
         "directDelegation": {
           "employeeId": "employee-2",
           "objective": "Address the review feedback",
@@ -84,6 +90,12 @@
           }
         ],
         "missionContextJson": "{\"missionId\":\"mission-1\"}",
+        "delegationLimits": {
+          "maxDepth": 1,
+          "maxParallelPerDelegation": 2,
+          "maxTotalChildren": 8,
+          "maxTotalTokens": 100000
+        },
         "directDelegation": {
           "employeeId": "employee-2",
           "objective": "Address the review feedback",
@@ -134,6 +146,12 @@
           }
         ],
         "missionContextJson": "{\"missionId\":\"mission-1\"}",
+        "delegationLimits": {
+          "maxDepth": 1,
+          "maxParallelPerDelegation": 2,
+          "maxTotalChildren": 8,
+          "maxTotalTokens": 100000
+        },
         "directDelegation": {
           "employeeId": "employee-2",
           "objective": "Address the review feedback",

@@ -93,8 +93,8 @@ function makeDeps(): LoopServiceDeps {
 function freshSystem() {
   const repos = createMemoryRepositories();
   const loopRepos: LoopServiceRepos = {
-    loopDefinitions: repos.loopDefinitions!,
-    loopRevisions: repos.loopRevisions!,
+    loopDefinitions: repos.loopDefinitions,
+    loopRevisions: repos.loopRevisions,
     loopSkillBindings: repos.loopSkillBindings!,
     loopInvocations: repos.loopInvocations!,
   };

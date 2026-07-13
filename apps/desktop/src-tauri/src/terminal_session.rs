@@ -13,7 +13,7 @@ const TERMINAL_EVENT_NAME: &str = "offisim-terminal-session-event-v1";
 const BYTE_RING_CAPACITY: usize = 2 * 1024 * 1024;
 const READ_CHUNK_BYTES: usize = 32 * 1024;
 const MAX_WRITE_BYTES: usize = 64 * 1024;
-const MAX_WRITE_BASE64_CHARS: usize = ((MAX_WRITE_BYTES + 2) / 3) * 4;
+const MAX_WRITE_BASE64_CHARS: usize = MAX_WRITE_BYTES.div_ceil(3) * 4;
 const MIN_TERMINAL_DIMENSION: u16 = 1;
 const MAX_TERMINAL_DIMENSION: u16 = 1_000;
 const MAX_SESSION_ID_BYTES: usize = 128;
@@ -126,21 +126,11 @@ struct RetainedChunk {
     bytes: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct ByteRing {
     chunks: VecDeque<RetainedChunk>,
     retained_bytes: usize,
     end_cursor: u64,
-}
-
-impl Default for ByteRing {
-    fn default() -> Self {
-        Self {
-            chunks: VecDeque::new(),
-            retained_bytes: 0,
-            end_cursor: 0,
-        }
-    }
 }
 
 impl ByteRing {
@@ -502,6 +492,16 @@ pub struct TerminalSessionRegistry {
     inner: Arc<RegistryInner>,
 }
 
+struct NativeSessionSpec {
+    session_id: String,
+    scope: TerminalSessionScope,
+    cwd: PathBuf,
+    cols: u16,
+    rows: u16,
+    event_sink: EventSink,
+    audit_sink: AuditSink,
+}
+
 impl Default for TerminalSessionRegistry {
     fn default() -> Self {
         Self {
@@ -519,16 +519,16 @@ impl Drop for TerminalSessionRegistry {
 }
 
 impl TerminalSessionRegistry {
-    fn create_native(
-        &self,
-        session_id: String,
-        scope: TerminalSessionScope,
-        cwd: PathBuf,
-        cols: u16,
-        rows: u16,
-        event_sink: EventSink,
-        audit_sink: AuditSink,
-    ) -> Result<Arc<TerminalSession>, String> {
+    fn create_native(&self, spec: NativeSessionSpec) -> Result<Arc<TerminalSession>, String> {
+        let NativeSessionSpec {
+            session_id,
+            scope,
+            cwd,
+            cols,
+            rows,
+            event_sink,
+            audit_sink,
+        } = spec;
         validate_session_id(&session_id)?;
         validate_size(cols, rows)?;
         let size = PtySize {
@@ -671,15 +671,15 @@ pub async fn terminal_session_create(
 ) -> Result<TerminalSessionSnapshot, String> {
     validate_scope_fields(&scope)?;
     let cwd = validate_scope_and_workspace(&app, &scope).await?;
-    let session = registry.create_native(
+    let session = registry.create_native(NativeSessionSpec {
         session_id,
         scope,
         cwd,
         cols,
         rows,
-        event_sink_for(&app),
-        native_audit_sink(),
-    )?;
+        event_sink: event_sink_for(&app),
+        audit_sink: native_audit_sink(),
+    })?;
     Ok(session.snapshot(None))
 }
 
@@ -1160,15 +1160,15 @@ mod tests {
         let dir = TestDir::new("scope");
         let (events, audits) = sinks();
         let session = registry
-            .create_native(
-                "scope-session".to_string(),
-                scope("a"),
-                dir.0.clone(),
-                80,
-                24,
-                events,
-                audits,
-            )
+            .create_native(NativeSessionSpec {
+                session_id: "scope-session".to_string(),
+                scope: scope("a"),
+                cwd: dir.0.clone(),
+                cols: 80,
+                rows: 24,
+                event_sink: events,
+                audit_sink: audits,
+            })
             .expect("create terminal");
         assert!(registry.get_scoped("scope-session", &scope("b")).is_err());
         assert!(registry.take_scoped("scope-session", &scope("b")).is_err());
@@ -1193,15 +1193,15 @@ mod tests {
         let dir = TestDir::new("roundtrip");
         let (events, audits) = sinks();
         let session = registry
-            .create_native(
-                "roundtrip-session".to_string(),
-                scope("roundtrip"),
-                dir.0.clone(),
-                80,
-                24,
-                events,
-                audits,
-            )
+            .create_native(NativeSessionSpec {
+                session_id: "roundtrip-session".to_string(),
+                scope: scope("roundtrip"),
+                cwd: dir.0.clone(),
+                cols: 80,
+                rows: 24,
+                event_sink: events,
+                audit_sink: audits,
+            })
             .expect("create terminal");
         session
             .resize(PtySize {
@@ -1232,15 +1232,15 @@ mod tests {
         let dir = TestDir::new("close");
         let (events, audits) = sinks();
         let session = registry
-            .create_native(
-                "close-session".to_string(),
-                scope("close"),
-                dir.0.clone(),
-                80,
-                24,
-                events,
-                audits,
-            )
+            .create_native(NativeSessionSpec {
+                session_id: "close-session".to_string(),
+                scope: scope("close"),
+                cwd: dir.0.clone(),
+                cols: 80,
+                rows: 24,
+                event_sink: events,
+                audit_sink: audits,
+            })
             .expect("create terminal");
         let pid = session.process_group_id.expect("terminal process group");
         session.close();
@@ -1261,15 +1261,15 @@ mod tests {
             let registry = TerminalSessionRegistry::default();
             let (events, audits) = sinks();
             let session = registry
-                .create_native(
-                    "drop-session".to_string(),
-                    scope("drop"),
-                    dir.0.clone(),
-                    80,
-                    24,
-                    events,
-                    audits,
-                )
+                .create_native(NativeSessionSpec {
+                    session_id: "drop-session".to_string(),
+                    scope: scope("drop"),
+                    cwd: dir.0.clone(),
+                    cols: 80,
+                    rows: 24,
+                    event_sink: events,
+                    audit_sink: audits,
+                })
                 .expect("create terminal");
             session.process_group_id.expect("terminal process group")
         };

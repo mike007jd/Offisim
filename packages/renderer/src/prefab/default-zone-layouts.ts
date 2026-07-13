@@ -20,12 +20,7 @@ export interface DefaultPrefabPlacement {
   rotation?: 0 | 90 | 180 | 270;
 }
 
-type ZoneLayoutType =
-  | 'department'
-  | 'library'
-  | 'rest_area'
-  | 'meeting_room'
-  | 'server_room';
+type ZoneLayoutType = 'department' | 'library' | 'rest_area' | 'meeting_room' | 'server_room';
 
 // ── Layout generators ───────────────────────────────────────────
 

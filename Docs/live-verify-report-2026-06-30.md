@@ -7,6 +7,7 @@
 - Live artifact: `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`.
 - Data mode: sanitized-local.
 - Evidence dir: `Docs/evidence/live-verify-2026-06-30/`.
+- Evidence availability: historical local-only screenshots and logs are ignored and are not available from a fresh clone; the tracked manifest records this past run and is not current release evidence.
 - Protected actions: production data, paid calls, credentials, model downloads, publish, install, merge/discard worktrees, irreversible delete.
 - Decision: verify the release `.app` itself with Computer Use after release build and core gates. Dev webview/browser checks are not final evidence.
 

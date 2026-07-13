@@ -14,7 +14,7 @@ use crate::agent_host_runtime::HostError;
 
 /// Ask mode: live stdin writers for running Pi hosts, keyed by request id. While
 /// a host pauses a tool awaiting the user's answer to a Pi extension-UI prompt,
-/// `pi_agent_ui_response` looks the writer up here and writes a one-line response
+/// `agent_runtime_answer` looks the writer up here and writes a one-line response
 /// back to the child's stdin. The entry is inserted when the run starts and
 /// removed when it ends, which drops the last handle and closes the child's
 /// stdin (EOF).
@@ -272,7 +272,7 @@ async fn run_worktree_op(
             let path = worktree_arg(&args, "path")?;
             let cwd = PathBuf::from(path);
             let result = crate::git::run_git_validated(
-                vec!["status".into(), "--porcelain".into()],
+                vec!["status".into(), "--porcelain=v1".into(), "-z".into()],
                 root,
                 Some(&cwd),
             )
@@ -421,24 +421,54 @@ fn parse_line_paths(stdout: &str) -> Vec<String> {
         .collect()
 }
 
-/// Paths from `git status --porcelain` v1 output: strip the two status columns
-/// and the separator; a rename entry (`R  old -> new`) yields the new side.
+/// Paths from `git status --porcelain=v1 -z`. Rename/copy output is
+/// `target\0source\0`; both sides are required by the explicit-pathspec add.
 fn parse_porcelain_paths(stdout: &str) -> Vec<String> {
+    let fields = stdout.split('\0').collect::<Vec<_>>();
     let mut paths = Vec::new();
-    for line in stdout.lines() {
-        if line.len() <= 3 || line.starts_with("##") {
+    let mut index = 0;
+    while index < fields.len() {
+        let record = fields[index];
+        index += 1;
+        if record.len() < 4 {
             continue;
         }
-        let entry = line[3..].trim();
-        let path = match entry.split_once(" -> ") {
-            Some((_, renamed)) => renamed,
-            None => entry,
-        };
+
+        let status = &record[..2];
+        let path = &record[3..];
         if !path.is_empty() {
             paths.push(path.to_string());
         }
+
+        if status.contains('R') || status.contains('C') {
+            if let Some(source_path) = fields.get(index).filter(|path| !path.is_empty()) {
+                paths.push((*source_path).to_string());
+            }
+            index += 1;
+        }
     }
+    paths.dedup();
     paths
+}
+
+#[cfg(test)]
+mod porcelain_tests {
+    use super::parse_porcelain_paths;
+
+    #[test]
+    fn nul_porcelain_preserves_exact_paths_and_both_rename_sides() {
+        assert_eq!(
+            parse_porcelain_paths(
+                "?? docs/file with space.md\0 M 中文/\"quoted\".md\0R  new name.md\0old name.md\0"
+            ),
+            vec![
+                "docs/file with space.md",
+                "中文/\"quoted\".md",
+                "new name.md",
+                "old name.md",
+            ]
+        );
+    }
 }
 
 fn parse_conflict_paths(stdout: &str, stderr: &str) -> Vec<String> {
@@ -553,8 +583,7 @@ pub(super) struct PiUiResponse {
 /// paused Pi extension-UI prompt back to the running host by writing a one-line
 /// response to its stdin. `request_id` locates the run; `id` matches the host's
 /// `uiRequest`. A missing request id means the run already ended (the answer is
-/// moot) — not an error. Both `pi_agent_ui_response` (back-compat) and
-/// `agent_runtime_answer` (gateway) call this verbatim.
+/// moot) — not an error. `agent_runtime_answer` calls this verbatim.
 pub(super) async fn ui_response_impl(
     request_id: String,
     id: String,

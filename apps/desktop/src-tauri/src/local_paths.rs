@@ -601,21 +601,21 @@ async fn open_path_in_file_manager(target: &Path) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let mut command = {
         let mut cmd = Command::new("open");
-        cmd.arg(&target);
+        cmd.arg(target);
         cmd
     };
 
     #[cfg(target_os = "linux")]
     let mut command = {
         let mut cmd = Command::new("xdg-open");
-        cmd.arg(&target);
+        cmd.arg(target);
         cmd
     };
 
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut cmd = Command::new("explorer");
-        cmd.arg(&target);
+        cmd.arg(target);
         cmd
     };
 

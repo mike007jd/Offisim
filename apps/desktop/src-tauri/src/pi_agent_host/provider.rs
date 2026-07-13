@@ -7,7 +7,7 @@ use tokio_util::sync::CancellationToken;
 use crate::agent_host_runtime::{dev_workspace_root, sidecar_script_path};
 
 use super::payload::{app_pi_agent_dir, pi_env};
-use super::run::run_pi_sidecar_jsonl;
+use super::run::{run_pi_sidecar_jsonl, PiSidecarRun};
 use super::types::{PiAgentProviderConfigInput, PiAgentStatusResponse};
 use super::wire::parse_status;
 use super::PI_LANE;
@@ -181,15 +181,17 @@ pub(super) async fn save_provider(
     });
     let response = run_pi_sidecar_jsonl(
         &app,
-        &script_path,
-        &cwd,
-        None,
-        pi_env(None),
-        payload,
-        CancellationToken::new(),
-        None,
-        None,
-        None,
+        PiSidecarRun {
+            script_path: &script_path,
+            cwd: &cwd,
+            workspace_root: None,
+            env: pi_env(None),
+            payload,
+            token: CancellationToken::new(),
+            on_event: None,
+            register_stdin: None,
+            stream_request_id: None,
+        },
     )
     .await
     .map_err(|err| err.into_code_message(PI_LANE).1)?;
@@ -212,15 +214,17 @@ pub(super) async fn status_impl(app: AppHandle) -> Result<PiAgentStatusResponse,
     });
     let response = run_pi_sidecar_jsonl(
         &app,
-        &script_path,
-        &cwd,
-        None,
-        pi_env(None),
-        payload,
-        CancellationToken::new(),
-        None,
-        None,
-        None,
+        PiSidecarRun {
+            script_path: &script_path,
+            cwd: &cwd,
+            workspace_root: None,
+            env: pi_env(None),
+            payload,
+            token: CancellationToken::new(),
+            on_event: None,
+            register_stdin: None,
+            stream_request_id: None,
+        },
     )
     .await
     .map_err(|err| err.into_code_message(PI_LANE).1)?;

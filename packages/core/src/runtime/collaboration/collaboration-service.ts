@@ -51,16 +51,14 @@ export interface CollaborationServiceDeps {
 }
 
 /**
- * The repos CollaborationService needs. `asyncTransact` is optional so the
- * service runs against the in-memory backend (which applies writes eagerly);
- * when present, membership updates run inside one transaction.
+ * The repositories and transaction boundary CollaborationService needs.
  */
 export interface CollaborationServiceRepos {
   collaborationThreads: CollaborationThreadRepository;
   collaborationMembers: CollaborationMemberRepository;
   collaborationMessages: CollaborationMessageRepository;
   collaborationReadState: CollaborationReadStateRepository;
-  asyncTransact?: RuntimeRepositories['asyncTransact'];
+  asyncTransact: RuntimeRepositories['asyncTransact'];
 }
 
 export interface CollaborationThreadSummary extends CollaborationThread {
@@ -539,19 +537,12 @@ export class CollaborationService {
     return rows.map(memberRowToDomain);
   }
 
-  /**
-   * Run `fn` inside a transaction when the backend supports it, else eagerly.
-   * The in-memory backend has no transactional boundary (writes apply on call),
-   * so it runs `fn` directly with the same repos.
-   */
+  /** Run `fn` through the backend's required async transaction boundary. */
   private async runAtomic<T>(fn: (repos: CollaborationServiceRepos) => Promise<T>): Promise<T> {
-    if (this.repos.asyncTransact) {
-      return this.repos.asyncTransact((txRepos) => {
-        const repos = (txRepos ?? this.repos) as unknown as CollaborationServiceRepos;
-        return fn(repos);
-      });
-    }
-    return fn(this.repos);
+    return this.repos.asyncTransact((txRepos) => {
+      const repos = (txRepos ?? this.repos) as unknown as CollaborationServiceRepos;
+      return fn(repos);
+    });
   }
 }
 

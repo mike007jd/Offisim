@@ -1,8 +1,11 @@
 import { useUiState } from '@/app/ui-state.js';
+import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
 import { loadPersistedChatMessages } from '@/data/chat-message-events.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
+import { runtimeEventBus } from '@/runtime/repos.js';
+import { RUN_COST_UPDATED_EVENT } from '@/runtime/run-cost-refresh.js';
 import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import type {
   ActivityType,
@@ -13,6 +16,7 @@ import type {
   ZoneRow,
 } from '@offisim/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import {
   companyToVm,
   employeeToVm,
@@ -141,6 +145,7 @@ interface DeleteCompanyResult extends PersistenceResult {
 }
 
 interface ThreadMutationResult extends PersistenceResult {
+  active?: boolean;
   missing?: boolean;
 }
 
@@ -447,12 +452,18 @@ export function useArchiveThread(projectId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ threadId }: { threadId: string }): Promise<ThreadMutationResult> => {
-      const repos = await reposOrNull();
-      if (!repos) return { persisted: false };
-      const existing = await repos.chatThreads.findById(threadId);
-      if (!existing) return { persisted: false, missing: true };
-      await repos.chatThreads.archive(threadId);
-      return { persisted: true };
+      const release = conversationRunController.acquireMutationLock(threadId);
+      if (!release) return { persisted: false, active: true };
+      try {
+        const repos = await reposOrNull();
+        if (!repos) return { persisted: false };
+        const existing = await repos.chatThreads.findById(threadId);
+        if (!existing) return { persisted: false, missing: true };
+        await repos.chatThreads.archive(threadId);
+        return { persisted: true };
+      } finally {
+        release();
+      }
     },
     onSuccess: async () => {
       await Promise.all([queryClient.invalidateQueries({ queryKey: ['threads', projectId] })]);
@@ -464,20 +475,32 @@ export function useDeleteConversation(projectId: string | null, companyId: strin
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ threadId }: { threadId: string }): Promise<ThreadMutationResult> => {
-      const repos = await reposOrNull();
-      if (!repos) return { persisted: false };
-      const existing = await repos.chatThreads.findById(threadId);
-      if (!existing) return { persisted: false, missing: true };
-      const project = await repos.projects.findById(existing.project_id);
-      await deleteConversationDeep(threadId, project?.company_id ?? companyId);
-      return { persisted: true };
+      const release = conversationRunController.acquireMutationLock(threadId);
+      if (!release) return { persisted: false, active: true };
+      try {
+        // The lock prevents a new send while the destructive transaction is in
+        // flight; awaiting stop also closes any run that raced lock acquisition.
+        await conversationRunController.stopAndWait(threadId);
+        const repos = await reposOrNull();
+        if (!repos) return { persisted: false };
+        const existing = await repos.chatThreads.findById(threadId);
+        if (!existing) return { persisted: false, missing: true };
+        const project = await repos.projects.findById(existing.project_id);
+        await deleteConversationDeep(threadId, project?.company_id ?? companyId);
+        return { persisted: true };
+      } finally {
+        release();
+      }
     },
-    onSuccess: async (_result, vars) => {
+    onSuccess: async (result, vars) => {
+      if (!result.persisted) return;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),
         queryClient.invalidateQueries({ queryKey: ['messages', vars.threadId] }),
         queryClient.invalidateQueries({ queryKey: ['deliverables', companyId, vars.threadId] }),
         queryClient.invalidateQueries({ queryKey: ['activity-records', companyId ?? ''] }),
+        queryClient.invalidateQueries({ queryKey: ['missions', companyId] }),
+        queryClient.invalidateQueries({ queryKey: ['task-board', companyId] }),
       ]);
     },
   });
@@ -592,6 +615,14 @@ export async function loadDeliverableBody(deliverable: Deliverable): Promise<str
 export function useRunCost() {
   const companyId = useUiState((state) => state.companyId) || null;
   const threadId = useUiState((state) => state.selectedThreadId);
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!companyId) return;
+    return runtimeEventBus.on(RUN_COST_UPDATED_EVENT, (event) => {
+      if (event.companyId !== companyId) return;
+      void queryClient.invalidateQueries({ queryKey: ['run-cost', companyId] });
+    });
+  }, [companyId, queryClient]);
   return useQuery({
     queryKey: ['run-cost', companyId, threadId],
     queryFn: async () => {
@@ -608,7 +639,6 @@ export function useRunCost() {
         }),
       };
     },
-    refetchInterval: 15_000,
   });
 }
 
@@ -730,21 +760,12 @@ export function useDeleteZone() {
       // ST3: deleting a zone removes its prefab instances too (there is no FK
       // cascade from prefab_instances.zone_id). Those N deletes + the zone delete
       // must be ONE transaction, else a mid-op failure orphans prefabs or leaves
-      // a deleted zone with leftover prefabs. Use the Tauri transaction when the
-      // backend provides it; other backends (single-process) run sequentially.
-      const asyncTransact = repos.asyncTransact?.bind(repos);
-      if (asyncTransact) {
-        await asyncTransact(async (tx) => {
-          if (!tx) throw new Error('zone delete requires a transactional repository');
-          await Promise.all(prefabs.map((prefab) => tx.prefabInstances.delete(prefab.instance_id)));
-          await tx.zones.delete(zoneId);
-        });
-      } else {
-        await Promise.all(
-          prefabs.map((prefab) => repos.prefabInstances.delete(prefab.instance_id)),
-        );
-        await repos.zones.delete(zoneId);
-      }
+      // a deleted zone with leftover prefabs.
+      await repos.asyncTransact(async (tx) => {
+        if (!tx) throw new Error('zone delete requires a transactional repository');
+        await Promise.all(prefabs.map((prefab) => tx.prefabInstances.delete(prefab.instance_id)));
+        await tx.zones.delete(zoneId);
+      });
       return { persisted: true, deletedObjects: prefabs.length };
     },
     onSuccess: () => {

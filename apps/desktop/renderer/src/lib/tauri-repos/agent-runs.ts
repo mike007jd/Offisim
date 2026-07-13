@@ -72,6 +72,27 @@ export function createAgentRunsTauriRepos(db: TauriDrizzleDb): AgentRunsTauriRep
       if (opts?.failureKind !== undefined) patch.failure_kind = opts.failureKind;
       await db.update(schema.agentRuns).set(patch).where(eq(schema.agentRuns.run_id, runId));
     },
+    async updateStatusForCompany(companyId, runId, status, opts) {
+      const existing = (await db
+        .select({ runId: schema.agentRuns.run_id })
+        .from(schema.agentRuns)
+        .where(
+          and(eq(schema.agentRuns.company_id, companyId), eq(schema.agentRuns.run_id, runId)),
+        )) as Array<{ runId: string }>;
+      if (existing.length === 0) return false;
+
+      const patch: Partial<AgentRunRow> = { status };
+      if (opts?.resultSummaryJson !== undefined) patch.result_summary_json = opts.resultSummaryJson;
+      if (opts?.usageJson !== undefined) patch.usage_json = opts.usageJson;
+      if (opts?.finishedAt !== undefined) patch.finished_at = opts.finishedAt;
+      if (opts?.sessionFile !== undefined) patch.session_file = opts.sessionFile;
+      if (opts?.failureKind !== undefined) patch.failure_kind = opts.failureKind;
+      await db
+        .update(schema.agentRuns)
+        .set(patch)
+        .where(and(eq(schema.agentRuns.company_id, companyId), eq(schema.agentRuns.run_id, runId)));
+      return true;
+    },
     async updateRuntimeContext(runId, runtimeContextJson) {
       await db
         .update(schema.agentRuns)

@@ -30,9 +30,16 @@ const DEFAULT_LIST_LIMIT = 100;
 export class MemoryMissionRepository implements MissionRepository {
   private readonly store = new Map<string, MissionRow>();
 
+  constructor(private readonly deleteChildren: (missionId: string) => void = () => undefined) {}
+
   async insert(row: NewMission): Promise<void> {
     if (this.store.has(row.mission_id)) return;
     this.store.set(row.mission_id, { ...row });
+  }
+
+  async delete(missionId: string): Promise<void> {
+    this.store.delete(missionId);
+    this.deleteChildren(missionId);
   }
 
   async findById(missionId: string): Promise<MissionRow | null> {
@@ -108,6 +115,12 @@ export class MemoryMissionCriterionRepository implements MissionCriterionReposit
     if (!row) return;
     this.store.set(criterionId, { ...row, last_evaluation_id: evaluationId });
   }
+
+  deleteByMission(missionId: string): void {
+    for (const [criterionId, row] of this.store) {
+      if (row.mission_id === missionId) this.store.delete(criterionId);
+    }
+  }
 }
 
 export class MemoryMissionAttemptRepository implements MissionAttemptRepository {
@@ -151,6 +164,12 @@ export class MemoryMissionAttemptRepository implements MissionAttemptRepository 
     if (!row) return;
     this.store.set(attemptId, { ...row, root_run_id: rootRunId });
   }
+
+  deleteByMission(missionId: string): void {
+    for (const [attemptId, row] of this.store) {
+      if (row.mission_id === missionId) this.store.delete(attemptId);
+    }
+  }
 }
 
 export class MemoryMissionEvaluationRepository implements MissionEvaluationRepository {
@@ -178,6 +197,12 @@ export class MemoryMissionEvaluationRepository implements MissionEvaluationRepos
       .filter((r) => r.attempt_id === attemptId)
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
       .map((r) => ({ ...r }));
+  }
+
+  deleteByMission(missionId: string): void {
+    for (const [evaluationId, row] of this.store) {
+      if (row.mission_id === missionId) this.store.delete(evaluationId);
+    }
   }
 }
 
@@ -213,6 +238,12 @@ export class MemoryRuntimeSessionLinkRepository implements RuntimeSessionLinkRep
     if (!row) return;
     this.store.set(runtimeSessionLinkId, { ...row, ...patch });
   }
+
+  deleteByMission(missionId: string): void {
+    for (const [linkId, row] of this.store) {
+      if (row.mission_id === missionId) this.store.delete(linkId);
+    }
+  }
 }
 
 export class MemoryMissionEventRepository implements MissionEventRepository {
@@ -230,6 +261,12 @@ export class MemoryMissionEventRepository implements MissionEventRepository {
       .slice(0, opts?.limit ?? DEFAULT_LIST_LIMIT)
       .map((r) => ({ ...r }));
   }
+
+  deleteByMission(missionId: string): void {
+    for (const [eventId, row] of this.store) {
+      if (row.mission_id === missionId) this.store.delete(eventId);
+    }
+  }
 }
 
 export interface MissionMemoryRepos {
@@ -242,12 +279,23 @@ export interface MissionMemoryRepos {
 }
 
 export function createMissionMemoryRepos(): MissionMemoryRepos {
+  const missionCriteria = new MemoryMissionCriterionRepository();
+  const missionAttempts = new MemoryMissionAttemptRepository();
+  const missionEvaluations = new MemoryMissionEvaluationRepository();
+  const runtimeSessionLinks = new MemoryRuntimeSessionLinkRepository();
+  const missionEvents = new MemoryMissionEventRepository();
   return {
-    missions: new MemoryMissionRepository(),
-    missionCriteria: new MemoryMissionCriterionRepository(),
-    missionAttempts: new MemoryMissionAttemptRepository(),
-    missionEvaluations: new MemoryMissionEvaluationRepository(),
-    runtimeSessionLinks: new MemoryRuntimeSessionLinkRepository(),
-    missionEvents: new MemoryMissionEventRepository(),
+    missions: new MemoryMissionRepository((missionId) => {
+      missionCriteria.deleteByMission(missionId);
+      missionAttempts.deleteByMission(missionId);
+      missionEvaluations.deleteByMission(missionId);
+      runtimeSessionLinks.deleteByMission(missionId);
+      missionEvents.deleteByMission(missionId);
+    }),
+    missionCriteria,
+    missionAttempts,
+    missionEvaluations,
+    runtimeSessionLinks,
+    missionEvents,
   };
 }

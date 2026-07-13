@@ -29,12 +29,22 @@ interface StageFileInput {
   file?: { arrayBuffer(): Promise<ArrayBuffer> };
 }
 
+export interface ComposerAttachmentScope {
+  companyId: string | null;
+  projectId: string | null;
+  threadId: string;
+}
+
+export function composerAttachmentScopeKey(scope: ComposerAttachmentScope): string {
+  return JSON.stringify([scope.companyId, scope.projectId, scope.threadId]);
+}
+
 interface ComposerAttachmentStore {
-  staged: StagedAttachment[];
+  stagedByScope: Record<string, StagedAttachment[]>;
   storageAvailable: boolean;
-  stageFiles: (files: StageFileInput[]) => Promise<void>;
-  removeStaged: (id: string) => void;
-  clearStaged: () => void;
+  stageFiles: (scope: ComposerAttachmentScope, files: StageFileInput[]) => Promise<void>;
+  removeStaged: (scope: ComposerAttachmentScope, id: string) => void;
+  consumeStaged: (scope: ComposerAttachmentScope, ids: readonly string[]) => void;
   setStorageAvailable: (available: boolean) => void;
 }
 
@@ -45,22 +55,26 @@ type StoreSet = (
 ) => void;
 
 export const useComposerAttachmentStore = create<ComposerAttachmentStore>((set, get) => ({
-  staged: [],
+  stagedByScope: {},
   storageAvailable: true,
 
-  stageFiles: async (files) => {
+  stageFiles: async (scope, files) => {
+    const scopeKey = composerAttachmentScopeKey(scope);
     if (!get().storageAvailable) {
       set((s) => ({
-        staged: [
-          ...s.staged,
-          errorChip('storage', files[0]?.name ?? 'file', 'storage-unavailable'),
-        ],
+        stagedByScope: {
+          ...s.stagedByScope,
+          [scopeKey]: [
+            ...(s.stagedByScope[scopeKey] ?? []),
+            errorChip('storage', files[0]?.name ?? 'file', 'storage-unavailable'),
+          ],
+        },
       }));
       return;
     }
     const prepared: StagedAttachment[] = [];
     const hydrationTasks: Promise<void>[] = [];
-    const alreadyStaged = get().staged;
+    const alreadyStaged = get().stagedByScope[scopeKey] ?? [];
     for (const file of files) {
       const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
       const id = `att-${file.name}-${file.bytes}`;
@@ -78,7 +92,9 @@ export const useComposerAttachmentStore = create<ComposerAttachmentStore>((set, 
       const kind = kindFromMime(mimeType);
       const attachmentId = file.file ? crypto.randomUUID() : undefined;
       if (file.file) {
-        hydrationTasks.push(hydrateStagedFile(id, attachmentId, file.name, file.file, set));
+        hydrationTasks.push(
+          hydrateStagedFile(scopeKey, id, attachmentId, file.name, file.file, set),
+        );
       }
       prepared.push({
         id,
@@ -93,14 +109,51 @@ export const useComposerAttachmentStore = create<ComposerAttachmentStore>((set, 
         kind,
       });
     }
-    if (prepared.length) set((s) => ({ staged: [...s.staged, ...prepared] }));
+    if (prepared.length) {
+      set((s) => ({
+        stagedByScope: {
+          ...s.stagedByScope,
+          [scopeKey]: [...(s.stagedByScope[scopeKey] ?? []), ...prepared],
+        },
+      }));
+    }
     await Promise.all(hydrationTasks);
   },
 
-  removeStaged: (id) => set((s) => ({ staged: s.staged.filter((a) => a.id !== id) })),
-  clearStaged: () => set({ staged: [] }),
+  removeStaged: (scope, id) => {
+    const scopeKey = composerAttachmentScopeKey(scope);
+    set((s) => ({
+      stagedByScope: withoutEmptyScope(
+        s.stagedByScope,
+        scopeKey,
+        (s.stagedByScope[scopeKey] ?? []).filter((attachment) => attachment.id !== id),
+      ),
+    }));
+  },
+  consumeStaged: (scope, ids) => {
+    if (ids.length === 0) return;
+    const scopeKey = composerAttachmentScopeKey(scope);
+    const consumed = new Set(ids);
+    set((s) => ({
+      stagedByScope: withoutEmptyScope(
+        s.stagedByScope,
+        scopeKey,
+        (s.stagedByScope[scopeKey] ?? []).filter((attachment) => !consumed.has(attachment.id)),
+      ),
+    }));
+  },
   setStorageAvailable: (storageAvailable) => set({ storageAvailable }),
 }));
+
+function withoutEmptyScope(
+  current: Record<string, StagedAttachment[]>,
+  scopeKey: string,
+  next: StagedAttachment[],
+): Record<string, StagedAttachment[]> {
+  if (next.length > 0) return { ...current, [scopeKey]: next };
+  const { [scopeKey]: _removed, ...rest } = current;
+  return rest;
+}
 
 function errorChip(id: string, name: string, reason: AttachmentFailReason): StagedAttachment {
   return {
@@ -146,6 +199,7 @@ function mimeFromExt(ext: string): string {
 }
 
 async function hydrateStagedFile(
+  scopeKey: string,
   id: string,
   attachmentId: string | undefined,
   name: string,
@@ -156,19 +210,25 @@ async function hydrateStagedFile(
     const bytes = new Uint8Array(await file.arrayBuffer());
     const sha256 = await sha256Hex(bytes);
     set((s) => ({
-      staged: s.staged.map((attachment) =>
-        attachment.id === id && attachment.attachmentId === attachmentId
-          ? { ...attachment, bytes, sha256 }
-          : attachment,
-      ),
+      stagedByScope: {
+        ...s.stagedByScope,
+        [scopeKey]: (s.stagedByScope[scopeKey] ?? []).map((attachment) =>
+          attachment.id === id && attachment.attachmentId === attachmentId
+            ? { ...attachment, bytes, sha256 }
+            : attachment,
+        ),
+      },
     }));
   } catch {
     set((s) => ({
-      staged: s.staged.map((attachment) =>
-        attachment.id === id && attachment.attachmentId === attachmentId
-          ? errorChip(id, name, 'storage-unavailable')
-          : attachment,
-      ),
+      stagedByScope: {
+        ...s.stagedByScope,
+        [scopeKey]: (s.stagedByScope[scopeKey] ?? []).map((attachment) =>
+          attachment.id === id && attachment.attachmentId === attachmentId
+            ? errorChip(id, name, 'storage-unavailable')
+            : attachment,
+        ),
+      },
     }));
   }
 }

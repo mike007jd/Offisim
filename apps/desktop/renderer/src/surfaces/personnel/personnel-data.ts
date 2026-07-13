@@ -519,7 +519,7 @@ export async function recordEmployeeVersionOnSave({
     repos.employees,
     new InMemoryEventBus(),
     repos.transact?.bind(repos),
-    repos.asyncTransact?.bind(repos),
+    repos.asyncTransact.bind(repos),
   );
 
   // Capture the pre-edit baseline once, before the very first tracked save, so
@@ -546,7 +546,7 @@ export function useRollbackEmployeeVersion(employeeId: string | null) {
         repos.employees,
         new InMemoryEventBus(),
         undefined,
-        repos.asyncTransact?.bind(repos),
+        repos.asyncTransact.bind(repos),
       );
       await versionService.rollbackToVersion(employeeId, version);
     },

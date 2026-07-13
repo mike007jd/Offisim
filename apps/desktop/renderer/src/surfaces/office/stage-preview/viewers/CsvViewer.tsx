@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { parseCsvRows } from '../csv-parse.js';
-import { DataTable } from './data-table.js';
 import { TextViewer } from './TextViewer.js';
+import { DataTable } from './data-table.js';
 
 export function CsvViewer({ text, truncated }: { text: string; truncated?: boolean }) {
   const [raw, setRaw] = useState(false);
@@ -17,11 +17,7 @@ export function CsvViewer({ text, truncated }: { text: string; truncated?: boole
       {truncated && !raw ? (
         <div className="off-preview-banner">Preview truncated at the desktop text budget.</div>
       ) : null}
-      {raw ? (
-        <TextViewer text={text} truncated={truncated} />
-      ) : (
-        <DataTable rows={rows} />
-      )}
+      {raw ? <TextViewer text={text} truncated={truncated} /> : <DataTable rows={rows} />}
     </div>
   );
 }

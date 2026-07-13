@@ -4,6 +4,8 @@
   "checkedAt": "2026-06-30T21:08:46+12:00",
   "completedAt": "2026-06-30T21:53:16+12:00",
   "mode": "real-user-live-verify",
+  "evidenceAvailability": "historical local-only; screenshots and logs are gitignored and absent from fresh clones",
+  "currentReleaseGate": false,
   "runTarget": "desktop-release-app",
   "dataMode": "sanitized-local",
   "liveArtifact": "apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",

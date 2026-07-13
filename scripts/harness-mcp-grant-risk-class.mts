@@ -3,16 +3,37 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
+import { drizzle as drizzleProxy } from 'drizzle-orm/sqlite-proxy';
 import {
   inferMcpGrantRiskClass,
   inferMcpGrantRiskSource,
 } from '../apps/desktop/renderer/src/data/mcp-risk.js';
+import type { TauriDrizzleDb } from '../apps/desktop/renderer/src/lib/tauri-drizzle.js';
+import { createMcpToolGrantsTauriRepos } from '../apps/desktop/renderer/src/lib/tauri-repos/mcp-tool-grants.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const requireFromPlatform = createRequire(resolve(ROOT, 'apps/platform/package.json'));
 const { createMemoryRepositories } = await import(
   requireFromPlatform.resolve('@offisim/core/dist/browser.js')
 );
+
+function makeProxyDb(sqlite: Database.Database): TauriDrizzleDb {
+  const proxy = drizzleProxy(async (sql, params, method) => {
+    const bind = params as ReadonlyArray<string | number | null>;
+    if (method === 'run') {
+      sqlite.prepare(sql).run(...bind);
+      return { rows: [] };
+    }
+    const rows = sqlite
+      .prepare(sql)
+      .raw()
+      .all(...bind) as unknown[][];
+    if (method === 'get') return { rows: rows[0] ?? [] };
+    return { rows };
+  });
+  return proxy as unknown as TauriDrizzleDb;
+}
 
 const readTool = {
   name: 'read_file',
@@ -108,6 +129,64 @@ assert.equal(updated?.risk_class, 'write');
 assert.equal(updated?.risk_source, 'human_override');
 assert.equal(updated?.trusted_server_id, 'server-2');
 
+const sqlite = new Database(':memory:');
+sqlite.pragma('foreign_keys = ON');
+sqlite.exec(readFileSync(resolve(ROOT, 'packages/db-local/src/schema.sql'), 'utf8'));
+const insertCompany = sqlite.prepare(
+  'INSERT INTO companies (company_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)',
+);
+const insertEmployee = sqlite.prepare(
+  'INSERT INTO employees (employee_id, company_id, name, role_slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+);
+const fixtureTime = '2026-07-13T00:00:00.000Z';
+insertCompany.run('company-a', 'Company A', fixtureTime, fixtureTime);
+insertCompany.run('company-b', 'Company B', fixtureTime, fixtureTime);
+insertEmployee.run('employee-a', 'company-a', 'Employee A', 'engineer', fixtureTime, fixtureTime);
+insertEmployee.run('employee-b', 'company-b', 'Employee B', 'engineer', fixtureTime, fixtureTime);
+
+const sqliteRepo = createMcpToolGrantsTauriRepos(makeProxyDb(sqlite)).mcpToolGrants;
+await sqliteRepo.create({
+  grant_id: 'grant-valid-b',
+  company_id: 'company-b',
+  employee_id: 'employee-b',
+  server_name: 'filesystem',
+  tool_name: 'read_file',
+  scope: 'employee',
+  project_id: null,
+  risk_class: 'read',
+  risk_source: 'human_override',
+  trusted_server_id: 'server-1',
+  granted_by: 'boss',
+  created_at: fixtureTime,
+});
+await assert.rejects(
+  sqliteRepo.create({
+    grant_id: 'grant-cross-company',
+    company_id: 'company-b',
+    employee_id: 'employee-a',
+    server_name: 'filesystem',
+    tool_name: 'read_file',
+    scope: 'employee',
+    project_id: null,
+    risk_class: 'read',
+    risk_source: 'human_override',
+    trusted_server_id: 'server-1',
+    granted_by: 'boss',
+    created_at: fixtureTime,
+  }),
+  (error: unknown) => {
+    const cause = (error as { cause?: unknown }).cause;
+    return cause instanceof Error && /FOREIGN KEY constraint failed/.test(cause.message);
+  },
+  'the real sqlite-proxy repository must reject a stale employee from another company',
+);
+sqlite.prepare('DELETE FROM employees WHERE employee_id = ?').run('employee-b');
+const remainingGrant = sqlite
+  .prepare('SELECT count(*) AS count FROM mcp_tool_grants WHERE grant_id = ?')
+  .get('grant-valid-b') as { count: number };
+assert.equal(remainingGrant.count, 0, 'employee deletion must cascade to its MCP grants');
+sqlite.close();
+
 const employeePersonaSource = readFileSync(
   resolve(ROOT, 'apps/desktop/renderer/src/data/employee-persona.ts'),
   'utf8',
@@ -134,8 +213,23 @@ const detailPaneSource = readFileSync(
 );
 assert.match(
   detailPaneSource,
-  /trustedServerId: server\.id/,
+  /trustedServerId: scope\.serverId/,
   'Settings grant path must persist the trusted server id',
+);
+assert.match(
+  detailPaneSource,
+  /employeeOptions\.some\(\(option\) => option\.value === employeeId\)/,
+  'Settings must reject a stale employee selection after a company switch',
+);
+
+const settingsDataSource = readFileSync(
+  resolve(ROOT, 'apps/desktop/renderer/src/surfaces/settings/settings-data.ts'),
+  'utf8',
+);
+assert.match(
+  settingsDataSource,
+  /employee\.company_id !== input\.companyId/,
+  'the Settings grant boundary must verify employee ownership',
 );
 assert.match(
   detailPaneSource,
@@ -149,7 +243,7 @@ assert.match(
 );
 assert.match(
   detailPaneSource,
-  /grantRiskStateKey\(server\.name, employeeId, tool\.name\)/,
+  /grantRiskStateKey\(scope\.serverName, scope\.employeeId, tool\.name\)/,
   'Settings risk override state must be scoped by employee, server, and tool',
 );
 

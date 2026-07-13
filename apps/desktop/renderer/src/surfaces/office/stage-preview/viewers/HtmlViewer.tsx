@@ -35,7 +35,9 @@ export function HtmlViewer({
   return (
     <div className="off-stage-preview-shot-wrap">
       <img className="off-stage-preview-shot" src={data.dataRef} alt={resolved.meta.title} />
-      {resolved.meta.url ? <code className="off-stage-preview-url">{resolved.meta.url}</code> : null}
+      {resolved.meta.url ? (
+        <code className="off-stage-preview-url">{resolved.meta.url}</code>
+      ) : null}
     </div>
   );
 }

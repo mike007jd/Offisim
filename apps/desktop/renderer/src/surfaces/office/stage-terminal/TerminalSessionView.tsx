@@ -1,12 +1,13 @@
 import type { StageViewTarget } from '@/app/ui-state.js';
 import {
-  invokeCommand,
   type NativeStageSessionScope,
   type TerminalOutputChunk,
   type TerminalSessionSnapshot,
+  invokeCommand,
 } from '@/lib/tauri-commands.js';
+import { acquireNativeStageSessionLease } from '@/surfaces/office/stage-viewer/StageSessionReconciler.js';
 import { useSetStageChrome } from '@/surfaces/office/stage-viewer/stage-chrome.js';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { type UnlistenFn, listen } from '@tauri-apps/api/event';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
@@ -94,11 +95,14 @@ export function TerminalSessionView({ target }: { target: TerminalTarget }) {
     terminalRef.current = terminal;
     fitRef.current = fit;
 
-    let disposed = false;
+    const scope = nativeScope(target);
+    const lease = acquireNativeStageSessionLease('terminal', target.scope, target.sessionId);
     let unlisten: UnlistenFn | undefined;
     let resizeFrame = 0;
+    let focusFrame = 0;
 
     const writeChunk = (chunk: TerminalOutputChunk) => {
+      if (!lease.isCurrent()) return;
       const step = terminalReplayStep(cursorRef.current, chunk);
       if (step.kind === 'ignore') return;
       if (step.kind === 'gap') {
@@ -110,9 +114,12 @@ export function TerminalSessionView({ target }: { target: TerminalTarget }) {
     };
 
     const applySnapshot = (next: TerminalSessionSnapshot) => {
+      if (!lease.isCurrent()) return;
       if (next.gap && cursorRef.current < next.startCursor) {
         terminal.reset();
-        terminal.writeln('\x1b[2m[Earlier terminal output was trimmed from the replay buffer.]\x1b[0m');
+        terminal.writeln(
+          '\x1b[2m[Earlier terminal output was trimmed from the replay buffer.]\x1b[0m',
+        );
         cursorRef.current = next.startCursor;
       }
       for (const chunk of [...next.chunks].sort((a, b) => a.startCursor - b.startCursor)) {
@@ -123,21 +130,22 @@ export function TerminalSessionView({ target }: { target: TerminalTarget }) {
     };
 
     const refresh = async () => {
+      if (!lease.isCurrent()) return;
       try {
         const next = await invokeCommand('terminal_session_snapshot', {
           sessionId: target.sessionId,
-          scope: nativeScope(target),
+          scope,
           afterCursor: cursorRef.current,
         });
-        if (!disposed) applySnapshot(next);
+        if (lease.isCurrent()) applySnapshot(next);
       } catch (cause) {
-        if (!disposed) setError(cause instanceof Error ? cause.message : String(cause));
+        if (lease.isCurrent()) setError(cause instanceof Error ? cause.message : String(cause));
       }
     };
     refreshRef.current = refresh;
 
     const resize = () => {
-      if (disposed || !host.isConnected) return;
+      if (!lease.isCurrent() || !host.isConnected) return;
       try {
         fit.fit();
       } catch {
@@ -145,12 +153,16 @@ export function TerminalSessionView({ target }: { target: TerminalTarget }) {
       }
       const cols = Math.max(20, terminal.cols);
       const rows = Math.max(4, terminal.rows);
-      void invokeCommand('terminal_session_resize', {
-        sessionId: target.sessionId,
-        scope: nativeScope(target),
-        cols,
-        rows,
-      }).catch(() => {});
+      void lease
+        .runIfCurrent(() =>
+          invokeCommand('terminal_session_resize', {
+            sessionId: target.sessionId,
+            scope,
+            cols,
+            rows,
+          }),
+        )
+        .catch(() => {});
     };
 
     const observer = new ResizeObserver(() => {
@@ -160,20 +172,25 @@ export function TerminalSessionView({ target }: { target: TerminalTarget }) {
     observer.observe(host);
 
     const input = terminal.onData((data) => {
+      if (!lease.isCurrent()) return;
       const bytes = new TextEncoder().encode(data);
-      void invokeCommand('terminal_session_write', {
-        sessionId: target.sessionId,
-        scope: nativeScope(target),
-        dataBase64: bytesToBase64(bytes),
-      }).catch((cause: unknown) => {
-        if (!disposed) setError(cause instanceof Error ? cause.message : String(cause));
-      });
+      void lease
+        .runIfCurrent(() =>
+          invokeCommand('terminal_session_write', {
+            sessionId: target.sessionId,
+            scope,
+            dataBase64: bytesToBase64(bytes),
+          }),
+        )
+        .catch((cause: unknown) => {
+          if (lease.isCurrent()) setError(cause instanceof Error ? cause.message : String(cause));
+        });
     });
 
     void (async () => {
       try {
-        unlisten = await listen<TerminalSessionEvent>(TERMINAL_EVENT, ({ payload }) => {
-          if (payload.sessionId !== target.sessionId || disposed) return;
+        const nextUnlisten = await listen<TerminalSessionEvent>(TERMINAL_EVENT, ({ payload }) => {
+          if (payload.sessionId !== target.sessionId || !lease.isCurrent()) return;
           if (
             payload.kind === 'output' &&
             payload.dataBase64 &&
@@ -190,33 +207,37 @@ export function TerminalSessionView({ target }: { target: TerminalTarget }) {
           if (payload.kind === 'error' && payload.message) setError(payload.message);
           void refresh();
         });
-        const initial = await invokeCommand('terminal_session_create', {
-          sessionId: target.sessionId,
-          scope: nativeScope(target),
-          cols: Math.max(20, terminal.cols),
-          rows: Math.max(4, terminal.rows),
-        });
-        if (disposed) {
-          await invokeCommand('terminal_session_close', {
-            sessionId: target.sessionId,
-            scope: nativeScope(target),
-          }).catch(() => null);
+        if (!lease.isCurrent()) {
+          nextUnlisten();
           return;
         }
+        unlisten = nextUnlisten;
+        const initial = await lease.runIfCurrent(() =>
+          invokeCommand('terminal_session_create', {
+            sessionId: target.sessionId,
+            scope,
+            cols: Math.max(20, terminal.cols),
+            rows: Math.max(4, terminal.rows),
+          }),
+        );
+        if (!lease.isCurrent() || !initial) return;
         applySnapshot(initial);
         setError(null);
-        window.requestAnimationFrame(() => {
+        if (!lease.isCurrent()) return;
+        focusFrame = window.requestAnimationFrame(() => {
+          if (!lease.isCurrent()) return;
           resize();
           terminal.focus();
         });
       } catch (cause) {
-        if (!disposed) setError(cause instanceof Error ? cause.message : String(cause));
+        if (lease.isCurrent()) setError(cause instanceof Error ? cause.message : String(cause));
       }
     })();
 
     return () => {
-      disposed = true;
+      lease.release();
       window.cancelAnimationFrame(resizeFrame);
+      window.cancelAnimationFrame(focusFrame);
       observer.disconnect();
       input.dispose();
       unlisten?.();

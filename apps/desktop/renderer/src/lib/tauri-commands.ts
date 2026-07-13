@@ -174,6 +174,7 @@ interface PiAgentHostResponse {
   sessionFile?: string;
   model?: PiAgentModelSummary;
   usage?: AgentRunUsage;
+  budgetUsage?: AgentRunUsage;
 }
 
 type PiAgentHostEvent =
@@ -577,9 +578,6 @@ export interface CommandMap {
     { sessionId: string; scope: NativeStageSessionScope },
     BrowserSessionSnapshot
   >;
-  pi_agent_execute: CommandSpec<AgentRuntimeArgs<PiAgentExecuteRequest>, PiAgentHostResponse>;
-  pi_agent_abort: CommandSpec<{ requestId: string }, void>;
-  pi_agent_ui_response: CommandSpec<AgentUiResponseArgs, void>;
   pi_agent_open_config_folder: CommandSpec<undefined, void>;
   pi_agent_status: CommandSpec<undefined, PiAgentStatusResponse>;
   pi_agent_save_provider: CommandSpec<

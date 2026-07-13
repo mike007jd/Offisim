@@ -69,7 +69,8 @@ CREATE TABLE IF NOT EXISTS employees (
   brand_key TEXT,
   agent_card_json TEXT,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  UNIQUE(company_id, employee_id)
 );
 CREATE TABLE IF NOT EXISTS install_transactions (
   install_txn_id TEXT PRIMARY KEY NOT NULL,
@@ -481,7 +482,9 @@ CREATE TABLE IF NOT EXISTS mcp_tool_grants (
   trusted_server_id TEXT,
   granted_by TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  UNIQUE(company_id, employee_id, server_name, tool_name)
+  UNIQUE(company_id, employee_id, server_name, tool_name),
+  FOREIGN KEY(company_id, employee_id)
+    REFERENCES employees(company_id, employee_id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS zones (
   zone_id TEXT PRIMARY KEY NOT NULL,
@@ -611,6 +614,10 @@ CREATE INDEX IF NOT EXISTS idx_installed_assets_pkg ON installed_assets(installe
 CREATE INDEX IF NOT EXISTS idx_asset_bindings_txn ON asset_bindings(install_txn_id);
 CREATE INDEX IF NOT EXISTS idx_task_runs_thread ON task_runs(thread_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_thread ON agent_runs(thread_id);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_company_started
+  ON agent_runs(company_id, started_at);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_company_thread
+  ON agent_runs(company_id, thread_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_root ON agent_runs(root_run_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_parent ON agent_runs(parent_run_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_company_project_status

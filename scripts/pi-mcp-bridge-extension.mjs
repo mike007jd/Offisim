@@ -33,14 +33,35 @@ const SearchParams = Type.Object({
         'Substring matched against tool name/description. Omit to list every available MCP tool.',
     }),
   ),
+  server: Type.Optional(
+    Type.String({
+      description: 'Exact MCP server name. Use this to narrow duplicate tool names.',
+    }),
+  ),
 });
 
 const DescribeParams = Type.Object({
-  name: Type.String({ description: 'The MCP tool name to describe (from mcp_search_tools).' }),
+  name: Type.String({
+    description:
+      'The MCP tool name or qualified server::tool identity to describe (from mcp_search_tools).',
+  }),
+  server: Type.Optional(
+    Type.String({
+      description: 'Exact MCP server name; required when a bare tool name is ambiguous.',
+    }),
+  ),
 });
 
 const CallParams = Type.Object({
-  name: Type.String({ description: 'The MCP tool name to invoke (from mcp_search_tools).' }),
+  name: Type.String({
+    description:
+      'The MCP tool name or qualified server::tool identity to invoke (from mcp_search_tools).',
+  }),
+  server: Type.Optional(
+    Type.String({
+      description: 'Exact MCP server name; required when a bare tool name is ambiguous.',
+    }),
+  ),
   input: Type.Optional(
     Type.Object(
       {},
@@ -192,6 +213,59 @@ function normalizedCallArgs(params) {
   return rawInput && typeof rawInput === 'object' && !Array.isArray(rawInput) ? rawInput : {};
 }
 
+function catalogIdentityKey(server, name) {
+  return JSON.stringify([server, name]);
+}
+
+function qualifiedToolName(tool) {
+  return `${encodeURIComponent(tool.server)}::${encodeURIComponent(tool.name)}`;
+}
+
+function parseQualifiedToolName(value) {
+  const separator = value.indexOf('::');
+  if (separator <= 0 || separator >= value.length - 2) return undefined;
+  try {
+    return {
+      server: decodeURIComponent(value.slice(0, separator)),
+      name: decodeURIComponent(value.slice(separator + 2)),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveCatalogTool(nameValue, serverValue, byIdentity, byName) {
+  const rawName = typeof nameValue === 'string' ? nameValue.trim() : '';
+  const explicitServer = typeof serverValue === 'string' ? serverValue.trim() : '';
+  const qualified = parseQualifiedToolName(rawName);
+  if (qualified && explicitServer && qualified.server !== explicitServer) {
+    return {
+      error: `MCP tool identity "${rawName}" conflicts with server "${explicitServer}".`,
+    };
+  }
+
+  const name = qualified?.name ?? rawName;
+  const server = qualified?.server ?? explicitServer;
+  if (server) {
+    const tool = byIdentity.get(catalogIdentityKey(server, name));
+    return tool
+      ? { tool }
+      : {
+          error: `Unknown MCP tool "${server}::${name}". Use mcp_search_tools first.`,
+        };
+  }
+
+  const matches = byName.get(name) ?? [];
+  if (matches.length === 1) return { tool: matches[0] };
+  if (matches.length > 1) {
+    const choices = matches.map(qualifiedToolName).sort().join(', ');
+    return {
+      error: `Ambiguous MCP tool "${name}". Choose a server or qualified identity: ${choices}.`,
+    };
+  }
+  return { error: `Unknown MCP tool "${name}". Use mcp_search_tools first.` };
+}
+
 function normalizeTimeoutMs(value) {
   return Number.isFinite(value) && value > 0
     ? Math.max(1, Math.floor(value))
@@ -209,7 +283,6 @@ function requestMcpResultWithTimeout(request, { server, toolName, timeoutMs, sig
 
   return new Promise((resolve) => {
     let settled = false;
-    let timeoutId;
     let abortHandler;
 
     const settle = (result) => {
@@ -222,7 +295,7 @@ function requestMcpResultWithTimeout(request, { server, toolName, timeoutMs, sig
       resolve(result);
     };
 
-    timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       settle({
         ok: false,
         error: `MCP call ${server}.${toolName} timed out after ${timeoutMs}ms.`,
@@ -245,12 +318,11 @@ function requestMcpResultWithTimeout(request, { server, toolName, timeoutMs, sig
   });
 }
 
-function requestApprovalWithTimeout(request, { server, toolName, timeoutMs, signal }) {
+function requestApprovalWithTimeout(request, { timeoutMs, signal }) {
   if (signal?.aborted === true) return Promise.resolve(false);
 
   return new Promise((resolve) => {
     let settled = false;
-    let timeoutId;
     let abortHandler;
 
     const settle = (approved) => {
@@ -263,7 +335,7 @@ function requestApprovalWithTimeout(request, { server, toolName, timeoutMs, sign
       resolve(approved === true);
     };
 
-    timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       settle(false);
     }, timeoutMs);
 
@@ -298,12 +370,24 @@ export function createMcpBridgeExtensionFactory({
   mcpCallTimeoutMs,
   mcpApprovalTimeoutMs,
 }) {
-  // Drop malformed entries up front (a tool needs a name + server to be
-  // searchable / callable) so a bad payload entry can't crash search/describe.
-  const tools = (Array.isArray(mcpTools) ? mcpTools : []).filter(
-    (t) => typeof t?.name === 'string' && typeof t?.server === 'string',
-  );
-  const byName = new Map(tools.map((t) => [t.name, t]));
+  // A tool's stable identity is the (server, name) tuple. Deduplicate exact
+  // repeats, retain same-name tools from different servers, and keep a reverse
+  // name index so a bare unique name remains the easy path.
+  const byIdentity = new Map();
+  for (const candidate of Array.isArray(mcpTools) ? mcpTools : []) {
+    const name = typeof candidate?.name === 'string' ? candidate.name.trim() : '';
+    const server = typeof candidate?.server === 'string' ? candidate.server.trim() : '';
+    if (!name || !server) continue;
+    const key = catalogIdentityKey(server, name);
+    if (!byIdentity.has(key)) byIdentity.set(key, { ...candidate, name, server });
+  }
+  const tools = [...byIdentity.values()];
+  const byName = new Map();
+  for (const tool of tools) {
+    const matches = byName.get(tool.name) ?? [];
+    matches.push(tool);
+    byName.set(tool.name, matches);
+  }
   const callTimeoutMs = normalizeTimeoutMs(mcpCallTimeoutMs);
   const approvalTimeoutMs = normalizeTimeoutMs(
     mcpApprovalTimeoutMs ?? DEFAULT_MCP_APPROVAL_TIMEOUT_MS,
@@ -318,11 +402,15 @@ export function createMcpBridgeExtensionFactory({
       parameters: SearchParams,
       async execute(_toolCallId, params) {
         const q = typeof params?.query === 'string' ? params.query.trim().toLowerCase() : '';
+        const server = typeof params?.server === 'string' ? params.server.trim() : '';
         const matches = tools.filter(
           (t) =>
-            !q ||
-            t.name.toLowerCase().includes(q) ||
-            (t.description ?? '').toLowerCase().includes(q),
+            (!server || t.server === server) &&
+            (!q ||
+              t.name.toLowerCase().includes(q) ||
+              t.server.toLowerCase().includes(q) ||
+              qualifiedToolName(t).toLowerCase().includes(q) ||
+              (t.description ?? '').toLowerCase().includes(q)),
         );
         if (matches.length === 0) {
           if (tools.length === 0) {
@@ -340,7 +428,7 @@ export function createMcpBridgeExtensionFactory({
           const rw = isWriteMcpTool(t) ? 'write' : 'read';
           const category = t.category ? `, ${t.category}` : '';
           const desc = (t.description ?? '').split('\n')[0].slice(0, 120);
-          return `- ${t.name} [${t.server}, ${rw}${category}]${desc ? `: ${desc}` : ''}`;
+          return `- ${qualifiedToolName(t)} [${rw}${category}]${desc ? `: ${desc}` : ''}`;
         });
         return textResult(`${matches.length} MCP tool(s):\n${lines.join('\n')}`);
       },
@@ -353,15 +441,15 @@ export function createMcpBridgeExtensionFactory({
         'Show one MCP tool’s full input schema + behavior hints (read-only / destructive) so you can call it correctly with mcp_call.',
       parameters: DescribeParams,
       async execute(_toolCallId, params) {
-        const name = typeof params?.name === 'string' ? params.name : '';
-        const tool = byName.get(name);
-        if (!tool)
-          return textResult(`Unknown MCP tool "${name}". Use mcp_search_tools first.`, true);
+        const resolved = resolveCatalogTool(params?.name, params?.server, byIdentity, byName);
+        if (!resolved.tool) return textResult(resolved.error, true);
+        const tool = resolved.tool;
         return textResult(
           JSON.stringify(
             {
               name: tool.name,
               server: tool.server,
+              qualifiedName: qualifiedToolName(tool),
               description: tool.description ?? '',
               write: isWriteMcpTool(tool),
               ...(tool.category ? { category: tool.category } : {}),
@@ -382,10 +470,10 @@ export function createMcpBridgeExtensionFactory({
         'Invoke an MCP tool by name with input matching mcp_describe_tool. Write-class tools pause for the operator’s approval.',
       parameters: CallParams,
       async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-        const name = typeof params?.name === 'string' ? params.name : '';
-        const tool = byName.get(name);
-        if (!tool)
-          return textResult(`Unknown MCP tool "${name}". Use mcp_search_tools first.`, true);
+        const resolved = resolveCatalogTool(params?.name, params?.server, byIdentity, byName);
+        if (!resolved.tool) return textResult(resolved.error, true);
+        const tool = resolved.tool;
+        const name = tool.name;
         const args = normalizedCallArgs(params);
         const write = isWriteMcpTool(tool);
         if (write) {

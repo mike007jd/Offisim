@@ -66,10 +66,7 @@ import {
   shouldShowPendingReply,
   visibleWorkspaceMessages,
 } from './company-chat-presentation.js';
-import {
-  type NewGroupSubmission,
-  submitNewGroupFromDialog,
-} from './new-group-submit.js';
+import { type NewGroupSubmission, submitNewGroupFromDialog } from './new-group-submit.js';
 import { useConnectRuntime } from './use-connect-runtime.js';
 
 /* ── Draft model ──────────────────────────────────────────────────────────── */

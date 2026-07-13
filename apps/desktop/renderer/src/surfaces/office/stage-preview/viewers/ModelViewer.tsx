@@ -1,12 +1,12 @@
 import { Icon } from '@/design-system/icons/Icon.js';
-import { OrbitControls, Stage } from '@react-three/drei';
 import { VRMLoaderPlugin } from '@pixiv/three-vrm';
+import { OrbitControls, Stage } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { RotateCcw } from 'lucide-react';
 import { Suspense, useEffect, useState } from 'react';
-import * as THREE from 'three';
+import type * as THREE from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { type GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { PreviewData } from '../preview-data.js';
 import type { ResolvedPreviewTarget } from '../preview-target.js';
 import { UnsupportedViewer } from './UnsupportedViewer.js';
@@ -21,8 +21,11 @@ function disposeObject(root: THREE.Object3D): void {
     const mesh = node as THREE.Mesh;
     mesh.geometry?.dispose();
     const material = mesh.material;
-    if (Array.isArray(material)) material.forEach((item) => item.dispose());
-    else material?.dispose();
+    if (Array.isArray(material)) {
+      for (const item of material) item.dispose();
+    } else {
+      material?.dispose();
+    }
   });
 }
 
@@ -58,7 +61,10 @@ export function ModelViewer({
     if (extension === 'vrm') {
       loader.register((parser) => new VRMLoaderPlugin(parser));
     }
-    const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const buffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer;
     loader.parse(
       buffer,
       '',
@@ -77,7 +83,10 @@ export function ModelViewer({
       },
       (error) => {
         if (!cancelled) {
-          setState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
+          setState({
+            status: 'error',
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       },
     );

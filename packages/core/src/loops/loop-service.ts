@@ -161,7 +161,9 @@ export interface LoopService {
   ): Promise<LoopDefinition>;
   /** Advance a missed schedule without running it (app hidden/not running). */
   skipMissedSchedule(loopId: string): Promise<LoopDefinition>;
-  /** Persist the last automatic result and advance from completion time. */
+  /** Atomically claim one exact due slot and advance it before side effects. */
+  claimScheduledRun(loopId: string, expectedNextRunAt: string): Promise<boolean>;
+  /** Persist the result for an already-claimed automatic run. */
   completeScheduledRun(loopId: string, result: string): Promise<LoopDefinition>;
   /**
    * Physically delete the definition (cascades revisions+bindings). REFUSED when
@@ -408,24 +410,30 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
       return toDefinition({ ...loop, next_run_at: next, updated_at: ts });
     },
 
+    async claimScheduledRun(loopId, expectedNextRunAt) {
+      const loop = await requireLoop(loopId);
+      if (!loop.schedule_interval_minutes || loop.next_run_at !== expectedNextRunAt) return false;
+      const claimedAt = deps.now();
+      const next = nextRunAt(claimedAt, loop.schedule_interval_minutes);
+      return repos.loopDefinitions.claimScheduledRun(loopId, expectedNextRunAt, {
+        claimedAt,
+        nextRunAt: next,
+      });
+    },
+
     async completeScheduledRun(loopId, result) {
       const loop = await requireLoop(loopId);
       const ts = deps.now();
-      const next = loop.schedule_interval_minutes
-        ? nextRunAt(ts, loop.schedule_interval_minutes)
-        : null;
       const normalizedResult = result.trim().slice(0, 240) || 'completed';
       await repos.loopDefinitions.update(loopId, {
         lastRunAt: ts,
         lastRunResult: normalizedResult,
-        nextRunAt: next,
         updatedAt: ts,
       });
       return toDefinition({
         ...loop,
         last_run_at: ts,
         last_run_result: normalizedResult,
-        next_run_at: next,
         updated_at: ts,
       });
     },

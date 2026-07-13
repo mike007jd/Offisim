@@ -7,6 +7,7 @@ import {
   useProjectFiles,
   useProjects,
 } from '@/data/queries.js';
+import { loadComputerDriverStatus } from '@/surfaces/office/computer/computer-status.js';
 import { useEmployeeMemories } from '@/surfaces/personnel/personnel-data.js';
 import {
   CUA_DRIVER_MCP_PRESET,
@@ -19,15 +20,14 @@ import {
   FolderOpen,
   GitBranch,
   Globe,
-  MonitorSmartphone,
   type LucideIcon,
+  MonitorSmartphone,
   Package,
   Plug,
   Puzzle,
   SquareTerminal,
 } from 'lucide-react';
 import { useMemo } from 'react';
-import { loadComputerDriverStatus } from '@/surfaces/office/computer/computer-status.js';
 
 /**
  * Per-thread capability manifest. Turns "what tools/capabilities do I have?"
@@ -237,7 +237,10 @@ export function useThreadCapabilities(
         icon: FolderOpen,
         status: 'available',
         source: 'Workspace',
-        detail: fileCount > 0 ? `${plural(fileCount, 'item')} at workspace root` : 'Workspace folder bound',
+        detail:
+          fileCount > 0
+            ? `${plural(fileCount, 'item')} at workspace root`
+            : 'Workspace folder bound',
       });
     } else {
       capabilities.push({

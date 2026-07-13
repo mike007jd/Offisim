@@ -22,7 +22,7 @@ import {
 import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mission/memory.ts';
 
 let passed = 0;
-const TOTAL = 17;
+const TOTAL = 19;
 let failed = 0;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
@@ -82,6 +82,76 @@ function baseInput(overrides?: Partial<CreateMissionInput>): CreateMissionInput 
     ...overrides,
   };
 }
+
+await check('createMission removes the whole aggregate when a child write fails', async () => {
+  for (const failurePoint of ['criterion', 'event'] as const) {
+    const repos = freshRepos();
+    const originalCriterionInsert = repos.missionCriteria.insert.bind(repos.missionCriteria);
+    const originalEventInsert = repos.missionEvents.insert.bind(repos.missionEvents);
+    let criterionWrites = 0;
+    repos.missionCriteria.insert = async (row) => {
+      criterionWrites += 1;
+      if (failurePoint === 'criterion' && criterionWrites === 2) {
+        throw new Error('injected criterion write failure');
+      }
+      await originalCriterionInsert(row);
+    };
+    repos.missionEvents.insert = async (row) => {
+      if (failurePoint === 'event') throw new Error('injected event write failure');
+      await originalEventInsert(row);
+    };
+
+    const svc = createMissionService(repos, makeDeps());
+    await assert.rejects(
+      () => svc.createMission(baseInput()),
+      new RegExp(`injected ${failurePoint} write failure`),
+    );
+    assert.deepEqual(
+      await repos.missions.listByCompany('co-1'),
+      [],
+      `${failurePoint} failure left a Mission root`,
+    );
+    assert.deepEqual(
+      await repos.missionCriteria.listByMission('id-0001'),
+      [],
+      `${failurePoint} failure left partial criteria`,
+    );
+    assert.deepEqual(
+      await repos.missionEvents.listByMission('id-0001'),
+      [],
+      `${failurePoint} failure left a creation event`,
+    );
+  }
+});
+
+await check(
+  'mission budget rejects zero/fractional caps before any row or attempt exists',
+  async () => {
+    const invalidBudgets = [
+      { maxRepairsPerCriterion: 0 },
+      { maxAttempts: 0 },
+      { tokenBudget: 0 },
+      { maxConcurrentAgents: 0 },
+      { maxTotalAgents: 0 },
+      { maxRecursionDepth: 0 },
+      { wallClockMinutes: 0 },
+      { maxAttempts: 1.5 },
+    ];
+    for (const budget of invalidBudgets) {
+      const repos = freshRepos();
+      const svc = createMissionService(repos, makeDeps());
+      await assert.rejects(
+        () => svc.createMission(baseInput({ budgetJson: JSON.stringify(budget) })),
+        /positive integer/,
+      );
+      assert.deepEqual(
+        await repos.missions.listByCompany('co-1'),
+        [],
+        `invalid ${JSON.stringify(budget)} wrote no mission`,
+      );
+    }
+  },
+);
 
 await check(
   'happy path: draft→ready→running→verifying→completed + one event per transition',

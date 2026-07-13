@@ -350,7 +350,7 @@ forwards it in the execute request; Rust passes it through verbatim in
 | Limit | Phase 1 | Phase 2 default | Enforced by |
 |---|---|---|---|
 | `maxDepth` | 1 (no recursion) | 2 | supervisor depth counter; over → tool `block` + reason |
-| `maxParallelPerDelegation` | n/a (single) | 4 | **per parallel fan-out** (`mapWithConcurrencyLimit`), not a global blocking semaphore — a parent awaiting children must not hold a slot a child needs (deadlock). Tree-wide instantaneous concurrency is bounded by `maxTotalChildren`. |
+| `maxParallelPerDelegation` | n/a (single) | 4 | tree-wide active-agent lease; a parent suspends its lease while awaiting descendants and reacquires it afterward, so recursive delegation cannot exceed the cap or deadlock descendants |
 | `maxTotalChildren` | 1 | 16 | global counter per root run — the tree-wide cap |
 | wall-clock timeout / child | — | 5 min | `AbortController` + timer |
 | token / cost budget | — | reuse `ConversationBudgetService` | budget check before each child |
@@ -358,6 +358,12 @@ forwards it in the execute request; Rust passes it through verbatim in
 | combined tool-result cap | — | **24 KB** | combined parallel result truncated + announced |
 | parallel write safety | — | reject | parallel + any `write` task is rejected (children share one cwd); run write as `single` or sequence it |
 | abort propagation | root only | whole subtree | root cancel → host kills all descendants |
+
+Mission Loop overrides map directly onto the Pi host limits: recursion depth,
+tree-wide active agents, total delegated agents, token budget, and wall-clock
+budget. The host clamps overrides to its configured ceilings; a wall-clock
+expiry returns immediately even when a runtime has not registered yet or abort
+delivery fails.
 
 **No silent caps**: hitting any cap (dropped concurrency, truncated output, budget
 hit, depth block) must `log` / emit an event — never silently truncate.

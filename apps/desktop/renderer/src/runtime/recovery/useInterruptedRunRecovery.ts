@@ -1,7 +1,7 @@
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { AgentRunRepository } from '@offisim/core/browser';
 import type { ProjectRepository } from '@offisim/core/browser';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDesktopAgentRuntime } from '../desktop-agent-runtime.js';
 import { getRepos } from '../repos.js';
 import {
@@ -25,6 +25,29 @@ function removeCard(companyId: string, runId: string): InterruptedRunCard[] {
   return next;
 }
 
+/**
+ * Monotonic scope token for recovery loads. A slower request may finish after a
+ * company switch or refetch, but only the latest token may publish state/cache.
+ */
+export class RecoveryLoadGeneration {
+  private current = 0;
+
+  begin(): number {
+    this.current += 1;
+    return this.current;
+  }
+
+  invalidate(): void {
+    this.current += 1;
+  }
+
+  commit(generation: number, operation: () => void): boolean {
+    if (generation !== this.current) return false;
+    operation();
+    return true;
+  }
+}
+
 export async function loadInterruptedRunRecoveryCards(input: {
   repo: AgentRunRepository;
   projects?: ProjectRepository;
@@ -32,7 +55,25 @@ export async function loadInterruptedRunRecoveryCards(input: {
   now: () => string;
   skipReconcile?: boolean;
 }): Promise<InterruptedRunCard[]> {
-  const result = input.skipReconcile ? { cards: [] } : await reconcileInterruptedRuns(input);
+  return (await loadInterruptedRunRecovery(input)).cards;
+}
+
+export interface InterruptedRunRecoveryLoad {
+  cards: InterruptedRunCard[];
+  /** False when at least one root failed reconciliation; callers must retry. */
+  complete: boolean;
+}
+
+export async function loadInterruptedRunRecovery(input: {
+  repo: AgentRunRepository;
+  projects?: ProjectRepository;
+  companyId: string;
+  now: () => string;
+  skipReconcile?: boolean;
+}): Promise<InterruptedRunRecoveryLoad> {
+  const result = input.skipReconcile
+    ? { cards: [], failedRootRunIds: [] }
+    : await reconcileInterruptedRuns(input);
   const merged = new Map<string, InterruptedRunCard>(
     result.cards.map((card) => [card.runId, card]),
   );
@@ -71,7 +112,10 @@ export async function loadInterruptedRunRecoveryCards(input: {
       ),
     );
   }
-  return [...merged.values()];
+  return {
+    cards: [...merged.values()],
+    complete: result.failedRootRunIds.length === 0,
+  };
 }
 
 async function checkWorkspaceExists(projectId: string | null): Promise<boolean | null> {
@@ -108,69 +152,101 @@ export function useInterruptedRunRecovery(
   refetch: () => Promise<void>;
 } {
   const skipReconcile = options.skipReconcile === true;
+  const [loadGeneration] = useState(() => new RecoveryLoadGeneration());
+  const currentCompanyIdRef = useRef(companyId);
+  currentCompanyIdRef.current = companyId;
   const [cards, setCards] = useState<InterruptedRunCard[]>(() =>
     companyId && !skipReconcile ? (cardsByCompany.get(companyId) ?? []) : [],
   );
 
   const load = useCallback(
     async (force = false) => {
-      if (!companyId) {
-        setCards([]);
+      const generation = loadGeneration.begin();
+      const scopeCompanyId = companyId;
+      if (!scopeCompanyId) {
+        loadGeneration.commit(generation, () => setCards([]));
         return;
       }
-      if (!skipReconcile && !force && hydratedByCompany.has(companyId)) {
-        setCards(cardsByCompany.get(companyId) ?? []);
+      if (!skipReconcile && !force && hydratedByCompany.has(scopeCompanyId)) {
+        loadGeneration.commit(generation, () => {
+          setCards(cardsByCompany.get(scopeCompanyId) ?? []);
+        });
         return;
       }
       try {
         const repos = await getRepos();
-        if (!repos.agentRuns) {
-          cacheCards(companyId, []);
-          setCards([]);
-          return;
-        }
-        const loadedCards = await loadInterruptedRunRecoveryCards({
+        const recovery = await loadInterruptedRunRecovery({
           repo: repos.agentRuns,
           projects: repos.projects,
-          companyId,
+          companyId: scopeCompanyId,
           now: () => new Date().toISOString(),
           skipReconcile,
         });
-        if (!skipReconcile) hydratedByCompany.add(companyId);
-        setCards(cacheCards(companyId, loadedCards));
+        loadGeneration.commit(generation, () => {
+          if (!skipReconcile && recovery.complete) hydratedByCompany.add(scopeCompanyId);
+          else hydratedByCompany.delete(scopeCompanyId);
+          setCards(cacheCards(scopeCompanyId, recovery.cards));
+        });
       } catch (err) {
-        hydratedByCompany.delete(companyId);
-        console.warn('[useInterruptedRunRecovery] recovery hydration failed', { companyId, err });
+        loadGeneration.commit(generation, () => {
+          hydratedByCompany.delete(scopeCompanyId);
+          console.warn('[useInterruptedRunRecovery] recovery hydration failed', {
+            companyId: scopeCompanyId,
+            err,
+          });
+        });
       }
     },
-    [companyId, skipReconcile],
+    [companyId, loadGeneration, skipReconcile],
   );
 
   useEffect(() => {
     void load(false);
-  }, [load]);
+    return () => loadGeneration.invalidate();
+  }, [load, loadGeneration]);
 
   const discard = useCallback(
     async (runId: string) => {
-      if (!companyId) return;
+      const scopeCompanyId = companyId;
+      if (!scopeCompanyId) return;
+      const card = cards.find((candidate) => candidate.runId === runId);
+      if (!card || card.companyId !== scopeCompanyId) {
+        throw new Error('Interrupted run no longer belongs to the active company.');
+      }
+      loadGeneration.invalidate();
       const repos = await getRepos();
-      if (!repos.agentRuns) return;
-      await repos.agentRuns.updateStatus(runId, 'cancelled', {
-        finishedAt: new Date().toISOString(),
-      });
-      setCards(removeCard(companyId, runId));
+      const updated = await repos.agentRuns.updateStatusForCompany(
+        scopeCompanyId,
+        runId,
+        'cancelled',
+        {
+          finishedAt: new Date().toISOString(),
+        },
+      );
+      if (!updated) {
+        throw new Error('Interrupted run no longer belongs to the active company.');
+      }
+      const nextCards = removeCard(scopeCompanyId, runId);
+      if (currentCompanyIdRef.current === scopeCompanyId) setCards(nextCards);
     },
-    [companyId],
+    [cards, companyId, loadGeneration],
   );
 
   const resume = useCallback(
     async (runId: string) => {
-      if (!companyId) return;
-      const runtime = await getDesktopAgentRuntime(companyId);
+      const scopeCompanyId = companyId;
+      if (!scopeCompanyId) return;
+      const card = cards.find((candidate) => candidate.runId === runId);
+      if (!card || card.companyId !== scopeCompanyId) {
+        throw new Error('Interrupted run no longer belongs to the active company.');
+      }
+      loadGeneration.invalidate();
+      const runtime = await getDesktopAgentRuntime(scopeCompanyId);
       await runtime.resume(runId);
-      setCards(removeCard(companyId, runId));
+      const nextCards = removeCard(scopeCompanyId, runId);
+      if (currentCompanyIdRef.current === scopeCompanyId) setCards(nextCards);
     },
-    [companyId],
+    [cards, companyId, loadGeneration],
   );
 
   const refetch = useCallback(async () => {
@@ -179,5 +255,6 @@ export function useInterruptedRunRecovery(
     await load(true);
   }, [companyId, load]);
 
-  return { cards, resume, discard, refetch };
+  const scopedCards = companyId ? cards.filter((card) => card.companyId === companyId) : [];
+  return { cards: scopedCards, resume, discard, refetch };
 }

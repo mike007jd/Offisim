@@ -33,7 +33,11 @@ import {
   normalizePermissionMode,
   toolAllowlistForMode,
 } from './pi-agent-permission-modes.mts';
-import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
+import {
+  DELEGATION_DEFAULTS,
+  createChildSupervisor,
+  createDelegationLimits,
+} from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
 import { createVerifyCallChannel } from './pi-host-verify-channel.mjs';
@@ -52,6 +56,33 @@ import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-ext
  */
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
 const MCP_APPROVAL_TIMEOUT_MS = 75_000;
+const DELEGATION_LIMIT_KEYS = Object.freeze([
+  'maxDepth',
+  'maxParallelPerDelegation',
+  'maxTotalChildren',
+  'maxTotalTokens',
+]);
+
+/**
+ * Accept a delegation-limit override only when the whole packet is a known,
+ * positive-safe-integer shape. One bad/unknown field discards the whole packet,
+ * restoring host defaults; valid values can only tighten those defaults.
+ */
+function normalizeDelegationLimitOverrides(value) {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+
+  const keys = Object.keys(value);
+  if (keys.some((key) => !DELEGATION_LIMIT_KEYS.includes(key))) return undefined;
+
+  const overrides = {};
+  for (const key of keys) {
+    const requested = value[key];
+    if (!Number.isSafeInteger(requested) || requested <= 0) return undefined;
+    overrides[key] = Math.min(requested, DELEGATION_DEFAULTS[key]);
+  }
+  return overrides;
+}
 
 function normalizeThinkingLevel(value) {
   return typeof value === 'string' && THINKING_LEVELS.includes(value) ? value : undefined;
@@ -1120,7 +1151,13 @@ async function runPrompt(payload) {
       })
     : [];
   const directDelegation = isRecord(payload.directDelegation) ? payload.directDelegation : null;
+  const delegationLimitOverrides = normalizeDelegationLimitOverrides(payload.delegationLimits);
   const delegationEnabled = Boolean(rootRunId && threadId && roster.length > 0);
+  const delegationBudgetState = delegationEnabled
+    ? delegationLimitOverrides === undefined
+      ? createDelegationLimits()
+      : createDelegationLimits(delegationLimitOverrides)
+    : null;
   // Publish-artifact: register the `publish_artifact` tool whenever the run has a
   // root id + thread id (the scope fields the renderer needs to persist the
   // deliverable row). Independent of having a roster — a soloing agent can still
@@ -1248,7 +1285,7 @@ async function runPrompt(payload) {
         buildPermissionGate,
         bindChildUi: (session) =>
           session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' }),
-        limits: createDelegationLimits(),
+        limits: delegationBudgetState,
         leaseManager,
         rootLease,
         confirmIntegration,
@@ -1331,7 +1368,13 @@ async function runPrompt(payload) {
         : undefined,
     });
     emit(messageEndLine({ text: summary, stopReason: 'end_turn' }));
-    emit(resultLine({ ok: true, text: summary }));
+    emit(
+      resultLine({
+        ok: true,
+        text: summary,
+        ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
+      }),
+    );
     return;
   }
 
@@ -1409,6 +1452,7 @@ async function runPrompt(payload) {
           rootUsage.cacheWrite += u.cacheWrite || 0;
           rootUsage.cost += u.cost?.total || 0;
           rootUsage.turns += 1;
+          delegationBudgetState?.recordTokens({ ...u, turns: 1 });
         }
         emit(
           messageEndLine({
@@ -1518,6 +1562,7 @@ async function runPrompt(payload) {
         sessionFile: session.sessionFile,
         model: session.model ? modelSummary(session.model) : undefined,
         usage: rootUsage,
+        ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
       }),
     );
   } finally {

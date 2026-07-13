@@ -31,6 +31,7 @@ import {
 import { submitNewGroupFromDialog } from '../apps/desktop/renderer/src/surfaces/office/rail/connect/new-group-submit.js';
 import {
   type CollaborationServiceDeps,
+  type CollaborationServiceRepos,
   createCollaborationService,
 } from '../packages/core/src/runtime/collaboration/collaboration-service.js';
 import { createCollaborationDrizzleRepos } from '../packages/core/src/runtime/repos/collaboration/drizzle.js';
@@ -169,9 +170,13 @@ function makeDeps(): CollaborationServiceDeps {
 }
 
 function makeService(db: Database.Database) {
-  const repos = createCollaborationDrizzleRepos(
+  const baseRepos = createCollaborationDrizzleRepos(
     drizzleBetter(db) as BetterSQLite3Database<Record<string, never>>,
   );
+  const repos: CollaborationServiceRepos = {
+    ...baseRepos,
+    asyncTransact: async (fn) => fn(),
+  };
   return createCollaborationService(repos, makeDeps());
 }
 
@@ -265,28 +270,35 @@ async function main(): Promise<void> {
     },
   );
 
-  await check('(0b) a failed UI group submit never opens a thread or closes the dialog', async () => {
-    const events: string[] = [];
-    await assert.rejects(
-      submitNewGroupFromDialog(
-        {
-          title: 'B2 Release Roundtable',
-          employeeIds: ['emp-1', 'emp-2', 'emp-3'],
-          replyPolicy: 'roundtable',
-        },
-        {
-          createGroup: async () => {
-            events.push('create:start');
-            throw new Error('sqlite write rejected');
+  await check(
+    '(0b) a failed UI group submit never opens a thread or closes the dialog',
+    async () => {
+      const events: string[] = [];
+      await assert.rejects(
+        submitNewGroupFromDialog(
+          {
+            title: 'B2 Release Roundtable',
+            employeeIds: ['emp-1', 'emp-2', 'emp-3'],
+            replyPolicy: 'roundtable',
           },
-          openThread: (threadId) => events.push(`open:${threadId}`),
-          closeDialog: () => events.push('close'),
-        },
-      ),
-      /sqlite write rejected/,
-    );
-    assert.deepEqual(events, ['create:start'], 'failure leaves the dialog open for visible retry');
-  });
+          {
+            createGroup: async () => {
+              events.push('create:start');
+              throw new Error('sqlite write rejected');
+            },
+            openThread: (threadId) => events.push(`open:${threadId}`),
+            closeDialog: () => events.push('close'),
+          },
+        ),
+        /sqlite write rejected/,
+      );
+      assert.deepEqual(
+        events,
+        ['create:start'],
+        'failure leaves the dialog open for visible retry',
+      );
+    },
+  );
 
   // ── (1) draft materialization calls getOrCreateDirect ONCE (idempotent) ────
   await check('(1) direct draft double-send materializes exactly ONE direct thread', async () => {

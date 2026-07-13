@@ -384,11 +384,14 @@ function validateBudget(budget: LoopBudgetContract, findings: LoopValidationFind
     'maxTotalAgents',
     'maxRecursionDepth',
     'maxFixWavesPerGate',
+    'wallClockMinutes',
+    'tokenCeiling',
   ];
   for (const key of positives) {
     const v = budget[key];
-    if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) {
-      findings.push(err(`budget.${key}`, `budget.${key} must be a positive number`));
+    if (v === undefined && (key === 'wallClockMinutes' || key === 'tokenCeiling')) continue;
+    if (typeof v !== 'number' || !Number.isSafeInteger(v) || v <= 0) {
+      findings.push(err(`budget.${key}`, `budget.${key} must be a positive integer`));
     }
   }
   if (typeof budget.maxConcurrentAgents === 'number' && typeof budget.maxTotalAgents === 'number') {

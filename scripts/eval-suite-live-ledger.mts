@@ -39,7 +39,9 @@ function count(db: Db, sql: string, params: readonly unknown[] = []): number {
 
 function tableExists(db: Db, name: string): boolean {
   return (
-    count(db, "SELECT COUNT(*) AS value FROM sqlite_master WHERE type = 'table' AND name = ?", [name]) > 0
+    count(db, "SELECT COUNT(*) AS value FROM sqlite_master WHERE type = 'table' AND name = ?", [
+      name,
+    ]) > 0
   );
 }
 
@@ -51,7 +53,9 @@ function sqliteIdentifier(name: string): string {
 }
 
 function columnExists(db: Db, table: string, column: string): boolean {
-  return all<{ name: string }>(db, `PRAGMA table_info(${sqliteIdentifier(table)})`).some((row) => row.name === column);
+  return all<{ name: string }>(db, `PRAGMA table_info(${sqliteIdentifier(table)})`).some(
+    (row) => row.name === column,
+  );
 }
 
 function requireLiveEvalSchema(db: Db): void {
@@ -171,7 +175,12 @@ function scoreResearch(db: Db, evidence: string[]): EvalResult {
   ];
 
   if (browserAudits === 0) {
-    return result('research-web', 'blocked', taskEvidence, 'No live web/MCP read audit row exists.');
+    return result(
+      'research-web',
+      'blocked',
+      taskEvidence,
+      'No live web/MCP read audit row exists.',
+    );
   }
   if (citedTauriMessages === 0) {
     return result(
@@ -215,12 +224,22 @@ function scoreFileEdit(db: Db, workspaceRoot: string, evidence: string[]): EvalR
   ];
 
   if (!fs.existsSync(target)) {
-    return result('file-edit', 'blocked', taskEvidence, 'The active workspace has no src/index.ts target file.');
+    return result(
+      'file-edit',
+      'blocked',
+      taskEvidence,
+      'The active workspace has no src/index.ts target file.',
+    );
   }
   if (/MIT License/i.test(header) && editAudits + editCalls > 0) {
     return result('file-edit', 'pass', taskEvidence);
   }
-  return result('file-edit', 'fail', taskEvidence, 'The target file exists but the MIT header or edit-tool evidence is missing.');
+  return result(
+    'file-edit',
+    'fail',
+    taskEvidence,
+    'The target file exists but the MIT header or edit-tool evidence is missing.',
+  );
 }
 
 function scoreArtifact(db: Db, workspaceRoot: string, evidence: string[]): EvalResult {
@@ -243,7 +262,10 @@ function scoreArtifact(db: Db, workspaceRoot: string, evidence: string[]): EvalR
   const fileName = stringValue(row?.file_name);
   const filePath = fileName ? path.resolve(workspaceRoot, fileName) : '';
   const readableFile =
-    Boolean(row) && filePath.length > 0 && withinWorkspace(workspaceRoot, filePath) && fs.existsSync(filePath);
+    Boolean(row) &&
+    filePath.length > 0 &&
+    withinWorkspace(workspaceRoot, filePath) &&
+    fs.existsSync(filePath);
   const taskEvidence = [
     ...evidence,
     `deliverables_count=${rows.length}`,
@@ -255,7 +277,12 @@ function scoreArtifact(db: Db, workspaceRoot: string, evidence: string[]): EvalR
   ];
 
   if (!row) {
-    return result('artifact-publish', 'blocked', taskEvidence, 'No deliverables row with content_hash exists in live DB.');
+    return result(
+      'artifact-publish',
+      'blocked',
+      taskEvidence,
+      'No deliverables row with content_hash exists in live DB.',
+    );
   }
   if (readableFile) {
     return result('artifact-publish', 'pass', taskEvidence, undefined, { artifactUsable: true });
@@ -280,7 +307,13 @@ function scoreApproval(db: Db, evidence: string[]): EvalResult {
       )
     : [];
   const approvalRows = tableExists(db, 'tool_permission_approvals')
-    ? all<{ server_name: string; tool_name: string; approved_by: string; consumed_at: string | null; created_at: string }>(
+    ? all<{
+        server_name: string;
+        tool_name: string;
+        approved_by: string;
+        consumed_at: string | null;
+        created_at: string;
+      }>(
         db,
         `SELECT server_name, tool_name, approved_by, consumed_at, created_at
            FROM tool_permission_approvals
@@ -301,20 +334,40 @@ function scoreApproval(db: Db, evidence: string[]): EvalResult {
   ];
 
   if (interactionRows.length === 0 && approvalRows.length === 0) {
-    return result('ask-approval', 'blocked', taskEvidence, 'No approval interaction or tool permission row exists.');
+    return result(
+      'ask-approval',
+      'blocked',
+      taskEvidence,
+      'No approval interaction or tool permission row exists.',
+    );
   }
 
-  const approved = interactionRows.some((row) => /approved|completed|resolved/i.test(row.status)) || approvalRows.length > 0;
+  const approved =
+    interactionRows.some((row) => /approved|completed|resolved/i.test(row.status)) ||
+    approvalRows.length > 0;
   if (approved) {
-    return result('ask-approval', 'pass', taskEvidence, undefined, { askCount: interactionRows.length });
+    return result('ask-approval', 'pass', taskEvidence, undefined, {
+      askCount: interactionRows.length,
+    });
   }
-  return result('ask-approval', 'fail', taskEvidence, 'Approval evidence exists, but no approved/resolved state was recorded.', {
-    askCount: interactionRows.length,
-  });
+  return result(
+    'ask-approval',
+    'fail',
+    taskEvidence,
+    'Approval evidence exists, but no approved/resolved state was recorded.',
+    {
+      askCount: interactionRows.length,
+    },
+  );
 }
 
 function scoreAbort(db: Db, evidence: string[]): EvalResult {
-  const cancelled = get<{ run_id: string; root_run_id: string; objective: string; finished_at: string }>(
+  const cancelled = get<{
+    run_id: string;
+    root_run_id: string;
+    objective: string;
+    finished_at: string;
+  }>(
     db,
     `SELECT run_id, root_run_id, objective, finished_at
        FROM agent_runs
@@ -324,9 +377,11 @@ function scoreAbort(db: Db, evidence: string[]): EvalResult {
       LIMIT 1`,
   );
   const runningChildren = cancelled
-    ? count(db, "SELECT COUNT(*) AS value FROM agent_runs WHERE root_run_id = ? AND parent_run_id IS NOT NULL AND status = 'running'", [
-        cancelled.root_run_id,
-      ])
+    ? count(
+        db,
+        "SELECT COUNT(*) AS value FROM agent_runs WHERE root_run_id = ? AND parent_run_id IS NOT NULL AND status = 'running'",
+        [cancelled.root_run_id],
+      )
     : 0;
   const taskEvidence = [
     ...evidence,
@@ -340,7 +395,12 @@ function scoreAbort(db: Db, evidence: string[]): EvalResult {
     return result('abort-run', 'blocked', taskEvidence, 'No cancelled root run exists in live DB.');
   }
   if (runningChildren === 0) return result('abort-run', 'pass', taskEvidence);
-  return result('abort-run', 'fail', taskEvidence, 'A cancelled root still has running child runs.');
+  return result(
+    'abort-run',
+    'fail',
+    taskEvidence,
+    'A cancelled root still has running child runs.',
+  );
 }
 
 function scoreDelegation(db: Db, evidence: string[]): EvalResult {
@@ -363,7 +423,12 @@ function scoreDelegation(db: Db, evidence: string[]): EvalResult {
       ORDER BY started_at DESC
       LIMIT 1`,
   );
-  const closestRoot = get<{ root_run_id: string; child_count: number; completed_children: number; started_at: string }>(
+  const closestRoot = get<{
+    root_run_id: string;
+    child_count: number;
+    completed_children: number;
+    started_at: string;
+  }>(
     db,
     `SELECT root_run_id,
             SUM(CASE WHEN parent_run_id IS NOT NULL THEN 1 ELSE 0 END) AS child_count,
@@ -396,7 +461,12 @@ function scoreDelegation(db: Db, evidence: string[]): EvalResult {
       'Live delegation evidence exists, but no root has three completed child runs.',
     );
   }
-  return result('delegation-parallel', 'blocked', taskEvidence, 'No delegated child runs exist in live DB.');
+  return result(
+    'delegation-parallel',
+    'blocked',
+    taskEvidence,
+    'No delegated child runs exist in live DB.',
+  );
 }
 
 function scoreMission(db: Db, evidence: string[]): EvalResult {
@@ -433,17 +503,36 @@ function scoreMission(db: Db, evidence: string[]): EvalResult {
   ];
 
   if (!passEval && blockedGateMissions === 0) {
-    return result('mission-evaluation', 'blocked', taskEvidence, 'No live mission evaluation row exists.');
+    return result(
+      'mission-evaluation',
+      'blocked',
+      taskEvidence,
+      'No live mission evaluation row exists.',
+    );
   }
   if (passEval) {
     return result('mission-evaluation', 'pass', taskEvidence);
   }
-  return result('mission-evaluation', 'fail', taskEvidence, 'Mission attempts exist, but none completed through a PASS evaluation.');
+  return result(
+    'mission-evaluation',
+    'fail',
+    taskEvidence,
+    'Mission attempts exist, but none completed through a PASS evaluation.',
+  );
 }
 
 function scoreRecovery(db: Db, evidence: string[]): EvalResult {
-  const interruptedCount = count(db, "SELECT COUNT(*) AS value FROM agent_runs WHERE status = 'interrupted'");
-  const recoveryRun = get<{ run_id: string; status: string; objective: string; started_at: string; finished_at: string | null }>(
+  const interruptedCount = count(
+    db,
+    "SELECT COUNT(*) AS value FROM agent_runs WHERE status = 'interrupted'",
+  );
+  const recoveryRun = get<{
+    run_id: string;
+    status: string;
+    objective: string;
+    started_at: string;
+    finished_at: string | null;
+  }>(
     db,
     `SELECT run_id, status, objective, started_at, finished_at
        FROM agent_runs
@@ -474,7 +563,12 @@ function scoreRecovery(db: Db, evidence: string[]): EvalResult {
   ];
 
   if (!recoveryRun && interruptedCount === 0) {
-    return result('restart-recovery', 'blocked', taskEvidence, 'No recovery/restart live run evidence exists.');
+    return result(
+      'restart-recovery',
+      'blocked',
+      taskEvidence,
+      'No recovery/restart live run evidence exists.',
+    );
   }
   if (interruptedCount > 0 && duplicateHashes === 0) {
     return result('restart-recovery', 'pass', taskEvidence);
@@ -517,12 +611,15 @@ if (!fs.existsSync(dbPath)) {
 
 const db = new Database(dbPath, { readonly: true, fileMustExist: true });
 try {
-  const userVersion = Number(get<{ user_version: number }>(db, 'PRAGMA user_version')?.user_version ?? 0);
+  const userVersion = Number(
+    get<{ user_version: number }>(db, 'PRAGMA user_version')?.user_version ?? 0,
+  );
   requireLiveEvalSchema(db);
 
   const workspaceRoot = activeWorkspaceRoot(db);
   if (!workspaceRoot) throw new Error('No active project workspace_root found in live DB.');
-  if (!fs.existsSync(workspaceRoot)) throw new Error(`Active project workspace_root is not readable: ${workspaceRoot}`);
+  if (!fs.existsSync(workspaceRoot))
+    throw new Error(`Active project workspace_root is not readable: ${workspaceRoot}`);
 
   const results = EVAL_SUITE.map((task) => scoreTask(db, task.id, userVersion, workspaceRoot));
   const ledger = summarizeLedger(results);

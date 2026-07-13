@@ -123,6 +123,10 @@ const ALLOWLIST = new Set([
   'scripts/harness-loop-office-invocation.mts::../packages/core/src/runtime/memory-repositories.ts',
   'scripts/harness-loop-office-invocation.mts::../packages/core/src/browser.ts',
   'scripts/harness-loop-office-invocation.mts::../packages/core/src/loops/types.ts',
+  'scripts/harness-loop-office-invocation.mts::../packages/db-local/src/schema.sql',
+  // Destructive graph-deletion gate executes the exact current SQLite baseline
+  // without depending on a previously built package artifact.
+  'scripts/harness-conversation-deletion.mts::../packages/db-local/src/schema.sql',
   // PR-08 Loops authoring-flow harness: drives the pure state machine + the
   // model-adapter mapping over the in-memory loop repos (un-built, like its peers).
   'scripts/harness-loop-authoring-flow.mts::../packages/core/src/runtime/memory-repositories.ts',

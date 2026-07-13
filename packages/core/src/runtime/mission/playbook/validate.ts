@@ -355,7 +355,7 @@ function validateStructure(
     const budget = playbook.defaultBudget;
     if (
       typeof budget.maxAttempts !== 'number' ||
-      !Number.isInteger(budget.maxAttempts) ||
+      !Number.isSafeInteger(budget.maxAttempts) ||
       budget.maxAttempts < 1
     ) {
       structure(
@@ -366,22 +366,22 @@ function validateStructure(
     if (
       budget.maxRepairsPerCriterion !== undefined &&
       (typeof budget.maxRepairsPerCriterion !== 'number' ||
-        !Number.isInteger(budget.maxRepairsPerCriterion) ||
-        budget.maxRepairsPerCriterion < 0)
+        !Number.isSafeInteger(budget.maxRepairsPerCriterion) ||
+        budget.maxRepairsPerCriterion < 1)
     ) {
       structure(
-        'defaultBudget.maxRepairsPerCriterion must be a non-negative integer',
+        'defaultBudget.maxRepairsPerCriterion must be a positive integer',
         'defaultBudget.maxRepairsPerCriterion',
       );
     }
     if (
       budget.tokenBudget !== undefined &&
       (typeof budget.tokenBudget !== 'number' ||
-        !Number.isInteger(budget.tokenBudget) ||
-        budget.tokenBudget < 0)
+        !Number.isSafeInteger(budget.tokenBudget) ||
+        budget.tokenBudget < 1)
     ) {
       structure(
-        'defaultBudget.tokenBudget must be a non-negative integer',
+        'defaultBudget.tokenBudget must be a positive integer',
         'defaultBudget.tokenBudget',
       );
     }

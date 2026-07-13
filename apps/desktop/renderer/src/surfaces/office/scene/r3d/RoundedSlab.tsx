@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
 function roundedRectangleShape(width: number, depth: number, radius: number) {

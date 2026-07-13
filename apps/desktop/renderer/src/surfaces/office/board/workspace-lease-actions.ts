@@ -65,7 +65,6 @@ async function persistedLeaseStatus(
 ): Promise<WorkspaceLeaseReviewRow['status'] | null> {
   if (!row.projectId) return null;
   const repos = await getRepos();
-  if (!repos.agentEvents) return null;
   const [snapshots, actions] = await Promise.all([
     repos.agentEvents.findByProject(row.projectId, { eventType: 'workspace.lease.snapshot' }),
     repos.agentEvents.findByProject(row.projectId, { eventType: 'workspace.lease.action' }),
@@ -144,7 +143,7 @@ export async function appendWorkspaceLeaseAction(
   extra: Record<string, unknown> = {},
 ): Promise<void> {
   const repos = await getRepos();
-  await repos.agentEvents?.append({
+  await repos.agentEvents.append({
     event_id: crypto.randomUUID(),
     project_id: row.projectId,
     thread_id: row.threadId,

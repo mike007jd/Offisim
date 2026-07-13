@@ -78,6 +78,20 @@ export function createAgentRunsDrizzleRepos(db: Db): AgentRunsDrizzleRepos {
       if (opts?.failureKind !== undefined) patch.failure_kind = opts.failureKind;
       db.update(schema.agentRuns).set(patch).where(eq(schema.agentRuns.run_id, runId)).run();
     },
+    async updateStatusForCompany(companyId, runId, status, opts) {
+      const patch: Partial<AgentRunRow> = { status };
+      if (opts?.resultSummaryJson !== undefined) patch.result_summary_json = opts.resultSummaryJson;
+      if (opts?.usageJson !== undefined) patch.usage_json = opts.usageJson;
+      if (opts?.finishedAt !== undefined) patch.finished_at = opts.finishedAt;
+      if (opts?.sessionFile !== undefined) patch.session_file = opts.sessionFile;
+      if (opts?.failureKind !== undefined) patch.failure_kind = opts.failureKind;
+      const result = db
+        .update(schema.agentRuns)
+        .set(patch)
+        .where(and(eq(schema.agentRuns.company_id, companyId), eq(schema.agentRuns.run_id, runId)))
+        .run();
+      return result.changes > 0;
+    },
     async updateRuntimeContext(runId, runtimeContextJson) {
       db.update(schema.agentRuns)
         .set({ runtime_context_json: runtimeContextJson })

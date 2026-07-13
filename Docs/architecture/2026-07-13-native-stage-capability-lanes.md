@@ -23,6 +23,11 @@ The renderer may detach while switching tabs. A central Stage reconciler owns na
 - explicit tab close or scope reset: close the matching native session;
 - app exit: sweep PTY children and child WebViews.
 
+Renderer ownership is generation-based and serialized per session. A stale mount or cleanup may
+not hide, close, or rebind a newer session generation. Scope reconciliation fails closed: list,
+close, or visibility IPC failures retain the scope and retry with bounded exponential backoff;
+only a fully successful reconciliation may forget it.
+
 ## PTY contract
 
 The PTY uses `portable-pty 0.9.0`; ANSI rendering uses `@xterm/xterm 6.0.0` with `@xterm/addon-fit 0.11.0`.

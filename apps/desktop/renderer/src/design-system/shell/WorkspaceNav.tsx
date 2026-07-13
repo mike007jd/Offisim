@@ -1,11 +1,7 @@
 import { NAV_ENTRIES, UTILITY_NAV } from '@/app/nav-registry.js';
 import { useUiState } from '@/app/ui-state.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/design-system/primitives/tooltip.js';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/design-system/primitives/tooltip.js';
 import { cn } from '@/lib/utils.js';
 import { Fragment } from 'react';
 

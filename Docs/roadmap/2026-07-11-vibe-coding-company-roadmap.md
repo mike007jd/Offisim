@@ -94,7 +94,7 @@
 - Loops 域接 scheduler(定时/触发,补上 skill asset 里预留的 harness native trigger)。
 - 成本预算告警可视化;child 权限档继承会话设置(现恒 auto)。
 
-实现基线（2026-07-12，`feat/p6-usability`）：skills 走 Pi SDK 原生 resource loader 注入 root/child；Loops 支持 15m/1h/6h/24h 前台 scheduler 且错过不补跑；公司月度/会话 token 预算在 80%/100% 仅告警不熔断；child 继承 root 会话 permissionMode，Ask 复用现有 UI approval 通道。最终 release `.app` live verify 仍由上游集成验收完成。
+实现基线（2026-07-13）：skills 走 Pi SDK 原生 resource loader 注入 root/child；Loops 支持 15m/1h/6h/24h 前台 scheduler 且错过不补跑，调度槽在创建 thread / mission / Pi run 前以 `expectedNextRunAt` 做持久化原子 claim，同一槽最多启动一次；公司月度/会话 token 预算在 80%/100% 仅告警不熔断；child 继承 root 会话 permissionMode，Ask 复用现有 UI approval 通道。最终验收仍以当前 worktree release `.app` live verify 为准。
 
 ## 3. 审计结论摘要(2026-07-11,三路分区)
 

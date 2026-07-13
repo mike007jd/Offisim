@@ -6,7 +6,9 @@ import { UnsupportedViewer } from './UnsupportedViewer.js';
 function formatDuration(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return 'duration pending';
   const minutes = Math.floor(value / 60);
-  const seconds = Math.round(value % 60).toString().padStart(2, '0');
+  const seconds = Math.round(value % 60)
+    .toString()
+    .padStart(2, '0');
   return `${minutes}:${seconds}`;
 }
 
@@ -40,6 +42,7 @@ export function MediaViewer({
       </div>
       <div className="off-media-stage">
         {resolved.viewerKind === 'audio' ? (
+          // biome-ignore lint/a11y/useMediaCaption: Preview streams do not include a caption source; an empty track would falsely claim caption support.
           <audio
             controls
             src={data.streamUrl}
@@ -47,6 +50,7 @@ export function MediaViewer({
             onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
           />
         ) : (
+          // biome-ignore lint/a11y/useMediaCaption: Preview streams do not include a caption source; an empty track would falsely claim caption support.
           <video
             controls
             src={data.streamUrl}

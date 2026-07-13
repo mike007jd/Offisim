@@ -1,5 +1,5 @@
 import { autoTitleThreadFromFirstMessage } from '@/data/auto-title.js';
-import type { ChatMessage, Employee } from '@/data/types.js';
+import type { ChatMessage, Employee, StagedAttachment } from '@/data/types.js';
 import { resolveThreadModel } from '@/runtime/pi-thread-model-store.js';
 import {
   type AppendMessage,
@@ -9,7 +9,11 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { useComposerAttachmentStore } from '../composer/composer-attachment-store.js';
+import {
+  type ComposerAttachmentScope,
+  composerAttachmentScopeKey,
+  useComposerAttachmentStore,
+} from '../composer/composer-attachment-store.js';
 import {
   loopReferenceToken,
   resolveLoopReference,
@@ -22,6 +26,8 @@ import { conversationRunController } from './conversation-run-controller.js';
 import { isConversationRunActive, useConversationRun } from './conversation-run-react.js';
 import { appendText } from './desktop-chat-runtime.js';
 import { buildLoopSendExecution } from './loop-send-execution.js';
+
+const EMPTY_STAGED_ATTACHMENTS: StagedAttachment[] = [];
 
 function safeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
@@ -84,8 +90,15 @@ export function useOfficeRuntime({
 }) {
   const queryClient = useQueryClient();
   const run = useConversationRun(threadId);
-  const staged = useComposerAttachmentStore((s) => s.staged);
-  const clearStaged = useComposerAttachmentStore((s) => s.clearStaged);
+  const attachmentScope = useMemo<ComposerAttachmentScope>(
+    () => ({ companyId, projectId, threadId }),
+    [companyId, projectId, threadId],
+  );
+  const attachmentScopeKey = composerAttachmentScopeKey(attachmentScope);
+  const staged = useComposerAttachmentStore(
+    (state) => state.stagedByScope[attachmentScopeKey] ?? EMPTY_STAGED_ATTACHMENTS,
+  );
+  const consumeStaged = useComposerAttachmentStore((state) => state.consumeStaged);
   const messages = useMemo(
     () => mergeMessages(seedMessages, run.liveMessages),
     [seedMessages, run.liveMessages],
@@ -114,7 +127,7 @@ export function useOfficeRuntime({
       const titleSeed = typedText || (loopReference ? loopReference.titleSnapshot : text);
 
       const stagedForTurn = staged.filter((attachment) => attachment.status === 'attached');
-      clearStaged();
+      const stagedIdsForTurn = staged.map((attachment) => attachment.id);
       try {
         const roster = toMentionRoster(employeesById.values());
         const turnEmployeeId = extractMentionedEmployeeIds(text, roster)[0] ?? assigneeId ?? null;
@@ -154,6 +167,7 @@ export function useOfficeRuntime({
           model: resolveThreadModel(threadId),
           source: 'office',
           persistMessage,
+          onMessagePersisted: () => consumeStaged(attachmentScope, stagedIdsForTurn),
           ...(loopExecution ? { loopExecution } : {}),
         });
         // Clear the chip only after a successful submit — a failed build/submit keeps
@@ -167,8 +181,9 @@ export function useOfficeRuntime({
     },
     [
       assigneeId,
-      clearStaged,
+      attachmentScope,
       companyId,
+      consumeStaged,
       employeesById,
       materializeThread,
       persistMessage,

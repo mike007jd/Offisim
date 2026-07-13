@@ -125,7 +125,7 @@ struct MutationResult {
 
 enum ReserveOutcome {
     Created,
-    Existing(SessionAccess),
+    Existing(Box<SessionAccess>),
 }
 
 enum SessionMutation {
@@ -166,11 +166,11 @@ impl BrowserSessionRegistry {
             if record.snapshot.status == "closed" {
                 return Err("browser session is closed".to_string());
             }
-            return Ok(ReserveOutcome::Existing(SessionAccess {
+            return Ok(ReserveOutcome::Existing(Box::new(SessionAccess {
                 label: record.label.clone(),
                 host_webview_label: record.host_webview_label.clone(),
                 snapshot: record.snapshot.clone(),
-            }));
+            })));
         }
         let snapshot = BrowserSessionSnapshot {
             session_id: session_id.clone(),

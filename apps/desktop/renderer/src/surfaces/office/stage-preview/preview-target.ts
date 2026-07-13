@@ -6,11 +6,11 @@ import {
   FileText,
   Globe2,
   Image,
+  type LucideIcon,
   Music,
   PlayCircle,
   Presentation,
   Table,
-  type LucideIcon,
 } from 'lucide-react';
 
 export type PreviewSourceRef =

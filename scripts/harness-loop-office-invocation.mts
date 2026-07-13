@@ -26,6 +26,8 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import Database from 'better-sqlite3';
 import {
   loopReferenceToken,
   useComposerLoopReferenceStore,
@@ -42,7 +44,12 @@ import {
   type MaterializeLoopSendDeps,
   buildLoopPacketForSend,
   materializeLoopSend,
+  runCompensatedLoopThread,
 } from '../apps/desktop/renderer/src/assistant/runtime/loop-office-invocation.ts';
+import {
+  conversationDeletionStatements,
+  missionDeletionStatements,
+} from '../apps/desktop/renderer/src/data/local-data-deletion.ts';
 import {
   type LoopService,
   type LoopServiceDeps,
@@ -126,8 +133,8 @@ const MESSAGE = 'boss-msg-1';
 function freshSystem() {
   const repos = createMemoryRepositories();
   const loopRepos: LoopServiceRepos = {
-    loopDefinitions: repos.loopDefinitions!,
-    loopRevisions: repos.loopRevisions!,
+    loopDefinitions: repos.loopDefinitions,
+    loopRevisions: repos.loopRevisions,
     loopSkillBindings: repos.loopSkillBindings!,
     loopInvocations: repos.loopInvocations!,
   };
@@ -135,7 +142,7 @@ function freshSystem() {
 
   const missionService = createMissionService(
     {
-      missions: repos.missions!,
+      missions: repos.missions,
       missionCriteria: repos.missionCriteria!,
       missionAttempts: repos.missionAttempts!,
       missionEvaluations: repos.missionEvaluations!,
@@ -166,6 +173,9 @@ function freshSystem() {
     // SAME undo the renderer wires via the Tauri repo, so a failed send leaves no
     // dangling `pending` row.
     compensateInvocation: (invocationId) => repos.loopInvocations!.deleteById(invocationId),
+    // Memory MissionRepository deliberately has no delete API. Existing fixture
+    // paths only invoke this seam in the dedicated SQLite compensation oracle below.
+    compensateMission: async () => {},
     newId: () => `inv-${invSeq++}`,
     now: () => new Date(Date.UTC(2026, 5, 26, 0, 0, invSeq)).toISOString(),
   };
@@ -195,13 +205,49 @@ async function seedReadyLoop(svc: LoopService) {
 
 /** Durable mission + chat_thread counts (the rows Send, and only Send, creates). */
 async function counts(repos: ReturnType<typeof createMemoryRepositories>) {
-  const missions = await repos.missions!.listByCompany(COMPANY, { limit: 10000 });
+  const missions = await repos.missions.listByCompany(COMPANY, { limit: 10000 });
   return { missions: missions.length, chatThreads: repos.snapshot().chatThreads.length };
 }
 
 /** loop_invocations are not in the memory snapshot; count them via the repo. */
 async function invocationCount(repos: ReturnType<typeof createMemoryRepositories>, loopId: string) {
   return repos.loopInvocations!.countByLoop(loopId);
+}
+
+function freshSqlite(): Database.Database {
+  const sqlite = new Database(':memory:');
+  sqlite.pragma('foreign_keys = ON');
+  sqlite.exec(
+    readFileSync(new URL('../packages/db-local/src/schema.sql', import.meta.url), 'utf8'),
+  );
+  const now = '2026-07-13T00:00:00.000Z';
+  sqlite
+    .prepare('INSERT INTO companies (company_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)')
+    .run(COMPANY, 'Company', now, now);
+  sqlite
+    .prepare(
+      'INSERT INTO projects (project_id, company_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    )
+    .run(PROJECT, COMPANY, 'Project', now, now);
+  return sqlite;
+}
+
+function runStatements(
+  sqlite: Database.Database,
+  statements: ReadonlyArray<{ sql: string; params?: unknown[] }>,
+): void {
+  sqlite.transaction(() => {
+    for (const statement of statements) {
+      sqlite.prepare(statement.sql).run({ 1: statement.params?.[0] });
+    }
+  })();
+}
+
+function sqliteCount(sqlite: Database.Database, table: string, where = ''): number {
+  return Number(
+    (sqlite.prepare(`SELECT COUNT(*) AS count FROM ${table} ${where}`).get() as { count: number })
+      .count,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -296,7 +342,7 @@ await check(
     assert.equal(inv!.project_id, PROJECT, 'bound to the current project');
     assert.equal(inv!.mission_id, result.missionId, 'invocation is LINKED to its mission');
 
-    const mission = await repos.missions!.findById(result.missionId);
+    const mission = await repos.missions.findById(result.missionId);
     assert.ok(mission, 'mission row exists');
     assert.equal(mission!.status, 'ready', 'mission was created + marked ready');
     assert.equal(mission!.goal, result.packet.missionDraft.goal, 'mission carries the packet goal');
@@ -328,7 +374,7 @@ await check(
       threadsBefore,
       'send mints NO new chat_thread (Office thread reused)',
     );
-    const mission = await repos.missions!.findById(result.missionId);
+    const mission = await repos.missions.findById(result.missionId);
     assert.equal(mission!.thread_id, OFFICE_THREAD, 'mission.thread_id IS the Office thread');
   },
 );
@@ -371,7 +417,7 @@ await check(
     });
 
     assert.notEqual(first.missionId, second.missionId, 'each start gets a distinct mission');
-    const missions = await repos.missions!.listByCompany(COMPANY, { limit: 100 });
+    const missions = await repos.missions.listByCompany(COMPANY, { limit: 100 });
     const g2 = missions.filter((mission) =>
       ['g2-thread-a', 'g2-thread-b'].includes(mission.thread_id),
     );
@@ -567,7 +613,7 @@ await check(
     const rows = await repos.loopInvocations!.listByLoop(loop.loopId);
     const orphan = rows.find((r) => r.status === 'pending' && !r.mission_id);
     assert.ok(!orphan, `no orphan pending invocation must remain, found: ${JSON.stringify(rows)}`);
-    const missions = await repos.missions!.listByCompany(COMPANY, { limit: 100 });
+    const missions = await repos.missions.listByCompany(COMPANY, { limit: 100 });
     assert.equal(missions.length, 0, 'no mission row leaked from the failed send');
   },
 );
@@ -599,6 +645,286 @@ await check('if compensation ALSO fails, an AggregateLoopSendError surfaces both
     'a double failure surfaces as AggregateLoopSendError',
   );
 });
+
+await check('link failure retains the primary error and BOTH compensation errors', async () => {
+  const { svc, materializerDeps } = freshSystem();
+  const loop = await seedReadyLoop(svc);
+  const loopInvocations = materializerDeps.loopInvocations;
+  const deps: MaterializeLoopSendDeps = {
+    ...materializerDeps,
+    loopInvocations: {
+      insert: (row) => loopInvocations.insert(row),
+      async setMissionId() {
+        throw new Error('primary link failure');
+      },
+      findById: (invocationId) => loopInvocations.findById(invocationId),
+    },
+    missionCreator: {
+      async createReadyMission() {
+        return { missionId: 'mission-for-double-compensation' };
+      },
+    },
+    compensateMission: async () => {
+      throw new Error('mission compensation failure');
+    },
+    compensateInvocation: async () => {
+      throw new Error('invocation compensation failure');
+    },
+  };
+  await assert.rejects(
+    () =>
+      materializeLoopSend(deps, {
+        reference: { loopId: loop.loopId, revisionId: loop.revisionId },
+        companyId: COMPANY,
+        projectId: PROJECT,
+        threadId: OFFICE_THREAD,
+        messageId: MESSAGE,
+      }),
+    (error: unknown) => {
+      assert.ok(error instanceof AggregateLoopSendError);
+      assert.match(String(error.cause), /primary link failure/);
+      assert.deepEqual(
+        error.compensationErrors.map((failure) => failure.target),
+        ['mission', 'invocation'],
+      );
+      assert.match(String(error.compensationErrors[0]?.error), /mission compensation failure/);
+      assert.match(String(error.compensationErrors[1]?.error), /invocation compensation failure/);
+      return true;
+    },
+  );
+});
+
+await check(
+  'SQLite link failure removes the mission root, every mission child, and the invocation',
+  async () => {
+    const { svc } = freshSystem();
+    const loop = await seedReadyLoop(svc);
+    const sqlite = freshSqlite();
+    const now = '2026-07-13T00:00:00.000Z';
+    sqlite
+      .prepare(
+        'INSERT INTO chat_threads (thread_id, project_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      )
+      .run(OFFICE_THREAD, PROJECT, 'Loop link failure', now, now);
+
+    const missionId = 'mission-link-failure';
+    const missionCreator: LoopMissionCreator = {
+      async createReadyMission(input) {
+        sqlite
+          .prepare(
+            `INSERT INTO mission
+              (mission_id, company_id, project_id, thread_id, title, goal, status, runtime_id,
+               runtime_policy_json, budget_json, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            missionId,
+            input.companyId,
+            input.projectId ?? null,
+            input.threadId,
+            input.title,
+            input.goal,
+            input.runtimeId,
+            input.runtimePolicyJson,
+            input.budgetJson,
+            now,
+            now,
+          );
+        const criterionId = 'criterion-link-failure';
+        sqlite
+          .prepare(
+            `INSERT INTO mission_criterion
+              (criterion_id, mission_id, description, evaluator_id, evaluator_config_json)
+             VALUES (?, ?, 'Pass', 'manual', '{}')`,
+          )
+          .run(criterionId, missionId);
+        sqlite
+          .prepare(
+            `INSERT INTO mission_attempt
+              (attempt_id, mission_id, attempt_number, trigger, status, started_at)
+             VALUES ('attempt-link-failure', ?, 1, 'initial', 'running', ?)`,
+          )
+          .run(missionId, now);
+        sqlite
+          .prepare(
+            `INSERT INTO mission_evaluation
+              (evaluation_id, mission_id, criterion_id, attempt_id, evaluator_id, verdict,
+               summary, evidence_refs_json, created_at)
+             VALUES ('evaluation-link-failure', ?, ?, 'attempt-link-failure', 'manual',
+                     'pass', 'ok', '[]', ?)`,
+          )
+          .run(missionId, criterionId, now);
+        sqlite
+          .prepare(
+            `INSERT INTO runtime_session_link
+              (runtime_session_link_id, mission_id, runtime_id, opaque_session_ref_json, status)
+             VALUES ('session-link-failure', ?, 'pi-agent', '{}', 'active')`,
+          )
+          .run(missionId);
+        sqlite
+          .prepare(
+            `INSERT INTO mission_event
+              (mission_event_id, mission_id, attempt_id, type, data_json, created_at)
+             VALUES ('event-link-failure', ?, 'attempt-link-failure', 'started', '{}', ?)`,
+          )
+          .run(missionId, now);
+        return { missionId };
+      },
+    };
+    const deps: MaterializeLoopSendDeps = {
+      loopService: svc,
+      loopInvocations: {
+        async insert(row) {
+          sqlite
+            .prepare(
+              `INSERT INTO loop_invocations
+                (invocation_id, loop_id, revision_id, company_id, project_id, thread_id,
+                 message_id, mission_id, status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            )
+            .run(
+              row.invocation_id,
+              row.loop_id,
+              row.revision_id,
+              row.company_id,
+              row.project_id,
+              row.thread_id,
+              row.message_id,
+              row.mission_id,
+              row.status,
+              row.created_at,
+            );
+        },
+        async setMissionId() {
+          throw new Error('link exploded');
+        },
+        async findById() {
+          return null;
+        },
+      },
+      missionCreator,
+      compensateMission: async (id) => runStatements(sqlite, missionDeletionStatements(id)),
+      compensateInvocation: async (id) => {
+        sqlite.prepare('DELETE FROM loop_invocations WHERE invocation_id = ?').run(id);
+      },
+      newId: () => 'invocation-link-failure',
+      now: () => now,
+    };
+
+    await assert.rejects(
+      () =>
+        materializeLoopSend(deps, {
+          reference: { loopId: loop.loopId, revisionId: loop.revisionId },
+          companyId: COMPANY,
+          projectId: PROJECT,
+          threadId: OFFICE_THREAD,
+          messageId: MESSAGE,
+        }),
+      /link exploded/,
+    );
+    assert.equal(sqliteCount(sqlite, 'loop_invocations'), 0);
+    assert.equal(sqliteCount(sqlite, 'mission'), 0);
+    for (const table of [
+      'mission_criterion',
+      'mission_attempt',
+      'mission_evaluation',
+      'runtime_session_link',
+      'mission_event',
+    ]) {
+      assert.equal(sqliteCount(sqlite, table), 0, `${table} must be compensated`);
+    }
+    sqlite.close();
+  },
+);
+
+await check('not-ready parallel preflight performs zero SQLite writes', async () => {
+  const { svc } = freshSystem();
+  const loop = await svc.createLoop({
+    companyId: COMPANY,
+    title: 'Not ready',
+    profileId: 'software-development',
+  });
+  const save = await svc.saveRevision(
+    { loopId: loop.loopId, sourcePrompt: 'vague', context: CTX },
+    NEEDS_INPUT_MODEL,
+  );
+  const sqlite = freshSqlite();
+  let cleanupCalls = 0;
+  await assert.rejects(
+    () =>
+      runCompensatedLoopThread({
+        preflight: async () => {
+          await buildLoopPacketForSend(
+            { loopService: svc },
+            { loopId: loop.loopId, revisionId: save.revision.revisionId },
+          );
+        },
+        createThread: async () => {
+          sqlite
+            .prepare(
+              `INSERT INTO chat_threads
+                (thread_id, project_id, title, created_at, updated_at)
+               VALUES ('should-not-exist', ?, 'blocked', '2026-07-13', '2026-07-13')`,
+            )
+            .run(PROJECT);
+        },
+        persistMessage: async () => {
+          throw new Error('must not reach message persistence');
+        },
+        materializeAndStart: async () => {
+          throw new Error('must not reach materialization');
+        },
+        compensateThread: async () => {
+          cleanupCalls += 1;
+        },
+      }),
+    (error: unknown) =>
+      error instanceof LoopSendBlockedError && error.reason === 'revision-not-ready',
+  );
+  assert.equal(sqliteCount(sqlite, 'chat_threads'), 0);
+  assert.equal(sqliteCount(sqlite, 'agent_events'), 0);
+  assert.equal(sqliteCount(sqlite, 'loop_invocations'), 0);
+  assert.equal(sqliteCount(sqlite, 'mission'), 0);
+  assert.equal(cleanupCalls, 0, 'preflight is outside the compensating write boundary');
+  sqlite.close();
+});
+
+await check(
+  'message persistence failure deep-deletes the newly-created SQLite thread',
+  async () => {
+    const sqlite = freshSqlite();
+    let materializeCalls = 0;
+    await assert.rejects(
+      () =>
+        runCompensatedLoopThread({
+          preflight: async () => {},
+          createThread: async () => {
+            sqlite
+              .prepare(
+                `INSERT INTO chat_threads
+                (thread_id, project_id, title, created_at, updated_at)
+               VALUES ('message-failure', ?, 'message failure', '2026-07-13', '2026-07-13')`,
+              )
+              .run(PROJECT);
+          },
+          persistMessage: async () => {
+            throw new Error('message write exploded');
+          },
+          materializeAndStart: async () => {
+            materializeCalls += 1;
+            return 'unreachable';
+          },
+          compensateThread: async () => {
+            runStatements(sqlite, conversationDeletionStatements('message-failure'));
+          },
+        }),
+      /message write exploded/,
+    );
+    assert.equal(sqliteCount(sqlite, 'chat_threads'), 0, 'empty thread must be removed');
+    assert.equal(materializeCalls, 0, 'materialization never starts after message failure');
+    sqlite.close();
+  },
+);
 
 await check(
   'a duplicate invocation_id insert THROWS — never a silent skip (no setMissionId corruption)',

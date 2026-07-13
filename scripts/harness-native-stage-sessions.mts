@@ -2,10 +2,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { stageTabForTarget, useUiState } from '../apps/desktop/renderer/src/app/ui-state.js';
+import { syncOfficeCanvasBackingStore } from '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.js';
 import { newestBrowserSnapshot } from '../apps/desktop/renderer/src/surfaces/office/stage-browser/browser-session-state.js';
-import { bytesToBase64, terminalReplayStep } from '../apps/desktop/renderer/src/surfaces/office/stage-terminal/terminal-replay.js';
 import {
+  bytesToBase64,
+  terminalReplayStep,
+} from '../apps/desktop/renderer/src/surfaces/office/stage-terminal/terminal-replay.js';
+import {
+  acquireNativeStageSessionLease,
+  nativeStageSessionLeaseRegistrySize,
   planStageSessionReconciliation,
+  reconcileStageSessionScope,
+  stageSessionReconciliationRetryDelay,
   stageSessionScopeKey,
 } from '../apps/desktop/renderer/src/surfaces/office/stage-viewer/StageSessionReconciler.js';
 
@@ -92,6 +100,146 @@ assert.notEqual(
   'draft project scope and persisted thread scope are reconciled independently',
 );
 
+let releaseMutation!: () => void;
+const mutationGate = new Promise<void>((resolve) => {
+  releaseMutation = resolve;
+});
+const mutationOrder: string[] = [];
+const leaseRegistryBaseline = nativeStageSessionLeaseRegistrySize();
+const firstLease = acquireNativeStageSessionLease('browser', scope, 'browser-race');
+const firstMutation = firstLease.runIfCurrent(async () => {
+  mutationOrder.push('old-start');
+  await mutationGate;
+  mutationOrder.push('old-finish');
+});
+await Promise.resolve();
+firstLease.release();
+const staleHide = firstLease.runIfLatest(async () => {
+  mutationOrder.push('old-hide');
+});
+const nextLease = acquireNativeStageSessionLease('browser', scope, 'browser-race');
+const nextShow = nextLease.runIfCurrent(async () => {
+  mutationOrder.push('new-show');
+});
+releaseMutation();
+await Promise.all([firstMutation, staleHide, nextShow]);
+assert.ok(nextLease.generation > firstLease.generation, 'a remount advances session ownership');
+assert.deepEqual(
+  mutationOrder,
+  ['old-start', 'old-finish', 'new-show'],
+  'a stale cleanup cannot hide a session acquired by the next mount',
+);
+nextLease.release();
+for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
+assert.equal(
+  nativeStageSessionLeaseRegistrySize(),
+  leaseRegistryBaseline,
+  'released generations are removed after their latest mutation tail settles',
+);
+
+let failList = true;
+let failClose = true;
+const reconciliationCalls: string[] = [];
+const reconciliationCommands = {
+  async listTerminals() {
+    if (failList) throw new Error('transient terminal list failure');
+    return [{ sessionId: 'terminal-orphan' }];
+  },
+  async listBrowsers() {
+    return [{ sessionId: 'browser-a' }, { sessionId: 'browser-orphan' }];
+  },
+  async closeTerminal(_scope: typeof scope, sessionId: string) {
+    reconciliationCalls.push(`close-terminal:${sessionId}`);
+    return true;
+  },
+  async closeBrowser(_scope: typeof scope, sessionId: string) {
+    reconciliationCalls.push(`close-browser:${sessionId}`);
+    return !failClose;
+  },
+  async setBrowserVisible(_scope: typeof scope, sessionId: string, visible: boolean) {
+    reconciliationCalls.push(`visible:${sessionId}:${visible}`);
+    return true;
+  },
+};
+const reconciliationInput = {
+  scope,
+  tabs: [{ id: 'browser-session:browser-a', target: browser }],
+  visibleTabIds: new Set<string>(),
+};
+assert.equal(
+  await reconcileStageSessionScope(reconciliationInput, reconciliationCommands),
+  false,
+  'a list failure stays retryable instead of becoming an empty native session list',
+);
+assert.deepEqual(reconciliationCalls, [], 'no destructive work runs from a partial list');
+failList = false;
+assert.equal(
+  await reconcileStageSessionScope(reconciliationInput, reconciliationCommands),
+  false,
+  'a failed close keeps the scope retryable',
+);
+failClose = false;
+assert.equal(
+  await reconcileStageSessionScope(reconciliationInput, reconciliationCommands),
+  true,
+  'the scope converges only after every close and visibility mutation succeeds',
+);
+assert.deepEqual(
+  [0, 1, 2, 3, 4, 5].map(stageSessionReconciliationRetryDelay),
+  [250, 500, 1_000, 2_000, 4_000, 4_000],
+  'reconciliation retries use bounded exponential backoff',
+);
+
+let widthWrites = 0;
+let heightWrites = 0;
+let backingWidth = 0;
+let backingHeight = 0;
+const fakeCanvas = {
+  get width() {
+    return backingWidth;
+  },
+  set width(value: number) {
+    backingWidth = value;
+    widthWrites += 1;
+  },
+  get height() {
+    return backingHeight;
+  },
+  set height(value: number) {
+    backingHeight = value;
+    heightWrites += 1;
+  },
+  style: { width: '', height: '' },
+};
+assert.equal(syncOfficeCanvasBackingStore(fakeCanvas, 320, 180, 2), true);
+assert.equal(syncOfficeCanvasBackingStore(fakeCanvas, 320, 180, 2), false);
+assert.deepEqual(
+  [widthWrites, heightWrites],
+  [1, 1],
+  'an animation frame with stable size does not reset the canvas backing store',
+);
+assert.equal(syncOfficeCanvasBackingStore(fakeCanvas, 320, 180, 1.5), true);
+assert.deepEqual([backingWidth, backingHeight], [480, 270]);
+
+const officeScene2DSource = read(
+  'apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx',
+);
+for (const baseline of [
+  "ctx.filter = 'none'",
+  "ctx.lineCap = 'butt'",
+  "ctx.lineJoin = 'miter'",
+  'ctx.shadowBlur = 0',
+  'ctx.shadowOffsetX = 0',
+  'ctx.shadowOffsetY = 0',
+  "ctx.font = '10px sans-serif'",
+]) {
+  assert.match(
+    officeScene2DSource,
+    new RegExp(baseline.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `stable-frame drawing restores the canvas baseline: ${baseline}`,
+  );
+}
+
 const terminalBytes = new TextEncoder().encode('A🙂B');
 const terminalChunk = {
   startCursor: 10,
@@ -119,12 +267,28 @@ const browserBase = {
   sequence: 7,
   visible: true,
 };
-const browserNew = { ...browserBase, sequence: 8, status: 'ready' as const, url: 'https://example.com/new' };
+const browserNew = {
+  ...browserBase,
+  sequence: 8,
+  status: 'ready' as const,
+  url: 'https://example.com/new',
+};
 assert.equal(newestBrowserSnapshot(browserBase, browserNew), browserNew);
 assert.equal(
   newestBrowserSnapshot(browserNew, { ...browserBase, sequence: 6 }),
   browserNew,
   'late command responses cannot overwrite newer native navigation events',
+);
+const browserOtherSession = {
+  ...browserBase,
+  sessionId: 'browser-b',
+  sequence: 1,
+  url: 'https://example.com/other',
+};
+assert.equal(
+  newestBrowserSnapshot(browserNew, browserOtherSession),
+  browserOtherSession,
+  'a new browser tab resets sequence ordering instead of retaining a high-sequence prior tab',
 );
 
 for (const path of [
@@ -172,6 +336,12 @@ const terminalSource = read(
 const terminalNativeSource = read('apps/desktop/src-tauri/src/terminal_session.rs');
 assert.match(terminalSource, /dataBase64/);
 assert.match(terminalSource, /afterCursor: cursorRef\.current/);
+assert.match(terminalSource, /nextUnlisten\(\)/, 'late terminal listeners dispose themselves');
+assert.doesNotMatch(
+  terminalSource,
+  /terminal_session_close/,
+  'terminal close ownership stays with the generation-aware reconciler',
+);
 assert.doesNotMatch(terminalSource, /localStorage|sessionStorage/);
 
 const browserSource = read(
@@ -181,6 +351,21 @@ const browserNativeSource = read('apps/desktop/src-tauri/src/browser_session.rs'
 assert.match(browserSource, /Only http:\/\/ and https:\/\//);
 assert.match(browserSource, /No local access/);
 assert.match(browserSource, /ResizeObserver/);
+assert.match(browserSource, /nextUnlisten\(\)/, 'late browser listeners dispose themselves');
+assert.match(browserSource, /runIfLatest/, 'browser cleanup is generation-gated');
+const stageViewerSource = read(
+  'apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx',
+);
+assert.match(
+  stageViewerSource,
+  /<BrowserSessionView key=\{target\.sessionId\} target=\{target\} \/>/,
+  'browser session changes remount local snapshot/address state at the session boundary',
+);
+assert.doesNotMatch(
+  browserSource,
+  /browser_session_close/,
+  'a stale browser mount delegates close ownership to the reconciler',
+);
 
 for (const [label, rendererSource, nativeSource] of [
   ['terminal', terminalSource, terminalNativeSource],

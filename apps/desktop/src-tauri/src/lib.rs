@@ -233,9 +233,6 @@ pub fn run() {
             browser_session::browser_session_close,
             codex_pets::codex_pets_list,
             codex_pets::codex_pet_load,
-            pi_agent_host::pi_agent_execute,
-            pi_agent_host::pi_agent_abort,
-            pi_agent_host::pi_agent_ui_response,
             pi_agent_host::pi_agent_open_config_folder,
             pi_agent_host::pi_agent_status,
             pi_agent_host::pi_agent_save_provider,
@@ -313,8 +310,8 @@ pub fn run() {
                 let payload = NativeDroppedFiles {
                     files: paths.iter().map(|path| native_dropped_file(path)).collect(),
                     position: NativeDropPosition {
-                        x: position.x as f64,
-                        y: position.y as f64,
+                        x: position.x,
+                        y: position.y,
                     },
                 };
                 let _ = webview.emit("offisim-native-file-drop", payload);

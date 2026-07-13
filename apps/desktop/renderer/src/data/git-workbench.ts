@@ -118,7 +118,7 @@ function parseStatusLine(rawLine: string): GitFileChange | null {
   if (!rawLine || rawLine.startsWith('##')) return null;
   const x = rawLine[0] ?? ' ';
   const y = rawLine[1] ?? ' ';
-  const pathPart = rawLine.slice(3).trim();
+  const pathPart = rawLine.slice(3);
   if (!pathPart) return null;
   const statusCode = x === ' ' || x === '?' ? y : x;
   const status: GitFileChange['status'] =
@@ -129,14 +129,40 @@ function parseStatusLine(rawLine: string): GitFileChange | null {
         : statusCode === 'R'
           ? 'renamed'
           : 'modified';
-  const path = status === 'renamed' ? (pathPart.split(' -> ').at(-1) ?? pathPart) : pathPart;
   return {
-    path,
+    path: pathPart,
     status,
     staged: x !== ' ' && x !== '?',
     added: 0,
     removed: 0,
   };
+}
+
+export function parseStatusPorcelainV1Z(stdout: string): {
+  header: string | undefined;
+  changes: GitFileChange[];
+} {
+  const records = stdout.split('\0');
+  const changes: GitFileChange[] = [];
+  let header: string | undefined;
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    if (!record) continue;
+    if (record.startsWith('## ')) {
+      header = record;
+      continue;
+    }
+    const change = parseStatusLine(record);
+    if (!change) continue;
+    changes.push(change);
+    const x = record[0] ?? ' ';
+    const y = record[1] ?? ' ';
+    // In `-z` mode Git emits rename/copy destination first, followed by the
+    // source as a second NUL-delimited record. The UI stages and opens the
+    // destination; consume the source so it cannot become a ghost change row.
+    if (x === 'R' || x === 'C' || y === 'R' || y === 'C') index += 1;
+  }
+  return { header, changes };
 }
 
 function parseBranch(
@@ -150,11 +176,26 @@ function parseBranch(
   return { branch, ahead, behind };
 }
 
-function parseNumstat(stdout: string): Map<string, Pick<GitFileChange, 'added' | 'removed'>> {
+export function parseNumstatZ(
+  stdout: string,
+): Map<string, Pick<GitFileChange, 'added' | 'removed'>> {
   const stats = new Map<string, Pick<GitFileChange, 'added' | 'removed'>>();
-  for (const line of stdout.split('\n')) {
-    const [addedRaw, removedRaw, ...pathParts] = line.split('\t');
-    const path = pathParts.join('\t').trim();
+  const records = stdout.split('\0');
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    if (!record) continue;
+    const firstTab = record.indexOf('\t');
+    const secondTab = firstTab < 0 ? -1 : record.indexOf('\t', firstTab + 1);
+    if (firstTab < 0 || secondTab < 0) continue;
+    const addedRaw = record.slice(0, firstTab);
+    const removedRaw = record.slice(firstTab + 1, secondTab);
+    let path = record.slice(secondTab + 1);
+    if (!path) {
+      // Rename/copy numstat is `counts<TAB><NUL>source<NUL>destination<NUL>`.
+      index += 1; // source
+      index += 1;
+      path = records[index] ?? '';
+    }
     if (!path) continue;
     const added = Number.parseInt(addedRaw ?? '0', 10);
     const removed = Number.parseInt(removedRaw ?? '0', 10);
@@ -182,57 +223,55 @@ function parseDiffPreview(stdout: string): GitWorkbench['diffPreview'] {
     }));
 }
 
-function splitUnifiedDiff(stdout: string): Map<string, string> {
-  const files = new Map<string, string>();
-  let path = '';
-  let lines: string[] = [];
-  const flush = () => {
-    if (path) files.set(path, lines.join('\n'));
-  };
-  for (const line of stdout.split('\n')) {
-    const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
-    if (match) {
-      flush();
-      path = match[2] ?? match[1] ?? '';
-      lines = [line];
-    } else if (path) {
-      lines.push(line);
+async function mapWithConcurrency<T, R>(
+  values: readonly T[],
+  limit: number,
+  fn: (value: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(values.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, values.length) }, async () => {
+    while (next < values.length) {
+      const index = next;
+      next += 1;
+      results[index] = await fn(values[index] as T);
     }
-  }
-  flush();
-  return files;
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 export async function loadGitWorkbench(projectId: string): Promise<GitRepoState> {
-  const status = await runGit(projectId, ['status', '--porcelain=v1', '--branch']);
+  const status = await runGit(projectId, ['status', '--porcelain=v1', '--branch', '-z']);
   if (!status.ok) {
     if (isNonGitWorkspace(status)) return classifyNonGitWorkspace(status);
     throw new Error(status.stderr.trim() || status.stdout.trim() || 'Git status failed');
   }
 
-  const statusLines = status.stdout.split('\n').filter(Boolean);
-  const branch = parseBranch(statusLines.find((line) => line.startsWith('## ')));
-  const changes = statusLines
-    .map(parseStatusLine)
-    .filter((row): row is GitFileChange => Boolean(row));
-  const [unstagedStats, stagedStats, diffPreview, stagedDiff] = await Promise.all([
-    runGit(projectId, ['diff', '--numstat']),
-    runGit(projectId, ['diff', '--cached', '--numstat']),
+  const parsedStatus = parseStatusPorcelainV1Z(status.stdout);
+  const branch = parseBranch(parsedStatus.header);
+  const changes = parsedStatus.changes;
+  const [unstagedStats, stagedStats, diffPreview] = await Promise.all([
+    runGit(projectId, ['diff', '--numstat', '-z']),
+    runGit(projectId, ['diff', '--cached', '--numstat', '-z']),
     runGit(projectId, ['diff', '--unified=2']),
-    runGit(projectId, ['diff', '--cached', '--unified=3']),
   ]);
   const stats = new Map([
-    ...parseNumstat(unstagedStats.ok ? unstagedStats.stdout : ''),
-    ...parseNumstat(stagedStats.ok ? stagedStats.stdout : ''),
+    ...parseNumstatZ(unstagedStats.ok ? unstagedStats.stdout : ''),
+    ...parseNumstatZ(stagedStats.ok ? stagedStats.stdout : ''),
   ]);
-  const unstagedByPath = splitUnifiedDiff(diffPreview.ok ? diffPreview.stdout : '');
-  const stagedByPath = splitUnifiedDiff(stagedDiff.ok ? stagedDiff.stdout : '');
-  const diffFiles = changes.map((change) => ({
-    path: change.path,
-    diff: [stagedByPath.get(change.path), unstagedByPath.get(change.path)]
-      .filter((value): value is string => Boolean(value))
-      .join('\n'),
-  }));
+  const diffFiles = await mapWithConcurrency(changes, 4, async (change) => {
+    const [staged, unstaged] = await Promise.all([
+      runGit(projectId, ['diff', '--cached', '--unified=3', '--', change.path]),
+      runGit(projectId, ['diff', '--unified=3', '--', change.path]),
+    ]);
+    return {
+      path: change.path,
+      diff: [staged.ok ? staged.stdout : '', unstaged.ok ? unstaged.stdout : '']
+        .filter(Boolean)
+        .join('\n'),
+    };
+  });
 
   return {
     status: 'repo',

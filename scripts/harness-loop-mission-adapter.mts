@@ -174,6 +174,29 @@ await check(
   },
 );
 
+await check('Loop budget maps into the canonical Mission cap names', async () => {
+  const ir = await compileSampleIR();
+  ir.budget = {
+    tier: 'standard',
+    maxConcurrentAgents: 2,
+    maxTotalAgents: 8,
+    maxRecursionDepth: 2,
+    maxFixWavesPerGate: 4,
+    wallClockMinutes: 30,
+    tokenCeiling: 123_456,
+  };
+  const packet = buildLoopExecutionPacket(revisionFor(ir), ir, []);
+  assert.deepEqual(JSON.parse(packet.missionDraft.budgetJson), {
+    maxRepairsPerCriterion: 4,
+    maxAttempts: 6,
+    tokenBudget: 123_456,
+    maxConcurrentAgents: 2,
+    maxTotalAgents: 8,
+    maxRecursionDepth: 2,
+    wallClockMinutes: 30,
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 2. NEVER requires hand-written evaluator JSON.
 // ---------------------------------------------------------------------------

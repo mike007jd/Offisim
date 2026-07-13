@@ -21,10 +21,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
   return globalThis.btoa(binary);
 }
 
-export function terminalReplayStep(
-  cursor: number,
-  chunk: TerminalOutputChunk,
-): TerminalReplayStep {
+export function terminalReplayStep(cursor: number, chunk: TerminalOutputChunk): TerminalReplayStep {
   if (chunk.endCursor <= cursor) return { kind: 'ignore', nextCursor: cursor };
   if (chunk.startCursor > cursor) return { kind: 'gap', nextCursor: cursor };
   const bytes = bytesFromBase64(chunk.dataBase64);

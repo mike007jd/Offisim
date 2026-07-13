@@ -296,6 +296,7 @@ fn validate_status(args: &[String]) -> Result<(), String> {
         match arg.as_str() {
             "--porcelain"
             | "--porcelain=v1"
+            | "-z"
             | "--branch"
             | "--short"
             | "-sb"
@@ -902,6 +903,18 @@ mod tests {
         let root = temp_root();
         let err = resolve_git_cwd(&root, std::env::temp_dir().to_str().unwrap()).unwrap_err();
         assert!(err.contains("outside"));
+        cleanup_root(root);
+    }
+
+    #[test]
+    fn status_allowlist_accepts_machine_safe_nul_porcelain() {
+        let root = temp_root();
+        let args = vec![
+            "status".to_string(),
+            "--porcelain=v1".to_string(),
+            "-z".to_string(),
+        ];
+        assert!(is_allowed(&args, &root).is_ok());
         cleanup_root(root);
     }
 

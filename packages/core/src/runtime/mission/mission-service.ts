@@ -29,6 +29,7 @@ import type {
   NewMissionEvaluation,
   NewMissionEvent,
 } from '../repositories.js';
+import { parseMissionBudgetJson } from './mission-budget.js';
 
 // ---------------------------------------------------------------------------
 // Status & transition map (PRD §18)
@@ -263,6 +264,10 @@ export class MissionService {
       );
     }
 
+    // Parse before allocating ids or writing any row: zero/fractional/unknown
+    // caps fail closed before the first attempt can exist or spend tokens.
+    const budget = parseMissionBudgetJson(input.budgetJson);
+
     const ts = this.deps.now();
     const missionId = this.deps.newId();
 
@@ -276,36 +281,53 @@ export class MissionService {
       status: 'draft',
       runtime_id: input.runtimeId,
       runtime_policy_json: input.runtimePolicyJson,
-      budget_json: input.budgetJson,
+      budget_json: JSON.stringify(budget),
       expected_artifacts_json: input.expectedArtifactsJson ?? null,
       current_attempt_id: null,
       created_at: ts,
       updated_at: ts,
       completed_at: null,
     };
-    await this.repos.missions.insert(row);
+    try {
+      await this.repos.missions.insert(row);
 
-    for (const [index, c] of input.criteria.entries()) {
-      const criterion: NewMissionCriterion = {
-        criterion_id: this.deps.newId(),
-        mission_id: missionId,
-        description: c.description,
-        evaluator_id: c.evaluatorId,
-        evaluator_config_json: c.evaluatorConfigJson ?? '{}',
-        required: c.required ? 1 : 0,
-        order_index: c.orderIndex ?? index,
-        status: 'pending',
-        last_evaluation_id: null,
-      };
-      await this.repos.missionCriteria.insert(criterion);
+      for (const [index, c] of input.criteria.entries()) {
+        const criterion: NewMissionCriterion = {
+          criterion_id: this.deps.newId(),
+          mission_id: missionId,
+          description: c.description,
+          evaluator_id: c.evaluatorId,
+          evaluator_config_json: c.evaluatorConfigJson ?? '{}',
+          required: c.required ? 1 : 0,
+          order_index: c.orderIndex ?? index,
+          status: 'pending',
+          last_evaluation_id: null,
+        };
+        await this.repos.missionCriteria.insert(criterion);
+      }
+
+      await this.writeEvent(missionId, null, 'mission.created', {
+        companyId: input.companyId,
+        criteriaCount: input.criteria.length,
+      });
+
+      return row;
+    } catch (cause) {
+      // Creation spans the aggregate root, N criteria, and the creation event.
+      // A repository failure after the first insert must never expose a partial
+      // draft Mission. Persistent repositories cascade children from the root;
+      // the memory family mirrors that contract explicitly.
+      try {
+        await this.repos.missions.delete(missionId);
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [cause, cleanupError],
+          `Mission ${missionId} creation failed and its aggregate cleanup also failed`,
+          { cause },
+        );
+      }
+      throw cause;
     }
-
-    await this.writeEvent(missionId, null, 'mission.created', {
-      companyId: input.companyId,
-      criteriaCount: input.criteria.length,
-    });
-
-    return row;
   }
 
   // -- transitions ---------------------------------------------------------

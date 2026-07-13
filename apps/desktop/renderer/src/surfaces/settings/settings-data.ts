@@ -345,6 +345,10 @@ export async function grantMcpTool(input: {
 }): Promise<McpToolGrant> {
   const repos = await reposOrNull();
   if (!repos?.mcpToolGrants) throw new Error('MCP grants repository is unavailable.');
+  const employee = await repos.employees.findById(input.employeeId);
+  if (!employee || employee.company_id !== input.companyId) {
+    throw new Error('The selected employee does not belong to the active company.');
+  }
   const row: NewMcpToolGrant = {
     grant_id: crypto.randomUUID(),
     company_id: input.companyId,

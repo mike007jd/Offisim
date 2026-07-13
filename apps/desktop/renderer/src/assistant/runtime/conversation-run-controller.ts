@@ -9,6 +9,7 @@ import {
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
+import { conversationThreadLifecycle } from '@/runtime/thread-lifecycle-guard.js';
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
 import {
   type ToolRichDetail,
@@ -127,19 +128,25 @@ export interface SubmitConversationRun {
   thinkingLevel?: string;
   source: 'office' | 'workspace';
   persistMessage?: (message: ChatMessage) => Promise<void>;
+  /** Called once the user turn is durably persisted. Composer drafts must only
+   *  be consumed at this boundary so materialization/DB failures keep them. */
+  onMessagePersisted?: () => void;
   /**
    * PR-10: a Loop-backed turn. When present, this turn does NOT run a plain chat
-   * agent — instead the user message is persisted (the transcript shows the Loop
-   * chip + text) and `start(messageId)` materializes the loop_invocation + Mission
-   * (reusing THIS Office thread) and kicks off the Mission run, whose status
-   * surfaces in Office/Activity. The no-Loop path (this field absent) is unchanged.
-   * `start` must NOT throw on a successful hand-off; a thrown error fails the turn
-   * before any half message (the materializer is transactional + compensating).
+   * agent. The hand-off is deliberately two-phase: materialize durable Loop/Mission
+   * records first, persist the visible user message second, and only then start the
+   * paid Mission. A failed message write compensates the prepared records; a failed
+   * start retains the already-linked ready Mission and retries that exact hand-off.
    */
   loopExecution?: {
-    start: (messageId: string) => Promise<void>;
+    materialize: (messageId: string) => Promise<PreparedLoopExecution>;
   };
   directDelegation?: DirectDelegationInput;
+}
+
+interface PreparedLoopExecution {
+  start: () => Promise<void>;
+  compensate: () => Promise<void>;
 }
 
 export interface ConversationRunHandle {
@@ -180,6 +187,12 @@ interface RetryRecord {
   input: SubmitConversationRun;
   userMessage: ChatMessage;
   promptText: string;
+  pendingLoopHandoff: PendingLoopHandoff | null;
+}
+
+interface PendingLoopHandoff {
+  prepared: PreparedLoopExecution;
+  messagePersisted: boolean;
 }
 
 interface ActiveRun {
@@ -200,6 +213,8 @@ interface ActiveRun {
   stopped: boolean;
   lastCheckpointAt: number;
   firstCheckpointWritten: boolean;
+  messagePersistedNotified: boolean;
+  pendingLoopHandoff: PendingLoopHandoff | null;
   unsubscribers: Array<() => void>;
 }
 
@@ -305,6 +320,13 @@ export class ConversationRunAlreadyActiveError extends Error {
   }
 }
 
+export class ConversationRunMutationLockedError extends Error {
+  constructor(threadId: string) {
+    super(`Conversation ${threadId} is being changed and cannot start a run.`);
+    this.name = 'ConversationRunMutationLockedError';
+  }
+}
+
 export class ConversationRunController {
   // A1 (by design): in-flight run/snapshot/retry state is intentionally
   // IN-MEMORY and per-session. Only completed messages are persisted (and loaded
@@ -315,6 +337,7 @@ export class ConversationRunController {
   private readonly snapshots = new Map<string, ConversationRunSnapshot>();
   private readonly idleSnapshots = new Map<string, ConversationRunSnapshot>();
   private readonly activeRuns = new Map<string, ActiveRun>();
+  private readonly mutationLocks = new Set<string>();
   private readonly retryRecords = new Map<string, RetryRecord>();
   private readonly listeners = new Map<string, Set<() => void>>();
   private readonly globalListeners = new Set<() => void>();
@@ -326,6 +349,8 @@ export class ConversationRunController {
   async submit(input: SubmitConversationRun): Promise<ConversationRunHandle> {
     const trimmed = input.text.trim();
     if (!trimmed) throw new Error('Cannot submit an empty conversation run.');
+    if (this.mutationLocks.has(input.threadId))
+      throw new ConversationRunMutationLockedError(input.threadId);
     if (this.activeRuns.has(input.threadId))
       throw new ConversationRunAlreadyActiveError(input.threadId);
 
@@ -346,24 +371,23 @@ export class ConversationRunController {
   }
 
   async retry(threadId: string, attemptId: string): Promise<ConversationRunHandle> {
+    if (this.mutationLocks.has(threadId)) throw new ConversationRunMutationLockedError(threadId);
     if (this.activeRuns.has(threadId)) throw new ConversationRunAlreadyActiveError(threadId);
     const record = this.retryRecords.get(attemptId);
     if (!record || record.input.threadId !== threadId) throw new Error('Cannot retry this run.');
 
-    // PR-10 safety net: a retry runs the PLAIN agent (executeAttempt), never the
-    // loop materialize branch. saveRetryRecord already strips loopExecution; this is
-    // the second guard — a retry must never re-materialize a Mission. If a record
-    // ever carried loopExecution (a regression), refuse rather than silently run a
-    // plain agent on a mission-linked message or double-materialize.
-    if ('loopExecution' in record.input && record.input.loopExecution) {
-      throw new Error(
-        'Cannot retry a Loop-backed turn as a chat run; its Mission owns re-runs. (loopExecution leaked into the retry record)',
-      );
-    }
-
     const nextAttemptId = `attempt-${this.deps.randomUUID()}`;
     const run = this.beginRun(record.input, nextAttemptId, record.userMessage, record.promptText);
-    void this.executeAttempt(run);
+    run.pendingLoopHandoff = record.pendingLoopHandoff;
+    if (record.pendingLoopHandoff) {
+      void this.resumeLoopHandoff(run, record.pendingLoopHandoff);
+    } else if (record.input.loopExecution) {
+      // Materialization/message persistence failed and compensation succeeded, so
+      // retrying the full two-phase hand-off is safe and cannot duplicate a Mission.
+      void this.runAttempt(run);
+    } else {
+      void this.executeAttempt(run);
+    }
     return { threadId, attemptId: nextAttemptId, userMessageId: record.userMessage.id };
   }
 
@@ -391,6 +415,8 @@ export class ConversationRunController {
       stopped: false,
       lastCheckpointAt: 0,
       firstCheckpointWritten: false,
+      messagePersistedNotified: false,
+      pendingLoopHandoff: null,
       unsubscribers: [],
     };
     this.activeRuns.set(input.threadId, run);
@@ -413,25 +439,52 @@ export class ConversationRunController {
   }
 
   stop(threadId: string): void {
+    void this.stopAndWait(threadId).catch((error: unknown) => {
+      console.warn('[conversation-run] stop cleanup failed', { threadId, error });
+    });
+  }
+
+  isActive(threadId: string): boolean {
+    return this.activeRuns.has(threadId);
+  }
+
+  acquireMutationLock(threadId: string): (() => void) | null {
+    const releaseLifecycle = conversationThreadLifecycle.acquireMutation(threadId);
+    if (!releaseLifecycle) return null;
+    if (this.activeRuns.has(threadId) || this.mutationLocks.has(threadId)) {
+      releaseLifecycle();
+      return null;
+    }
+    this.mutationLocks.add(threadId);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.mutationLocks.delete(threadId);
+      releaseLifecycle();
+    };
+  }
+
+  async stopAndWait(threadId: string): Promise<void> {
     const run = this.activeRuns.get(threadId);
     if (!run) return;
     run.stopped = true;
     this.cleanupRun(run);
     this.activeRuns.delete(threadId);
+    run.runtime?.abort(threadId);
+    let persistenceError: unknown = null;
     if (run.assistantMessage) {
       const interrupted = {
         ...stripToolCalls(run.assistantMessage),
         status: 'interrupted' as const,
       };
       run.assistantMessage = interrupted;
-      void this.persistRunMessage(run, interrupted).catch((err: unknown) => {
-        console.warn('[conversation-run] failed to persist interrupted snapshot', {
-          threadId,
-          err,
-        });
-      });
+      try {
+        await this.persistRunMessage(run, interrupted);
+      } catch (error) {
+        persistenceError = error;
+      }
     }
-    run.runtime?.abort(threadId);
     this.patchSnapshot(threadId, {
       attemptId: run.attemptId,
       phase: 'interrupted',
@@ -445,6 +498,7 @@ export class ConversationRunController {
       activityTotal: run.activityTotal,
     });
     this.saveRetryRecord(run);
+    if (persistenceError) throw persistenceError;
   }
 
   stopChild(threadId: string, runId: string): void {
@@ -609,33 +663,92 @@ export class ConversationRunController {
         attachments: materialized.attachments?.length ? materialized.attachments : undefined,
       };
 
-      // PR-10 Loop-backed turn: materialize the loop_invocation + Mission BEFORE the
-      // user message is persisted, so a BLOCKED revision (deleted / not-ready) throws
-      // here and never leaves a half message (no persisted message, no orphan — the
-      // materializer is transactional + compensating). Only on success does the
-      // message land, the turn complete, and the Mission run drive status.
+      // Loop-backed turn: prepare durable records, persist the visible message,
+      // then start the paid Mission. No Pi work exists before the message boundary.
       if (run.input.loopExecution) {
-        await run.input.loopExecution.start(run.userMessage.id);
-        if (!this.isActiveRun(run)) return;
-        this.patchSnapshot(run.threadId, { liveMessages: [run.userMessage] });
-        await this.persistRunMessage(run, run.userMessage);
-        this.cleanupRun(run);
-        this.activeRuns.delete(run.threadId);
-        // The user turn is complete; the Mission run now owns status (Office/Activity
-        // poll the mission row). No assistant chat reply is produced for a Loop send.
-        this.patchSnapshot(run.threadId, {
-          phase: 'completed',
-          approval: null,
-          liveMessages: [run.userMessage],
-        });
+        const prepared = await run.input.loopExecution.materialize(run.userMessage.id);
+        if (!this.isActiveRun(run) || run.stopped) {
+          // Stop won while materialization was pending. Remove the prepared rows;
+          // if compensation fails, retain this exact preparation as the retry
+          // target so no later retry can duplicate it.
+          try {
+            await prepared.compensate();
+          } catch (compensationError) {
+            run.pendingLoopHandoff = { prepared, messagePersisted: false };
+            this.saveRetryRecord(run);
+            console.warn('[conversation-run] stopped Loop compensation failed', {
+              threadId: run.threadId,
+              compensationError,
+            });
+          }
+          return;
+        }
+        try {
+          this.patchSnapshot(run.threadId, { liveMessages: [run.userMessage] });
+          await this.persistRunMessage(run, run.userMessage);
+        } catch (persistError) {
+          try {
+            await prepared.compensate();
+          } catch (compensationError) {
+            // Compensation is atomic in production. If its storage transaction
+            // nevertheless fails, retain this exact ready Mission as the retry
+            // target; never materialize a second one and never start it yet.
+            run.pendingLoopHandoff = { prepared, messagePersisted: false };
+            throw new AggregateError(
+              [persistError, compensationError],
+              'Loop message persistence and materialization compensation both failed.',
+            );
+          }
+          throw persistError;
+        }
+        this.notifyMessagePersisted(run);
+        const handoff = { prepared, messagePersisted: true } satisfies PendingLoopHandoff;
+        run.pendingLoopHandoff = handoff;
+        if (!this.isActiveRun(run) || run.stopped) {
+          // The message is durable: retain the linked ready Mission and rewrite
+          // the stop-time retry record to start this exact preparation.
+          this.saveRetryRecord(run);
+          return;
+        }
+        await this.resumeLoopHandoff(run, handoff);
         return;
       }
 
       this.patchSnapshot(run.threadId, { liveMessages: [run.userMessage] });
       await this.persistRunMessage(run, run.userMessage);
+      this.notifyMessagePersisted(run);
       this.saveRetryRecord(run);
       await this.executeAttempt(run);
     } catch (error) {
+      await this.failRun(run, error);
+    }
+  }
+
+  private async resumeLoopHandoff(run: ActiveRun, handoff: PendingLoopHandoff): Promise<void> {
+    try {
+      if (!handoff.messagePersisted) {
+        if (!this.isActiveRun(run) || run.stopped) return;
+        this.patchSnapshot(run.threadId, { liveMessages: [run.userMessage] });
+        await this.persistRunMessage(run, run.userMessage);
+        this.notifyMessagePersisted(run);
+        handoff.messagePersisted = true;
+      }
+      if (!this.isActiveRun(run) || run.stopped) {
+        run.pendingLoopHandoff = handoff;
+        this.saveRetryRecord(run);
+        return;
+      }
+      await handoff.prepared.start();
+      run.pendingLoopHandoff = null;
+      this.cleanupRun(run);
+      this.activeRuns.delete(run.threadId);
+      this.patchSnapshot(run.threadId, {
+        phase: 'completed',
+        approval: null,
+        liveMessages: [run.userMessage],
+      });
+    } catch (error) {
+      run.pendingLoopHandoff = handoff;
       await this.failRun(run, error);
     }
   }
@@ -994,6 +1107,19 @@ export class ConversationRunController {
     });
   }
 
+  private notifyMessagePersisted(run: ActiveRun): void {
+    if (run.messagePersistedNotified) return;
+    run.messagePersistedNotified = true;
+    try {
+      run.input.onMessagePersisted?.();
+    } catch (error) {
+      console.warn('[conversation-run] persisted-message callback failed', {
+        threadId: run.threadId,
+        error,
+      });
+    }
+  }
+
   private async appendToolActivity(
     run: ActiveRun,
     payload: ToolExecutionTelemetryPayload,
@@ -1094,19 +1220,17 @@ export class ConversationRunController {
   }
 
   private saveRetryRecord(run: ActiveRun): void {
-    // A retry record must NEVER carry `loopExecution` (PR-10). The retry path runs
-    // `executeAttempt` directly (a plain Pi agent turn), not the runAttempt loop
-    // branch — so a retained `loopExecution` would either re-fire `start()` and
-    // double-materialize a second invocation+Mission, or be ignored and run a plain
-    // agent on a message already linked to a Mission. Once a loop turn's Mission has
-    // been materialized, that work is owned by the Mission lifecycle (re-run via the
-    // Mission surface), not chat-retry; stripping the field makes a plain retry the
-    // only — and safe — fallback, never a re-materialize.
-    const { loopExecution: _loopExecution, ...retryInput } = run.input;
+    // A prepared hand-off must retry the exact same Mission, so strip its factory.
+    // Before preparation (or after successful compensation), preserving the
+    // factory is safe: the retry starts from a clean materialization boundary.
+    const retryInput = run.pendingLoopHandoff
+      ? (({ loopExecution: _loopExecution, ...input }) => input)(run.input)
+      : run.input;
     this.retryRecords.set(run.attemptId, {
       input: retryInput,
       userMessage: run.userMessage,
       promptText: run.promptText ?? run.input.text,
+      pendingLoopHandoff: run.pendingLoopHandoff,
     });
   }
 

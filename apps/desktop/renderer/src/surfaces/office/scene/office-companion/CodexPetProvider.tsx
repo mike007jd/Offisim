@@ -57,7 +57,7 @@ export function CodexPetProvider({ children }: { readonly children: ReactNode })
     queryKey: ['codex-pets'],
     queryFn: () => invokeCommand('codex_pets_list'),
     refetchOnMount: 'always',
-    refetchOnWindowFocus: 'always',
+    refetchOnWindowFocus: false,
     staleTime: 5_000,
   });
   const pets = catalogQuery.data?.pets ?? [];
@@ -73,18 +73,20 @@ export function CodexPetProvider({ children }: { readonly children: ReactNode })
     readonly url: string;
   } | null>(null);
   const [atlasError, setAtlasError] = useState<string | null>(null);
+  const atlasPetId = selectedPet?.id ?? null;
+  const atlasPetVersion = selectedPet?.version ?? null;
 
   useEffect(() => {
     setAtlas(null);
     setAtlasError(null);
-    if (!enabled || !selectedPet) return;
+    if (!enabled || !atlasPetId || !atlasPetVersion) return;
 
-    const key = `${selectedPet.id}:${selectedPet.version}`;
+    const key = `${atlasPetId}:${atlasPetVersion}`;
     let active = true;
     let objectUrl: string | null = null;
     void invokeCommand('codex_pet_load', {
-      petId: selectedPet.id,
-      expectedVersion: selectedPet.version,
+      petId: atlasPetId,
+      expectedVersion: atlasPetVersion,
     })
       .then((raw) => {
         objectUrl = URL.createObjectURL(new Blob([commandBytes(raw)], { type: 'image/webp' }));
@@ -99,7 +101,7 @@ export function CodexPetProvider({ children }: { readonly children: ReactNode })
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [enabled, selectedPet]);
+  }, [atlasPetId, atlasPetVersion, enabled]);
 
   const value = useMemo<CodexPetContextValue>(
     () => ({

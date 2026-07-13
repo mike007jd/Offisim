@@ -10,7 +10,12 @@ function now(): string {
   return new Date().toISOString();
 }
 
-function keyOf(companyId: string, employeeId: string, serverName: string, toolName: string): string {
+function keyOf(
+  companyId: string,
+  employeeId: string,
+  serverName: string,
+  toolName: string,
+): string {
   return `${companyId}\0${employeeId}\0${serverName}\0${toolName}`;
 }
 

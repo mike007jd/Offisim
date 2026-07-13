@@ -1,5 +1,5 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
   LoopDefinitionRepository,
@@ -67,6 +67,24 @@ export function createLoopDrizzleRepos(db: Db): LoopDrizzleRepos {
         .set(set)
         .where(eq(schema.loopDefinitions.loop_id, loopId))
         .run();
+    },
+    async claimScheduledRun(loopId, expectedNextRunAt, claim) {
+      const result = db
+        .update(schema.loopDefinitions)
+        .set({
+          next_run_at: claim.nextRunAt,
+          last_run_at: claim.claimedAt,
+          last_run_result: 'Starting',
+          updated_at: claim.claimedAt,
+        })
+        .where(
+          and(
+            eq(schema.loopDefinitions.loop_id, loopId),
+            eq(schema.loopDefinitions.next_run_at, expectedNextRunAt),
+          ),
+        )
+        .run();
+      return result.changes > 0;
     },
     async delete(loopId) {
       db.delete(schema.loopDefinitions).where(eq(schema.loopDefinitions.loop_id, loopId)).run();

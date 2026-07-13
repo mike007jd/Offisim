@@ -1,11 +1,11 @@
-import { parseAttachment, type ParsedAttachment } from '@offisim/doc-engine';
+import { type ParsedAttachment, parseAttachment } from '@offisim/doc-engine';
 import { useEffect, useMemo, useState } from 'react';
+import { parseCsvRows } from '../csv-parse.js';
 import type { PreviewData } from '../preview-data.js';
 import type { ResolvedPreviewTarget } from '../preview-target.js';
-import { parseCsvRows } from '../csv-parse.js';
-import { DataTable } from './data-table.js';
 import { TextViewer } from './TextViewer.js';
 import { UnsupportedViewer } from './UnsupportedViewer.js';
+import { DataTable } from './data-table.js';
 
 type ParseState =
   | { status: 'loading' }
@@ -36,7 +36,10 @@ export function SheetViewer({
       })
       .catch((error) => {
         if (!cancelled) {
-          setState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
+          setState({
+            status: 'error',
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       });
     return () => {
@@ -44,9 +47,10 @@ export function SheetViewer({
     };
   }, [data.bytes, resolved.meta.mimeType, resolved.meta.title]);
 
-  const sheet = state.status === 'ready' && state.parsed.kind === 'xlsx'
-    ? state.parsed.sheets[Math.min(activeSheet, Math.max(0, state.parsed.sheets.length - 1))]
-    : null;
+  const sheet =
+    state.status === 'ready' && state.parsed.kind === 'xlsx'
+      ? state.parsed.sheets[Math.min(activeSheet, Math.max(0, state.parsed.sheets.length - 1))]
+      : null;
   const rows = useMemo(() => (sheet ? parseCsvRows(sheet.csv) : []), [sheet]);
 
   if (state.status === 'loading') {
@@ -61,7 +65,12 @@ export function SheetViewer({
     return <UnsupportedViewer resolved={resolved} data={{ mode: 'none', reason: state.message }} />;
   }
   if (state.parsed.kind !== 'xlsx') {
-    return <UnsupportedViewer resolved={resolved} data={{ mode: 'none', reason: 'Workbook parser did not return XLSX sheets.' }} />;
+    return (
+      <UnsupportedViewer
+        resolved={resolved}
+        data={{ mode: 'none', reason: 'Workbook parser did not return XLSX sheets.' }}
+      />
+    );
   }
   return (
     <div className="off-sheet-viewer">

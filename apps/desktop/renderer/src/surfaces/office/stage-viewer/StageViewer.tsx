@@ -948,7 +948,9 @@ function StageTabBody({
 }) {
   if (tab === 'board') return <BoardStage />;
   if (tab === 'preview') {
-    if (target?.kind === 'browser-session') return <BrowserSessionView target={target} />;
+    if (target?.kind === 'browser-session') {
+      return <BrowserSessionView key={target.sessionId} target={target} />;
+    }
     if (
       target?.kind === 'preview' &&
       target.ref.source === 'browser' &&

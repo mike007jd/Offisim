@@ -76,7 +76,7 @@
   color: var(--off-ok);
 }
 
-.off-browser-address[data-secure='false'] svg {
+.off-browser-address[data-secure="false"] svg {
   color: var(--off-ink-3);
 }
 

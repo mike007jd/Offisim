@@ -4,5 +4,7 @@ export function newestBrowserSnapshot(
   current: BrowserSessionSnapshot | null,
   next: BrowserSessionSnapshot,
 ): BrowserSessionSnapshot {
-  return !current || next.sequence >= current.sequence ? next : current;
+  return !current || current.sessionId !== next.sessionId || next.sequence >= current.sequence
+    ? next
+    : current;
 }

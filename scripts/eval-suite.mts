@@ -94,10 +94,14 @@ export const EVAL_SUITE: readonly EvalTask[] = [
     id: 'research-web',
     category: 'research',
     title: 'Web research → cited summary',
-    prompt: 'Research the current stable Tauri 2 release and summarize the top 3 breaking changes with sources.',
+    prompt:
+      'Research the current stable Tauri 2 release and summarize the top 3 breaking changes with sources.',
     groundTruth: [
       { kind: 'tool_called', description: 'a web/MCP read tool was invoked at least once' },
-      { kind: 'file_content', description: 'the reply names a concrete version + cites ≥1 source URL' },
+      {
+        kind: 'file_content',
+        description: 'the reply names a concrete version + cites ≥1 source URL',
+      },
     ],
     humanCheckpoints: ['the cited facts are accurate and the sources resolve'],
     stopConditions: ['no web/read tool available', 'reply fabricates a version with no source'],
@@ -122,11 +126,20 @@ export const EVAL_SUITE: readonly EvalTask[] = [
     title: 'Publish a deliverable',
     prompt: 'Write a short release-notes draft and publish it as a deliverable.',
     groundTruth: [
-      { kind: 'deliverable_row', description: 'a deliverables row exists with a non-null content_hash' },
-      { kind: 'file_exists', description: 'the published artifact file is readable under the workspace' },
+      {
+        kind: 'deliverable_row',
+        description: 'a deliverables row exists with a non-null content_hash',
+      },
+      {
+        kind: 'file_exists',
+        description: 'the published artifact file is readable under the workspace',
+      },
     ],
     humanCheckpoints: ['the deliverable appears in the Outputs panel and opens'],
-    stopConditions: ['publish path is out-of-workspace (rejected, no row)', 'no deliverable row written'],
+    stopConditions: [
+      'publish path is out-of-workspace (rejected, no row)',
+      'no deliverable row written',
+    ],
     requiresLive: true,
   },
   {
@@ -135,7 +148,10 @@ export const EVAL_SUITE: readonly EvalTask[] = [
     title: 'Ask-mode approval on a destructive command',
     prompt: 'In Ask mode, delete a scratch file with rm and proceed only after I approve.',
     groundTruth: [
-      { kind: 'approval_recorded', description: 'an approval interaction was surfaced and answered' },
+      {
+        kind: 'approval_recorded',
+        description: 'an approval interaction was surfaced and answered',
+      },
       { kind: 'db_status', description: 'the command ran only after Approve, not on Reject' },
     ],
     humanCheckpoints: ['the approval bar shows the exact command before running'],
@@ -148,7 +164,10 @@ export const EVAL_SUITE: readonly EvalTask[] = [
     title: 'Abort a running task',
     prompt: 'Start a long task, then I will abort it mid-run.',
     groundTruth: [
-      { kind: 'run_status', description: 'the run row resolves to cancelled (not running, not completed)' },
+      {
+        kind: 'run_status',
+        description: 'the run row resolves to cancelled (not running, not completed)',
+      },
       { kind: 'no_duplicate', description: 'no orphan child run is left running after the abort' },
     ],
     humanCheckpoints: ['the UI returns to idle promptly after abort'],
@@ -174,8 +193,14 @@ export const EVAL_SUITE: readonly EvalTask[] = [
     title: 'Mission with a deterministic gate',
     prompt: 'Run a mission whose criterion is command_exit_zero on the test suite.',
     groundTruth: [
-      { kind: 'db_status', description: 'the mission completes ONLY when the command actually exits 0' },
-      { kind: 'no_duplicate', description: 'an agent self-claim of PASS does not complete a failing gate' },
+      {
+        kind: 'db_status',
+        description: 'the mission completes ONLY when the command actually exits 0',
+      },
+      {
+        kind: 'no_duplicate',
+        description: 'an agent self-claim of PASS does not complete a failing gate',
+      },
     ],
     humanCheckpoints: ['the mission status reflects the real command result'],
     stopConditions: ['mission completes while the gate command fails'],
@@ -187,7 +212,10 @@ export const EVAL_SUITE: readonly EvalTask[] = [
     title: 'Crash → restart → resume (Epic A)',
     prompt: 'Start a run, kill the app mid-run, restart, and recover from the recovery card.',
     groundTruth: [
-      { kind: 'run_status', description: 'the dangling root is interrupted on restart (not stuck running)' },
+      {
+        kind: 'run_status',
+        description: 'the dangling root is interrupted on restart (not stuck running)',
+      },
       { kind: 'no_duplicate', description: 'Resume continues without a duplicate deliverable' },
     ],
     humanCheckpoints: ['the recovery card appears with Resume / Discard / View-partial'],

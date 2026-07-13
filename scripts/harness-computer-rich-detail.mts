@@ -126,7 +126,10 @@ await check('computer:no-marker-falls-through-to-browser-then-generic', () => {
     }),
   );
   assert.equal(browser.family, 'browser');
-  const generic = parseToolRichDetail('mcp_call', JSON.stringify({ content: [{ type: 'text', text: 'plain' }] }));
+  const generic = parseToolRichDetail(
+    'mcp_call',
+    JSON.stringify({ content: [{ type: 'text', text: 'plain' }] }),
+  );
   assert.equal(generic.family, 'generic');
 });
 

@@ -33,8 +33,13 @@
  * Additive at MS-004 — nothing consumes the controller yet (live wiring is MS-005).
  */
 
+import type { MissionExecutionBudgetContract } from '@offisim/shared-types';
 import { decideBoundedLoop, stableFailureSignature } from '../bounded-loop.js';
 import type { EvaluationContext, EvaluatorRegistry } from './evaluators/index.js';
+import {
+  DEFAULT_MISSION_EXECUTION_BUDGET,
+  resolveMissionExecutionBudget,
+} from './mission-budget.js';
 import { MissionStateError } from './mission-service.js';
 import type { MissionService } from './mission-service.js';
 
@@ -124,6 +129,8 @@ export interface RunAttemptInput {
   attemptNumber: number;
   /** The packet from the previous failed attempt, on a repair attempt. */
   failurePacket?: FailurePacket;
+  /** Absolute canonical wall-clock deadline propagated to the runtime driver. */
+  wallClockDeadlineAt?: string;
 }
 
 /** The minimal criterion view the controller passes to `runAttempt` / evaluators. */
@@ -139,20 +146,10 @@ export interface ControllerCriterion {
 // Budget / stop config (§19.2 defaults).
 // ---------------------------------------------------------------------------
 
-export interface MissionLoopBudget {
-  /** Per-criterion repair cap. A 4th product FAIL on one criterion → stop. */
-  maxRepairsPerCriterion: number;
-  /** Global full-attempt cap. */
-  maxAttempts: number;
-  /** Optional token budget; exhausted → stop. */
-  tokenBudget?: number;
-}
+export type MissionLoopBudget = MissionExecutionBudgetContract;
 
 /** §19.2 defaults. Market Playbooks may not raise these without bound. */
-export const DEFAULT_MISSION_LOOP_BUDGET: MissionLoopBudget = {
-  maxRepairsPerCriterion: 3,
-  maxAttempts: 6,
-};
+export const DEFAULT_MISSION_LOOP_BUDGET: MissionLoopBudget = DEFAULT_MISSION_EXECUTION_BUDGET;
 
 // ---------------------------------------------------------------------------
 // Outcome.
@@ -167,6 +164,7 @@ export type MissionLoopStopReason =
   | 'attempt_cap' // hit maxAttempts
   | 'stuck' // two identical consecutive failure signatures
   | 'token_budget' // token budget exhausted
+  | 'wall_clock_budget' // end-to-end wall-clock budget exhausted
   | 'cancelled' // human cancel
   | 'runtime_incompatible'; // runtimeError → blocked (infra)
 
@@ -287,14 +285,12 @@ class MissionLoopControllerImpl implements MissionLoopController {
   private readonly budget: MissionLoopBudget;
 
   constructor(private readonly deps: MissionLoopControllerDeps) {
-    this.budget = {
-      ...DEFAULT_MISSION_LOOP_BUDGET,
-      ...(deps.budget ?? {}),
-    };
+    this.budget = resolveMissionExecutionBudget(deps.budget);
   }
 
   async run(missionId: string): Promise<MissionLoopResult> {
     const svc = this.deps.missionService;
+    const wallClockDeadlineMs = this.createWallClockDeadline();
 
     // Per-criterion repair counter (a product FAIL after the first attempt on
     // that criterion consumes one repair). Token budget tracked locally and
@@ -347,6 +343,26 @@ class MissionLoopControllerImpl implements MissionLoopController {
         });
       }
 
+      // Keep the mission in `verifying` between failed attempts until this
+      // guard passes. That makes a wall-clock stop a legal `verifying → failed`
+      // transition and prevents creating/spending a new repair attempt.
+      if (this.wallClockExpired(wallClockDeadlineMs)) {
+        if (attemptNumber === 0) {
+          throw new MissionStateError(
+            'invariant_violation',
+            `Mission ${missionId} exhausted its wall-clock budget before the first attempt started.`,
+            { missionId },
+          );
+        }
+        await svc.toFailed(missionId, 'wall-clock budget exhausted before the next attempt');
+        return this.stop('failed', 'wall_clock_budget', {
+          attemptEvidence,
+          repairCounts,
+          attempts: attemptNumber,
+          note: 'wall-clock budget exhausted before the next attempt; no new attempt was started',
+        });
+      }
+
       // The global attempt cap, token budget, STUCK, and per-criterion repair cap
       // are all enforced AFTER verifying (in the `verifying` state) where the
       // `verifying → failed` transition is legal — NOT here, because after a
@@ -361,6 +377,13 @@ class MissionLoopControllerImpl implements MissionLoopController {
       // a clean `cancelled` result; any OTHER illegal_transition is a genuine bug
       // and is re-thrown (never swallowed).
       try {
+        if (pendingFailurePacket && previousFailureSignature) {
+          await svc.toRepairing(
+            missionId,
+            pendingFailurePacket.attemptId,
+            previousFailureSignature,
+          );
+        }
         const result = await this.runOneAttempt({
           missionId,
           attemptNumber,
@@ -370,6 +393,7 @@ class MissionLoopControllerImpl implements MissionLoopController {
           repairCounts,
           attemptEvidence,
           requiredCriteria,
+          wallClockDeadlineMs,
         });
         if (result.kind === 'stop') return result.value;
         // Continue the loop with the updated carry-over state.
@@ -410,6 +434,7 @@ class MissionLoopControllerImpl implements MissionLoopController {
     repairCounts: Map<string, number>;
     attemptEvidence: AttemptEvidence[];
     requiredCriteria: ControllerCriterion[];
+    wallClockDeadlineMs: number | undefined;
   }): Promise<
     | { kind: 'stop'; value: MissionLoopResult }
     | {
@@ -421,7 +446,8 @@ class MissionLoopControllerImpl implements MissionLoopController {
       }
   > {
     const svc = this.deps.missionService;
-    const { missionId, repairCounts, attemptEvidence, requiredCriteria } = state;
+    const { missionId, repairCounts, attemptEvidence, requiredCriteria, wallClockDeadlineMs } =
+      state;
     let { attemptNumber, previousFailureSignature, pendingFailurePacket, tokenRemaining } = state;
 
     {
@@ -444,6 +470,9 @@ class MissionLoopControllerImpl implements MissionLoopController {
         attemptId,
         attemptNumber,
         failurePacket: pendingFailurePacket,
+        ...(wallClockDeadlineMs === undefined
+          ? {}
+          : { wallClockDeadlineAt: new Date(wallClockDeadlineMs).toISOString() }),
       });
 
       // §19.2 token budget: debit this attempt's reported usage. This is the
@@ -453,6 +482,31 @@ class MissionLoopControllerImpl implements MissionLoopController {
       // stops the loop AFTER the attempt instead of starting another.
       if (tokenRemaining !== undefined && execution.usage?.tokens) {
         tokenRemaining -= execution.usage.tokens;
+      }
+
+      // We cannot abort a driver that does not expose an AbortSignal, but we do
+      // fail immediately when it returns after the deadline—after accounting
+      // for its spend, and before evaluation, repair, or another attempt.
+      if (
+        execution.runtimeError?.code === 'wall_clock_budget' ||
+        this.wallClockExpired(wallClockDeadlineMs)
+      ) {
+        attemptEvidence.push({
+          attemptId,
+          attemptNumber,
+          ...(execution.runtimeError ? { runtimeError: execution.runtimeError } : {}),
+          verdicts: [],
+        });
+        await svc.toFailed(missionId, 'wall-clock budget exhausted during runtime attempt');
+        return {
+          kind: 'stop',
+          value: this.stop('failed', 'wall_clock_budget', {
+            attemptEvidence,
+            repairCounts,
+            attempts: attemptNumber,
+            note: 'runtime attempt returned after the wall-clock deadline; no evaluation or repair started',
+          }),
+        };
       }
 
       // --- 3. beginVerifying (MissionService) ----------------------------
@@ -525,6 +579,19 @@ class MissionLoopControllerImpl implements MissionLoopController {
           : undefined,
         verdicts: outcomes.map((o) => ({ criterionId: o.criterionId, verdict: o.verdict })),
       });
+
+      if (this.wallClockExpired(wallClockDeadlineMs)) {
+        await svc.toFailed(missionId, 'wall-clock budget exhausted during evaluation');
+        return {
+          kind: 'stop',
+          value: this.stop('failed', 'wall_clock_budget', {
+            attemptEvidence,
+            repairCounts,
+            attempts: attemptNumber,
+            note: 'evaluation finished after the wall-clock deadline; no completion or repair transition was allowed',
+          }),
+        };
+      }
 
       // --- 7. all required PASS → completeMission ------------------------
       const allPass = outcomes.every((o) => o.verdict === 'PASS');
@@ -725,8 +792,9 @@ class MissionLoopControllerImpl implements MissionLoopController {
       // `execution.usage` right after runAttempt resolved; the budget guard in
       // this verifying block stopped the loop if it went non-positive.)
 
-      await svc.toRepairing(missionId, attemptId, failureSignature);
-      // The loop continues: hand the carry-over state back to run().
+      // The loop continues while the mission remains `verifying`. run() checks
+      // the wall-clock deadline before it performs `toRepairing`, so an expired
+      // budget never creates a new repair attempt.
       return {
         kind: 'continue',
         attemptNumber,
@@ -738,6 +806,24 @@ class MissionLoopControllerImpl implements MissionLoopController {
   }
 
   // -- internals ----------------------------------------------------------
+
+  private createWallClockDeadline(): number | undefined {
+    if (this.budget.wallClockMinutes === undefined) return undefined;
+    return this.readClockMs() + this.budget.wallClockMinutes * 60_000;
+  }
+
+  private wallClockExpired(deadlineMs: number | undefined): boolean {
+    return deadlineMs !== undefined && this.readClockMs() >= deadlineMs;
+  }
+
+  private readClockMs(): number {
+    const value = this.deps.now();
+    const parsed = Date.parse(value);
+    if (!Number.isFinite(parsed)) {
+      throw new Error(`MissionLoopController received an invalid clock value: ${value}`);
+    }
+    return parsed;
+  }
 
   /**
    * Evaluate each required criterion via the registry over the per-criterion

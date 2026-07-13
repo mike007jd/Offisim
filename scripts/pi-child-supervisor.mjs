@@ -68,7 +68,7 @@ const VERIFY_SUMMARY_CAP = 4 * 1024;
 // are the only constraints code enforces; everything else is the agent's call.
 export const DELEGATION_DEFAULTS = Object.freeze({
   maxDepth: 2, // 1 = root's direct children only; 2 = one level of recursion
-  maxParallelPerDelegation: 4, // per parallel fan-out (not a global run-tree cap)
+  maxParallelPerDelegation: 4, // global active delegated-agent cap for one root run
   maxTotalChildren: 16, // across the whole tree for one root run
   childTimeoutMs: 5 * 60 * 1000, // wall-clock per child
   // Token budget across the whole delegation tree for one root run — the
@@ -79,36 +79,106 @@ export const DELEGATION_DEFAULTS = Object.freeze({
 });
 
 /**
- * Shared, mutable limit state for one root run's whole delegation tree. The
- * total-children counter is global (every supervisor level shares it); concurrency
- * is enforced *locally* per parallel fan-out (no global blocking semaphore — a
- * parent waiting on its children must never hold a slot a child needs, which would
- * deadlock recursive delegation).
+ * Shared, mutable limit state for one root run's whole delegation tree. Total
+ * children, active delegated agents, and token usage are global across every
+ * recursive supervisor. A parent temporarily suspends its concurrency lease while
+ * its delegate tool waits for descendants, preventing both global oversubscription
+ * and recursive semaphore deadlock.
  */
 export function createDelegationLimits(overrides = {}) {
   const cfg = { ...DELEGATION_DEFAULTS, ...overrides };
+  const maxConcurrentAgents = Math.max(1, cfg.maxParallelPerDelegation);
   let totalSpawned = 0;
-  let spentTokens = 0;
+  const activeRuns = new Set();
+  const waiters = [];
+  const spentUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+
+  const releaseWaiterSignal = (waiter) => {
+    if (waiter.signal && waiter.abortHandler) {
+      waiter.signal.removeEventListener('abort', waiter.abortHandler);
+    }
+  };
+  const drainConcurrencyQueue = () => {
+    while (activeRuns.size < maxConcurrentAgents && waiters.length > 0) {
+      const waiter = waiters.shift();
+      if (waiter.signal?.aborted) {
+        releaseWaiterSignal(waiter);
+        waiter.resolve(false);
+        continue;
+      }
+      activeRuns.add(waiter.runId);
+      releaseWaiterSignal(waiter);
+      waiter.resolve(true);
+    }
+  };
+  const releaseConcurrency = (runId) => {
+    if (!activeRuns.delete(runId)) return false;
+    drainConcurrencyQueue();
+    return true;
+  };
+
   return {
     ...cfg,
-    maxParallelPerDelegation: Math.max(1, cfg.maxParallelPerDelegation),
+    maxParallelPerDelegation: maxConcurrentAgents,
     /** Reserve one of the global total-children budget; false when exhausted. */
     reserveTotal() {
       if (totalSpawned >= cfg.maxTotalChildren) return false;
       totalSpawned += 1;
       return true;
     },
-    /** Fold a finished child's token usage into the tree-global running total. */
+    /** Acquire one global active-agent lease, FIFO and abort-aware. */
+    acquireConcurrency(runId, signal) {
+      if (activeRuns.has(runId)) return Promise.resolve(true);
+      if (signal?.aborted) return Promise.resolve(false);
+      if (activeRuns.size < maxConcurrentAgents) {
+        activeRuns.add(runId);
+        return Promise.resolve(true);
+      }
+      return new Promise((resolve) => {
+        const waiter = { runId, signal, resolve, abortHandler: undefined };
+        if (signal) {
+          waiter.abortHandler = () => {
+            const index = waiters.indexOf(waiter);
+            if (index >= 0) waiters.splice(index, 1);
+            releaseWaiterSignal(waiter);
+            resolve(false);
+          };
+          signal.addEventListener('abort', waiter.abortHandler, { once: true });
+        }
+        waiters.push(waiter);
+      });
+    },
+    releaseConcurrency,
+    /** A delegating parent is paused inside its tool call; release its active
+     *  lease so descendants can run, then reacquire before returning to Pi. */
+    suspendConcurrency(runId) {
+      return releaseConcurrency(runId);
+    },
+    resumeConcurrency(runId, signal) {
+      return this.acquireConcurrency(runId, signal);
+    },
+    concurrencyInUse() {
+      return activeRuns.size;
+    },
+    /** Fold root or child usage into the tree-global budget total. */
     recordTokens(usage) {
-      spentTokens += (usage?.input || 0) + (usage?.output || 0);
+      spentUsage.input += usage?.input || 0;
+      spentUsage.output += usage?.output || 0;
+      spentUsage.cacheRead += usage?.cacheRead || 0;
+      spentUsage.cacheWrite += usage?.cacheWrite || 0;
+      spentUsage.cost += typeof usage?.cost === 'number' ? usage.cost : usage?.cost?.total || 0;
+      spentUsage.turns += usage?.turns || 0;
     },
     /** True once the tree's token spend has crossed the budget — gates the next
      *  delegation round so goal-directed loops terminate on budget. */
     budgetExceeded() {
-      return spentTokens >= cfg.maxTotalTokens;
+      return this.spentTokens() >= cfg.maxTotalTokens;
     },
     spentTokens() {
-      return spentTokens;
+      return spentUsage.input + spentUsage.output + spentUsage.cacheRead + spentUsage.cacheWrite;
+    },
+    usage() {
+      return { ...spentUsage };
     },
   };
 }
@@ -583,6 +653,13 @@ export function createChildSupervisor(ctx) {
       };
     }
 
+    const concurrencyAcquired = await limits.acquireConcurrency(runId, signal);
+    if (!concurrencyAcquired) {
+      const summary = 'Cancelled before a delegation concurrency slot became available.';
+      emit('run.cancelled', { status: 'cancelled', summary });
+      return { summary: `Delegation cancelled: ${summary}`, runId, completed: false };
+    }
+
     const controller = new AbortController();
     childControllers.set(runId, controller);
     const abortFromParent = () => controller.abort();
@@ -607,19 +684,54 @@ export function createChildSupervisor(ctx) {
     } finally {
       signal?.removeEventListener('abort', abortFromParent);
       childControllers.delete(runId);
+      limits.releaseConcurrency(runId);
+    }
+  }
+
+  async function withParentConcurrencySuspended(signal, operation) {
+    const suspended = limits.suspendConcurrency(parentRunId);
+    try {
+      return await operation();
+    } finally {
+      if (suspended && !signal?.aborted) {
+        await limits.resumeConcurrency(parentRunId, signal);
+      }
     }
   }
 
   async function runSingle(task, signal) {
-    const result = await runTask(task, signal);
-    const integration = result.completed ? await maybeIntegrateWrites([task], [result.runId]) : '';
-    return capBytes(
-      [result.summary, integration ? `Integration:\n${integration}` : '']
-        .filter(Boolean)
-        .join('\n\n---\n\n'),
-      COMBINED_OUTPUT_CAP,
-      'combined',
-    );
+    return withParentConcurrencySuspended(signal, async () => {
+      const result = await runTask(task, signal);
+      const integration = result.completed
+        ? await maybeIntegrateWrites([task], [result.runId])
+        : '';
+      return capBytes(
+        [result.summary, integration ? `Integration:\n${integration}` : '']
+          .filter(Boolean)
+          .join('\n\n---\n\n'),
+        COMBINED_OUTPUT_CAP,
+        'combined',
+      );
+    });
+  }
+
+  /** Start every requested task into the shared tree-wide lease queue. The
+   *  global limiter, not a per-fan-out worker count, owns concurrency. */
+  async function runParallel(tasks, signal) {
+    return withParentConcurrencySuspended(signal, async () => {
+      const summaries = await mapWithConcurrencyLimit(tasks, tasks.length || 1, (task) =>
+        runTask(task, signal),
+      );
+      const integration = await maybeIntegrateWrites(
+        tasks,
+        summaries.filter((result) => result.completed).map((result) => result.runId),
+      );
+      const combined = tasks
+        .map((task, i) => `### ${task.employeeId}\n${summaries[i]?.summary ?? '(no output)'}`)
+        .concat(integration ? [`### Integration\n${integration}`] : [])
+        .join('\n\n---\n\n');
+      return capBytes(combined, COMBINED_OUTPUT_CAP, 'combined');
+    });
   }
 
   async function runChildSession(
@@ -1016,27 +1128,6 @@ export function createChildSupervisor(ctx) {
       // so the next delegation round sees it.
       limits.recordTokens(usage);
     }
-  }
-
-  /** Run multiple tasks concurrently, capped at maxParallelPerDelegation (excess
-   *  queues). Returns a combined, per-teammate summary for the calling agent,
-   *  bounded by the combined-result cap so a wide fan-out can't blow the root
-   *  context even though each child is already individually capped. */
-  async function runParallel(tasks, signal) {
-    const summaries = await mapWithConcurrencyLimit(
-      tasks,
-      limits.maxParallelPerDelegation,
-      (task) => runTask(task, signal),
-    );
-    const integration = await maybeIntegrateWrites(
-      tasks,
-      summaries.filter((result) => result.completed).map((result) => result.runId),
-    );
-    const combined = tasks
-      .map((task, i) => `### ${task.employeeId}\n${summaries[i]?.summary ?? '(no output)'}`)
-      .concat(integration ? [`### Integration\n${integration}`] : [])
-      .join('\n\n---\n\n');
-    return capBytes(combined, COMBINED_OUTPUT_CAP, 'combined');
   }
 
   async function maybeIntegrateWrites(tasks, runIds) {

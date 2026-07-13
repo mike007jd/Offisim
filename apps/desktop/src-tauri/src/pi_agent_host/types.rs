@@ -68,6 +68,10 @@ pub struct PiAgentExecuteRequest {
     /// Task Board deterministic single delegation / same-lease rework packet.
     #[serde(default)]
     pub(super) direct_delegation: Option<serde_json::Value>,
+    /// Optional per-run delegation caps. Rust deliberately treats this packet as
+    /// opaque; the Node host validates every field and clamps it to host policy.
+    #[serde(default)]
+    pub(super) delegation_limits: Option<serde_json::Value>,
 }
 
 /// Prompt Enhance request (PR-06). A DEDICATED, isolated one-shot — never a work
@@ -173,6 +177,11 @@ pub struct PiAgentHostResponse {
     // at the IPC boundary and solo-run usage_json stays null (the VM-003 path).
     #[serde(default)]
     pub(super) usage: Option<serde_json::Value>,
+    // Root + delegated-tree usage for Mission budget enforcement only. Kept
+    // separate from root `usage` so renderer persistence never double-counts
+    // child rows when it reconciles the run tree.
+    #[serde(default)]
+    pub(super) budget_usage: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize)]

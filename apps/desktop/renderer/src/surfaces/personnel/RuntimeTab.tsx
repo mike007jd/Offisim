@@ -5,6 +5,7 @@ import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { THINKING_LEVELS } from '@/runtime/pi-thread-thinking-store.js';
 import { Bot, Lock, ShieldCheck } from 'lucide-react';
+import { useId } from 'react';
 
 interface RuntimeTabProps {
   employee: Employee;
@@ -27,6 +28,9 @@ export function RuntimeTab({
   onModelChange,
   onThinkingLevelChange,
 }: RuntimeTabProps) {
+  const modelSelectId = useId();
+  const thinkingLevelSelectId = useId();
+
   if (employee.kind === 'external') {
     return (
       <div className="off-pers-tab-shell">
@@ -69,9 +73,10 @@ export function RuntimeTab({
           </span>
         </div>
         <div className="off-pers-runtime-fields">
-          <label className="off-pers-runtime-field">
+          <label className="off-pers-runtime-field" htmlFor={modelSelectId}>
             <span>Model</span>
             <Select
+              id={modelSelectId}
               value={selectedModel}
               onChange={(event) => {
                 const next = event.target.value;
@@ -93,9 +98,10 @@ export function RuntimeTab({
               ]}
             />
           </label>
-          <label className="off-pers-runtime-field">
+          <label className="off-pers-runtime-field" htmlFor={thinkingLevelSelectId}>
             <span>Thinking level</span>
             <Select
+              id={thinkingLevelSelectId}
               value={model && !invalid ? thinkingLevel : ''}
               onChange={(event) => onThinkingLevelChange(event.target.value)}
               disabled={!model || invalid || !supportsReasoning}

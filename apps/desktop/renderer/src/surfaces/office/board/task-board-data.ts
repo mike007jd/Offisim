@@ -258,7 +258,6 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
     queryFn: async () => {
       if (!companyId) return [];
       const repos = await getRepos();
-      if (!repos.agentRuns) return [];
       const rows = await repos.agentRuns.findByStatus(companyId, [...PERSISTED_TASK_STATUSES]);
       return buildTaskTree(rows);
     },
@@ -475,18 +474,17 @@ export function workspaceLeaseReviewsQueryOptions(projectIds: readonly string[])
     queryKey: ['workspace-lease-reviews', scopeProjectIds] as const,
     queryFn: async () => {
       const repos = await getRepos();
-      if (!repos.agentEvents) return [];
       const perProject = await Promise.all(
         scopeProjectIds.map(async (projectId) => {
           const [snapshots, actions] = await Promise.all([
-            repos.agentEvents?.findByProject(projectId, {
+            repos.agentEvents.findByProject(projectId, {
               eventType: WORKSPACE_LEASE_SNAPSHOT_EVENT,
             }),
-            repos.agentEvents?.findByProject(projectId, {
+            repos.agentEvents.findByProject(projectId, {
               eventType: WORKSPACE_LEASE_ACTION_EVENT,
             }),
           ]);
-          return buildProjectWorkspaceLeaseReviewRows([...(snapshots ?? []), ...(actions ?? [])]);
+          return buildProjectWorkspaceLeaseReviewRows([...snapshots, ...actions]);
         }),
       );
       return perProject.flat().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));

@@ -31,19 +31,23 @@
  */
 
 import assert from 'node:assert/strict';
-import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
-import { MemoryAgentRunRepository } from '../packages/core/src/runtime/repos/agent-runs/memory.ts';
 import { persistRunStartIfAbsent } from '../apps/desktop/renderer/src/runtime/recovery/persist-run-idempotency.js';
 import {
   PI_HOST_PROTOCOL_VERSION,
   buildInterruptedRunCard,
   reconcileInterruptedRuns,
 } from '../apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.js';
-import { loadInterruptedRunRecoveryCards } from '../apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.js';
+import {
+  RecoveryLoadGeneration,
+  loadInterruptedRunRecovery,
+  loadInterruptedRunRecoveryCards,
+} from '../apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.js';
+import { MemoryAgentRunRepository } from '../packages/core/src/runtime/repos/agent-runs/memory.ts';
+import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 20;
+const TOTAL = 23;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -71,16 +75,128 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
     // root1 carries its OWN partial usage so the no-double-count guard (root row
     // skipped in the child sum, folded in once as rootUsage) is load-bearing: the
     // aggregate must be children + root_own, each counted exactly once.
-    { run_id: 'root1', thread_id: 't1', company_id: CO_A, project_id: 'proj-1', parent_run_id: null, root_run_id: 'root1', employee_id: null, relation: null, objective: 'Build feature X', access: null, status: 'running', started_at: '2026-06-27T10:00:00.000Z', session_file: null, runtime_context_json: JSON.stringify({ runtime: 'pi-agent', projectId: 'proj-1', workspaceRoot: '/tmp/offisim/proj-1', wireProtocolVersion: PI_HOST_PROTOCOL_VERSION, piSdkVersion: '0.79.8', permissionMode: 'auto', model: null, thinkingLevel: null, createdAt: FIXED_NOW }), usage_json: JSON.stringify({ input: 5, output: 5, cost: 0.05, turns: 1 }) },
-    { run_id: 'child1', thread_id: 't1', company_id: CO_A, parent_run_id: 'root1', root_run_id: 'root1', employee_id: null, relation: 'delegate', objective: 'sub a', access: null, status: 'running', started_at: '2026-06-27T10:01:00.000Z' },
-    { run_id: 'child2', thread_id: 't1', company_id: CO_A, parent_run_id: 'root1', root_run_id: 'root1', employee_id: null, relation: 'delegate', objective: 'sub b', access: null, status: 'completed', started_at: '2026-06-27T10:02:00.000Z', usage_json: JSON.stringify({ input: 10, output: 20, cost: 0.5, turns: 2 }) },
+    {
+      run_id: 'root1',
+      thread_id: 't1',
+      company_id: CO_A,
+      project_id: 'proj-1',
+      parent_run_id: null,
+      root_run_id: 'root1',
+      employee_id: null,
+      relation: null,
+      objective: 'Build feature X',
+      access: null,
+      status: 'running',
+      started_at: '2026-06-27T10:00:00.000Z',
+      session_file: null,
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        projectId: 'proj-1',
+        workspaceRoot: '/tmp/offisim/proj-1',
+        wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+        piSdkVersion: '0.79.8',
+        permissionMode: 'auto',
+        model: null,
+        thinkingLevel: null,
+        createdAt: FIXED_NOW,
+      }),
+      usage_json: JSON.stringify({ input: 5, output: 5, cost: 0.05, turns: 1 }),
+    },
+    {
+      run_id: 'child1',
+      thread_id: 't1',
+      company_id: CO_A,
+      parent_run_id: 'root1',
+      root_run_id: 'root1',
+      employee_id: null,
+      relation: 'delegate',
+      objective: 'sub a',
+      access: null,
+      status: 'running',
+      started_at: '2026-06-27T10:01:00.000Z',
+    },
+    {
+      run_id: 'child2',
+      thread_id: 't1',
+      company_id: CO_A,
+      parent_run_id: 'root1',
+      root_run_id: 'root1',
+      employee_id: null,
+      relation: 'delegate',
+      objective: 'sub b',
+      access: null,
+      status: 'completed',
+      started_at: '2026-06-27T10:02:00.000Z',
+      usage_json: JSON.stringify({ input: 10, output: 20, cost: 0.5, turns: 2 }),
+    },
     // co-A: crashed root WITH a session_file (resumable).
-    { run_id: 'root2', thread_id: 't2', company_id: CO_A, project_id: 'proj-2', parent_run_id: null, root_run_id: 'root2', employee_id: null, relation: null, objective: 'Research Y', access: null, status: 'running', started_at: '2026-06-27T11:00:00.000Z', session_file: '/sessions/root2.jsonl', runtime_context_json: JSON.stringify({ runtime: 'pi-agent', projectId: 'proj-2', workspaceRoot: '/tmp/offisim/proj-2', wireProtocolVersion: PI_HOST_PROTOCOL_VERSION, piSdkVersion: '0.79.8', permissionMode: 'auto', model: null, thinkingLevel: null, createdAt: FIXED_NOW }) },
+    {
+      run_id: 'root2',
+      thread_id: 't2',
+      company_id: CO_A,
+      project_id: 'proj-2',
+      parent_run_id: null,
+      root_run_id: 'root2',
+      employee_id: null,
+      relation: null,
+      objective: 'Research Y',
+      access: null,
+      status: 'running',
+      started_at: '2026-06-27T11:00:00.000Z',
+      session_file: '/sessions/root2.jsonl',
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        projectId: 'proj-2',
+        workspaceRoot: '/tmp/offisim/proj-2',
+        wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+        piSdkVersion: '0.79.8',
+        permissionMode: 'auto',
+        model: null,
+        thinkingLevel: null,
+        createdAt: FIXED_NOW,
+      }),
+    },
     // co-A: an orphan running child whose root already completed.
-    { run_id: 'rootDone', thread_id: 't3', company_id: CO_A, parent_run_id: null, root_run_id: 'rootDone', employee_id: null, relation: null, objective: 'done', access: null, status: 'completed', started_at: '2026-06-27T09:00:00.000Z' },
-    { run_id: 'orphan1', thread_id: 't3', company_id: CO_A, parent_run_id: 'rootDone', root_run_id: 'rootDone', employee_id: null, relation: 'delegate', objective: 'orphan', access: null, status: 'running', started_at: '2026-06-27T09:01:00.000Z' },
+    {
+      run_id: 'rootDone',
+      thread_id: 't3',
+      company_id: CO_A,
+      parent_run_id: null,
+      root_run_id: 'rootDone',
+      employee_id: null,
+      relation: null,
+      objective: 'done',
+      access: null,
+      status: 'completed',
+      started_at: '2026-06-27T09:00:00.000Z',
+    },
+    {
+      run_id: 'orphan1',
+      thread_id: 't3',
+      company_id: CO_A,
+      parent_run_id: 'rootDone',
+      root_run_id: 'rootDone',
+      employee_id: null,
+      relation: 'delegate',
+      objective: 'orphan',
+      access: null,
+      status: 'running',
+      started_at: '2026-06-27T09:01:00.000Z',
+    },
     // co-B: a running root that must NOT be touched when reconciling co-A.
-    { run_id: 'rootB', thread_id: 'tb', company_id: CO_B, parent_run_id: null, root_run_id: 'rootB', employee_id: null, relation: null, objective: 'other co', access: null, status: 'running', started_at: '2026-06-27T10:00:00.000Z' },
+    {
+      run_id: 'rootB',
+      thread_id: 'tb',
+      company_id: CO_B,
+      parent_run_id: null,
+      root_run_id: 'rootB',
+      employee_id: null,
+      relation: null,
+      objective: 'other co',
+      access: null,
+      status: 'running',
+      started_at: '2026-06-27T10:00:00.000Z',
+    },
   ];
   for (const r of runs) await repo.create(r);
   return repo;
@@ -185,6 +301,86 @@ async function main(): Promise<void> {
     assert.ok(multi.length > runningA.length, 'multi-status returns more rows');
   });
 
+  await check('(k2) scoped status update rejects a cross-company discard', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'scoped-run',
+      thread_id: 'scoped-thread',
+      company_id: CO_A,
+      parent_run_id: null,
+      root_run_id: 'scoped-run',
+      employee_id: null,
+      relation: null,
+      objective: 'scope guard',
+      access: null,
+      status: 'interrupted',
+      started_at: FIXED_NOW,
+    });
+
+    const crossCompany = await repo2.updateStatusForCompany(CO_B, 'scoped-run', 'cancelled', {
+      finishedAt: FIXED_NOW,
+    });
+    assert.equal(crossCompany, false, 'wrong-company action is rejected');
+    assert.equal(
+      (await repo2.findById('scoped-run'))?.status,
+      'interrupted',
+      'wrong-company action cannot mutate the row',
+    );
+
+    const sameCompany = await repo2.updateStatusForCompany(CO_A, 'scoped-run', 'cancelled', {
+      finishedAt: FIXED_NOW,
+    });
+    assert.equal(sameCompany, true, 'owning company can discard its run');
+    assert.equal((await repo2.findById('scoped-run'))?.status, 'cancelled');
+  });
+
+  await check('(k3) latest recovery load generation wins after a company switch', async () => {
+    const generation = new RecoveryLoadGeneration();
+    const published: string[] = [];
+    let finishSlow!: () => void;
+    const slow = new Promise<void>((resolve) => {
+      finishSlow = resolve;
+    });
+
+    const companyAToken = generation.begin();
+    const staleCompletion = slow.then(() => {
+      generation.commit(companyAToken, () => published.push(CO_A));
+    });
+    const companyBToken = generation.begin();
+    generation.commit(companyBToken, () => published.push(CO_B));
+    finishSlow();
+    await staleCompletion;
+
+    assert.deepEqual(published, [CO_B], 'slow company A completion cannot overwrite company B');
+  });
+
+  await check('(k4) a failed root stays retryable and its child is not stranded', async () => {
+    const repo2 = await seedRepo();
+    const originalUpdateStatus = repo2.updateStatus.bind(repo2);
+    let failRootOnce = true;
+    repo2.updateStatus = async (runId, status, opts) => {
+      if (failRootOnce && runId === 'root1' && status === 'interrupted') {
+        failRootOnce = false;
+        throw new Error('injected root park failure');
+      }
+      await originalUpdateStatus(runId, status, opts);
+    };
+
+    const first = await loadInterruptedRunRecovery({ repo: repo2, companyId: CO_A, now });
+    assert.equal(first.complete, false, 'partial reconcile must stay unhydrated/retryable');
+    assert.equal((await repo2.findById('root1'))?.status, 'running');
+    assert.equal(
+      (await repo2.findById('child1'))?.status,
+      'cancelled',
+      'a failed root is not pre-marked processed, so its child reaches orphan cleanup',
+    );
+
+    const second = await loadInterruptedRunRecovery({ repo: repo2, companyId: CO_A, now });
+    assert.equal(second.complete, true, 'the next load retries and completes reconciliation');
+    assert.equal((await repo2.findById('root1'))?.status, 'interrupted');
+    assert.ok(second.cards.some((card) => card.runId === 'root1'));
+  });
+
   await check('(l) missing workspace blocks resume classification', async () => {
     const repo2 = new MemoryAgentRunRepository();
     await repo2.create({
@@ -263,8 +459,15 @@ async function main(): Promise<void> {
   await check('(l) persistRunStartIfAbsent creates a fresh run (returns true)', async () => {
     const repo2 = new MemoryAgentRunRepository();
     const created = await persistRunStartIfAbsent(repo2, {
-      run_id: 'r-new', thread_id: 't', company_id: CO_A, parent_run_id: null,
-      root_run_id: 'r-new', employee_id: null, relation: null, objective: 'x', access: null,
+      run_id: 'r-new',
+      thread_id: 't',
+      company_id: CO_A,
+      parent_run_id: null,
+      root_run_id: 'r-new',
+      employee_id: null,
+      relation: null,
+      objective: 'x',
+      access: null,
       status: 'running',
     });
     assert.equal(created, true, 'fresh run is created');
@@ -275,15 +478,29 @@ async function main(): Promise<void> {
     const repo2 = new MemoryAgentRunRepository();
     // Original run, then resume lane flips interrupted→running and aggregates usage.
     await persistRunStartIfAbsent(repo2, {
-      run_id: 'r1', thread_id: 't', company_id: CO_A, parent_run_id: null,
-      root_run_id: 'r1', employee_id: null, relation: null, objective: 'x', access: null,
+      run_id: 'r1',
+      thread_id: 't',
+      company_id: CO_A,
+      parent_run_id: null,
+      root_run_id: 'r1',
+      employee_id: null,
+      relation: null,
+      objective: 'x',
+      access: null,
       status: 'running',
     });
     await repo2.updateStatus('r1', 'running', { usageJson: JSON.stringify({ input: 7 }) });
     // The host replays run.started for the SAME run (create-time data, no usage).
     const created = await persistRunStartIfAbsent(repo2, {
-      run_id: 'r1', thread_id: 't', company_id: CO_A, parent_run_id: null,
-      root_run_id: 'r1', employee_id: null, relation: null, objective: 'x', access: null,
+      run_id: 'r1',
+      thread_id: 't',
+      company_id: CO_A,
+      parent_run_id: null,
+      root_run_id: 'r1',
+      employee_id: null,
+      relation: null,
+      objective: 'x',
+      access: null,
       status: 'running',
     });
     assert.equal(created, false, 'replay does not create a second row');
@@ -295,8 +512,15 @@ async function main(): Promise<void> {
   await check('(n) updateStatus can persist the Pi session_file without finishing', async () => {
     const repo2 = new MemoryAgentRunRepository();
     await persistRunStartIfAbsent(repo2, {
-      run_id: 'r-session', thread_id: 't', company_id: CO_A, parent_run_id: null,
-      root_run_id: 'r-session', employee_id: null, relation: null, objective: 'x', access: null,
+      run_id: 'r-session',
+      thread_id: 't',
+      company_id: CO_A,
+      parent_run_id: null,
+      root_run_id: 'r-session',
+      employee_id: null,
+      relation: null,
+      objective: 'x',
+      access: null,
       status: 'running',
     });
     await repo2.updateStatus('r-session', 'running', {
@@ -307,25 +531,46 @@ async function main(): Promise<void> {
     assert.equal(row?.finished_at, null, 'session_file write must not finish the run');
   });
 
-  await check('(o) updateRuntimeContext persists stream cursor without changing status', async () => {
-    const repo2 = new MemoryAgentRunRepository();
-    await persistRunStartIfAbsent(repo2, {
-      run_id: 'r-cursor', thread_id: 't', company_id: CO_A, parent_run_id: null,
-      root_run_id: 'r-cursor', employee_id: null, relation: null, objective: 'x', access: null,
-      status: 'completed',
-    });
-    await repo2.updateRuntimeContext('r-cursor', JSON.stringify({ runtime: 'pi-agent', streamCursor: 7 }));
-    const row = await repo2.findById('r-cursor');
-    assert.equal(row?.status, 'completed', 'cursor persistence must not reopen a terminal run');
-    assert.equal(JSON.parse(row!.runtime_context_json!).streamCursor, 7);
-  });
+  await check(
+    '(o) updateRuntimeContext persists stream cursor without changing status',
+    async () => {
+      const repo2 = new MemoryAgentRunRepository();
+      await persistRunStartIfAbsent(repo2, {
+        run_id: 'r-cursor',
+        thread_id: 't',
+        company_id: CO_A,
+        parent_run_id: null,
+        root_run_id: 'r-cursor',
+        employee_id: null,
+        relation: null,
+        objective: 'x',
+        access: null,
+        status: 'completed',
+      });
+      await repo2.updateRuntimeContext(
+        'r-cursor',
+        JSON.stringify({ runtime: 'pi-agent', streamCursor: 7 }),
+      );
+      const row = await repo2.findById('r-cursor');
+      assert.equal(row?.status, 'completed', 'cursor persistence must not reopen a terminal run');
+      assert.equal(JSON.parse(row!.runtime_context_json!).streamCursor, 7);
+    },
+  );
 
   await check('(p) recovery loader lists already-interrupted roots', async () => {
     const repo2 = new MemoryAgentRunRepository();
     await repo2.create({
-      run_id: 'r-existing', thread_id: 't-existing', company_id: CO_A, parent_run_id: null,
-      root_run_id: 'r-existing', employee_id: null, relation: null, objective: 'resume me',
-      access: null, status: 'interrupted', started_at: '2026-06-27T10:00:00.000Z',
+      run_id: 'r-existing',
+      thread_id: 't-existing',
+      company_id: CO_A,
+      parent_run_id: null,
+      root_run_id: 'r-existing',
+      employee_id: null,
+      relation: null,
+      objective: 'resume me',
+      access: null,
+      status: 'interrupted',
+      started_at: '2026-06-27T10:00:00.000Z',
       project_id: 'proj-existing',
       session_file: '/sessions/r-existing.jsonl',
       runtime_context_json: JSON.stringify({
@@ -349,9 +594,17 @@ async function main(): Promise<void> {
   await check('(p) recovery loader can skip reconcile while a live run is active', async () => {
     const repo2 = new MemoryAgentRunRepository();
     await repo2.create({
-      run_id: 'r-live', thread_id: 't-live', company_id: CO_A, parent_run_id: null,
-      root_run_id: 'r-live', employee_id: null, relation: null, objective: 'still live',
-      access: null, status: 'running', started_at: '2026-06-27T10:00:00.000Z',
+      run_id: 'r-live',
+      thread_id: 't-live',
+      company_id: CO_A,
+      parent_run_id: null,
+      root_run_id: 'r-live',
+      employee_id: null,
+      relation: null,
+      objective: 'still live',
+      access: null,
+      status: 'running',
+      started_at: '2026-06-27T10:00:00.000Z',
       session_file: '/sessions/r-live.jsonl',
     });
     const cards = await loadInterruptedRunRecoveryCards({

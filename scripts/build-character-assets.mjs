@@ -64,7 +64,6 @@ import {
   meshopt,
   prune,
   resample,
-  transformMesh,
   unpartition,
 } from '@gltf-transform/functions';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';

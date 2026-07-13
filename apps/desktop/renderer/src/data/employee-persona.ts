@@ -204,7 +204,7 @@ export async function buildDelegationContext(
   const [employees, company, skills, vaultStatus, piStatus] = await Promise.all([
     repos.employees.findByCompany(companyId),
     repos.companies.findById(companyId).catch(() => null),
-    repos.skills?.listByCompany(companyId) ?? Promise.resolve([]),
+    repos.skills.listByCompany(companyId),
     invokeCommand('runtime_vault_status'),
     actingEmployeeId ? invokeCommand('pi_agent_status').catch(() => null) : Promise.resolve(null),
   ]);
@@ -258,7 +258,7 @@ export async function buildMcpScope(
   projectId?: string | null,
   _missionId?: string | null,
 ): Promise<McpScopedTool[]> {
-  if (!employeeId || !repos.mcpToolGrants) return [];
+  if (!employeeId) return [];
   let grants: McpToolGrantRow[];
   try {
     grants = await repos.mcpToolGrants.listByEmployee(companyId, employeeId);

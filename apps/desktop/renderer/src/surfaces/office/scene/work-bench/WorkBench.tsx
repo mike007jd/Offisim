@@ -16,7 +16,9 @@ export function WorkBench({
   if (!detail) {
     return (
       <div className={cn('off-work-bench', compact && 'is-compact', `is-${status}`)}>
-        <div className="off-work-bench-empty">{status === 'running' ? 'Running' : 'No details'}</div>
+        <div className="off-work-bench-empty">
+          {status === 'running' ? 'Running' : 'No details'}
+        </div>
       </div>
     );
   }
@@ -87,7 +89,9 @@ function TerminalBench({ detail }: { detail: Extract<ToolRichDetail, { family: '
         <span className="off-work-bench-muted">Waiting for command</span>
       )}
       {detail.exitCode != null ? (
-        <span className={cn('off-work-bench-exit', detail.exitCode === 0 ? 'is-zero' : 'is-nonzero')}>
+        <span
+          className={cn('off-work-bench-exit', detail.exitCode === 0 ? 'is-zero' : 'is-nonzero')}
+        >
           exit {detail.exitCode}
         </span>
       ) : null}
@@ -149,9 +153,7 @@ function BrowserBench({ detail }: { detail: Extract<ToolRichDetail, { family: 'b
             alt={detail.title ?? detail.url ?? 'Browser screenshot'}
           />
         ) : (
-          <span className="off-work-bench-shot-ref">
-            {detail.screenshot.mimeType} screenshot
-          </span>
+          <span className="off-work-bench-shot-ref">{detail.screenshot.mimeType} screenshot</span>
         )
       ) : (
         <span className="off-work-bench-muted">Waiting for screenshot</span>
@@ -192,9 +194,7 @@ function ComputerBench({ detail }: { detail: Extract<ToolRichDetail, { family: '
             alt={detail.targetApp ?? detail.targetWindow ?? 'Computer screenshot'}
           />
         ) : (
-          <span className="off-work-bench-shot-ref">
-            {detail.screenshot.mimeType} screenshot
-          </span>
+          <span className="off-work-bench-shot-ref">{detail.screenshot.mimeType} screenshot</span>
         )
       ) : null}
     </div>

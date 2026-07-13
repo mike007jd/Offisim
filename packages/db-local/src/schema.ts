@@ -35,6 +35,7 @@ import type {
 import { sql } from 'drizzle-orm';
 import {
   type AnySQLiteColumn,
+  foreignKey,
   index,
   integer,
   primaryKey,
@@ -154,6 +155,7 @@ export const employees = sqliteTable(
     updated_at: text('updated_at').notNull(),
   },
   (table) => [
+    uniqueIndex('idx_employees_company_employee').on(table.company_id, table.employee_id),
     index('idx_employees_company').on(table.company_id),
     index('idx_employees_is_external').on(table.is_external),
   ],
@@ -381,8 +383,7 @@ export const taskRuns = sqliteTable(
   'task_runs',
   {
     task_run_id: text('task_run_id').primaryKey(),
-    thread_id: text('thread_id')
-      .notNull(),
+    thread_id: text('thread_id').notNull(),
     employee_id: text('employee_id').references(() => employees.employee_id, {
       onDelete: 'set null',
     }),
@@ -437,6 +438,8 @@ export const agentRuns = sqliteTable(
   },
   (table) => [
     index('idx_agent_runs_thread').on(table.thread_id),
+    index('idx_agent_runs_company_started').on(table.company_id, table.started_at),
+    index('idx_agent_runs_company_thread').on(table.company_id, table.thread_id),
     index('idx_agent_runs_root').on(table.root_run_id),
     index('idx_agent_runs_parent').on(table.parent_run_id),
     index('idx_agent_runs_company_project_status').on(
@@ -471,8 +474,7 @@ export const toolCalls = sqliteTable(
 
 export const handoffEvents = sqliteTable('handoff_events', {
   handoff_id: text('handoff_id').primaryKey(),
-  thread_id: text('thread_id')
-    .notNull(),
+  thread_id: text('thread_id').notNull(),
   from_employee_id: text('from_employee_id').references(() => employees.employee_id, {
     onDelete: 'set null',
   }),
@@ -676,8 +678,7 @@ export const mcpAuditLog = sqliteTable(
   'mcp_audit_log',
   {
     audit_id: text('audit_id').primaryKey(),
-    thread_id: text('thread_id')
-      .notNull(),
+    thread_id: text('thread_id').notNull(),
     task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
       onDelete: 'set null',
     }),
@@ -703,8 +704,7 @@ export const toolPermissionApprovals = sqliteTable(
   'tool_permission_approvals',
   {
     approval_id: text('approval_id').primaryKey(),
-    thread_id: text('thread_id')
-      .notNull(),
+    thread_id: text('thread_id').notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -757,6 +757,10 @@ export const mcpToolGrants = sqliteTable(
     created_at: text('created_at').notNull(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.company_id, table.employee_id],
+      foreignColumns: [employees.company_id, employees.employee_id],
+    }).onDelete('cascade'),
     uniqueIndex('idx_mcp_tool_grants_unique').on(
       table.company_id,
       table.employee_id,
@@ -829,8 +833,7 @@ export const compactSummaries = sqliteTable(
 export const activeThreadInteractions = sqliteTable(
   'active_thread_interactions',
   {
-    thread_id: text('thread_id')
-      .primaryKey(),
+    thread_id: text('thread_id').primaryKey(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -853,8 +856,7 @@ export const interactionHistory = sqliteTable(
   {
     history_id: text('history_id').primaryKey(),
     interaction_id: text('interaction_id').notNull(),
-    thread_id: text('thread_id')
-      .notNull(),
+    thread_id: text('thread_id').notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
@@ -881,8 +883,7 @@ export const fileHistory = sqliteTable(
   {
     history_id: text('history_id').primaryKey(),
     snapshot_id: text('snapshot_id').notNull(),
-    thread_id: text('thread_id')
-      .notNull(),
+    thread_id: text('thread_id').notNull(),
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),

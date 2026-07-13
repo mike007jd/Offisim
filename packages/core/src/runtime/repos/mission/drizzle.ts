@@ -44,6 +44,9 @@ export function createMissionDrizzleRepos(db: Db): MissionDrizzleRepos {
         .onConflictDoNothing({ target: schema.mission.mission_id })
         .run();
     },
+    async delete(missionId) {
+      db.delete(schema.mission).where(eq(schema.mission.mission_id, missionId)).run();
+    },
     async findById(missionId) {
       const rows = db
         .select()

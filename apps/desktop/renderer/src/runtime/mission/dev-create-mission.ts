@@ -41,11 +41,11 @@ export async function createDevMission(
 ): Promise<DevMissionResult> {
   const missionService = createMissionService(
     {
-      missions: requireRepo(repos, 'missions'),
-      missionCriteria: requireRepo(repos, 'missionCriteria'),
-      missionAttempts: requireRepo(repos, 'missionAttempts'),
-      missionEvaluations: requireRepo(repos, 'missionEvaluations'),
-      missionEvents: requireRepo(repos, 'missionEvents'),
+      missions: repos.missions,
+      missionCriteria: repos.missionCriteria,
+      missionAttempts: repos.missionAttempts,
+      missionEvaluations: repos.missionEvaluations,
+      missionEvents: repos.missionEvents,
     },
     { now: () => new Date().toISOString(), newId: () => crypto.randomUUID() },
   );
@@ -63,15 +63,4 @@ export async function createDevMission(
   });
   await missionService.markReady(mission.mission_id);
   return { missionId: mission.mission_id };
-}
-
-function requireRepo<K extends keyof RuntimeRepositories>(
-  repos: RuntimeRepositories,
-  key: K,
-): NonNullable<RuntimeRepositories[K]> {
-  const repo = repos[key];
-  if (!repo) {
-    throw new Error(`createDevMission requires repos.${String(key)}, which is unavailable.`);
-  }
-  return repo as NonNullable<RuntimeRepositories[K]>;
 }

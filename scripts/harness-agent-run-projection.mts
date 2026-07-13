@@ -371,7 +371,10 @@ console.log('\n[D1] rich tool detail parsed by family');
   );
   const file = parseToolRichDetail('write_file', JSON.stringify({ file_path: 'src/a.ts' }));
   check('file: path resolved from file_path', file.family === 'file' && file.path === 'src/a.ts');
-  const search = parseToolRichDetail('grep', JSON.stringify({ pattern: 'TODO', matches: [1, 2, 3] }));
+  const search = parseToolRichDetail(
+    'grep',
+    JSON.stringify({ pattern: 'TODO', matches: [1, 2, 3] }),
+  );
   check(
     'search: query + hitCount from matches[]',
     search.family === 'search' && search.query === 'TODO' && search.hitCount === 3,

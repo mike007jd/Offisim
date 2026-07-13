@@ -1,5 +1,6 @@
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { GitWorktreeOps, MergeResult } from '@offisim/core/browser';
+import { parsePorcelainV1ZPaths } from '../git-porcelain.js';
 
 /**
  * Tauri-backed {@link GitWorktreeOps} (PRD §23.3 / §14.2, slice M5 — WI-002/004/005/006).
@@ -88,9 +89,9 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
       // conservatively report `true` so cleanup RETAINS rather than risk
       // discarding unverified work (WI-006 data safety — never silently discard).
       try {
-        const result = await run(['status', '--porcelain'], path);
+        const result = await run(['status', '--porcelain=v1', '-z'], path);
         if (!result.ok) return true;
-        return parsePorcelainPaths(result.stdout).length > 0;
+        return parsePorcelainV1ZPaths(result.stdout).length > 0;
       } catch {
         return true;
       }
@@ -100,14 +101,14 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
       const base = await rootHead();
       const [committed, workingTree] = await Promise.all([
         run(['diff', '--name-only', base, 'HEAD'], path),
-        run(['status', '--porcelain'], path),
+        run(['status', '--porcelain=v1', '-z'], path),
       ]);
       if (!committed.ok) throw new Error(`git diff failed: ${committed.stderr.trim()}`);
       if (!workingTree.ok) throw new Error(`git status failed: ${workingTree.stderr.trim()}`);
       return [
         ...new Set([
           ...parseLinePaths(committed.stdout),
-          ...parsePorcelainPaths(workingTree.stdout),
+          ...parsePorcelainV1ZPaths(workingTree.stdout),
         ]),
       ];
     },
@@ -130,9 +131,9 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
     async commitAll(path: string, message: string): Promise<void> {
       // The whitelist takes explicit pathspecs only (no `add -A`), so stage
       // exactly what porcelain reports. No-op on a clean worktree.
-      const status = await run(['status', '--porcelain'], path);
+      const status = await run(['status', '--porcelain=v1', '-z'], path);
       if (!status.ok) throw new Error(`git status failed: ${status.stderr.trim()}`);
-      const paths = parsePorcelainPaths(status.stdout);
+      const paths = parsePorcelainV1ZPaths(status.stdout);
       if (paths.length === 0) return;
       const add = await run(['add', '--', ...paths], path);
       if (!add.ok) throw new Error(`git add failed: ${add.stderr.trim()}`);
@@ -155,25 +156,6 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
       }
     },
   };
-}
-
-/**
- * Parse `git status --porcelain` output into changed paths relative to the
- * workspace root. Handles staged/unstaged markers and rename arrows
- * (`R old -> new` → the new path). Mirrors the evaluation-context / git-workbench
- * porcelain parsers.
- */
-function parsePorcelainPaths(stdout: string): string[] {
-  const paths: string[] = [];
-  for (const rawLine of stdout.split('\n')) {
-    const line = rawLine.replace(/\r$/, '');
-    if (!line || line.startsWith('##')) continue;
-    const pathPart = line.slice(3).trim();
-    if (!pathPart) continue;
-    const path = pathPart.includes(' -> ') ? (pathPart.split(' -> ').at(-1) ?? pathPart) : pathPart;
-    if (path) paths.push(path);
-  }
-  return paths;
 }
 
 function parseLinePaths(stdout: string): string[] {

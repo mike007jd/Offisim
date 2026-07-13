@@ -2,10 +2,9 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId } from './generate-id.js';
 
 /**
- * Append an immutable agent event to the event sourcing log.
- * No-op if agentEvents repo is not available (backward compatible).
+ * Append an immutable agent event to the required event sourcing log.
  *
- * @returns The generated event_id, or undefined if skipped.
+ * @returns The generated event_id.
  */
 export async function appendAgentEvent(
   runtimeCtx: RuntimeContext,
@@ -17,10 +16,8 @@ export async function appendAgentEvent(
     payload: Record<string, unknown>;
     parentEventId?: string | null;
   },
-): Promise<string | undefined> {
+): Promise<string> {
   const repo = runtimeCtx.repos.agentEvents;
-  if (!repo) return undefined;
-
   const eventId = generateId('evt');
   await repo.append({
     event_id: eventId,

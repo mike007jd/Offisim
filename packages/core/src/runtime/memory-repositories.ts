@@ -10,9 +10,9 @@ import { createFilesMemoryRepos } from './repos/files/memory.js';
 import { createMemoryInstallRepositories } from './repos/install/memory.js';
 import { createLlmMemoryRepos } from './repos/llm/memory.js';
 import { createLoopMemoryRepos } from './repos/loops/memory.js';
+import { createMcpToolGrantsMemoryRepos } from './repos/mcp-tool-grants/memory.js';
 import { createMemorySystemMemoryRepos } from './repos/memory-system/memory.js';
 import type { MemoryRepositoriesSnapshot, MemoryRepositorySeed } from './repos/memory-types.js';
-import { createMcpToolGrantsMemoryRepos } from './repos/mcp-tool-grants/memory.js';
 import { createMissionMemoryRepos } from './repos/mission/memory.js';
 import { createOrchestrationMemoryRepos } from './repos/orchestration/memory.js';
 import { createPermissionsMemoryRepos } from './repos/permissions/memory.js';
@@ -77,9 +77,7 @@ export {
   MemoryCompactSummaryRepository,
   MemoryNodeSummaryRepository,
 } from './repos/memory-system/memory.js';
-export {
-  MemoryMcpToolGrantRepository,
-} from './repos/mcp-tool-grants/memory.js';
+export { MemoryMcpToolGrantRepository } from './repos/mcp-tool-grants/memory.js';
 export {
   MemoryCompanyRepository,
   MemoryEventRepository,

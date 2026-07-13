@@ -37,6 +37,18 @@ use super::PI_LANE;
 
 static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("pi_agent_host");
 
+pub(super) struct PiSidecarRun<'a> {
+    pub script_path: &'a Path,
+    pub cwd: &'a Path,
+    pub workspace_root: Option<&'a Path>,
+    pub env: HashMap<String, String>,
+    pub payload: serde_json::Value,
+    pub token: CancellationToken,
+    pub on_event: Option<&'a Channel<PiAgentHostEvent>>,
+    pub register_stdin: Option<&'a str>,
+    pub stream_request_id: Option<&'a str>,
+}
+
 async fn kill_child(child: &mut Child) {
     let _ = child.kill().await;
 }
@@ -54,16 +66,26 @@ async fn read_stderr(mut stderr: tokio::process::ChildStderr) -> (Vec<u8>, bool)
 
 pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
     app: &AppHandle<R>,
-    script_path: &Path,
-    cwd: &Path,
-    workspace_root: Option<&Path>,
-    env: HashMap<String, String>,
-    payload: serde_json::Value,
-    token: CancellationToken,
-    on_event: Option<&Channel<PiAgentHostEvent>>,
-    register_stdin: Option<&str>,
-    stream_request_id: Option<&str>,
+    run: PiSidecarRun<'_>,
 ) -> Result<serde_json::Value, HostError> {
+    run_pi_sidecar_jsonl_inner(Some(app), run).await
+}
+
+pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
+    app: Option<&AppHandle<R>>,
+    run: PiSidecarRun<'_>,
+) -> Result<serde_json::Value, HostError> {
+    let PiSidecarRun {
+        script_path,
+        cwd,
+        workspace_root,
+        env,
+        payload,
+        token,
+        on_event,
+        register_stdin,
+        stream_request_id,
+    } = run;
     let node_executable = resolve_node_executable(script_path);
     let mut command = Command::new(&node_executable);
     command
@@ -73,7 +95,10 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
         .envs(env)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
+        .stderr(std::process::Stdio::piped())
+        // The explicit error path below always kills and waits. Keep this as the
+        // final guard for cancellation/panic while the future owns the child.
+        .kill_on_drop(true);
 
     let mut child = command.spawn().map_err(|err| {
         HostError::Spawn(format!(
@@ -82,67 +107,65 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
             err
         ))
     })?;
-    let mut stdin = child
-        .stdin
-        .take()
-        .ok_or_else(|| HostError::Spawn("Pi Agent host is missing stdin".into()))?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| HostError::Spawn("Pi Agent host is missing stdout".into()))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| HostError::Spawn("Pi Agent host is missing stderr".into()))?;
+    let result = async {
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| HostError::Spawn("Pi Agent host is missing stdin".into()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| HostError::Spawn("Pi Agent host is missing stdout".into()))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| HostError::Spawn("Pi Agent host is missing stderr".into()))?;
 
-    write_payload(&mut stdin, &payload).await?;
-    // Execute runs keep stdin open as an extension UI response channel (Ask mode)
-    // and register the writer; status runs are single-shot, so close stdin
-    // immediately.
-    let _stdin_guard = match register_stdin {
-        Some(request_id) => {
-            pi_stdin_guard().insert(request_id.to_string(), Arc::new(AsyncMutex::new(stdin)));
-            StdinGuard(Some(request_id.to_string()))
-        }
-        None => {
-            stdin
-                .shutdown()
-                .await
-                .map_err(|err| HostError::Request(format!("Close Pi Agent stdin: {err}")))?;
-            StdinGuard(None)
-        }
-    };
-    let mut stderr_task = tokio::spawn(read_stderr(stderr));
-    let mut stderr_result = None;
-    let mut stdout = BufReader::new(stdout);
-    let mut final_response: Option<serde_json::Value> = None;
-    let mut saw_ready = false;
-
-    loop {
-        tokio::select! {
-            _ = token.cancelled() => {
-                kill_child(&mut child).await;
-                return Err(HostError::Aborted);
+        write_payload(&mut stdin, &payload).await?;
+        // Execute runs keep stdin open as an extension UI response channel (Ask mode)
+        // and register the writer; status runs are single-shot, so close stdin
+        // immediately.
+        let _stdin_guard = match register_stdin {
+            Some(request_id) => {
+                pi_stdin_guard().insert(request_id.to_string(), Arc::new(AsyncMutex::new(stdin)));
+                StdinGuard(Some(request_id.to_string()))
             }
-            result = &mut stderr_task, if stderr_result.is_none() => {
-                let result = result
-                    .map_err(|err| HostError::Request(format!("Join Pi Agent stderr task: {err}")))?;
-                if result.1 {
-                    kill_child(&mut child).await;
-                    return Err(HostError::Protocol(format!(
-                        "Pi Agent stderr exceeded the {} byte limit; output was truncated and the sidecar was terminated.",
-                        MAX_SIDECAR_OUTPUT_BYTES
-                    )));
+            None => {
+                stdin
+                    .shutdown()
+                    .await
+                    .map_err(|err| HostError::Request(format!("Close Pi Agent stdin: {err}")))?;
+                StdinGuard(None)
+            }
+        };
+        let mut stderr_task = tokio::spawn(read_stderr(stderr));
+        let mut stderr_result = None;
+        let mut stdout = BufReader::new(stdout);
+        let mut final_response: Option<serde_json::Value> = None;
+        let mut saw_ready = false;
+
+        loop {
+            tokio::select! {
+                _ = token.cancelled() => {
+                    return Err(HostError::Aborted);
                 }
-                stderr_result = Some(result);
-            }
-            next_line = read_capped_line(&mut stdout, MAX_SIDECAR_OUTPUT_BYTES) => {
-                let Some(line) = next_line.map_err(|err| {
-                    let _ = child.start_kill();
-                    HostError::Protocol(format!("Pi Agent stdout frame limit exceeded: {err}"))
-                })? else {
-                    break;
-                };
+                result = &mut stderr_task, if stderr_result.is_none() => {
+                    let result = result
+                        .map_err(|err| HostError::Request(format!("Join Pi Agent stderr task: {err}")))?;
+                    if result.1 {
+                        return Err(HostError::Protocol(format!(
+                            "Pi Agent stderr exceeded the {} byte limit; output was truncated and the sidecar was terminated.",
+                            MAX_SIDECAR_OUTPUT_BYTES
+                        )));
+                    }
+                    stderr_result = Some(result);
+                }
+                next_line = read_capped_line(&mut stdout, MAX_SIDECAR_OUTPUT_BYTES) => {
+                    let Some(line) = next_line.map_err(|err| {
+                        HostError::Protocol(format!("Pi Agent stdout frame limit exceeded: {err}"))
+                    })? else {
+                        break;
+                    };
                 let line = String::from_utf8_lossy(&line);
                 let trimmed = line.trim();
                 if trimmed.is_empty() {
@@ -165,12 +188,16 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
                     arguments,
                 } = parsed
                 {
+                    let app = app.ok_or_else(|| {
+                        HostError::Protocol(
+                            "Pi Agent test host emitted mcpCall without an app bridge".into(),
+                        )
+                    })?;
                     let timeout_id = id.clone();
                     let timeout_server = server.clone();
                     let timeout_tool = tool.clone();
                     tokio::select! {
                         _ = token.cancelled() => {
-                            kill_child(&mut child).await;
                             return Err(HostError::Aborted);
                         }
                         result = tokio::time::timeout(
@@ -208,7 +235,6 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
                 if let PiSidecarLine::WorktreeCall { id, op, args } = parsed {
                     tokio::select! {
                         _ = token.cancelled() => {
-                            kill_child(&mut child).await;
                             return Err(HostError::Aborted);
                         }
                         result = handle_worktree_call(register_stdin, workspace_root, id, op, args) => {
@@ -218,9 +244,13 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
                     continue;
                 }
                 if let PiSidecarLine::VerifyCall { id, command, cwd, project_id } = parsed {
+                    let app = app.ok_or_else(|| {
+                        HostError::Protocol(
+                            "Pi Agent test host emitted verifyCall without an app bridge".into(),
+                        )
+                    })?;
                     tokio::select! {
                         _ = token.cancelled() => {
-                            kill_child(&mut child).await;
                             return Err(HostError::Aborted);
                         }
                         result = handle_verify_call(app, register_stdin, id, project_id, cwd, command) => {
@@ -232,40 +262,49 @@ pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
                 if let Some(response) = send_sidecar_event(stream_request_id, on_event, parsed)? {
                     final_response = Some(response);
                 }
+                }
             }
         }
-    }
 
-    let status = child
-        .wait()
-        .await
-        .map_err(|err| HostError::Request(format!("Wait for Pi Agent host process: {err}")))?;
-    let (stderr_bytes, stderr_truncated) = match stderr_result {
-        Some(result) => result,
-        None => stderr_task
+        let status = child
+            .wait()
             .await
-            .map_err(|err| HostError::Request(format!("Join Pi Agent stderr task: {err}")))?,
-    };
-    if stderr_truncated {
-        return Err(HostError::Protocol(format!(
-            "Pi Agent stderr exceeded the {} byte limit; output was truncated and the run was rejected.",
-            MAX_SIDECAR_OUTPUT_BYTES
-        )));
-    }
-    if !status.success() && final_response.is_none() {
-        let stderr_text = sanitized_stderr(&stderr_bytes);
-        return Err(HostError::Upstream {
-            code: Some("upstream".into()),
-            message: stderr_text
-                .as_deref()
-                .map(|stderr| format!("Pi Agent host failed: {stderr}"))
-                .unwrap_or_else(|| format!("Pi Agent host exited with status {status}")),
-        });
-    }
+            .map_err(|err| HostError::Request(format!("Wait for Pi Agent host process: {err}")))?;
+        let (stderr_bytes, stderr_truncated) = match stderr_result {
+            Some(result) => result,
+            None => stderr_task
+                .await
+                .map_err(|err| HostError::Request(format!("Join Pi Agent stderr task: {err}")))?,
+        };
+        if stderr_truncated {
+            return Err(HostError::Protocol(format!(
+                "Pi Agent stderr exceeded the {} byte limit; output was truncated and the run was rejected.",
+                MAX_SIDECAR_OUTPUT_BYTES
+            )));
+        }
+        if !status.success() && final_response.is_none() {
+            let stderr_text = sanitized_stderr(&stderr_bytes);
+            return Err(HostError::Upstream {
+                code: Some("upstream".into()),
+                message: stderr_text
+                    .as_deref()
+                    .map(|stderr| format!("Pi Agent host failed: {stderr}"))
+                    .unwrap_or_else(|| format!("Pi Agent host exited with status {status}")),
+            });
+        }
 
-    final_response.ok_or_else(|| {
-        HostError::Protocol("Pi Agent host did not emit a final result event.".into())
-    })
+        final_response.ok_or_else(|| {
+            HostError::Protocol("Pi Agent host did not emit a final result event.".into())
+        })
+    }
+    .await;
+
+    if result.is_err() {
+        // Tokio's `Child::kill` sends SIGKILL/TerminateProcess and then waits,
+        // so every failed protocol/request/abort path reaps the host before return.
+        kill_child(&mut child).await;
+    }
+    result
 }
 
 async fn do_execute<R: tauri::Runtime>(
@@ -300,15 +339,17 @@ async fn do_execute<R: tauri::Runtime>(
     let payload = sidecar_payload(&req, &cwd, &session_dir, agent_dir.as_deref());
     let response = run_pi_sidecar_jsonl(
         app,
-        &script_path,
-        &cwd,
-        Some(&workspace_root),
-        pi_env(Some(&workspace_root)),
-        payload,
-        token,
-        Some(on_event),
-        Some(&req.request_id),
-        Some(&req.request_id),
+        PiSidecarRun {
+            script_path: &script_path,
+            cwd: &cwd,
+            workspace_root: Some(&workspace_root),
+            env: pi_env(Some(&workspace_root)),
+            payload,
+            token,
+            on_event: Some(on_event),
+            register_stdin: Some(&req.request_id),
+            stream_request_id: Some(&req.request_id),
+        },
     )
     .await?;
     let response = parse_response(response)?;
@@ -323,11 +364,7 @@ async fn do_execute<R: tauri::Runtime>(
     Ok(response)
 }
 
-/// Shared execute impl. Both the back-compat `pi_agent_execute` shim and the
-/// agent-agnostic `agent_runtime_execute` gateway command call this verbatim, so
-/// the generic command forwards to the identical Pi lane (same request/response
-/// types, same Channel, same IN_FLIGHT registration). No behavior diverges by
-/// entry point.
+/// Shared execute implementation used by the agent runtime gateway.
 pub(super) async fn execute_impl(
     app: AppHandle,
     req: PiAgentExecuteRequest,
@@ -353,6 +390,7 @@ pub(super) async fn execute_impl(
                 session_file: None,
                 model: None,
                 usage: None,
+                budget_usage: None,
             })
         }
         Err(error) => {
@@ -401,15 +439,17 @@ async fn do_enhance<R: tauri::Runtime>(
     // stdin is closed immediately after the single payload line (single-shot).
     let response = run_pi_sidecar_jsonl(
         app,
-        &script_path,
-        &cwd,
-        None,
-        pi_env(None),
-        payload,
-        token,
-        Some(on_event),
-        None,
-        None,
+        PiSidecarRun {
+            script_path: &script_path,
+            cwd: &cwd,
+            workspace_root: None,
+            env: pi_env(None),
+            payload,
+            token,
+            on_event: Some(on_event),
+            register_stdin: None,
+            stream_request_id: None,
+        },
     )
     .await?;
     let response = parse_response(response)?;
@@ -444,6 +484,7 @@ pub(super) async fn enhance_impl(
             session_file: None,
             model: None,
             usage: None,
+            budget_usage: None,
         }),
         Err(error) => {
             let (code, message) = error.into_code_message(PI_LANE);
@@ -498,15 +539,17 @@ async fn do_collaborate<R: tauri::Runtime>(
     };
     let response = run_pi_sidecar_jsonl(
         app,
-        &script_path,
-        &cwd,
-        None,
-        pi_env(None),
-        payload,
-        token,
-        Some(on_event),
-        register_stdin,
-        None,
+        PiSidecarRun {
+            script_path: &script_path,
+            cwd: &cwd,
+            workspace_root: None,
+            env: pi_env(None),
+            payload,
+            token,
+            on_event: Some(on_event),
+            register_stdin,
+            stream_request_id: None,
+        },
     )
     .await?;
     let response = parse_response(response)?;
@@ -542,6 +585,7 @@ pub(super) async fn collaborate_impl(
             session_file: None,
             model: None,
             usage: None,
+            budget_usage: None,
         }),
         Err(error) => {
             let (code, message) = error.into_code_message(PI_LANE);
@@ -555,8 +599,7 @@ pub(super) async fn collaborate_impl(
 }
 
 /// Shared abort impl. Cancels the in-flight token for `request_id` (a missing id
-/// means the run already ended — not an error). Both `pi_agent_abort` and
-/// `agent_runtime_abort` call this.
+/// means the run already ended — not an error). `agent_runtime_abort` calls this.
 pub(super) fn abort_impl(request_id: String) -> Result<(), String> {
     if let Some(token) = IN_FLIGHT.pluck(&request_id) {
         token.cancel();

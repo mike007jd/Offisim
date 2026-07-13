@@ -1,18 +1,12 @@
 import assert from 'node:assert/strict';
 import {
   DEFAULT_STAGE_SPLIT_LAYOUT,
+  type StageViewTarget,
   persistStageSplitLayout,
   readStageSplitLayout,
   stageTabForTarget,
   useUiState,
-  type StageViewTarget,
 } from '../apps/desktop/renderer/src/app/ui-state.js';
-import {
-  resolveViewerKind,
-  trustLevelFor,
-  type PreviewSourceRef,
-  type ResolvedPreviewTarget,
-} from '../apps/desktop/renderer/src/surfaces/office/stage-preview/preview-target.js';
 import { parseCsvRows } from '../apps/desktop/renderer/src/surfaces/office/stage-preview/csv-parse.js';
 import {
   mediaStreamUrl,
@@ -20,6 +14,12 @@ import {
   planPreviewLoad,
   resolvePreviewMimeType,
 } from '../apps/desktop/renderer/src/surfaces/office/stage-preview/preview-data.js';
+import {
+  type PreviewSourceRef,
+  type ResolvedPreviewTarget,
+  resolveViewerKind,
+  trustLevelFor,
+} from '../apps/desktop/renderer/src/surfaces/office/stage-preview/preview-target.js';
 
 let checks = 0;
 let failures = 0;
@@ -219,9 +219,7 @@ check('ui-state:board-and-game-reject-reverse-split-transitions', () => {
 
 check('ui-state:split-layout-survives-pane-unmount-and-remount', () => {
   resetUiState();
-  useUiState
-    .getState()
-    .setStageSplitLayout({ 'stage-primary': 63, 'stage-secondary': 37 });
+  useUiState.getState().setStageSplitLayout({ 'stage-primary': 63, 'stage-secondary': 37 });
   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
   const reviewTabId = useUiState.getState().activeStageTabId;
   useUiState.getState().openStageView({ kind: 'logs', sourceId: 'run-1', title: 'Terminal' });
@@ -265,11 +263,11 @@ function resolved(
 check('data:workspace-md-loads-text-lane', () => {
   assert.equal(
     planPreviewLoad(
-      resolved(
-        { source: 'workspace-file', path: '/repo/README.md' },
-        'markdown',
-        { title: 'README.md', extension: 'md', path: '/repo/README.md' },
-      ),
+      resolved({ source: 'workspace-file', path: '/repo/README.md' }, 'markdown', {
+        title: 'README.md',
+        extension: 'md',
+        path: '/repo/README.md',
+      }),
       { hasText: true },
     ),
     'text',
@@ -279,11 +277,11 @@ check('data:workspace-md-loads-text-lane', () => {
 check('data:mp4-routes-stream-no-read', () => {
   assert.equal(
     planPreviewLoad(
-      resolved(
-        { source: 'workspace-file', path: '/repo/demo.mp4' },
-        'video',
-        { title: 'demo.mp4', extension: 'mp4', path: '/repo/demo.mp4' },
-      ),
+      resolved({ source: 'workspace-file', path: '/repo/demo.mp4' }, 'video', {
+        title: 'demo.mp4',
+        extension: 'mp4',
+        path: '/repo/demo.mp4',
+      }),
     ),
     'stream',
   );
@@ -292,11 +290,11 @@ check('data:mp4-routes-stream-no-read', () => {
 check('data:mp3-routes-stream-no-read', () => {
   assert.equal(
     planPreviewLoad(
-      resolved(
-        { source: 'workspace-file', path: '/repo/audio.mp3' },
-        'audio',
-        { title: 'audio.mp3', extension: 'mp3', path: '/repo/audio.mp3' },
-      ),
+      resolved({ source: 'workspace-file', path: '/repo/audio.mp3' }, 'audio', {
+        title: 'audio.mp3',
+        extension: 'mp3',
+        path: '/repo/audio.mp3',
+      }),
     ),
     'stream',
   );
@@ -305,11 +303,11 @@ check('data:mp3-routes-stream-no-read', () => {
 check('data:avi-routes-stream-for-codec-fallback', () => {
   assert.equal(
     planPreviewLoad(
-      resolved(
-        { source: 'workspace-file', path: '/repo/legacy.avi' },
-        'video',
-        { title: 'legacy.avi', extension: 'avi', path: '/repo/legacy.avi' },
-      ),
+      resolved({ source: 'workspace-file', path: '/repo/legacy.avi' }, 'video', {
+        title: 'legacy.avi',
+        extension: 'avi',
+        path: '/repo/legacy.avi',
+      }),
     ),
     'stream',
   );
@@ -339,16 +337,12 @@ check('data:docx-zip-sniff-prefers-official-mime', () => {
 check('data:xlsx-routes-bytes', () => {
   assert.equal(
     planPreviewLoad(
-      resolved(
-        { source: 'workspace-file', path: '/repo/book.xlsx' },
-        'spreadsheet',
-        {
-          title: 'book.xlsx',
-          extension: 'xlsx',
-          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          path: '/repo/book.xlsx',
-        },
-      ),
+      resolved({ source: 'workspace-file', path: '/repo/book.xlsx' }, 'spreadsheet', {
+        title: 'book.xlsx',
+        extension: 'xlsx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        path: '/repo/book.xlsx',
+      }),
     ),
     'bytes',
   );
@@ -371,11 +365,10 @@ check('data:html-deliverable-inline-html', () => {
 check('data:browser-localhost-embeds-url', () => {
   assert.equal(
     planPreviewLoad(
-      resolved(
-        { source: 'browser', url: 'http://localhost:5173/' },
-        'browser',
-        { title: 'Localhost', url: 'http://localhost:5173/' },
-      ),
+      resolved({ source: 'browser', url: 'http://localhost:5173/' }, 'browser', {
+        title: 'Localhost',
+        url: 'http://localhost:5173/',
+      }),
     ),
     'url',
   );
@@ -384,11 +377,10 @@ check('data:browser-localhost-embeds-url', () => {
 check('data:browser-external-falls-to-screenshot', () => {
   assert.equal(
     planPreviewLoad(
-      resolved(
-        { source: 'browser', url: 'https://example.com/' },
-        'browser',
-        { title: 'External', url: 'https://example.com/' },
-      ),
+      resolved({ source: 'browser', url: 'https://example.com/' }, 'browser', {
+        title: 'External',
+        url: 'https://example.com/',
+      }),
       { hasScreenshot: true },
     ),
     'screenshot',
@@ -396,14 +388,14 @@ check('data:browser-external-falls-to-screenshot', () => {
 });
 
 check('csv:quoted-comma', () => {
-  assert.deepEqual(parseCsvRows('name,notes\nA,\"hello, world\"'), [
+  assert.deepEqual(parseCsvRows('name,notes\nA,"hello, world"'), [
     ['name', 'notes'],
     ['A', 'hello, world'],
   ]);
 });
 
 check('csv:escaped-quote', () => {
-  assert.deepEqual(parseCsvRows('name,quote\nA,\"say \"\"hi\"\"\"'), [
+  assert.deepEqual(parseCsvRows('name,quote\nA,"say ""hi"""'), [
     ['name', 'quote'],
     ['A', 'say "hi"'],
   ]);

@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { RoundedSlab } from './RoundedSlab.js';
 import {
   FLOOR_BANDS,
   OFFICE_PLINTH,
@@ -9,7 +10,6 @@ import {
   createTileLineColor,
 } from './scene-art-direction.js';
 import { SceneMaterial } from './scene-materials.js';
-import { RoundedSlab } from './RoundedSlab.js';
 import { useSceneColors } from './use-scene-colors.js';
 
 function buildGridGeometry(width: number, depth: number, step: number) {

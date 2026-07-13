@@ -10,14 +10,25 @@ function escapeRegExp(value: string): string {
 
 function HighlightedText({ text, query }: { text: string; query: string }) {
   if (!query) return <>{text || ' '}</>;
-  const parts = text.split(new RegExp(`(${escapeRegExp(query)})`, 'ig'));
+  const normalizedQuery = query.toLowerCase();
+  let sourceOffset = 0;
+  const parts = text.split(new RegExp(`(${escapeRegExp(query)})`, 'ig')).map((part) => {
+    const start = sourceOffset;
+    sourceOffset += part.length;
+    const isMatch = part.toLowerCase() === normalizedQuery;
+    return {
+      isMatch,
+      key: JSON.stringify([start, part.length, isMatch]),
+      text: part,
+    };
+  });
   return (
     <>
-      {parts.map((part, index) =>
-        part.toLowerCase() === query.toLowerCase() ? (
-          <mark key={`${part}-${index}`}>{part}</mark>
+      {parts.map((part) =>
+        part.isMatch ? (
+          <mark key={part.key}>{part.text}</mark>
         ) : (
-          <span key={`${part}-${index}`}>{part}</span>
+          <span key={part.key}>{part.text}</span>
         ),
       )}
     </>

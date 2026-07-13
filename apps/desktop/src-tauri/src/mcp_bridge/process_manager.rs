@@ -334,7 +334,7 @@ impl ManagedProcess {
                 message: err.message.clone(),
             });
         }
-        Ok(parse_tool_call_result(resp.result.as_ref()))
+        parse_tool_call_result(resp.result.as_ref())
     }
 
     /// Graceful shutdown: SIGTERM → 5s wait → SIGKILL.
@@ -364,26 +364,38 @@ impl ManagedProcess {
     }
 }
 
-/// Pure parse of a `tools/call` JSON-RPC `result` into an McpToolCallResult.
-/// Missing `content` → empty array; missing/non-bool `isError` → false; a `None`
-/// result (no result object) → empty, non-error.
-pub fn parse_tool_call_result(result: Option<&serde_json::Value>) -> McpToolCallResult {
-    let Some(result) = result else {
-        return McpToolCallResult {
-            content: serde_json::Value::Array(vec![]),
-            is_error: false,
-        };
+/// Strictly parse an MCP `tools/call` result. A JSON-RPC response must contain
+/// either `result` or `error`; the caller handles `error` before reaching here,
+/// so a missing/non-object result is a protocol failure. MCP requires `content`
+/// to be an array and permits `isError` to be absent (default false), but never
+/// to carry a non-boolean value.
+pub fn parse_tool_call_result(
+    result: Option<&serde_json::Value>,
+) -> Result<McpToolCallResult, McpBridgeError> {
+    let result = result.ok_or_else(|| {
+        McpBridgeError::Protocol(
+            "tools/call response contained neither a result nor an error".into(),
+        )
+    })?;
+    let object = result.as_object().ok_or_else(|| {
+        McpBridgeError::Protocol("tools/call result must be a JSON object".into())
+    })?;
+    let content = object
+        .get("content")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            McpBridgeError::Protocol("tools/call result.content must be an array".into())
+        })?;
+    let is_error = match object.get("isError") {
+        None => false,
+        Some(value) => value.as_bool().ok_or_else(|| {
+            McpBridgeError::Protocol("tools/call result.isError must be a boolean".into())
+        })?,
     };
-    McpToolCallResult {
-        content: result
-            .get("content")
-            .cloned()
-            .unwrap_or_else(|| serde_json::Value::Array(vec![])),
-        is_error: result
-            .get("isError")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-    }
+    Ok(McpToolCallResult {
+        content: serde_json::Value::Array(content.clone()),
+        is_error,
+    })
 }
 
 #[cfg(test)]
@@ -442,8 +454,8 @@ mod tests {
             "content": [{ "type": "text", "text": "hello" }],
             "isError": false
         });
-        let parsed = parse_tool_call_result(Some(&ok));
-        assert_eq!(parsed.is_error, false);
+        let parsed = parse_tool_call_result(Some(&ok)).expect("valid tool result");
+        assert!(!parsed.is_error);
         assert_eq!(parsed.content[0]["text"], "hello");
 
         let err = serde_json::json!({
@@ -451,22 +463,33 @@ mod tests {
             "isError": true
         });
         assert!(
-            parse_tool_call_result(Some(&err)).is_error,
+            parse_tool_call_result(Some(&err))
+                .expect("valid tool error result")
+                .is_error,
             "isError:true surfaces"
         );
     }
 
     #[test]
-    fn parse_tool_call_result_defaults_missing_fields() {
-        // Missing content → empty array; missing isError → false.
-        let bare = serde_json::json!({});
-        let parsed = parse_tool_call_result(Some(&bare));
-        assert_eq!(parsed.content, serde_json::Value::Array(vec![]));
-        assert_eq!(parsed.is_error, false);
-        // No result object at all → empty, non-error (never a false PASS).
-        let none = parse_tool_call_result(None);
-        assert_eq!(none.content, serde_json::Value::Array(vec![]));
-        assert_eq!(none.is_error, false);
+    fn parse_tool_call_result_fails_closed_on_malformed_protocol_shapes() {
+        for malformed in [
+            None,
+            Some(serde_json::json!(null)),
+            Some(serde_json::json!([])),
+            Some(serde_json::json!({})),
+            Some(serde_json::json!({ "content": {} })),
+            Some(serde_json::json!({ "content": [], "isError": "false" })),
+        ] {
+            assert!(
+                parse_tool_call_result(malformed.as_ref()).is_err(),
+                "malformed tools/call response must never become a false success: {malformed:?}"
+            );
+        }
+
+        let without_is_error = serde_json::json!({ "content": [] });
+        let parsed = parse_tool_call_result(Some(&without_is_error))
+            .expect("MCP permits an omitted isError field");
+        assert!(!parsed.is_error);
     }
 
     #[test]

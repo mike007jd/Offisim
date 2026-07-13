@@ -46,10 +46,18 @@ export function ImageViewer({
           <Icon icon={Expand} size="sm" />
           {fit ? 'Actual' : 'Fit'}
         </button>
-        <button type="button" disabled={fit} onClick={() => setZoom((value) => Math.max(0.25, value - 0.25))}>
+        <button
+          type="button"
+          disabled={fit}
+          onClick={() => setZoom((value) => Math.max(0.25, value - 0.25))}
+        >
           <Icon icon={ZoomOut} size="sm" />
         </button>
-        <button type="button" disabled={fit} onClick={() => setZoom((value) => Math.min(4, value + 0.25))}>
+        <button
+          type="button"
+          disabled={fit}
+          onClick={() => setZoom((value) => Math.min(4, value + 0.25))}
+        >
           <Icon icon={ZoomIn} size="sm" />
         </button>
         {fit ? null : <span>{Math.round(zoom * 100)}%</span>}

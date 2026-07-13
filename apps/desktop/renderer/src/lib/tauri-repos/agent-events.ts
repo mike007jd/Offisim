@@ -26,7 +26,25 @@ export function createAgentEventsTauriRepos(db: TauriDrizzleDb): AgentEventsTaur
         ...event,
         created_at: event.created_at ?? now(),
       };
-      await db.insert(schema.agentEvents).values(row);
+      const insert = db.insert(schema.agentEvents).values(row);
+      if (row.event_type === 'direct_chat.message') {
+        await insert.onConflictDoUpdate({
+          target: schema.agentEvents.event_id,
+          setWhere: sql`excluded.created_at >= ${schema.agentEvents.created_at}`,
+          set: {
+            project_id: row.project_id,
+            thread_id: row.thread_id,
+            company_id: row.company_id,
+            agent_name: row.agent_name,
+            event_type: row.event_type,
+            payload_json: row.payload_json,
+            parent_event_id: row.parent_event_id,
+            created_at: row.created_at,
+          },
+        });
+      } else {
+        await insert;
+      }
       return row;
     },
     async findByProject(projectId, opts) {

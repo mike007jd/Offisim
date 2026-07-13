@@ -15,6 +15,7 @@ import type {
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
 import { asc, desc, eq, sql } from 'drizzle-orm';
+import { getTauriDb } from '../tauri-db';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 const DEFAULT_LIST_LIMIT = 100;
@@ -63,6 +64,19 @@ export function createLoopTauriRepos(db: TauriDrizzleDb): LoopTauriRepos {
         .update(schema.loopDefinitions)
         .set(set)
         .where(eq(schema.loopDefinitions.loop_id, loopId));
+    },
+    async claimScheduledRun(loopId, expectedNextRunAt, claim) {
+      const rawDb = await getTauriDb();
+      const changed = await rawDb.execute(
+        `UPDATE loop_definitions
+            SET next_run_at = $1,
+                last_run_at = $2,
+                last_run_result = 'Starting',
+                updated_at = $2
+          WHERE loop_id = $3 AND next_run_at = $4`,
+        [claim.nextRunAt, claim.claimedAt, loopId, expectedNextRunAt],
+      );
+      return changed > 0;
     },
     async delete(loopId) {
       await db.delete(schema.loopDefinitions).where(eq(schema.loopDefinitions.loop_id, loopId));

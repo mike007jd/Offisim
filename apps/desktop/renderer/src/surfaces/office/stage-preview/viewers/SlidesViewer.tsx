@@ -1,4 +1,4 @@
-import { parseAttachment, type ParsedAttachment } from '@offisim/doc-engine';
+import { type ParsedAttachment, parseAttachment } from '@offisim/doc-engine';
 import { useEffect, useState } from 'react';
 import type { PreviewData } from '../preview-data.js';
 import type { ResolvedPreviewTarget } from '../preview-target.js';
@@ -9,6 +9,15 @@ type ParseState =
   | { status: 'loading' }
   | { status: 'ready'; parsed: ParsedAttachment }
   | { status: 'error'; message: string };
+
+function slidesWithStableKeys(slides: readonly string[]) {
+  const occurrences = new Map<string, number>();
+  return slides.map((text) => {
+    const occurrence = occurrences.get(text) ?? 0;
+    occurrences.set(text, occurrence + 1);
+    return { key: JSON.stringify([text, occurrence]), text };
+  });
+}
 
 export function SlidesViewer({
   resolved,
@@ -25,7 +34,8 @@ export function SlidesViewer({
     setState({ status: 'loading' });
     void parseAttachment(
       new Uint8Array(data.bytes),
-      resolved.meta.mimeType ?? 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      resolved.meta.mimeType ??
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       resolved.meta.title,
     )
       .then((parsed) => {
@@ -33,7 +43,10 @@ export function SlidesViewer({
       })
       .catch((error) => {
         if (!cancelled) {
-          setState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
+          setState({
+            status: 'error',
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       });
     return () => {
@@ -53,7 +66,12 @@ export function SlidesViewer({
     return <UnsupportedViewer resolved={resolved} data={{ mode: 'none', reason: state.message }} />;
   }
   if (state.parsed.kind !== 'pptx') {
-    return <UnsupportedViewer resolved={resolved} data={{ mode: 'none', reason: 'Slide parser did not return PPTX content.' }} />;
+    return (
+      <UnsupportedViewer
+        resolved={resolved}
+        data={{ mode: 'none', reason: 'Slide parser did not return PPTX content.' }}
+      />
+    );
   }
   return (
     <div className="off-slides-viewer">
@@ -67,10 +85,10 @@ export function SlidesViewer({
         <TextViewer text={state.parsed.text} />
       ) : (
         <div className="off-slides-scroll">
-          {state.parsed.slides.map((slide, index) => (
-            <article key={index} className="off-slide-card">
+          {slidesWithStableKeys(state.parsed.slides).map((slide, index) => (
+            <article key={slide.key} className="off-slide-card">
               <span>Slide {index + 1}</span>
-              <p>{slide}</p>
+              <p>{slide.text}</p>
             </article>
           ))}
         </div>

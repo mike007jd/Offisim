@@ -45,6 +45,10 @@ for (const contract of [
   'No origin remote is configured',
   'GitHub CLI is unavailable or not logged in',
   'commandOutput(lastOutput.result)',
+  'key={projectId}',
+  'projectGenerationRef',
+  'operation(scope.projectId)',
+  'isCurrentProjectScope(scope)',
 ]) {
   requireText(uiPath, contract, `missing Git/PR UI contract: ${contract}`);
 }

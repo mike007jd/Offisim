@@ -50,7 +50,7 @@ import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mis
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 13;
+const TOTAL = 17;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -161,6 +161,7 @@ function makeController(
   serviceDeps: MissionServiceDeps,
   runAttempt: (input: RunAttemptInput) => Promise<AttemptExecution>,
   budget?: MissionLoopControllerDeps['budget'],
+  nowOverride?: () => string,
 ) {
   return createMissionLoopController({
     missionService: svc,
@@ -169,10 +170,127 @@ function makeController(
     ...(budget ? { budget } : {}),
     // The controller mints no ids/timestamps of its own beyond the service, but
     // the contract requires them; reuse the service's deterministic factories.
-    now: serviceDeps.now,
+    now: nowOverride ?? serviceDeps.now,
     newId: serviceDeps.newId,
   });
 }
+
+await check('zero Mission caps are rejected before runAttempt can spend', async () => {
+  const { svc, deps } = freshService();
+  let attemptCount = 0;
+  const runAttempt = async (): Promise<AttemptExecution> => {
+    attemptCount += 1;
+    throw new Error('runAttempt must not be reached for an invalid budget');
+  };
+
+  for (const budget of [
+    { maxRepairsPerCriterion: 0 },
+    { maxAttempts: 0 },
+    { tokenBudget: 0 },
+    { maxConcurrentAgents: 0 },
+    { maxTotalAgents: 0 },
+    { maxRecursionDepth: 0 },
+    { wallClockMinutes: 0 },
+  ]) {
+    assert.throws(() => makeController(svc, deps, runAttempt, budget), /positive integer/);
+  }
+  assert.equal(attemptCount, 0, 'invalid caps spend no attempts or tokens');
+});
+
+await check('wall-clock cap can expire before attempt 1 with zero runtime spend', async () => {
+  const { svc, deps } = freshService();
+  const missionId = await readyMission(svc, {
+    criteria: [cmdCriterion('tests pass', 'pnpm test')],
+  });
+  let attemptCount = 0;
+  const times = ['2026-01-01T00:00:00.000Z', '2026-01-01T00:01:00.000Z'];
+  const controller = makeController(
+    svc,
+    deps,
+    async () => {
+      attemptCount += 1;
+      throw new Error('runAttempt must not start after the wall-clock deadline');
+    },
+    { wallClockMinutes: 1 },
+    () => times.shift()!,
+  );
+
+  await assert.rejects(
+    () => controller.run(missionId),
+    /exhausted its wall-clock budget before the first attempt/,
+  );
+  assert.equal(attemptCount, 0, 'no runtime attempt or tokens were spent');
+  assert.equal((await svc.getMission(missionId)).status, 'ready', 'mission remains unstarted');
+});
+
+await check(
+  'attempt returning after wall-clock deadline fails before evaluation or repair',
+  async () => {
+    const { svc, deps } = freshService();
+    const missionId = await readyMission(svc, {
+      criteria: [cmdCriterion('tests pass', 'pnpm test')],
+    });
+    let attemptCount = 0;
+    const times = [
+      '2026-01-01T00:00:00.000Z',
+      '2026-01-01T00:00:00.000Z',
+      '2026-01-01T00:01:00.000Z',
+    ];
+    const controller = makeController(
+      svc,
+      deps,
+      async () => {
+        attemptCount += 1;
+        return {
+          evaluationContextFor: () => {
+            throw new Error('evaluation must not start after the wall-clock deadline');
+          },
+          usage: { tokens: 10 },
+        };
+      },
+      { wallClockMinutes: 1, tokenBudget: 100 },
+      () => times.shift()!,
+    );
+
+    const result = await controller.run(missionId);
+    assert.equal(result.status, 'failed');
+    assert.equal(result.stopReason, 'wall_clock_budget');
+    assert.equal(result.attempts, 1);
+    assert.equal(attemptCount, 1, 'no repair attempt was started');
+    assert.equal((await svc.getMission(missionId)).status, 'failed');
+  },
+);
+
+await check('wall-clock cap stops between attempts before a repair starts', async () => {
+  const { svc, deps } = freshService();
+  const missionId = await readyMission(svc, {
+    criteria: [cmdCriterion('tests pass', 'pnpm test')],
+  });
+  let attemptCount = 0;
+  const times = [
+    '2026-01-01T00:00:00.000Z',
+    '2026-01-01T00:00:00.000Z',
+    '2026-01-01T00:00:00.000Z',
+    '2026-01-01T00:00:00.000Z',
+    '2026-01-01T00:01:00.000Z',
+  ];
+  const controller = makeController(
+    svc,
+    deps,
+    async () => {
+      attemptCount += 1;
+      return { evaluationContextFor: (criterion) => scriptedContext(criterion, 1) };
+    },
+    { wallClockMinutes: 1 },
+    () => times.shift()!,
+  );
+
+  const result = await controller.run(missionId);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.stopReason, 'wall_clock_budget');
+  assert.equal(result.attempts, 1);
+  assert.equal(attemptCount, 1, 'deadline prevented the repair attempt');
+});
 
 // ---------------------------------------------------------------------------
 // 1. Happy path: all PASS on attempt 1 → completed, 1 attempt.

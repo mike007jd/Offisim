@@ -253,11 +253,9 @@ function attachEyeDecals(
   };
   const smallSmile = () => ({ geometry: new TorusGeometry(0.05, 0.012, 6, 14, Math.PI) });
   makeFace('neutral', new CircleGeometry(0.05, 16), smallSmile());
-  makeFace(
-    'happy',
-    new TorusGeometry(0.056, 0.014, 6, 14, Math.PI),
-    { geometry: new TorusGeometry(0.066, 0.015, 6, 14, Math.PI) },
-  );
+  makeFace('happy', new TorusGeometry(0.056, 0.014, 6, 14, Math.PI), {
+    geometry: new TorusGeometry(0.066, 0.015, 6, 14, Math.PI),
+  });
   makeFace(
     'worried',
     new BoxGeometry(0.088, 0.02, 0.012),

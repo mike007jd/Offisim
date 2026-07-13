@@ -1071,7 +1071,7 @@ export function usePrepareRegistryInstall(companyId?: string | null) {
         events: createInstallEvents(),
         companyId,
         environment: DESKTOP_INSTALL_ENVIRONMENT,
-        asyncTransact: repos.asyncTransact?.bind(repos),
+        asyncTransact: repos.asyncTransact.bind(repos),
       });
       const result = await service.importFile(archiveBytes, {
         sourceType: 'registry',
@@ -1111,7 +1111,7 @@ export function usePublishSources(companyId?: string | null) {
       if (!companyId) return [];
       const [employeeRows, skillRows] = await Promise.all([
         repos.employees.findByCompany(companyId),
-        repos.skills ? repos.skills.listByCompany(companyId) : [],
+        repos.skills.listByCompany(companyId),
       ]);
       return [...employeeRows.map(employeeToPublishSource), ...skillRows.map(skillToPublishSource)];
     },
@@ -1189,7 +1189,7 @@ export function useImportPackageFile(companyId?: string | null) {
         events: createInstallEvents(),
         companyId,
         environment: DESKTOP_INSTALL_ENVIRONMENT,
-        asyncTransact: repos.asyncTransact?.bind(repos),
+        asyncTransact: repos.asyncTransact.bind(repos),
       });
       const archiveBytes = await readPackageFile(file);
       const result = await service.importFile(archiveBytes, {

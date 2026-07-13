@@ -66,7 +66,7 @@ import {
   RefreshCw,
   Upload,
 } from 'lucide-react';
-import { type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ProjectDialog } from './ProjectDialog.js';
 import { openStageFilePreview } from './stage-viewer/file-preview.js';
@@ -494,6 +494,18 @@ function GitTab({
   companyId: string;
   projectId: string;
 }) {
+  const projectIdRef = useRef(projectId);
+  const projectGenerationRef = useRef(0);
+  if (projectIdRef.current !== projectId) {
+    projectIdRef.current = projectId;
+    projectGenerationRef.current += 1;
+  }
+  const captureProjectScope = () => ({
+    projectId: projectIdRef.current,
+    generation: projectGenerationRef.current,
+  });
+  const isCurrentProjectScope = (scope: { projectId: string; generation: number }) =>
+    scope.projectId === projectIdRef.current && scope.generation === projectGenerationRef.current;
   const openStageView = useUiState((s) => s.openStageView);
   const queryClient = useQueryClient();
   const leaseReviews = useProjectWorkspaceLeaseReviews(projectId);
@@ -526,46 +538,54 @@ function GitTab({
   const task = selectedLease ? taskByRun.get(selectedLease.runId) : null;
 
   useEffect(() => {
-    let active = true;
+    const generation = projectGenerationRef.current;
     void loadGitConnections(projectId).then((connections) => {
-      if (!active) return;
+      if (projectIdRef.current !== projectId || projectGenerationRef.current !== generation) {
+        return;
+      }
       setOrigin(connections.origin);
       setGhAuth(connections.auth);
     });
     return () => {
-      active = false;
+      projectGenerationRef.current += 1;
     };
   }, [projectId]);
 
   const refreshConnections = async () => {
+    const scope = captureProjectScope();
     setBusy('Check setup');
-    const connections = await loadGitConnections(projectId);
+    const connections = await loadGitConnections(scope.projectId);
+    if (!isCurrentProjectScope(scope)) return;
     setOrigin(connections.origin);
     setGhAuth(connections.auth);
     setLastOutput({ label: 'GitHub CLI auth status', result: connections.auth });
     setBusy(null);
   };
 
-  const refreshGit = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['git-workbench', projectId] });
+  const refreshGit = async (targetProjectId: string) => {
+    await queryClient.invalidateQueries({ queryKey: ['git-workbench', targetProjectId] });
   };
 
   const execute = async (
     label: string,
-    operation: () => Promise<CommandExecResult>,
-    afterSuccess?: () => void | Promise<void>,
+    operation: (targetProjectId: string) => Promise<CommandExecResult>,
+    afterSuccess?: (targetProjectId: string) => void | Promise<void>,
   ) => {
+    const scope = captureProjectScope();
     setBusy(label);
     try {
-      const result = await operation();
+      const result = await operation(scope.projectId);
+      if (!isCurrentProjectScope(scope)) return;
       setLastOutput({ label, result });
       if (!result.ok) {
         toast.error(`${label} failed`);
         return;
       }
-      await afterSuccess?.();
+      await afterSuccess?.(scope.projectId);
+      if (!isCurrentProjectScope(scope)) return;
       toast.success(`${label} completed`);
     } catch (error) {
+      if (!isCurrentProjectScope(scope)) return;
       const result = {
         ok: false,
         stdout: '',
@@ -574,21 +594,24 @@ function GitTab({
       setLastOutput({ label, result });
       toast.error(`${label} failed`);
     } finally {
-      setBusy(null);
+      if (isCurrentProjectScope(scope)) setBusy(null);
     }
   };
 
   const refreshPullRequests = async (recordOutput = true) => {
+    const scope = captureProjectScope();
     setBusy('Refresh PRs');
     try {
       const [status, list] = await Promise.all([
-        getPullRequestStatus(projectId),
-        listPullRequests(projectId),
+        getPullRequestStatus(scope.projectId),
+        listPullRequests(scope.projectId),
       ]);
+      if (!isCurrentProjectScope(scope)) return;
       setPrStatus(status);
       setPrList(list);
       if (recordOutput) setLastOutput({ label: 'PR status', result: status.ok ? list : status });
     } catch (error) {
+      if (!isCurrentProjectScope(scope)) return;
       setLastOutput({
         label: 'Refresh PRs',
         result: {
@@ -598,16 +621,19 @@ function GitTab({
         },
       });
     } finally {
-      setBusy(null);
+      if (isCurrentProjectScope(scope)) setBusy(null);
     }
   };
 
   const act = async (action: 'merge' | 'discard') => {
     if (!selectedLease) return;
+    const scope = captureProjectScope();
     setBusyLeaseId(selectedLease.leaseId);
     try {
       const outcome = await reviewWorkspaceLease(selectedLease, companyId, action);
+      if (!isCurrentProjectScope(scope)) return;
       await leaseReviews.refetch();
+      if (!isCurrentProjectScope(scope)) return;
       toast.success(
         outcome === 'merged'
           ? 'Task merged.'
@@ -616,9 +642,10 @@ function GitTab({
             : 'Merge decision completed.',
       );
     } catch (error) {
+      if (!isCurrentProjectScope(scope)) return;
       toast.error(error instanceof Error ? error.message : `Could not ${action} task`);
     } finally {
-      setBusyLeaseId(null);
+      if (isCurrentProjectScope(scope)) setBusyLeaseId(null);
     }
   };
   return (
@@ -660,10 +687,10 @@ function GitTab({
           onClick={() =>
             void execute(
               'Stage files',
-              () => stageGitFiles(projectId, selectedPaths),
-              async () => {
+              (targetProjectId) => stageGitFiles(targetProjectId, selectedPaths),
+              async (targetProjectId) => {
                 setSelectedPaths([]);
-                await refreshGit();
+                await refreshGit(targetProjectId);
               },
             )
           }
@@ -682,10 +709,10 @@ function GitTab({
           onClick={() =>
             void execute(
               'Commit',
-              () => commitGitChanges(projectId, commitMessage.trim()),
-              async () => {
+              (targetProjectId) => commitGitChanges(targetProjectId, commitMessage.trim()),
+              async (targetProjectId) => {
                 setCommitMessage('');
-                await refreshGit();
+                await refreshGit(targetProjectId);
               },
             )
           }
@@ -710,7 +737,7 @@ function GitTab({
             onClick={() =>
               void execute(
                 'Switch branch',
-                () => switchGitBranch(projectId, branchName.trim(), false),
+                (targetProjectId) => switchGitBranch(targetProjectId, branchName.trim(), false),
                 refreshGit,
               )
             }
@@ -723,10 +750,10 @@ function GitTab({
             onClick={() =>
               void execute(
                 'Create branch',
-                () => switchGitBranch(projectId, branchName.trim(), true),
-                async () => {
+                (targetProjectId) => switchGitBranch(targetProjectId, branchName.trim(), true),
+                async (targetProjectId) => {
                   setBranchName('');
-                  await refreshGit();
+                  await refreshGit(targetProjectId);
                 },
               )
             }
@@ -787,7 +814,9 @@ function GitTab({
             size="sm"
             variant="outline"
             disabled={!ghAuth?.ok || busy !== null}
-            onClick={() => void execute('View PR', () => viewPullRequest(projectId))}
+            onClick={() =>
+              void execute('View PR', (targetProjectId) => viewPullRequest(targetProjectId))
+            }
           >
             View current
           </Button>
@@ -863,22 +892,28 @@ function GitTab({
                 toast.error('The original assignee is unavailable.');
                 return;
               }
+              const scope = captureProjectScope();
               setBusyLeaseId(selectedLease.leaseId);
               void requestWorkspaceLeaseChanges(selectedLease, {
                 companyId,
-                projectId,
+                projectId: scope.projectId,
                 employeeId,
                 objective: task.objective ?? 'Continue the delegated task.',
                 feedback,
               })
                 .then(async () => {
+                  if (!isCurrentProjectScope(scope)) return;
                   await leaseReviews.refetch();
+                  if (!isCurrentProjectScope(scope)) return;
                   toast.success('Rework delegated in the same worktree.');
                 })
-                .catch((error) =>
-                  toast.error(error instanceof Error ? error.message : 'Could not request changes'),
-                )
-                .finally(() => setBusyLeaseId(null));
+                .catch((error) => {
+                  if (!isCurrentProjectScope(scope)) return;
+                  toast.error(error instanceof Error ? error.message : 'Could not request changes');
+                })
+                .finally(() => {
+                  if (isCurrentProjectScope(scope)) setBusyLeaseId(null);
+                });
             }}
           />
         </div>
@@ -990,14 +1025,14 @@ function GitTab({
                 if (action === 'push') {
                   void execute(
                     'Push',
-                    () => pushGitBranch(projectId, workbench.branch),
+                    (targetProjectId) => pushGitBranch(targetProjectId, workbench.branch),
                     refreshGit,
                   );
                 } else if (action === 'create-pr') {
                   void execute(
                     'Create PR',
-                    () =>
-                      createPullRequest(projectId, {
+                    (targetProjectId) =>
+                      createPullRequest(targetProjectId, {
                         title: prTitle.trim(),
                         body: prBody,
                         base: prBase.trim() || undefined,
@@ -1012,7 +1047,9 @@ function GitTab({
                     },
                   );
                 } else if (action === 'view-pr') {
-                  void execute('Open PR', () => viewPullRequest(projectId, true));
+                  void execute('Open PR', (targetProjectId) =>
+                    viewPullRequest(targetProjectId, true),
+                  );
                 }
               }}
             >
@@ -1246,7 +1283,12 @@ export function WorkspacePanel() {
           onRetry={() => void git.refetch()}
         />
       ) : git.data?.status === 'repo' ? (
-        <GitTab workbench={git.data.workbench} companyId={companyId} projectId={projectId} />
+        <GitTab
+          key={projectId}
+          workbench={git.data.workbench}
+          companyId={companyId}
+          projectId={projectId}
+        />
       ) : git.data?.status === 'uninitialized' ? (
         // Valid folder, just not a git repo yet → Initialize is the primary
         // action; Rebind is only for a mistaken folder selection.

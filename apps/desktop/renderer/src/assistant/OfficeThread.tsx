@@ -17,12 +17,15 @@ import { listen } from '@tauri-apps/api/event';
 import { MessageSquarePlus, Paperclip, SendHorizontal, Square } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DraftRecipientRow } from './composer/ComposerControls.js';
-import { ComposerSettingsMenu } from './composer/ComposerSettingsMenu.js';
 import { ComposerLoopChip } from './composer/ComposerLoopChip.js';
+import { ComposerSettingsMenu } from './composer/ComposerSettingsMenu.js';
 import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { LoopPicker } from './composer/LoopPicker.js';
 import { StagedAttachments } from './composer/StagedAttachments.js';
-import { useComposerAttachmentStore } from './composer/composer-attachment-store.js';
+import {
+  type ComposerAttachmentScope,
+  useComposerAttachmentStore,
+} from './composer/composer-attachment-store.js';
 import {
   loopReferenceToken,
   useComposerLoopReferenceStore,
@@ -114,6 +117,7 @@ function LoopAwareSend({ threadId }: { threadId: string }) {
 }
 
 function OfficeComposer({
+  attachmentScope,
   threadId,
   projectName,
   deliverables,
@@ -122,6 +126,7 @@ function OfficeComposer({
   scopeEmployeeId,
   isDraft,
 }: {
+  attachmentScope: ComposerAttachmentScope;
   threadId: string;
   projectName: string;
   deliverables: Deliverable[];
@@ -150,7 +155,7 @@ function OfficeComposer({
       type: f.type,
       file: f,
     }));
-    if (files.length) void stageFiles(files);
+    if (files.length) void stageFiles(attachmentScope, files);
   }
 
   const stageNativeFiles = useCallback(
@@ -161,9 +166,9 @@ function OfficeComposer({
           name: file.name,
           bytes: file.bytes,
         }));
-      if (files.length) void stageFiles(files);
+      if (files.length) void stageFiles(attachmentScope, files);
     },
-    [stageFiles],
+    [attachmentScope, stageFiles],
   );
 
   const nativeDropHitsComposer = useCallback((payload: NativeDroppedFilesPayload) => {
@@ -264,7 +269,7 @@ function OfficeComposer({
                 employees={employees}
               />
             </div>
-            <StagedAttachments />
+            <StagedAttachments scope={attachmentScope} />
             <div className="off-composer-footer">
               <input
                 ref={fileInput}
@@ -329,6 +334,10 @@ export function OfficeThread({
   persistMessage,
   materializeThread,
 }: OfficeThreadProps) {
+  const attachmentScope = useMemo<ComposerAttachmentScope>(
+    () => ({ companyId, projectId, threadId }),
+    [companyId, projectId, threadId],
+  );
   const runtime = useOfficeRuntime({
     threadId,
     seedMessages,
@@ -368,6 +377,7 @@ export function OfficeThread({
           <ChatErrorBanner threadId={threadId} />
         </ThreadPrimitive.Viewport>
         <OfficeComposer
+          attachmentScope={attachmentScope}
           threadId={threadId}
           projectName={projectName}
           deliverables={deliverables}

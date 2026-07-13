@@ -136,7 +136,7 @@ function callTool(name, args) {
   };
 }
 
-const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+const rl = readline.createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY });
 
 rl.on('line', (line) => {
   if (!line.trim()) return;
