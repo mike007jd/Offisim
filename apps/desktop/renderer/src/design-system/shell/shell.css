@@ -38,43 +38,49 @@
 .off-topbar {
   position: relative;
   z-index: var(--off-z-overlay);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--off-sp-5);
-  padding: 0 var(--off-sp-5);
+  gap: var(--off-sp-3);
+  padding: 0 var(--off-sp-4);
   border-bottom: 1px solid var(--off-line);
   background: var(--off-topbar-bg);
   backdrop-filter: blur(var(--off-blur-sm));
 }
 
-.off-topbar-cost {
-  margin-left: auto;
-  height: 28px;
+.off-topbar-start,
+.off-topbar-end {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: var(--off-sp-2);
-  padding: 0 var(--off-sp-3);
+}
+
+.off-topbar-end {
+  justify-content: flex-end;
+}
+
+.off-topbar-rail-toggle {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
   border: 1px solid var(--off-line);
-  border-radius: var(--off-r-pill);
-  background: var(--off-surface-2);
+  border-radius: var(--off-radius-control);
+  background: var(--off-surface-1);
   color: var(--off-ink-3);
-  font-size: var(--off-fs-meta);
-  white-space: nowrap;
 }
 
-.off-topbar-cost svg {
-  width: 14px;
-  height: 14px;
+.off-topbar-rail-toggle:hover {
+  border-color: var(--off-accent-ring);
+  background: var(--off-accent-surface);
+  color: var(--off-accent);
 }
 
-.off-topbar-cost.is-warning {
-  color: var(--off-warn);
-  border-color: color-mix(in srgb, var(--off-warn) 38%, var(--off-line));
-}
-
-.off-topbar-cost.is-critical {
-  color: var(--off-danger);
-  border-color: color-mix(in srgb, var(--off-danger) 42%, var(--off-line));
+.off-topbar-rail-toggle svg {
+  width: 15px;
+  height: 15px;
 }
 
 .off-surface-host {
@@ -110,15 +116,18 @@
 
 /* --- Scope bar (quiet, frameless company/project context) --- */
 .off-scope-bar {
+  flex: 1 1 auto;
   height: 34px;
   display: flex;
   align-items: center;
   max-width: 460px;
   min-width: 0;
   gap: 2px;
+  overflow: hidden;
 }
 
 .off-scope-seg {
+  flex: 1 1 auto;
   height: 28px;
   min-width: 0;
   display: inline-flex;
@@ -177,11 +186,8 @@
   flex: none;
 }
 
-/* --- Workspace nav (absolute center) --- */
+/* --- Workspace nav (fixed center column) --- */
 .off-workspace-nav {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   height: 34px;
   display: flex;
   align-items: center;
@@ -198,13 +204,13 @@
   display: inline-flex;
   align-items: center;
   gap: var(--off-sp-2);
-  padding: 0 var(--off-sp-4);
+  padding: 0 var(--off-sp-3);
   border: 0;
   border-radius: var(--off-r-sm);
   background: transparent;
   color: var(--off-ink-2);
-  font-size: var(--off-fs-base);
-  font-weight: 560;
+  font-size: var(--off-fs-sm);
+  font-weight: 600;
   transition: background var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
     var(--off-motion-ease);
 }
@@ -218,19 +224,11 @@
   background: var(--off-accent-surface);
   color: var(--off-accent);
   box-shadow: inset 0 0 0 1px var(--off-accent-ring);
-  font-weight: 640;
 }
 
-/* Utility surfaces ride the same chip-bar as icon-only tabs, sharing the
-   `.is-active` grammar so the current surface is always visible here. */
+/* Utility surfaces keep the same icon + label footprint as primary tabs. */
 .off-workspace-nav button.is-icon {
   padding: 0 var(--off-sp-3);
-}
-
-/* The active utility tab reveals its text label (icon-only when inactive),
-   so the padding widens to match the primary text tabs. */
-.off-workspace-nav button.is-icon.is-active {
-  padding: 0 var(--off-sp-4);
 }
 
 /* Divider between the primary text tabs and the utility icon tabs. */
@@ -240,14 +238,4 @@
   margin: 0 3px;
   background: var(--off-line);
   flex: none;
-}
-
-/* The absolutely-centred nav cluster (~457px with labels) collides with the
-   left breadcrumb below ~1280px viewport width. Collapse primary tabs to
-   icons there — every button keeps its title/aria-label, and the utility
-   tabs are icon-only already, so the whole bar degrades to one grammar. */
-@media (max-width: 1280px) {
-  .off-workspace-nav .off-nav-label {
-    display: none;
-  }
 }

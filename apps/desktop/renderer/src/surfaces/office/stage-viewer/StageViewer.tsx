@@ -241,8 +241,11 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
         <RunPipelinePill />
         <output className={cn('off-stage-readout', isRunning && 'is-live')} aria-label="Run cost">
           <span className="off-stage-readout-part">
-            <Icon icon={Coins} size="sm" />
-            <b>{tokensLabel}</b> tok
+            <span className="off-stage-readout-icon" aria-hidden="true">
+              <Icon icon={Coins} size="sm" />
+            </span>
+            <b>{tokensLabel}</b>
+            <span className="off-stage-readout-unit">tok</span>
           </span>
           <span className="off-stage-readout-div" />
           <b>{costLabel}</b>

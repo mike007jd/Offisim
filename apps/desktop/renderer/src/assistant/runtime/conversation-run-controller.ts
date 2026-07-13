@@ -354,6 +354,10 @@ export class ConversationRunController {
     if (this.activeRuns.has(input.threadId))
       throw new ConversationRunAlreadyActiveError(input.threadId);
 
+    // A restored approval belongs to the abandoned pre-restart turn. It stays
+    // dismiss-only and must never attach itself to this fresh run.
+    const restoredApproval = this.currentSnapshot(input.threadId).approval;
+
     const attemptId = `attempt-${this.deps.randomUUID()}`;
     const userMessage: ChatMessage = {
       id: newDraftId('boss'),
@@ -366,7 +370,25 @@ export class ConversationRunController {
       status: 'complete',
     };
     const run = this.beginRun({ ...input, text: trimmed }, attemptId, userMessage, null);
-    void this.runAttempt(run);
+    if (!restoredApproval || restoredApproval.state === 'live') {
+      void this.runAttempt(run);
+    } else {
+      // Claim the thread synchronously above, then remove the abandoned row
+      // before runtime start so cleanup cannot delete a newly persisted live
+      // approval. Historical cleanup is best-effort and cannot block the turn.
+      void this.deps
+        .reposFactory()
+        .then((repos) => repos.activeInteractions?.deleteByThread(input.threadId))
+        .catch((error: unknown) => {
+          console.warn('[conversation-run] stale approval cleanup failed', {
+            threadId: input.threadId,
+            error,
+          });
+        })
+        .then(() => {
+          if (this.isActiveRun(run)) return this.runAttempt(run);
+        });
+    }
     return { threadId: input.threadId, attemptId, userMessageId: userMessage.id };
   }
 
@@ -470,21 +492,14 @@ export class ConversationRunController {
     if (!run) return;
     run.stopped = true;
     this.cleanupRun(run);
+    const interrupted = run.assistantMessage
+      ? {
+          ...stripToolCalls(run.assistantMessage),
+          status: 'interrupted' as const,
+        }
+      : null;
+    if (interrupted) run.assistantMessage = interrupted;
     this.activeRuns.delete(threadId);
-    run.runtime?.abort(threadId);
-    let persistenceError: unknown = null;
-    if (run.assistantMessage) {
-      const interrupted = {
-        ...stripToolCalls(run.assistantMessage),
-        status: 'interrupted' as const,
-      };
-      run.assistantMessage = interrupted;
-      try {
-        await this.persistRunMessage(run, interrupted);
-      } catch (error) {
-        persistenceError = error;
-      }
-    }
     this.patchSnapshot(threadId, {
       attemptId: run.attemptId,
       phase: 'interrupted',
@@ -497,6 +512,15 @@ export class ConversationRunController {
       activity: run.activity,
       activityTotal: run.activityTotal,
     });
+    run.runtime?.abort(threadId);
+    let persistenceError: unknown = null;
+    if (interrupted) {
+      try {
+        await this.persistRunMessage(run, interrupted);
+      } catch (error) {
+        persistenceError = error;
+      }
+    }
     this.saveRetryRecord(run);
     if (persistenceError) throw persistenceError;
   }
@@ -582,6 +606,12 @@ export class ConversationRunController {
       const repos = await this.deps.reposFactory();
       const rows = (await repos.activeInteractions?.findByCompany(companyId)) ?? [];
       for (const row of rows) {
+        // Hydration is restart recovery for threads the controller has never
+        // seen. Any in-memory attempt projection — live or terminal, created
+        // before or during this query — is newer authority than the DB row.
+        if (this.activeRuns.has(row.thread_id) || this.snapshots.get(row.thread_id)?.attemptId) {
+          continue;
+        }
         let payload: Partial<PendingApproval> & { source?: string } = {};
         try {
           payload = JSON.parse(row.payload_json ?? '{}');
@@ -605,7 +635,9 @@ export class ConversationRunController {
         };
         this.patchSnapshot(row.thread_id, {
           companyId,
-          phase: 'awaiting-approval',
+          // The owning host disappeared on restart. Keep this as a
+          // dismiss-only historical notice, never as a controllable run.
+          phase: 'interrupted',
           attemptId: approval.attemptId,
           approval,
         });
@@ -635,7 +667,11 @@ export class ConversationRunController {
     const runs = [...this.snapshots.values()];
     this.globalSnapshot = {
       runs,
-      activeRuns: runs.filter((run) => isConversationRunActive(run.phase)),
+      // A presentation phase alone cannot prove that Stop can reach a live
+      // runtime. Intersect it with controller ownership.
+      activeRuns: runs.filter(
+        (run) => this.activeRuns.has(run.threadId) && isConversationRunActive(run.phase),
+      ),
       pendingApprovals: runs
         .map((run) => run.approval)
         .filter((a): a is PendingApproval => a !== null),

@@ -36,7 +36,7 @@
   align-items: center;
   padding: 2px;
   border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-sm);
+  border-radius: var(--off-radius-container);
   background: var(--off-surface-sunken);
 }
 
@@ -47,7 +47,7 @@
   gap: var(--off-sp-1);
   padding: 0 var(--off-sp-3);
   border: 0;
-  border-radius: calc(var(--off-r-sm) - 2px);
+  border-radius: var(--off-radius-control);
   background: transparent;
   color: var(--off-ink-3);
   font-size: var(--off-fs-meta);

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import ts from 'typescript';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
@@ -359,10 +360,10 @@ const checks = [
       /from ['"](?:framer-motion|@react-spring\/[^'"]+|gsap|animejs)['"]|require\(['"](?:framer-motion|@react-spring\/[^'"]+|gsap|animejs)['"]\)/,
   },
   {
-    label: 'raw active CSS micro typography/radius/motion',
+    label: 'raw active CSS micro typography/motion',
     dirs: ['apps/desktop/renderer/src'],
     pattern:
-      /font-size:\s*(?:7\.5|8\.5|9|9\.5|10|10\.5|12|19)px|font-size:\s*0\.9em|border-radius:\s*(?:4px|50%|999px|26%)|z-index:\s*(?:[1-9]\d*)|transition:\s*[^;]*(?:0\.14s|60ms|\sease(?:[;,]|\s))|animation:\s*[^;]*(?:0\.8s|0\.9s|1\.2s|1\.4s|1\.6s|3s|ease-in-out|\sease(?:\s|;)|\slinear(?:\s|;))/,
+      /font-size:\s*(?:7\.5|8\.5|9|9\.5|10|10\.5|12|19)px|font-size:\s*0\.9em|z-index:\s*(?:[1-9]\d*)|transition:\s*[^;]*(?:0\.14s|60ms|\sease(?:[;,]|\s))|animation:\s*[^;]*(?:0\.8s|0\.9s|1\.2s|1\.4s|1\.6s|3s|ease-in-out|\sease(?:\s|;)|\slinear(?:\s|;))/,
     excludeFiles: [
       'apps/desktop/renderer/src/styles/tokens.css',
       'apps/desktop/renderer/src/styles/motion.css',
@@ -677,6 +678,13 @@ function lineNumber(text, index) {
   return text.slice(0, index).split('\n').length;
 }
 
+function maskCssNoise(text) {
+  return text.replace(
+    /\/\*[\s\S]*?\*\/|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'/g,
+    (ignored) => ignored.replace(/[^\n]/g, ' '),
+  );
+}
+
 function scan(check) {
   const files = [...new Set(check.dirs.flatMap(collectFiles))];
   const failures = [];
@@ -706,6 +714,383 @@ const failures = allChecks.flatMap((check) =>
   scan(check).map((failure) => ({ check: check.label, ...failure })),
 );
 
+const REACT_RADIUS_PROPERTIES = new Set([
+  'borderRadius',
+  'borderTopLeftRadius',
+  'borderTopRightRadius',
+  'borderBottomLeftRadius',
+  'borderBottomRightRadius',
+  'borderStartStartRadius',
+  'borderStartEndRadius',
+  'borderEndStartRadius',
+  'borderEndEndRadius',
+]);
+const CSS_RADIUS_PROPERTY_PATTERN =
+  /^(?:--off-radius-[a-z0-9-]+|(?:-[a-z]+-)?(?:border-radius|border-(?:top|bottom)-(?:left|right)-radius|border-(?:start|end)-(?:start|end)-radius))$/i;
+const RAW_CSS_RADIUS_DECLARATION_PATTERN =
+  /(?<![-\w])(?:--off-radius-[a-z0-9-]+|(?:-[a-z]+-)?(?:border-radius|border-(?:top|bottom)-(?:left|right)-radius|border-(?:start|end)-(?:start|end)-radius))\s*:[^;}]*?(?:\d*\.\d+|\d+)(?:px|r?em|%)(?![-\w])/i;
+
+function unwrapTsExpression(expression) {
+  let current = expression;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isSatisfiesExpression(current) ||
+    ts.isNonNullExpression(current)
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function lexicalScope(node) {
+  let current = node.parent;
+  while (current) {
+    if (ts.isBlock(current) || ts.isSourceFile(current) || ts.isModuleBlock(current)) {
+      return current;
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+function collectLocalDeclarations(sourceFile) {
+  const declarations = new Map();
+  const visit = (node) => {
+    if (
+      ((ts.isVariableDeclaration(node) && node.initializer) ||
+        (ts.isFunctionDeclaration(node) && node.body)) &&
+      node.name &&
+      ts.isIdentifier(node.name)
+    ) {
+      const list = declarations.get(node.name.text) ?? [];
+      list.push({ node, scope: lexicalScope(node) });
+      declarations.set(node.name.text, list);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return declarations;
+}
+
+function localInitializer(identifier, context) {
+  const candidates = (context.declarations.get(identifier.text) ?? [])
+    .filter(({ scope }) => {
+      if (!scope) return true;
+      return identifier.pos >= scope.pos && identifier.end <= scope.end;
+    })
+    .sort((left, right) => {
+      const leftSpan = left.scope ? left.scope.end - left.scope.pos : Number.POSITIVE_INFINITY;
+      const rightSpan = right.scope ? right.scope.end - right.scope.pos : Number.POSITIVE_INFINITY;
+      return leftSpan - rightSpan || right.node.pos - left.node.pos;
+    });
+  const declaration = candidates[0]?.node;
+  if (!declaration) return null;
+  return ts.isFunctionDeclaration(declaration) ? declaration : declaration.initializer;
+}
+
+function staticString(expression, context, seen = new Set()) {
+  if (!expression) return null;
+  const current = unwrapTsExpression(expression);
+  if (seen.has(current)) return null;
+  seen.add(current);
+  if (ts.isStringLiteralLike(current)) return current.text;
+  if (ts.isIdentifier(current)) {
+    return staticString(localInitializer(current, context), context, seen);
+  }
+  if (ts.isBinaryExpression(current) && current.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = staticString(current.left, context, seen);
+    const right = staticString(current.right, context, seen);
+    return left == null || right == null ? null : `${left}${right}`;
+  }
+  if (ts.isTemplateExpression(current)) {
+    let value = current.head.text;
+    for (const span of current.templateSpans) {
+      const part = staticString(span.expression, context, seen);
+      if (part == null) return null;
+      value += part + span.literal.text;
+    }
+    return value;
+  }
+  if (
+    ts.isCallExpression(current) &&
+    ts.isPropertyAccessExpression(current.expression) &&
+    current.expression.name.text === 'join' &&
+    current.arguments.length <= 1
+  ) {
+    const receiver = unwrapTsExpression(current.expression.expression);
+    const resolved = unwrapTsExpression(
+      (ts.isIdentifier(receiver) ? localInitializer(receiver, context) : null) ?? receiver,
+    );
+    if (!ts.isArrayLiteralExpression(resolved)) return null;
+    const separator = current.arguments.length
+      ? staticString(current.arguments[0], context, seen)
+      : ',';
+    if (separator == null) return null;
+    const parts = resolved.elements.map((element) => staticString(element, context, seen));
+    return parts.every((part) => part != null) ? parts.join(separator) : null;
+  }
+  return null;
+}
+
+function staticPropertyName(name, context) {
+  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name)) {
+    return name.text;
+  }
+  if (ts.isComputedPropertyName(name)) return staticString(name.expression, context);
+  return null;
+}
+
+function objectMemberExpressions(expression, memberName, context, seen = new Set()) {
+  if (!expression) return [];
+  const current = unwrapTsExpression(expression);
+  if (seen.has(current)) return [];
+  seen.add(current);
+  if (ts.isIdentifier(current)) {
+    return objectMemberExpressions(localInitializer(current, context), memberName, context, seen);
+  }
+  if (ts.isObjectLiteralExpression(current)) {
+    const matches = [];
+    for (const property of current.properties) {
+      if (ts.isSpreadAssignment(property)) {
+        matches.push(...objectMemberExpressions(property.expression, memberName, context, seen));
+        continue;
+      }
+      const name = property.name ? staticPropertyName(property.name, context) : null;
+      if (name !== memberName) continue;
+      if (ts.isPropertyAssignment(property)) matches.push(property.initializer);
+      else if (ts.isShorthandPropertyAssignment(property)) matches.push(property.name);
+      else if (ts.isMethodDeclaration(property) || ts.isGetAccessorDeclaration(property)) {
+        matches.push(property);
+      }
+    }
+    return matches;
+  }
+  if (ts.isConditionalExpression(current)) {
+    return [
+      ...objectMemberExpressions(current.whenTrue, memberName, context, seen),
+      ...objectMemberExpressions(current.whenFalse, memberName, context, seen),
+    ];
+  }
+  if (ts.isPropertyAccessExpression(current)) {
+    return objectMemberExpressions(current.expression, current.name.text, context, seen).flatMap(
+      (candidate) => objectMemberExpressions(candidate, memberName, context, seen),
+    );
+  }
+  if (ts.isElementAccessExpression(current)) {
+    const name = staticString(current.argumentExpression, context);
+    if (!name) return [];
+    return objectMemberExpressions(current.expression, name, context, seen).flatMap((candidate) =>
+      objectMemberExpressions(candidate, memberName, context, seen),
+    );
+  }
+  return [];
+}
+
+function functionReturnExpressions(fn) {
+  if (!ts.isBlock(fn.body)) return [fn.body];
+  const returns = [];
+  const visit = (node) => {
+    if (ts.isFunctionLike(node) && node !== fn) return;
+    if (ts.isReturnStatement(node) && node.expression) returns.push(node.expression);
+    ts.forEachChild(node, visit);
+  };
+  visit(fn.body);
+  return returns;
+}
+
+function expressionContainsRadiusStyle(
+  expression,
+  context,
+  seen = new Set(),
+  includeCssPropertyNames = false,
+) {
+  if (!expression) return false;
+  const current = unwrapTsExpression(expression);
+  if (seen.has(current)) return false;
+  seen.add(current);
+  if (ts.isIdentifier(current)) {
+    return expressionContainsRadiusStyle(localInitializer(current, context), context, seen);
+  }
+  if (ts.isObjectLiteralExpression(current)) {
+    return current.properties.some((property) => {
+      if (ts.isSpreadAssignment(property)) {
+        return expressionContainsRadiusStyle(
+          property.expression,
+          context,
+          seen,
+          includeCssPropertyNames,
+        );
+      }
+      const name = property.name ? staticPropertyName(property.name, context) : null;
+      return (
+        name != null &&
+        (REACT_RADIUS_PROPERTIES.has(name) ||
+          (includeCssPropertyNames && CSS_RADIUS_PROPERTY_PATTERN.test(name)))
+      );
+    });
+  }
+  if (ts.isConditionalExpression(current)) {
+    return (
+      expressionContainsRadiusStyle(current.whenTrue, context, seen, includeCssPropertyNames) ||
+      expressionContainsRadiusStyle(current.whenFalse, context, seen, includeCssPropertyNames)
+    );
+  }
+  if (ts.isBinaryExpression(current)) {
+    return (
+      expressionContainsRadiusStyle(current.left, context, seen, includeCssPropertyNames) ||
+      expressionContainsRadiusStyle(current.right, context, seen, includeCssPropertyNames)
+    );
+  }
+  if (ts.isPropertyAccessExpression(current)) {
+    return objectMemberExpressions(current.expression, current.name.text, context).some(
+      (candidate) =>
+        expressionContainsRadiusStyle(candidate, context, seen, includeCssPropertyNames),
+    );
+  }
+  if (ts.isElementAccessExpression(current)) {
+    const name = staticString(current.argumentExpression, context);
+    if (!name) return false;
+    return objectMemberExpressions(current.expression, name, context).some((candidate) =>
+      expressionContainsRadiusStyle(candidate, context, seen, includeCssPropertyNames),
+    );
+  }
+  if (ts.isCallExpression(current)) {
+    return (
+      expressionContainsRadiusStyle(current.expression, context, seen, includeCssPropertyNames) ||
+      current.arguments.some((argument) =>
+        expressionContainsRadiusStyle(argument, context, seen, includeCssPropertyNames),
+      )
+    );
+  }
+  if (
+    ts.isArrowFunction(current) ||
+    ts.isFunctionExpression(current) ||
+    ts.isFunctionDeclaration(current) ||
+    ts.isMethodDeclaration(current) ||
+    ts.isGetAccessorDeclaration(current)
+  ) {
+    return functionReturnExpressions(current).some((returned) =>
+      expressionContainsRadiusStyle(returned, context, seen, includeCssPropertyNames),
+    );
+  }
+  if (ts.isArrayLiteralExpression(current)) {
+    return current.elements.some((element) =>
+      expressionContainsRadiusStyle(element, context, seen, includeCssPropertyNames),
+    );
+  }
+  return false;
+}
+
+function accessPath(expression, context) {
+  if (!expression) return [];
+  const current = unwrapTsExpression(expression);
+  if (ts.isIdentifier(current)) return [current.text];
+  if (ts.isPropertyAccessExpression(current)) {
+    return [...accessPath(current.expression, context), current.name.text];
+  }
+  if (ts.isElementAccessExpression(current)) {
+    const name = staticString(current.argumentExpression, context);
+    return name == null ? [] : [...accessPath(current.expression, context), name];
+  }
+  return [];
+}
+
+function isAssignmentOperator(kind) {
+  return kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
+}
+
+const rendererScriptFiles = collectFiles('apps/desktop/renderer/src').filter((file) =>
+  ['.js', '.jsx', '.ts', '.tsx'].includes(extensionOf(file)),
+);
+for (const file of rendererScriptFiles) {
+  const text = readFileSync(file, 'utf8');
+  const relFile = relative(ROOT, file);
+  const extension = extensionOf(file);
+  const scriptKind =
+    extension === '.tsx'
+      ? ts.ScriptKind.TSX
+      : extension === '.jsx'
+        ? ts.ScriptKind.JSX
+        : extension === '.js'
+          ? ts.ScriptKind.JS
+          : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(relFile, text, ts.ScriptTarget.Latest, true, scriptKind);
+  const context = { sourceFile, declarations: collectLocalDeclarations(sourceFile) };
+  const report = (check, node) => {
+    const start = node.getStart(sourceFile);
+    failures.push({
+      check,
+      file: relFile,
+      line: sourceFile.getLineAndCharacterOfPosition(start).line + 1,
+      match: text
+        .slice(start, Math.min(node.end, start + 120))
+        .replace(/\s+/g, ' ')
+        .trim(),
+    });
+  };
+  const visit = (node) => {
+    if (
+      ts.isJsxAttribute(node) &&
+      node.name.getText(sourceFile) === 'style' &&
+      node.initializer &&
+      ts.isJsxExpression(node.initializer) &&
+      expressionContainsRadiusStyle(node.initializer.expression, context)
+    ) {
+      report('JSX style expression contains CSS radius', node);
+    }
+
+    if (ts.isCallExpression(node)) {
+      const calleePath = accessPath(node.expression, context);
+      const callee = calleePath.at(-1);
+      const method = callee === 'call' || callee === 'apply' ? calleePath.at(-2) : callee;
+      if (method === 'setProperty') {
+        let propertyExpression = callee === 'call' ? node.arguments[1] : node.arguments[0];
+        if (callee === 'apply') {
+          const appliedArgs = unwrapTsExpression(node.arguments[1]);
+          const args = unwrapTsExpression(
+            (ts.isIdentifier(appliedArgs) ? localInitializer(appliedArgs, context) : null) ??
+              appliedArgs,
+          );
+          propertyExpression = ts.isArrayLiteralExpression(args) ? args.elements[0] : undefined;
+        }
+        const property = staticString(propertyExpression, context);
+        if (property && CSS_RADIUS_PROPERTY_PATTERN.test(property)) {
+          report('runtime CSS radius setProperty mutation', node);
+        }
+      }
+      if (callee === 'assign' && calleePath.at(-2) === 'Object') {
+        const targetPath = accessPath(node.arguments[0], context);
+        if (
+          targetPath.includes('style') &&
+          node.arguments
+            .slice(1)
+            .some((argument) => expressionContainsRadiusStyle(argument, context, new Set(), true))
+        ) {
+          report('runtime CSS radius Object.assign mutation', node);
+        }
+      }
+    }
+
+    if (ts.isBinaryExpression(node) && isAssignmentOperator(node.operatorToken.kind)) {
+      const path = accessPath(node.left, context);
+      const property = path.at(-1);
+      const cssText = property === 'cssText' ? staticString(node.right, context) : null;
+      if (
+        path.slice(0, -1).includes('style') &&
+        ((property &&
+          (REACT_RADIUS_PROPERTIES.has(property) || CSS_RADIUS_PROPERTY_PATTERN.test(property))) ||
+          (cssText && RAW_CSS_RADIUS_DECLARATION_PATTERN.test(cssText)))
+      ) {
+        report('runtime CSS radius property assignment', node);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+}
+
 const rawHexFiles = collectFiles('apps/desktop/renderer/src').filter((file) =>
   ['.ts', '.tsx', '.css'].includes(extensionOf(file)),
 );
@@ -727,16 +1112,34 @@ for (const file of rawHexFiles) {
 }
 
 const cssFiles = collectFiles('apps/desktop/renderer/src').filter((file) => file.endsWith('.css'));
+const rawRadiusDeclarationPattern =
+  /(?<![-\w])(?:-[a-z]+-)?(?:border-radius|border-(?:top|bottom)-(?:left|right)-radius|border-(?:start|end)-(?:start|end)-radius)\s*:\s*([^;}]*)/gi;
+const rawRadiusValuePattern =
+  /(?<![-\w])-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?(?:%|(?:px|cm|mm|q|in|pt|pc|em|rem|ex|rex|ch|rch|cap|rcap|ic|ric|lh|rlh|vw|vh|vi|vb|vmin|vmax|svw|svh|svi|svb|svmin|svmax|lvw|lvh|lvi|lvb|lvmin|lvmax|dvw|dvh|dvi|dvb|dvmin|dvmax|cqw|cqh|cqi|cqb|cqmin|cqmax)\b)/gi;
 const definedCssVars = new Set();
 const usedCssVars = [];
 for (const file of cssFiles) {
   const text = readFileSync(file, 'utf8');
+  const relFile = relative(ROOT, file);
+  const activeCss = maskCssNoise(text);
+  for (const declaration of activeCss.matchAll(rawRadiusDeclarationPattern)) {
+    const rawValues = [...(declaration[1] ?? '').matchAll(rawRadiusValuePattern)].filter(
+      (match) => Number.parseFloat(match[0]) !== 0,
+    );
+    if (rawValues.length === 0) continue;
+    failures.push({
+      check: 'raw nonzero CSS radius',
+      file: relFile,
+      line: lineNumber(activeCss, declaration.index ?? 0),
+      match: declaration[0].replace(/\s+/g, ' ').trim().slice(0, 120),
+    });
+  }
   for (const match of text.matchAll(/--off-[a-z0-9-]+(?=\s*:)/g)) {
     definedCssVars.add(match[0]);
   }
   for (const match of text.matchAll(/var\((--off-[a-z0-9-]+)/g)) {
     usedCssVars.push({
-      file: relative(ROOT, file),
+      file: relFile,
       line: lineNumber(text, match.index ?? 0),
       name: match[1],
     });

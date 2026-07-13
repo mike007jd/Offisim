@@ -308,16 +308,6 @@ export function MarketSurface() {
     <div className={cn('off-market', detailOpen && 'is-detail-mode')}>
       <div className="off-mkt-fbar">
         <div className="off-mkt-fbar-main">
-          {registryNotConnected && mode === 'explore' ? (
-            <div className="off-mkt-search off-mkt-search-placeholder" aria-hidden="true" />
-          ) : (
-            <SearchInput
-              value={query}
-              onChange={setQuery}
-              placeholder="Search employees, skills, templates…"
-              className="off-mkt-search"
-            />
-          )}
           <SegmentedControl
             options={MODE_TABS}
             value={mode}
@@ -333,6 +323,14 @@ export function MarketSurface() {
                 ariaLabel="Manage view"
               />
             </div>
+          ) : null}
+          {mode === 'explore' && !registryNotConnected ? (
+            <SearchInput
+              value={query}
+              onChange={setQuery}
+              placeholder="Search employees, skills, templates…"
+              className="off-mkt-search"
+            />
           ) : null}
           <input
             ref={fileInputRef}

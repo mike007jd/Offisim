@@ -135,7 +135,7 @@
 }
 
 .off-company-channel-list .off-ws-list-head {
-  padding-right: calc(var(--off-sp-5) + 34px);
+  padding-right: var(--off-sp-5);
   border-bottom: 0;
 }
 
@@ -158,7 +158,7 @@
 
 .off-company-channel-detail .off-ws-chat-head {
   grid-template-columns: 36px 32px minmax(0, 1fr) auto;
-  padding-right: calc(var(--off-sp-3) + 34px);
+  padding-right: var(--off-sp-3);
 }
 
 .off-ws-list {

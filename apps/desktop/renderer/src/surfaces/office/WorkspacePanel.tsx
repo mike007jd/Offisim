@@ -51,8 +51,6 @@ import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceS
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Check,
-  ChevronsLeft,
-  ChevronsRight,
   ExternalLink,
   FileText,
   Folder,
@@ -1066,8 +1064,6 @@ export function WorkspacePanel() {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const setProject = useUiState((s) => s.setProject);
-  const collapsed = useUiState((s) => s.officeLeftRailCollapsed);
-  const setCollapsed = useUiState((s) => s.setOfficeLeftRailCollapsed);
   const queryClient = useQueryClient();
   const projects = useProjects(companyId);
   const git = useGitWorkbench(projectId);
@@ -1169,67 +1165,8 @@ export function WorkspacePanel() {
     void rescanWorkspace();
   }
 
-  if (collapsed) {
-    return (
-      <aside className="off-ws-panel is-collapsed" aria-label="Workspace panel">
-        <button
-          type="button"
-          className="off-rail-collapse-btn off-focusable"
-          onClick={() => setCollapsed(false)}
-          title="Expand workspace"
-        >
-          <Icon icon={ChevronsRight} size="sm" />
-        </button>
-        <button
-          type="button"
-          className={cn('off-rail-icon-tab off-focusable', tab === 'projects' && 'is-active')}
-          onClick={() => {
-            setTab('projects');
-            setCollapsed(false);
-          }}
-          title="Projects"
-        >
-          <Icon icon={FolderGit2} size="sm" />
-          <span>Projects</span>
-        </button>
-        <button
-          type="button"
-          className={cn('off-rail-icon-tab off-focusable', tab === 'files' && 'is-active')}
-          onClick={() => {
-            setTab('files');
-            setCollapsed(false);
-          }}
-          title="Files"
-        >
-          <Icon icon={FileText} size="sm" />
-          <span>Files</span>
-        </button>
-        <button
-          type="button"
-          className={cn('off-rail-icon-tab off-focusable', tab === 'git' && 'is-active')}
-          onClick={() => {
-            setTab('git');
-            setCollapsed(false);
-          }}
-          title="Git"
-        >
-          <Icon icon={GitBranch} size="sm" />
-          <span>Git</span>
-        </button>
-      </aside>
-    );
-  }
-
   return (
     <aside className="off-ws-panel">
-      <button
-        type="button"
-        className="off-rail-collapse-edge off-ws-collapse-edge off-focusable"
-        onClick={() => setCollapsed(true)}
-        title="Collapse workspace"
-      >
-        <Icon icon={ChevronsLeft} size="sm" />
-      </button>
       <div className="off-ws-head">
         <Tabs value={tab} onValueChange={(value) => setTab(value as PanelTab)}>
           <TabsList className="off-ws-tabs" aria-label="Workspace panel">

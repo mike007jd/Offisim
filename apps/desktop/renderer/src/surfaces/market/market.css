@@ -62,10 +62,6 @@
   max-width: 360px;
 }
 
-.off-mkt-search-placeholder {
-  height: var(--off-button-h-md);
-}
-
 /* ── Grid wrap + scroll ───────────────────────────────────────────────── */
 .off-mkt-grid-wrap {
   flex: 1;

@@ -56,7 +56,7 @@ import { toast } from 'sonner';
 
 const PRESENCE_CLS: Record<EmployeePresence, string> = {
   working: 'is-running',
-  idle: '',
+  idle: 'is-idle',
   blocked: 'is-blocked',
   failed: 'is-failed',
   offline: 'is-offline',
@@ -83,8 +83,8 @@ const PRESENCE_SORT_ORDER: Record<EmployeePresence, number> = {
 const RUN_STATE_TEXT: Record<RunState, string> = {
   idle: 'Idle',
   running: 'Running',
-  paused: 'Paused',
-  error: 'Blocked',
+  paused: 'Blocked',
+  error: 'Failed',
   done: 'Done',
 };
 
@@ -135,8 +135,10 @@ function companyModelSummary(
     .join(' · ');
 }
 
-function presenceFor(employee: Employee, running: boolean): EmployeePresence {
-  if (running) return 'working';
+function presenceFor(employee: Employee, runState: RunState | null | undefined): EmployeePresence {
+  if (runState === 'running') return 'working';
+  if (runState === 'paused') return 'blocked';
+  if (runState === 'error') return 'failed';
   return employee.presence ?? (employee.online ? 'idle' : 'offline');
 }
 
@@ -445,15 +447,6 @@ export function TeamDock() {
   const [showWorkingOnly, setShowWorkingOnly] = useState(false);
   const [sortMode, setSortMode] = useState<TeamSortMode>('seat');
 
-  const runningEmployeeIds = useMemo(
-    () =>
-      new Set(
-        (threads.data ?? [])
-          .filter((thread) => thread.runState === 'running' && thread.employeeId)
-          .map((thread) => thread.employeeId as string),
-      ),
-    [threads.data],
-  );
   const threadByEmployee = useMemo(() => {
     const map = new Map<string, ChatThread>();
     for (const thread of threads.data ?? []) {
@@ -471,20 +464,20 @@ export function TeamDock() {
         employee.discipline.toLowerCase().includes(q);
       if (!matchesQuery) return false;
       if (!showWorkingOnly) return true;
-      return presenceFor(employee, runningEmployeeIds.has(employee.id)) === 'working';
+      return presenceFor(employee, threadByEmployee.get(employee.id)?.runState) === 'working';
     });
     if (sortMode === 'name') {
       return [...list].sort((a, b) => a.name.localeCompare(b.name));
     }
     if (sortMode === 'presence') {
       return [...list].sort((a, b) => {
-        const presenceA = presenceFor(a, runningEmployeeIds.has(a.id));
-        const presenceB = presenceFor(b, runningEmployeeIds.has(b.id));
+        const presenceA = presenceFor(a, threadByEmployee.get(a.id)?.runState);
+        const presenceB = presenceFor(b, threadByEmployee.get(b.id)?.runState);
         return PRESENCE_SORT_ORDER[presenceA] - PRESENCE_SORT_ORDER[presenceB];
       });
     }
     return list;
-  }, [employees.data, query, runningEmployeeIds, showWorkingOnly, sortMode]);
+  }, [employees.data, query, showWorkingOnly, sortMode, threadByEmployee]);
   const zones = useMemo<TeamZoneOption[]>(
     () =>
       (layout.data?.zones ?? []).map((zone) => ({
@@ -512,9 +505,8 @@ export function TeamDock() {
       <div className="off-dock-strip">
         {roster.map((employee) => {
           const thread = threadByEmployee.get(employee.id);
-          const running = thread?.runState === 'running';
           const active = Boolean(thread && thread.id === selectedThreadId);
-          const presence = presenceFor(employee, running);
+          const presence = presenceFor(employee, thread?.runState);
           const modelState = employeeModelState(employee, models.data);
           const currentZone = zones.find((zone) => zone.id === employee.workstationId) ?? null;
           return (
@@ -610,7 +602,7 @@ export function TeamDock() {
         </button>
       </div>
 
-      <div className="off-dock-tools items-start pt-3 pr-12">
+      <div className="off-dock-tools">
         {showListControls ? (
           <>
             {showSearch ? (
@@ -666,7 +658,6 @@ export function TeamDock() {
           icon={collapsed ? ChevronUp : ChevronDown}
           label={collapsed ? 'Expand dock' : 'Collapse dock'}
           size="iconSm"
-          className="absolute top-3 right-3"
           onClick={() => setCollapsed((v) => !v)}
         />
       </div>

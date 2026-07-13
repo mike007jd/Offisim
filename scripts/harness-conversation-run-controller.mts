@@ -275,7 +275,11 @@ class FakeRepos {
 }
 
 function makeEnv(
-  options: { failPersistFirst?: boolean; failActiveInteractionUpsert?: boolean } = {},
+  options: {
+    failPersistFirst?: boolean;
+    failActiveInteractionUpsert?: boolean;
+    beforePersist?: (call: PersistCall) => Promise<void> | void;
+  } = {},
 ): HarnessEnv {
   const eventBus = new InMemoryEventBus();
   const runtime = new FakeRuntime(eventBus);
@@ -313,6 +317,7 @@ function makeEnv(
       if (options.failPersistFirst && persistCalls === 1) {
         throw new Error('persist failed after loop materialization');
       }
+      await options.beforePersist?.(call);
       persisted.push({
         ...call,
         message: JSON.parse(JSON.stringify(call.message)) as ChatMessage,
@@ -865,6 +870,48 @@ const scenarios: Array<{
     },
   },
   {
+    name: 'Stop invalidates global ownership before interrupted persistence settles',
+    criteria:
+      'Pass when a primed global snapshot drops the run synchronously with controller ownership, even while the interrupted checkpoint write is still pending.',
+    run: async () => {
+      const persistStarted = new Deferred<void>();
+      const releasePersist = new Deferred<void>();
+      const env = makeEnv({
+        beforePersist: async (call) => {
+          if (call.message.status !== 'interrupted') return;
+          persistStarted.resolve(undefined);
+          await releasePersist.promise;
+        },
+      });
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'partial before deferred stop persistence');
+        await env.runtime.waitForAbort(input.threadId);
+        throw new Error('aborted');
+      };
+      await submitDefault(env.controller);
+      await waitFor(
+        'streaming checkpoint before deferred stop persistence',
+        () => env.controller.getSnapshot('thread-1').liveMessages.length === 2,
+      );
+      assert.equal(env.controller.getGlobalSnapshot().activeRuns.length, 1, 'prime active cache');
+
+      const stopPromise = env.controller.stopAndWait('thread-1');
+      await persistStarted.promise;
+      const ownedDuringPersist = env.controller.isActive('thread-1');
+      const phaseDuringPersist = env.controller.getSnapshot('thread-1').phase;
+      const globalDuringPersist = env.controller
+        .getGlobalSnapshot()
+        .activeRuns.some((run) => run.threadId === 'thread-1');
+
+      assert.equal(ownedDuringPersist, false);
+      assert.equal(phaseDuringPersist, 'interrupted');
+      assert.equal(globalDuringPersist, false);
+      releasePersist.resolve(undefined);
+      await stopPromise;
+      return { ownedDuringPersist, phaseDuringPersist, globalDuringPersist };
+    },
+  },
+  {
     name: 'route subscriber unmount does not cancel an active run',
     criteria:
       'Pass when the React-facing subscription can unsubscribe mid-run while the controller keeps receiving runtime events and completes the run.',
@@ -1076,7 +1123,7 @@ const scenarios: Array<{
   {
     name: 'restart stale approvals and employee work-state projection',
     criteria:
-      'Pass when stale approvals hydrate as waiting but do not assign team-wide employees, while direct active runs mark only their assignee working.',
+      'Pass when stale approvals hydrate as historical interrupted notices, never enter activeRuns, and direct active runs mark only their assignee working.',
     run: async () => {
       const env = makeEnv();
       env.repos.seedStaleApproval({
@@ -1103,7 +1150,18 @@ const scenarios: Array<{
       );
       const global = env.controller.getGlobalSnapshot();
       const employeeStates = projectEmployeeWorkloads(global, 'prj');
-      assert.equal(env.controller.getSnapshot('stale-thread').approval?.state, 'stale');
+      const staleSnapshot = env.controller.getSnapshot('stale-thread');
+      assert.equal(staleSnapshot.approval?.state, 'stale');
+      assert.equal(staleSnapshot.phase, 'interrupted');
+      assert.equal(
+        global.activeRuns.some((run) => run.threadId === 'stale-thread'),
+        false,
+        'a persisted approval is history, not a live run',
+      );
+      assert.deepEqual(global.activeRuns.map((run) => run.threadId).sort(), [
+        'direct-thread',
+        'team-thread',
+      ]);
       assert.equal(employeeStates.get('emp-1')?.dominant?.state, 'working');
       assert.equal(employeeStates.get('emp-1')?.activeCount, 1);
       assert.equal(employeeStates.size, 1);
@@ -1111,6 +1169,271 @@ const scenarios: Array<{
         staleApproval: env.controller.getSnapshot('stale-thread').approval?.state,
         employeeStates: Array.from(employeeStates.entries()),
         activeRuns: global.activeRuns.map((run) => [run.threadId, run.employeeId, run.phase]),
+      };
+    },
+  },
+  {
+    name: 'restored approval never blocks or reattaches to a new turn',
+    criteria:
+      'Pass when a restored approval is non-live, submitting on the same thread clears its transient DB row, and the fresh turn completes with no inherited approval.',
+    run: async () => {
+      const env = makeEnv();
+      env.repos.seedStaleApproval({
+        threadId: 'stale-thread',
+        companyId: 'co',
+        attemptId: 'attempt-stale',
+        hostRequestId: 'host-stale',
+        uiRequestId: 'ui-stale',
+      });
+      await env.controller.hydrateStaleApprovals('co');
+      assert.equal(env.controller.getSnapshot('stale-thread').phase, 'interrupted');
+      assert.equal(env.controller.getGlobalSnapshot().activeRuns.length, 0);
+
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'fresh turn');
+        return { text: 'fresh turn' };
+      };
+      await submitDefault(env.controller, {
+        threadId: 'stale-thread',
+        text: 'Start a fresh turn',
+      });
+      await assert.rejects(
+        () =>
+          submitDefault(env.controller, {
+            threadId: 'stale-thread',
+            text: 'Duplicate fresh turn',
+          }),
+        ConversationRunAlreadyActiveError,
+      );
+      await waitFor(
+        'fresh turn completion',
+        () => env.controller.getSnapshot('stale-thread').phase === 'completed',
+      );
+
+      const completed = env.controller.getSnapshot('stale-thread');
+      assert.equal(completed.approval, null);
+      assert.equal(env.repos.activeRows.has('stale-thread'), false);
+      assert.equal(env.runtime.executeCalls.length, 1);
+      return {
+        phase: completed.phase,
+        approval: completed.approval,
+        activeInteraction: env.repos.activeRows.has('stale-thread'),
+        duplicateRejected: true,
+      };
+    },
+  },
+  {
+    name: 'in-flight hydration cannot overwrite a controller-owned live run',
+    criteria:
+      'Pass when a stale DB read that resolves after submit leaves the fresh phase, attempt and Stop ownership intact, and Stop aborts exactly once.',
+    run: async () => {
+      const env = makeEnv();
+      env.repos.seedStaleApproval({
+        threadId: 'race-thread',
+        companyId: 'co',
+        attemptId: 'attempt-stale',
+        hostRequestId: 'host-stale',
+        uiRequestId: 'ui-stale',
+      });
+      const staleRows = [...env.repos.activeRows.values()].map((row) => ({ ...row }));
+      const findStarted = new Deferred<void>();
+      const hydrationRows = new Deferred<ActiveInteractionRow[]>();
+      env.repos.activeInteractions.findByCompany = async () => {
+        findStarted.resolve();
+        return hydrationRows.promise;
+      };
+
+      const hydration = env.controller.hydrateStaleApprovals('co');
+      await findStarted.promise;
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'fresh run remains live');
+        await env.runtime.waitForAbort(input.threadId);
+        throw new Error('aborted');
+      };
+      const handle = await submitDefault(env.controller, {
+        threadId: 'race-thread',
+        text: 'Start while hydration is pending',
+      });
+      await waitFor(
+        'race run starts',
+        () => env.controller.getSnapshot('race-thread').phase === 'running',
+      );
+
+      hydrationRows.resolve(staleRows);
+      await hydration;
+      const live = env.controller.getSnapshot('race-thread');
+      assert.equal(live.phase, 'running');
+      assert.equal(live.attemptId, handle.attemptId);
+      assert.equal(live.approval, null);
+      assert.equal(env.controller.isActive('race-thread'), true);
+      assert.equal(
+        env.controller.getGlobalSnapshot().activeRuns.some((run) => run.threadId === 'race-thread'),
+        true,
+      );
+      assert.equal(
+        env.controller
+          .getGlobalSnapshot()
+          .pendingApprovals.some((approval) => approval.threadId === 'race-thread'),
+        false,
+      );
+
+      await env.controller.stopAndWait('race-thread');
+      assert.equal(env.controller.getSnapshot('race-thread').phase, 'interrupted');
+      assert.deepEqual(env.runtime.aborts, ['race-thread']);
+      return {
+        attemptId: handle.attemptId,
+        hydrationPreservedLiveRun: true,
+        aborts: env.runtime.aborts,
+      };
+    },
+  },
+  {
+    name: 'restored approval cleanup failure cannot fail a fresh turn',
+    criteria:
+      'Pass when historical-row deletion rejects, the fresh run still owns the thread atomically and completes once without entering failed.',
+    run: async () => {
+      const env = makeEnv();
+      env.repos.seedStaleApproval({
+        threadId: 'cleanup-failure-thread',
+        companyId: 'co',
+        attemptId: 'attempt-stale',
+        hostRequestId: 'host-stale',
+        uiRequestId: 'ui-stale',
+      });
+      await env.controller.hydrateStaleApprovals('co');
+      env.repos.activeInteractions.deleteByThread = async () => {
+        throw new Error('active interaction delete failed');
+      };
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'cleanup failure is non-blocking');
+        return { text: 'cleanup failure is non-blocking' };
+      };
+
+      await submitDefault(env.controller, {
+        threadId: 'cleanup-failure-thread',
+        text: 'Start despite historical cleanup failure',
+      });
+      await assert.rejects(
+        () =>
+          submitDefault(env.controller, {
+            threadId: 'cleanup-failure-thread',
+            text: 'Duplicate fresh turn',
+          }),
+        ConversationRunAlreadyActiveError,
+      );
+      await waitFor(
+        'cleanup failure turn completion',
+        () => env.controller.getSnapshot('cleanup-failure-thread').phase === 'completed',
+      );
+
+      const completed = env.controller.getSnapshot('cleanup-failure-thread');
+      assert.equal(completed.error, null);
+      assert.equal(env.runtime.executeCalls.length, 1);
+      assert.equal(env.repos.activeRows.has('cleanup-failure-thread'), true);
+      return {
+        phase: completed.phase,
+        error: completed.error,
+        executeCalls: env.runtime.executeCalls.length,
+        historicalRowRetained: true,
+      };
+    },
+  },
+  {
+    name: 'late hydration cannot overwrite a fresh terminal attempt',
+    criteria:
+      'Pass when a stale DB read resolves after a fresh run completes and the completed phase, fresh attempt and empty approval remain authoritative.',
+    run: async () => {
+      const env = makeEnv();
+      env.repos.seedStaleApproval({
+        threadId: 'terminal-race-thread',
+        companyId: 'co',
+        attemptId: 'attempt-stale',
+        hostRequestId: 'host-stale',
+        uiRequestId: 'ui-stale',
+      });
+      const staleRows = [...env.repos.activeRows.values()].map((row) => ({ ...row }));
+      const findStarted = new Deferred<void>();
+      const hydrationRows = new Deferred<ActiveInteractionRow[]>();
+      env.repos.activeInteractions.findByCompany = async () => {
+        findStarted.resolve();
+        return hydrationRows.promise;
+      };
+
+      const hydration = env.controller.hydrateStaleApprovals('co');
+      await findStarted.promise;
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'fresh terminal result');
+        return { text: 'fresh terminal result' };
+      };
+      const handle = await submitDefault(env.controller, {
+        threadId: 'terminal-race-thread',
+        text: 'Complete before hydration returns',
+      });
+      await waitFor(
+        'terminal race completion',
+        () => env.controller.getSnapshot('terminal-race-thread').phase === 'completed',
+      );
+
+      hydrationRows.resolve(staleRows);
+      await hydration;
+      const completed = env.controller.getSnapshot('terminal-race-thread');
+      assert.equal(completed.phase, 'completed');
+      assert.equal(completed.attemptId, handle.attemptId);
+      assert.equal(completed.approval, null);
+      assert.equal(
+        env.controller
+          .getGlobalSnapshot()
+          .pendingApprovals.some((approval) => approval.threadId === 'terminal-race-thread'),
+        false,
+      );
+      return {
+        phase: completed.phase,
+        attemptId: completed.attemptId,
+        approval: completed.approval,
+      };
+    },
+  },
+  {
+    name: 'restart hydration cannot overwrite an existing terminal attempt',
+    criteria:
+      'Pass when a fresh run completed before the first hydration call remains authoritative over an abandoned DB row on the same thread.',
+    run: async () => {
+      const env = makeEnv();
+      env.repos.seedStaleApproval({
+        threadId: 'prehydrated-terminal-thread',
+        companyId: 'co',
+        attemptId: 'attempt-stale',
+        hostRequestId: 'host-stale',
+        uiRequestId: 'ui-stale',
+      });
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'completed before hydration');
+        return { text: 'completed before hydration' };
+      };
+      const handle = await submitDefault(env.controller, {
+        threadId: 'prehydrated-terminal-thread',
+        text: 'Complete before hydration begins',
+      });
+      await waitFor(
+        'pre-hydration terminal completion',
+        () => env.controller.getSnapshot('prehydrated-terminal-thread').phase === 'completed',
+      );
+
+      await env.controller.hydrateStaleApprovals('co');
+      const completed = env.controller.getSnapshot('prehydrated-terminal-thread');
+      assert.equal(completed.phase, 'completed');
+      assert.equal(completed.attemptId, handle.attemptId);
+      assert.equal(completed.approval, null);
+      assert.equal(
+        env.controller
+          .getGlobalSnapshot()
+          .pendingApprovals.some((approval) => approval.threadId === 'prehydrated-terminal-thread'),
+        false,
+      );
+      return {
+        phase: completed.phase,
+        attemptId: completed.attemptId,
+        approval: completed.approval,
       };
     },
   },
@@ -1142,7 +1465,18 @@ const scenarios: Array<{
       const old = env.controller.getSnapshot('old-thread').approval;
       assert.equal(recent?.state, 'stale', 'a fresh restored request is stale');
       assert.equal(old?.state, 'expired', 'a >24h restored request is expired');
-      return { recent: recent?.state, old: old?.state };
+      assert.equal(env.controller.getSnapshot('old-thread').phase, 'interrupted');
+      assert.equal(
+        env.controller.getGlobalSnapshot().activeRuns.some((run) => run.threadId === 'old-thread'),
+        false,
+      );
+      assert.equal(
+        env.controller
+          .getGlobalSnapshot()
+          .pendingApprovals.some((approval) => approval.threadId === 'old-thread'),
+        true,
+      );
+      return { recent: recent?.state, old: old?.state, oldPhase: 'interrupted' };
     },
   },
   {
