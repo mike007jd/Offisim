@@ -50,6 +50,21 @@ function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
+function extractNamedAsyncFunction(source: string, name: string): string {
+  const start = source.indexOf(`async function ${name}(`);
+  if (start < 0) return '';
+  const open = source.indexOf('{', start);
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  return '';
+}
+
 let failures = 0;
 let checks = 0;
 function check(name: string, condition: boolean, detail?: string): void {
@@ -681,14 +696,12 @@ await (async () => {
   const end = entry.indexOf('// The host is line-delimited on stdin');
   check('(2) runCollaboration boundary found in host source', start >= 0, String(start));
   check('(2) end boundary found after runCollaboration', end > start, `${start}..${end}`);
-  const fn = entry.slice(start, end);
-  // Sanity-bound the slice: if the end sentinel ever moves, `end` could land far
-  // away (or -1) and the isolation assertions below would scan the wrong/whole
-  // file and pass vacuously. The real runCollaboration body is ~6 KB; the whole
-  // host file is tens of KB, so an 8 KB ceiling catches a runaway slice.
+  const fn = extractNamedAsyncFunction(entry, 'runCollaboration');
+  // Exact brace extraction prevents a moved end-comment sentinel from making
+  // negative isolation scans accidentally inspect the rest of the host.
   check(
-    '(2) runCollaboration slice is bounded (not the whole file)',
-    fn.length < 8000,
+    '(2) runCollaboration function extraction is bounded',
+    fn.length > 0 && fn.length < 12_000,
     String(fn.length),
   );
   const fnCode = stripComments(fn);
@@ -725,7 +738,7 @@ await (async () => {
   );
   check(
     '(2) host collaborate creates an ephemeral session (no session dir persistence)',
-    /SessionManager\.create\(cwd\)/.test(fn) && !/sessionDir/.test(fnCode),
+    /SessionManager\.inMemory\(cwd\)/.test(fn) && !/sessionDir/.test(fnCode),
   );
   check(
     '(4) host collaborate never writes agent_runs / chat_threads / mission tables',

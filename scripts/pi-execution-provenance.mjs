@@ -21,9 +21,7 @@ async function providerAccountMaterial(authStorage, provider, credential) {
   // combine usage or isolated jobs across an explicit account replacement.
   // API-key values may themselves be `$ENV_VAR` / `!secret-command` references.
   // Hash Pi's resolved active credential, never the stable reference text.
-  const resolvedSecret = nonEmpty(
-    await authStorage.getApiKey(provider, { includeFallback: true }),
-  );
+  const resolvedSecret = nonEmpty(await authStorage.getApiKey(provider, { includeFallback: true }));
   if (!resolvedSecret) {
     throw Object.assign(new Error('Pi execution account identity is unavailable.'), {
       code: 'provenance-missing',

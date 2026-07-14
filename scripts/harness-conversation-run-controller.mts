@@ -1194,10 +1194,10 @@ const scenarios: Array<{
         false,
         'a persisted approval is history, not a live run',
       );
-      assert.deepEqual(
-        global.activeRuns.map((run) => run.threadId).sort(),
-        ['direct-thread', 'team-thread'],
-      );
+      assert.deepEqual(global.activeRuns.map((run) => run.threadId).sort(), [
+        'direct-thread',
+        'team-thread',
+      ]);
       assert.equal(employeeStates.get('emp-1')?.dominant?.state, 'working');
       assert.equal(employeeStates.get('emp-1')?.activeCount, 1);
       assert.equal(employeeStates.size, 1);
