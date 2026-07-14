@@ -257,7 +257,6 @@ export interface CompanyRepository {
       Pick<CompanyRow, 'name' | 'status' | 'template_id' | 'template_label' | 'description_json'>
     >,
   ): Promise<void>;
-  delete(companyId: string): Promise<void>;
 }
 
 export interface ThreadRepository {
@@ -1002,12 +1001,8 @@ export interface ProjectRepository {
   findByCompany(companyId: string): Promise<ProjectRow[]>;
   findActiveByCompany(companyId: string): Promise<ProjectRow[]>;
   updateStatus(projectId: string, status: ProjectStatus): Promise<void>;
-  /**
-   * Patch a project. Explicit `null` for `workspace_root` unbinds the folder.
-   * `description` accepts `string | null` for the same reason.
-   */
+  /** Patch a project. `workspace_root` is always a canonical, non-empty folder path. */
   update(projectId: string, patch: ProjectUpdatePatch): Promise<void>;
-  delete(projectId: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

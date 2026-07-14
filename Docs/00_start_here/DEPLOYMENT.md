@@ -92,7 +92,7 @@ means installing a newer build manually. This is intentional for the 1.0
 local-first scope: an update channel implies signed artifacts, an update
 server, and a rollback story — all post-1.0 work. Before public launch, local
 data is disposable across manual reinstalls: the local SQLite schema is a single
-current baseline stamped with `PRAGMA user_version = 1`. Fresh databases
+current baseline stamped from `LOCAL_SCHEMA_VERSION` in the desktop backend. Fresh databases
 bootstrap from `packages/db-local/src/schema.sql`; older local/dev databases are
 deleted and rebuilt rather than migrated.
 

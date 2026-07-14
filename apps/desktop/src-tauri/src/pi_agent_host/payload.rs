@@ -6,6 +6,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::ChildStdin;
 
 use crate::agent_host_runtime::{trusted_host_env, HostError};
+use crate::task_workspace_binding::TaskWorkspaceBinding;
 
 use super::types::{PiAgentCollaborateRequest, PiAgentEnhanceRequest, PiAgentExecuteRequest};
 
@@ -46,16 +47,21 @@ pub(super) fn app_pi_agent_dir<R: tauri::Runtime>(app: &AppHandle<R>) -> Option<
 
 pub(super) fn sidecar_payload(
     req: &PiAgentExecuteRequest,
-    cwd: &Path,
+    binding: &TaskWorkspaceBinding,
     session_dir: &Path,
     agent_dir: Option<&Path>,
+    authorized_direct_delegation: Option<&serde_json::Value>,
 ) -> serde_json::Value {
     let mut payload = serde_json::json!({
         // `mode` is the host dispatch discriminator (execute vs status); the
         // permission mode rides under a distinct key so it cannot collide.
         "mode": "execute",
         "text": req.text,
-        "cwd": cwd.to_string_lossy().to_string(),
+        // The Rust host fchdir(2)s the sidecar into the verified Project inode
+        // immediately before exec. Every root-session file/tool operation must
+        // stay relative to that inherited directory object; forwarding the
+        // absolute catalog path would let Node resolve a same-path replacement.
+        "cwd": ".",
         "sessionDir": session_dir.to_string_lossy().to_string(),
         "agentDir": agent_dir.map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
@@ -65,20 +71,16 @@ pub(super) fn sidecar_payload(
         "skillPaths": req.skill_paths,
         // Delegation scope (Phase 1): the root run id + thread id let the host's
         // supervisor stamp child agentRun events, and the roster tells it which
-        // employees the root agent may delegate to. All forwarded verbatim.
+        // employees the root agent may delegate to.
         "threadId": req.thread_id,
-        // The project owning this workspace + the speaking employee. The host's
-        // delegation supervisor stamps child agentRun events with `projectId`
-        // (so the renderer's task board / recovery scope children to the same
-        // project), and the publish-artifact / mission-bridge extensions stamp
-        // their events with `employeeId`. Both are optional and forwarded
-        // verbatim; a missing `projectId` previously left the host referencing an
-        // undeclared identifier and crashing every rostered run with
-        // "projectId is not defined".
-        "projectId": req.project_id,
-        "projectVerifyCommand": req.project_verify_command,
-        "projectVerifyMaxAttempts": req.project_verify_max_attempts,
-        "projectVerifyTokenBudget": req.project_verify_token_budget,
+        // Project identity and delegated-write verification policy are derived
+        // from the backend-issued binding. Renderer request fields cannot
+        // override the canonical project configuration. The speaking employee
+        // remains request-scoped so persona attribution survives delegation.
+        "projectId": binding.project_id,
+        "projectVerifyCommand": binding.project_verify_command,
+        "projectVerifyMaxAttempts": binding.project_verify_max_attempts,
+        "projectVerifyTokenBudget": binding.project_verify_token_budget,
         "employeeId": req.employee_id,
         "rootRunId": req.root_run_id,
         "roster": req.roster,
@@ -87,7 +89,7 @@ pub(super) fn sidecar_payload(
         "missionContextJson": req.mission_context_json,
         "mcpTools": req.mcp_tools,
     });
-    if let Some(direct_delegation) = &req.direct_delegation {
+    if let Some(direct_delegation) = authorized_direct_delegation {
         payload
             .as_object_mut()
             .expect("execute payload is an object")

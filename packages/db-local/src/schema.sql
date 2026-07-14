@@ -1,6 +1,6 @@
 -- Offisim local SQLite schema — current prelaunch baseline.
--- Fresh databases apply this file directly and are stamped with
--- PRAGMA user_version = 1 by apps/desktop/src-tauri/src/local_db.rs.
+-- Fresh databases apply this file directly and are stamped with the current
+-- LOCAL_SCHEMA_VERSION from apps/desktop/src-tauri/src/local_db.rs.
 --
 -- There is no historical migration chain before public launch. Old local/dev
 -- databases are disposable and should be deleted/rebuilt from this baseline.
@@ -359,12 +359,24 @@ CREATE TABLE IF NOT EXISTS projects (
   description TEXT,
   status      TEXT NOT NULL DEFAULT 'planning'
     CHECK(status IN ('planning', 'active', 'paused', 'completed', 'archived')),
-  workspace_root TEXT,
+  workspace_root TEXT NOT NULL CHECK(trim(workspace_root) <> ''),
   verify_command TEXT,
   verify_max_attempts INTEGER NOT NULL DEFAULT 3 CHECK(verify_max_attempts BETWEEN 1 AND 20),
   verify_token_budget INTEGER CHECK(verify_token_budget IS NULL OR verify_token_budget > 0),
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL
+);
+-- Backend-owned proof that a Project folder came from the native folder picker.
+-- `projects.workspace_root` remains a renderer-readable catalog projection, but
+-- task authority is issued only when it exactly matches this protected record
+-- and the live filesystem identity still matches.
+CREATE TABLE IF NOT EXISTS project_workspace_authority (
+  project_id          TEXT PRIMARY KEY NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  company_id          TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  canonical_root      TEXT NOT NULL CHECK(trim(canonical_root) <> ''),
+  root_identity_json  TEXT NOT NULL,
+  selected_at_unix_ms INTEGER NOT NULL,
+  updated_at_unix_ms  INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS chat_threads (
   thread_id         TEXT PRIMARY KEY NOT NULL,
@@ -385,6 +397,53 @@ CREATE TABLE IF NOT EXISTS chat_threads (
   archived_at       TEXT,
   created_at        TEXT NOT NULL,
   updated_at        TEXT NOT NULL
+);
+-- Durable, non-authoritative projection of backend-issued task workspace
+-- capabilities. The 256-bit binding ref never enters SQLite; only the safe
+-- scope/root/reason projection survives restart for explanation and recovery.
+CREATE TABLE IF NOT EXISTS task_workspace_binding_history (
+  binding_id                TEXT PRIMARY KEY NOT NULL,
+  company_id                TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  project_id                TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  thread_id                 TEXT NOT NULL REFERENCES chat_threads(thread_id) ON DELETE CASCADE,
+  turn_id                   TEXT NOT NULL,
+  request_id                TEXT NOT NULL UNIQUE,
+  access                    TEXT NOT NULL CHECK(access IN ('read', 'write')),
+  canonical_root            TEXT NOT NULL,
+  root_identity_json        TEXT NOT NULL,
+  source                    TEXT NOT NULL,
+  confidence                REAL NOT NULL CHECK(confidence BETWEEN 0 AND 1),
+  reason_code               TEXT NOT NULL,
+  issued_at_unix_ms         INTEGER NOT NULL,
+  expires_at_unix_ms        INTEGER NOT NULL,
+  activated_at_unix_ms      INTEGER NOT NULL,
+  last_used_at_unix_ms      INTEGER NOT NULL,
+  status                    TEXT NOT NULL CHECK(status IN (
+    'active', 'completed', 'failed', 'aborted', 'expired', 'app_restart'
+  )),
+  revoked_at_unix_ms        INTEGER,
+  read_grace_until_unix_ms  INTEGER,
+  release_reason            TEXT,
+  resumed_from_binding_id   TEXT
+);
+-- Backend authority/provenance for isolated writable worktrees. Renderer and
+-- Node lease packets are only consistency projections; a worktree is usable or
+-- adoptable only while this row is active and live Git metadata still matches.
+CREATE TABLE IF NOT EXISTS task_workspace_lease_history (
+  lease_id                   TEXT PRIMARY KEY NOT NULL,
+  project_id                 TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  created_binding_id         TEXT NOT NULL,
+  active_binding_id          TEXT NOT NULL,
+  created_root_run_id        TEXT NOT NULL,
+  child_run_id               TEXT NOT NULL,
+  created_request_id         TEXT NOT NULL,
+  branch                     TEXT NOT NULL,
+  canonical_worktree         TEXT NOT NULL UNIQUE,
+  worktree_identity_json     TEXT NOT NULL,
+  project_root_identity_json TEXT NOT NULL,
+  created_at_unix_ms         INTEGER NOT NULL,
+  updated_at_unix_ms         INTEGER NOT NULL,
+  status                     TEXT NOT NULL CHECK(status IN ('active', 'released', 'discarded', 'invalid'))
 );
 CREATE TABLE IF NOT EXISTS project_assignments (
   assignment_id TEXT PRIMARY KEY NOT NULL,
@@ -653,6 +712,251 @@ CREATE INDEX IF NOT EXISTS idx_chat_threads_project_updated
   ON chat_threads(project_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_threads_project_employee
   ON chat_threads(project_id, employee_id);
+CREATE INDEX IF NOT EXISTS idx_project_workspace_authority_company
+  ON project_workspace_authority(company_id, project_id);
+CREATE INDEX IF NOT EXISTS idx_task_workspace_binding_history_scope
+  ON task_workspace_binding_history(company_id, thread_id, issued_at_unix_ms DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workspace_binding_resume_once
+  ON task_workspace_binding_history(resumed_from_binding_id)
+  WHERE resumed_from_binding_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_task_workspace_lease_history_project_status
+  ON task_workspace_lease_history(project_id, status, updated_at_unix_ms DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workspace_lease_history_active_branch
+  ON task_workspace_lease_history(project_id, branch) WHERE status = 'active';
+
+-- Backend workspace authority is deliberately stronger than the renderer's
+-- generic local-DB surface. These triggers make cross-table scope/provenance
+-- and destructive-delete gates atomic with the write itself; a renderer
+-- preflight remains UX-only and cannot introduce a check-then-delete race.
+CREATE TRIGGER IF NOT EXISTS trg_task_workspace_binding_scope_insert
+BEFORE INSERT ON task_workspace_binding_history
+WHEN NOT EXISTS (
+  SELECT 1
+  FROM chat_threads AS thread
+  JOIN projects AS project ON project.project_id = thread.project_id
+  JOIN project_workspace_authority AS authority
+    ON authority.project_id = project.project_id
+   AND authority.company_id = project.company_id
+   AND authority.canonical_root = project.workspace_root
+  WHERE thread.thread_id = NEW.thread_id
+    AND project.project_id = NEW.project_id
+    AND project.company_id = NEW.company_id
+    AND authority.canonical_root = NEW.canonical_root
+    AND authority.root_identity_json = NEW.root_identity_json
+)
+BEGIN
+  SELECT RAISE(ABORT, 'task workspace binding scope does not match Company, Project, and Conversation');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_project_workspace_authority_scope_insert
+BEFORE INSERT ON project_workspace_authority
+WHEN NOT EXISTS (
+  SELECT 1 FROM projects AS project
+  WHERE project.project_id = NEW.project_id
+    AND project.company_id = NEW.company_id
+    AND project.workspace_root = NEW.canonical_root
+)
+BEGIN
+  SELECT RAISE(ABORT, 'Project workspace authority does not match its Project catalog scope');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_project_workspace_authority_scope_update
+BEFORE UPDATE OF project_id, company_id, canonical_root ON project_workspace_authority
+WHEN NOT EXISTS (
+  SELECT 1 FROM projects AS project
+  WHERE project.project_id = NEW.project_id
+    AND project.company_id = NEW.company_id
+    AND project.workspace_root = NEW.canonical_root
+)
+BEGIN
+  SELECT RAISE(ABORT, 'Project workspace authority does not match its Project catalog scope');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_project_workspace_authority_identity_update
+BEFORE UPDATE OF canonical_root, root_identity_json ON project_workspace_authority
+WHEN (NEW.canonical_root <> OLD.canonical_root OR NEW.root_identity_json <> OLD.root_identity_json)
+AND (
+  EXISTS (
+    SELECT 1 FROM task_workspace_binding_history AS binding
+    WHERE binding.project_id = OLD.project_id AND binding.status = 'active'
+  )
+  OR EXISTS (
+    SELECT 1 FROM task_workspace_lease_history AS lease
+    WHERE lease.project_id = OLD.project_id AND lease.status = 'active'
+  )
+)
+BEGIN
+  SELECT RAISE(ABORT, 'stop active tasks and review, release, or discard retained worktrees before changing this Project folder identity');
+END;
+
+-- A Conversation never moves between Projects. Re-parenting it underneath an
+-- active binding would otherwise rewrite the meaning of durable scope rows.
+CREATE TRIGGER IF NOT EXISTS trg_chat_threads_project_immutable
+BEFORE UPDATE OF project_id ON chat_threads
+WHEN NEW.project_id <> OLD.project_id
+BEGIN
+  SELECT RAISE(ABORT, 'A Conversation cannot be moved to another Project');
+END;
+
+-- Folder/company identity cannot change while a writer or retained worktree is
+-- live. The dedicated backend update performs the same preflight for a clearer
+-- product error; this trigger closes the transaction race and direct DB writes.
+CREATE TRIGGER IF NOT EXISTS trg_projects_workspace_authority_update
+BEFORE UPDATE OF company_id, workspace_root ON projects
+WHEN (NEW.company_id <> OLD.company_id OR NEW.workspace_root <> OLD.workspace_root)
+AND (
+  EXISTS (
+    SELECT 1 FROM task_workspace_binding_history AS binding
+    WHERE binding.project_id = OLD.project_id AND binding.status = 'active'
+  )
+  OR EXISTS (
+    SELECT 1 FROM task_workspace_lease_history AS lease
+    WHERE lease.project_id = OLD.project_id AND lease.status = 'active'
+  )
+)
+BEGIN
+  SELECT RAISE(ABORT, 'stop active tasks and review, release, or discard retained worktrees before changing this Project folder');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_task_workspace_binding_scope_update
+BEFORE UPDATE OF company_id, project_id, thread_id, canonical_root, root_identity_json
+ON task_workspace_binding_history
+WHEN NOT EXISTS (
+  SELECT 1
+  FROM chat_threads AS thread
+  JOIN projects AS project ON project.project_id = thread.project_id
+  JOIN project_workspace_authority AS authority
+    ON authority.project_id = project.project_id
+   AND authority.company_id = project.company_id
+   AND authority.canonical_root = project.workspace_root
+  WHERE thread.thread_id = NEW.thread_id
+    AND project.project_id = NEW.project_id
+    AND project.company_id = NEW.company_id
+    AND authority.canonical_root = NEW.canonical_root
+    AND authority.root_identity_json = NEW.root_identity_json
+)
+BEGIN
+  SELECT RAISE(ABORT, 'task workspace binding scope does not match Company, Project, and Conversation');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_task_workspace_lease_provenance_insert
+BEFORE INSERT ON task_workspace_lease_history
+WHEN NOT EXISTS (
+  SELECT 1
+  FROM task_workspace_binding_history AS binding
+  JOIN project_workspace_authority AS authority
+    ON authority.project_id = binding.project_id
+   AND authority.company_id = binding.company_id
+   AND authority.canonical_root = binding.canonical_root
+   AND authority.root_identity_json = binding.root_identity_json
+  JOIN agent_runs AS child ON child.run_id = NEW.child_run_id
+  JOIN agent_runs AS root ON root.run_id = NEW.created_root_run_id
+  WHERE binding.binding_id = NEW.created_binding_id
+    AND NEW.active_binding_id = NEW.created_binding_id
+    AND binding.project_id = NEW.project_id
+    AND binding.turn_id = NEW.created_root_run_id
+    AND binding.request_id = NEW.created_request_id
+    AND binding.access = 'write'
+    AND binding.status = 'active'
+    AND NEW.project_root_identity_json = binding.root_identity_json
+    AND child.company_id = binding.company_id
+    AND child.project_id = binding.project_id
+    AND child.thread_id = binding.thread_id
+    AND child.root_run_id = NEW.created_root_run_id
+    AND child.parent_run_id IS NOT NULL
+    AND child.run_id <> NEW.created_root_run_id
+    AND child.status = 'running'
+    AND root.company_id = binding.company_id
+    AND root.project_id = binding.project_id
+    AND root.thread_id = binding.thread_id
+    AND root.parent_run_id IS NULL
+    AND root.root_run_id = root.run_id
+    AND root.status = 'running'
+)
+BEGIN
+  SELECT RAISE(ABORT, 'task workspace lease provenance does not match a live writable binding and child run');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_task_workspace_lease_provenance_immutable
+BEFORE UPDATE OF project_id, created_binding_id, created_root_run_id, child_run_id, created_request_id
+ON task_workspace_lease_history
+BEGIN
+  SELECT RAISE(ABORT, 'task workspace lease creation provenance is immutable');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_task_workspace_lease_active_binding_update
+BEFORE UPDATE OF active_binding_id ON task_workspace_lease_history
+WHEN NOT EXISTS (
+  SELECT 1
+  FROM task_workspace_binding_history AS binding
+  WHERE binding.binding_id = NEW.active_binding_id
+    AND binding.project_id = NEW.project_id
+    AND binding.access = 'write'
+    AND binding.status = 'active'
+)
+BEGIN
+  SELECT RAISE(ABORT, 'task workspace lease adoption requires an active writable binding for the same Project');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_chat_threads_workspace_authority_delete
+BEFORE DELETE ON chat_threads
+WHEN EXISTS (
+  SELECT 1
+  FROM task_workspace_binding_history AS binding
+  WHERE binding.thread_id = OLD.thread_id
+    AND binding.status = 'active'
+)
+OR EXISTS (
+  SELECT 1
+  FROM task_workspace_lease_history AS lease
+  WHERE lease.status = 'active'
+    AND EXISTS (
+      SELECT 1
+      FROM task_workspace_binding_history AS binding
+      WHERE binding.thread_id = OLD.thread_id
+        AND binding.binding_id IN (lease.created_binding_id, lease.active_binding_id)
+    )
+)
+BEGIN
+  SELECT RAISE(ABORT, 'active task workspace must be reviewed, released, or discarded before deleting this Conversation');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_projects_workspace_authority_delete
+BEFORE DELETE ON projects
+WHEN EXISTS (
+  SELECT 1
+  FROM task_workspace_binding_history AS binding
+  WHERE binding.project_id = OLD.project_id
+    AND binding.status = 'active'
+)
+OR EXISTS (
+  SELECT 1
+  FROM task_workspace_lease_history AS lease
+  WHERE lease.project_id = OLD.project_id
+    AND lease.status = 'active'
+)
+BEGIN
+  SELECT RAISE(ABORT, 'active task workspace must be reviewed, released, or discarded before deleting this Project');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_companies_workspace_authority_delete
+BEFORE DELETE ON companies
+WHEN EXISTS (
+  SELECT 1
+  FROM task_workspace_binding_history AS binding
+  WHERE binding.company_id = OLD.company_id
+    AND binding.status = 'active'
+)
+OR EXISTS (
+  SELECT 1
+  FROM task_workspace_lease_history AS lease
+  JOIN projects AS project ON project.project_id = lease.project_id
+  WHERE project.company_id = OLD.company_id
+    AND lease.status = 'active'
+)
+BEGIN
+  SELECT RAISE(ABORT, 'active task workspace must be reviewed, released, or discarded before deleting this Company');
+END;
 -- Partial index: only non-archived threads contribute. The legacy three-col
 -- index on (project_id, archived_at, updated_at DESC) couldn't be used by the
 -- common "active threads for project" lookup because SQLite can't seek past a

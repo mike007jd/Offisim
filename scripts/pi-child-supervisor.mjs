@@ -30,28 +30,28 @@ import {
   assertRunFailureKind,
   classifyRunFailure,
 } from './pi-agent-host-wire.mjs';
-import { normalizePermissionMode, toolAllowlistForMode } from './pi-agent-permission-modes.mts';
+import {
+  WORK_TOOL_ALLOWLIST,
+  normalizePermissionMode,
+  toolAllowlistForMode,
+} from './pi-agent-permission-modes.mts';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 
-// Capability band → child tool allowlist. `write` returns undefined so Pi enables
-// its full default tool set; the others are restrictive subsets.
+// Capability band → exact child work-tool allowlist. No band may leave `tools`
+// undefined because Pi would then auto-activate disk-loaded extension tools.
 const ACCESS_TOOLS = {
   read: ['read', 'grep', 'find', 'ls'],
   review: ['read', 'grep', 'find', 'ls', 'bash'],
-  write: undefined,
+  write: [...WORK_TOOL_ALLOWLIST],
 };
 
 /** Intersect the delegated access band with the root conversation's permission
- * mode. `undefined` preserves Pi's default tool set for write+auto/full/ask. */
+ * mode, then retain only the one controlled recursion capability. */
 export function childToolsForPermissionMode(access, permissionMode) {
   const accessTools = ACCESS_TOOLS[access];
   const permissionTools = toolAllowlistForMode(normalizePermissionMode(permissionMode));
-  const workTools = permissionTools
-    ? accessTools
-      ? permissionTools.filter((tool) => accessTools.includes(tool))
-      : [...permissionTools]
-    : accessTools;
-  return workTools ? [...new Set([...workTools, 'delegate'])] : undefined;
+  const workTools = permissionTools.filter((tool) => accessTools.includes(tool));
+  return [...new Set([...workTools, 'delegate'])];
 }
 
 // Model-visible output caps. Full transcript / tool timeline / usage stay in the
@@ -425,6 +425,7 @@ async function mapWithConcurrencyLimit(items, limit, fn) {
  * @param {string} ctx.cwd
  * @param {object} [ctx.leaseManager]
  * @param {object} [ctx.rootLease]
+ * @param {(claim: object) => Promise<{cwd:string}>} [ctx.validateLeaseCwd]
  * @param {(plan: object) => Promise<boolean>} [ctx.confirmIntegration]
  * @param {object} ctx.settingsManager
  * @param {string} ctx.threadId
@@ -755,7 +756,7 @@ export function createChildSupervisor(ctx) {
     // The access band restricts WORK tools (read/write/bash). `delegate` is an
     // orchestration capability, not a work tool, so it must survive the allowlist
     // — otherwise a restricted-access child silently loses its delegate tool and
-    // can never recurse. `write` (undefined = all tools) already includes it.
+    // can never recurse. Every band stays explicit so Pi cannot auto-load tools.
     const permissionMode = normalizePermissionMode(ctx.permissionMode);
     const tools = childToolsForPermissionMode(access, permissionMode);
     const persona =
@@ -781,6 +782,7 @@ export function createChildSupervisor(ctx) {
     const childDelegationFactory = createDelegationExtensionFactory(childSupervisor);
     const extensionFactories = [gateFactory, childDelegationFactory].filter(Boolean);
     let lease = null;
+    let taskWorkspaceLease = null;
     let childCwd = ctx.cwd;
     if (ctx.leaseManager && ctx.rootLease) {
       try {
@@ -817,8 +819,29 @@ export function createChildSupervisor(ctx) {
           };
         }
         lease = leaseResult?.lease ?? null;
+        if (lease?.isolated) {
+          if (!ctx.validateLeaseCwd) {
+            throw new Error('Isolated workspace lease validation channel is unavailable.');
+          }
+          taskWorkspaceLease = {
+            leaseId: lease.leaseId,
+            // A rework run adopts the original registered lease under a fresh
+            // agent run. Rust must compare the durable registration owner, not
+            // the new UI run id.
+            registeredRunId: asNonEmptyString(resumeLease?.runId) ?? lease.runId,
+            workspaceRoot: lease.workspaceRoot,
+            cwd: lease.cwd,
+            branch: lease.branch,
+          };
+          const validated = await ctx.validateLeaseCwd(taskWorkspaceLease);
+          if (!validated || validated.cwd !== lease.cwd) {
+            throw new Error('Isolated workspace lease identity changed before child startup.');
+          }
+        }
         if (typeof lease?.cwd === 'string' && lease.cwd.trim()) {
-          childCwd = lease.cwd;
+          // Shared root leases inherit the sidecar's descriptor-bound `.` cwd.
+          // Only isolated worktrees need their distinct registered lease path.
+          childCwd = lease.isolated ? lease.cwd : ctx.cwd;
         }
         if (lease) {
           await emitWorkspaceLeaseSnapshot(emit, lease, 'acquired', {
@@ -826,6 +849,12 @@ export function createChildSupervisor(ctx) {
           });
         }
       } catch (error) {
+        if (lease) {
+          const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
+          if (released) {
+            await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_authority_failure');
+          }
+        }
         const message = error instanceof Error ? error.message : String(error);
         return {
           summary: blocked(emit, `Workspace lease failed: ${message}`, 'runtime'),
@@ -877,12 +906,14 @@ export function createChildSupervisor(ctx) {
         agentDir: ctx.agentDir,
         authStorage: ctx.authStorage,
         modelRegistry: ctx.modelRegistry,
+        settingsManager: ctx.settingsManager,
         sessionManager: ctx.createSessionManager
           ? ctx.createSessionManager(childCwd)
           : SessionManager.inMemory(childCwd),
         ...(model ? { model } : {}),
         ...(thinkingLevel ? { thinkingLevel } : {}),
-        ...(tools ? { tools } : {}),
+        tools,
+        ...(taskWorkspaceLease ? { taskWorkspaceLease } : {}),
         resourceLoader,
       }));
       binding.actualModel = session.model ?? model;

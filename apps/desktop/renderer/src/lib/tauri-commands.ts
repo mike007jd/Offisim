@@ -31,6 +31,141 @@ interface ProjectDirEntry {
   size?: number | null;
 }
 
+export interface ProjectWorkspaceSelectionClaim {
+  selectionRef: string;
+  displayPath: string;
+  expiresAtUnixMs: number;
+}
+
+interface ProjectCreateCommandInput {
+  projectId: string;
+  companyId: string;
+  name: string;
+  description: string | null;
+  status: 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+  workspaceSelectionRef: string;
+  verifyCommand: string | null;
+  verifyMaxAttempts: number;
+  verifyTokenBudget: number | null;
+}
+
+interface ProjectUpdateCommandInput {
+  projectId: string;
+  name: string;
+  description: string | null;
+  status: 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+  workspaceSelectionRef: string | null;
+  verifyCommand: string | null;
+  verifyMaxAttempts: number;
+  verifyTokenBudget: number | null;
+}
+
+/** Persistable, non-secret explanation of the backend-issued workspace binding. */
+export interface TaskWorkspaceBindingProjection {
+  historyId: string;
+  companyId: string;
+  projectId: string;
+  threadId: string;
+  turnId: string;
+  requestId: string;
+  access: 'read' | 'write';
+  source: string;
+  confidence: number;
+  reasonCode: string;
+  issuedAtUnixMs: number;
+  expiresAtUnixMs: number;
+  displayPath: string;
+}
+
+/** Ephemeral claim used only when invoking binding-scoped backend commands. */
+export interface TaskWorkspaceBindingClaim extends TaskWorkspaceBindingProjection {
+  workspaceRef: string;
+}
+
+/**
+ * Ephemeral, bounded authority for deterministic Mission evaluation. It keeps
+ * read access plus classifier-bounded verification execution on the exact Turn
+ * binding. It exposes no direct project-write API and can only derive from the
+ * Mission attempt's original Write Turn.
+ */
+export interface TaskWorkspaceEvaluationLeaseClaim {
+  evaluationLeaseRef: string;
+  historyId: string;
+  companyId: string;
+  projectId: string;
+  threadId: string;
+  turnId: string;
+  requestId: string;
+  missionId: string;
+  attemptId: string;
+  issuedAtUnixMs: number;
+  expiresAtUnixMs: number;
+}
+
+export interface TaskWorkspaceResumeCompatibilityArgs {
+  historyId: string;
+  companyId: string;
+  projectId: string;
+  threadId: string;
+  rootRunId: string;
+  access: 'read' | 'write';
+}
+
+export interface TaskWorkspaceResumeCompatibility {
+  status: 'same' | 'missing' | 'changed';
+  reason: string;
+}
+
+interface TaskWorkspaceDeletionPreflight {
+  allowed: boolean;
+  activeBindings: number;
+  activeLeases: number;
+}
+
+/** Parse the persistable projection while deliberately discarding capability refs/raw roots. */
+export function parseTaskWorkspaceBindingProjection(
+  value: unknown,
+): TaskWorkspaceBindingProjection | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const stringKeys = [
+    'historyId',
+    'companyId',
+    'projectId',
+    'threadId',
+    'turnId',
+    'requestId',
+    'access',
+    'source',
+    'reasonCode',
+    'displayPath',
+  ] as const;
+  if (stringKeys.some((key) => typeof record[key] !== 'string')) return null;
+  if (record.access !== 'read' && record.access !== 'write') return null;
+  if (typeof record.confidence !== 'number' || !Number.isFinite(record.confidence)) return null;
+  if (typeof record.issuedAtUnixMs !== 'number' || !Number.isFinite(record.issuedAtUnixMs)) {
+    return null;
+  }
+  if (typeof record.expiresAtUnixMs !== 'number' || !Number.isFinite(record.expiresAtUnixMs)) {
+    return null;
+  }
+  return {
+    historyId: record.historyId as string,
+    companyId: record.companyId as string,
+    projectId: record.projectId as string,
+    threadId: record.threadId as string,
+    turnId: record.turnId as string,
+    requestId: record.requestId as string,
+    access: record.access,
+    source: record.source as string,
+    confidence: record.confidence,
+    reasonCode: record.reasonCode as string,
+    issuedAtUnixMs: record.issuedAtUnixMs,
+    expiresAtUnixMs: record.expiresAtUnixMs,
+    displayPath: record.displayPath as string,
+  };
+}
+
 export interface CodexPetMetadata {
   id: string;
   displayName: string;
@@ -116,18 +251,16 @@ interface PiAgentExecuteRequest {
   text: string;
   companyId: string;
   threadId: string;
-  cwd?: string | null;
-  projectId?: string | null;
-  projectVerifyCommand?: string | null;
-  projectVerifyMaxAttempts?: number | null;
-  projectVerifyTokenBudget?: number | null;
+  projectId: string;
   employeeId?: string | null;
   model?: string | null;
   permissionMode?: string | null;
   thinkingLevel?: string | null;
   systemPromptAppend?: string | null;
   skillPaths?: string[] | null;
-  rootRunId?: string | null;
+  rootRunId: string;
+  /** Required only for resume; backend reissues authority from persisted history. */
+  workspaceBindingHistoryId?: string | null;
   roster?: unknown;
   missionContextJson?: string | null;
   mcpTools?: unknown;
@@ -195,6 +328,7 @@ type PiAgentHostEvent =
       model?: PiAgentModelSummary;
       modelFallbackMessage?: string;
     }
+  | ({ kind: 'workspaceBound' } & TaskWorkspaceBindingClaim)
   | { kind: 'messageDelta'; delta: string; channel?: 'content' | 'reasoning' }
   | { kind: 'messageEnd'; text: string; stopReason?: string; errorMessage?: string }
   | {
@@ -457,6 +591,8 @@ type ProjectPathArgs = {
   path: string;
   cwd?: string | null;
   projectId?: string | null;
+  bindingClaim?: TaskWorkspaceBindingClaim | null;
+  evaluationLease?: TaskWorkspaceEvaluationLeaseClaim | null;
 };
 
 type AgentRuntimeArgs<TRequest> = {
@@ -481,6 +617,19 @@ export interface CommandMap {
   local_db_execute: CommandSpec<{ sql: string; params: unknown[] }, number>;
   local_db_select: CommandSpec<{ sql: string; params: unknown[] }, unknown[]>;
   local_db_execute_transaction: CommandSpec<{ statements: LocalDbTransactionStatement[] }, void>;
+  project_workspace_select: CommandSpec<
+    { title?: string | null },
+    ProjectWorkspaceSelectionClaim | null
+  >;
+  project_create: CommandSpec<{ input: ProjectCreateCommandInput }, void>;
+  project_update: CommandSpec<{ input: ProjectUpdateCommandInput }, void>;
+  project_update_status: CommandSpec<
+    {
+      projectId: string;
+      status: 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+    },
+    void
+  >;
   project_read_file: CommandSpec<ProjectPathArgs, string>;
   project_read_file_lines: CommandSpec<
     ProjectPathArgs & { offset: number; limit?: number | null },
@@ -490,12 +639,9 @@ export interface CommandMap {
     ProjectPathArgs & { maxBytes: number },
     ProjectFilePreview
   >;
-  project_preview_meta: CommandSpec<
-    { path: string; projectId?: string | null },
-    ProjectPreviewMeta
-  >;
+  project_preview_meta: CommandSpec<ProjectPathArgs, ProjectPreviewMeta>;
   project_read_file_bytes: CommandSpec<
-    { path: string; projectId?: string | null; maxBytes?: number },
+    ProjectPathArgs & { maxBytes?: number },
     ArrayBuffer | Uint8Array | number[]
   >;
   codex_pets_list: CommandSpec<undefined, CodexPetCatalog>;
@@ -508,7 +654,7 @@ export interface CommandMap {
   project_write_file: CommandSpec<ProjectPathArgs & { content: string }, void>;
   bash_execute: CommandSpec<
     {
-      cwd: string;
+      cwd?: string | null;
       cmd: string;
       timeoutMs: number;
       maxOutputBytes?: number | null;
@@ -516,6 +662,8 @@ export interface CommandMap {
       approvalId?: string | null;
       employeeId?: string | null;
       networkPolicy?: string | null;
+      evaluationLease?: TaskWorkspaceEvaluationLeaseClaim | null;
+      verificationOnly?: boolean | null;
     },
     BashExecuteResult
   >;
@@ -615,12 +763,56 @@ export interface CommandMap {
   >;
   agent_runtime_status: CommandSpec<undefined, PiAgentStatusResponse>;
   computer_driver_status: CommandSpec<undefined, ComputerDriverStatus>;
-  git_exec: CommandSpec<{ args: string[]; projectId: string; cwd?: string | null }, GitExecResult>;
+  task_workspace_evaluation_lease_acquire: CommandSpec<
+    {
+      bindingClaim: TaskWorkspaceBindingClaim;
+      missionId: string;
+      attemptId: string;
+    },
+    TaskWorkspaceEvaluationLeaseClaim
+  >;
+  task_workspace_evaluation_lease_release: CommandSpec<
+    { evaluationLease: TaskWorkspaceEvaluationLeaseClaim },
+    void
+  >;
+  task_workspace_resume_compatibility: CommandSpec<
+    TaskWorkspaceResumeCompatibilityArgs,
+    TaskWorkspaceResumeCompatibility
+  >;
+  task_workspace_interrupted_run_cancel: CommandSpec<
+    Omit<TaskWorkspaceResumeCompatibilityArgs, 'access' | 'historyId'> & {
+      historyId?: string | null;
+    },
+    void
+  >;
+  task_workspace_deletion_preflight: CommandSpec<
+    {
+      scope: 'conversation' | 'project' | 'company';
+      companyId: string;
+      projectId?: string | null;
+      threadId?: string | null;
+    },
+    TaskWorkspaceDeletionPreflight
+  >;
+  git_exec: CommandSpec<
+    {
+      args: string[];
+      projectId: string;
+      cwd?: string | null;
+      bindingClaim?: TaskWorkspaceBindingClaim | null;
+      evaluationLease?: TaskWorkspaceEvaluationLeaseClaim | null;
+    },
+    GitExecResult
+  >;
   gh_exec: CommandSpec<{ args: string[]; projectId: string }, GhExecResult>;
-  workspace_lease_discard: CommandSpec<{ projectId: string; leaseId: string }, void>;
+  workspace_lease_changed: CommandSpec<
+    { projectId: string; leaseId: string; path: string },
+    boolean
+  >;
+  workspace_lease_release: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
+  workspace_lease_discard: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
   open_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
   reveal_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
-  ensure_company_workspace: CommandSpec<{ companyId: string }, string>;
   delete_company_workspace: CommandSpec<{ companyId: string }, void>;
   runtime_vault_status: CommandSpec<undefined, RuntimeVaultStatus>;
   open_runtime_vault_folder: CommandSpec<undefined, void>;

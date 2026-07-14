@@ -64,6 +64,7 @@ async function runScenario({
     limits: createDelegationLimits(),
     rootLease: { ...lease, leaseId: 'root-lease', cwd: lease.workspaceRoot, isolated: false },
     leaseManager,
+    validateLeaseCwd: async (claim: { cwd: string }) => ({ cwd: claim.cwd }),
     confirmIntegration: async () => false,
     verifyConfig,
     requestVerifyResult: async ({ cwd }: { cwd: string }) => {

@@ -12,7 +12,7 @@ import {
 } from '@/design-system/primitives/dialog.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
-import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
+import { type ProjectWorkspaceSelectionClaim, invokeCommand } from '@/lib/tauri-commands.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { FolderOpen } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
@@ -46,6 +46,8 @@ export function ProjectDialog({
   const verifyTokenBudgetId = useId();
   const [name, setName] = useState('');
   const [workspaceRoot, setWorkspaceRoot] = useState('');
+  const [workspaceSelection, setWorkspaceSelection] =
+    useState<ProjectWorkspaceSelectionClaim | null>(null);
   const [verifyCommand, setVerifyCommand] = useState('');
   const [verifyMaxAttempts, setVerifyMaxAttempts] = useState('3');
   const [verifyTokenBudget, setVerifyTokenBudget] = useState('');
@@ -55,6 +57,7 @@ export function ProjectDialog({
     if (!open) return;
     setName(mode === 'edit' ? (project?.name ?? '') : '');
     setWorkspaceRoot(mode === 'edit' ? (project?.workspaceRoot ?? '') : '');
+    setWorkspaceSelection(null);
     setVerifyCommand(mode === 'edit' ? (project?.verifyCommand ?? '') : '');
     setVerifyMaxAttempts(String(mode === 'edit' ? (project?.verifyMaxAttempts ?? 3) : 3));
     setVerifyTokenBudget(
@@ -68,21 +71,27 @@ export function ProjectDialog({
       toast.error('Project name is required');
       return;
     }
-    const cleanWorkspaceRoot = trimToNull(workspaceRoot);
+    const requestedWorkspaceRoot = workspaceRoot.trim();
+    if (!requestedWorkspaceRoot) {
+      toast.error('Project folder is required');
+      return;
+    }
     const cleanVerifyCommand = trimToNull(verifyCommand);
-    const cleanVerifyMaxAttempts = Number.parseInt(verifyMaxAttempts, 10);
-    const cleanVerifyTokenBudget = verifyTokenBudget.trim()
-      ? Number.parseInt(verifyTokenBudget, 10)
-      : null;
+    const verifyEnabled = cleanVerifyCommand !== null;
+    const cleanVerifyMaxAttempts = verifyEnabled ? Number.parseInt(verifyMaxAttempts, 10) : 3;
+    const cleanVerifyTokenBudget =
+      verifyEnabled && verifyTokenBudget.trim() ? Number.parseInt(verifyTokenBudget, 10) : null;
     if (
-      !Number.isInteger(cleanVerifyMaxAttempts) ||
-      cleanVerifyMaxAttempts < 1 ||
-      cleanVerifyMaxAttempts > 20
+      verifyEnabled &&
+      (!Number.isInteger(cleanVerifyMaxAttempts) ||
+        cleanVerifyMaxAttempts < 1 ||
+        cleanVerifyMaxAttempts > 20)
     ) {
       toast.error('Verify attempts must be between 1 and 20');
       return;
     }
     if (
+      verifyEnabled &&
       cleanVerifyTokenBudget !== null &&
       (!Number.isInteger(cleanVerifyTokenBudget) || cleanVerifyTokenBudget < 1)
     ) {
@@ -91,13 +100,6 @@ export function ProjectDialog({
     }
     setSaving(true);
     try {
-      const overbroad = cleanWorkspaceRoot
-        ? await overbroadWorkspaceReason(cleanWorkspaceRoot)
-        : null;
-      if (overbroad) {
-        toast.error(overbroad);
-        return;
-      }
       const repos = await reposOrNull();
       if (!repos) {
         throw new Error('Project editing requires the desktop runtime');
@@ -107,26 +109,38 @@ export function ProjectDialog({
       }
       let savedProjectId = project?.id ?? null;
       if (mode === 'edit' && project) {
-        await repos.projects.update(project.id, {
-          name: cleanName,
-          workspace_root: cleanWorkspaceRoot,
-          verify_command: cleanVerifyCommand,
-          verify_max_attempts: cleanVerifyMaxAttempts,
-          verify_token_budget: cleanVerifyTokenBudget,
+        const existing = await repos.projects.findById(project.id);
+        if (!existing) throw new Error('Project was not found');
+        await invokeCommand('project_update', {
+          input: {
+            projectId: project.id,
+            name: cleanName,
+            description: existing.description,
+            status: existing.status,
+            workspaceSelectionRef: workspaceSelection?.selectionRef ?? null,
+            verifyCommand: cleanVerifyCommand,
+            verifyMaxAttempts: cleanVerifyMaxAttempts,
+            verifyTokenBudget: cleanVerifyTokenBudget,
+          },
         });
         toast.success('Project updated');
       } else {
+        if (!workspaceSelection) {
+          throw new Error('Choose the Project folder before creating this Project');
+        }
         savedProjectId = crypto.randomUUID();
-        await repos.projects.create({
-          project_id: savedProjectId,
-          company_id: companyId,
-          name: cleanName,
-          description: null,
-          status: 'planning',
-          workspace_root: cleanWorkspaceRoot,
-          verify_command: cleanVerifyCommand,
-          verify_max_attempts: cleanVerifyMaxAttempts,
-          verify_token_budget: cleanVerifyTokenBudget,
+        await invokeCommand('project_create', {
+          input: {
+            projectId: savedProjectId,
+            companyId,
+            name: cleanName,
+            description: null,
+            status: 'planning',
+            workspaceSelectionRef: workspaceSelection.selectionRef,
+            verifyCommand: cleanVerifyCommand,
+            verifyMaxAttempts: cleanVerifyMaxAttempts,
+            verifyTokenBudget: cleanVerifyTokenBudget,
+          },
         });
         toast.success('Project created');
       }
@@ -150,14 +164,10 @@ export function ProjectDialog({
 
   async function chooseWorkspaceFolder() {
     try {
-      const folder = await pickWorkspaceFolder('Select project workspace folder');
+      const folder = await pickWorkspaceFolder('Choose Project folder');
       if (!folder) return;
-      const overbroad = await overbroadWorkspaceReason(folder);
-      if (overbroad) {
-        toast.error(overbroad);
-        return;
-      }
-      setWorkspaceRoot(folder);
+      setWorkspaceRoot(folder.displayPath);
+      setWorkspaceSelection(folder);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Folder picker failed');
     }
@@ -170,8 +180,8 @@ export function ProjectDialog({
           <DialogTitle>{mode === 'edit' ? 'Edit project' : 'New project'}</DialogTitle>
           <DialogDescription>
             {mode === 'edit'
-              ? 'Update the workspace and its delegated-work verification gate.'
-              : 'Name it, bind its workspace, and optionally configure a verification gate.'}
+              ? 'Update the Project name, folder, and optional verification command.'
+              : 'Choose the folder where this Project’s files live.'}
           </DialogDescription>
         </DialogHeader>
         <div className="off-field">
@@ -181,8 +191,26 @@ export function ProjectDialog({
           <Input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
         </div>
         <div className="off-field">
+          <label className="off-field-label" htmlFor={workspaceRootId}>
+            Project folder <span aria-hidden="true">*</span>
+          </label>
+          <div className="off-inline-field">
+            <Input
+              id={workspaceRootId}
+              value={workspaceRoot}
+              readOnly
+              placeholder="Choose a folder"
+              required
+            />
+            <Button type="button" variant="outline" onClick={() => void chooseWorkspaceFolder()}>
+              <Icon icon={FolderOpen} size="sm" />
+              {workspaceRoot ? 'Change' : 'Choose'}
+            </Button>
+          </div>
+        </div>
+        <div className="off-field">
           <label className="off-field-label" htmlFor={verifyCommandId}>
-            Verify command
+            Verify command <span className="text-muted-foreground">(optional)</span>
           </label>
           <Input
             id={verifyCommandId}
@@ -191,55 +219,40 @@ export function ProjectDialog({
             placeholder="Not configured"
           />
           <p className="off-field-hint">
-            Leave empty for single-pass delegation. When configured, write tasks repeat until this
-            command exits 0 or a limit is reached.
+            Leave empty to run once. When set, write tasks retry until this command passes or a
+            limit is reached.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-[var(--off-sp-3)]">
-          <div className="off-field">
-            <label className="off-field-label" htmlFor={verifyAttemptsId}>
-              Maximum attempts
-            </label>
-            <Input
-              id={verifyAttemptsId}
-              type="number"
-              min={1}
-              max={20}
-              value={verifyMaxAttempts}
-              onChange={(event) => setVerifyMaxAttempts(event.target.value)}
-            />
+        {verifyCommand.trim() ? (
+          <div className="grid grid-cols-2 gap-[var(--off-sp-3)]">
+            <div className="off-field">
+              <label className="off-field-label" htmlFor={verifyAttemptsId}>
+                Maximum attempts
+              </label>
+              <Input
+                id={verifyAttemptsId}
+                type="number"
+                min={1}
+                max={20}
+                value={verifyMaxAttempts}
+                onChange={(event) => setVerifyMaxAttempts(event.target.value)}
+              />
+            </div>
+            <div className="off-field">
+              <label className="off-field-label" htmlFor={verifyTokenBudgetId}>
+                Token budget
+              </label>
+              <Input
+                id={verifyTokenBudgetId}
+                type="number"
+                min={1}
+                value={verifyTokenBudget}
+                onChange={(event) => setVerifyTokenBudget(event.target.value)}
+                placeholder="Run budget"
+              />
+            </div>
           </div>
-          <div className="off-field">
-            <label className="off-field-label" htmlFor={verifyTokenBudgetId}>
-              Token budget
-            </label>
-            <Input
-              id={verifyTokenBudgetId}
-              type="number"
-              min={1}
-              value={verifyTokenBudget}
-              onChange={(event) => setVerifyTokenBudget(event.target.value)}
-              placeholder="Run budget"
-            />
-          </div>
-        </div>
-        <div className="off-field">
-          <label className="off-field-label" htmlFor={workspaceRootId}>
-            Workspace folder
-          </label>
-          <div className="off-inline-field">
-            <Input
-              id={workspaceRootId}
-              value={workspaceRoot}
-              onChange={(event) => setWorkspaceRoot(event.target.value)}
-              placeholder="/Users/me/project"
-            />
-            <Button type="button" variant="outline" onClick={() => void chooseWorkspaceFolder()}>
-              <Icon icon={FolderOpen} size="sm" />
-              Choose
-            </Button>
-          </div>
-        </div>
+        ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

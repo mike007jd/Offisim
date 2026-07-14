@@ -34,6 +34,7 @@ import type {
 import { sql } from 'drizzle-orm';
 import {
   type AnySQLiteColumn,
+  check,
   foreignKey,
   index,
   integer,
@@ -308,14 +309,42 @@ export const projects = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     status: text('status').notNull().default('planning'),
-    workspace_root: text('workspace_root'),
+    workspace_root: text('workspace_root').notNull(),
     verify_command: text('verify_command'),
     verify_max_attempts: integer('verify_max_attempts').notNull().default(3),
     verify_token_budget: integer('verify_token_budget'),
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
-  (table) => [index('idx_projects_company').on(table.company_id, table.status, table.updated_at)],
+  (table) => [
+    index('idx_projects_company').on(table.company_id, table.status, table.updated_at),
+    check('projects_workspace_root_nonempty', sql`length(trim(${table.workspace_root})) > 0`),
+  ],
+);
+
+/** Backend-owned proof of a native-picked Project folder. Renderer generic
+ * local-DB commands cannot read or write it; only dedicated Tauri commands may. */
+export const projectWorkspaceAuthority = sqliteTable(
+  'project_workspace_authority',
+  {
+    project_id: text('project_id')
+      .primaryKey()
+      .references(() => projects.project_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    canonical_root: text('canonical_root').notNull(),
+    root_identity_json: text('root_identity_json').notNull(),
+    selected_at_unix_ms: integer('selected_at_unix_ms').notNull(),
+    updated_at_unix_ms: integer('updated_at_unix_ms').notNull(),
+  },
+  (table) => [
+    index('idx_project_workspace_authority_company').on(table.company_id, table.project_id),
+    check(
+      'project_workspace_authority_root_nonempty',
+      sql`length(trim(${table.canonical_root})) > 0`,
+    ),
+  ],
 );
 
 // ---------------------------------------------------------------------------
@@ -357,6 +386,94 @@ export const chatThreads = sqliteTable(
     index('idx_chat_threads_project_active_partial')
       .on(table.project_id, table.updated_at)
       .where(sql`${table.archived_at} IS NULL`),
+  ],
+);
+
+/** Durable explanation/recovery history for backend-issued task workspace bindings.
+ * The live capability (`workspaceRef`) is intentionally never persisted. */
+export const taskWorkspaceBindingHistory = sqliteTable(
+  'task_workspace_binding_history',
+  {
+    binding_id: text('binding_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.project_id, { onDelete: 'cascade' }),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => chatThreads.thread_id, { onDelete: 'cascade' }),
+    turn_id: text('turn_id').notNull(),
+    request_id: text('request_id').notNull().unique(),
+    access: text('access').notNull(),
+    canonical_root: text('canonical_root').notNull(),
+    root_identity_json: text('root_identity_json').notNull(),
+    source: text('source').notNull(),
+    confidence: real('confidence').notNull(),
+    reason_code: text('reason_code').notNull(),
+    issued_at_unix_ms: integer('issued_at_unix_ms').notNull(),
+    expires_at_unix_ms: integer('expires_at_unix_ms').notNull(),
+    activated_at_unix_ms: integer('activated_at_unix_ms').notNull(),
+    last_used_at_unix_ms: integer('last_used_at_unix_ms').notNull(),
+    status: text('status').notNull(),
+    revoked_at_unix_ms: integer('revoked_at_unix_ms'),
+    read_grace_until_unix_ms: integer('read_grace_until_unix_ms'),
+    release_reason: text('release_reason'),
+    resumed_from_binding_id: text('resumed_from_binding_id'),
+  },
+  (table) => [
+    index('idx_task_workspace_binding_history_scope').on(
+      table.company_id,
+      table.thread_id,
+      table.issued_at_unix_ms,
+    ),
+    uniqueIndex('idx_task_workspace_binding_resume_once')
+      .on(table.resumed_from_binding_id)
+      .where(sql`${table.resumed_from_binding_id} IS NOT NULL`),
+    check('task_workspace_binding_access', sql`${table.access} IN ('read', 'write')`),
+    check('task_workspace_binding_confidence', sql`${table.confidence} BETWEEN 0 AND 1`),
+    check(
+      'task_workspace_binding_status',
+      sql`${table.status} IN ('active', 'completed', 'failed', 'aborted', 'expired', 'app_restart')`,
+    ),
+  ],
+);
+
+/** Backend registration/provenance for isolated writable Git worktrees. */
+export const taskWorkspaceLeaseHistory = sqliteTable(
+  'task_workspace_lease_history',
+  {
+    lease_id: text('lease_id').primaryKey(),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.project_id, { onDelete: 'cascade' }),
+    created_binding_id: text('created_binding_id').notNull(),
+    active_binding_id: text('active_binding_id').notNull(),
+    created_root_run_id: text('created_root_run_id').notNull(),
+    child_run_id: text('child_run_id').notNull(),
+    created_request_id: text('created_request_id').notNull(),
+    branch: text('branch').notNull(),
+    canonical_worktree: text('canonical_worktree').notNull().unique(),
+    worktree_identity_json: text('worktree_identity_json').notNull(),
+    project_root_identity_json: text('project_root_identity_json').notNull(),
+    created_at_unix_ms: integer('created_at_unix_ms').notNull(),
+    updated_at_unix_ms: integer('updated_at_unix_ms').notNull(),
+    status: text('status').notNull(),
+  },
+  (table) => [
+    index('idx_task_workspace_lease_history_project_status').on(
+      table.project_id,
+      table.status,
+      table.updated_at_unix_ms,
+    ),
+    uniqueIndex('idx_task_workspace_lease_history_active_branch')
+      .on(table.project_id, table.branch)
+      .where(sql`${table.status} = 'active'`),
+    check(
+      'task_workspace_lease_history_status',
+      sql`${table.status} IN ('active', 'released', 'discarded', 'invalid')`,
+    ),
   ],
 );
 

@@ -732,7 +732,7 @@ await (async () => {
   );
   check(
     '(1) host collaborate never binds a project workspace',
-    !fnCode.includes('ensureProjectBoundForRun') &&
+    !fnCode.includes('requireProjectWorkspaceForRun') &&
       !fnCode.includes('project_read_file') &&
       !/project_workspace_root/.test(fnCode),
   );
@@ -823,7 +823,7 @@ await (async () => {
   );
   check(
     '(4) collaboration transport never touches agent_runs / mission / chat_threads',
-    !/agent_runs|mission|chat_thread|persistAgentRun|ensureProjectBoundForRun/.test(
+    !/agent_runs|mission|chat_thread|persistAgentRun|requireProjectWorkspaceForRun/.test(
       stripComments(transportSrc),
     ),
   );

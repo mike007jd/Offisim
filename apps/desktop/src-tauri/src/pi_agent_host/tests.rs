@@ -8,14 +8,19 @@ use serde::Deserialize;
 use tauri::ipc::Channel;
 use tokio_util::sync::CancellationToken;
 
-use crate::agent_host_runtime::{resolved_request_cwd, HostError};
+use crate::agent_host_runtime::HostError;
+use crate::task_workspace_binding::test_task_workspace_binding;
 
 use super::bridge::PiUiResponse;
 use super::payload::{collaborate_payload, enhance_payload, pi_session_dir_under, sidecar_payload};
-use super::run::{run_pi_sidecar_jsonl_inner, PiSidecarRun};
+use super::run::{
+    gate_sidecar_terminal, run_pi_sidecar_jsonl_inner, validate_workspace_binding_history_mode,
+    PiSidecarRun, TerminalAuthorityGate,
+};
 use super::stream::{
     begin_run_stream, cleanup_terminal_run_streams, finish_run_stream, finish_run_stream_at,
-    pi_run_streams_guard, publish_host_event, PI_RUN_STREAMS, PI_RUN_STREAM_TERMINAL_TTL,
+    pi_run_streams_guard, publish_host_event, reattach_stream, PI_RUN_STREAMS,
+    PI_RUN_STREAM_TERMINAL_TTL,
 };
 use super::types::{
     PiAgentCollaborateRequest, PiAgentEnhanceRequest, PiAgentExecuteRequest, PiAgentHostEvent,
@@ -24,9 +29,7 @@ use super::wire::{
     consume_ready_handshake, decode_sidecar_line, parse_response, PiSidecarLine,
     PI_HOST_PROTOCOL_VERSION, PI_KNOWN_WIRE_KINDS,
 };
-use super::{
-    agent_runtime_reattach, agent_runtime_release_stream, agent_runtime_stream_snapshot, PI_LANE,
-};
+use super::{agent_runtime_release_stream, agent_runtime_stream_snapshot};
 
 static PI_RUN_STREAM_TEST_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
@@ -51,28 +54,43 @@ fn temp_project_root(label: &str) -> PathBuf {
 }
 
 #[test]
-fn pi_cwd_defaults_to_project_workspace() {
-    let root = temp_project_root("default");
-    let cwd = resolved_request_cwd(None, &root, PI_LANE).expect("resolve default cwd");
-    assert_eq!(cwd, root);
-}
-
-#[test]
-fn pi_cwd_rejects_outside_project_workspace() {
-    let root = temp_project_root("root");
-    let outside = temp_project_root("outside");
-    let err = resolved_request_cwd(Some(outside.to_string_lossy().as_ref()), &root, PI_LANE)
-        .expect_err("outside cwd should fail");
-    assert!(matches!(err, HostError::Request(message) if message.contains("outside")));
-}
-
-#[test]
 fn pi_session_dir_has_one_storage_segment() {
     let base = Path::new("/home/test/.offisim/pi-agent-sessions");
     let actual = pi_session_dir_under(base, "thread/with:unsafe");
     let expected = base.join("thread_with_unsafe");
 
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn execute_and_resume_enforce_distinct_workspace_history_contracts() {
+    assert!(validate_workspace_binding_history_mode(false, None)
+        .expect("normal execute without history")
+        .is_none());
+    assert!(validate_workspace_binding_history_mode(false, Some("history-1")).is_err());
+    assert_eq!(
+        validate_workspace_binding_history_mode(true, Some("history-1"))
+            .expect("resume with history"),
+        Some("history-1")
+    );
+    assert!(validate_workspace_binding_history_mode(true, None).is_err());
+    assert!(validate_workspace_binding_history_mode(true, Some("  ")).is_err());
+}
+
+#[test]
+fn sidecar_terminal_success_requires_final_authority_and_prefers_user_abort() {
+    assert_eq!(
+        gate_sidecar_terminal("response", false, Ok::<(), &str>(())),
+        TerminalAuthorityGate::Accept("response")
+    );
+    assert_eq!(
+        gate_sidecar_terminal("response", false, Err::<(), &str>("expired")),
+        TerminalAuthorityGate::AuthorityLost("expired")
+    );
+    assert_eq!(
+        gate_sidecar_terminal("response", true, Err::<(), &str>("expired")),
+        TerminalAuthorityGate::UserAborted
+    );
 }
 
 struct TestSidecar {
@@ -128,7 +146,7 @@ async fn run_test_sidecar(
         PiSidecarRun {
             script_path: &sidecar.script,
             cwd: &sidecar.root,
-            workspace_root: None,
+            workspace_binding: None,
             env: HashMap::new(),
             payload: serde_json::json!({ "mode": "test" }),
             token,
@@ -145,7 +163,7 @@ async fn pi_sidecar_success_waits_for_clean_exit() {
     let sidecar = test_sidecar(
         "success-cleanup",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 7 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 8 }));
 console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
 "#,
     );
@@ -158,12 +176,37 @@ console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
     assert!(!process_is_alive(sidecar_pid(&sidecar)));
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn pi_sidecar_success_reaps_same_group_background_descendant() {
+    let sidecar = test_sidecar(
+        "success-descendant-cleanup",
+        r#"
+const { spawn } = await import('node:child_process');
+const descendant = spawn(process.execPath, ['-e', "setTimeout(() => require('node:fs').writeFileSync('descendant-marker', 'leaked'), 800)"], { stdio: 'ignore' });
+descendant.unref();
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 8 }));
+console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
+"#,
+    );
+
+    let response = run_test_sidecar(&sidecar, CancellationToken::new())
+        .await
+        .expect("successful sidecar");
+    assert_eq!(response["text"], "done");
+    tokio::time::sleep(Duration::from_millis(1_100)).await;
+    assert!(
+        !sidecar.root.join("descendant-marker").exists(),
+        "same-group sidecar descendant survived leader exit"
+    );
+}
+
 #[tokio::test]
 async fn pi_sidecar_protocol_failure_kills_and_reaps_hostile_child() {
     let sidecar = test_sidecar(
         "protocol-cleanup",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 7 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 8 }));
 console.log(JSON.stringify({ kind: 'tool', status: 'started', toolCallId: 'call-1' }));
 setInterval(() => {}, 1_000);
 "#,
@@ -202,7 +245,7 @@ async fn pi_sidecar_abort_kills_and_reaps_hostile_child() {
     let sidecar = test_sidecar(
         "abort-cleanup",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 7 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 8 }));
 setInterval(() => {}, 1_000);
 "#,
     );
@@ -473,8 +516,7 @@ fn pi_run_stream_reattach_replays_after_cursor_and_subscribes() {
         Ok(())
     });
 
-    let snapshot =
-        agent_runtime_reattach(request_id.clone(), Some(1), channel).expect("reattach stream");
+    let snapshot = reattach_stream(request_id.clone(), Some(1), channel).expect("reattach stream");
     assert!(
         snapshot.running,
         "reattach snapshot should still be running"
@@ -580,8 +622,7 @@ fn pi_run_stream_reattach_subscribes_before_replay_without_lock_send() {
         Ok(())
     });
 
-    let snapshot =
-        agent_runtime_reattach(request_id.clone(), Some(1), channel).expect("reattach stream");
+    let snapshot = reattach_stream(request_id.clone(), Some(1), channel).expect("reattach stream");
     assert!(
         snapshot.running,
         "reattach snapshot should still be running"
@@ -761,7 +802,40 @@ fn pi_request_fixture_encodes_across_languages() {
                     .as_deref()
                     .map(Path::new)
                     .expect("execute fixture requires sessionDir");
-                sidecar_payload(&req, cwd, session_dir, agent_dir)
+                let project_id = case
+                    .payload
+                    .get("projectId")
+                    .and_then(serde_json::Value::as_str)
+                    .expect("execute payload requires projectId");
+                let verify_command = case
+                    .payload
+                    .get("projectVerifyCommand")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned);
+                let verify_max_attempts = case
+                    .payload
+                    .get("projectVerifyMaxAttempts")
+                    .and_then(serde_json::Value::as_u64)
+                    .expect("execute payload requires projectVerifyMaxAttempts")
+                    as u32;
+                let verify_token_budget = case
+                    .payload
+                    .get("projectVerifyTokenBudget")
+                    .and_then(serde_json::Value::as_u64);
+                let binding = test_task_workspace_binding(
+                    cwd,
+                    project_id,
+                    verify_command,
+                    verify_max_attempts,
+                    verify_token_budget,
+                );
+                sidecar_payload(
+                    &req,
+                    &binding,
+                    session_dir,
+                    agent_dir,
+                    req.direct_delegation.as_ref(),
+                )
             }
             "enhance" => {
                 let req: PiAgentEnhanceRequest = serde_json::from_value(case.request)
@@ -793,10 +867,13 @@ fn pi_execute_payload_omits_absent_delegation_limits() {
     }))
     .expect("decode minimal plain-chat request");
 
+    let binding =
+        test_task_workspace_binding(Path::new("/fixture/project"), "project-1", None, 3, None);
     let payload = sidecar_payload(
         &req,
-        Path::new("/fixture/project"),
+        &binding,
         Path::new("/fixture/sessions/thread-1"),
+        None,
         None,
     );
     assert!(

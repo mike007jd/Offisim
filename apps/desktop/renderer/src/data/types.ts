@@ -26,7 +26,7 @@ export interface Project {
   id: string;
   companyId: string;
   name: string;
-  workspaceRoot: string | null;
+  workspaceRoot: string;
   branch: string | null;
   verifyCommand: string | null;
   verifyMaxAttempts: number;

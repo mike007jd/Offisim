@@ -25,3 +25,8 @@ export function parsePorcelainV1ZPaths(stdout: string): string[] {
 
   return [...new Set(paths)];
 }
+
+/** Parse a Git `-z` path list without trimming or line-based decoding. */
+export function parseNulPathList(stdout: string): string[] {
+  return stdout.split('\0').filter((path) => path.length > 0);
+}

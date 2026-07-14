@@ -1,9 +1,33 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  globSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+  AuthStorage,
+  DefaultResourceLoader,
+  ModelRegistry,
+  SessionManager,
+  SettingsManager,
+  createAgentSession,
+} from '@earendil-works/pi-coding-agent';
 import stripJsonComments from 'strip-json-comments';
+import { Type } from 'typebox';
 import { RUN_FAILURE_KINDS, classifyRunFailure } from './pi-agent-host-wire.mjs';
+import { childToolsForPermissionMode } from './pi-child-supervisor.mjs';
+import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
+import {
+  createTaskBashProcessRegistry,
+  createTaskScopedAgentSessionFactory,
+} from './pi-task-bash-process-registry.mjs';
 
 function readJson(path) {
   return JSON.parse(stripJsonComments(readFileSync(path, 'utf8'), { trailingCommas: true }));
@@ -14,6 +38,549 @@ function assert(condition, message) {
     throw new Error(message);
   }
 }
+
+async function verifyWorktreeCallChannel() {
+  const emitted = [];
+  const channel = createWorktreeCallChannel((line) => emitted.push(line));
+  const first = channel.requestWorktreeResult('status', { order: 1 });
+  const second = channel.requestWorktreeResult('status', { order: 2 });
+  const [firstCall, secondCall] = emitted;
+  assert(
+    firstCall?.kind === 'worktreeCall' &&
+      secondCall?.kind === 'worktreeCall' &&
+      firstCall.id !== secondCall.id,
+    'parallel worktree calls must receive distinct wire ids',
+  );
+  channel.resolveWorktreeResult({ id: secondCall.id, ok: true, value: 'second' });
+  channel.resolveWorktreeResult({ id: firstCall.id, ok: true, value: 'first' });
+  const [firstResult, secondResult] = await Promise.all([first, second]);
+  assert(
+    firstResult.value === 'first' && secondResult.value === 'second',
+    'out-of-order worktree results must settle their exact pending calls',
+  );
+
+  const controller = new AbortController();
+  const bash = channel.requestWorktreeResult(
+    'executeBash',
+    { leaseId: 'lease-1' },
+    { signal: controller.signal },
+  );
+  const bashCall = emitted.at(-1);
+  controller.abort();
+  const cancelCall = emitted.at(-1);
+  assert(
+    cancelCall?.op === 'cancelBash' && cancelCall.args?.callId === bashCall.id,
+    'aborting task Bash must emit cancellation for the exact in-flight call id',
+  );
+  const cancelCount = emitted.filter(
+    (line) => line.op === 'cancelBash' && line.args?.callId === bashCall.id,
+  ).length;
+  controller.abort();
+  assert(
+    emitted.filter((line) => line.op === 'cancelBash' && line.args?.callId === bashCall.id)
+      .length === cancelCount,
+    'one AbortSignal must emit at most one cancellation for its Bash call',
+  );
+  channel.resolveWorktreeResult({ id: bashCall.id, ok: false, error: 'cancelled' });
+  assert((await bash).error === 'cancelled', 'the cancelled Bash call must still settle once');
+
+  const fileController = new AbortController();
+  const fileSearch = channel.requestWorktreeResult(
+    'fileGrep',
+    { path: '/__offisim_workspace__', pattern: 'needle' },
+    { signal: fileController.signal },
+  );
+  const fileCall = emitted.at(-1);
+  fileController.abort();
+  const fileCancel = emitted.at(-1);
+  assert(
+    fileCancel?.op === 'cancelWorkspaceFile' && fileCancel.args?.callId === fileCall.id,
+    'aborting a file tool must cancel the exact in-flight Rust workspace call',
+  );
+  channel.resolveWorktreeResult({ id: fileCall.id, ok: false, error: 'cancelled' });
+  assert((await fileSearch).error === 'cancelled', 'the cancelled file call must settle once');
+
+  const closeController = new AbortController();
+  const orphaned = channel.requestWorktreeResult('diff', { path: '.' });
+  const orphanedBash = channel.requestWorktreeResult(
+    'executeBash',
+    { leaseId: 'lease-close' },
+    { signal: closeController.signal },
+  );
+  channel.rejectAllWorktreeCalls();
+  const [orphanedResult, orphanedBashResult] = await Promise.all([orphaned, orphanedBash]);
+  assert(
+    orphanedResult.ok === false &&
+      orphanedResult.error === 'host stdin closed' &&
+      orphanedBashResult.ok === false &&
+      orphanedBashResult.error === 'host stdin closed',
+    'stdin close must settle every remaining ordinary and Bash worktree call',
+  );
+  const emittedAfterClose = emitted.length;
+  closeController.abort();
+  assert(
+    emitted.length === emittedAfterClose,
+    'stdin close must remove the pending Bash abort listener before it settles',
+  );
+}
+
+await verifyWorktreeCallChannel();
+
+async function verifyBoundWorkspaceTools() {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'offisim-pi-workspace-tools-'));
+  const boundRoot = join(fixtureRoot, 'project');
+  const originalRoot = join(fixtureRoot, 'project-original');
+  const siblingPath = join(fixtureRoot, 'sibling.txt');
+  const agentDir = join(fixtureRoot, 'agent');
+  const virtualRoot = '/__offisim_workspace__';
+  const decoyRead = 'native read must never escape into the tool result\n';
+  const decoyEdit = 'native edit must stay unchanged\n';
+  const decoyTilde = 'native tilde file must stay unchanged\n';
+  const replacementRead = 'replacement root must stay unchanged\n';
+  const replacementEdit = 'replacement edit must stay unchanged\n';
+  const siblingSentinel = 'outside the bound project\n';
+  const files = new Map([
+    ['docs/read.txt', { content: 'bridge read needle\n', version: 'read-v1' }],
+    ['docs/edit.txt', { content: 'bridge before needle\n', version: 'edit-v1' }],
+    ['docs/listed.txt', { content: 'bridge listed\n', version: 'listed-v1' }],
+    ['~notes.txt', { content: 'bridge tilde before\n', version: 'tilde-v1' }],
+  ]);
+  const calls = [];
+  let versionSequence = 1;
+  let authorityLost = false;
+  let findTraversalLimited = false;
+  let findResultLimited = false;
+  let listEntryLimited = false;
+  let grepMatchLimited = false;
+  let grepTraversalLimited = false;
+  let grepReturnsMatches = true;
+  let networkCalls = 0;
+  let session;
+  let registry;
+  const originalFetch = globalThis.fetch;
+
+  const workspaceError = (code, message) => Object.assign(new Error(message), { code });
+  const relativeVirtualPath = (path) => {
+    if (path === virtualRoot || path === `${virtualRoot}/`) return '.';
+    if (typeof path === 'string' && path.startsWith(`${virtualRoot}/`)) {
+      return path.slice(virtualRoot.length + 1);
+    }
+    throw workspaceError('workspace-out-of-bounds', `unexpected bridge path: ${String(path)}`);
+  };
+  const virtualPath = (path) => (path === '.' ? virtualRoot : `${virtualRoot}/${path}`);
+  const directoryExists = (path) =>
+    path === '.' || [...files.keys()].some((candidate) => candidate.startsWith(`${path}/`));
+  const listEntries = (path) => {
+    const prefix = path === '.' ? '' : `${path}/`;
+    const names = new Map();
+    for (const candidate of files.keys()) {
+      if (!candidate.startsWith(prefix)) continue;
+      const remainder = candidate.slice(prefix.length);
+      if (!remainder) continue;
+      const [name, ...tail] = remainder.split('/');
+      names.set(name, {
+        name,
+        isDirectory: tail.length > 0,
+        isFile: tail.length === 0,
+        isSymlink: false,
+      });
+    }
+    return [...names.values()].sort((left, right) => left.name.localeCompare(right.name));
+  };
+  const executeBoundWorkspaceOperation = async ({ op, args, taskWorkspaceLease }) => {
+    calls.push({ op, args: structuredClone(args), taskWorkspaceLease });
+    if (authorityLost) {
+      throw workspaceError(
+        'workspace-authority-lost',
+        'The bound Project folder identity changed while the task was active.',
+      );
+    }
+    const path = relativeVirtualPath(args.path);
+    switch (op) {
+      case 'fileRead': {
+        const file = files.get(path);
+        if (!file) throw workspaceError('workspace-file-error', `missing fixture file: ${path}`);
+        return {
+          contentBase64: Buffer.from(file.content).toString('base64'),
+          mimeType: 'text/plain',
+          version: file.version,
+        };
+      }
+      case 'fileWrite': {
+        const current = files.get(path);
+        if (args.expectedVersion !== undefined && args.expectedVersion !== current?.version) {
+          throw workspaceError('workspace-file-conflict', `stale fixture version: ${path}`);
+        }
+        files.set(path, {
+          content: Buffer.isBuffer(args.content)
+            ? args.content.toString('utf8')
+            : String(args.content),
+          version: `write-v${versionSequence++}`,
+        });
+        return { ok: true };
+      }
+      case 'fileStat': {
+        const file = files.get(path);
+        const isDirectory = directoryExists(path) && !file;
+        return {
+          exists: Boolean(file) || isDirectory,
+          isDirectory,
+          isFile: Boolean(file),
+          isSymlink: false,
+        };
+      }
+      case 'fileList':
+        return {
+          entries: listEntries(path).slice(0, args.limit),
+          appliedLimit: Math.min(args.limit, 10_000),
+          entryLimitReached: listEntryLimited,
+          limitReached: listEntryLimited,
+        };
+      case 'fileFind':
+        return {
+          paths: [...files.keys()]
+            .filter((candidate) => path === '.' || candidate.startsWith(`${path}/`))
+            .filter((candidate) => candidate.endsWith('.txt'))
+            .slice(0, args.limit)
+            .map(virtualPath),
+          appliedLimit: Math.min(args.limit, 10_000),
+          resultLimitReached: findResultLimited,
+          traversalLimitReached: findTraversalLimited,
+          limitReached: findTraversalLimited,
+        };
+      case 'fileGrep':
+        return {
+          matches: grepReturnsMatches
+            ? [
+                {
+                  path: virtualPath('docs/read.txt'),
+                  lineNumber: 1,
+                  line: 'bridge read needle',
+                  contextBefore: [],
+                  contextAfter: [],
+                },
+              ]
+            : [],
+          appliedLimit: Math.min(args.limit, 2_000),
+          matchLimitReached: grepMatchLimited,
+          traversalLimitReached: grepTraversalLimited,
+          limitReached: grepMatchLimited || grepTraversalLimited,
+          linesTruncated: false,
+        };
+      default:
+        throw new Error(`unexpected workspace fixture operation: ${op}`);
+    }
+  };
+  const executeTool = async (tools, name, input) => {
+    const tool = tools.get(name);
+    assert(tool, `production session must expose the injected ${name} tool`);
+    return tool.execute(`workspace-oracle-${name}`, input, undefined, () => {}, {});
+  };
+  const inputForPath = (name, path) => {
+    switch (name) {
+      case 'write':
+        return { path, content: 'must not be written' };
+      case 'edit':
+        return {
+          path,
+          edits: [{ oldText: 'bridge before', newText: 'must not be edited' }],
+        };
+      case 'grep':
+        return { path, pattern: 'needle' };
+      case 'find':
+        return { path, pattern: '*.txt' };
+      default:
+        return { path };
+    }
+  };
+  const expectCode = async (action, code, message) => {
+    try {
+      await action();
+    } catch (error) {
+      assert(error?.code === code, `${message}: expected ${code}, received ${error?.code}`);
+      return;
+    }
+    throw new Error(`${message}: expected ${code}, but the tool succeeded`);
+  };
+
+  try {
+    mkdirSync(join(boundRoot, 'docs'), { recursive: true });
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(join(boundRoot, 'docs', 'read.txt'), decoyRead);
+    writeFileSync(join(boundRoot, 'docs', 'edit.txt'), decoyEdit);
+    writeFileSync(join(boundRoot, '~notes.txt'), decoyTilde);
+    writeFileSync(siblingPath, siblingSentinel);
+
+    globalThis.fetch = (...args) => {
+      networkCalls += 1;
+      throw new Error(`workspace tool oracle attempted network access: ${String(args[0])}`);
+    };
+    const authStorage = AuthStorage.create(join(agentDir, 'auth.json'));
+    const modelRegistry = ModelRegistry.create(authStorage, join(agentDir, 'models.json'));
+    const settingsManager = SettingsManager.create(boundRoot, agentDir);
+    const rogueExtensionFactory = (pi) => {
+      pi.registerTool({
+        name: 'native_escape',
+        label: 'Native escape',
+        description: 'Fixture tool that must never enter an Offisim work session.',
+        parameters: Type.Object({}),
+        async execute() {
+          return { content: [{ type: 'text', text: 'escaped' }] };
+        },
+      });
+    };
+    const resourceLoader = new DefaultResourceLoader({
+      cwd: boundRoot,
+      agentDir,
+      settingsManager,
+      extensionFactories: [rogueExtensionFactory],
+      noSkills: true,
+      noPromptTemplates: true,
+      noThemes: true,
+      noContextFiles: true,
+    });
+    await resourceLoader.reload();
+    registry = createTaskBashProcessRegistry({
+      executeBoundCommand: async () => {
+        throw new Error('workspace file-tool oracle must not invoke Bash');
+      },
+      executeBoundWorkspaceOperation,
+    });
+    const createTaskScopedAgentSession = createTaskScopedAgentSessionFactory(
+      createAgentSession,
+      registry,
+    );
+    ({ session } = await createTaskScopedAgentSession({
+      cwd: boundRoot,
+      agentDir,
+      authStorage,
+      modelRegistry,
+      settingsManager,
+      sessionManager: SessionManager.inMemory(boundRoot),
+      resourceLoader,
+      taskWorkspaceLease: {
+        leaseId: 'workspace-tool-oracle',
+        cwd: boundRoot,
+        isolated: true,
+      },
+      tools: childToolsForPermissionMode('write', 'auto'),
+    }));
+    const tools = new Map(session.state.tools.map((tool) => [tool.name, tool]));
+    assert(
+      tools.size === 7 &&
+        ['read', 'write', 'edit', 'grep', 'find', 'ls', 'bash'].every((name) => tools.has(name)) &&
+        !tools.has('delegate') &&
+        !tools.has('native_escape'),
+      `write child must activate only the seven Rust-routed workspace tools, received: ${[
+        ...tools.keys(),
+      ].join(',')}`,
+    );
+
+    const readResult = await executeTool(tools, 'read', { path: 'docs/read.txt' });
+    assert(
+      readResult.content?.[0]?.text === 'bridge read needle\n',
+      'read must return injected backend content instead of the native decoy file',
+    );
+    await executeTool(tools, 'write', { path: 'docs/written.txt', content: 'bridge write\n' });
+    await executeTool(tools, 'edit', {
+      path: 'docs/edit.txt',
+      edits: [{ oldText: 'bridge before', newText: 'bridge after' }],
+    });
+    const grepResult = await executeTool(tools, 'grep', {
+      path: 'docs',
+      pattern: 'needle',
+    });
+    assert(
+      grepResult.content?.[0]?.text.includes('read.txt:1: bridge read needle'),
+      'grep must render matches returned by the injected backend',
+    );
+    grepMatchLimited = true;
+    const cappedGrepResult = await executeTool(tools, 'grep', {
+      path: 'docs',
+      pattern: 'needle',
+      limit: 3_200,
+    });
+    assert(
+      cappedGrepResult.details?.matchLimitReached === 2_000 &&
+        cappedGrepResult.content?.[0]?.text.includes('2000 match limit reached') &&
+        !cappedGrepResult.content?.[0]?.text.includes('3200') &&
+        !cappedGrepResult.content?.[0]?.text.includes('limit=4000'),
+      'grep must report the backend-applied match cap without suggesting an impossible limit',
+    );
+    grepMatchLimited = false;
+    grepTraversalLimited = true;
+    grepReturnsMatches = false;
+    const emptyLimitedGrepResult = await executeTool(tools, 'grep', {
+      path: 'docs',
+      pattern: 'missing',
+    });
+    assert(
+      emptyLimitedGrepResult.details?.traversalLimitReached === true &&
+        emptyLimitedGrepResult.content?.[0]?.text.includes('No matches found') &&
+        emptyLimitedGrepResult.content?.[0]?.text.includes('Workspace traversal limit reached'),
+      'grep must disclose incomplete traversal even when collected files contain no matches',
+    );
+    grepTraversalLimited = false;
+    grepReturnsMatches = true;
+    const findResult = await executeTool(tools, 'find', {
+      path: 'docs',
+      pattern: '*.txt',
+    });
+    assert(
+      findResult.content?.[0]?.text.includes('listed.txt'),
+      'find must render paths returned by the injected backend',
+    );
+    findTraversalLimited = true;
+    const limitedFindResult = await executeTool(tools, 'find', {
+      path: 'docs',
+      pattern: '*.txt',
+      limit: 100,
+    });
+    assert(
+      limitedFindResult.details?.traversalLimitReached === true &&
+        limitedFindResult.content?.[0]?.text.includes('Workspace traversal limit reached'),
+      'find must surface backend traversal truncation even below Pi result limit',
+    );
+    findTraversalLimited = false;
+    findResultLimited = true;
+    const cappedFindResult = await executeTool(tools, 'find', {
+      path: 'docs',
+      pattern: '*.txt',
+      limit: 20_000,
+    });
+    assert(
+      cappedFindResult.details?.resultLimitReached === 10_000 &&
+        cappedFindResult.content?.[0]?.text.includes('10000 result limit reached') &&
+        !cappedFindResult.content?.[0]?.text.includes('20000'),
+      'find must surface a backend result cap below the user-requested limit',
+    );
+    findResultLimited = false;
+    const lsResult = await executeTool(tools, 'ls', { path: 'docs' });
+    assert(
+      lsResult.content?.[0]?.text.includes('listed.txt'),
+      'ls must render entries returned by the injected backend',
+    );
+    listEntryLimited = true;
+    const limitedLsResult = await executeTool(tools, 'ls', { path: 'docs', limit: 20_000 });
+    assert(
+      limitedLsResult.details?.entryLimitReached === true &&
+        limitedLsResult.content?.[0]?.text.includes('Workspace entry limit reached'),
+      'ls must surface backend entry truncation even below the user-requested limit',
+    );
+    listEntryLimited = false;
+    const tildeRead = await executeTool(tools, 'read', { path: '~notes.txt' });
+    assert(
+      tildeRead.content?.[0]?.text === 'bridge tilde before\n',
+      'a tilde-leading filename must remain a literal Project-relative path',
+    );
+    await executeTool(tools, 'write', {
+      path: '~notes.txt',
+      content: 'bridge tilde after\n',
+    });
+    const tildeReadAfterWrite = await executeTool(tools, 'read', { path: '~notes.txt' });
+    assert(
+      tildeReadAfterWrite.content?.[0]?.text === 'bridge tilde after\n',
+      'a tilde-leading filename must remain readable and writable through the bridge',
+    );
+
+    const editWrite = calls.find(
+      (call) => call.op === 'fileWrite' && call.args.path === `${virtualRoot}/docs/edit.txt`,
+    );
+    assert(
+      editWrite?.args.expectedVersion === 'edit-v1',
+      'edit must commit with the exact version returned by its injected fileRead',
+    );
+    for (const requiredOp of [
+      'fileRead',
+      'fileWrite',
+      'fileStat',
+      'fileList',
+      'fileFind',
+      'fileGrep',
+    ]) {
+      assert(
+        calls.some((call) => call.op === requiredOp),
+        `${requiredOp} must execute through the injected backend`,
+      );
+    }
+    assert(
+      calls.every(
+        (call) =>
+          call.taskWorkspaceLease?.leaseId === 'workspace-tool-oracle' &&
+          call.taskWorkspaceLease.cwd === boundRoot,
+      ),
+      'every workspace operation must retain the exact task workspace lease',
+    );
+    assert(
+      readFileSync(join(boundRoot, 'docs', 'read.txt'), 'utf8') === decoyRead &&
+        readFileSync(join(boundRoot, 'docs', 'edit.txt'), 'utf8') === decoyEdit &&
+        readFileSync(join(boundRoot, '~notes.txt'), 'utf8') === decoyTilde &&
+        !existsSync(join(boundRoot, 'docs', 'written.txt')),
+      'successful tools must not fall back to or mutate the native Project filesystem',
+    );
+
+    const invalidCases = [
+      ['absolute sibling', siblingPath],
+      ['parent segment', '../sibling.txt'],
+      ['Windows absolute', 'C:\\offisim-sibling.txt'],
+      ['file URL', 'file:///tmp/offisim-sibling.txt'],
+    ];
+    for (const [caseName, path] of invalidCases) {
+      for (const toolName of ['read', 'write', 'edit', 'grep', 'find', 'ls']) {
+        const callsBefore = calls.length;
+        await expectCode(
+          () => executeTool(tools, toolName, inputForPath(toolName, path)),
+          'workspace-out-of-bounds',
+          `${toolName} ${caseName}`,
+        );
+        assert(
+          calls.length === callsBefore,
+          `${toolName} ${caseName} must be rejected before any backend or native filesystem call`,
+        );
+      }
+    }
+    assert(
+      readFileSync(siblingPath, 'utf8') === siblingSentinel,
+      'out-of-bounds tools must leave the sibling file unchanged',
+    );
+
+    const backendBeforeAuthorityLoss = JSON.stringify([...files]);
+    renameSync(boundRoot, originalRoot);
+    mkdirSync(join(boundRoot, 'docs'), { recursive: true });
+    writeFileSync(join(boundRoot, 'docs', 'read.txt'), replacementRead);
+    writeFileSync(join(boundRoot, 'docs', 'edit.txt'), replacementEdit);
+    authorityLost = true;
+    for (const toolName of ['read', 'write', 'edit', 'grep', 'find', 'ls']) {
+      const callsBefore = calls.length;
+      await expectCode(
+        () => executeTool(tools, toolName, inputForPath(toolName, 'docs/read.txt')),
+        'workspace-authority-lost',
+        `${toolName} replaced Project root`,
+      );
+      assert(
+        calls.length === callsBefore + 1,
+        `${toolName} must propagate the injected backend authority failure without fallback`,
+      );
+    }
+    assert(
+      JSON.stringify([...files]) === backendBeforeAuthorityLoss &&
+        readFileSync(join(originalRoot, 'docs', 'read.txt'), 'utf8') === decoyRead &&
+        readFileSync(join(originalRoot, 'docs', 'edit.txt'), 'utf8') === decoyEdit &&
+        readFileSync(join(boundRoot, 'docs', 'read.txt'), 'utf8') === replacementRead &&
+        readFileSync(join(boundRoot, 'docs', 'edit.txt'), 'utf8') === replacementEdit &&
+        readFileSync(siblingPath, 'utf8') === siblingSentinel,
+      'authority loss must leave original, replacement, backend, and sibling content unchanged',
+    );
+    assert(networkCalls === 0, 'workspace tool oracle must not call a model or network API');
+  } finally {
+    globalThis.fetch = originalFetch;
+    session?.dispose();
+    await registry?.cleanup();
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+await verifyBoundWorkspaceTools();
 
 function extractNamedFunction(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -117,8 +684,10 @@ const rustHostSource = globSync('apps/desktop/src-tauri/src/pi_agent_host/*.rs')
   .join('\n');
 const nodeHostSource = readFileSync(HOST_SCRIPT, 'utf8');
 const bundledNodeHostSource = readFileSync(BUNDLED_HOST_SCRIPT, 'utf8');
+const taskBashRegistrySource = readFileSync('scripts/pi-task-bash-process-registry.mjs', 'utf8');
 const mcpBridgeSource = readFileSync('scripts/pi-mcp-bridge-extension.mjs', 'utf8');
 const childSupervisorSource = readFileSync('scripts/pi-child-supervisor.mjs', 'utf8');
+const permissionModesSource = readFileSync('scripts/pi-agent-permission-modes.mts', 'utf8');
 const delegationExtensionSource = readFileSync('scripts/pi-delegation-extension.mjs', 'utf8');
 const wireSource = readFileSync('scripts/pi-agent-host-wire.mjs', 'utf8');
 const executePayloadSource = rustHostSource.slice(
@@ -185,8 +754,20 @@ assert(
   'execute sidecar payload must be AppHandle-free and forward mcpTools to the Node Pi host',
 );
 assert(
-  /"projectId": req\.project_id/.test(executePayloadSource),
-  'execute sidecar payload must forward projectId so delegation child runs inherit the project scope (a dropped projectId crashed the Node host with "projectId is not defined")',
+  /"projectId": binding\.project_id/.test(executePayloadSource) &&
+    /"projectVerifyCommand": binding\.project_verify_command/.test(executePayloadSource) &&
+    !/"projectId": req\.project_id/.test(executePayloadSource),
+  'execute sidecar payload must derive project scope and verification policy from the backend-issued workspace binding, never renderer request fields',
+);
+assert(
+  /"cwd": "\."/.test(executePayloadSource) &&
+    !/"cwd": binding\.canonical_root/.test(executePayloadSource) &&
+    /if \(cwd !== '\.'\)/.test(nodeHostSource) &&
+    /const workspaceRoot = process\.cwd\(\)/.test(nodeHostSource) &&
+    /acquireRootLease\(workspaceRoot\)/.test(nodeHostSource) &&
+    /executeBoundWorkspaceOperation/.test(nodeHostSource) &&
+    /const VIRTUAL_WORKSPACE_ROOT = '\/__offisim_workspace__'/.test(taskBashRegistrySource),
+  'execute runs must use the inherited process cwd only as root lease provenance while all file tools mount the fixed virtual workspace and cross the Rust bridge',
 );
 assert(
   /"employeeId": req\.employee_id/.test(executePayloadSource),
@@ -348,8 +929,11 @@ assert(
       nodeHostSource,
     ) &&
     /const mcpHasCatalog = scopedMcpTools\.length > 0/.test(nodeHostSource) &&
-    /const tools = \[[\s\S]*\.\.\.\(baseTools \?\? \['read', 'write', 'edit', 'bash'\]\)[\s\S]*'mcp_search_tools',[\s\S]*'mcp_describe_tool',[\s\S]*\.\.\.\(mcpHasCatalog \? \['mcp_call'\] : \[\]\)/.test(
+    /const tools = \[[\s\S]*\.\.\.baseTools[\s\S]*'mcp_search_tools',[\s\S]*'mcp_describe_tool',[\s\S]*\.\.\.\(mcpHasCatalog \? \['mcp_call'\] : \[\]\)/.test(
       nodeHostSource,
+    ) &&
+    /export const WORK_TOOL_ALLOWLIST[\s\S]*'read'[\s\S]*'write'[\s\S]*'edit'[\s\S]*'grep'[\s\S]*'find'[\s\S]*'ls'[\s\S]*'bash'/.test(
+      permissionModesSource,
     ),
   'execute host must always expose MCP discovery (mcp_search_tools/mcp_describe_tool) in the explicit tool allowlist, gate mcp_call on a non-empty grant catalog, and filter write MCP in plan mode',
 );
@@ -378,8 +962,8 @@ assert(
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 assert(
-  /PI_HOST_PROTOCOL_VERSION = 7/.test(wireSource) &&
-    /PI_HOST_PROTOCOL_VERSION: u32 = 7/.test(rustHostSource) &&
+  /PI_HOST_PROTOCOL_VERSION = 8/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 8/.test(rustHostSource) &&
     /'worktreeCall'/.test(wireSource) &&
     /WorktreeCall/.test(rustHostSource) &&
     /'verifyCall'/.test(wireSource) &&
@@ -400,6 +984,23 @@ assert(
     /run_git_validated/.test(rustHostSource) &&
     /write_worktree_result/.test(rustHostSource),
   'Rust Pi host must intercept worktreeCall and answer with worktreeResult through stdin',
+);
+assert(
+  /executeBoundCommand/.test(nodeHostSource) &&
+    /requestWorktreeResult\(\s*'executeBash'/.test(nodeHostSource) &&
+    /if \(!executeBoundCommand\)/.test(taskBashRegistrySource) &&
+    !/\bspawn\s*\(/.test(taskBashRegistrySource) &&
+    !/node:child_process/.test(taskBashRegistrySource) &&
+    /taskWorkspaceLease && cwd === '\.'/m.test(taskBashRegistrySource) &&
+    /cwd !== '\.' && \(!taskWorkspaceLease \|\| taskWorkspaceLease\.cwd !== cwd\)/.test(
+      taskBashRegistrySource,
+    ) &&
+    /requestWorktreeResult\(\s*'validateCwd'/.test(nodeHostSource) &&
+    /resolve_registered_workspace_process_cwd_exact/.test(rustHostSource) &&
+    /execute_trusted_task_bash/.test(rustHostSource) &&
+    /lease\.isolate[d]? \? lease\.cwd : ctx\.cwd/.test(childSupervisorSource) &&
+    /validateLeaseCwd/.test(childSupervisorSource),
+  'all task Bash must cross the Rust bridge; root/shared retain dot cwd without a claim and isolated children carry the exact registered claim',
 );
 {
   // The Task Board recognizes the in-chat review approval card ONLY by its title
@@ -466,6 +1067,15 @@ assert(
   assert(
     /highlightedRow\.projectId === projectId \? 'project' : 'company'/.test(boardStageSource),
     'a pending-review jump must select the Board scope containing the highlighted request before opening its drawer',
+  );
+  assert(
+    /rowLeases\.some\(\(lease\) => lease\.status === 'active'\)/.test(boardStageSource) &&
+      /Stop the active task before discarding this request\./.test(boardStageSource) &&
+      /\['pending_review', 'failed'\]\.includes\(lease\.status\)/.test(boardStageSource) &&
+      /disabled=\{busy \|\| hasActiveLease\}/.test(boardStageSource) &&
+      /typeof error === 'string' && error\.trim\(\)/.test(boardStageSource) &&
+      /detail\.includes\('still owned by an active task'\)/.test(boardStageSource),
+    'Board discard must fail closed while its projected lease is active and keep retained review cleanup actionable',
   );
 }
 assert(

@@ -1,4 +1,4 @@
-import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
+import { ACTIVE_PROJECT_STATUSES, requireProjectWorkspaceRoot } from '@offisim/shared-types';
 import type {
   ChatThread,
   NewChatThread,
@@ -31,6 +31,7 @@ export class MemoryProjectRepository implements ProjectRepository {
   async create(project: NewProject): Promise<ProjectRow> {
     const row: ProjectRow = {
       ...project,
+      workspace_root: requireProjectWorkspaceRoot(project.workspace_root),
       verify_command: project.verify_command ?? null,
       verify_max_attempts: project.verify_max_attempts ?? 3,
       verify_token_budget: project.verify_token_budget ?? null,
@@ -71,12 +72,12 @@ export class MemoryProjectRepository implements ProjectRepository {
   async update(projectId: string, patch: ProjectUpdatePatch): Promise<void> {
     const row = this.store.get(projectId);
     if (row) {
-      this.store.set(projectId, { ...row, ...patch, updated_at: new Date().toISOString() });
+      const normalized =
+        patch.workspace_root === undefined
+          ? patch
+          : { ...patch, workspace_root: requireProjectWorkspaceRoot(patch.workspace_root) };
+      this.store.set(projectId, { ...row, ...normalized, updated_at: new Date().toISOString() });
     }
-  }
-
-  async delete(projectId: string): Promise<void> {
-    this.store.delete(projectId);
   }
 
   snapshot(): ProjectRow[] {

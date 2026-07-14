@@ -39,6 +39,25 @@ function localErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
+async function requireDeletionPreflight(args: {
+  scope: 'conversation' | 'company';
+  companyId: string;
+  projectId?: string | null;
+  threadId?: string | null;
+}): Promise<void> {
+  const preflight = await invokeCommand('task_workspace_deletion_preflight', args);
+  if (preflight.allowed) return;
+  const bindingCopy =
+    preflight.activeBindings === 1 ? '1 active task' : `${preflight.activeBindings} active tasks`;
+  const leaseCopy =
+    preflight.activeLeases === 1
+      ? '1 retained worktree'
+      : `${preflight.activeLeases} retained worktrees`;
+  throw new Error(
+    `This ${args.scope === 'company' ? 'Company' : 'Conversation'} cannot be deleted while it has ${bindingCopy} and ${leaseCopy}. Stop the work and review, release, or discard its worktrees first.`,
+  );
+}
+
 async function deleteCompanyWorkspace(companyId: string): Promise<void> {
   if (!isTauriRuntime()) return;
   await invokeCommand('delete_company_workspace', { companyId });
@@ -68,8 +87,15 @@ async function deleteThreadAttachments(
 
 export async function deleteConversationDeep(
   threadId: string,
-  companyId?: string | null,
+  companyId: string,
+  projectId: string,
 ): Promise<void> {
+  await requireDeletionPreflight({
+    scope: 'conversation',
+    companyId,
+    projectId,
+    threadId,
+  });
   // Contract C-B (rows-first): delete the DB rows atomically FIRST, then clean up
   // attachment blobs best-effort. The reverse order could delete the blobs and
   // then fail the DB write, leaving rows that reference gone files (dangling refs).
@@ -157,6 +183,7 @@ export function conversationDeletionStatements(threadId: string): LocalDbTransac
 }
 
 export async function deleteCompanyDeep(companyId: string): Promise<DeleteCompanyDeepResult> {
+  await requireDeletionPreflight({ scope: 'company', companyId });
   await localDbTransaction([
     { sql: 'DELETE FROM tool_permission_approvals WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM skills WHERE company_id = $1', params: [companyId] },

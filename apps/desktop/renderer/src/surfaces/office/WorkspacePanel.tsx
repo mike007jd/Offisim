@@ -36,7 +36,6 @@ import { Textarea } from '@/design-system/primitives/textarea.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
-import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
 import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
 import {
   useProjectWorkspaceLeaseReviews,
@@ -74,6 +73,13 @@ import { openStageFilePreview } from './stage-viewer/file-preview.js';
 type PanelTab = 'projects' | 'files' | 'git';
 const FILE_PREVIEW_BYTES = 12_000;
 
+function resolveWorkspacePanelTab(
+  activeProjectId: string | null | undefined,
+  requestedTab: PanelTab,
+): PanelTab {
+  return activeProjectId?.trim() ? requestedTab : 'projects';
+}
+
 interface FileContextMenuState {
   node: FileNode;
   x: number;
@@ -81,7 +87,7 @@ interface FileContextMenuState {
 }
 
 function compactPath(path: string | null | undefined) {
-  if (!path) return 'No folder bound';
+  if (!path) return 'Project folder not chosen';
   return path.replace(/^\/Users\/[^/]+/u, '~');
 }
 
@@ -148,9 +154,9 @@ function FilesTab({
     return (
       <EmptyState
         icon={FolderClosed}
-        title="No workspace bound"
-        description="Bind a local folder to give this project file context for runs."
-        action={{ label: 'Bind folder', onClick: onBindFolder }}
+        title="No Project folder"
+        description="Choose the folder that contains this Project’s files."
+        action={{ label: 'Choose folder', onClick: onBindFolder }}
       />
     );
   }
@@ -160,7 +166,7 @@ function FilesTab({
   if (fileError) {
     return (
       <ErrorState
-        title="Workspace files unavailable"
+        title="Project files unavailable"
         detail={
           fileError instanceof Error
             ? fileError.message
@@ -286,11 +292,11 @@ function FilesTab({
         ) : (
           <EmptyState
             icon={FileText}
-            title={files.data?.length ? 'No matching files' : 'Workspace folder is empty'}
+            title={files.data?.length ? 'No matching files' : 'Project folder is empty'}
             description={
               files.data?.length
                 ? 'Clear the search to return to the full project file list.'
-                : 'Add files to the bound folder, then rescan the workspace.'
+                : 'Add files to the Project folder, then rescan.'
             }
             action={
               files.data?.length
@@ -456,7 +462,7 @@ function ProjectsTab({
                     className="off-ws-project-icon off-focusable"
                     onClick={() => onBindFolder(project)}
                     disabled={bindingFolder}
-                    title="Choose workspace folder"
+                    title="Change folder"
                   >
                     <Icon icon={FolderOpen} size="sm" />
                   </button>
@@ -476,7 +482,7 @@ function ProjectsTab({
           <EmptyState
             icon={FolderGit2}
             title="No projects yet"
-            description="Create a project and bind a local folder before starting project work."
+            description="Create a Project and choose where its files live."
             action={{ label: 'New project', onClick: onNew }}
           />
         )}
@@ -1070,9 +1076,11 @@ export function WorkspacePanel() {
   const setCollapsed = useUiState((s) => s.setOfficeLeftRailCollapsed);
   const queryClient = useQueryClient();
   const projects = useProjects(companyId);
-  const git = useGitWorkbench(projectId);
   const project = projects.data?.find((p) => p.id === projectId);
-  const [tab, setTab] = useState<PanelTab>('files');
+  const activeProjectId = project?.id ?? null;
+  const git = useGitWorkbench(activeProjectId);
+  const [requestedTab, setTab] = useState<PanelTab>('files');
+  const tab = resolveWorkspacePanelTab(activeProjectId, requestedTab);
   const [bindingFolder, setBindingFolder] = useState(false);
   const [initializingRepo, setInitializingRepo] = useState(false);
   const [projectDialog, setProjectDialog] = useState<{
@@ -1092,24 +1100,32 @@ export function WorkspacePanel() {
 
   async function bindWorkspaceFolder(targetProject = project) {
     if (!targetProject) {
-      toast.error('Select a project before binding a folder');
+      toast.error('Choose a Project first.');
       return;
     }
     setBindingFolder(true);
     try {
-      const folder = await pickWorkspaceFolder('Bind project workspace folder');
+      const folder = await pickWorkspaceFolder('Choose Project folder');
       if (!folder) return;
-      const overbroad = await overbroadWorkspaceReason(folder);
-      if (overbroad) {
-        toast.error(overbroad);
-        return;
-      }
       const repos = await reposOrNull();
       if (!repos) {
         toast.error('Project binding requires the desktop runtime');
         return;
       }
-      await repos.projects.update(targetProject.id, { workspace_root: folder });
+      const existing = await repos.projects.findById(targetProject.id);
+      if (!existing) throw new Error('Project was not found');
+      await invokeCommand('project_update', {
+        input: {
+          projectId: existing.project_id,
+          name: existing.name,
+          description: existing.description,
+          status: existing.status,
+          workspaceSelectionRef: folder.selectionRef,
+          verifyCommand: existing.verify_command,
+          verifyMaxAttempts: existing.verify_max_attempts,
+          verifyTokenBudget: existing.verify_token_budget,
+        },
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['projects', companyId] }),
         queryClient.invalidateQueries({ queryKey: ['project-files', targetProject.id] }),
@@ -1117,7 +1133,7 @@ export function WorkspacePanel() {
       ]);
       setProject(targetProject.id);
       setTab('files');
-      toast.success('Workspace folder bound');
+      toast.success('Project folder updated');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Workspace binding failed');
     } finally {
@@ -1195,6 +1211,7 @@ export function WorkspacePanel() {
         <button
           type="button"
           className={cn('off-rail-icon-tab off-focusable', tab === 'files' && 'is-active')}
+          disabled={!project}
           onClick={() => {
             setTab('files');
             setCollapsed(false);
@@ -1207,6 +1224,7 @@ export function WorkspacePanel() {
         <button
           type="button"
           className={cn('off-rail-icon-tab off-focusable', tab === 'git' && 'is-active')}
+          disabled={!project}
           onClick={() => {
             setTab('git');
             setCollapsed(false);
@@ -1231,12 +1249,20 @@ export function WorkspacePanel() {
         <Icon icon={ChevronsLeft} size="sm" />
       </button>
       <div className="off-ws-head">
-        <Tabs value={tab} onValueChange={(value) => setTab(value as PanelTab)}>
+        <Tabs
+          value={tab}
+          onValueChange={(value) => {
+            const nextTab = value as PanelTab;
+            if (nextTab !== 'projects' && !project) return;
+            setTab(nextTab);
+          }}
+        >
           <TabsList className="off-ws-tabs" aria-label="Workspace panel">
             {tabs.map((t) => (
               <TabsTrigger
                 key={t.id}
                 value={t.id}
+                disabled={t.id !== 'projects' && !project}
                 className={cn('off-ws-tab off-focusable', tab === t.id && 'is-active')}
               >
                 {t.label}
@@ -1268,10 +1294,20 @@ export function WorkspacePanel() {
           onEdit={(nextProject) => setProjectDialog({ mode: 'edit', project: nextProject })}
           onBindFolder={(nextProject) => void bindWorkspaceFolder(nextProject)}
         />
+      ) : !project ? (
+        <EmptyState
+          icon={FolderGit2}
+          title="No active project"
+          description="Create a Project and choose where its files live."
+          action={{
+            label: 'New project',
+            onClick: () => setProjectDialog({ mode: 'new', project: null }),
+          }}
+        />
       ) : tab === 'files' ? (
         <FilesTab
-          projectId={projectId}
-          workspaceRoot={project?.workspaceRoot ?? null}
+          projectId={project.id}
+          workspaceRoot={project.workspaceRoot}
           onBindFolder={() => void bindWorkspaceFolder()}
         />
       ) : git.isLoading ? (
@@ -1284,14 +1320,14 @@ export function WorkspacePanel() {
         />
       ) : git.data?.status === 'repo' ? (
         <GitTab
-          key={projectId}
+          key={project.id}
           workbench={git.data.workbench}
           companyId={companyId}
-          projectId={projectId}
+          projectId={project.id}
         />
       ) : git.data?.status === 'uninitialized' ? (
         // Valid folder, just not a git repo yet → Initialize is the primary
-        // action; Rebind is only for a mistaken folder selection.
+        // action; Change folder is only for a mistaken selection.
         <EmptyState
           icon={GitBranch}
           title="Not a git repository yet"
@@ -1300,25 +1336,25 @@ export function WorkspacePanel() {
             label: initializingRepo ? 'Initializing…' : 'Initialize repository',
             onClick: () => void initializeRepository(),
           }}
-          secondaryAction={{ label: 'Rebind folder', onClick: () => void bindWorkspaceFolder() }}
+          secondaryAction={{ label: 'Change folder', onClick: () => void bindWorkspaceFolder() }}
           detail={`${compactPath(project?.workspaceRoot)} · no git repository`}
         />
       ) : git.data?.status === 'invalid-folder' ? (
-        // The bound folder can no longer be resolved (moved/deleted) → Rebind.
+        // The selected Project folder can no longer be resolved (moved/deleted).
         <EmptyState
           icon={FolderClosed}
-          title="Workspace folder not found"
-          description="The bound folder is missing or can no longer be read. Rebind this project to a folder that exists."
-          action={{ label: 'Rebind folder', onClick: () => void bindWorkspaceFolder() }}
+          title="Project folder not found"
+          description="The Project folder was moved, deleted, or can no longer be read. Choose a different folder."
+          action={{ label: 'Change folder', onClick: () => void bindWorkspaceFolder() }}
           detail={`${compactPath(project?.workspaceRoot)} · not found`}
         />
       ) : (
-        // Unbound project (no workspace_root). Same task as the Files empty state.
+        // Project has no chosen folder. Same task as the Files empty state.
         <EmptyState
           icon={FolderClosed}
-          title="No workspace bound"
-          description="Bind a local folder to give this project file context for runs."
-          action={{ label: 'Bind folder', onClick: () => void bindWorkspaceFolder() }}
+          title="No Project folder"
+          description="Choose the folder that contains this Project’s files."
+          action={{ label: 'Choose folder', onClick: () => void bindWorkspaceFolder() }}
         />
       )}
       <ProjectDialog

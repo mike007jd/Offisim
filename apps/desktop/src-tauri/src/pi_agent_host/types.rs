@@ -8,16 +8,7 @@ pub struct PiAgentExecuteRequest {
     pub(super) company_id: String,
     pub(super) thread_id: String,
     #[serde(default)]
-    pub(super) cwd: Option<String>,
-    #[serde(default)]
     pub(super) project_id: Option<String>,
-    /// Project-owned delegated-write verification policy, forwarded verbatim.
-    #[serde(default)]
-    pub(super) project_verify_command: Option<String>,
-    #[serde(default)]
-    pub(super) project_verify_max_attempts: Option<u32>,
-    #[serde(default)]
-    pub(super) project_verify_token_budget: Option<u64>,
     #[serde(default)]
     pub(super) employee_id: Option<String>,
     #[serde(default)]
@@ -47,6 +38,11 @@ pub struct PiAgentExecuteRequest {
     /// renderer can graft children under the root. Absent → no delegation scope.
     #[serde(default)]
     pub(super) root_run_id: Option<String>,
+    /// Required only by the durable resume gateway. This is the persisted,
+    /// non-secret history id whose backend root identity must still match the
+    /// Project folder before a replacement capability can be issued.
+    #[serde(default)]
+    pub(super) workspace_binding_history_id: Option<String>,
     /// Company roster (opaque, forwarded verbatim): each employee the root agent
     /// may delegate to, with persona / model / access / tools. Built renderer-side
     /// from `employees.findByCompany`; Rust does not interpret it.
@@ -208,6 +204,22 @@ pub struct PiExecutionProvenance {
     rename_all_fields = "camelCase"
 )]
 pub enum PiAgentHostEvent {
+    WorkspaceBound {
+        workspace_ref: String,
+        history_id: String,
+        company_id: String,
+        project_id: String,
+        thread_id: String,
+        turn_id: String,
+        request_id: String,
+        access: String,
+        source: String,
+        confidence: f64,
+        reason_code: String,
+        issued_at_unix_ms: i64,
+        expires_at_unix_ms: i64,
+        display_path: String,
+    },
     Started {
         #[serde(default)]
         session_id: Option<String>,

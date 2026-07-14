@@ -48,10 +48,6 @@ export class MemoryCompanyRepository implements CompanyRepository {
     }
   }
 
-  async delete(companyId: string): Promise<void> {
-    this.rows.delete(companyId);
-  }
-
   seed(rows: CompanyRow[]): void {
     for (const row of rows) this.rows.set(row.company_id, row);
   }

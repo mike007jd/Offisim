@@ -1,4 +1,4 @@
-import { invokeCommand } from '@/lib/tauri-commands.js';
+import { type TaskWorkspaceEvaluationLeaseClaim, invokeCommand } from '@/lib/tauri-commands.js';
 import type { EvaluationContext } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import { parsePorcelainV1ZPaths } from './git-porcelain.js';
@@ -29,12 +29,12 @@ interface EvaluationCriterionView {
 }
 
 export interface TauriEvaluationContextInput {
-  /** The selected project's id — scopes every sandboxed command to its workspace. */
-  projectId: string | null;
-  /** The project's on-disk `workspace_root` — the cwd for the bash builtin. Null
-   *  when unbound, in which case `runCommand` degrades to a classifier-style block
-   *  so the command criterion ERRORs rather than silently passing. */
-  workspaceRoot: string | null;
+  /**
+   * Bounded lease acquired from the exact Turn capability being evaluated. It
+   * is the only workspace authority for deterministic verification: Project
+   * catalog changes made after the Turn cannot move evaluation elsewhere.
+   */
+  evaluationLease: TaskWorkspaceEvaluationLeaseClaim | null;
   /** The criterion under evaluation (id + description + declarative config). */
   criterion: EvaluationCriterionView;
   /** The attempt's run id — the `run_id` published artifacts are tagged with. */
@@ -63,7 +63,7 @@ const BASH_TIMEOUT_MS = 120_000;
 export function createTauriEvaluationContext(
   input: TauriEvaluationContextInput,
 ): EvaluationContext {
-  const { projectId, workspaceRoot, criterion, attemptRunId, repos } = input;
+  const { evaluationLease, criterion, attemptRunId, repos } = input;
 
   return {
     criterion: {
@@ -73,14 +73,13 @@ export function createTauriEvaluationContext(
     },
 
     async workspaceReadFile(path: string): Promise<string | null> {
-      // `project_read_file`'s `projectId` is Option on the Rust side: a null id
-      // makes it search ALL workspace roots, so a criterion could be satisfied by
-      // a file in a DIFFERENT project. Scope the evaluator to its own project —
-      // no project → null (file_hash/json_schema → ERROR, text_contains → FAIL),
-      // matching runCommand's guard.
-      if (!projectId) return null;
+      if (!evaluationLease) return null;
       try {
-        return await invokeCommand('project_read_file', { path, projectId });
+        return await invokeCommand('project_read_file', {
+          path,
+          projectId: evaluationLease.projectId,
+          evaluationLease,
+        });
       } catch {
         // Out-of-jail / missing / unreadable — the contract sentinel is null.
         return null;
@@ -88,15 +87,17 @@ export function createTauriEvaluationContext(
     },
 
     async workspaceFileExists(path: string): Promise<boolean> {
-      // Scope to this project (see workspaceReadFile) — a null project id would
-      // let a file in another project satisfy the criterion → false here.
-      if (!projectId) return false;
+      if (!evaluationLease) return false;
       // A cheap existence probe: the sandboxed read rejects an out-of-jail or
       // missing path, so a non-throwing read means the file is present + in-jail.
       // (project_read_file has an 8 MB cap, which is acceptable for an existence
       // check on workspace files an evaluator asserts on.)
       try {
-        await invokeCommand('project_read_file', { path, projectId });
+        await invokeCommand('project_read_file', {
+          path,
+          projectId: evaluationLease.projectId,
+          evaluationLease,
+        });
         return true;
       } catch {
         return false;
@@ -104,15 +105,17 @@ export function createTauriEvaluationContext(
     },
 
     async workspaceHashFile(path: string): Promise<string | null> {
-      // Scope to this project (see workspaceReadFile) — a null project id would
-      // hash a file from another project → null here (→ file_hash ERROR).
-      if (!projectId) return null;
+      if (!evaluationLease) return null;
       // Read through the sandbox, then hash in-renderer with WebCrypto — the same
       // sha256 hashing the artifact-persist path uses, so a file_hash criterion
       // and a published artifact's content_hash agree byte-for-byte.
       let content: string;
       try {
-        content = await invokeCommand('project_read_file', { path, projectId });
+        content = await invokeCommand('project_read_file', {
+          path,
+          projectId: evaluationLease.projectId,
+          evaluationLease,
+        });
       } catch {
         return null;
       }
@@ -129,23 +132,24 @@ export function createTauriEvaluationContext(
     async runCommand(
       command: string,
     ): Promise<{ exitCode: number; stdout: string; stderr: string; classifierBlocked?: boolean }> {
-      // No workspace root → nothing to run against. Treat as a classifier-style
+      // No Turn capability → nothing to verify. Treat as a classifier-style
       // block so the evaluator maps it to ERROR (a setup problem), not FAIL.
-      if (!workspaceRoot || !projectId) {
+      if (!evaluationLease) {
         return {
           exitCode: -1,
           stdout: '',
-          stderr: 'no workspace_root bound for this project',
+          stderr: 'no task workspace evaluation lease is available for this attempt',
           classifierBlocked: true,
         };
       }
       try {
         const result = await invokeCommand('bash_execute', {
-          cwd: workspaceRoot,
           cmd: command,
           timeoutMs: BASH_TIMEOUT_MS,
           maxOutputBytes: null,
-          projectId,
+          projectId: evaluationLease.projectId,
+          evaluationLease,
+          verificationOnly: true,
           approvalId: null,
           employeeId: null,
           networkPolicy: null,
@@ -179,10 +183,11 @@ export function createTauriEvaluationContext(
       // a SUCCESSFUL read of a genuinely clean working tree; conflating the two
       // would let `git_diff_policy` falsely PASS when git is merely unavailable.
       // The evaluator maps `null` → ERROR (the diff is unknowable).
-      if (!projectId) return null;
+      if (!evaluationLease) return null;
       try {
         const result = await invokeCommand('git_exec', {
-          projectId,
+          projectId: evaluationLease.projectId,
+          evaluationLease,
           args: ['status', '--porcelain=v1', '-z'],
           cwd: null,
         });

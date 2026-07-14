@@ -34,7 +34,10 @@ import assert from 'node:assert/strict';
 // keeps it in the reachable graph AND proves it satisfies the injected GitWorktreeOps
 // contract. The factory is constructed but NO method is invoked, so no real Tauri /
 // git_exec call happens (those resolve lazily inside each method).
-import { parsePorcelainV1ZPaths } from '../apps/desktop/renderer/src/runtime/mission/git-porcelain.js';
+import {
+  parseNulPathList,
+  parsePorcelainV1ZPaths,
+} from '../apps/desktop/renderer/src/runtime/mission/git-porcelain.js';
 import { createTauriGitWorktreeOps } from '../apps/desktop/renderer/src/runtime/mission/workspace/git-worktree-ops.js';
 import {
   type GitWorktreeOps,
@@ -46,7 +49,7 @@ import {
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 16;
+const TOTAL = 17;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -744,6 +747,20 @@ await check('porcelain -z rename returns target and source for explicit staging'
     'new name.md',
     'old name.md',
   ]);
+});
+
+await check('machine -z path lists preserve spaces, newlines, and secret-shaped names', () => {
+  assert.deepEqual(
+    parseNulPathList(
+      'file with space.md\0line\nbreak.md\0offisim_secret_token_abcdefghijklmnopqrstuvwxyz.md\0 \0',
+    ),
+    [
+      'file with space.md',
+      'line\nbreak.md',
+      'offisim_secret_token_abcdefghijklmnopqrstuvwxyz.md',
+      ' ',
+    ],
+  );
 });
 
 if (failed > 0) {

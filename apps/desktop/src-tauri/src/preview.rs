@@ -8,8 +8,12 @@ use tauri::Runtime;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 use crate::builtin_tools::{
-    ensure_inside_workspace, fs_op_error, fs_resolve_error, relativize_for_error,
-    resolve_project_candidate, utf8_boundary_safe_string, workspace_roots,
+    ensure_inside_workspace, fs_op_error, fs_resolve_error, open_project_read_target_anchored,
+    relativize_for_error, resolve_project_candidate, utf8_boundary_safe_string, workspace_roots,
+    workspace_roots_for_access, WorkspaceRoots,
+};
+use crate::task_workspace_binding::{
+    TaskWorkspaceAccess, TaskWorkspaceBindingClaim, TaskWorkspaceEvaluationLeaseClaim,
 };
 
 pub const MAX_PREVIEW_TEXT_BYTES: u64 = 262_144;
@@ -41,8 +45,27 @@ async fn resolve_preview_path<R: Runtime>(
     app: &tauri::AppHandle<R>,
     path: &str,
     project_id: Option<&str>,
-) -> Result<(PathBuf, Vec<PathBuf>), String> {
+) -> Result<(PathBuf, WorkspaceRoots), String> {
     let roots = workspace_roots(app, project_id).await?;
+    let canonical = resolve_preview_path_for_roots(path, &roots)?;
+    Ok((canonical, roots))
+}
+
+async fn resolve_bound_preview_path<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    path: &str,
+    project_id: Option<&str>,
+    binding_claim: Option<&TaskWorkspaceBindingClaim>,
+    evaluation_lease: Option<&TaskWorkspaceEvaluationLeaseClaim>,
+) -> Result<(PathBuf, WorkspaceRoots), String> {
+    let roots = workspace_roots_for_access(
+        app,
+        project_id,
+        binding_claim,
+        evaluation_lease,
+        TaskWorkspaceAccess::Read,
+    )
+    .await?;
     let canonical = resolve_preview_path_for_roots(path, &roots)?;
     Ok((canonical, roots))
 }
@@ -139,11 +162,9 @@ fn text_from_bytes(bytes: &[u8], mime_type: Option<&str>) -> Option<String> {
 
 async fn preview_meta_for_path(
     canonical: &Path,
-    roots: &[PathBuf],
+    roots: &WorkspaceRoots,
 ) -> Result<ProjectPreviewMeta, String> {
-    let file = tokio::fs::File::open(canonical)
-        .await
-        .map_err(|err| fs_op_error("open project preview file", canonical, roots, err))?;
+    let file = tokio::fs::File::from_std(open_project_read_target_anchored(canonical, roots)?);
     let metadata = file
         .metadata()
         .await
@@ -181,19 +202,26 @@ pub async fn project_preview_meta<R: Runtime>(
     app: tauri::AppHandle<R>,
     path: String,
     project_id: Option<String>,
+    binding_claim: Option<TaskWorkspaceBindingClaim>,
+    evaluation_lease: Option<TaskWorkspaceEvaluationLeaseClaim>,
 ) -> Result<ProjectPreviewMeta, String> {
-    let (canonical, roots) = resolve_preview_path(&app, &path, project_id.as_deref()).await?;
+    let (canonical, roots) = resolve_bound_preview_path(
+        &app,
+        &path,
+        project_id.as_deref(),
+        binding_claim.as_ref(),
+        evaluation_lease.as_ref(),
+    )
+    .await?;
     preview_meta_for_path(&canonical, &roots).await
 }
 
 pub(crate) async fn read_bounded_bytes(
     canonical: &Path,
-    roots: &[PathBuf],
+    roots: &WorkspaceRoots,
     max_bytes: u64,
 ) -> Result<Vec<u8>, String> {
-    let file = tokio::fs::File::open(canonical)
-        .await
-        .map_err(|err| fs_op_error("open project binary preview file", canonical, roots, err))?;
+    let file = tokio::fs::File::from_std(open_project_read_target_anchored(canonical, roots)?);
     let total_size = file
         .metadata()
         .await
@@ -215,8 +243,17 @@ pub async fn project_read_file_bytes<R: Runtime>(
     path: String,
     project_id: Option<String>,
     max_bytes: Option<u32>,
+    binding_claim: Option<TaskWorkspaceBindingClaim>,
+    evaluation_lease: Option<TaskWorkspaceEvaluationLeaseClaim>,
 ) -> Result<tauri::ipc::Response, String> {
-    let (canonical, roots) = resolve_preview_path(&app, &path, project_id.as_deref()).await?;
+    let (canonical, roots) = resolve_bound_preview_path(
+        &app,
+        &path,
+        project_id.as_deref(),
+        binding_claim.as_ref(),
+        evaluation_lease.as_ref(),
+    )
+    .await?;
     let budget = max_bytes.map(u64::from).unwrap_or(MAX_PREVIEW_BINARY_BYTES);
     Ok(tauri::ipc::Response::new(
         read_bounded_bytes(&canonical, &roots, budget).await?,
@@ -325,14 +362,6 @@ fn text_response(status: StatusCode, message: &str) -> Response<Vec<u8>> {
         .unwrap_or_else(|_| Response::new(Vec::new()))
 }
 
-async fn sniff_mime_for_file(path: &Path) -> Option<String> {
-    let mut file = tokio::fs::File::open(path).await.ok()?;
-    let mut buffer = vec![0; MIME_SNIFF_BYTES as usize];
-    let bytes = file.read(&mut buffer).await.ok()?;
-    buffer.truncate(bytes);
-    sniff_mime(&buffer)
-}
-
 async fn media_response_for_request<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: tauri::http::Request<Vec<u8>>,
@@ -353,7 +382,13 @@ async fn media_response_for_request<R: Runtime>(
         }
         Err(err) => return text_response(StatusCode::NOT_FOUND, &err),
     };
-    let metadata = match tokio::fs::metadata(&canonical).await {
+    let mut file = match open_project_read_target_anchored(&canonical, &roots) {
+        Ok(value) => tokio::fs::File::from_std(value),
+        Err(err) => {
+            return text_response(StatusCode::NOT_FOUND, &err);
+        }
+    };
+    let metadata = match file.metadata().await {
         Ok(value) => value,
         Err(err) => {
             return text_response(
@@ -367,15 +402,6 @@ async fn media_response_for_request<R: Runtime>(
         Err(err) => return text_response(StatusCode::RANGE_NOT_SATISFIABLE, &err),
     };
 
-    let mut file = match tokio::fs::File::open(&canonical).await {
-        Ok(value) => value,
-        Err(err) => {
-            return text_response(
-                StatusCode::NOT_FOUND,
-                &fs_op_error("open project media file", &canonical, &roots, err),
-            );
-        }
-    };
     if let Err(err) = file.seek(SeekFrom::Start(plan.start)).await {
         return text_response(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -395,7 +421,8 @@ async fn media_response_for_request<R: Runtime>(
         .status(plan.status)
         .header(header::ACCEPT_RANGES, "bytes")
         .header(header::CONTENT_LENGTH, body.len().to_string());
-    if let Some(mime) = sniff_mime_for_file(&canonical).await {
+    let sniff_len = cmp::min(body.len(), MIME_SNIFF_BYTES as usize);
+    if let Some(mime) = sniff_mime(&body[..sniff_len]) {
         builder = builder.header(header::CONTENT_TYPE, mime);
     }
     if let Some(content_range) = plan.content_range {
@@ -457,6 +484,11 @@ mod tests {
         }
     }
 
+    fn authorized_roots(root: &PathBuf) -> WorkspaceRoots {
+        WorkspaceRoots::from_live_paths(std::slice::from_ref(root))
+            .expect("capture test Project folder identity")
+    }
+
     #[tokio::test]
     async fn meta_reports_mime_for_png_magic_bytes() {
         let workspace = TestDir::new("png");
@@ -470,7 +502,7 @@ mod tests {
         )
         .expect("write png");
 
-        let meta = preview_meta_for_path(&file, std::slice::from_ref(&root))
+        let meta = preview_meta_for_path(&file, &authorized_roots(&root))
             .await
             .expect("preview meta");
 
@@ -486,7 +518,7 @@ mod tests {
         let file = root.join("main.rs");
         fs::write(&file, "fn main() {}\n").expect("write text");
 
-        let meta = preview_meta_for_path(&file, std::slice::from_ref(&root))
+        let meta = preview_meta_for_path(&file, &authorized_roots(&root))
             .await
             .expect("preview meta");
 
@@ -502,7 +534,7 @@ mod tests {
         let file = root.join("large.txt");
         fs::write(&file, vec![b'a'; MAX_PREVIEW_TEXT_BYTES as usize + 10]).expect("write text");
 
-        let meta = preview_meta_for_path(&file, std::slice::from_ref(&root))
+        let meta = preview_meta_for_path(&file, &authorized_roots(&root))
             .await
             .expect("preview meta");
 
@@ -537,7 +569,7 @@ mod tests {
         let file = root.join("blob.bin");
         fs::write(&file, [1, 2, 3, 4, 5]).expect("write bytes");
 
-        let bytes = read_bounded_bytes(&file, std::slice::from_ref(&root), 3)
+        let bytes = read_bounded_bytes(&file, &authorized_roots(&root), 3)
             .await
             .expect("read bytes");
 

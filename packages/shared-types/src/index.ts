@@ -544,6 +544,7 @@ export {
   ACTIVE_PROJECT_STATUSES,
   COMPLETED_PROJECT_STATUSES,
   formatWorkspaceRootHint,
+  requireProjectWorkspaceRoot,
   trimToNull,
 } from './project.js';
 

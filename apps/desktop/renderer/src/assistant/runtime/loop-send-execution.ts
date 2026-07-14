@@ -193,6 +193,6 @@ export async function startLoopAsParallelProjectRun(input: {
       await missionRunManager.start(result.missionId, input.companyId);
       return { missionId: result.missionId, threadId };
     },
-    compensateThread: () => deleteConversationDeep(threadId, input.companyId),
+    compensateThread: () => deleteConversationDeep(threadId, input.companyId, input.projectId),
   });
 }

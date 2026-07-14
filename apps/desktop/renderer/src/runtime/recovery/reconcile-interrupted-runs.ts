@@ -9,8 +9,8 @@
  * the still-running children whose host died with it, rolls the subtree's partial
  * usage onto the root, and returns a {@link InterruptedRunCard} per parked root.
  *
- * This runs over `agent_runs` (the live source of truth) + the run's Pi session
- * JSONL pointer (`session_file`), NOT the orphan mission tables — wiring the
+ * This runs over `agent_runs` (the live source of truth) + the native agent's
+ * saved session pointer (`session_file`), NOT the orphan mission tables — wiring the
  * mission store into the live path is exactly the "parallel recovery store"
  * anti-pattern the roadmap avoids. The M4 mission recovery library stays a pure
  * logic lib; this is its agent_runs-shaped sibling, reusing only the generic
@@ -23,6 +23,12 @@
  * Determinism: `now` is injected (no `Date.now()`).
  */
 
+import {
+  type TaskWorkspaceBindingProjection,
+  type TaskWorkspaceResumeCompatibility,
+  type TaskWorkspaceResumeCompatibilityArgs,
+  parseTaskWorkspaceBindingProjection,
+} from '@/lib/tauri-commands.js';
 import type {
   AgentRunRepository,
   AgentRunRow,
@@ -41,11 +47,11 @@ export interface InterruptedRunCard {
   companyId: string;
   threadId: string;
   projectId: string | null;
-  workspaceRoot: string | null;
+  workspaceBinding: TaskWorkspaceBindingProjection | null;
   /** The run's objective (the resume target's intent), if recorded. */
   objective: string | null;
   startedAt: string;
-  /** Pi session JSONL path: present → resumable; null → resume needs confirmation. */
+  /** Saved native agent session path: present → resumable; null → confirmation. */
   sessionFile: string | null;
   /** Partial usage aggregated from the subtree at interruption (JSON), or null. */
   partialUsageJson: string | null;
@@ -58,7 +64,7 @@ export interface InterruptedRunCard {
 }
 
 interface RunContextSnapshot {
-  workspaceRoot?: unknown;
+  workspaceBinding?: unknown;
   runtime?: unknown;
   piSdkVersion?: unknown;
   wireProtocolVersion?: unknown;
@@ -69,12 +75,35 @@ interface RunContextSnapshot {
 }
 
 interface InterruptedRunCardOptions {
-  workspaceExists?: boolean | null;
-  resolvedWorkspaceRoot?: string | null;
+  resumeCompatibility?: TaskWorkspaceResumeCompatibility;
   currentWireProtocolVersion?: number;
 }
 
-export const PI_HOST_PROTOCOL_VERSION = 7;
+export const PI_HOST_PROTOCOL_VERSION = 8;
+
+const RESUME_COMPATIBILITY_COPY: Readonly<Record<string, string>> = {
+  workspace_history_missing: 'The saved workspace record is unavailable.',
+  workspace_scope_changed: 'This run no longer matches its original project and conversation.',
+  project_workspace_missing: 'The original Project folder is unavailable.',
+  project_workspace_changed: 'The Project folder has changed since this run started.',
+  workspace_history_identity_invalid: 'The saved workspace record can no longer be verified.',
+  workspace_identity_changed: 'The Project folder was replaced or changed since this run started.',
+  workspace_compatibility_unavailable:
+    'The Project folder could not be verified, so resume remains blocked.',
+};
+
+/** Convert backend-only compatibility codes into stable product copy. */
+export function describeWorkspaceResumeCompatibility(
+  compatibility: TaskWorkspaceResumeCompatibility,
+): string | null {
+  if (compatibility.status === 'same') return null;
+  return (
+    RESUME_COMPATIBILITY_COPY[compatibility.reason] ??
+    (compatibility.status === 'missing'
+      ? 'The saved workspace record is unavailable.'
+      : 'The original Project folder no longer matches this run.')
+  );
+}
 
 function parseRuntimeContext(raw: string | null): RunContextSnapshot | null {
   if (!raw) return null;
@@ -95,9 +124,41 @@ export function resolveAgentRunProjectId(root: AgentRunRow): string | null {
   return root.project_id ?? stringOrNull(context?.projectId);
 }
 
-function resolveAgentRunWorkspaceRoot(root: AgentRunRow): string | null {
+function resolveAgentRunWorkspaceBinding(root: AgentRunRow): TaskWorkspaceBindingProjection | null {
   const context = parseRuntimeContext(root.runtime_context_json);
-  return stringOrNull(context?.workspaceRoot);
+  return parseTaskWorkspaceBindingProjection(context?.workspaceBinding);
+}
+
+export function resolveAgentRunResumeCompatibilityArgs(
+  root: AgentRunRow,
+): TaskWorkspaceResumeCompatibilityArgs | null {
+  const projectId = resolveAgentRunProjectId(root);
+  const workspaceBinding = resolveAgentRunWorkspaceBinding(root);
+  const context = parseRuntimeContext(root.runtime_context_json);
+  const permissionMode = stringOrNull(context?.permissionMode);
+  if (
+    !projectId ||
+    !workspaceBinding ||
+    !workspaceBinding.historyId.trim() ||
+    workspaceBinding.companyId !== root.company_id ||
+    workspaceBinding.projectId !== projectId ||
+    workspaceBinding.threadId !== root.thread_id ||
+    workspaceBinding.turnId !== root.root_run_id ||
+    (root.access !== 'read' && root.access !== 'write') ||
+    workspaceBinding.access !== root.access ||
+    (permissionMode !== null && (permissionMode === 'plan' ? 'read' : 'write') !== root.access) ||
+    root.run_id !== root.root_run_id
+  ) {
+    return null;
+  }
+  return {
+    historyId: workspaceBinding.historyId,
+    companyId: root.company_id,
+    projectId,
+    threadId: root.thread_id,
+    rootRunId: root.root_run_id,
+    access: root.access,
+  };
 }
 
 /** The structured result of a startup run-reconciliation pass. */
@@ -207,7 +268,8 @@ export function buildInterruptedRunCard(
   const sessionFile = root.session_file;
   const context = parseRuntimeContext(root.runtime_context_json);
   const projectId = resolveAgentRunProjectId(root);
-  const workspaceRoot = resolveAgentRunWorkspaceRoot(root) ?? options.resolvedWorkspaceRoot ?? null;
+  const workspaceBinding = resolveAgentRunWorkspaceBinding(root);
+  const workspaceBindingMatchesRun = resolveAgentRunResumeCompatibilityArgs(root) !== null;
   const wireProtocolVersion =
     typeof context?.wireProtocolVersion === 'number' ? context.wireProtocolVersion : null;
   const currentWireProtocolVersion = options.currentWireProtocolVersion ?? PI_HOST_PROTOCOL_VERSION;
@@ -215,15 +277,18 @@ export function buildInterruptedRunCard(
   if (!projectId) {
     classificationReasons.push('original project context is missing');
   }
-  if (!workspaceRoot) {
-    classificationReasons.push('original workspace folder was not recorded');
+  if (!workspaceBindingMatchesRun) {
+    classificationReasons.push(
+      'original backend-issued workspace authority history is missing or does not match this run',
+    );
   }
-  if (options.workspaceExists === false) {
-    classificationReasons.push('original workspace folder is no longer accessible');
+  if (options.resumeCompatibility && options.resumeCompatibility.status !== 'same') {
+    const reason = describeWorkspaceResumeCompatibility(options.resumeCompatibility);
+    if (reason) classificationReasons.push(reason);
   }
   if (!sessionFile) {
     classificationReasons.push(
-      'no Pi session file recorded; this run cannot continue from durable session context',
+      'no saved agent session was recorded; this run cannot continue from its prior session',
     );
   }
   const protocolMismatch =
@@ -233,7 +298,10 @@ export function buildInterruptedRunCard(
       `saved host protocol ${wireProtocolVersion} does not match current protocol ${currentWireProtocolVersion}`,
     );
   }
-  const workspaceBlocked = !projectId || !workspaceRoot || options.workspaceExists === false;
+  const workspaceBlocked =
+    !projectId ||
+    !workspaceBindingMatchesRun ||
+    (options.resumeCompatibility !== undefined && options.resumeCompatibility.status !== 'same');
   const classification: RecoveryClassification = protocolMismatch
     ? 'incompatible'
     : workspaceBlocked
@@ -245,12 +313,12 @@ export function buildInterruptedRunCard(
     cancelledChildRunIds.length > 0
       ? ` ${cancelledChildRunIds.length} child run(s) left running were cancelled and would be re-delegated as needed.`
       : '';
-  const workspaceNote = workspaceRoot ? ` in ${workspaceRoot}` : '';
+  const workspaceNote = workspaceBinding?.displayPath ? ` in ${workspaceBinding.displayPath}` : '';
   const whatResumeWillDo =
     classification === 'resumable'
-      ? `Resume the interrupted run from its Pi session context${workspaceNote}.${cancelledNote}`
+      ? `Resume the interrupted run from its saved agent session${workspaceNote}.${cancelledNote}`
       : classification === 'needs_user_confirm'
-        ? `No durable session was recorded; resuming restarts this run from its objective${workspaceNote}. Confirm before resuming.${cancelledNote}`
+        ? `No saved agent session was recorded; resuming restarts this run from its objective${workspaceNote}. Confirm before resuming.${cancelledNote}`
         : classification === 'incompatible'
           ? `Resume is blocked for this run. Start a fresh run or discard it.${cancelledNote}`
           : `Start a fresh run or discard this interrupted run.${cancelledNote}`;
@@ -259,7 +327,7 @@ export function buildInterruptedRunCard(
     companyId: root.company_id,
     threadId: root.thread_id,
     projectId,
-    workspaceRoot,
+    workspaceBinding,
     objective: root.objective,
     startedAt: root.started_at,
     sessionFile,

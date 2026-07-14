@@ -1,6 +1,6 @@
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { GitWorktreeOps, MergeResult } from '@offisim/core/browser';
-import { parsePorcelainV1ZPaths } from '../git-porcelain.js';
+import { parseNulPathList, parsePorcelainV1ZPaths } from '../git-porcelain.js';
 
 /**
  * Tauri-backed {@link GitWorktreeOps} (PRD §23.3 / §14.2, slice M5 — WI-002/004/005/006).
@@ -63,35 +63,31 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
       }
     },
 
-    async addWorktree(branch: string, path: string): Promise<void> {
-      const result = await run(['worktree', 'add', '-b', branch, path], null);
-      if (!result.ok) {
-        throw new Error(`git worktree add failed: ${result.stderr.trim()}`);
-      }
+    async addWorktree(_branch, _path, _provenance): Promise<void> {
+      throw new Error(
+        'Workspace leases are created by the bound task runtime; the renderer cannot mint them.',
+      );
     },
 
     async removeWorktree(path: string): Promise<void> {
-      const result = await run(['worktree', 'remove', path], null);
-      if (!result.ok) {
-        throw new Error(`git worktree remove failed: ${result.stderr.trim()}`);
-      }
+      const leaseId = path.split('/').filter(Boolean).at(-1);
+      if (!leaseId) throw new Error('Workspace lease path has no lease id.');
+      await invokeCommand('workspace_lease_release', { projectId, leaseId, path });
     },
 
     async discardWorktree(path: string): Promise<void> {
       const leaseId = path.split('/').filter(Boolean).at(-1);
       if (!leaseId) throw new Error('Workspace lease path has no lease id.');
-      await invokeCommand('workspace_lease_discard', { projectId, leaseId });
+      await invokeCommand('workspace_lease_discard', { projectId, leaseId, path });
     },
 
     async worktreeChanged(path: string): Promise<boolean> {
-      // Already-whitelisted (`status --porcelain`) run IN the worktree cwd: any
-      // non-empty porcelain line means the worktree has changes. On failure we
-      // conservatively report `true` so cleanup RETAINS rather than risk
-      // discarding unverified work (WI-006 data safety — never silently discard).
+      const leaseId = path.split('/').filter(Boolean).at(-1);
+      if (!leaseId) return true;
+      // Backend truth includes both dirty files and clean commits that have not
+      // yet landed in the Project checkout. On failure conservatively retain.
       try {
-        const result = await run(['status', '--porcelain=v1', '-z'], path);
-        if (!result.ok) return true;
-        return parsePorcelainV1ZPaths(result.stdout).length > 0;
+        return await invokeCommand('workspace_lease_changed', { projectId, leaseId, path });
       } catch {
         return true;
       }
@@ -100,14 +96,14 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
     async diff(path: string): Promise<string[]> {
       const base = await rootHead();
       const [committed, workingTree] = await Promise.all([
-        run(['diff', '--name-only', base, 'HEAD'], path),
+        run(['diff', '--name-only', '-z', base, 'HEAD'], path),
         run(['status', '--porcelain=v1', '-z'], path),
       ]);
       if (!committed.ok) throw new Error(`git diff failed: ${committed.stderr.trim()}`);
       if (!workingTree.ok) throw new Error(`git status failed: ${workingTree.stderr.trim()}`);
       return [
         ...new Set([
-          ...parseLinePaths(committed.stdout),
+          ...parseNulPathList(committed.stdout),
           ...parsePorcelainV1ZPaths(workingTree.stdout),
         ]),
       ];
@@ -147,7 +143,15 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
       try {
         const result = await run(['merge', '--no-ff', branch], null);
         if (result.ok) return { ok: true, conflicts: [] };
-        return { ok: false, conflicts: parseMergeConflicts(result.stdout, result.stderr) };
+        const conflicts = await run(['diff', '--name-only', '--diff-filter=U', '-z'], null);
+        if (!conflicts.ok) {
+          throw new Error(conflicts.stderr.trim() || 'Could not inspect merge conflicts.');
+        }
+        const paths = parseNulPathList(conflicts.stdout);
+        if (paths.length === 0) {
+          throw new Error(result.stderr.trim() || result.stdout.trim() || 'Git merge failed.');
+        }
+        return { ok: false, conflicts: paths };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         // A thrown invoke is reported as a conflict-less failure so the manager
@@ -156,30 +160,4 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
       }
     },
   };
-}
-
-function parseLinePaths(stdout: string): string[] {
-  return stdout
-    .split(/\r?\n/)
-    .map((path) => path.trim())
-    .filter(Boolean);
-}
-
-/**
- * Extract conflicted paths from a failed `git merge`. Git prints
- * `CONFLICT (content): Merge conflict in <path>` lines; pull the paths out so the
- * manager can route the lease to repair/human (§23.3). Falls back to a single
- * opaque marker when no path line is present.
- */
-function parseMergeConflicts(stdout: string, stderr: string): string[] {
-  const text = `${stdout}\n${stderr}`;
-  const conflicts: string[] = [];
-  const re = /Merge conflict in (.+)/g;
-  let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: canonical regex exec-loop idiom
-  while ((match = re.exec(text)) !== null) {
-    const path = match[1]?.trim();
-    if (path) conflicts.push(path);
-  }
-  return conflicts.length > 0 ? conflicts : ['merge conflict (paths unavailable)'];
 }

@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，3/17 implemented；T05a 前置已交付，release 验收统一留在 T16
+> 状态：IN PROGRESS，4/17 implemented；T05a 前置已交付，release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -11,7 +11,7 @@
 | T00 | 当前控制真源允许 engine-neutral Accounts / Models | — | [x] |
 | T01 | 历史 approval 与 live run 分离 | T00 | [x] |
 | T02 | 首次成功回复后的语义标题 | T00,T05a | [x] |
-| T03 | 后端签发 effective task workspace | T00 | [ ] |
+| T03 | 后端签发 effective task workspace | T00 | [x] |
 | T04 | 缺失 Project 目录自主恢复 | T03 | [ ] |
 | T05 | 生产 engine gateway 与 API account | T00 | [ ] |
 | T06 | Codex subscription 完整 engine | T05 | [ ] |
@@ -145,17 +145,24 @@
 
 ### Acceptance
 
-- [ ] 每个文件型 Turn 都有后端签发的 canonical root。
-- [ ] binding 与 project/thread/turn 匹配，不能跨 Project 或由 renderer 篡改。
-- [ ] 文件工具只接受 binding scope 内路径。
-- [ ] Conversation 历史、Native Session ref 与 workspace binding 可独立存在。
-- [ ] 运行记录能解释实际目录、来源与置信度，不泄露 secret。
+- [x] 每个文件型 Turn 都有后端签发的 canonical root。
+- [x] binding 与 company/project/thread/turn/request 匹配，不能跨 Project 或由 renderer 篡改。
+- [x] 文件工具只接受 binding scope 内路径；write、read 与 terminal read grace 独立校验。
+- [x] Conversation 历史、Native Session ref 与 workspace binding 可独立存在。
+- [x] 运行记录能解释实际目录、来源与置信度；256-bit capability ref 仅驻内存，不进入 SQLite 或 runtime context。
 
 ### Oracles
 
 - 新增 task-workspace contract harness：正常、越界、伪造、重启、跨 Project。
 - `pnpm harness:project-workspace`
 - Rust command tests + renderer typecheck。
+
+### Evidence（2026-07-14 AEST）
+
+- `pnpm harness:project-workspace` — PASS；真实执行 fresh SQLite schema，并锁定 Project folder、scope、事件投影、artifact claim 与无 all-roots fallback。
+- `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml task_workspace_binding --lib` — 22/22；覆盖 256-bit ref、claim 防伪、read/write/verification、expiry/revoke grace、root identity、resume/discard 与 process cwd。
+- `pnpm harness:pi-agent-host` — PASS；production session 的 read/write/edit/grep/find/ls/bash 只走固定虚拟根与后端 capability，覆盖 CAS、取消、同路径换根、遍历/结果截断；同步 Bash 会清理直接/同组进程与仍保留 marker 的 detached child，模型合同明确禁止持久 daemon，truth oracle 锁定清空全部 marker 后不属于 macOS native containment 的边界；无 native fallback。
+- `cargo test --locked` — 302/302；`pnpm validate`（含 typecheck、schema/wire、recovery/deletion/Loop 与 deadcode）、`pnpm lint`、`cargo clippy --locked --all-targets -- -D warnings -A clippy::large-enum-variant` — PASS。
 
 ---
 

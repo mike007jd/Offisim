@@ -10,6 +10,7 @@ import {
   type AskAction,
   DEFAULT_PERMISSION_MODE,
   PLAN_TOOL_ALLOWLIST,
+  WORK_TOOL_ALLOWLIST,
   evaluateAskBashCommand,
   evaluateAutoBashCommand,
   isGitForcePush,
@@ -70,13 +71,13 @@ check('plan allowlist is read-only — no bash/edit/write', () => {
   }
   assert.deepEqual([...PLAN_TOOL_ALLOWLIST], tools);
 });
-check('auto/full keep the default tool set', () => {
-  assert.equal(toolAllowlistForMode('auto'), undefined);
-  assert.equal(toolAllowlistForMode('full'), undefined);
+check('auto/full use the exact Offisim workspace tool set', () => {
+  assert.deepEqual(toolAllowlistForMode('auto'), [...WORK_TOOL_ALLOWLIST]);
+  assert.deepEqual(toolAllowlistForMode('full'), [...WORK_TOOL_ALLOWLIST]);
 });
-check('ask normalizes + keeps the default tool set', () => {
+check('ask normalizes + uses the exact Offisim workspace tool set', () => {
   assert.equal(normalizePermissionMode('ask'), 'ask');
-  assert.equal(toolAllowlistForMode('ask'), undefined);
+  assert.deepEqual(toolAllowlistForMode('ask'), [...WORK_TOOL_ALLOWLIST]);
 });
 
 check('child tools inherit Plan while preserving delegated access bounds', () => {
@@ -90,9 +91,10 @@ check('child tools inherit Plan while preserving delegated access bounds', () =>
   ]);
 });
 check('child Ask/Auto/Full preserve write tools for their inherited runtime gate', () => {
-  assert.equal(childToolsForPermissionMode('write', 'ask'), undefined);
-  assert.equal(childToolsForPermissionMode('write', 'auto'), undefined);
-  assert.equal(childToolsForPermissionMode('write', 'full'), undefined);
+  const expected = [...WORK_TOOL_ALLOWLIST, 'delegate'];
+  assert.deepEqual(childToolsForPermissionMode('write', 'ask'), expected);
+  assert.deepEqual(childToolsForPermissionMode('write', 'auto'), expected);
+  assert.deepEqual(childToolsForPermissionMode('write', 'full'), expected);
 });
 
 // --- force-push detection --------------------------------------------------

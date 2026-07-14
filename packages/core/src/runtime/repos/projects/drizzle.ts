@@ -1,5 +1,5 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
-import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
+import { ACTIVE_PROJECT_STATUSES, requireProjectWorkspaceRoot } from '@offisim/shared-types';
 import type {
   ChatThread,
   NewChatThread,
@@ -74,6 +74,7 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
       const ts = now();
       const row: ProjectRow = {
         ...project,
+        workspace_root: requireProjectWorkspaceRoot(project.workspace_root),
         verify_command: project.verify_command ?? null,
         verify_max_attempts: project.verify_max_attempts ?? 3,
         verify_token_budget: project.verify_token_budget ?? null,
@@ -119,13 +120,14 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
         .run();
     },
     async update(projectId, patch) {
+      const normalized =
+        patch.workspace_root === undefined
+          ? patch
+          : { ...patch, workspace_root: requireProjectWorkspaceRoot(patch.workspace_root) };
       db.update(schema.projects)
-        .set({ ...patch, updated_at: now() })
+        .set({ ...normalized, updated_at: now() })
         .where(eq(schema.projects.project_id, projectId))
         .run();
-    },
-    async delete(projectId) {
-      db.delete(schema.projects).where(eq(schema.projects.project_id, projectId)).run();
     },
   };
 

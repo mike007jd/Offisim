@@ -14,6 +14,10 @@ import {
   createDelegationLimits,
   integrateCompletedDelegation,
 } from './pi-child-supervisor.mjs';
+import {
+  createTaskBashProcessRegistry,
+  createTaskScopedAgentSessionFactory,
+} from './pi-task-bash-process-registry.mjs';
 
 const repo = mkdtempSync(join(tmpdir(), 'offisim-single-delegation-'));
 const git = (cwd: string, args: string[]) =>
@@ -157,6 +161,8 @@ try {
   ]);
   const sessionOptions: Array<Record<string, unknown>> = [];
   const resourceLoaderOptions: Array<Record<string, unknown>> = [];
+  const sessionManagerCwds: string[] = [];
+  const sharedValidationClaims: Array<Record<string, unknown>> = [];
   const inheritedPermissionModes: string[] = [];
   let askUiBindings = 0;
   const makeSession = () => {
@@ -185,7 +191,7 @@ try {
     emit: () => {},
     authStorage: {},
     modelRegistry: {},
-    cwd: repo,
+    cwd: '.',
     settingsManager: {},
     threadId: 'thread-model-binding',
     rootRunId: 'root-model-binding',
@@ -219,7 +225,14 @@ try {
       resourceLoaderOptions.push(options);
       return { reload: async () => {} };
     },
-    createSessionManager: () => ({}),
+    createSessionManager: (cwd: string) => {
+      sessionManagerCwds.push(cwd);
+      return {};
+    },
+    validateLeaseCwd: async (claim: Record<string, unknown>) => {
+      sharedValidationClaims.push(claim);
+      return { cwd: claim.cwd };
+    },
     createAgentSession: async (options: Record<string, unknown>) => {
       sessionOptions.push(options);
       return { session: makeSession() };
@@ -240,6 +253,136 @@ try {
   ]);
   assert.deepEqual(inheritedPermissionModes, ['ask', 'ask', 'ask']);
   assert.equal(askUiBindings, 3, 'every Ask child binds the renderer approval channel');
+  assert.ok(
+    resourceLoaderOptions.every((options) => options.cwd === '.') &&
+      sessionManagerCwds.every((cwd) => cwd === '.') &&
+      sessionOptions.every((options) => options.cwd === '.' && !('taskWorkspaceLease' in options)),
+    'shared read children must inherit descriptor-bound cwd=. without an isolated lease claim',
+  );
+  assert.equal(
+    sharedValidationClaims.length,
+    0,
+    'shared children must not call the isolated lease validation channel',
+  );
+
+  let freshLeaseId = 0;
+  const freshLeaseManager = createWorkspaceLeaseManager({
+    gitOps,
+    now: () => '2026-07-11T00:30:00.000Z',
+    newId: () => `fresh-lease-${++freshLeaseId}`,
+  });
+  const freshRoot = await freshLeaseManager.acquireRootLease(repo);
+  const freshLeaseEvents: Array<Record<string, unknown>> = [];
+  const freshLeaseClaims: Array<Record<string, unknown>> = [];
+  const freshLeaseSessions: Array<Record<string, unknown>> = [];
+  const freshLeaseSupervisor = createChildSupervisor({
+    emit: (event: Record<string, unknown>) => freshLeaseEvents.push(event),
+    authStorage: {},
+    modelRegistry: {},
+    cwd: '.',
+    settingsManager: {},
+    threadId: 'thread-fresh-lease',
+    rootRunId: 'root-fresh-lease',
+    projectId: 'project-fresh-lease',
+    roster: [{ employeeId: 'employee-a' }],
+    resolveModel: () => undefined,
+    rootModel,
+    rootThinkingLevel: 'medium',
+    buildPermissionGate: () => null,
+    limits: createDelegationLimits({ childTimeoutMs: 0 }),
+    createResourceLoader: () => ({ reload: async () => {} }),
+    createSessionManager: () => ({}),
+    createAgentSession: async (options: Record<string, unknown>) => {
+      freshLeaseSessions.push(options);
+      return { session: makeSession() };
+    },
+    leaseManager: freshLeaseManager,
+    rootLease: freshRoot,
+    validateLeaseCwd: async (claim: Record<string, unknown>) => {
+      freshLeaseClaims.push({ ...claim });
+      return { cwd: claim.cwd };
+    },
+    confirmIntegration: async () => false,
+  });
+  const freshLeaseRun = await freshLeaseSupervisor.runSingle({
+    employeeId: 'employee-a',
+    objective: 'Create a fresh isolated write lease',
+    access: 'write',
+    workKind: 'implement',
+  });
+  assert.match(freshLeaseRun, /fixture complete/i);
+  const acquiredFreshLease = freshLeaseEvents.find(
+    (event) =>
+      event.kind === 'agentRun' &&
+      event.runType === 'workspace.lease.snapshot' &&
+      (event.payload as Record<string, unknown>)?.phase === 'acquired',
+  );
+  assert.ok(acquiredFreshLease, 'fresh isolated write must emit an acquired lease snapshot');
+  const freshLeasePayload = acquiredFreshLease.payload as Record<string, unknown>;
+  assert.deepEqual(freshLeaseClaims, [
+    {
+      leaseId: freshLeasePayload.leaseId,
+      registeredRunId: acquiredFreshLease.runId,
+      workspaceRoot: freshLeasePayload.workspaceRoot,
+      cwd: freshLeasePayload.cwd,
+      branch: freshLeasePayload.branch,
+    },
+  ]);
+  assert.equal(freshLeaseSessions[0]?.cwd, freshLeasePayload.cwd);
+  assert.deepEqual(freshLeaseSessions[0]?.taskWorkspaceLease, freshLeaseClaims[0]);
+
+  let invalidLeaseId = 0;
+  const invalidLeaseManager = createWorkspaceLeaseManager({
+    gitOps,
+    now: () => '2026-07-11T00:45:00.000Z',
+    newId: () => `invalid-lease-${++invalidLeaseId}`,
+  });
+  const invalidRoot = await invalidLeaseManager.acquireRootLease(repo);
+  const invalidClaims: Array<Record<string, unknown>> = [];
+  let invalidSessionStarts = 0;
+  const invalidLeaseSupervisor = createChildSupervisor({
+    emit: () => {},
+    authStorage: {},
+    modelRegistry: {},
+    cwd: '.',
+    settingsManager: {},
+    threadId: 'thread-invalid-lease',
+    rootRunId: 'root-invalid-lease',
+    projectId: 'project-invalid-lease',
+    roster: [{ employeeId: 'employee-a' }],
+    resolveModel: () => undefined,
+    rootModel,
+    rootThinkingLevel: 'medium',
+    buildPermissionGate: () => null,
+    limits: createDelegationLimits({ childTimeoutMs: 0 }),
+    createResourceLoader: () => ({ reload: async () => {} }),
+    createSessionManager: () => ({}),
+    createAgentSession: async () => {
+      invalidSessionStarts += 1;
+      return { session: makeSession() };
+    },
+    leaseManager: invalidLeaseManager,
+    rootLease: invalidRoot,
+    validateLeaseCwd: async (claim: Record<string, unknown>) => {
+      invalidClaims.push({ ...claim });
+      return { cwd: `${String(claim.cwd)}-replacement` };
+    },
+    confirmIntegration: async () => false,
+  });
+  const invalidLeaseRun = await invalidLeaseSupervisor.runSingle({
+    employeeId: 'employee-a',
+    objective: 'Reject a replaced isolated cwd',
+    access: 'write',
+    workKind: 'implement',
+  });
+  assert.match(invalidLeaseRun, /identity changed before child startup/i);
+  assert.equal(invalidSessionStarts, 0, 'invalid isolated cwd must not start a Pi session');
+  assert.equal(invalidClaims.length, 1);
+  assert.equal(
+    invalidLeaseManager.getLease(String(invalidClaims[0].leaseId))?.status,
+    'released',
+    'a failed isolated cwd validation must release its newly acquired lease',
+  );
 
   let reworkId = 0;
   const originalManager = createWorkspaceLeaseManager({
@@ -269,11 +412,13 @@ try {
   });
   const resumedRoot = await resumedManager.acquireRootLease(repo);
   const reworkEvents: Array<Record<string, unknown>> = [];
+  const reworkClaims: Array<Record<string, unknown>> = [];
+  const reworkSessions: Array<Record<string, unknown>> = [];
   const reworkSupervisor = createChildSupervisor({
     emit: (event: Record<string, unknown>) => reworkEvents.push(event),
     authStorage: {},
     modelRegistry: {},
-    cwd: repo,
+    cwd: '.',
     settingsManager: {},
     threadId: 'thread-rework',
     rootRunId: 'root-rework',
@@ -286,9 +431,16 @@ try {
     limits: createDelegationLimits({ childTimeoutMs: 0 }),
     createResourceLoader: () => ({ reload: async () => {} }),
     createSessionManager: () => ({}),
-    createAgentSession: async () => ({ session: makeSession() }),
+    createAgentSession: async (options: Record<string, unknown>) => {
+      reworkSessions.push(options);
+      return { session: makeSession() };
+    },
     leaseManager: resumedManager,
     rootLease: resumedRoot,
+    validateLeaseCwd: async (claim: Record<string, unknown>) => {
+      reworkClaims.push({ ...claim });
+      return { cwd: claim.cwd };
+    },
     confirmIntegration: async () => false,
   });
   await reworkSupervisor.runSingle({
@@ -324,7 +476,123 @@ try {
     originalLease.runId,
     'rework remains linked to the original task',
   );
+  assert.deepEqual(reworkClaims, [
+    {
+      leaseId: originalLease.leaseId,
+      registeredRunId: originalLease.runId,
+      workspaceRoot: originalLease.workspaceRoot,
+      cwd: originalLease.cwd,
+      branch: originalLease.branch,
+    },
+  ]);
+  assert.equal(reworkSessions[0]?.cwd, originalLease.cwd);
+  assert.deepEqual(reworkSessions[0]?.taskWorkspaceLease, reworkClaims[0]);
   assert.equal(resumedManager.getLease(originalLease.leaseId)?.status, 'pending_review');
+
+  const delegatedBoundCalls: Array<{
+    command: string;
+    cwd: string;
+    taskWorkspaceLease?: unknown;
+    signal: AbortSignal;
+  }> = [];
+  const delegatedRegistry = createTaskBashProcessRegistry({
+    executeBoundCommand: async (call) => {
+      delegatedBoundCalls.push(call);
+      assert.equal(
+        delegatedRegistry.activeCount,
+        1,
+        'delegated Bash must remain registered while its Rust bridge call is active',
+      );
+      return { stdout: 'delegated bridge output', stderr: '', exitCode: 0, timedOut: false };
+    },
+  });
+  try {
+    const createDelegatedSession = createTaskScopedAgentSessionFactory(
+      async (options: Record<string, unknown>) => {
+        const bash = (
+          options.customTools as Array<{
+            name: string;
+            execute: (
+              toolCallId: string,
+              params: { command: string },
+              signal: AbortSignal,
+              onUpdate: () => void,
+            ) => Promise<unknown>;
+          }>
+        ).find((tool) => tool.name === 'bash');
+        assert.ok(bash, 'child createAgentSession seam did not receive task-scoped Bash');
+        let subscriber: ((event: unknown) => void) | undefined;
+        return {
+          session: {
+            model: rootModel,
+            subscribe(callback: (event: unknown) => void) {
+              subscriber = callback;
+              return () => {};
+            },
+            async prompt() {
+              await bash.execute(
+                'delegated-bash',
+                { command: 'printf delegated' },
+                new AbortController().signal,
+                () => {},
+              );
+              subscriber?.({
+                type: 'message_end',
+                message: {
+                  role: 'assistant',
+                  stopReason: 'stop',
+                  usage: { input: 1, output: 1, cost: { total: 0.001 } },
+                },
+              });
+            },
+            getLastAssistantText: () => 'Summary: delegated Bash completed',
+            abort: async () => {},
+            dispose: () => {},
+          },
+        };
+      },
+      delegatedRegistry,
+    );
+    const delegatedBashSupervisor = createChildSupervisor({
+      emit: () => {},
+      authStorage: {},
+      modelRegistry: {},
+      cwd: '.',
+      settingsManager: {},
+      threadId: 'thread-delegated-bash',
+      rootRunId: 'root-delegated-bash',
+      roster: [{ employeeId: 'employee-bash' }],
+      resolveModel: () => undefined,
+      rootModel,
+      rootThinkingLevel: 'medium',
+      permissionMode: 'auto',
+      buildPermissionGate: () => null,
+      limits: createDelegationLimits({ childTimeoutMs: 0 }),
+      createResourceLoader: () => ({ reload: async () => {} }),
+      createSessionManager: () => ({}),
+      createAgentSession: createDelegatedSession,
+    });
+    const delegatedResult = await delegatedBashSupervisor.runSingle({
+      employeeId: 'employee-bash',
+      objective: 'Run a delegated Bash task',
+      access: 'write',
+    });
+    assert.equal(
+      delegatedBoundCalls.length,
+      1,
+      `delegated child Bash did not cross the Rust bridge: ${delegatedResult}`,
+    );
+    assert.equal(delegatedBoundCalls[0]?.command, 'printf delegated');
+    assert.equal(delegatedBoundCalls[0]?.cwd, '.', 'shared child Bash must inherit dot cwd');
+    assert.equal(
+      delegatedBoundCalls[0]?.taskWorkspaceLease,
+      undefined,
+      'shared child Bash must not invent an isolated lease claim',
+    );
+    assert.equal(delegatedRegistry.activeCount, 0, 'delegated child Bash remained registered');
+  } finally {
+    await delegatedRegistry.cleanup();
+  }
 
   console.log('PASS single write artifact merged into project checkout');
   console.log('PASS isolated worktree removed');
@@ -335,6 +603,7 @@ try {
   console.log('PASS child sessions inherit Ask and bind the existing UI approval channel');
   console.log('PASS unbound employee inherits root model and thinking level');
   console.log('PASS request changes creates a linked rework run on the same lease/worktree');
+  console.log('PASS delegated child Bash crosses the Rust bridge and drains its registry entry');
 } finally {
   rmSync(repo, { recursive: true, force: true });
 }

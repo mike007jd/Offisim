@@ -378,7 +378,8 @@ const ROSTER = [
   );
   check(
     'host enhance never binds a project workspace',
-    !enhanceCode.includes('ensureProjectBoundForRun') && !enhanceCode.includes('project_read_file'),
+    !enhanceCode.includes('requireProjectWorkspaceForRun') &&
+      !enhanceCode.includes('project_read_file'),
   );
   check(
     'host enhance creates an ephemeral session (no session dir persistence)',

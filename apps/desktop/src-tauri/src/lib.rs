@@ -68,6 +68,7 @@ mod redaction;
 mod shell_classifier;
 mod sidecar_stderr;
 mod stage_audit;
+mod task_workspace_binding;
 mod terminal_session;
 
 use std::path::Path;
@@ -250,10 +251,11 @@ pub fn run() {
             computer_driver::computer_driver_status,
             git::git_exec,
             gh::gh_exec,
+            git::workspace_lease_changed,
+            git::workspace_lease_release,
             git::workspace_lease_discard,
             local_paths::open_local_path,
             local_paths::reveal_local_path,
-            local_paths::ensure_company_workspace,
             local_paths::delete_company_workspace,
             local_paths::runtime_vault_status,
             local_paths::open_runtime_vault_folder,
@@ -267,6 +269,15 @@ pub fn run() {
             local_paths::export_computer_run_trace,
             local_paths::export_scene_drop_diagnostic,
             local_paths::save_deliverable_to_local,
+            task_workspace_binding::project_workspace_select,
+            task_workspace_binding::project_create,
+            task_workspace_binding::project_update,
+            task_workspace_binding::project_update_status,
+            task_workspace_binding::task_workspace_resume_compatibility,
+            task_workspace_binding::task_workspace_interrupted_run_cancel,
+            task_workspace_binding::task_workspace_deletion_preflight,
+            task_workspace_binding::task_workspace_evaluation_lease_acquire,
+            task_workspace_binding::task_workspace_evaluation_lease_release,
             mcp_bridge::commands::mcp_list_registered_servers,
             mcp_bridge::commands::mcp_register_server,
             mcp_bridge::commands::mcp_unregister_server,
@@ -291,6 +302,8 @@ pub fn run() {
         .plugin(mcp_bridge::init())
         .manage(terminal_session::TerminalSessionRegistry::default())
         .manage(browser_session::BrowserSessionRegistry::default())
+        .manage(task_workspace_binding::ProjectWorkspaceSelectionRegistry::default())
+        .manage(task_workspace_binding::TaskWorkspaceBindingRegistry::default())
         .on_webview_event(|webview, event| {
             if !is_main_renderer_label(webview.label()) {
                 return;
@@ -333,6 +346,10 @@ pub fn run() {
         .setup(|app| {
             tauri::async_runtime::block_on(local_db::init_offisim_db_state(app.handle()))
                 .map_err(|e| format!("local_db init: {e}"))?;
+            tauri::async_runtime::block_on(task_workspace_binding::mark_orphaned_bindings_revoked(
+                app.handle(),
+            ))
+            .map_err(|e| format!("task workspace binding cleanup: {e}"))?;
 
             app.set_activation_policy(tauri::ActivationPolicy::Regular);
 

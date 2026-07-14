@@ -17,7 +17,8 @@ pub(super) static PI_RUN_STREAMS: Lazy<Mutex<HashMap<String, PiRunStreamState>>>
     Lazy::new(|| Mutex::new(HashMap::new()));
 static PI_STREAM_SUBSCRIBER_ID: AtomicU64 = AtomicU64::new(1);
 const PI_RUN_STREAM_BUFFER_LIMIT: usize = 4096;
-pub(super) const PI_RUN_STREAM_TERMINAL_TTL: Duration = Duration::from_secs(30 * 60);
+pub(super) const PI_RUN_STREAM_TERMINAL_TTL: Duration =
+    Duration::from_secs(super::PI_RUN_STREAM_TERMINAL_TTL_SECS);
 pub(super) fn pi_run_streams_guard(
 ) -> std::sync::MutexGuard<'static, HashMap<String, PiRunStreamState>> {
     PI_RUN_STREAMS
@@ -243,9 +244,15 @@ pub(super) fn reattach_stream(
     };
     for entry in replay {
         let cursor = entry.cursor;
-        on_event
-            .send(entry.event)
-            .map_err(|err| format!("Replay Pi Agent stream event: {err}"))?;
+        // WorkspaceBound contains an ephemeral capability. Buffered copies are
+        // never authoritative after reattach; the gateway separately asks the
+        // live backend registry to replay a freshly root-identity-checked claim.
+        // Still advance the old event's cursor so retries cannot loop on it.
+        if !matches!(&entry.event, PiAgentHostEvent::WorkspaceBound { .. }) {
+            on_event
+                .send(entry.event)
+                .map_err(|err| format!("Replay Pi Agent stream event: {err}"))?;
+        }
         on_event
             .send(PiAgentHostEvent::StreamCursor { cursor })
             .map_err(|err| format!("Replay Pi Agent stream cursor: {err}"))?;

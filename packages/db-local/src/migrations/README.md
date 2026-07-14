@@ -3,8 +3,8 @@
 Offisim is prelaunch. There is no historical local database contract to
 preserve, and this directory intentionally contains no migration SQL files.
 
-Fresh databases bootstrap from `../schema.sql` and are stamped with
-`PRAGMA user_version = 1` by `apps/desktop/src-tauri/src/local_db.rs`.
+Fresh databases bootstrap from `../schema.sql`; the single version source of
+truth is `LOCAL_SCHEMA_VERSION` in `apps/desktop/src-tauri/src/local_db.rs`.
 
 Existing local/dev databases with any other `user_version`, or with tables but
 no version stamp, are disposable artifacts. Delete the local database and let

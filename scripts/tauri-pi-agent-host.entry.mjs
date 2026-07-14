@@ -46,6 +46,10 @@ import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
 import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
 import { createMissionBridgeExtensionFactory } from './pi-mission-bridge-extension.mjs';
 import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-extension.mjs';
+import {
+  createTaskBashProcessRegistry,
+  createTaskScopedAgentSessionFactory,
+} from './pi-task-bash-process-registry.mjs';
 
 /**
  * Pi thinking levels (reasoning effort), least → most. The renderer already
@@ -144,6 +148,59 @@ const mcpChannel = createMcpCallChannel(emit);
 const worktreeChannel = createWorktreeCallChannel(emit);
 const verifyChannel = createVerifyCallChannel(emit);
 const activeChildControllers = new Map();
+const taskBashRegistry = createTaskBashProcessRegistry({
+  executeBoundCommand: async ({ command, cwd, shellPath, timeoutMs, taskWorkspaceLease, signal }) =>
+    assertWorktreeOk(
+      await worktreeChannel.requestWorktreeResult(
+        'executeBash',
+        {
+          ...taskWorkspaceLease,
+          cwd,
+          command,
+          shellPath,
+          ...(timeoutMs === undefined ? {} : { timeoutMs }),
+        },
+        { signal },
+      ),
+      'executeBash',
+    ),
+  executeBoundWorkspaceOperation: async ({ op, args, taskWorkspaceLease, signal }) =>
+    assertWorktreeOk(
+      await worktreeChannel.requestWorktreeResult(
+        op,
+        {
+          ...(taskWorkspaceLease ?? {}),
+          ...args,
+        },
+        { signal },
+      ),
+      op,
+    ),
+});
+const createTaskScopedAgentSession = createTaskScopedAgentSessionFactory(
+  createAgentSession,
+  taskBashRegistry,
+);
+let activeRootSession = null;
+let hostTerminating = false;
+
+function createWorkAgentSession(options) {
+  return createTaskScopedAgentSession(options);
+}
+
+async function shutdownActiveWork({ abort }) {
+  const pending = [];
+  if (abort) {
+    if (activeRootSession) pending.push(Promise.resolve(activeRootSession.abort()));
+    for (const controller of activeChildControllers.values()) controller.abort();
+    rejectAllUiRequests();
+    mcpChannel.rejectAllMcpCalls();
+    worktreeChannel.rejectAllWorktreeCalls();
+    verifyChannel.rejectAllVerifyCalls();
+  }
+  pending.push(taskBashRegistry.cleanup());
+  await Promise.allSettled(pending);
+}
 
 function resolveRuntimeControl(message) {
   if (message?.type !== 'control' || message.action !== 'stopChild') return;
@@ -153,7 +210,11 @@ function resolveRuntimeControl(message) {
 
 function assertWorktreeOk(response, label) {
   if (!response || response.ok !== true) {
-    throw new Error(`${label} failed: ${response?.error ?? 'unknown error'}`);
+    const error = new Error(`${label} failed: ${response?.error ?? 'unknown error'}`);
+    if (typeof response?.errorCode === 'string' && response.errorCode) {
+      error.code = response.errorCode;
+    }
+    throw error;
   }
   return response.result;
 }
@@ -164,8 +225,13 @@ function createHostGitWorktreeOps(requestWorktreeResult) {
     async isGitRepo(root) {
       return Boolean(await call('isGitRepo', { root }));
     },
-    async addWorktree(branch, path) {
-      await call('addWorktree', { branch, path });
+    async addWorktree(branch, path, provenance) {
+      await call('addWorktree', {
+        branch,
+        path,
+        leaseId: provenance?.leaseId,
+        runId: provenance?.runId,
+      });
     },
     async removeWorktree(path) {
       await call('removeWorktree', { path });
@@ -374,13 +440,16 @@ function normalizePiErrorMessage(message) {
   return message;
 }
 
-function fail(error) {
+async function fail(error) {
+  if (hostTerminating) return;
+  hostTerminating = true;
   const code =
     typeof error === 'object' && error && typeof error.code === 'string'
       ? error.code
       : 'pi-agent-host';
   const rawMessage = error instanceof Error ? error.message : String(error ?? 'Unknown Pi error');
   const message = normalizePiErrorMessage(rawMessage);
+  await shutdownActiveWork({ abort: true });
   emit(errorLine({ code, message }));
   process.exit(1);
 }
@@ -1066,7 +1135,17 @@ function piStatus(payload) {
 }
 
 async function runPrompt(payload) {
-  const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
+  const cwd = asNonEmptyString(payload.cwd);
+  if (cwd !== '.') {
+    throw Object.assign(new Error('Pi work requests require the host-anchored cwd.'), {
+      code: 'invalid-request',
+    });
+  }
+  // Rust has already descriptor-bound the sidecar process cwd to the verified
+  // Project inode. Keep `.` for every root SDK/tool path, while retaining the
+  // kernel-reported absolute location only as lease provenance for Rust-owned
+  // worktree operations.
+  const workspaceRoot = process.cwd();
   const text = asNonEmptyString(payload.text);
   if (!text) {
     throw Object.assign(new Error('Pi Agent requests must include text.'), {
@@ -1195,7 +1274,7 @@ async function runPrompt(payload) {
   // already enforced. This enumeration is complete: they are the only tools any
   // Offisim-registered extension exposes (harness:pi-agent-host locks it).
   const tools = [
-    ...(baseTools ?? ['read', 'write', 'edit', 'bash']),
+    ...baseTools,
     ...(delegationEnabled ? ['delegate'] : []),
     ...(publishArtifactEnabled ? ['publish_artifact'] : []),
     ...(missionEnabled ? ['submit_for_evaluation', 'query_mission_state'] : []),
@@ -1215,9 +1294,10 @@ async function runPrompt(payload) {
   // can still discover tools), so a resource loader + extension list is always
   // built now — no run reaches createAgentSession without one.
   let resourceLoader;
+  let settingsManager;
   let directSupervisor = null;
   {
-    const settingsManager = SettingsManager.create(cwd, agentDir);
+    settingsManager = SettingsManager.create(cwd, agentDir);
     const extensionFactories = [];
     if (gateFactory) extensionFactories.push(gateFactory);
     if (delegationEnabled) {
@@ -1228,7 +1308,7 @@ async function runPrompt(payload) {
         now: () => new Date().toISOString(),
         newId: () => randomUUID(),
       });
-      const rootLease = await leaseManager.acquireRootLease(cwd);
+      const rootLease = await leaseManager.acquireRootLease(workspaceRoot);
       const confirmIntegration = async (plan) => {
         const mergeable = Array.isArray(plan?.mergeable) ? plan.mergeable : [];
         const reviewRows = await Promise.all(
@@ -1289,10 +1369,16 @@ async function runPrompt(payload) {
         limits: delegationBudgetState,
         leaseManager,
         rootLease,
+        validateLeaseCwd: async (leaseClaim) =>
+          assertWorktreeOk(
+            await worktreeChannel.requestWorktreeResult('validateCwd', leaseClaim),
+            'validateCwd',
+          ),
         confirmIntegration,
         depth: 0,
         parentRunId: rootRunId,
         childControllers: activeChildControllers,
+        createAgentSession: createWorkAgentSession,
       });
       directSupervisor = supervisor;
       extensionFactories.push(createDelegationExtensionFactory(supervisor));
@@ -1376,6 +1462,7 @@ async function runPrompt(payload) {
       );
     }
     emit(messageEndLine({ text: summary, stopReason: 'end_turn' }));
+    await taskBashRegistry.cleanup();
     emit(
       resultLine({
         ok: true,
@@ -1393,17 +1480,19 @@ async function runPrompt(payload) {
     return;
   }
 
-  const { session, modelFallbackMessage } = await createAgentSession({
+  const { session, modelFallbackMessage } = await createWorkAgentSession({
     cwd,
     agentDir,
     authStorage,
     modelRegistry,
     sessionManager,
+    settingsManager,
     ...(model ? { model } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
     ...(tools ? { tools } : {}),
     ...(resourceLoader ? { resourceLoader } : {}),
   });
+  activeRootSession = session;
   effectiveRootModel = session.model ?? model;
 
   // Bind a forwarding UI context so a mid-run `ctx.ui.confirm` routes through our
@@ -1568,6 +1657,9 @@ async function runPrompt(payload) {
     // final string — `??` would keep the empty string (only null/undefined are
     // nullish), surfacing a blank result line.
     const finalText = clampText(session.getLastAssistantText() || latestText);
+    // The result line is the Rust gateway's terminal. Every host-tracked Bash
+    // call must be settled before Rust accepts that line.
+    await taskBashRegistry.cleanup();
     emit(
       resultLine({
         ok: true,
@@ -1589,6 +1681,7 @@ async function runPrompt(payload) {
   } finally {
     unsubscribe();
     session.dispose();
+    if (activeRootSession === session) activeRootSession = null;
   }
 }
 
@@ -1981,10 +2074,24 @@ function main() {
   // The run settled (status emitted or prompt resolved): readline keeps stdin
   // open as an extension UI response channel, so exit explicitly rather than
   // waiting for EOF.
-  const finishHost = () => {
+  const finishHost = async () => {
+    if (hostTerminating) return;
+    hostTerminating = true;
+    await shutdownActiveWork({ abort: false });
     rl.close();
     process.exit(0);
   };
+
+  const stopForSignal = (signal) => {
+    if (hostTerminating) return;
+    hostTerminating = true;
+    void shutdownActiveWork({ abort: true }).finally(() => {
+      rl.close();
+      process.exit(signal === 'SIGTERM' ? 143 : 129);
+    });
+  };
+  process.once('SIGTERM', () => stopForSignal('SIGTERM'));
+  process.once('SIGHUP', () => stopForSignal('SIGHUP'));
 
   rl.on('line', (raw) => {
     const trimmed = raw.trim();
@@ -2067,6 +2174,10 @@ function main() {
     mcpChannel.rejectAllMcpCalls();
     worktreeChannel.rejectAllWorktreeCalls();
     verifyChannel.rejectAllVerifyCalls();
+    if (!hostTerminating) {
+      hostTerminating = true;
+      void shutdownActiveWork({ abort: true }).finally(() => process.exit(1));
+    }
   });
 }
 

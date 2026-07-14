@@ -1,6 +1,11 @@
 import { buildDelegationContext, buildMcpScope } from '@/data/employee-persona.js';
-import { invokeCommand } from '@/lib/tauri-commands.js';
-import { ensureProjectBoundForRun } from '@/runtime/ensure-default-workspace.js';
+import {
+  type TaskWorkspaceBindingClaim,
+  type TaskWorkspaceBindingProjection,
+  invokeCommand,
+  parseTaskWorkspaceBindingProjection,
+} from '@/lib/tauri-commands.js';
+import { requireProjectWorkspaceForRun } from '@/runtime/require-project-workspace.js';
 import { agentRunEvent, llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import {
@@ -29,9 +34,16 @@ import type { PiAgentHostEvent, PiAgentHostResponse } from './pi-runtime-driver.
 import { persistRunStartIfAbsent } from './recovery/persist-run-idempotency.js';
 import {
   PI_HOST_PROTOCOL_VERSION,
+  describeWorkspaceResumeCompatibility,
   resolveAgentRunProjectId,
 } from './recovery/reconcile-interrupted-runs.js';
 import { aggregateSubtreeUsage } from './recovery/usage-aggregation.js';
+import {
+  acceptWorkspaceBinding,
+  canConsumeWorkspaceEvent,
+  createWorkspaceBindingGate,
+  rejectWorkspaceBinding,
+} from './workspace-binding-stream-gate.js';
 
 const PI_SDK_VERSION = '0.79.8';
 
@@ -140,6 +152,12 @@ export interface DesktopAgentRunInput {
 export interface DesktopAgentRunResult {
   text: string;
   reasoning?: string;
+  /**
+   * Ephemeral capability for the exact workspace selected by the backend for
+   * this Turn. Callers may pass it back only to binding-scoped commands; it is
+   * never persisted, logged, or reconstructed from the current Project row.
+   */
+  workspaceBindingClaim: TaskWorkspaceBindingClaim;
   /** Actual host-selected execution identity. Requested model/settings are not
    * provenance and must never be substituted for this value. */
   provenance?: TurnExecutionProvenance;
@@ -289,7 +307,7 @@ function hostModelRef(
 interface PersistedRunContext {
   requestId?: string | null;
   streamCursor?: number | null;
-  workspaceRoot: string | null;
+  workspaceBinding: TaskWorkspaceBindingProjection | null;
   runtime: 'pi-agent';
   piSdkVersion: string;
   wireProtocolVersion: number;
@@ -301,11 +319,76 @@ interface PersistedRunContext {
   createdAt: string;
 }
 
+function projectWorkspaceBinding(claim: TaskWorkspaceBindingClaim): TaskWorkspaceBindingProjection {
+  const projection = parseTaskWorkspaceBindingProjection(claim);
+  if (!projection) throw new Error('Backend returned an invalid workspace binding projection.');
+  return projection;
+}
+
+function bindingMatchesRun(
+  claim: TaskWorkspaceBindingClaim,
+  expected: {
+    companyId: string;
+    projectId: string;
+    threadId: string;
+    turnId: string;
+    requestId: string;
+    access: 'read' | 'write';
+  },
+): boolean {
+  return (
+    parseTaskWorkspaceBindingProjection(claim) !== null &&
+    typeof claim.workspaceRef === 'string' &&
+    claim.workspaceRef.trim().length > 0 &&
+    claim.historyId.trim().length > 0 &&
+    claim.companyId === expected.companyId &&
+    claim.projectId === expected.projectId &&
+    claim.threadId === expected.threadId &&
+    claim.turnId === expected.turnId &&
+    claim.requestId === expected.requestId &&
+    claim.access === expected.access
+  );
+}
+
+function isSameWorkspaceBindingClaim(
+  first: TaskWorkspaceBindingClaim,
+  next: TaskWorkspaceBindingClaim,
+): boolean {
+  return (
+    first.workspaceRef === next.workspaceRef &&
+    first.historyId === next.historyId &&
+    first.companyId === next.companyId &&
+    first.projectId === next.projectId &&
+    first.threadId === next.threadId &&
+    first.turnId === next.turnId &&
+    first.requestId === next.requestId &&
+    first.access === next.access
+  );
+}
+
 function parseRunContext(raw: string | null | undefined): Partial<PersistedRunContext> | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Partial<PersistedRunContext>;
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      requestId: typeof parsed.requestId === 'string' ? parsed.requestId : null,
+      streamCursor: typeof parsed.streamCursor === 'number' ? parsed.streamCursor : null,
+      workspaceBinding: parseTaskWorkspaceBindingProjection(parsed.workspaceBinding),
+      runtime: parsed.runtime === 'pi-agent' ? 'pi-agent' : undefined,
+      piSdkVersion: typeof parsed.piSdkVersion === 'string' ? parsed.piSdkVersion : undefined,
+      wireProtocolVersion:
+        typeof parsed.wireProtocolVersion === 'number' ? parsed.wireProtocolVersion : undefined,
+      model: typeof parsed.model === 'string' ? parsed.model : null,
+      provenance:
+        parsed.provenance && typeof parsed.provenance === 'object'
+          ? (parsed.provenance as TurnExecutionProvenance)
+          : null,
+      permissionMode: typeof parsed.permissionMode === 'string' ? parsed.permissionMode : undefined,
+      thinkingLevel: typeof parsed.thinkingLevel === 'string' ? parsed.thinkingLevel : null,
+      projectId: typeof parsed.projectId === 'string' ? parsed.projectId : null,
+      createdAt: typeof parsed.createdAt === 'string' ? parsed.createdAt : undefined,
+    };
   } catch {
     return null;
   }
@@ -422,23 +505,55 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         'Cannot resume Agent runtime run: original project context is missing. Restart from the objective instead.',
       );
     }
-    await this.assertProjectWorkspaceAvailable(projectId);
-    await repo.updateStatus(runId, 'running', { finishedAt: null });
+    const workspaceBinding = context?.workspaceBinding;
+    const savedPermissionMode =
+      typeof context?.permissionMode === 'string' && context.permissionMode.trim()
+        ? context.permissionMode.trim()
+        : null;
+    if (
+      !workspaceBinding ||
+      !workspaceBinding.historyId.trim() ||
+      workspaceBinding.companyId !== this.companyId ||
+      workspaceBinding.projectId !== projectId ||
+      workspaceBinding.threadId !== row.thread_id ||
+      workspaceBinding.turnId !== row.root_run_id ||
+      (row.access !== 'read' && row.access !== 'write') ||
+      workspaceBinding.access !== row.access ||
+      (savedPermissionMode !== null &&
+        (savedPermissionMode === 'plan' ? 'read' : 'write') !== row.access) ||
+      row.run_id !== row.root_run_id
+    ) {
+      throw new Error(
+        'Cannot resume Agent runtime run: saved workspace authority is missing or incompatible. Restart from the objective instead.',
+      );
+    }
+    const compatibility = await invokeCommand('task_workspace_resume_compatibility', {
+      historyId: workspaceBinding.historyId,
+      companyId: this.companyId,
+      projectId,
+      threadId: row.thread_id,
+      rootRunId: row.root_run_id,
+      access: row.access,
+    });
+    if (compatibility.status !== 'same') {
+      throw new Error(
+        `Cannot resume Agent runtime run: ${describeWorkspaceResumeCompatibility(compatibility) ?? 'The original Project folder no longer matches this run.'}`,
+      );
+    }
     return this.runPiTurn(
       {
-        text: `Continue the interrupted task from its saved Pi session.\n\nOriginal objective:\n${
+        text: `Continue the interrupted task from its saved agent session.\n\nOriginal objective:\n${
           row.objective || 'Untitled run'
         }`,
         threadId: row.thread_id,
         employeeId: row.employee_id,
         projectId,
         runId: row.run_id,
-        permissionMode:
-          typeof context?.permissionMode === 'string' && context.permissionMode.trim()
-            ? context.permissionMode.trim()
-            : row.access === 'read'
-              ? 'plan'
-              : undefined,
+        permissionMode: savedPermissionMode
+          ? savedPermissionMode
+          : row.access === 'read'
+            ? 'plan'
+            : undefined,
         model:
           typeof context?.model === 'string' && context.model.trim()
             ? context.model.trim()
@@ -449,34 +564,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             : undefined,
       },
       'agent_runtime_resume',
+      workspaceBinding,
     );
-  }
-
-  private async assertProjectWorkspaceAvailable(projectId: string): Promise<void> {
-    const project = await this.repos.projects.findById(projectId);
-    if (!project || project.company_id !== this.companyId) {
-      throw new Error('Cannot resume Agent runtime run: original project is unavailable.');
-    }
-    if (!project.workspace_root?.trim()) {
-      throw new Error(
-        'Cannot resume Agent runtime run: original project has no workspace folder bound.',
-      );
-    }
-    try {
-      const exists = await invokeCommand('project_exists', {
-        path: '.',
-        cwd: null,
-        projectId,
-      });
-      if (exists !== true) {
-        throw new Error('workspace folder no longer exists');
-      }
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      throw new Error(
-        `Cannot resume Agent runtime run: original workspace is unavailable (${detail}).`,
-      );
-    }
   }
 
   async reattachLiveRuns(): Promise<void> {
@@ -500,8 +589,12 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       if (!snapshot) continue;
 
       const projectId = resolveAgentRunProjectId(row);
+      const expectedAccess = row.access === 'read' || row.access === 'write' ? row.access : null;
       const runScope = piRunScope(projectId, row.thread_id, row.employee_id, row.run_id);
       const startedAtByTool = new Map<string, number>();
+      let workspaceBindingGate = createWorkspaceBindingGate<TaskWorkspaceBindingClaim>();
+      let bindingFailurePersisted = false;
+      let bindingAbortPromise: Promise<void> | null = null;
       const rootRun = (
         type: AgentRunEvent['type'],
         payload: AgentRunEvent['payload'],
@@ -517,10 +610,85 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       const emitRootBus = (evt: AgentRunEvent): void => {
         runtimeEventBus.emit(agentRunEvent(this.companyId, evt));
       };
-      const onEvent = new Channel<PiAgentHostEvent>();
-      onEvent.onmessage = (event) => {
+      const abortRejectedBinding = (): Promise<void> => {
+        if (!bindingAbortPromise) {
+          bindingAbortPromise = invokeCommand('agent_runtime_abort', { requestId }).catch(
+            (err: unknown) => {
+              console.warn('[desktop-agent-runtime] rejected reattach abort failed', {
+                requestId,
+                err,
+              });
+            },
+          );
+        }
+        return bindingAbortPromise;
+      };
+      const failReattachedBinding = (message: string): void => {
+        if (bindingFailurePersisted) return;
+        bindingFailurePersisted = true;
+        void abortRejectedBinding();
+        this.flushRunStreamCursor(row.run_id);
+        emitRootBus(
+          rootRun('run.failed', { status: 'failed', summary: message, failureKind: 'runtime' }),
+        );
+        this.enqueuePersist(() => this.reconcileRoot(row.run_id, 'failed', undefined, 'runtime'));
+        if (this.inFlightByThread.get(row.thread_id) === requestId) {
+          this.inFlightByThread.delete(row.thread_id);
+        }
+      };
+      const consumeEvent = (
+        event: PiAgentHostEvent,
+        consumptionPolicy: 'bound-required' | 'terminal-reconcile',
+      ): void => {
         if (event.kind === 'streamCursor') {
           this.queueRunStreamCursor(row.run_id, runtimeContext, event.cursor);
+          return;
+        }
+        if (event.kind === 'workspaceBound') {
+          const matchesExpectedTurn = Boolean(
+            projectId &&
+              expectedAccess &&
+              bindingMatchesRun(event, {
+                companyId: this.companyId,
+                projectId,
+                threadId: row.thread_id,
+                turnId: row.run_id,
+                requestId,
+                access: expectedAccess,
+              }),
+          );
+          const matchesBoundClaim =
+            workspaceBindingGate.status !== 'bound' ||
+            isSameWorkspaceBindingClaim(workspaceBindingGate.claim, event);
+          workspaceBindingGate = acceptWorkspaceBinding(
+            workspaceBindingGate,
+            event,
+            matchesExpectedTurn,
+            matchesBoundClaim,
+          );
+          if (workspaceBindingGate.status === 'rejected') {
+            const message = 'Backend returned a workspace binding for a different Turn.';
+            console.warn('[desktop-agent-runtime] rejected mismatched workspace binding', {
+              runId: row.run_id,
+              historyId: event.historyId,
+            });
+            failReattachedBinding(message);
+            return;
+          }
+          runtimeContext.workspaceBinding = projectWorkspaceBinding(event);
+          this.enqueuePersist(() =>
+            this.repos.agentRuns.updateRuntimeContext(row.run_id, JSON.stringify(runtimeContext)),
+          );
+          return;
+        }
+        if (!canConsumeWorkspaceEvent(workspaceBindingGate, event.kind, consumptionPolicy)) {
+          if (consumptionPolicy === 'bound-required' && workspaceBindingGate.status === 'pending') {
+            workspaceBindingGate =
+              rejectWorkspaceBinding<TaskWorkspaceBindingClaim>(workspaceBindingGate);
+            failReattachedBinding(
+              `Backend emitted ${event.kind} before binding the reattached task workspace.`,
+            );
+          }
           return;
         }
         if (event.kind === 'started') {
@@ -671,7 +839,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             payload: event.payload,
           } as AgentRunEvent;
           if (event.runType === 'artifact.created') {
-            this.enqueuePersist(() => this.persistArtifact(agentEvt, projectId));
+            this.enqueuePersist(() => this.persistArtifact(agentEvt, workspaceBindingGate.claim));
           } else {
             runtimeEventBus.emit(agentRunEvent(this.companyId, agentEvt));
             this.enqueuePersist(() => this.persistAgentRun(agentEvt));
@@ -739,12 +907,70 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         }
       };
 
+      let consumptionPolicy: 'bound-required' | 'terminal-reconcile' | null = null;
+      const bufferedEvents: PiAgentHostEvent[] = [];
+      let bufferedBindingGate = createWorkspaceBindingGate<TaskWorkspaceBindingClaim>();
+      const onEvent = new Channel<PiAgentHostEvent>();
+      onEvent.onmessage = (event) => {
+        if (consumptionPolicy) {
+          consumeEvent(event, consumptionPolicy);
+          return;
+        }
+        if (event.kind === 'workspaceBound') {
+          const matchesExpectedTurn = Boolean(
+            projectId &&
+              expectedAccess &&
+              bindingMatchesRun(event, {
+                companyId: this.companyId,
+                projectId,
+                threadId: row.thread_id,
+                turnId: row.run_id,
+                requestId,
+                access: expectedAccess,
+              }),
+          );
+          const matchesBoundClaim =
+            bufferedBindingGate.status !== 'bound' ||
+            isSameWorkspaceBindingClaim(bufferedBindingGate.claim, event);
+          bufferedBindingGate = acceptWorkspaceBinding(
+            bufferedBindingGate,
+            event,
+            matchesExpectedTurn,
+            matchesBoundClaim,
+          );
+          if (bufferedBindingGate.status === 'rejected') {
+            workspaceBindingGate = rejectWorkspaceBinding(workspaceBindingGate);
+            console.warn('[desktop-agent-runtime] rejected mismatched workspace binding', {
+              runId: row.run_id,
+              historyId: event.historyId,
+            });
+            failReattachedBinding('Backend returned a workspace binding for a different Turn.');
+            return;
+          }
+        }
+        bufferedEvents.push(event);
+      };
+
       this.inFlightByThread.set(row.thread_id, requestId);
-      await invokeCommand('agent_runtime_reattach', {
-        requestId,
-        afterCursor: normalizeStreamCursor(runtimeContext.streamCursor),
-        onEvent,
-      }).catch((err: unknown) => {
+      try {
+        const reattachSnapshot = await invokeCommand('agent_runtime_reattach', {
+          requestId,
+          afterCursor: normalizeStreamCursor(runtimeContext.streamCursor),
+          onEvent,
+        });
+        if (bindingFailurePersisted) {
+          if (bindingAbortPromise) await bindingAbortPromise;
+          bufferedEvents.length = 0;
+          continue;
+        }
+        consumptionPolicy =
+          reattachSnapshot.running || bufferedBindingGate.status === 'bound'
+            ? 'bound-required'
+            : 'terminal-reconcile';
+        for (const event of bufferedEvents) consumeEvent(event, consumptionPolicy);
+        bufferedEvents.length = 0;
+      } catch (err: unknown) {
+        if (bindingAbortPromise) await bindingAbortPromise;
         if (this.inFlightByThread.get(row.thread_id) === requestId) {
           this.inFlightByThread.delete(row.thread_id);
         }
@@ -753,15 +979,25 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           runId: row.run_id,
           err,
         });
-      });
+      }
     }
   }
 
   private async runPiTurn(
     input: DesktopAgentRunInput,
     commandName: 'agent_runtime_execute' | 'agent_runtime_resume',
+    resumeWorkspaceBinding?: TaskWorkspaceBindingProjection,
   ): Promise<DesktopAgentRunResult> {
-    const projectId = await ensureProjectBoundForRun(this.repos, this.companyId, input.projectId);
+    if (commandName === 'agent_runtime_resume' && !resumeWorkspaceBinding?.historyId.trim()) {
+      throw new Error(
+        'Cannot resume Agent runtime run: saved workspace authority history is missing.',
+      );
+    }
+    const projectId = await requireProjectWorkspaceForRun(
+      this.repos,
+      this.companyId,
+      input.projectId,
+    );
     const runScope = piRunScope(projectId, input.threadId, input.employeeId, input.runId);
     const requestId = newRequestId('pi-agent');
     const startedAtByTool = new Map<string, number>();
@@ -781,12 +1017,11 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     let resolvedModel = input.model?.trim() || readPiModelOverride() || undefined;
     let resolvedThinkingLevel =
       input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId);
-    const project = projectId ? await this.repos.projects.findById(projectId) : null;
-    const workspaceRoot = project?.workspace_root ?? null;
     const runtimeContext: PersistedRunContext = {
       requestId,
       streamCursor: 0,
-      workspaceRoot,
+      workspaceBinding:
+        commandName === 'agent_runtime_resume' ? (resumeWorkspaceBinding ?? null) : null,
       runtime: 'pi-agent',
       piSdkVersion: PI_SDK_VERSION,
       wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
@@ -813,10 +1048,88 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       runtimeEventBus.emit(agentRunEvent(this.companyId, evt));
     };
 
+    let rootRunOpened = false;
+    const openRootRun = (): void => {
+      if (rootRunOpened) return;
+      rootRunOpened = true;
+      const startedEvt = rootRun('run.started', {
+        objective: input.text,
+        access: rootAccess,
+        projectId,
+        runtimeContextJson: JSON.stringify(runtimeContext),
+      });
+      emitRootBus(startedEvt);
+      if (commandName === 'agent_runtime_resume') {
+        // A resumed row already exists. Move it back to running only after the
+        // backend has revalidated and emitted the exact workspace authority.
+        this.enqueuePersist(() =>
+          this.repos.agentRuns.updateStatus(runScope.runId, 'running', { finishedAt: null }),
+        );
+      } else {
+        this.enqueuePersist(() => this.persistAgentRun(startedEvt));
+      }
+    };
+
+    let workspaceBindingGate = createWorkspaceBindingGate<TaskWorkspaceBindingClaim>();
+    let bindingAbortPromise: Promise<void> | null = null;
+    const abortRejectedBinding = (): Promise<void> => {
+      if (!bindingAbortPromise) {
+        bindingAbortPromise = invokeCommand('agent_runtime_abort', { requestId }).catch(
+          (err: unknown) => {
+            console.warn('[desktop-agent-runtime] rejected workspace binding abort failed', {
+              requestId,
+              err,
+            });
+          },
+        );
+      }
+      return bindingAbortPromise;
+    };
     const onEvent = new Channel<PiAgentHostEvent>();
     onEvent.onmessage = (event) => {
       if (event.kind === 'streamCursor') {
         this.queueRunStreamCursor(runScope.runId, runtimeContext, event.cursor);
+        return;
+      }
+      if (event.kind === 'workspaceBound') {
+        const matchesExpectedTurn = bindingMatchesRun(event, {
+          companyId: this.companyId,
+          projectId,
+          threadId: input.threadId,
+          turnId: runScope.runId,
+          requestId,
+          access: rootAccess,
+        });
+        const matchesBoundClaim =
+          workspaceBindingGate.status !== 'bound' ||
+          isSameWorkspaceBindingClaim(workspaceBindingGate.claim, event);
+        workspaceBindingGate = acceptWorkspaceBinding(
+          workspaceBindingGate,
+          event,
+          matchesExpectedTurn,
+          matchesBoundClaim,
+        );
+        if (workspaceBindingGate.status === 'rejected') {
+          channelError ??= new Error('Backend returned a workspace binding for a different Turn.');
+          void abortRejectedBinding();
+          return;
+        }
+        runtimeContext.workspaceBinding = projectWorkspaceBinding(event);
+        openRootRun();
+        this.enqueuePersist(() =>
+          this.repos.agentRuns.updateRuntimeContext(runScope.runId, JSON.stringify(runtimeContext)),
+        );
+        return;
+      }
+      if (!canConsumeWorkspaceEvent(workspaceBindingGate, event.kind, 'bound-required')) {
+        if (workspaceBindingGate.status === 'pending') {
+          workspaceBindingGate =
+            rejectWorkspaceBinding<TaskWorkspaceBindingClaim>(workspaceBindingGate);
+          channelError = new Error(
+            `Backend emitted ${event.kind} before binding the task workspace.`,
+          );
+          void abortRejectedBinding();
+        }
         return;
       }
       if (event.kind === 'started') {
@@ -1001,7 +1314,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           // the bus event — so the Outputs refetch only fires after the row exists.
           // (persistArtifact reads + hashes the file and inserts; it emits the bus
           // event itself on a successful insert.)
-          this.enqueuePersist(() => this.persistArtifact(agentEvt, projectId));
+          this.enqueuePersist(() => this.persistArtifact(agentEvt, workspaceBindingGate.claim));
         } else {
           runtimeEventBus.emit(agentRunEvent(this.companyId, agentEvt));
           this.enqueuePersist(() => this.persistAgentRun(agentEvt));
@@ -1039,18 +1352,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
     };
 
-    // Open the root run on the stream + persist its row BEFORE the invoke, so it
-    // commits ahead of any child's run.started write on the serialized persist
-    // chain (children reference it via parent_run_id FK). Unconditional: every
-    // run is a tree root, delegating or not.
-    const startedEvt = rootRun('run.started', {
-      objective: input.text,
-      access: rootAccess,
-      projectId,
-      runtimeContextJson: JSON.stringify(runtimeContext),
-    });
-    emitRootBus(startedEvt);
-    this.enqueuePersist(() => this.persistAgentRun(startedEvt));
+    // A new run must exist before child events can reference it. Resume already
+    // has a durable interrupted row, so it stays untouched until workspaceBound
+    // proves backend authority revalidation succeeded.
+    if (commandName === 'agent_runtime_execute') openRootRun();
 
     this.inFlightByThread.set(input.threadId, requestId);
     try {
@@ -1089,9 +1394,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           companyId: this.companyId,
           threadId: input.threadId,
           projectId,
-          projectVerifyCommand: project?.verify_command ?? undefined,
-          projectVerifyMaxAttempts: project?.verify_max_attempts ?? undefined,
-          projectVerifyTokenBudget: project?.verify_token_budget ?? undefined,
           employeeId: input.employeeId,
           model: resolvedModel,
           permissionMode,
@@ -1105,6 +1407,9 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           // events; the roster tells it who can be delegated to. Empty roster →
           // the host registers no delegate tool.
           rootRunId: runScope.runId,
+          ...(commandName === 'agent_runtime_resume'
+            ? { workspaceBindingHistoryId: resumeWorkspaceBinding?.historyId }
+            : {}),
           roster,
           // Mission scope (MS-005): present only on a mission attempt. When set,
           // the host registers the mission-bridge tools; the bridge's events ride
@@ -1119,6 +1424,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         },
         onEvent,
       })) as PiAgentHostResponse;
+      if (channelError) throw channelError;
+      if (!workspaceBindingGate.claim) {
+        throw new Error('Backend completed the Turn without a task workspace binding claim.');
+      }
       // Root session's own usage — folded into the root agent_runs row by
       // reconcileRoot (children come from their own rows). Only in scope in this
       // try-branch; the catch branch's invoke threw before returning.
@@ -1145,7 +1454,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         );
       }
       finalText = commandResponse.text || finalText;
-      if (channelError) throw channelError;
       const reasoning = (commandResponse.reasoning || reasoningText).trim();
       // A Rust abort resolves the invoke with empty text (not an error), so
       // classify the terminal from the aborted-set: cancelled, not completed.
@@ -1165,12 +1473,21 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       await this.persistQueue.drain();
       return {
         text: finalText,
+        workspaceBindingClaim: workspaceBindingGate.claim,
         ...(reasoning ? { reasoning } : {}),
         ...(rootUsage ? { usage: rootUsage } : {}),
         provenance,
         ...(commandResponse.budgetUsage ? { budgetUsage: commandResponse.budgetUsage } : {}),
       };
     } catch (err) {
+      if (bindingAbortPromise) await bindingAbortPromise;
+      if (commandName === 'agent_runtime_resume' && !rootRunOpened) {
+        // Resume compatibility/authority failed before the host obtained a
+        // binding. Preserve the interrupted row and recovery card; the user can
+        // inspect/discard it or retry after restoring the original folder.
+        await this.persistQueue.drain();
+        throw err;
+      }
       // A thrown invoke / channel error is a failure unless the user aborted —
       // abort wins (it can surface as a throw on some teardown paths).
       const aborted = this.abortedRequests.has(requestId);
@@ -1256,8 +1573,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       if (evt.type === 'run.started') {
         const payload = evt.payload as AgentRunStartedPayload;
         // Insert-if-absent: a resume replays run.started for an existing run; the
-        // existing row (already flipped interrupted→running with partial usage by
-        // the resume lane) must be left untouched, not re-created or clobbered.
+        // existing row (flipped interrupted→running only after backend authority
+        // revalidation) must be left untouched, not re-created or clobbered.
         await persistRunStartIfAbsent(repo, {
           run_id: evt.runId,
           thread_id: evt.threadId,
@@ -1337,7 +1654,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
    *  out-of-workspace path is rejected by Rust and no row is written (VM-002
    *  acceptance-(c)). Runs on the serialized persist chain; never throws — a
    *  failure logs and the row is simply skipped (mirrors persistAgentRun). */
-  private async persistArtifact(evt: AgentRunEvent, projectId: string | null): Promise<void> {
+  private async persistArtifact(
+    evt: AgentRunEvent,
+    bindingClaim: TaskWorkspaceBindingClaim | null,
+  ): Promise<void> {
     const payload = evt.payload as AgentRunArtifactPayload;
     const path = payload.path?.trim();
     const deliverableId = payload.deliverableId?.trim();
@@ -1350,11 +1670,22 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       );
       return;
     }
+    if (!bindingClaim) {
+      console.warn(
+        '[desktop-agent-runtime] artifact.created arrived without a workspace binding claim — skipped',
+        { runId: evt.runId, path },
+      );
+      return;
+    }
     // Read the file through the sandboxed workspace command. A workspace-jail
     // violation or a missing file rejects here → no row, no bus event.
     let content: string;
     try {
-      content = (await invokeCommand('project_read_file', { path, projectId })) as string;
+      content = await invokeCommand('project_read_file', {
+        path,
+        projectId: bindingClaim.projectId,
+        bindingClaim,
+      });
     } catch (err) {
       console.warn(
         '[desktop-agent-runtime] artifact.created path unreadable (out-of-workspace or missing) — no deliverable written',

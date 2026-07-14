@@ -1,13 +1,15 @@
 import type { SurfaceKey } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import type { RuntimeRepositories } from '@offisim/core/browser';
-import { ensureCompanyWorkspaceProjectId } from './ensure-default-workspace.js';
 
 export async function resolveCompanyScopeProjectId(
   repos: RuntimeRepositories,
   companyId: string,
 ): Promise<string> {
-  return (await ensureCompanyWorkspaceProjectId(repos, companyId)) ?? '';
+  const company = await repos.companies.findById(companyId);
+  if (!company) throw new Error(`Company ${companyId} not found.`);
+  const projects = await repos.projects.findByCompany(companyId);
+  return projects[0]?.project_id ?? '';
 }
 
 export async function activateCompanyScope({

@@ -282,10 +282,15 @@ export function BoardStage() {
 
   const discard = useCallback(
     async (row: TaskBoardRow) => {
+      const rowLeases = leasesForRow(row, allLeases);
+      if (rowLeases.some((lease) => lease.status === 'active')) {
+        toast.error('Stop the active task before discarding this request.');
+        return;
+      }
       setBusyId(row.runId);
       try {
-        const leases = leasesForRow(row, allLeases).filter((lease) =>
-          ['active', 'pending_review', 'failed'].includes(lease.status),
+        const leases = rowLeases.filter((lease) =>
+          ['pending_review', 'failed'].includes(lease.status),
         );
         const outcomes: WorkspaceLeaseReviewOutcome[] = [];
         if (leases.length > 0 && companyId) {
@@ -308,7 +313,15 @@ export function BoardStage() {
         if (selectedRunId === row.runId) setSelectedRunId(null);
         await refresh();
       } catch (error) {
-        toast.error(errorDetail(error, 'Could not discard the request.'));
+        const detail =
+          typeof error === 'string' && error.trim()
+            ? error.trim()
+            : errorDetail(error, 'Could not discard the request.');
+        toast.error(
+          detail.includes('still owned by an active task')
+            ? 'Stop the active task before discarding this request.'
+            : detail,
+        );
       } finally {
         setBusyId(null);
       }
@@ -552,6 +565,7 @@ export function BoardPendingReviewAutoOpen() {
 
 function BoardCard({
   row,
+  leases,
   employeeById,
   selected,
   highlighted,
@@ -580,6 +594,7 @@ function BoardCard({
     ),
   ].slice(0, 4);
   const isAttention = ['failed', 'cancelled', 'interrupted'].includes(row.status);
+  const hasActiveLease = leases.some((lease) => lease.status === 'active');
   return (
     <article
       className={cn(
@@ -639,7 +654,10 @@ function BoardCard({
           <button
             type="button"
             className="off-focusable is-danger"
-            disabled={busy}
+            disabled={busy || hasActiveLease}
+            title={
+              hasActiveLease ? 'Stop the active task before discarding this request.' : undefined
+            }
             onClick={onDiscard}
           >
             <Icon icon={Trash2} size="sm" />

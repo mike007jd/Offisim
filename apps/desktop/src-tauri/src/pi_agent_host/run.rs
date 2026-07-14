@@ -1,20 +1,29 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use tauri::{ipc::Channel, AppHandle};
 use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex as AsyncMutex;
+use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{
-    append_sidecar_audit, dev_workspace_root, project_workspace_root, required_text,
-    resolve_node_executable, resolved_request_cwd, sidecar_script_path, HostError, SidecarAudit,
+    append_sidecar_audit, dev_workspace_root, required_text, resolve_node_executable,
+    sidecar_script_path, HostError, SidecarAudit,
 };
 use crate::in_flight::InFlightRegistry;
 use crate::sidecar_stderr::{
     read_capped_line, read_capped_to_end, sanitized_stderr, MAX_SIDECAR_OUTPUT_BYTES,
+};
+use crate::task_workspace_binding::{
+    issue_resumed_task_workspace_binding, issue_task_workspace_binding,
+    resolve_task_workspace_binding, revoke_task_workspace_binding,
+    validate_task_workspace_binding_authority, workspace_bound_event, AuthorizedProcessCwd,
+    IssueTaskWorkspaceBinding, TaskWorkspaceAccess, TaskWorkspaceAuthorityError,
+    TaskWorkspaceAuthorityLossReason, TaskWorkspaceBinding, TaskWorkspaceTerminalStatus,
 };
 
 use super::bridge::{
@@ -36,11 +45,106 @@ use super::wire::{
 use super::PI_LANE;
 
 static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("pi_agent_host");
+const WORKSPACE_AUTHORITY_RECHECK_INTERVAL: Duration = Duration::from_millis(250);
+const SIDECAR_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
+
+type WorkspaceCallJoinResult = (String, Result<(), HostError>);
+
+fn is_cancellable_workspace_call(op: &str) -> bool {
+    op == "executeBash" || super::workspace_files::is_workspace_file_operation(op)
+}
+
+async fn cancel_and_join_workspace_calls(
+    cancellations: &mut HashMap<String, CancellationToken>,
+    tasks: &mut JoinSet<WorkspaceCallJoinResult>,
+) {
+    for cancellation in cancellations.values() {
+        cancellation.cancel();
+    }
+    let drain = async {
+        while let Some(joined) = tasks.join_next().await {
+            match joined {
+                Ok((_, Ok(()))) => {}
+                Ok((id, Err(error))) => {
+                    eprintln!(
+                        "[pi-agent-host] workspace call {id} ended during shutdown: {error:?}"
+                    );
+                }
+                Err(error) => {
+                    eprintln!("[pi-agent-host] join workspace call during shutdown: {error}");
+                }
+            }
+        }
+    };
+    if tokio::time::timeout(SIDECAR_GRACEFUL_SHUTDOWN_TIMEOUT, drain)
+        .await
+        .is_err()
+    {
+        tasks.abort_all();
+        while tasks.join_next().await.is_some() {}
+    }
+    cancellations.clear();
+}
+
+async fn wait_for_workspace_authority_loss<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    workspace_ref: &str,
+    scope: IssueTaskWorkspaceBinding<'_>,
+) -> TaskWorkspaceAuthorityError {
+    loop {
+        tokio::time::sleep(WORKSPACE_AUTHORITY_RECHECK_INTERVAL).await;
+        if let Err(error) = validate_task_workspace_binding_authority(app, workspace_ref, scope) {
+            return error;
+        }
+    }
+}
+
+enum ExecuteFailure {
+    Host(HostError),
+    Authority(TaskWorkspaceAuthorityError),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum TerminalAuthorityGate<T, E> {
+    Accept(T),
+    UserAborted,
+    AuthorityLost(E),
+}
+
+pub(super) fn gate_sidecar_terminal<T, E>(
+    response: T,
+    user_aborted: bool,
+    authority: Result<(), E>,
+) -> TerminalAuthorityGate<T, E> {
+    if user_aborted {
+        TerminalAuthorityGate::UserAborted
+    } else {
+        match authority {
+            Ok(()) => TerminalAuthorityGate::Accept(response),
+            Err(error) => TerminalAuthorityGate::AuthorityLost(error),
+        }
+    }
+}
+
+impl From<HostError> for ExecuteFailure {
+    fn from(error: HostError) -> Self {
+        Self::Host(error)
+    }
+}
+
+impl ExecuteFailure {
+    fn into_host_error(self) -> HostError {
+        match self {
+            Self::Host(error) => error,
+            Self::Authority(error) => error.into_host_error(),
+        }
+    }
+}
 
 pub(super) struct PiSidecarRun<'a> {
     pub script_path: &'a Path,
     pub cwd: &'a Path,
-    pub workspace_root: Option<&'a Path>,
+    pub workspace_binding: Option<&'a TaskWorkspaceBinding>,
     pub env: HashMap<String, String>,
     pub payload: serde_json::Value,
     pub token: CancellationToken,
@@ -49,8 +153,68 @@ pub(super) struct PiSidecarRun<'a> {
     pub stream_request_id: Option<&'a str>,
 }
 
-async fn kill_child(child: &mut Child) {
-    let _ = child.kill().await;
+fn configure_sidecar_process_group(command: &mut Command) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.as_std_mut().process_group(0);
+    }
+}
+
+#[cfg(unix)]
+fn signal_sidecar_process_group(process_group_id: Option<u32>, signal: i32) {
+    if let Some(pid) = process_group_id {
+        // SAFETY: the sidecar command assigns the child to a dedicated group.
+        unsafe {
+            libc::kill(-(pid as i32), signal);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn signal_sidecar_process_group(process_group_id: Option<u32>, _signal: i32) {
+    let _ = process_group_id;
+}
+
+struct SidecarProcessGroupGuard(Option<u32>);
+
+impl SidecarProcessGroupGuard {
+    fn disarm(&mut self) {
+        self.0 = None;
+    }
+}
+
+impl Drop for SidecarProcessGroupGuard {
+    fn drop(&mut self) {
+        #[cfg(unix)]
+        signal_sidecar_process_group(self.0, libc::SIGKILL);
+    }
+}
+
+async fn terminate_sidecar_process_group(child: &mut Child, process_group_id: Option<u32>) {
+    #[cfg(unix)]
+    signal_sidecar_process_group(process_group_id, libc::SIGTERM);
+
+    let reaped = matches!(
+        tokio::time::timeout(SIDECAR_GRACEFUL_SHUTDOWN_TIMEOUT, child.wait()).await,
+        Ok(Ok(_))
+    );
+
+    #[cfg(unix)]
+    signal_sidecar_process_group(process_group_id, libc::SIGKILL);
+    if !reaped {
+        let _ = child.start_kill();
+        let _ = child.wait().await;
+    }
+}
+
+async fn finish_sidecar_process_group(child: &mut Child, process_group_id: Option<u32>) {
+    // A successful group leader exit is not proof that same-group descendants
+    // ended. Clear them before accepting the terminal response and reap the
+    // leader again harmlessly if the main loop already waited it.
+    #[cfg(unix)]
+    signal_sidecar_process_group(process_group_id, libc::SIGKILL);
+    let _ = child.wait().await;
 }
 
 async fn read_stderr(mut stderr: tokio::process::ChildStderr) -> (Vec<u8>, bool) {
@@ -78,7 +242,7 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
     let PiSidecarRun {
         script_path,
         cwd,
-        workspace_root,
+        workspace_binding,
         env,
         payload,
         token,
@@ -86,11 +250,16 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
         register_stdin,
         stream_request_id,
     } = run;
+    let authorized_process = workspace_binding
+        .map(|binding| {
+            AuthorizedProcessCwd::from_authority(&binding.authorized_root(), cwd)
+                .map_err(HostError::Request)
+        })
+        .transpose()?;
     let node_executable = resolve_node_executable(script_path);
     let mut command = Command::new(&node_executable);
     command
         .arg(script_path)
-        .current_dir(cwd)
         .env_clear()
         .envs(env)
         .stdin(std::process::Stdio::piped())
@@ -99,6 +268,15 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
         // The explicit error path below always kills and waits. Keep this as the
         // final guard for cancellation/panic while the future owns the child.
         .kill_on_drop(true);
+    if authorized_process.is_none() {
+        command.current_dir(cwd);
+    }
+    configure_sidecar_process_group(&mut command);
+    if let Some(execution) = authorized_process.as_ref() {
+        execution
+            .bind_command(&mut command)
+            .map_err(HostError::Spawn)?;
+    }
 
     let mut child = command.spawn().map_err(|err| {
         HostError::Spawn(format!(
@@ -107,6 +285,8 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
             err
         ))
     })?;
+    let process_group_id = child.id();
+    let mut process_group_guard = SidecarProcessGroupGuard(process_group_id);
     let result = async {
         let mut stdin = child
             .stdin
@@ -143,11 +323,31 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
         let mut stdout = BufReader::new(stdout);
         let mut final_response: Option<serde_json::Value> = None;
         let mut saw_ready = false;
+        let mut workspace_call_cancellations = HashMap::<String, CancellationToken>::new();
+        let mut workspace_call_tasks = JoinSet::<WorkspaceCallJoinResult>::new();
 
         loop {
             tokio::select! {
                 _ = token.cancelled() => {
+                    cancel_and_join_workspace_calls(
+                        &mut workspace_call_cancellations,
+                        &mut workspace_call_tasks,
+                    ).await;
                     return Err(HostError::Aborted);
+                }
+                joined = workspace_call_tasks.join_next(), if !workspace_call_tasks.is_empty() => {
+                    match joined {
+                        Some(Ok((id, result))) => {
+                            workspace_call_cancellations.remove(&id);
+                            result?;
+                        }
+                        Some(Err(error)) => {
+                            return Err(HostError::Request(format!(
+                                "Join Pi workspace-call bridge: {error}"
+                            )));
+                        }
+                        None => {}
+                    }
                 }
                 result = &mut stderr_task, if stderr_result.is_none() => {
                     let result = result
@@ -233,11 +433,76 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
                     continue;
                 }
                 if let PiSidecarLine::WorktreeCall { id, op, args } = parsed {
+                    if matches!(op.as_str(), "cancelBash" | "cancelWorkspaceFile") {
+                        let call_id = args
+                            .as_ref()
+                            .and_then(|value| value.get("callId"))
+                            .and_then(serde_json::Value::as_str)
+                            .ok_or_else(|| {
+                                HostError::Protocol(
+                                    "Pi workspace cancellation is missing its callId".into(),
+                                )
+                            })?;
+                        if let Some(cancellation) = workspace_call_cancellations.get(call_id) {
+                            cancellation.cancel();
+                        }
+                        continue;
+                    }
+                    let app = app.ok_or_else(|| {
+                        HostError::Protocol(
+                            "Pi Agent test host emitted worktreeCall without an app bridge".into(),
+                        )
+                    })?;
+                    if is_cancellable_workspace_call(&op) {
+                        if workspace_call_cancellations.contains_key(&id) {
+                            return Err(HostError::Protocol(format!(
+                                "Pi workspace call id was reused: {id}"
+                            )));
+                        }
+                        let binding = workspace_binding.cloned().ok_or_else(|| {
+                            HostError::Protocol(
+                                "Pi workspace call is missing its backend workspace binding".into(),
+                            )
+                        })?;
+                        let request_id = register_stdin
+                            .ok_or_else(|| {
+                                HostError::Protocol(
+                                    "Pi workspace call is missing its stdin response channel".into(),
+                                )
+                            })?
+                            .to_string();
+                        let app = app.clone();
+                        let cancellation = CancellationToken::new();
+                        workspace_call_cancellations.insert(id.clone(), cancellation.clone());
+                        let task_id = id.clone();
+                        workspace_call_tasks.spawn(async move {
+                            let result = handle_worktree_call(
+                                &app,
+                                Some(&request_id),
+                                Some(&binding),
+                                id,
+                                op,
+                                args,
+                                Some(&cancellation),
+                            )
+                            .await;
+                            (task_id, result)
+                        });
+                        continue;
+                    }
                     tokio::select! {
                         _ = token.cancelled() => {
                             return Err(HostError::Aborted);
                         }
-                        result = handle_worktree_call(register_stdin, workspace_root, id, op, args) => {
+                        result = handle_worktree_call(
+                            app,
+                            register_stdin,
+                            workspace_binding,
+                            id,
+                            op,
+                            args,
+                            Some(&token),
+                        ) => {
                             result?;
                         }
                     }
@@ -253,7 +518,15 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
                         _ = token.cancelled() => {
                             return Err(HostError::Aborted);
                         }
-                        result = handle_verify_call(app, register_stdin, id, project_id, cwd, command) => {
+                        result = handle_verify_call(
+                            app,
+                            register_stdin,
+                            workspace_binding,
+                            id,
+                            project_id,
+                            cwd,
+                            command,
+                        ) => {
                             result?;
                         }
                     }
@@ -265,6 +538,12 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
                 }
             }
         }
+
+        cancel_and_join_workspace_calls(
+            &mut workspace_call_cancellations,
+            &mut workspace_call_tasks,
+        )
+        .await;
 
         let status = child
             .wait()
@@ -300,10 +579,13 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
     .await;
 
     if result.is_err() {
-        // Tokio's `Child::kill` sends SIGKILL/TerminateProcess and then waits,
-        // so every failed protocol/request/abort path reaps the host before return.
-        kill_child(&mut child).await;
+        // Give Node a bounded SIGTERM window to abort host-tracked Bash calls,
+        // then hard-kill any remaining same-group descendants.
+        terminate_sidecar_process_group(&mut child, process_group_id).await;
+    } else {
+        finish_sidecar_process_group(&mut child, process_group_id).await;
     }
+    process_group_guard.disarm();
     result
 }
 
@@ -312,56 +594,224 @@ async fn do_execute<R: tauri::Runtime>(
     req: PiAgentExecuteRequest,
     on_event: &Channel<PiAgentHostEvent>,
     token: CancellationToken,
+    is_resume: bool,
 ) -> Result<PiAgentHostResponse, HostError> {
     let company_id = required_text(Some(&req.company_id), "companyId", PI_LANE)?;
     let thread_id = required_text(Some(&req.thread_id), "threadId", PI_LANE)?;
-    let workspace_root =
-        project_workspace_root(app, Some(company_id), req.project_id.as_deref(), PI_LANE).await?;
-    let cwd = resolved_request_cwd(req.cwd.as_deref(), &workspace_root, PI_LANE)?;
-    let session_dir = app_pi_session_dir(app, thread_id)?;
-    append_sidecar_audit(
-        app,
-        PI_LANE,
-        SidecarAudit {
-            request_id: &req.request_id,
-            project_id: req.project_id.as_deref(),
-            employee_id: req.employee_id.as_deref(),
-            provider_profile_id: None,
-            credential_recorded: false,
-        },
-        &cwd,
-        "started",
-    );
-
-    let dev_root = dev_workspace_root();
-    let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
-    let agent_dir = app_pi_agent_dir(app);
-    let payload = sidecar_payload(&req, &cwd, &session_dir, agent_dir.as_deref());
-    let response = run_pi_sidecar_jsonl(
-        app,
-        PiSidecarRun {
-            script_path: &script_path,
-            cwd: &cwd,
-            workspace_root: Some(&workspace_root),
-            env: pi_env(Some(&workspace_root)),
-            payload,
-            token,
-            on_event: Some(on_event),
-            register_stdin: Some(&req.request_id),
-            stream_request_id: Some(&req.request_id),
-        },
-    )
-    .await?;
-    let response = parse_response(response)?;
-    publish_host_event(
-        Some(&req.request_id),
-        Some(on_event),
-        PiAgentHostEvent::Result {
-            response: response.clone(),
-        },
-        "Send Pi result event",
+    let project_id = required_text(req.project_id.as_ref(), "projectId", PI_LANE)?;
+    let turn_id = required_text(req.root_run_id.as_ref(), "rootRunId", PI_LANE)?;
+    let access = TaskWorkspaceAccess::from_permission_mode(req.permission_mode.as_deref());
+    let scope = IssueTaskWorkspaceBinding {
+        company_id,
+        project_id,
+        thread_id,
+        turn_id,
+        request_id: &req.request_id,
+        access,
+    };
+    let resume_history_id = validate_workspace_binding_history_mode(
+        is_resume,
+        req.workspace_binding_history_id.as_deref(),
     )?;
-    Ok(response)
+    let issued = if let Some(history_id) = resume_history_id {
+        issue_resumed_task_workspace_binding(app, scope, history_id).await?
+    } else {
+        issue_task_workspace_binding(app, scope).await?
+    };
+    let workspace_ref = issued.binding_ref.clone();
+
+    let execution: Result<PiAgentHostResponse, ExecuteFailure> = async {
+        // Resolve through the active registry before every host launch. The
+        // issue result alone is not an authority and renderer paths never enter
+        // this path.
+        let binding = resolve_task_workspace_binding(app, &workspace_ref, scope).await?;
+        publish_host_event(
+            Some(&req.request_id),
+            Some(on_event),
+            workspace_bound_event(&binding)?,
+            "Send Pi workspace binding event",
+        )?;
+
+        let session_dir = app_pi_session_dir(app, thread_id)?;
+        append_sidecar_audit(
+            app,
+            PI_LANE,
+            SidecarAudit {
+                request_id: &req.request_id,
+                project_id: Some(&binding.project_id),
+                employee_id: req.employee_id.as_deref(),
+                provider_profile_id: None,
+                credential_recorded: false,
+            },
+            &binding.canonical_root,
+            "started",
+        );
+
+        let dev_root = dev_workspace_root();
+        let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
+        let agent_dir = app_pi_agent_dir(app);
+        let authorized_direct_delegation =
+            crate::git::authorize_direct_delegation(app, &binding, req.direct_delegation.as_ref())
+                .await
+                .map_err(HostError::Request)?;
+        // Direct-lease adoption performs filesystem/Git/DB work. Revalidate the
+        // original binding immediately before the child payload is constructed;
+        // an authority loss during adoption must not launch the sidecar.
+        validate_task_workspace_binding_authority(app, &workspace_ref, scope)
+            .map_err(ExecuteFailure::Authority)?;
+        let payload = sidecar_payload(
+            &req,
+            &binding,
+            &session_dir,
+            agent_dir.as_deref(),
+            authorized_direct_delegation.as_ref(),
+        );
+        // The renderer-facing abort token remains the parent. A watchdog may
+        // cancel only this child token, allowing authority loss to terminate
+        // and reap the host without being misreported as a user abort.
+        let sidecar_token = token.child_token();
+        let sidecar = run_pi_sidecar_jsonl(
+            app,
+            PiSidecarRun {
+                script_path: &script_path,
+                cwd: &binding.canonical_root,
+                workspace_binding: Some(&binding),
+                env: pi_env(Some(&binding.canonical_root)),
+                payload,
+                token: sidecar_token.clone(),
+                on_event: Some(on_event),
+                register_stdin: Some(&req.request_id),
+                stream_request_id: Some(&req.request_id),
+            },
+        );
+        tokio::pin!(sidecar);
+        let authority_watchdog = wait_for_workspace_authority_loss(app, &workspace_ref, scope);
+        tokio::pin!(authority_watchdog);
+
+        let response = tokio::select! {
+            biased;
+            response = &mut sidecar => match response {
+                Ok(response) => {
+                    let user_aborted = token.is_cancelled();
+                    let authority = if user_aborted {
+                        Ok(())
+                    } else {
+                        validate_task_workspace_binding_authority(app, &workspace_ref, scope)
+                    };
+                    match gate_sidecar_terminal(response, user_aborted, authority) {
+                        TerminalAuthorityGate::Accept(response) => Ok(response),
+                        TerminalAuthorityGate::UserAborted => {
+                            Err(ExecuteFailure::Host(HostError::Aborted))
+                        }
+                        TerminalAuthorityGate::AuthorityLost(error) => {
+                            Err(ExecuteFailure::Authority(error))
+                        }
+                    }
+                }
+                Err(host_error) if !token.is_cancelled() => {
+                    match validate_task_workspace_binding_authority(app, &workspace_ref, scope) {
+                        Ok(()) => Err(ExecuteFailure::Host(host_error)),
+                        Err(authority_error) => Err(ExecuteFailure::Authority(authority_error)),
+                    }
+                }
+                Err(host_error) => Err(ExecuteFailure::Host(host_error)),
+            },
+            authority_error = &mut authority_watchdog => {
+                sidecar_token.cancel();
+                // Await the sidecar future so its error path kills and reaps
+                // the child before authority loss leaves this scope.
+                let _ = sidecar.await;
+                if token.is_cancelled() {
+                    Err(ExecuteFailure::Host(HostError::Aborted))
+                } else {
+                    Err(ExecuteFailure::Authority(authority_error))
+                }
+            }
+        }?;
+        parse_response(response).map_err(ExecuteFailure::from)
+    }
+    .await;
+
+    let (terminal_status, release_reason) = match &execution {
+        Ok(_) => (TaskWorkspaceTerminalStatus::Completed, "run_completed"),
+        Err(ExecuteFailure::Host(HostError::Aborted)) => {
+            (TaskWorkspaceTerminalStatus::Aborted, "run_aborted")
+        }
+        Err(ExecuteFailure::Authority(error)) => match error.reason() {
+            TaskWorkspaceAuthorityLossReason::Expired => {
+                (TaskWorkspaceTerminalStatus::Expired, "ttl_expired")
+            }
+            TaskWorkspaceAuthorityLossReason::RootIdentityChanged => {
+                (TaskWorkspaceTerminalStatus::Failed, "root_identity_changed")
+            }
+            TaskWorkspaceAuthorityLossReason::ScopeMismatch => {
+                (TaskWorkspaceTerminalStatus::Failed, "scope_mismatch")
+            }
+            TaskWorkspaceAuthorityLossReason::Revoked => {
+                (TaskWorkspaceTerminalStatus::Failed, "authority_revoked")
+            }
+            TaskWorkspaceAuthorityLossReason::AccessDenied => {
+                (TaskWorkspaceTerminalStatus::Failed, "access_denied")
+            }
+            TaskWorkspaceAuthorityLossReason::Invalid => {
+                (TaskWorkspaceTerminalStatus::Failed, "binding_invalid")
+            }
+            TaskWorkspaceAuthorityLossReason::RegistryUnavailable => {
+                (TaskWorkspaceTerminalStatus::Failed, "registry_unavailable")
+            }
+        },
+        Err(ExecuteFailure::Host(_)) => (TaskWorkspaceTerminalStatus::Failed, "run_failed"),
+    };
+    let revoke_result =
+        revoke_task_workspace_binding(app, &workspace_ref, terminal_status, release_reason).await;
+
+    match execution {
+        Ok(response) => {
+            revoke_result?;
+            publish_host_event(
+                Some(&req.request_id),
+                Some(on_event),
+                PiAgentHostEvent::Result {
+                    response: response.clone(),
+                },
+                "Send Pi result event",
+            )?;
+            Ok(response)
+        }
+        Err(error) => {
+            if let Err(revoke_error) = revoke_result {
+                eprintln!(
+                    "[pi-agent-host] failed to close task workspace binding for {}: {:?}",
+                    req.request_id, revoke_error
+                );
+            }
+            Err(error.into_host_error())
+        }
+    }
+}
+
+pub(super) fn validate_workspace_binding_history_mode(
+    is_resume: bool,
+    history_id: Option<&str>,
+) -> Result<Option<&str>, HostError> {
+    if is_resume {
+        let history_id = history_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                HostError::Request(
+                    "workspaceBindingHistoryId is required for agent_runtime_resume.".into(),
+                )
+            })?;
+        return Ok(Some(history_id));
+    }
+    if history_id.is_some() {
+        return Err(HostError::Request(
+            "workspaceBindingHistoryId is accepted only by agent_runtime_resume; a normal execute always binds the current Project folder."
+                .into(),
+        ));
+    }
+    Ok(None)
 }
 
 /// Shared execute implementation used by the agent runtime gateway.
@@ -370,10 +820,27 @@ pub(super) async fn execute_impl(
     req: PiAgentExecuteRequest,
     on_event: Channel<PiAgentHostEvent>,
 ) -> Result<PiAgentHostResponse, String> {
+    execute_with_mode(app, req, on_event, false).await
+}
+
+pub(super) async fn resume_impl(
+    app: AppHandle,
+    req: PiAgentExecuteRequest,
+    on_event: Channel<PiAgentHostEvent>,
+) -> Result<PiAgentHostResponse, String> {
+    execute_with_mode(app, req, on_event, true).await
+}
+
+async fn execute_with_mode(
+    app: AppHandle,
+    req: PiAgentExecuteRequest,
+    on_event: Channel<PiAgentHostEvent>,
+    is_resume: bool,
+) -> Result<PiAgentHostResponse, String> {
     let request_id = req.request_id.clone();
     begin_run_stream(&request_id);
     let token = IN_FLIGHT.register(&request_id);
-    let result = do_execute(&app, req, &on_event, token.clone()).await;
+    let result = do_execute(&app, req, &on_event, token.clone(), is_resume).await;
     IN_FLIGHT.clear(&request_id);
 
     match result {
@@ -445,7 +912,7 @@ async fn do_enhance<R: tauri::Runtime>(
         PiSidecarRun {
             script_path: &script_path,
             cwd: &cwd,
-            workspace_root: None,
+            workspace_binding: None,
             env: pi_env(None),
             payload,
             token,
@@ -546,7 +1013,7 @@ async fn do_collaborate<R: tauri::Runtime>(
         PiSidecarRun {
             script_path: &script_path,
             cwd: &cwd,
-            workspace_root: None,
+            workspace_binding: None,
             env: pi_env(None),
             payload,
             token,
@@ -610,4 +1077,61 @@ pub(super) fn abort_impl(request_id: String) -> Result<(), String> {
         token.cancel();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod workspace_call_dispatch_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn workspace_call_joinset_keeps_calls_parallel_and_cancels_only_the_target_id() {
+        for operation in [
+            "executeBash",
+            "fileRead",
+            "fileWrite",
+            "fileStat",
+            "fileList",
+            "fileFind",
+            "fileGrep",
+        ] {
+            assert!(is_cancellable_workspace_call(operation));
+        }
+        assert!(!is_cancellable_workspace_call("diff"));
+
+        let slow_cancellation = CancellationToken::new();
+        let other_cancellation = CancellationToken::new();
+        let mut cancellations = HashMap::from([
+            ("slow".to_string(), slow_cancellation.clone()),
+            ("other".to_string(), other_cancellation.clone()),
+        ]);
+        let mut tasks = JoinSet::<WorkspaceCallJoinResult>::new();
+        let slow_wait = slow_cancellation.clone();
+        tasks.spawn(async move {
+            slow_wait.cancelled().await;
+            ("slow".to_string(), Ok(()))
+        });
+        tasks.spawn(async { ("fast".to_string(), Ok(())) });
+
+        let first = tokio::time::timeout(Duration::from_millis(100), tasks.join_next())
+            .await
+            .expect("a fast worktree call must not queue behind another workspace call")
+            .expect("fast workspace call join")
+            .expect("fast workspace call task");
+        assert_eq!(first.0, "fast");
+        assert!(!slow_cancellation.is_cancelled());
+        assert!(!other_cancellation.is_cancelled());
+
+        cancellations
+            .get("slow")
+            .expect("slow cancellation token")
+            .cancel();
+        let second = tokio::time::timeout(Duration::from_millis(100), tasks.join_next())
+            .await
+            .expect("targeted workspace-call cancellation must settle")
+            .expect("slow workspace call join")
+            .expect("slow workspace call task");
+        cancellations.remove(&second.0);
+        assert_eq!(second.0, "slow");
+        assert!(!other_cancellation.is_cancelled());
+    }
 }

@@ -184,7 +184,7 @@ pub(super) async fn save_provider(
         PiSidecarRun {
             script_path: &script_path,
             cwd: &cwd,
-            workspace_root: None,
+            workspace_binding: None,
             env: pi_env(None),
             payload,
             token: CancellationToken::new(),
@@ -217,7 +217,7 @@ pub(super) async fn status_impl(app: AppHandle) -> Result<PiAgentStatusResponse,
         PiSidecarRun {
             script_path: &script_path,
             cwd: &cwd,
-            workspace_root: None,
+            workspace_binding: None,
             env: pi_env(None),
             payload,
             token: CancellationToken::new(),

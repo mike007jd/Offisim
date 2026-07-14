@@ -56,9 +56,6 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
         .where(eq(schema.companies.company_id, companyId))
         .run();
     },
-    async delete(companyId) {
-      db.delete(schema.companies).where(eq(schema.companies.company_id, companyId)).run();
-    },
   };
 
   const threads: ThreadRepository = {

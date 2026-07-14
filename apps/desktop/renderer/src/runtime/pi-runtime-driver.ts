@@ -10,6 +10,7 @@
 // Pi adapter concerns, so those surfaces keep calling the `pi_agent_*` commands
 // directly and are NOT routed through this gateway boundary.
 
+import type { TaskWorkspaceBindingClaim } from '@/lib/tauri-commands.js';
 import type { AgentRunUsage } from '@offisim/shared-types';
 import type { TurnExecutionProvenance } from './execution-provenance.js';
 
@@ -49,6 +50,7 @@ export type PiAgentHostEvent =
       model?: PiAgentModelSummary;
       modelFallbackMessage?: string;
     }
+  | ({ kind: 'workspaceBound' } & TaskWorkspaceBindingClaim)
   | { kind: 'messageDelta'; delta: string; channel?: 'content' | 'reasoning' }
   | { kind: 'messageEnd'; text: string; stopReason?: string; errorMessage?: string }
   | {
@@ -92,6 +94,23 @@ export type PiAgentHostEvent =
 // gated by check:pi-wire-contract and the cargo fixture test.
 void ([
   { kind: 'started', sessionId: 's', sessionFile: '/f', modelFallbackMessage: 'm' },
+  {
+    kind: 'workspaceBound',
+    workspaceRef: 'workspace-ref',
+    historyId: 'workspace-history',
+    companyId: 'company-1',
+    projectId: 'project-1',
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    requestId: 'request-1',
+    access: 'write',
+    source: 'project_catalog',
+    confidence: 1,
+    reasonCode: 'current_project_folder',
+    issuedAtUnixMs: 1,
+    expiresAtUnixMs: 2,
+    displayPath: '~/project',
+  },
   { kind: 'messageDelta', delta: 'x', channel: 'content' },
   { kind: 'messageDelta', delta: 'r', channel: 'reasoning' },
   { kind: 'messageEnd', text: 't', stopReason: 'end_turn', errorMessage: 'e' },

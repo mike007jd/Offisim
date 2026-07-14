@@ -18,7 +18,7 @@ export interface ProjectRow {
   name: string;
   description: string | null;
   status: ProjectStatus;
-  workspace_root: string | null;
+  workspace_root: string;
   /** Project-owned gate for delegated write loops. Null means single-pass. */
   verify_command: string | null;
   /** Maximum child edit/verify attempts when a gate is configured. */
@@ -35,7 +35,7 @@ export type NewProject = Omit<
 > &
   Partial<Pick<ProjectRow, 'verify_command' | 'verify_max_attempts' | 'verify_token_budget'>>;
 
-/** Patch shape for `ProjectRepository.update`. Explicit `null` unbinds. */
+/** Patch shape for `ProjectRepository.update`. A Project always remains folder-backed. */
 export type ProjectUpdatePatch = Partial<
   Pick<
     ProjectRow,
@@ -101,8 +101,7 @@ export interface NewChatThread {
 
 /**
  * Trim a nullable string and coerce empty / whitespace-only results to `null`.
- * Used by Project create / edit flows to normalize description + workspace_root
- * so the database never holds empty strings as "set" values.
+ * Used by nullable text fields such as Project descriptions and verify commands.
  */
 export function trimToNull(value: string | null | undefined): string | null {
   if (value == null) return null;
@@ -110,12 +109,19 @@ export function trimToNull(value: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/** Enforce the product invariant that every Project is backed by one folder. */
+export function requireProjectWorkspaceRoot(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) throw new Error('Project workspace folder is required.');
+  return trimmed;
+}
+
 const HINT_TARGET_LENGTH = 32;
 const HINT_HEAD_TAIL = 14;
 
 /**
- * Mid-truncated hint for a workspace_root path. Returns "No folder bound"
- * when null/empty; preserves head + tail when path exceeds ~32 chars so the
+ * Mid-truncated hint for a workspace_root path. Tolerates null for callers that
+ * have no active Project; preserves head + tail when path exceeds ~32 chars so the
  * user can still see the leaf directory name.
  */
 export function formatWorkspaceRootHint(root: string | null | undefined): string {

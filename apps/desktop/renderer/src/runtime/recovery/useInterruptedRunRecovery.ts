@@ -1,6 +1,9 @@
-import { invokeCommand } from '@/lib/tauri-commands.js';
+import {
+  type TaskWorkspaceResumeCompatibility,
+  type TaskWorkspaceResumeCompatibilityArgs,
+  invokeCommand,
+} from '@/lib/tauri-commands.js';
 import type { AgentRunRepository } from '@offisim/core/browser';
-import type { ProjectRepository } from '@offisim/core/browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDesktopAgentRuntime } from '../desktop-agent-runtime.js';
 import { getRepos } from '../repos.js';
@@ -8,7 +11,7 @@ import {
   type InterruptedRunCard,
   buildInterruptedRunCard,
   reconcileInterruptedRuns,
-  resolveAgentRunProjectId,
+  resolveAgentRunResumeCompatibilityArgs,
 } from './reconcile-interrupted-runs.js';
 
 const hydratedByCompany = new Set<string>();
@@ -23,6 +26,48 @@ function removeCard(companyId: string, runId: string): InterruptedRunCard[] {
   const next = (cardsByCompany.get(companyId) ?? []).filter((card) => card.runId !== runId);
   cardsByCompany.set(companyId, next);
   return next;
+}
+
+type CancelInterruptedRun = (args: {
+  historyId: string | null;
+  companyId: string;
+  projectId: string;
+  threadId: string;
+  rootRunId: string;
+}) => Promise<void>;
+
+export async function discardInterruptedRunRecoveryCard(
+  cards: readonly InterruptedRunCard[],
+  companyId: string,
+  runId: string,
+  cancelInterruptedRun: CancelInterruptedRun = (args) =>
+    invokeCommand('task_workspace_interrupted_run_cancel', args),
+): Promise<InterruptedRunCard[]> {
+  const card = cards.find((candidate) => candidate.runId === runId);
+  if (!card || card.companyId !== companyId) {
+    throw new Error('Interrupted run no longer belongs to the active company.');
+  }
+  const projectId = card.projectId?.trim();
+  const binding = card.workspaceBinding;
+  if (!projectId || !card.threadId.trim() || !card.runId.trim()) {
+    throw new Error('Interrupted run scope is incomplete and cannot be discarded safely.');
+  }
+  const historyId =
+    binding?.historyId.trim() &&
+    binding.companyId === companyId &&
+    binding.projectId === projectId &&
+    binding.threadId === card.threadId &&
+    binding.turnId === card.runId
+      ? binding.historyId.trim()
+      : null;
+  await cancelInterruptedRun({
+    historyId,
+    companyId,
+    projectId,
+    threadId: card.threadId,
+    rootRunId: card.runId,
+  });
+  return cards.filter((candidate) => candidate.runId !== runId);
 }
 
 /**
@@ -50,7 +95,6 @@ export class RecoveryLoadGeneration {
 
 export async function loadInterruptedRunRecoveryCards(input: {
   repo: AgentRunRepository;
-  projects?: ProjectRepository;
   companyId: string;
   now: () => string;
   skipReconcile?: boolean;
@@ -66,10 +110,12 @@ export interface InterruptedRunRecoveryLoad {
 
 export async function loadInterruptedRunRecovery(input: {
   repo: AgentRunRepository;
-  projects?: ProjectRepository;
   companyId: string;
   now: () => string;
   skipReconcile?: boolean;
+  checkResumeCompatibility?: (
+    args: TaskWorkspaceResumeCompatibilityArgs,
+  ) => Promise<TaskWorkspaceResumeCompatibility>;
 }): Promise<InterruptedRunRecoveryLoad> {
   const result = input.skipReconcile
     ? { cards: [], failedRootRunIds: [] }
@@ -78,27 +124,43 @@ export async function loadInterruptedRunRecovery(input: {
     result.cards.map((card) => [card.runId, card]),
   );
   const interrupted = await input.repo.findByStatus(input.companyId, ['interrupted']);
-  const projectIds = [
-    ...new Set(interrupted.map((row) => resolveAgentRunProjectId(row)).filter(Boolean)),
-  ] as string[];
-  const projectsById = new Map(
-    await Promise.all(
-      projectIds.map(
-        async (projectId) => [projectId, await input.projects?.findById(projectId)] as const,
-      ),
-    ),
+  const checkCompatibility = input.checkResumeCompatibility ?? checkResumeCompatibility;
+  const compatibilityChecks = await Promise.all(
+    interrupted.map(async (row) => {
+      const args = resolveAgentRunResumeCompatibilityArgs(row);
+      if (!args) {
+        return {
+          runId: row.run_id,
+          compatibility: {
+            status: 'missing',
+            reason: 'workspace_history_missing',
+          } satisfies TaskWorkspaceResumeCompatibility,
+          retryableFailure: false,
+        };
+      }
+      try {
+        return {
+          runId: row.run_id,
+          compatibility: await checkCompatibility(args),
+          retryableFailure: false,
+        };
+      } catch {
+        return {
+          runId: row.run_id,
+          compatibility: {
+            status: 'missing',
+            reason: 'workspace_compatibility_unavailable',
+          } satisfies TaskWorkspaceResumeCompatibility,
+          retryableFailure: true,
+        };
+      }
+    }),
   );
-  const workspaceExistsByProject = new Map(
-    await Promise.all(
-      projectIds.map(
-        async (projectId) => [projectId, await checkWorkspaceExists(projectId)] as const,
-      ),
-    ),
+  const compatibilityByRun = new Map(
+    compatibilityChecks.map(({ runId, compatibility }) => [runId, compatibility]),
   );
   for (const row of interrupted) {
     const current = merged.get(row.run_id);
-    const projectId = resolveAgentRunProjectId(row);
-    const project = projectId ? projectsById.get(projectId) : null;
     merged.set(
       row.run_id,
       buildInterruptedRunCard(
@@ -106,25 +168,23 @@ export async function loadInterruptedRunRecovery(input: {
         current?.cancelledChildRunIds ?? [],
         current?.partialUsageJson ?? row.usage_json,
         {
-          resolvedWorkspaceRoot: project?.workspace_root ?? null,
-          workspaceExists: projectId ? (workspaceExistsByProject.get(projectId) ?? null) : null,
+          resumeCompatibility: compatibilityByRun.get(row.run_id),
         },
       ),
     );
   }
   return {
     cards: [...merged.values()],
-    complete: result.failedRootRunIds.length === 0,
+    complete:
+      result.failedRootRunIds.length === 0 &&
+      compatibilityChecks.every((check) => !check.retryableFailure),
   };
 }
 
-async function checkWorkspaceExists(projectId: string | null): Promise<boolean | null> {
-  if (!projectId) return null;
-  try {
-    return await invokeCommand('project_exists', { path: '.', cwd: null, projectId });
-  } catch {
-    return null;
-  }
+async function checkResumeCompatibility(
+  args: TaskWorkspaceResumeCompatibilityArgs,
+): Promise<TaskWorkspaceResumeCompatibility> {
+  return invokeCommand('task_workspace_resume_compatibility', args);
 }
 
 export function useInterruptedRunRecovery(companyId: string | null): {
@@ -155,6 +215,8 @@ export function useInterruptedRunRecovery(
   const [loadGeneration] = useState(() => new RecoveryLoadGeneration());
   const currentCompanyIdRef = useRef(companyId);
   currentCompanyIdRef.current = companyId;
+  const loadRef = useRef<(force?: boolean) => Promise<void>>(async () => {});
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cards, setCards] = useState<InterruptedRunCard[]>(() =>
     companyId && !skipReconcile ? (cardsByCompany.get(companyId) ?? []) : [],
   );
@@ -164,7 +226,11 @@ export function useInterruptedRunRecovery(
       const generation = loadGeneration.begin();
       const scopeCompanyId = companyId;
       if (!scopeCompanyId) {
-        loadGeneration.commit(generation, () => setCards([]));
+        loadGeneration.commit(generation, () => {
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = null;
+          setCards([]);
+        });
         return;
       }
       if (!skipReconcile && !force && hydratedByCompany.has(scopeCompanyId)) {
@@ -177,14 +243,26 @@ export function useInterruptedRunRecovery(
         const repos = await getRepos();
         const recovery = await loadInterruptedRunRecovery({
           repo: repos.agentRuns,
-          projects: repos.projects,
           companyId: scopeCompanyId,
           now: () => new Date().toISOString(),
           skipReconcile,
         });
         loadGeneration.commit(generation, () => {
-          if (!skipReconcile && recovery.complete) hydratedByCompany.add(scopeCompanyId);
-          else hydratedByCompany.delete(scopeCompanyId);
+          if (recovery.complete) {
+            if (!skipReconcile) hydratedByCompany.add(scopeCompanyId);
+            else hydratedByCompany.delete(scopeCompanyId);
+            if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = null;
+          } else {
+            hydratedByCompany.delete(scopeCompanyId);
+            if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = setTimeout(() => {
+              retryTimerRef.current = null;
+              if (currentCompanyIdRef.current === scopeCompanyId) {
+                void loadRef.current(true);
+              }
+            }, 5_000);
+          }
           setCards(cacheCards(scopeCompanyId, recovery.cards));
         });
       } catch (err) {
@@ -199,34 +277,28 @@ export function useInterruptedRunRecovery(
     },
     [companyId, loadGeneration, skipReconcile],
   );
+  loadRef.current = load;
 
   useEffect(() => {
     void load(false);
-    return () => loadGeneration.invalidate();
+    return () => {
+      loadGeneration.invalidate();
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    };
   }, [load, loadGeneration]);
 
   const discard = useCallback(
     async (runId: string) => {
       const scopeCompanyId = companyId;
       if (!scopeCompanyId) return;
-      const card = cards.find((candidate) => candidate.runId === runId);
-      if (!card || card.companyId !== scopeCompanyId) {
-        throw new Error('Interrupted run no longer belongs to the active company.');
-      }
       loadGeneration.invalidate();
-      const repos = await getRepos();
-      const updated = await repos.agentRuns.updateStatusForCompany(
+      const nextCards = await discardInterruptedRunRecoveryCard(
+        cardsByCompany.get(scopeCompanyId) ?? cards,
         scopeCompanyId,
         runId,
-        'cancelled',
-        {
-          finishedAt: new Date().toISOString(),
-        },
       );
-      if (!updated) {
-        throw new Error('Interrupted run no longer belongs to the active company.');
-      }
-      const nextCards = removeCard(scopeCompanyId, runId);
+      cacheCards(scopeCompanyId, nextCards);
       if (currentCompanyIdRef.current === scopeCompanyId) setCards(nextCards);
     },
     [cards, companyId, loadGeneration],
@@ -240,13 +312,27 @@ export function useInterruptedRunRecovery(
       if (!card || card.companyId !== scopeCompanyId) {
         throw new Error('Interrupted run no longer belongs to the active company.');
       }
+      if (card.classification === 'incompatible') {
+        throw new Error(
+          card.classificationReasons.join(' ') ||
+            'Interrupted run is incompatible with the current workspace.',
+        );
+      }
       loadGeneration.invalidate();
       const runtime = await getDesktopAgentRuntime(scopeCompanyId);
-      await runtime.resume(runId);
+      try {
+        await runtime.resume(runId);
+      } catch (error) {
+        // The folder can change after card hydration. Re-run backend identity
+        // compatibility so the retained card immediately becomes incompatible
+        // instead of remaining a stale "resumable" action.
+        await load(true);
+        throw error;
+      }
       const nextCards = removeCard(scopeCompanyId, runId);
       if (currentCompanyIdRef.current === scopeCompanyId) setCards(nextCards);
     },
-    [cards, companyId, loadGeneration],
+    [cards, companyId, load, loadGeneration],
   );
 
   const refetch = useCallback(async () => {

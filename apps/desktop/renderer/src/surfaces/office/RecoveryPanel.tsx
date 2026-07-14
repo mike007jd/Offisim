@@ -149,7 +149,9 @@ export function RecoveryPanel() {
                 <div className="off-recovery-partial">
                   <span>{summarizeUsage(card.partialUsageJson)}</span>
                   <span>{card.cancelledChildRunIds.length} child runs parked</span>
-                  {card.workspaceRoot ? <span>{card.workspaceRoot}</span> : null}
+                  {card.workspaceBinding?.displayPath ? (
+                    <span>{card.workspaceBinding.displayPath}</span>
+                  ) : null}
                   {card.sessionFile ? <span>{card.sessionFile}</span> : null}
                 </div>
               ) : null}

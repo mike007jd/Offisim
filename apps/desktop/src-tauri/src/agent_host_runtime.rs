@@ -3,7 +3,6 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use sqlx::Row;
 use tauri::{path::BaseDirectory, AppHandle, Manager};
 
 const TRUSTED_HOST_ENV_WHITELIST: &[&str] = &[
@@ -113,93 +112,6 @@ pub(crate) fn dev_workspace_root() -> Option<PathBuf> {
         .canonicalize()
         .ok()
         .filter(|candidate| candidate.exists())
-}
-
-pub(crate) async fn project_workspace_root<R: tauri::Runtime>(
-    app: &AppHandle<R>,
-    company_id: Option<&str>,
-    project_id: Option<&str>,
-    lane: AgentHostLane,
-) -> Result<PathBuf, HostError> {
-    let company_id = company_id
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            HostError::Request(format!(
-                "companyId is required for trusted {} lane workspace binding.",
-                lane.name
-            ))
-        })?;
-    let project_id = project_id
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            HostError::Request(format!(
-                "projectId is required for trusted {} lane workspace binding.",
-                lane.name
-            ))
-        })?;
-    let pool = crate::local_db::get_offisim_pool(app)
-        .map_err(|err| HostError::HostUnavailable(format!("open offisim.db failed: {err}")))?;
-    let row = sqlx::query(
-        r#"
-        SELECT workspace_root
-        FROM projects
-        WHERE project_id = ?
-          AND company_id = ?
-          AND workspace_root IS NOT NULL
-          AND trim(workspace_root) <> ''
-        "#,
-    )
-    .bind(project_id)
-    .bind(company_id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|err| HostError::Request(format!("project workspace lookup failed: {err}")))?
-    .ok_or_else(|| {
-        HostError::Request(format!(
-            "No workspace_root is bound for the trusted {} project.",
-            lane.name
-        ))
-    })?;
-    let raw: String = row
-        .try_get("workspace_root")
-        .map_err(|err| HostError::Request(format!("decode workspace_root: {err}")))?;
-    resolve_host_workspace_root(raw)
-}
-
-fn resolve_host_workspace_root(raw: String) -> Result<PathBuf, HostError> {
-    crate::local_paths::resolve_project_workspace_root_path(raw).map_err(HostError::Request)
-}
-
-pub(crate) fn default_host_cwd(workspace_root: &Path) -> PathBuf {
-    workspace_root.to_path_buf()
-}
-
-pub(crate) fn resolved_request_cwd(
-    requested: Option<&str>,
-    workspace_root: &Path,
-    lane: AgentHostLane,
-) -> Result<PathBuf, HostError> {
-    let root = workspace_root;
-    let cwd = if let Some(cwd) = requested.and_then(|value| {
-        let trimmed = value.trim();
-        (!trimmed.is_empty()).then_some(trimmed)
-    }) {
-        PathBuf::from(cwd)
-    } else {
-        default_host_cwd(root)
-    };
-    let canonical = cwd
-        .canonicalize()
-        .map_err(|err| HostError::Request(format!("Resolve trusted {} cwd: {err}", lane.name)))?;
-    if !canonical.starts_with(root) {
-        return Err(HostError::Request(format!(
-            "Trusted {} cwd is outside the bound project workspace.",
-            lane.name
-        )));
-    }
-    Ok(canonical)
 }
 
 pub(crate) fn sidecar_script_path<R: tauri::Runtime>(
@@ -360,17 +272,6 @@ pub(crate) fn resolve_node_executable(script_path: &Path) -> PathBuf {
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
-
-    #[test]
-    fn host_workspace_root_rejects_overbroad_raw_path() {
-        let err = resolve_host_workspace_root("/tmp".to_string()).unwrap_err();
-        match err {
-            HostError::Request(message) => {
-                assert_eq!(message, crate::local_paths::OVERBROAD_WORKSPACE_ROOT_ERROR);
-            }
-            other => panic!("expected request error, got {other:?}"),
-        }
-    }
 
     #[test]
     fn bundled_node_is_resolved_next_to_bundled_pi_host() {

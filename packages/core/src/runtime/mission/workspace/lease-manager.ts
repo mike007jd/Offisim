@@ -215,7 +215,7 @@ export function createWorkspaceLeaseManager(
     const leaseId = newId();
     const branch = branchFor(runId, leaseId);
     const worktreePath = worktreePathFor(workspaceRoot, leaseId);
-    await gitOps.addWorktree(branch, worktreePath);
+    await gitOps.addWorktree(branch, worktreePath, { leaseId, runId });
     return {
       outcome: 'granted',
       lease: snapshot(

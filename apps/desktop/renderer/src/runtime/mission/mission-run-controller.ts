@@ -1,3 +1,8 @@
+import {
+  type TaskWorkspaceBindingClaim,
+  type TaskWorkspaceEvaluationLeaseClaim,
+  invokeCommand,
+} from '@/lib/tauri-commands.js';
 import type {
   AttemptExecution,
   ControllerCriterion,
@@ -61,6 +66,15 @@ export interface MissionRunControllerDeps {
    * testable without a real workspace — the controller is otherwise identical.
    */
   createEvaluationContext?: (input: TauriEvaluationContextInput) => EvaluationContext;
+  /** Test seams for the backend-owned, bounded Mission evaluation lease. */
+  acquireEvaluationLease?: (input: {
+    bindingClaim: TaskWorkspaceBindingClaim;
+    missionId: string;
+    attemptId: string;
+  }) => Promise<TaskWorkspaceEvaluationLeaseClaim>;
+  releaseEvaluationLease?: (input: {
+    evaluationLease: TaskWorkspaceEvaluationLeaseClaim;
+  }) => Promise<void>;
   /** Deterministic-id / clock factories. Default to crypto.randomUUID + Date. */
   newId?: () => string;
   now?: () => string;
@@ -101,10 +115,38 @@ function delegationLimitsFromMissionBudget(
   return Object.keys(limits).length > 0 ? limits : undefined;
 }
 
+function evaluationLeaseMatchesAttempt(
+  lease: TaskWorkspaceEvaluationLeaseClaim,
+  binding: TaskWorkspaceBindingClaim,
+  missionId: string,
+  attemptId: string,
+): boolean {
+  return (
+    lease.evaluationLeaseRef.trim().length > 0 &&
+    lease.historyId === binding.historyId &&
+    lease.companyId === binding.companyId &&
+    lease.projectId === binding.projectId &&
+    lease.threadId === binding.threadId &&
+    lease.turnId === binding.turnId &&
+    lease.requestId === binding.requestId &&
+    lease.missionId === missionId &&
+    lease.attemptId === attemptId &&
+    Number.isFinite(lease.issuedAtUnixMs) &&
+    Number.isFinite(lease.expiresAtUnixMs) &&
+    lease.expiresAtUnixMs > lease.issuedAtUnixMs
+  );
+}
+
 export function createMissionRunController(deps: MissionRunControllerDeps): MissionRunController {
   const newId = deps.newId ?? (() => crypto.randomUUID());
   const now = deps.now ?? (() => new Date().toISOString());
   const makeEvaluationContext = deps.createEvaluationContext ?? createTauriEvaluationContext;
+  const acquireEvaluationLease =
+    deps.acquireEvaluationLease ??
+    ((input) => invokeCommand('task_workspace_evaluation_lease_acquire', input));
+  const releaseEvaluationLease =
+    deps.releaseEvaluationLease ??
+    ((input) => invokeCommand('task_workspace_evaluation_lease_release', input));
   const scheduleDeadline =
     deps.scheduleDeadline ??
     ((callback: () => void, delayMs: number) => globalThis.setTimeout(callback, delayMs));
@@ -135,12 +177,7 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
     }));
     const criterionById = new Map(controllerCriteria.map((c) => [c.id, c]));
 
-    // Resolve the project's workspace_root once for the whole mission — every
-    // attempt's EvaluationContext runs the bash builtin against it.
     const projectId = mission.project_id;
-    const workspaceRoot = projectId
-      ? ((await deps.repos.projects?.findById(projectId))?.workspace_root ?? null)
-      : null;
 
     const missionContext: MissionContextPacket = {
       missionId,
@@ -173,7 +210,6 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
           controllerCriteria,
           criterionById,
           projectId,
-          workspaceRoot,
           delegationLimits,
         }),
       now,
@@ -198,7 +234,6 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
       controllerCriteria: ControllerCriterion[];
       criterionById: Map<string, ControllerCriterion>;
       projectId: string | null;
-      workspaceRoot: string | null;
       delegationLimits: DesktopAgentRunInput['delegationLimits'];
     },
   ): Promise<AttemptExecution> {
@@ -208,13 +243,41 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
       controllerCriteria,
       criterionById,
       projectId,
-      workspaceRoot,
       delegationLimits,
     } = ctx;
     // `runId === attemptId` so the host stamps rootRunId = attemptId; the bridge's
     // submit_for_evaluation events then carry runId === attemptId, which is how we
     // correlate the agent's signals to THIS attempt.
     const attemptRunId = input.attemptId;
+
+    // The attempt id is the root run id by contract and is known before the
+    // runtime starts. Persist and read it back before launching the paid/writing
+    // agent so lease minting, recovery, and audit all have one durable identity
+    // from the first side effect onward.
+    try {
+      await deps.repos.missionAttempts.setRootRunId(input.attemptId, attemptRunId);
+      const persistedAttempt = await deps.repos.missionAttempts.findById(input.attemptId);
+      if (
+        !persistedAttempt ||
+        persistedAttempt.mission_id !== input.missionId ||
+        persistedAttempt.root_run_id !== attemptRunId
+      ) {
+        throw new Error('Mission attempt root run identity did not persist exactly.');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        runtimeError: {
+          code: 'attempt_root_run_persistence',
+          message,
+        },
+        evaluationContextFor: () => {
+          throw new Error(
+            `Evaluation unavailable: attempt root run persistence failed — ${message}`,
+          );
+        },
+      };
+    }
 
     // Collect the agent's submit_for_evaluation signals for this attempt. They are
     // SIGNALS only (which criteria the agent considers ready) — the deterministic
@@ -247,6 +310,8 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
 
     let runtimeError: AttemptExecution['runtimeError'];
     let usageTokens: number | undefined;
+    let bindingClaim: TaskWorkspaceBindingClaim | null = null;
+    let evaluationLease: TaskWorkspaceEvaluationLeaseClaim | null = null;
     let deadlineTimer: unknown;
     let wallClockTimedOut = false;
     let resolveDeadline!: () => void;
@@ -299,6 +364,10 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
           ]);
       const result = runtimeOutcome.kind === 'result' ? runtimeOutcome.result : null;
       if (runtimeOutcome.kind === 'error') throw runtimeOutcome.error;
+      if (!result?.workspaceBindingClaim) {
+        throw new Error('Completed Mission Turn returned no task workspace binding claim.');
+      }
+      bindingClaim = result.workspaceBindingClaim;
       // The host reports the run's own token usage on the return (deterministic —
       // no persist-queue race). `budgetUsage` is a separate root+delegated-tree
       // wire used only by Mission debit; `usage` remains root-only so
@@ -332,17 +401,32 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
       unsubscribe();
     }
 
-    // Stamp the attempt's root agent run id (runId === attemptId by design) so the
-    // attempt row joins to its `agent_runs` row for usage/cost and future durable
-    // recovery — regardless of outcome (a failed/blocked attempt still produced a
-    // run). Best-effort: a write failure here must not fail the attempt.
-    try {
-      await deps.repos.missionAttempts.setRootRunId(input.attemptId, attemptRunId);
-    } catch (err) {
-      console.warn('[mission-run-controller] setRootRunId failed', {
-        attemptId: input.attemptId,
-        err,
-      });
+    if (!runtimeError && bindingClaim) {
+      try {
+        const acquired = await acquireEvaluationLease({
+          bindingClaim,
+          missionId: input.missionId,
+          attemptId: input.attemptId,
+        });
+        if (
+          !evaluationLeaseMatchesAttempt(acquired, bindingClaim, input.missionId, input.attemptId)
+        ) {
+          await releaseEvaluationLease({ evaluationLease: acquired }).catch((releaseError) => {
+            console.error('[mission-run-controller] rejected lease cleanup failed', {
+              missionId: input.missionId,
+              attemptId: input.attemptId,
+              releaseError,
+            });
+          });
+          throw new Error('Backend returned an evaluation lease for a different Mission attempt.');
+        }
+        evaluationLease = acquired;
+      } catch (err) {
+        runtimeError = {
+          code: 'workspace_evaluation_lease',
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
     }
 
     // Diagnostic only: the agent's submissions are advisory signals, not the
@@ -363,8 +447,7 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
       ...(usageTokens !== undefined ? { usage: { tokens: usageTokens } } : {}),
       evaluationContextFor: (criterion) =>
         makeEvaluationContext({
-          projectId,
-          workspaceRoot,
+          evaluationLease,
           criterion: {
             id: criterion.id,
             description: criterion.description,
@@ -373,6 +456,12 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
           attemptRunId,
           repos: deps.repos,
         }),
+      releaseEvaluationResources: async () => {
+        if (!evaluationLease) return;
+        const lease = evaluationLease;
+        await releaseEvaluationLease({ evaluationLease: lease });
+        evaluationLease = null;
+      },
     };
   }
 

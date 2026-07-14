@@ -5,7 +5,7 @@ import type {
   RuntimeRepositories,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
+import { ACTIVE_PROJECT_STATUSES, requireProjectWorkspaceRoot } from '@offisim/shared-types';
 import type {
   ChatThread,
   NewChatThread,
@@ -16,6 +16,7 @@ import type {
   ProjectStatus,
 } from '@offisim/shared-types';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { invokeCommand } from '../tauri-commands.js';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 function now(): string {
@@ -69,16 +70,10 @@ export interface ProjectsTauriRepos {
 export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos {
   const projects: ProjectRepository = {
     async create(p: NewProject) {
-      const row: ProjectRow = {
-        ...p,
-        verify_command: p.verify_command ?? null,
-        verify_max_attempts: p.verify_max_attempts ?? 3,
-        verify_token_budget: p.verify_token_budget ?? null,
-        created_at: now(),
-        updated_at: now(),
-      };
-      await db.insert(schema.projects).values(row);
-      return row;
+      requireProjectWorkspaceRoot(p.workspace_root);
+      throw new Error(
+        'Project creation requires a native folder selection. Use the desktop Project creation flow.',
+      );
     },
     async findById(projectId) {
       const rows = await db
@@ -107,19 +102,31 @@ export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos
         .orderBy(desc(schema.projects.updated_at))) as ProjectRow[];
     },
     async updateStatus(projectId, status: ProjectStatus) {
-      await db
-        .update(schema.projects)
-        .set({ status, updated_at: now() })
-        .where(eq(schema.projects.project_id, projectId));
+      await invokeCommand('project_update_status', { projectId, status });
     },
     async update(projectId, patch) {
-      await db
-        .update(schema.projects)
-        .set({ ...patch, updated_at: now() })
-        .where(eq(schema.projects.project_id, projectId));
-    },
-    async delete(projectId) {
-      await db.delete(schema.projects).where(eq(schema.projects.project_id, projectId));
+      if (patch.workspace_root !== undefined) {
+        requireProjectWorkspaceRoot(patch.workspace_root);
+        throw new Error('Changing a Project folder requires a fresh native folder selection.');
+      }
+      const existing = await projects.findById(projectId);
+      if (!existing) throw new Error('Project was not found.');
+      await invokeCommand('project_update', {
+        input: {
+          projectId,
+          name: patch.name ?? existing.name,
+          description: patch.description === undefined ? existing.description : patch.description,
+          status: patch.status ?? existing.status,
+          workspaceSelectionRef: null,
+          verifyCommand:
+            patch.verify_command === undefined ? existing.verify_command : patch.verify_command,
+          verifyMaxAttempts: patch.verify_max_attempts ?? existing.verify_max_attempts,
+          verifyTokenBudget:
+            patch.verify_token_budget === undefined
+              ? existing.verify_token_budget
+              : patch.verify_token_budget,
+        },
+      });
     },
   };
 

@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛计划
 
-> 状态：IN PROGRESS（T00、T01 已完成；最终 release 验收未开始）
-> 时间基准：2026-07-13 AEST（+10:00）
+> 状态：IN PROGRESS（T00-T03 已完成；最终 release 验收未开始）
+> 时间基准：2026-07-14 AEST（+10:00）
 > 代码基线：`a142000cf360`
 > 执行清单：[tasks.md](./tasks.md)
 > 架构真源：[Engine-neutral AI Accounts](../../architecture/2026-07-13-engine-neutral-ai-accounts.md)
@@ -43,7 +43,7 @@
 | 当前生产 runtime | `DesktopAgentRuntime` 仍组装 `DesktopPiAgentRuntime` | T00 只解除错误产品门禁；T05-T07 未完成前不得声称 engine-neutral 已交付 |
 | Conversation 标题 | 已有首条消息 fallback 与 `title_set_by_user` 锁 | T02 复用现有合同，补首次成功回复后的语义标题 |
 | stale approval | 旧投影可制造 active run | T01 从控制器真源修复，不在按钮层 no-op |
-| Project workspace | Project folder 与执行 root 仍有耦合/自报面 | T03 先建立签发合同，T04 再做缺失目录恢复 |
+| Project workspace | T03 已交付后端签发、scope 防伪、内存 capability 与安全历史投影 | T04 只负责 Project folder 缺失后的高置信恢复与明确披露 |
 | Settings | 仍包含 Pi/provider 实现语言 | T05-T08 完成能力后再改用户信息架构，禁止只换文案 |
 | UI finding | 原始 15 张截图涵盖 radius、rails、cost、run pill、nav、Market、presence、error 等 | T12-T14 统一收敛并加入 deterministic gates |
 | 最终验收 | 仓库明确只认 release `.app` + Computer Use | dev server、localhost、dev webview 仅用于排查 |

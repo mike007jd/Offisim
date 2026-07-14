@@ -109,6 +109,12 @@ export interface AttemptExecution {
   evaluationContextFor(
     criterion: ControllerCriterion,
   ): EvaluationContext | Promise<EvaluationContext>;
+  /**
+   * Release ephemeral resources acquired for deterministic evaluation. The
+   * controller invokes this exactly once in a `finally` spanning every
+   * post-runtime exit path, including evaluator throws and budget stops.
+   */
+  releaseEvaluationResources?(): void | Promise<void>;
   /** Set when the runtime itself failed to run (infra, not a product FAIL). */
   runtimeError?: { code: string; message: string };
   /**
@@ -376,6 +382,8 @@ class MissionLoopControllerImpl implements MissionLoopController {
       // We catch exactly that, re-read the mission, and if it is cancelled return
       // a clean `cancelled` result; any OTHER illegal_transition is a genuine bug
       // and is re-thrown (never swallowed).
+      let releaseEvaluationResources: AttemptExecution['releaseEvaluationResources'];
+      let cleanupAttemptId: string | undefined;
       try {
         if (pendingFailurePacket && previousFailureSignature) {
           await svc.toRepairing(
@@ -384,17 +392,23 @@ class MissionLoopControllerImpl implements MissionLoopController {
             previousFailureSignature,
           );
         }
-        const result = await this.runOneAttempt({
-          missionId,
-          attemptNumber,
-          previousFailureSignature,
-          pendingFailurePacket,
-          tokenRemaining,
-          repairCounts,
-          attemptEvidence,
-          requiredCriteria,
-          wallClockDeadlineMs,
-        });
+        const result = await this.runOneAttempt(
+          {
+            missionId,
+            attemptNumber,
+            previousFailureSignature,
+            pendingFailurePacket,
+            tokenRemaining,
+            repairCounts,
+            attemptEvidence,
+            requiredCriteria,
+            wallClockDeadlineMs,
+          },
+          (attemptId, cleanup) => {
+            cleanupAttemptId = attemptId;
+            releaseEvaluationResources = cleanup;
+          },
+        );
         if (result.kind === 'stop') return result.value;
         // Continue the loop with the updated carry-over state.
         attemptNumber = result.attemptNumber;
@@ -414,6 +428,23 @@ class MissionLoopControllerImpl implements MissionLoopController {
           }
         }
         throw error;
+      } finally {
+        const cleanup = releaseEvaluationResources;
+        // Clear before invoking: cleanup is at-most-once even if future control
+        // flow adds another path through this iteration's finalizer.
+        releaseEvaluationResources = undefined;
+        try {
+          await cleanup?.();
+        } catch (error) {
+          // Cleanup is bounded independently by the backend lease TTL. A
+          // transport failure here must never rewrite an already-decided
+          // completed/blocked/failed Mission outcome.
+          console.error('[mission-loop-controller] evaluation resource cleanup failed', {
+            missionId,
+            attemptId: cleanupAttemptId,
+            error,
+          });
+        }
       }
     }
   }
@@ -425,17 +456,23 @@ class MissionLoopControllerImpl implements MissionLoopController {
    * concurrent-cancel illegal_transition into a clean stop. Returns either a
    * terminal stop (`kind: 'stop'`) or the carry-over state for the next loop.
    */
-  private async runOneAttempt(state: {
-    missionId: string;
-    attemptNumber: number;
-    previousFailureSignature: string | undefined;
-    pendingFailurePacket: FailurePacket | undefined;
-    tokenRemaining: number | undefined;
-    repairCounts: Map<string, number>;
-    attemptEvidence: AttemptEvidence[];
-    requiredCriteria: ControllerCriterion[];
-    wallClockDeadlineMs: number | undefined;
-  }): Promise<
+  private async runOneAttempt(
+    state: {
+      missionId: string;
+      attemptNumber: number;
+      previousFailureSignature: string | undefined;
+      pendingFailurePacket: FailurePacket | undefined;
+      tokenRemaining: number | undefined;
+      repairCounts: Map<string, number>;
+      attemptEvidence: AttemptEvidence[];
+      requiredCriteria: ControllerCriterion[];
+      wallClockDeadlineMs: number | undefined;
+    },
+    registerEvaluationCleanup: (
+      attemptId: string,
+      cleanup: AttemptExecution['releaseEvaluationResources'],
+    ) => void,
+  ): Promise<
     | { kind: 'stop'; value: MissionLoopResult }
     | {
         kind: 'continue';
@@ -474,7 +511,7 @@ class MissionLoopControllerImpl implements MissionLoopController {
           ? {}
           : { wallClockDeadlineAt: new Date(wallClockDeadlineMs).toISOString() }),
       });
-
+      registerEvaluationCleanup(attemptId, execution.releaseEvaluationResources);
       // §19.2 token budget: debit this attempt's reported usage. This is the
       // ONLY channel by which a driver's token spend reaches the budget guard
       // (the controller runs no model). The guard itself fires in the verifying

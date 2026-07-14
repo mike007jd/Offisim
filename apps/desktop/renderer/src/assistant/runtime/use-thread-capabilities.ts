@@ -44,7 +44,7 @@ import { useMemo } from 'react';
 export type CapabilityStatus = 'available' | 'needs-setup' | 'disabled' | 'unavailable';
 
 /** Where a capability physically comes from, shown as a source label per row. */
-type CapabilitySource = 'Pi runtime' | 'MCP grant' | 'Workspace' | 'Settings';
+type CapabilitySource = 'Project' | 'MCP grant' | 'Workspace' | 'Settings';
 
 interface CapabilitySetup {
   /** Action-oriented label, e.g. "Open Settings › MCP". */
@@ -228,29 +228,27 @@ export function useThreadCapabilities(
       });
     }
 
-    // ── Files / Workspace ──────────────────────────────────────────────────────
+    // ── Project files ──────────────────────────────────────────────────────────
     if (workspaceBound) {
       const fileCount = projectFiles.data?.length ?? 0;
       capabilities.push({
         id: 'files',
-        label: 'Files & workspace',
+        label: 'Project files',
         icon: FolderOpen,
         status: 'available',
-        source: 'Workspace',
+        source: 'Project',
         detail:
-          fileCount > 0
-            ? `${plural(fileCount, 'item')} at workspace root`
-            : 'Workspace folder bound',
+          fileCount > 0 ? `${plural(fileCount, 'item')} in Project folder` : 'Project folder ready',
       });
     } else {
       capabilities.push({
         id: 'files',
-        label: 'Files & workspace',
+        label: 'Project files',
         icon: FolderOpen,
         status: 'needs-setup',
-        source: 'Workspace',
-        detail: 'No workspace folder bound for this project',
-        setup: { label: 'Bind a folder', action: revealWorkspacePanel },
+        source: 'Project',
+        detail: 'No Project folder chosen',
+        setup: { label: 'Choose folder', action: revealWorkspacePanel },
       });
     }
 
@@ -261,8 +259,8 @@ export function useThreadCapabilities(
         label: 'Terminal',
         icon: SquareTerminal,
         status: 'available',
-        source: 'Pi runtime',
-        detail: 'Sandboxed shell inside the bound workspace',
+        source: 'Project',
+        detail: 'Commands run in this Project folder',
       });
     } else {
       capabilities.push({
@@ -270,9 +268,9 @@ export function useThreadCapabilities(
         label: 'Terminal',
         icon: SquareTerminal,
         status: 'needs-setup',
-        source: 'Pi runtime',
-        detail: 'Shell commands need a bound workspace folder',
-        setup: { label: 'Bind a folder', action: revealWorkspacePanel },
+        source: 'Project',
+        detail: 'Choose a Project folder to use Terminal',
+        setup: { label: 'Choose folder', action: revealWorkspacePanel },
       });
     }
 
@@ -355,16 +353,16 @@ export function useThreadCapabilities(
     } else {
       const detail =
         gitState?.status === 'uninitialized'
-          ? 'Bound folder is not a git repository yet'
+          ? 'Project folder is not a Git repository yet'
           : gitState?.status === 'invalid-folder'
-            ? 'Bound folder is missing or invalid'
-            : 'No workspace folder bound for this project';
+            ? 'Project folder is missing or unavailable'
+            : 'No Project folder chosen';
       const setupLabel =
         gitState?.status === 'uninitialized'
           ? 'Initialize in workspace panel'
           : gitState?.status === 'invalid-folder'
-            ? 'Rebind folder'
-            : 'Bind a folder';
+            ? 'Change folder'
+            : 'Choose folder';
       capabilities.push({
         id: 'git',
         label: 'Review & Git',

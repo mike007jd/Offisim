@@ -59,14 +59,14 @@
         ]
       },
       "context": {
-        "cwd": "/fixture/project/resolved-cwd",
+        "cwd": ".",
         "sessionDir": "/fixture/sessions/thread-1",
         "agentDir": "/fixture/home/.pi/agent"
       },
       "payload": {
         "mode": "execute",
         "text": "Inspect the workspace",
-        "cwd": "/fixture/project/resolved-cwd",
+        "cwd": ".",
         "sessionDir": "/fixture/sessions/thread-1",
         "agentDir": "/fixture/home/.pi/agent",
         "model": "fixture-provider/fixture-model",
@@ -122,7 +122,7 @@
       "normalized": {
         "mode": "execute",
         "text": "Inspect the workspace",
-        "cwd": "/fixture/project/resolved-cwd",
+        "cwd": ".",
         "sessionDir": "/fixture/sessions/thread-1",
         "agentDir": "/fixture/home/.pi/agent",
         "model": "fixture-provider/fixture-model",

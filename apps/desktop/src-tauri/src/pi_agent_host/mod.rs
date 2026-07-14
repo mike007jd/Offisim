@@ -5,6 +5,7 @@ mod run;
 mod stream;
 mod types;
 mod wire;
+mod workspace_files;
 
 pub use stream::PiRunStreamSnapshot;
 #[allow(unused_imports)]
@@ -17,11 +18,14 @@ pub use types::{
 
 use bridge::ui_response_impl;
 use provider::status_impl;
-use run::{abort_impl, collaborate_impl, enhance_impl, execute_impl};
+use run::{abort_impl, collaborate_impl, enhance_impl, execute_impl, resume_impl};
 
 use tauri::{ipc::Channel, AppHandle};
 
 use crate::agent_host_runtime::AgentHostLane;
+
+/// Terminal run events and their workspace read capability must expire together.
+pub(crate) const PI_RUN_STREAM_TERMINAL_TTL_SECS: u64 = 30 * 60;
 
 const PI_LANE: AgentHostLane = AgentHostLane {
     name: "Pi Agent",
@@ -45,10 +49,27 @@ pub fn agent_runtime_release_stream(request_id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn agent_runtime_reattach(
+    app: AppHandle,
     request_id: String,
     after_cursor: Option<u64>,
     on_event: Channel<PiAgentHostEvent>,
 ) -> Result<PiRunStreamSnapshot, String> {
+    if stream::stream_snapshot(request_id.clone())?.is_none() {
+        return Err(format!("No live Pi Agent stream for request {request_id}"));
+    }
+    match crate::task_workspace_binding::replay_workspace_bound_for_request(&app, &request_id) {
+        Ok(Some(event)) => on_event
+            .send(event)
+            .map_err(|err| format!("Replay Pi Agent workspace binding: {err}"))?,
+        Ok(None) => {}
+        Err(error) => {
+            // Capability replay is independently fail-closed. Result/error and
+            // cursor replay must remain available for terminal reconciliation.
+            eprintln!(
+                "[pi-agent-host] skipped non-authoritative workspace replay for {request_id}: {error}"
+            );
+        }
+    }
     stream::reattach_stream(request_id, after_cursor, on_event)
 }
 
@@ -101,7 +122,7 @@ pub async fn agent_runtime_resume(
     req: PiAgentExecuteRequest,
     on_event: Channel<PiAgentHostEvent>,
 ) -> Result<PiAgentHostResponse, String> {
-    execute_impl(app, req, on_event).await
+    resume_impl(app, req, on_event).await
 }
 
 /// Agent-agnostic gateway abort. Forwards verbatim to `abort_impl`.
