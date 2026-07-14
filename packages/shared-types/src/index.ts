@@ -436,6 +436,9 @@ export { reduceEmployeePerformanceStates } from './employee-performance-state.js
 export type {
   ToolExecutionTelemetryPayload,
   VaultSyncFailedPayload,
+  WorkspaceBoundProvenance,
+  WorkspaceProvenance,
+  WorkspaceUnavailableProvenance,
 } from './events.js';
 
 export type {

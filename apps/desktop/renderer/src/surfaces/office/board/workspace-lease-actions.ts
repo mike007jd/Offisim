@@ -1,10 +1,11 @@
 import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { createTauriGitWorktreeOps } from '@/runtime/mission/workspace/git-worktree-ops.js';
 import { getRepos } from '@/runtime/repos.js';
 import { type WorkspaceLease, createWorkspaceLeaseManager } from '@offisim/core/browser';
 import {
   type WorkspaceLeaseReviewRow,
-  buildProjectWorkspaceLeaseReviewRows,
+  workspaceLeaseStatusFromLifecycle,
 } from './task-board-data.js';
 import {
   type WorkspaceLeaseDecisionAction,
@@ -64,16 +65,10 @@ async function persistedLeaseStatus(
   row: WorkspaceLeaseReviewRow,
 ): Promise<WorkspaceLeaseReviewRow['status'] | null> {
   if (!row.projectId) return null;
-  const repos = await getRepos();
-  const [snapshots, actions] = await Promise.all([
-    repos.agentEvents.findByProject(row.projectId, { eventType: 'workspace.lease.snapshot' }),
-    repos.agentEvents.findByProject(row.projectId, { eventType: 'workspace.lease.action' }),
-  ]);
-  return (
-    buildProjectWorkspaceLeaseReviewRows([...snapshots, ...actions]).find(
-      (lease) => lease.leaseId === row.leaseId,
-    )?.status ?? null
-  );
+  const lifecycle = (
+    await invokeCommand('workspace_lease_list', { projectId: row.projectId })
+  ).find((lease) => lease.leaseId === row.leaseId);
+  return lifecycle ? workspaceLeaseStatusFromLifecycle(lifecycle) : null;
 }
 
 function toLease(row: WorkspaceLeaseReviewRow): WorkspaceLease {
@@ -170,6 +165,12 @@ async function resolveWorkspaceLeaseReview(
 ): Promise<WorkspaceLeaseReviewOutcome> {
   const persisted = await persistedLeaseStatus(row);
   if (persisted === 'merged' || persisted === 'discarded') return persisted;
+  if (persisted === 'failed') {
+    throw new Error('The retained worktree is invalid and cannot be reviewed.');
+  }
+  if (!persisted) {
+    throw new Error('The retained worktree is no longer registered for this Project.');
+  }
 
   const approval = conversationRunController.getSnapshot(row.threadId).approval;
   const live =
@@ -183,21 +184,28 @@ async function resolveWorkspaceLeaseReview(
       confirmed: action === 'merge',
     });
     await waitForConversationTerminal(approval.threadId, approval.attemptId);
-    if (action === 'merge') {
-      const status = await persistedLeaseStatus(row);
-      if (status === 'failed') throw new Error('The delegated work could not be merged.');
-      return status === 'merged' ? 'merged' : 'host_resolved';
-    }
+    const status = await persistedLeaseStatus(row);
+    if (status === 'merged' || status === 'discarded') return status;
+    if (status === 'failed') throw new Error('The delegated work could not be resolved.');
+    if (action === 'merge') return 'host_resolved';
   }
   if (action === 'merge') await mergeWorkspaceLease(row);
   if (action === 'discard') await discardWorkspaceLease(row);
-  await appendWorkspaceLeaseAction(
-    row,
-    companyId,
-    action === 'merge' ? 'merge_completed' : 'discard_completed',
-    action === 'merge' ? 'merged' : 'discarded',
-  );
-  return action === 'merge' ? 'merged' : 'discarded';
+  const outcome = action === 'merge' ? 'merged' : 'discarded';
+  try {
+    await appendWorkspaceLeaseAction(
+      row,
+      companyId,
+      action === 'merge' ? 'merge_completed' : 'discard_completed',
+      outcome,
+    );
+  } catch (eventError) {
+    // The lifecycle row is the terminal oracle. If cleanup committed but the
+    // enrichment event failed, report the durable outcome and never replay the
+    // destructive Git operation. A failed lifecycle read/mismatch still throws.
+    if ((await persistedLeaseStatus(row)) !== outcome) throw eventError;
+  }
+  return outcome;
 }
 
 export function reviewWorkspaceLease(

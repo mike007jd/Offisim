@@ -652,6 +652,28 @@ pub struct GitResult {
     pub stderr: String,
 }
 
+/// Durable Task Board lifecycle projection. Capability-bearing identity records
+/// and binding material deliberately stay behind the Rust boundary.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceLeaseLifecycleRow {
+    lease_id: String,
+    project_id: String,
+    thread_id: Option<String>,
+    active_root_run_id: Option<String>,
+    created_root_run_id: String,
+    registered_run_id: String,
+    workspace_root: Option<String>,
+    cwd: String,
+    branch: String,
+    created_at: String,
+    updated_at: String,
+    status: String,
+    owner_binding_status: Option<String>,
+}
+
+const MAX_WORKSPACE_LEASE_TERMINAL_PROJECTION_ROWS: i64 = 100;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum GitStdoutPolicy {
     HumanRedacted,
@@ -1005,6 +1027,18 @@ fn validate_binding_git_args(args: &[String]) -> Result<(), String> {
         return Err("task workspace authority git lane is restricted to read-only status".into());
     }
     validate_status(args)
+}
+
+#[tauri::command]
+pub async fn workspace_lease_list<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+) -> Result<Vec<WorkspaceLeaseLifecycleRow>, String> {
+    if project_id.trim().is_empty() {
+        return Err("workspace_lease_list requires a Project id".into());
+    }
+    let pool = crate::local_db::get_offisim_pool(&app)?;
+    workspace_lease_list_from_pool(&pool, &project_id).await
 }
 
 #[tauri::command]
@@ -2696,6 +2730,107 @@ async fn load_registered_workspace_lease_from_pool(
     })
 }
 
+async fn read_workspace_lease_projection_rows(
+    pool: &SqlitePool,
+    project_id: &str,
+) -> Result<Vec<WorkspaceLeaseLifecycleRow>, String> {
+    let rows = sqlx::query(
+        r#"
+        SELECT lease.lease_id,
+               lease.project_id,
+               owner.thread_id,
+               owner.turn_id AS active_root_run_id,
+               lease.created_root_run_id,
+               lease.child_run_id AS registered_run_id,
+               owner.canonical_root AS workspace_root,
+               lease.canonical_worktree AS cwd,
+               lease.branch,
+               lease.created_at_unix_ms AS created_at,
+               lease.updated_at_unix_ms AS updated_at,
+               lease.status,
+               owner.status AS owner_binding_status
+        FROM task_workspace_lease_history AS lease
+        LEFT JOIN task_workspace_binding_history AS owner
+          ON owner.binding_id = lease.active_binding_id
+         AND owner.project_id = lease.project_id
+        WHERE lease.project_id = ?
+          AND (
+            lease.status = 'active'
+            OR lease.lease_id IN (
+              SELECT recent.lease_id
+              FROM task_workspace_lease_history AS recent
+              WHERE recent.project_id = ?
+                AND recent.status <> 'active'
+              ORDER BY recent.updated_at_unix_ms DESC, recent.lease_id ASC
+              LIMIT ?
+            )
+          )
+        ORDER BY lease.updated_at_unix_ms DESC, lease.lease_id ASC
+        "#,
+    )
+    .bind(project_id)
+    .bind(project_id)
+    .bind(MAX_WORKSPACE_LEASE_TERMINAL_PROJECTION_ROWS)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| format!("Read workspace lease lifecycle projection: {error}"))?;
+
+    rows.into_iter()
+        .map(|row| {
+            Ok(WorkspaceLeaseLifecycleRow {
+                lease_id: row
+                    .try_get("lease_id")
+                    .map_err(|error| format!("Decode workspace lease id: {error}"))?,
+                project_id: row
+                    .try_get("project_id")
+                    .map_err(|error| format!("Decode workspace lease Project: {error}"))?,
+                thread_id: row
+                    .try_get("thread_id")
+                    .map_err(|error| format!("Decode workspace lease Conversation: {error}"))?,
+                active_root_run_id: row
+                    .try_get("active_root_run_id")
+                    .map_err(|error| format!("Decode workspace lease active root run: {error}"))?,
+                created_root_run_id: row
+                    .try_get("created_root_run_id")
+                    .map_err(|error| format!("Decode workspace lease created root run: {error}"))?,
+                registered_run_id: row
+                    .try_get("registered_run_id")
+                    .map_err(|error| format!("Decode workspace lease registered run: {error}"))?,
+                workspace_root: row
+                    .try_get("workspace_root")
+                    .map_err(|error| format!("Decode workspace lease root: {error}"))?,
+                cwd: row
+                    .try_get("cwd")
+                    .map_err(|error| format!("Decode workspace lease cwd: {error}"))?,
+                branch: row
+                    .try_get("branch")
+                    .map_err(|error| format!("Decode workspace lease branch: {error}"))?,
+                created_at: unix_ms_to_rfc3339(
+                    row.try_get("created_at")
+                        .map_err(|error| format!("Decode workspace lease created time: {error}"))?,
+                ),
+                updated_at: unix_ms_to_rfc3339(
+                    row.try_get("updated_at")
+                        .map_err(|error| format!("Decode workspace lease updated time: {error}"))?,
+                ),
+                status: row
+                    .try_get("status")
+                    .map_err(|error| format!("Decode workspace lease status: {error}"))?,
+                owner_binding_status: row
+                    .try_get("owner_binding_status")
+                    .map_err(|error| format!("Decode workspace lease owner status: {error}"))?,
+            })
+        })
+        .collect()
+}
+
+async fn workspace_lease_list_from_pool(
+    pool: &SqlitePool,
+    project_id: &str,
+) -> Result<Vec<WorkspaceLeaseLifecycleRow>, String> {
+    read_workspace_lease_projection_rows(pool, project_id).await
+}
+
 async fn load_registered_workspace_lease<R: Runtime>(
     app: &tauri::AppHandle<R>,
     binding: &TaskWorkspaceBinding,
@@ -3954,6 +4089,34 @@ mod tests {
         pool
     }
 
+    async fn lease_projection_pool(root: &Path, owner_status: &str) -> SqlitePool {
+        let pool = lease_pool().await;
+        sqlx::query(
+            r#"
+            CREATE TABLE task_workspace_binding_history (
+              binding_id TEXT PRIMARY KEY NOT NULL,
+              project_id TEXT NOT NULL,
+              thread_id TEXT NOT NULL,
+              turn_id TEXT NOT NULL,
+              canonical_root TEXT NOT NULL,
+              status TEXT NOT NULL
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("create projection binding history table");
+        sqlx::query(
+            "INSERT INTO task_workspace_binding_history (binding_id, project_id, thread_id, turn_id, canonical_root, status) VALUES ('binding-1', 'project-1', 'thread-1', 'root-1', ?, ?)",
+        )
+        .bind(root.to_string_lossy().as_ref())
+        .bind(owner_status)
+        .execute(&pool)
+        .await
+        .expect("seed projection binding history");
+        pool
+    }
+
     async fn agent_run_provenance_pool() -> SqlitePool {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
@@ -4026,6 +4189,229 @@ mod tests {
             .fetch_one(pool)
             .await
             .expect("read fixture lease status")
+    }
+
+    #[tokio::test]
+    async fn workspace_lease_projection_uses_durable_lifecycle_and_current_binding() {
+        let root = git_root();
+        let (worktree, branch) = fixture_worktree(&root, "lease-projection", "run-projection");
+        let pool = lease_projection_pool(&root, "active").await;
+        persist_fixture_lease(&pool, &root, &worktree, "lease-projection", &branch, None)
+            .await
+            .expect("persist projection lease");
+
+        sqlx::query(
+            "INSERT INTO task_workspace_binding_history (binding_id, project_id, thread_id, turn_id, canonical_root, status) VALUES ('binding-rework', 'project-1', 'thread-rework', 'root-rework', ?, 'active'), ('binding-project-2', 'project-2', 'thread-project-2', 'root-project-2', ?, 'completed')",
+        )
+        .bind(root.to_string_lossy().as_ref())
+        .bind(root.to_string_lossy().as_ref())
+        .execute(&pool)
+        .await
+        .expect("seed rework and isolated Project owners");
+        sqlx::query(
+            "UPDATE task_workspace_lease_history SET active_binding_id = 'binding-rework', updated_at_unix_ms = 2 WHERE lease_id = 'lease-projection'",
+        )
+        .execute(&pool)
+        .await
+        .expect("adopt lease into rework binding");
+
+        for (lease_id, status, updated_at) in [
+            ("lease-released", "released", 3_i64),
+            ("lease-discarded", "discarded", 4_i64),
+            ("lease-invalid", "invalid", 5_i64),
+        ] {
+            sqlx::query(
+                r#"
+                INSERT INTO task_workspace_lease_history (
+                  lease_id, project_id, created_binding_id, active_binding_id,
+                  created_root_run_id, child_run_id, created_request_id, branch,
+                  canonical_worktree, worktree_identity_json, project_root_identity_json,
+                  created_at_unix_ms, updated_at_unix_ms, status
+                )
+                SELECT ?, project_id, created_binding_id, active_binding_id,
+                       created_root_run_id, child_run_id, created_request_id,
+                       branch || '-' || ?, canonical_worktree || '-' || ?,
+                       worktree_identity_json, project_root_identity_json,
+                       created_at_unix_ms, ?, ?
+                FROM task_workspace_lease_history WHERE lease_id = 'lease-projection'
+                "#,
+            )
+            .bind(lease_id)
+            .bind(status)
+            .bind(status)
+            .bind(updated_at)
+            .bind(status)
+            .execute(&pool)
+            .await
+            .expect("seed terminal lifecycle row");
+        }
+        sqlx::query(
+            r#"
+            INSERT INTO task_workspace_lease_history (
+              lease_id, project_id, created_binding_id, active_binding_id,
+              created_root_run_id, child_run_id, created_request_id, branch,
+              canonical_worktree, worktree_identity_json, project_root_identity_json,
+              created_at_unix_ms, updated_at_unix_ms, status
+            )
+            SELECT 'lease-project-2', 'project-2', 'binding-project-2', 'binding-project-2',
+                   'root-project-2', 'child-project-2', 'request-project-2',
+                   branch || '-project-2', canonical_worktree || '-project-2',
+                   worktree_identity_json, project_root_identity_json, 6, 6, 'discarded'
+            FROM task_workspace_lease_history WHERE lease_id = 'lease-projection'
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("seed second Project lifecycle row");
+
+        let projected = workspace_lease_list_from_pool(&pool, "project-1")
+            .await
+            .expect("project durable lease projection");
+        assert_eq!(
+            projected.len(),
+            4,
+            "one lease row per durable lifecycle record"
+        );
+        let active = projected
+            .iter()
+            .find(|row| row.lease_id == "lease-projection")
+            .expect("active projection row");
+        assert_eq!(active.project_id, "project-1");
+        assert_eq!(active.thread_id.as_deref(), Some("thread-rework"));
+        assert_eq!(active.active_root_run_id.as_deref(), Some("root-rework"));
+        assert_eq!(active.created_root_run_id, "root-1");
+        assert_eq!(active.registered_run_id, "child-1");
+        assert_eq!(active.workspace_root.as_deref(), root.to_str());
+        assert_eq!(active.cwd, worktree.to_string_lossy());
+        assert_eq!(active.branch, branch);
+        assert_eq!(active.status, "active");
+        assert_eq!(active.owner_binding_status.as_deref(), Some("active"));
+        assert_eq!(
+            projected
+                .iter()
+                .map(|row| row.status.as_str())
+                .collect::<std::collections::BTreeSet<_>>(),
+            std::collections::BTreeSet::from(["active", "discarded", "invalid", "released"]),
+        );
+
+        let other_project = workspace_lease_list_from_pool(&pool, "project-2")
+            .await
+            .expect("second Project durable lease projection");
+        assert_eq!(
+            other_project.len(),
+            1,
+            "Project scope must not leak lifecycle rows"
+        );
+        assert_eq!(other_project[0].lease_id, "lease-project-2");
+        assert_eq!(
+            other_project[0].owner_binding_status.as_deref(),
+            Some("completed")
+        );
+
+        cleanup_root(root);
+    }
+
+    #[tokio::test]
+    async fn workspace_lease_projection_is_read_only_for_missing_worktrees() {
+        let root = git_root();
+        let (worktree, branch) = fixture_worktree(&root, "lease-list-missing", "run-list-missing");
+        let pool = lease_projection_pool(&root, "app_restart").await;
+        persist_fixture_lease(&pool, &root, &worktree, "lease-list-missing", &branch, None)
+            .await
+            .expect("persist missing projection lease");
+        let projected = workspace_lease_list_from_pool(&pool, "project-1")
+            .await
+            .expect("missing registration remains a cheap durable projection");
+        assert_eq!(projected.len(), 1);
+        assert_eq!(projected[0].status, "active");
+        assert_eq!(
+            projected[0].owner_binding_status.as_deref(),
+            Some("app_restart")
+        );
+        let active_leases: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM task_workspace_lease_history WHERE project_id = 'project-1' AND status = 'active'",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("read deletion preflight active lease count");
+        assert_eq!(
+            active_leases, 1,
+            "read-only Board projection does not mutate lease lifecycle"
+        );
+
+        cleanup_root(root);
+    }
+
+    #[tokio::test]
+    async fn workspace_lease_projection_bounds_terminal_history_but_keeps_every_active_lease() {
+        let root = git_root();
+        let (worktree, branch) = fixture_worktree(&root, "lease-list-bounded", "run-list-bounded");
+        let pool = lease_projection_pool(&root, "active").await;
+        persist_fixture_lease(&pool, &root, &worktree, "lease-list-bounded", &branch, None)
+            .await
+            .expect("persist active projection lease");
+
+        for index in 0..120_i64 {
+            let lease_id = format!("lease-terminal-{index:03}");
+            sqlx::query(
+                r#"
+                INSERT INTO task_workspace_lease_history (
+                  lease_id, project_id, created_binding_id, active_binding_id,
+                  created_root_run_id, child_run_id, created_request_id, branch,
+                  canonical_worktree, worktree_identity_json, project_root_identity_json,
+                  created_at_unix_ms, updated_at_unix_ms, status
+                )
+                SELECT ?, project_id, created_binding_id, active_binding_id,
+                       created_root_run_id, child_run_id, created_request_id,
+                       branch || '-' || ?, canonical_worktree || '-' || ?,
+                       worktree_identity_json, project_root_identity_json,
+                       created_at_unix_ms, ?, 'released'
+                FROM task_workspace_lease_history WHERE lease_id = 'lease-list-bounded'
+                "#,
+            )
+            .bind(&lease_id)
+            .bind(&lease_id)
+            .bind(&lease_id)
+            .bind(index + 10)
+            .execute(&pool)
+            .await
+            .expect("seed terminal projection history");
+        }
+
+        let projected = workspace_lease_list_from_pool(&pool, "project-1")
+            .await
+            .expect("bounded lease projection");
+        assert_eq!(
+            projected.len(),
+            101,
+            "all active plus 100 recent terminal rows"
+        );
+        assert!(
+            projected
+                .iter()
+                .any(|row| row.lease_id == "lease-list-bounded"),
+            "active lease is never displaced by terminal history"
+        );
+        assert!(projected
+            .iter()
+            .any(|row| row.lease_id == "lease-terminal-119"));
+        assert!(
+            !projected
+                .iter()
+                .any(|row| row.lease_id == "lease-terminal-000"),
+            "old terminal history falls outside the Board projection"
+        );
+
+        cleanup_root(root);
+    }
+
+    #[tokio::test]
+    async fn workspace_lease_projection_propagates_database_failures() {
+        let pool = lease_pool().await;
+        let error = workspace_lease_list_from_pool(&pool, "project-1")
+            .await
+            .expect_err("missing binding table is an operational DB failure");
+        assert!(error.contains("Read workspace lease lifecycle projection"));
     }
 
     #[test]

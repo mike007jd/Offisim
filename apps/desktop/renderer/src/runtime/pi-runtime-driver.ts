@@ -11,7 +11,7 @@
 // directly and are NOT routed through this gateway boundary.
 
 import type { TaskWorkspaceBindingClaim } from '@/lib/tauri-commands.js';
-import type { AgentRunUsage } from '@offisim/shared-types';
+import type { AgentRunUsage, WorkspaceUnavailableProvenance } from '@offisim/shared-types';
 import type { TurnExecutionProvenance } from './execution-provenance.js';
 
 interface PiAgentModelSummary {
@@ -42,6 +42,16 @@ export interface PiAgentHostResponse {
   budgetUsage?: AgentRunUsage;
 }
 
+export interface WorkspaceUnavailableEvent {
+  kind: 'workspaceUnavailable';
+  projectId: string;
+  threadId: string;
+  turnId: string;
+  requestId: string;
+  source: WorkspaceUnavailableProvenance['source'];
+  reasonCode: WorkspaceUnavailableProvenance['reasonCode'];
+}
+
 export type PiAgentHostEvent =
   | {
       kind: 'started';
@@ -51,6 +61,7 @@ export type PiAgentHostEvent =
       modelFallbackMessage?: string;
     }
   | ({ kind: 'workspaceBound' } & TaskWorkspaceBindingClaim)
+  | WorkspaceUnavailableEvent
   | { kind: 'messageDelta'; delta: string; channel?: 'content' | 'reasoning' }
   | { kind: 'messageEnd'; text: string; stopReason?: string; errorMessage?: string }
   | {
@@ -110,6 +121,15 @@ void ([
     issuedAtUnixMs: 1,
     expiresAtUnixMs: 2,
     displayPath: '~/project',
+  },
+  {
+    kind: 'workspaceUnavailable',
+    projectId: 'project-1',
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    requestId: 'request-1',
+    source: 'workspace_recovery',
+    reasonCode: 'none',
   },
   { kind: 'messageDelta', delta: 'x', channel: 'content' },
   { kind: 'messageDelta', delta: 'r', channel: 'reasoning' },

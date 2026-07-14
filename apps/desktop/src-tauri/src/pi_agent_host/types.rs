@@ -1,5 +1,47 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum TaskWorkspaceRequirement {
+    #[default]
+    Required,
+    Optional,
+}
+
+impl TaskWorkspaceRequirement {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Required => "required",
+            Self::Optional => "optional",
+        }
+    }
+
+    pub(super) fn is_optional(self) -> bool {
+        self == Self::Optional
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum NativeSessionMode {
+    #[default]
+    Tracked,
+    Fresh,
+}
+
+impl NativeSessionMode {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Tracked => "tracked",
+            Self::Fresh => "fresh",
+        }
+    }
+
+    pub(super) fn is_fresh(self) -> bool {
+        self == Self::Fresh
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PiAgentExecuteRequest {
@@ -7,6 +49,21 @@ pub struct PiAgentExecuteRequest {
     pub(super) text: String,
     pub(super) company_id: String,
     pub(super) thread_id: String,
+    /// Whether a turn may continue from Conversation/native session context when
+    /// no Project folder can be recovered. Missions, direct delegation, and
+    /// durable resume are always validated as `required` by the backend.
+    #[serde(default)]
+    pub(super) workspace_requirement: TaskWorkspaceRequirement,
+    /// Explicit one-shot recovery from a tracked terminal native session that
+    /// the backend proved missing/invalid. `fresh` is never a silent fallback:
+    /// the normal resolver rejects it unless an existing durable mapping is bad.
+    #[serde(default)]
+    pub(super) native_session_mode: NativeSessionMode,
+    /// Failed normal-Turn root whose durable prestart error authorized the
+    /// explicit fresh-session action. Required only for `fresh`; never forwarded
+    /// to the native host as authority.
+    #[serde(default)]
+    pub(super) native_session_reset_source_run_id: Option<String>,
     #[serde(default)]
     pub(super) project_id: Option<String>,
     #[serde(default)]
@@ -220,6 +277,14 @@ pub enum PiAgentHostEvent {
         expires_at_unix_ms: i64,
         display_path: String,
     },
+    WorkspaceUnavailable {
+        project_id: String,
+        thread_id: String,
+        turn_id: String,
+        request_id: String,
+        source: String,
+        reason_code: String,
+    },
     Started {
         #[serde(default)]
         session_id: Option<String>,
@@ -280,7 +345,7 @@ pub enum PiAgentHostEvent {
         payload: serde_json::Value,
     },
     Result {
-        response: PiAgentHostResponse,
+        response: Box<PiAgentHostResponse>,
     },
     Error {
         code: String,

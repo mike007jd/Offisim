@@ -1,4 +1,7 @@
-import { persistChatMessage } from '@/data/chat-message-events.js';
+import {
+  loadPersistedChatMessagesByIdsWithRepositories,
+  persistChatMessage,
+} from '@/data/chat-message-events.js';
 import {
   claimSemanticTitleJob,
   generateSemanticThreadTitle,
@@ -7,15 +10,29 @@ import { appendThreadMessageEvent } from '@/data/thread-message-events.js';
 import type { ChatMessage, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
 import {
   AGENT_UI_REQUEST_EVENT,
+  AgentTerminalCheckpointError,
   type AgentUiRequestPayload,
   type DesktopAgentRuntime,
   type DirectDelegationInput,
+  LIVE_CONVERSATION_TERMINAL_EVENT,
+  type LiveConversationTerminalPayload,
+  type LiveRunReattachResult,
   type TurnExecutionProvenance,
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
+import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
-import { conversationThreadLifecycle } from '@/runtime/thread-lifecycle-guard.js';
-import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
+import {
+  type ThreadRunLease,
+  conversationThreadLifecycle,
+} from '@/runtime/thread-lifecycle-guard.js';
+import {
+  type AgentRunRow,
+  type EventBus,
+  type FreshSessionConversationProjection,
+  type RuntimeRepositories,
+  decodeFreshSessionContext,
+} from '@offisim/core/browser';
 import {
   type ToolRichDetail,
   mergeToolRichDetail,
@@ -29,7 +46,9 @@ import type {
   RuntimeEvent,
   ToolExecutionTelemetryPayload,
   WorkKind,
+  WorkspaceProvenance,
 } from '@offisim/shared-types';
+import { formatWorkspaceProvenance } from '../presentation/workspace-provenance.js';
 import {
   buildRunError,
   displayAttachmentsFromStaged,
@@ -40,6 +59,26 @@ import {
 
 const CHECKPOINT_INTERVAL_MS = 3_000;
 const ACTIVE_PHASES = new Set<ConversationRunPhase>(['preparing', 'running', 'awaiting-approval']);
+const WORK_KINDS = new Set<WorkKind>([
+  'plan',
+  'research',
+  'design',
+  'implement',
+  'review',
+  'test',
+  'compute',
+  'publish',
+  'present',
+  'coordinate',
+]);
+const FAILURE_KINDS = new Set<RunFailureKind>([
+  'token',
+  'budget',
+  'permission',
+  'context',
+  'runtime',
+  'tool',
+]);
 
 export type ConversationRunPhase =
   | 'idle'
@@ -56,6 +95,7 @@ interface RunToolActivity {
   state: 'running' | 'done' | 'error';
   detail?: string;
   richDetail?: ToolRichDetail;
+  workspaceProvenance?: WorkspaceProvenance;
   durationMs?: number;
 }
 
@@ -153,7 +193,7 @@ export interface SubmitConversationRun {
 }
 
 interface PreparedLoopExecution {
-  start: () => Promise<void>;
+  start: (transferredThreadRun?: ThreadRunLease, signal?: AbortSignal) => Promise<void>;
   compensate: () => Promise<void>;
 }
 
@@ -186,14 +226,19 @@ interface ConversationRunControllerDeps {
   reposFactory: () => Promise<RuntimeRepositories>;
   materializeTurn: MaterializeTurn;
   persistMessage: typeof persistChatMessage;
+  loadMessagesByIds: typeof loadPersistedChatMessagesByIdsWithRepositories;
   appendEvent: typeof appendThreadMessageEvent;
   now: () => number;
   randomUUID: () => string;
+  /** Renderer-owned Mission loops share chat threads but not Conversation UI.
+   * Their roots must never be hydrated, reattached, or aborted as chat runs. */
+  isMissionThreadRunning: (threadId: string) => boolean;
 }
 
 interface RetryRecord {
   input: SubmitConversationRun;
   userMessage: ChatMessage;
+  assistantMessageId: string;
   promptText: string;
   messagePersisted: boolean;
   clearRestoredApproval: boolean;
@@ -203,6 +248,11 @@ interface RetryRecord {
 interface PendingLoopHandoff {
   prepared: PreparedLoopExecution;
   messagePersisted: boolean;
+}
+
+interface NativeSessionRecovery {
+  mode: 'fresh';
+  sourceRunId: string;
 }
 
 interface ActiveRun {
@@ -216,6 +266,7 @@ interface ActiveRun {
   contentText: string;
   reasoningText: string;
   toolCalls: ChatToolCall[];
+  workspaceProvenance: WorkspaceProvenance | null;
   activity: RunToolActivity[];
   activityTotal: number;
   delegations: RunDelegation[];
@@ -226,7 +277,73 @@ interface ActiveRun {
   messagePersistedNotified: boolean;
   clearRestoredApproval: boolean;
   pendingLoopHandoff: PendingLoopHandoff | null;
+  nativeSessionRecovery: NativeSessionRecovery | null;
+  reattached: boolean;
+  hostConnected: boolean;
+  terminalizing: boolean;
+  executionAbortController: AbortController | null;
+  threadRunLease: ThreadRunLease | null;
+  resolveReattachSettlement: (() => void) | null;
   unsubscribers: Array<() => void>;
+}
+
+type LiveRunHydrationResult = 'hydrated' | 'owned_elsewhere' | 'projection_missing';
+
+function parseConversationProjection(raw: string | null): {
+  userMessageId: string;
+  assistantMessageId: string;
+  source: 'office' | 'workspace';
+  model?: string;
+  permissionMode?: string;
+  thinkingLevel?: string;
+} | null {
+  if (!raw) return null;
+  try {
+    const context = JSON.parse(raw) as Record<string, unknown>;
+    const projection = context.conversationProjection as Record<string, unknown> | undefined;
+    if (
+      !projection ||
+      typeof projection.userMessageId !== 'string' ||
+      !projection.userMessageId.trim() ||
+      typeof projection.assistantMessageId !== 'string' ||
+      !projection.assistantMessageId.trim() ||
+      (projection.source !== 'office' && projection.source !== 'workspace')
+    ) {
+      return null;
+    }
+    return {
+      userMessageId: projection.userMessageId,
+      assistantMessageId: projection.assistantMessageId,
+      source: projection.source,
+      ...(typeof context.model === 'string' && context.model.trim()
+        ? { model: context.model }
+        : {}),
+      ...(typeof context.permissionMode === 'string' && context.permissionMode.trim()
+        ? { permissionMode: context.permissionMode }
+        : {}),
+      ...(typeof context.thinkingLevel === 'string' && context.thinkingLevel.trim()
+        ? { thinkingLevel: context.thinkingLevel }
+        : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+interface DurableFreshSessionSource {
+  row: AgentRunRow;
+  projection: FreshSessionConversationProjection;
+  projectId: string | null;
+}
+
+function durableFreshSessionSource(row: AgentRunRow): DurableFreshSessionSource | null {
+  const context = decodeFreshSessionContext(row);
+  if (!context) return null;
+  return {
+    row,
+    projection: context.projection,
+    projectId: row.project_id ?? context.projectId,
+  };
 }
 
 function defaultSnapshot(threadId: string): ConversationRunSnapshot {
@@ -265,6 +382,9 @@ function terminalToolState(
 
 function detailFromTelemetry(payload: ToolExecutionTelemetryPayload): string | undefined {
   if (payload.errorType) return payload.errorType;
+  if (payload.workspaceProvenance) {
+    return formatWorkspaceProvenance(payload.workspaceProvenance) ?? undefined;
+  }
   const parts = [payload.serverName, payload.nodeName, payload.toolType].filter(Boolean);
   return parts.length > 0 ? parts.join(' · ') : undefined;
 }
@@ -292,6 +412,33 @@ function eventRunId(payload: Record<string, unknown>): string | null {
 function stripToolCalls(message: ChatMessage): ChatMessage {
   const { toolCalls: _toolCalls, ...rest } = message;
   return rest;
+}
+
+function restoreDelegation(row: AgentRunRow): RunDelegation | null {
+  if (row.run_id === row.root_run_id) return null;
+  const workKind = WORK_KINDS.has(row.work_kind as WorkKind)
+    ? (row.work_kind as WorkKind)
+    : undefined;
+  const failureKind = FAILURE_KINDS.has(row.failure_kind as RunFailureKind)
+    ? (row.failure_kind as RunFailureKind)
+    : undefined;
+  const state: RunDelegation['state'] =
+    row.status === 'running'
+      ? 'running'
+      : row.status === 'completed'
+        ? 'done'
+        : row.status === 'failed'
+          ? 'failed'
+          : 'cancelled';
+  return {
+    runId: row.run_id,
+    parentRunId: row.parent_run_id,
+    employeeId: row.employee_id,
+    objective: row.objective ?? '',
+    state,
+    ...(workKind ? { workKind } : {}),
+    ...(row.status === 'failed' && failureKind ? { failureKind } : {}),
+  };
 }
 
 /**
@@ -339,12 +486,12 @@ export class ConversationRunMutationLockedError extends Error {
 }
 
 export class ConversationRunController {
-  // A1 (by design): in-flight run/snapshot/retry state is intentionally
-  // IN-MEMORY and per-session. Only completed messages are persisted (and loaded
-  // deterministically — see chat-message-events.ts P1). A reload abandons any
-  // in-flight run rather than resuming it; the Messenger surface reflects this
-  // live state, it is not a separately-persisted run store. Persisting active-run
-  // state was considered and accepted-as-is (no durable consumer needs it).
+  // Presentation state is in memory, while its recovery identity is durable:
+  // agent_runs.runtime_context_json owns the native request + message projection
+  // refs. The production runtime atomically couples assistant checkpoints to its
+  // replay cursor; the controller only owns fallback checkpoints for test/custom
+  // gateways that do not expose that capability. On renderer reload the startup
+  // barrier rebuilds this map and subscriptions before stale-run reconciliation.
   private readonly snapshots = new Map<string, ConversationRunSnapshot>();
   private readonly idleSnapshots = new Map<string, ConversationRunSnapshot>();
   private readonly activeRuns = new Map<string, ActiveRun>();
@@ -354,6 +501,7 @@ export class ConversationRunController {
   private readonly globalListeners = new Set<() => void>();
   private globalSnapshot: ConversationRunsSnapshot | null = null;
   private hydrationByCompany = new Set<string>();
+  private readonly liveBootstrapByCompany = new Map<string, Promise<LiveRunReattachResult>>();
 
   constructor(private readonly deps: ConversationRunControllerDeps) {}
 
@@ -390,7 +538,7 @@ export class ConversationRunController {
       null,
       clearRestoredApproval,
     );
-    void this.runAttempt(run);
+    this.trackRunTask(run, this.runAttempt(run));
     return { threadId: input.threadId, attemptId, userMessageId: userMessage.id };
   }
 
@@ -411,16 +559,117 @@ export class ConversationRunController {
     run.messagePersistedNotified = record.messagePersisted;
     run.pendingLoopHandoff = record.pendingLoopHandoff;
     if (record.pendingLoopHandoff) {
-      void this.resumeLoopHandoff(run, record.pendingLoopHandoff);
+      this.trackRunTask(run, this.resumeLoopHandoff(run, record.pendingLoopHandoff));
     } else if (record.input.loopExecution || !record.messagePersisted) {
       // Materialization/message persistence failed and compensation succeeded, so
       // retrying from preflight is safe. A durable user message skips this path,
       // so model failures still retry only the paid execute attempt.
-      void this.runAttempt(run);
+      this.trackRunTask(run, this.runAttempt(run));
     } else {
-      void this.executeAttempt(run);
+      this.trackRunTask(run, this.executeAttempt(run));
     }
     return { threadId, attemptId: nextAttemptId, userMessageId: record.userMessage.id };
+  }
+
+  private async latestFreshSessionSource(
+    companyId: string,
+    threadId: string,
+    sourceRunId: string,
+    expectedUserMessageId: string,
+    expectedAssistantMessageId: string,
+  ): Promise<DurableFreshSessionSource | null> {
+    const repos = await this.deps.reposFactory();
+    const latest = await repos.agentRuns.findFreshSessionSource(companyId, threadId, sourceRunId);
+    if (!latest) return null;
+    const source = durableFreshSessionSource(latest);
+    if (
+      !source ||
+      source.projection.userMessageId !== expectedUserMessageId ||
+      source.projection.assistantMessageId !== expectedAssistantMessageId
+    ) {
+      return null;
+    }
+    return source;
+  }
+
+  async startFreshSession(threadId: string, sourceRunId: string): Promise<ConversationRunHandle> {
+    // Claim the thread synchronously, before the first DB await. This closes the
+    // double-click and concurrent Submit window while validating durable Fresh
+    // authority. The release -> beginRun handoff below is synchronous, so no
+    // second JS task can enter between the mutation lease and run lease.
+    let releaseMutation = this.acquireMutationLock(threadId);
+    if (!releaseMutation) {
+      if (this.activeRuns.has(threadId)) throw new ConversationRunAlreadyActiveError(threadId);
+      throw new ConversationRunMutationLockedError(threadId);
+    }
+    try {
+      const record = this.retryRecords.get(sourceRunId);
+      if (!record || record.input.threadId !== threadId || record.input.loopExecution) {
+        throw new Error('This fresh-session recovery is no longer available.');
+      }
+      const source = await this.latestFreshSessionSource(
+        record.input.companyId,
+        threadId,
+        sourceRunId,
+        record.userMessage.id,
+        record.assistantMessageId,
+      );
+      if (!source || source.projectId !== record.input.projectId) {
+        throw new Error('A newer Turn replaced this fresh-session recovery action.');
+      }
+      const nextAttemptId = `attempt-${this.deps.randomUUID()}`;
+      releaseMutation();
+      releaseMutation = null;
+      const run = this.beginRun(
+        record.input,
+        nextAttemptId,
+        record.userMessage,
+        record.promptText,
+        record.clearRestoredApproval,
+        { mode: 'fresh', sourceRunId },
+      );
+      run.messagePersistedNotified = record.messagePersisted;
+      this.trackRunTask(run, this.executeAttempt(run));
+      return { threadId, attemptId: nextAttemptId, userMessageId: record.userMessage.id };
+    } finally {
+      releaseMutation?.();
+    }
+  }
+
+  private freshSessionRunError(
+    threadId: string,
+    attemptId: string,
+    technicalDetail: string,
+  ): RunError {
+    return {
+      ...buildRunError(technicalDetail),
+      message: 'The saved work session for this Conversation is unavailable.',
+      recoveryAction: {
+        label: 'Start fresh session',
+        run: () => {
+          this.dismissError(threadId);
+          void this.startFreshSession(threadId, attemptId).catch((error: unknown) => {
+            // A duplicate action or concurrent caller must never overwrite the
+            // snapshot owned by a newly-started attempt (or the mutation lease
+            // that is about to become one).
+            if (
+              this.mutationLocks.has(threadId) ||
+              this.activeRuns.has(threadId) ||
+              this.currentSnapshot(threadId).attemptId !== attemptId
+            ) {
+              return;
+            }
+            this.patchSnapshot(threadId, {
+              phase: 'failed',
+              error: {
+                ...buildRunError(safeErrorMessage(error)),
+                message: 'Fresh-session recovery is no longer available.',
+              },
+            });
+          });
+        },
+      },
+    };
   }
 
   private beginRun(
@@ -429,7 +678,10 @@ export class ConversationRunController {
     userMessage: ChatMessage,
     promptText: string | null,
     clearRestoredApproval: boolean,
+    nativeSessionRecovery: NativeSessionRecovery | null = null,
   ): ActiveRun {
+    const threadRunLease = conversationThreadLifecycle.beginRun(input.threadId);
+    if (!threadRunLease) throw new ConversationRunAlreadyActiveError(input.threadId);
     const run: ActiveRun = {
       input,
       threadId: input.threadId,
@@ -441,6 +693,7 @@ export class ConversationRunController {
       contentText: '',
       reasoningText: '',
       toolCalls: [],
+      workspaceProvenance: null,
       activity: [],
       activityTotal: 0,
       delegations: [],
@@ -451,6 +704,13 @@ export class ConversationRunController {
       messagePersistedNotified: false,
       clearRestoredApproval,
       pendingLoopHandoff: null,
+      nativeSessionRecovery,
+      reattached: false,
+      hostConnected: false,
+      terminalizing: false,
+      executionAbortController: null,
+      threadRunLease,
+      resolveReattachSettlement: null,
       unsubscribers: [],
     };
     this.activeRuns.set(input.threadId, run);
@@ -502,23 +762,11 @@ export class ConversationRunController {
   async stopAndWait(threadId: string): Promise<void> {
     const run = this.activeRuns.get(threadId);
     if (!run) return;
+    if (run.stopped) return;
     run.stopped = true;
-    this.cleanupRun(run);
-    this.activeRuns.delete(threadId);
+    run.executionAbortController?.abort();
+    if (!run.reattached) this.unsubscribeRun(run);
     run.runtime?.abort(threadId);
-    let persistenceError: unknown = null;
-    if (run.assistantMessage) {
-      const interrupted = {
-        ...stripToolCalls(run.assistantMessage),
-        status: 'interrupted' as const,
-      };
-      run.assistantMessage = interrupted;
-      try {
-        await this.persistRunMessage(run, interrupted);
-      } catch (error) {
-        persistenceError = error;
-      }
-    }
     this.patchSnapshot(threadId, {
       attemptId: run.attemptId,
       phase: 'interrupted',
@@ -532,7 +780,6 @@ export class ConversationRunController {
       activityTotal: run.activityTotal,
     });
     this.saveRetryRecord(run);
-    if (persistenceError) throw persistenceError;
   }
 
   stopChild(threadId: string, runId: string): void {
@@ -613,9 +860,14 @@ export class ConversationRunController {
     // error). If it throws, drop the company key so a later call re-attempts —
     // leaving the key set would permanently block re-hydration for this company.
     try {
+      const bootstrap = await this.bootstrapLiveRuns(companyId);
+      if (!bootstrap.complete) {
+        throw new Error('Live-run bootstrap is incomplete; approval hydration must retry.');
+      }
       const repos = await this.deps.reposFactory();
       const rows = (await repos.activeInteractions?.findByCompany(companyId)) ?? [];
       for (const row of rows) {
+        if (this.activeRuns.has(row.thread_id)) continue;
         let payload: Partial<PendingApproval> & { source?: string } = {};
         try {
           payload = JSON.parse(row.payload_json ?? '{}');
@@ -650,6 +902,501 @@ export class ConversationRunController {
       this.hydrationByCompany.delete(companyId);
       throw error;
     }
+  }
+
+  async hydrateFreshSessionAction(companyId: string, threadId: string): Promise<void> {
+    if (!threadId || this.activeRuns.has(threadId) || this.mutationLocks.has(threadId)) return;
+    const repos = await this.deps.reposFactory();
+    const latest = await repos.agentRuns.findLatestFreshSessionCandidate(companyId, threadId);
+    if (!latest) return;
+    const source = durableFreshSessionSource(latest);
+    if (!source) return;
+    const messages = await this.deps.loadMessagesByIds({
+      repos,
+      threadId,
+      messageIds: [source.projection.userMessageId, source.projection.assistantMessageId],
+    });
+    // Message hydration yields to the event loop. A newer Turn may start and
+    // even finish during that await, so re-read the exact durable authority
+    // before publishing the old Fresh snapshot. There is no await between
+    // this check and the snapshot write.
+    const currentRow = await repos.agentRuns.findFreshSessionSource(
+      companyId,
+      threadId,
+      latest.run_id,
+    );
+    const current = currentRow ? durableFreshSessionSource(currentRow) : null;
+    if (
+      !current ||
+      current.projection.userMessageId !== source.projection.userMessageId ||
+      current.projection.assistantMessageId !== source.projection.assistantMessageId ||
+      this.activeRuns.has(threadId) ||
+      this.mutationLocks.has(threadId)
+    ) {
+      return;
+    }
+    const userMessage = messages.find(
+      (message) =>
+        message.id === current.projection.userMessageId &&
+        message.threadId === threadId &&
+        message.author === 'boss',
+    );
+    if (!userMessage) return;
+    const assistantMessage = messages.find(
+      (message) =>
+        message.id === current.projection.assistantMessageId &&
+        message.threadId === threadId &&
+        message.attemptId === current.row.run_id,
+    );
+    const input: SubmitConversationRun = {
+      companyId,
+      projectId: current.projectId,
+      threadId,
+      employeeId: current.row.employee_id,
+      text: userMessage.body,
+      stagedAttachments: [],
+      source: current.projection.source,
+      ...(current.projection.model ? { model: current.projection.model } : {}),
+      ...(current.projection.permissionMode
+        ? { permissionMode: current.projection.permissionMode }
+        : {}),
+      ...(current.projection.thinkingLevel
+        ? { thinkingLevel: current.projection.thinkingLevel }
+        : {}),
+    };
+    this.retryRecords.set(current.row.run_id, {
+      input,
+      userMessage,
+      assistantMessageId: current.projection.assistantMessageId,
+      promptText: current.row.objective?.trim() || userMessage.body,
+      messagePersisted: true,
+      clearRestoredApproval: false,
+      pendingLoopHandoff: null,
+    });
+    this.setSnapshot(threadId, {
+      threadId,
+      companyId,
+      projectId: current.projectId,
+      attemptId: current.row.run_id,
+      phase: 'failed',
+      employeeId: current.row.employee_id,
+      source: current.projection.source,
+      liveMessages: assistantMessage ? [userMessage, assistantMessage] : [userMessage],
+      activity: [],
+      activityTotal: 0,
+      delegations: [],
+      approval: null,
+      error: this.freshSessionRunError(
+        threadId,
+        current.row.run_id,
+        'The previous Turn could not open its saved native work session.',
+      ),
+    });
+  }
+
+  async resumeInterruptedRun(companyId: string, runId: string): Promise<void> {
+    const repos = await this.deps.reposFactory();
+    const row = await repos.agentRuns.findById(runId);
+    if (
+      !row ||
+      row.company_id !== companyId ||
+      row.run_id !== row.root_run_id ||
+      row.status !== 'interrupted'
+    ) {
+      throw new Error('Interrupted run is no longer available to resume.');
+    }
+    if (this.activeRuns.has(row.thread_id)) {
+      throw new ConversationRunAlreadyActiveError(row.thread_id);
+    }
+    const runtime = await this.deps.runtimeFactory(companyId);
+    const hydration = await this.hydrateLiveRun(row, runtime, repos);
+    if (hydration === 'owned_elsewhere') {
+      throw new ConversationRunAlreadyActiveError(row.thread_id);
+    }
+    if (hydration === 'projection_missing') {
+      throw new Error('Interrupted run has no durable Conversation message projection.');
+    }
+    const run = this.activeRuns.get(row.thread_id);
+    if (!run || run.attemptId !== row.run_id) {
+      throw new Error('Interrupted run projection could not be restored.');
+    }
+    run.reattached = false;
+    run.hostConnected = true;
+    run.executionAbortController = new AbortController();
+    this.patchSnapshot(run.threadId, { phase: 'preparing', approval: null, error: null });
+    try {
+      const response = await runtime.resume(runId, run.executionAbortController.signal);
+      if (!this.isActiveRun(run) || run.stopped) return;
+      const reasoning = (response.reasoning || run.reasoningText).trim();
+      const assistant: ChatMessage = {
+        id: run.assistantMessageId,
+        threadId: run.threadId,
+        author: 'employee',
+        employeeId: run.input.employeeId,
+        body: response.text,
+        ...(reasoning ? { reasoning } : {}),
+        at: run.assistantMessage?.at ?? this.deps.now(),
+        replyToMessageId: run.userMessage.id,
+        attemptId: run.attemptId,
+        status: 'complete',
+        ...(run.workspaceProvenance ? { workspaceProvenance: run.workspaceProvenance } : {}),
+      };
+      run.assistantMessage = assistant;
+      if (!response.conversationTerminalCommitted) {
+        await this.persistRunMessage(run, assistant);
+      }
+      if (!this.isActiveRun(run) || run.stopped) return;
+      this.cleanupRun(run);
+      this.activeRuns.delete(run.threadId);
+      this.patchSnapshot(run.threadId, {
+        phase: 'completed',
+        approval: null,
+        liveMessages: [run.userMessage, assistant],
+        activity: run.activity,
+        activityTotal: run.activityTotal,
+      });
+      if (response.provenance && assistant.body.trim()) {
+        void this.runTitleJob(run, response.provenance).catch((error: unknown) => {
+          console.warn('[conversation-run] resumed semantic-title generation failed', {
+            threadId: run.threadId,
+            error,
+          });
+        });
+      }
+    } catch (error) {
+      if (run.stopped && error instanceof Error && error.name === 'AbortError') return;
+      if (error instanceof AgentTerminalCheckpointError) {
+        await this.interruptAfterTerminalCheckpointFailure(run, error);
+        return;
+      }
+      // Exact Resume can fail before Rust claims the interrupted root. Read the
+      // durable row back before choosing recovery UI: if it is still
+      // interrupted, no work was re-dispatched and a generic Retry would be a
+      // false action. Keep the recovery card authoritative instead.
+      const durable = await repos.agentRuns.findById(runId);
+      if (
+        durable?.company_id === companyId &&
+        durable.thread_id === run.threadId &&
+        durable.run_id === durable.root_run_id &&
+        durable.status === 'interrupted'
+      ) {
+        this.cleanupRun(run);
+        this.activeRuns.delete(run.threadId);
+        this.patchSnapshot(run.threadId, {
+          phase: 'interrupted',
+          approval: null,
+          liveMessages: run.assistantMessage
+            ? [run.userMessage, run.assistantMessage]
+            : [run.userMessage],
+          error: {
+            ...buildRunError(safeErrorMessage(error)),
+            message: 'This task could not resume safely.',
+          },
+        });
+        throw error;
+      }
+      await this.failRun(run, error);
+      throw error;
+    } finally {
+      run.executionAbortController = null;
+      if (run.stopped) {
+        await this.settleStoppedRun(run);
+      } else {
+        this.cleanupRun(run);
+      }
+      if (this.activeRuns.get(run.threadId)?.attemptId === run.attemptId && !run.stopped) {
+        this.activeRuns.delete(run.threadId);
+      }
+    }
+  }
+
+  /**
+   * Rebuild controllable live-run projections and subscribe them to the native
+   * host before startup recovery is allowed to classify any DB row as stale.
+   */
+  async bootstrapLiveRuns(companyId: string): Promise<LiveRunReattachResult> {
+    const cached = this.liveBootstrapByCompany.get(companyId);
+    if (cached) return cached;
+    const promise = this.runLiveBootstrap(companyId).catch((error) => {
+      this.liveBootstrapByCompany.delete(companyId);
+      throw error;
+    });
+    this.liveBootstrapByCompany.set(companyId, promise);
+    const result = await promise;
+    if (!result.complete) this.liveBootstrapByCompany.delete(companyId);
+    return result;
+  }
+
+  private async runLiveBootstrap(companyId: string): Promise<LiveRunReattachResult> {
+    const repos = await this.deps.reposFactory();
+    const running = await repos.agentRuns.findByStatus(companyId, ['running']);
+    const roots = running.filter((row) => row.run_id === row.root_run_id);
+    const runningRootIds = new Set(roots.map((row) => row.run_id));
+    const orphanRootRunIds = new Set(
+      running
+        .filter((row) => row.run_id !== row.root_run_id && !runningRootIds.has(row.root_run_id))
+        .map((row) => row.root_run_id),
+    );
+    if (roots.length === 0) {
+      return {
+        protectedRootRunIds: new Set(),
+        handledRootRunIds: new Set(),
+        confirmedMissingRootRunIds: orphanRootRunIds,
+        complete: true,
+      };
+    }
+
+    const alreadyProtected = new Set(
+      roots
+        .filter((row) => this.deps.isMissionThreadRunning(row.thread_id))
+        .map((row) => row.run_id),
+    );
+    const conversationRoots = roots.filter((row) => !alreadyProtected.has(row.run_id));
+    if (conversationRoots.length === 0) {
+      return {
+        protectedRootRunIds: alreadyProtected,
+        handledRootRunIds: alreadyProtected,
+        confirmedMissingRootRunIds: orphanRootRunIds,
+        complete: true,
+      };
+    }
+
+    const runtime = await this.deps.runtimeFactory(companyId);
+    const candidateRootRunIds = new Set<string>();
+    const projectionMissing = new Set<string>();
+    for (const row of conversationRoots) {
+      const current = this.activeRuns.get(row.thread_id);
+      if (current?.attemptId === row.run_id) {
+        if (!current.reattached || current.hostConnected) alreadyProtected.add(row.run_id);
+        else {
+          this.ensureReattachSettlement(current);
+          candidateRootRunIds.add(row.run_id);
+        }
+        continue;
+      }
+      const hydration = await this.hydrateLiveRun(row, runtime, repos);
+      if (hydration === 'hydrated') {
+        const hydratedRun = this.activeRuns.get(row.thread_id);
+        if (hydratedRun?.attemptId === row.run_id) this.ensureReattachSettlement(hydratedRun);
+        candidateRootRunIds.add(row.run_id);
+      } else if (hydration === 'owned_elsewhere') {
+        alreadyProtected.add(row.run_id);
+      } else {
+        projectionMissing.add(row.run_id);
+        candidateRootRunIds.add(row.run_id);
+      }
+    }
+
+    if (!runtime.reattachLiveRuns) {
+      return {
+        protectedRootRunIds: new Set(roots.map((row) => row.run_id)),
+        handledRootRunIds: alreadyProtected,
+        confirmedMissingRootRunIds: new Set(),
+        complete: false,
+      };
+    }
+
+    let result: LiveRunReattachResult;
+    try {
+      result = await runtime.reattachLiveRuns(candidateRootRunIds);
+    } catch (error) {
+      console.warn('[conversation-run] live host reattach bootstrap failed', {
+        companyId,
+        error,
+      });
+      return {
+        protectedRootRunIds: new Set(roots.map((row) => row.run_id)),
+        handledRootRunIds: alreadyProtected,
+        confirmedMissingRootRunIds: new Set(),
+        complete: false,
+      };
+    }
+
+    const protectedRootRunIds = new Set([...alreadyProtected, ...result.protectedRootRunIds]);
+    const handledRootRunIds = new Set([...alreadyProtected, ...result.handledRootRunIds]);
+    for (const runId of result.handledRootRunIds) {
+      const row = roots.find((candidate) => candidate.run_id === runId);
+      const run = row ? this.activeRuns.get(row.thread_id) : null;
+      if (run?.attemptId === runId) {
+        run.hostConnected = true;
+        await this.restoreLiveApproval(repos, run);
+      }
+    }
+    for (const row of conversationRoots) {
+      if (protectedRootRunIds.has(row.run_id)) continue;
+      const run = this.activeRuns.get(row.thread_id);
+      if (run?.attemptId !== row.run_id || !run.reattached) continue;
+      this.cleanupRun(run);
+      run.resolveReattachSettlement?.();
+      run.resolveReattachSettlement = null;
+      this.activeRuns.delete(row.thread_id);
+      this.globalSnapshot = null;
+    }
+
+    // Fresh rows always carry the projection ref. A malformed prelaunch row is
+    // never allowed to become an invisible background run: stop any host that
+    // was found, protect it from stale reconciliation for this pass, and retry
+    // bootstrap until the terminal stream is durably observed.
+    for (const row of conversationRoots) {
+      if (!projectionMissing.has(row.run_id) || !handledRootRunIds.has(row.run_id)) continue;
+      runtime.abort(row.thread_id);
+      protectedRootRunIds.add(row.run_id);
+    }
+
+    return {
+      protectedRootRunIds,
+      handledRootRunIds,
+      confirmedMissingRootRunIds: new Set([
+        ...result.confirmedMissingRootRunIds,
+        ...orphanRootRunIds,
+      ]),
+      complete: result.complete && projectionMissing.size === 0,
+    };
+  }
+
+  private async hydrateLiveRun(
+    row: AgentRunRow,
+    runtime: DesktopAgentRuntime,
+    repos: RuntimeRepositories,
+  ): Promise<LiveRunHydrationResult> {
+    const projection = parseConversationProjection(row.runtime_context_json);
+    if (!projection) return 'projection_missing';
+    const threadRunLease = conversationThreadLifecycle.beginRun(row.thread_id);
+    if (!threadRunLease) return 'owned_elsewhere';
+    let hydrated = false;
+    try {
+      const [messages, subtree] = await Promise.all([
+        this.deps.loadMessagesByIds({
+          repos,
+          threadId: row.thread_id,
+          messageIds: [projection.userMessageId, projection.assistantMessageId],
+        }),
+        repos.agentRuns.findByRoot(row.run_id),
+      ]);
+      const delegations = subtree
+        .map(restoreDelegation)
+        .filter((delegation): delegation is RunDelegation => delegation !== null);
+      const persistedUser = messages.find((message) => message.id === projection.userMessageId);
+      const userMessage: ChatMessage = persistedUser ?? {
+        id: projection.userMessageId,
+        threadId: row.thread_id,
+        author: 'boss',
+        employeeId: null,
+        body: row.objective ?? '',
+        at: Date.parse(row.started_at) || this.deps.now(),
+        attachments: [],
+        status: 'complete',
+      };
+      const persistedAssistant = messages.find(
+        (message) => message.id === projection.assistantMessageId,
+      );
+      const assistantMessage: ChatMessage | null = persistedAssistant
+        ? { ...persistedAssistant, status: 'streaming' }
+        : null;
+      const input: SubmitConversationRun = {
+        companyId: row.company_id,
+        projectId: row.project_id,
+        threadId: row.thread_id,
+        employeeId: row.employee_id,
+        text: row.objective ?? userMessage.body,
+        stagedAttachments: [],
+        source: projection.source,
+        model: projection.model,
+        permissionMode: projection.permissionMode,
+        thinkingLevel: projection.thinkingLevel,
+      };
+      const run: ActiveRun = {
+        input,
+        threadId: row.thread_id,
+        attemptId: row.run_id,
+        userMessage,
+        assistantMessageId: projection.assistantMessageId,
+        assistantMessage,
+        promptText: row.objective ?? userMessage.body,
+        contentText: assistantMessage?.body ?? '',
+        reasoningText: assistantMessage?.reasoning ?? '',
+        toolCalls: [],
+        workspaceProvenance: assistantMessage?.workspaceProvenance ?? null,
+        activity: [],
+        activityTotal: 0,
+        delegations,
+        runtime,
+        stopped: false,
+        lastCheckpointAt: 0,
+        firstCheckpointWritten: assistantMessage !== null,
+        messagePersistedNotified: true,
+        clearRestoredApproval: false,
+        pendingLoopHandoff: null,
+        nativeSessionRecovery: null,
+        reattached: true,
+        hostConnected: false,
+        terminalizing: false,
+        executionAbortController: null,
+        threadRunLease,
+        resolveReattachSettlement: null,
+        unsubscribers: [],
+      };
+      run.unsubscribers = this.subscribeRuntimeEvents(run);
+      this.activeRuns.set(row.thread_id, run);
+      this.setSnapshot(row.thread_id, {
+        threadId: row.thread_id,
+        companyId: row.company_id,
+        projectId: row.project_id,
+        attemptId: row.run_id,
+        phase: 'running',
+        employeeId: row.employee_id,
+        source: projection.source,
+        liveMessages: assistantMessage ? [userMessage, assistantMessage] : [userMessage],
+        activity: [],
+        activityTotal: 0,
+        delegations,
+        approval: null,
+        error: null,
+      });
+      hydrated = true;
+      return 'hydrated';
+    } finally {
+      if (!hydrated) threadRunLease.release();
+    }
+  }
+
+  private async restoreLiveApproval(repos: RuntimeRepositories, run: ActiveRun): Promise<void> {
+    if (!this.isActiveRun(run)) return;
+    const row = await repos.activeInteractions?.findByThread(run.threadId);
+    if (!row || !this.isActiveRun(run)) return;
+    let payload: Partial<PendingApproval> & { source?: string };
+    try {
+      payload = JSON.parse(row.payload_json ?? '{}') as Partial<PendingApproval> & {
+        source?: string;
+      };
+    } catch {
+      return;
+    }
+    if (
+      payload.source !== 'pi-ui-request' ||
+      payload.attemptId !== run.attemptId ||
+      typeof payload.hostRequestId !== 'string' ||
+      !payload.hostRequestId.trim() ||
+      typeof payload.uiRequestId !== 'string' ||
+      !payload.uiRequestId.trim()
+    ) {
+      return;
+    }
+    const approval: PendingApproval = {
+      threadId: run.threadId,
+      attemptId: run.attemptId,
+      hostRequestId: payload.hostRequestId,
+      uiRequestId: payload.uiRequestId,
+      method: typeof payload.method === 'string' ? payload.method : 'confirm',
+      title: typeof payload.title === 'string' ? payload.title : 'Approval needed',
+      message: typeof payload.message === 'string' ? payload.message : undefined,
+      state: payload.method === 'confirm' ? 'live' : 'unsupported',
+      createdAt: Date.parse(row.created_at) || this.deps.now(),
+    };
+    this.patchSnapshot(run.threadId, {
+      phase: approval.state === 'live' ? 'awaiting-approval' : 'running',
+      approval,
+    });
   }
 
   getSnapshot(threadId: string): ConversationRunSnapshot {
@@ -779,6 +1526,7 @@ export class ConversationRunController {
   }
 
   private async resumeLoopHandoff(run: ActiveRun, handoff: PendingLoopHandoff): Promise<void> {
+    let transferredThreadRun: ThreadRunLease | null = null;
     try {
       if (!handoff.messagePersisted) {
         if (!this.isActiveRun(run) || run.stopped) return;
@@ -792,8 +1540,29 @@ export class ConversationRunController {
         this.saveRetryRecord(run);
         return;
       }
-      await handoff.prepared.start();
+      transferredThreadRun = run.threadRunLease?.transfer() ?? null;
+      if (!transferredThreadRun) {
+        throw new Error('The conversation run lease is no longer active.');
+      }
+      run.threadRunLease = null;
+      run.executionAbortController = new AbortController();
+      try {
+        await handoff.prepared.start(transferredThreadRun, run.executionAbortController.signal);
+      } catch (error) {
+        // A failed receiver must not strand the transferred exclusive slot.
+        // MissionRunManager also releases on assembly failure; release is
+        // idempotent so this closes custom/test hand-offs as well.
+        transferredThreadRun.release();
+        throw error;
+      }
       run.pendingLoopHandoff = null;
+      if (!this.isActiveRun(run) || run.stopped) {
+        // The Mission accepted the launch before Stop won. Retry must create a
+        // new Mission from the original Loop input, never reuse this now-aborted
+        // Mission hand-off.
+        this.saveRetryRecord(run);
+        return;
+      }
       this.cleanupRun(run);
       this.activeRuns.delete(run.threadId);
       this.patchSnapshot(run.threadId, {
@@ -804,6 +1573,8 @@ export class ConversationRunController {
     } catch (error) {
       run.pendingLoopHandoff = handoff;
       await this.failRun(run, error);
+    } finally {
+      run.executionAbortController = null;
     }
   }
 
@@ -818,17 +1589,32 @@ export class ConversationRunController {
         return;
       }
       run.unsubscribers = this.subscribeRuntimeEvents(run);
-      const response = await run.runtime.execute({
-        text: run.promptText ?? run.input.text,
-        threadId: run.threadId,
-        employeeId: run.input.employeeId,
-        projectId: run.input.projectId,
-        model: run.input.model,
-        permissionMode: run.input.permissionMode,
-        thinkingLevel: run.input.thinkingLevel,
-        runId: run.attemptId,
-        directDelegation: run.input.directDelegation,
-      });
+      run.executionAbortController = new AbortController();
+      const response = await run.runtime.execute(
+        {
+          text: run.promptText ?? run.input.text,
+          threadId: run.threadId,
+          employeeId: run.input.employeeId,
+          projectId: run.input.projectId,
+          model: run.input.model,
+          permissionMode: run.input.permissionMode,
+          thinkingLevel: run.input.thinkingLevel,
+          runId: run.attemptId,
+          conversationProjection: {
+            userMessageId: run.userMessage.id,
+            assistantMessageId: run.assistantMessageId,
+            source: run.input.source,
+          },
+          ...(run.nativeSessionRecovery
+            ? {
+                nativeSessionMode: run.nativeSessionRecovery.mode,
+                nativeSessionResetSourceRunId: run.nativeSessionRecovery.sourceRunId,
+              }
+            : {}),
+          directDelegation: run.input.directDelegation,
+        },
+        run.executionAbortController.signal,
+      );
       if (!this.isActiveRun(run) || run.stopped) return;
       const reasoning = (response.reasoning || run.reasoningText).trim();
       const assistant: ChatMessage = {
@@ -842,9 +1628,12 @@ export class ConversationRunController {
         replyToMessageId: run.userMessage.id,
         attemptId: run.attemptId,
         status: 'complete',
+        ...(run.workspaceProvenance ? { workspaceProvenance: run.workspaceProvenance } : {}),
       };
       run.assistantMessage = assistant;
-      await this.persistRunMessage(run, assistant);
+      if (!response.conversationTerminalCommitted) {
+        await this.persistRunMessage(run, assistant);
+      }
       // Stop may win while the final durable write is in flight. The later
       // completion must not resurrect a run that stopAndWait already retired.
       if (!this.isActiveRun(run) || run.stopped) return;
@@ -866,9 +1655,14 @@ export class ConversationRunController {
         });
       }
     } catch (error) {
+      if (error instanceof AgentTerminalCheckpointError) {
+        await this.interruptAfterTerminalCheckpointFailure(run, error);
+        return;
+      }
       await this.failRun(run, error);
     } finally {
-      this.cleanupRun(run);
+      run.executionAbortController = null;
+      if (!run.stopped) this.cleanupRun(run);
       if (this.activeRuns.get(run.threadId)?.attemptId === run.attemptId && !run.stopped) {
         this.activeRuns.delete(run.threadId);
       }
@@ -900,6 +1694,7 @@ export class ConversationRunController {
 
   private subscribeRuntimeEvents(run: ActiveRun): Array<() => void> {
     const offStream = this.deps.eventBus.on('llm.stream.chunk', (event) => {
+      if (run.stopped) return;
       const payload = event.payload as Record<string, unknown>;
       if (!this.matchesRun(event, payload, run)) return;
       const content = typeof payload.content === 'string' ? payload.content : '';
@@ -914,6 +1709,7 @@ export class ConversationRunController {
     });
 
     const offTool = this.deps.eventBus.on('tool.execution.telemetry', (event) => {
+      if (run.stopped) return;
       const payload = event.payload as ToolExecutionTelemetryPayload;
       if (
         !payload?.toolName ||
@@ -925,6 +1721,7 @@ export class ConversationRunController {
     });
 
     const offUi = this.deps.eventBus.on(AGENT_UI_REQUEST_EVENT, (event) => {
+      if (run.stopped) return;
       const payload = event.payload as AgentUiRequestPayload;
       if (!payload?.requestId || !payload.id) return;
       if (!this.matchesRun(event, payload as unknown as Record<string, unknown>, run)) return;
@@ -936,6 +1733,14 @@ export class ConversationRunController {
       });
     });
 
+    const offLiveTerminal = this.deps.eventBus.on(LIVE_CONVERSATION_TERMINAL_EVENT, (event) => {
+      const payload = event.payload as LiveConversationTerminalPayload;
+      if (!run.reattached || payload?.runId !== run.attemptId || event.threadId !== run.threadId) {
+        return;
+      }
+      this.finalizeReattachedRun(run, payload);
+    });
+
     // Delegation run-tree events graft onto this run when the child's rootRunId
     // equals this run's attemptId (the agentRun envelope carries the child runId
     // in payload.runId, not the root, so matchesRun's attemptId check won't fit).
@@ -943,13 +1748,96 @@ export class ConversationRunController {
     // office/projection see it; skip those here — the root is not a delegation of
     // itself, it's the tree root the delegations hang under.
     const offAgentRun = this.deps.eventBus.on('agent.run', (event) => {
+      if (run.stopped) return;
       const payload = event.payload as AgentRunEvent;
       if (payload?.rootRunId !== run.attemptId || payload.threadId !== run.threadId) return;
       if (payload.runId === run.attemptId) return;
       this.noteDelegation(run, payload);
     });
 
-    return [offStream, offTool, offUi, offAgentRun];
+    return [offStream, offTool, offUi, offLiveTerminal, offAgentRun];
+  }
+
+  private finalizeReattachedRun(run: ActiveRun, terminal: LiveConversationTerminalPayload): void {
+    if (!this.isActiveRun(run) || run.terminalizing) return;
+    run.terminalizing = true;
+    if (run.stopped) {
+      run.resolveReattachSettlement?.();
+      run.resolveReattachSettlement = null;
+      return;
+    }
+    const content = terminal.text.trim();
+    if (content) run.contentText = content;
+    if (terminal.reasoning?.trim()) run.reasoningText = terminal.reasoning.trim();
+    const body = run.contentText.trim();
+    const reasoning = run.reasoningText.trim();
+    const status =
+      terminal.status === 'completed'
+        ? ('complete' as const)
+        : terminal.status === 'failed'
+          ? ('failed' as const)
+          : ('interrupted' as const);
+    const assistant: ChatMessage | null =
+      body || reasoning || run.workspaceProvenance
+        ? {
+            id: run.assistantMessageId,
+            threadId: run.threadId,
+            author: 'employee',
+            employeeId: run.input.employeeId,
+            body,
+            ...(reasoning ? { reasoning } : {}),
+            at: run.assistantMessage?.at ?? this.deps.now(),
+            replyToMessageId: run.userMessage.id,
+            attemptId: run.attemptId,
+            status,
+            ...(run.workspaceProvenance ? { workspaceProvenance: run.workspaceProvenance } : {}),
+          }
+        : null;
+    run.assistantMessage = assistant;
+    this.cleanupRun(run);
+    this.activeRuns.delete(run.threadId);
+    run.resolveReattachSettlement?.();
+    run.resolveReattachSettlement = null;
+
+    if (terminal.status === 'failed') {
+      this.saveRetryRecord(run);
+      const technicalDetail = terminal.error?.trim() || 'Agent runtime failed.';
+      const runError: RunError = {
+        ...buildRunError(technicalDetail),
+        retry: () => {
+          this.dismissError(run.threadId);
+          void this.retry(run.threadId, run.attemptId).catch((error: unknown) => {
+            console.warn('[conversation-run] reattached retry failed', {
+              threadId: run.threadId,
+              error,
+            });
+          });
+        },
+      };
+      this.patchSnapshot(run.threadId, {
+        phase: 'failed',
+        approval: null,
+        liveMessages: assistant ? [run.userMessage, assistant] : [run.userMessage],
+        error: runError,
+      });
+      return;
+    }
+
+    if (terminal.status === 'cancelled') this.saveRetryRecord(run);
+    this.patchSnapshot(run.threadId, {
+      phase: terminal.status === 'completed' ? 'completed' : 'interrupted',
+      approval: null,
+      liveMessages: assistant ? [run.userMessage, assistant] : [run.userMessage],
+      error: null,
+    });
+    if (terminal.status === 'completed' && terminal.provenance && assistant?.body.trim()) {
+      void this.runTitleJob(run, terminal.provenance).catch((error: unknown) => {
+        console.warn('[conversation-run] reattached semantic-title generation failed', {
+          threadId: run.threadId,
+          error,
+        });
+      });
+    }
   }
 
   private noteDelegation(run: ActiveRun, evt: AgentRunEvent): void {
@@ -1031,6 +1919,7 @@ export class ConversationRunController {
       replyToMessageId: run.userMessage.id,
       attemptId: run.attemptId,
       status: 'streaming',
+      ...(run.workspaceProvenance ? { workspaceProvenance: run.workspaceProvenance } : {}),
     };
     run.assistantMessage = assistant;
     this.patchSnapshot(run.threadId, (current) => ({
@@ -1040,7 +1929,7 @@ export class ConversationRunController {
   }
 
   private async maybeCheckpoint(run: ActiveRun): Promise<void> {
-    if (!run.assistantMessage) return;
+    if (!run.assistantMessage || run.runtime?.ownsConversationProjectionPersistence) return;
     const now = this.deps.now();
     if (!run.firstCheckpointWritten || now - run.lastCheckpointAt >= CHECKPOINT_INTERVAL_MS) {
       run.firstCheckpointWritten = true;
@@ -1051,6 +1940,7 @@ export class ConversationRunController {
 
   private noteTool(run: ActiveRun, payload: ToolExecutionTelemetryPayload): void {
     if (!payload.toolCallId) return;
+    if (payload.workspaceProvenance) run.workspaceProvenance = payload.workspaceProvenance;
     const status =
       payload.status === 'started'
         ? 'running'
@@ -1073,6 +1963,7 @@ export class ConversationRunController {
           tool: payload.toolName,
           state: 'running' as const,
           detail: detailFromTelemetry(payload),
+          workspaceProvenance: payload.workspaceProvenance,
           richDetail: parseToolRichDetail(payload.toolName, payload.detail),
         },
       ].slice(-12);
@@ -1083,6 +1974,7 @@ export class ConversationRunController {
               ...entry,
               state: terminal,
               detail: detailFromTelemetry(payload) ?? entry.detail,
+              workspaceProvenance: payload.workspaceProvenance ?? entry.workspaceProvenance,
               richDetail: mergeToolRichDetail(
                 entry.richDetail,
                 parseToolRichDetail(payload.toolName, payload.detail),
@@ -1127,7 +2019,7 @@ export class ConversationRunController {
         err,
       });
     }
-    if (run.assistantMessage)
+    if (run.assistantMessage && !run.runtime?.ownsConversationProjectionPersistence)
       await this.persistRunMessage(run, stripToolCalls(run.assistantMessage));
     if (request.method !== 'confirm' && run.runtime) {
       await run.runtime.answerUiRequest({
@@ -1155,25 +2047,45 @@ export class ConversationRunController {
     ) {
       const failed = { ...stripToolCalls(run.assistantMessage), status: 'failed' as const };
       run.assistantMessage = failed;
-      await this.persistRunMessage(run, failed).catch((err: unknown) => {
-        console.warn('[conversation-run] failed to persist failed snapshot', {
-          threadId: run.threadId,
-          err,
+      if (!run.runtime?.ownsConversationProjectionPersistence) {
+        await this.persistRunMessage(run, failed).catch((err: unknown) => {
+          console.warn('[conversation-run] failed to persist failed snapshot', {
+            threadId: run.threadId,
+            err,
+          });
         });
-      });
+      }
       messages = [run.userMessage, failed];
     }
     this.saveRetryRecord(run);
     const { threadId, attemptId } = run;
-    const runError: RunError = {
-      ...buildRunError(messageText),
-      retry: () => {
-        this.dismissError(threadId);
-        void this.retry(threadId, attemptId).catch((err: unknown) => {
-          console.warn('[conversation-run] retry failed', { threadId, err });
-        });
-      },
-    };
+    let freshSessionSource: DurableFreshSessionSource | null = null;
+    try {
+      freshSessionSource = await this.latestFreshSessionSource(
+        run.input.companyId,
+        threadId,
+        attemptId,
+        run.userMessage.id,
+        run.assistantMessageId,
+      );
+    } catch (lookupError) {
+      console.warn('[conversation-run] fresh-session recovery lookup failed', {
+        threadId,
+        attemptId,
+        lookupError,
+      });
+    }
+    const runError: RunError = freshSessionSource
+      ? this.freshSessionRunError(threadId, attemptId, messageText)
+      : {
+          ...buildRunError(messageText),
+          retry: () => {
+            this.dismissError(threadId);
+            void this.retry(threadId, attemptId).catch((err: unknown) => {
+              console.warn('[conversation-run] retry failed', { threadId, err });
+            });
+          },
+        };
     this.patchSnapshot(run.threadId, {
       phase: 'failed',
       approval: null,
@@ -1182,6 +2094,56 @@ export class ConversationRunController {
       activityTotal: run.activityTotal,
       error: runError,
     });
+  }
+
+  private async interruptAfterTerminalCheckpointFailure(
+    run: ActiveRun,
+    error: AgentTerminalCheckpointError,
+  ): Promise<void> {
+    if (!this.isActiveRun(run) || run.stopped) return;
+    // The host already reached a terminal state, but SQLite did not. Keep this
+    // projection subscribed and reclassify it as a reattached run so the same
+    // native terminal snapshot can finish the atomic checkpoint without ever
+    // dispatching the user's task again.
+    run.reattached = true;
+    run.hostConnected = false;
+    const messages: ChatMessage[] = [run.userMessage];
+    if (
+      run.assistantMessage &&
+      (run.assistantMessage.body.trim() || run.assistantMessage.reasoning?.trim())
+    ) {
+      const interrupted = {
+        ...stripToolCalls(run.assistantMessage),
+        status: 'interrupted' as const,
+      };
+      run.assistantMessage = interrupted;
+      messages.push(interrupted);
+    }
+    this.patchSnapshot(run.threadId, {
+      phase: 'interrupted',
+      approval: null,
+      liveMessages: messages,
+      activity: run.activity,
+      activityTotal: run.activityTotal,
+      error: {
+        ...buildRunError(error.message),
+        message: 'Run finished; saving its final state needs recovery.',
+      },
+    });
+
+    while (this.isActiveRun(run) && !run.stopped) {
+      try {
+        await run.runtime?.reattachLiveRuns?.(new Set([run.attemptId]));
+        if (!this.isActiveRun(run)) return;
+      } catch (recoveryError) {
+        console.warn('[conversation-run] terminal checkpoint recovery failed', {
+          threadId: run.threadId,
+          runId: run.attemptId,
+          recoveryError,
+        });
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 5_000));
+    }
   }
 
   private async persistRunMessage(run: ActiveRun, message: ChatMessage): Promise<void> {
@@ -1301,7 +2263,53 @@ export class ConversationRunController {
   }
 
   private cleanupRun(run: ActiveRun): void {
+    this.unsubscribeRun(run);
+    run.threadRunLease?.release();
+    run.threadRunLease = null;
+  }
+
+  private unsubscribeRun(run: ActiveRun): void {
     for (const unsubscribe of run.unsubscribers.splice(0)) unsubscribe();
+  }
+
+  private ensureReattachSettlement(run: ActiveRun): void {
+    if (!run.reattached || run.resolveReattachSettlement) return;
+    let resolveSettlement!: () => void;
+    const settlement = new Promise<void>((resolve) => {
+      resolveSettlement = resolve;
+    });
+    run.resolveReattachSettlement = resolveSettlement;
+    this.trackRunTask(run, settlement);
+  }
+
+  private trackRunTask(run: ActiveRun, task: Promise<void>): void {
+    void task
+      .finally(() => this.settleStoppedRun(run))
+      .catch((error: unknown) => {
+        console.warn('[conversation-run] detached run task failed', {
+          threadId: run.threadId,
+          attemptId: run.attemptId,
+          error,
+        });
+      });
+  }
+
+  private async settleStoppedRun(run: ActiveRun): Promise<void> {
+    if (!run.stopped || this.activeRuns.get(run.threadId)?.attemptId !== run.attemptId) return;
+    try {
+      if (run.assistantMessage && !run.runtime?.ownsConversationProjectionPersistence) {
+        const interrupted = {
+          ...stripToolCalls(run.assistantMessage),
+          status: 'interrupted' as const,
+        };
+        run.assistantMessage = interrupted;
+        await this.persistRunMessage(run, interrupted);
+      }
+    } finally {
+      this.cleanupRun(run);
+      this.activeRuns.delete(run.threadId);
+      this.globalSnapshot = null;
+    }
   }
 
   private isActiveRun(run: ActiveRun): boolean {
@@ -1318,6 +2326,7 @@ export class ConversationRunController {
     this.retryRecords.set(run.attemptId, {
       input: retryInput,
       userMessage: run.userMessage,
+      assistantMessageId: run.assistantMessageId,
       promptText: run.promptText ?? run.input.text,
       messagePersisted: run.messagePersistedNotified,
       clearRestoredApproval: run.clearRestoredApproval,
@@ -1371,9 +2380,12 @@ export function createConversationRunController(
     reposFactory: deps.reposFactory ?? getRepos,
     materializeTurn: deps.materializeTurn ?? materializeChatTurn,
     persistMessage: deps.persistMessage ?? persistChatMessage,
+    loadMessagesByIds: deps.loadMessagesByIds ?? loadPersistedChatMessagesByIdsWithRepositories,
     appendEvent: deps.appendEvent ?? appendThreadMessageEvent,
     now: deps.now ?? (() => Date.now()),
     randomUUID: deps.randomUUID ?? (() => crypto.randomUUID()),
+    isMissionThreadRunning:
+      deps.isMissionThreadRunning ?? ((threadId) => missionRunManager.isThreadRunning(threadId)),
   });
 }
 

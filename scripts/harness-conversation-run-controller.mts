@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import type { RuntimeEvent } from '@offisim/shared-types';
+import type { RuntimeEvent, WorkspaceProvenance } from '@offisim/shared-types';
 import {
   composerAttachmentScopeKey,
   useComposerAttachmentStore,
 } from '../apps/desktop/renderer/src/assistant/composer/composer-attachment-store.js';
+import { formatWorkspaceProvenance } from '../apps/desktop/renderer/src/assistant/presentation/workspace-provenance.js';
 import {
   ConversationRunAlreadyActiveError,
   type ConversationRunController,
@@ -16,11 +17,20 @@ import type {
   ChatMessage,
   StagedAttachment,
 } from '../apps/desktop/renderer/src/data/types.js';
-import type {
-  DesktopAgentRunInput,
-  DesktopAgentRunResult,
-} from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
+import type { TaskWorkspaceBindingClaim } from '../apps/desktop/renderer/src/lib/tauri-commands.js';
 import {
+  AgentTerminalCheckpointError,
+  type DesktopAgentRunInput,
+  type DesktopAgentRunResult,
+  type IsolatedTextJobInput,
+  type IsolatedTextJobResult,
+  LIVE_CONVERSATION_TERMINAL_EVENT,
+  type LiveRunReattachResult,
+} from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
+import { conversationThreadLifecycle } from '../apps/desktop/renderer/src/runtime/thread-lifecycle-guard.js';
+import { notableWorkspaceProvenanceForBinding } from '../apps/desktop/renderer/src/runtime/workspace-provenance.js';
+import {
+  type AgentRunRow,
   InMemoryEventBus,
   type RuntimeRepositories,
   llmStreamChunk,
@@ -91,6 +101,8 @@ class Deferred<T> {
 
 class FakeRuntime {
   executeCalls: DesktopAgentRunInput[] = [];
+  generateTextCalls: IsolatedTextJobInput[] = [];
+  resumeCalls: string[] = [];
   aborts: string[] = [];
   answers: Array<{
     requestId: string;
@@ -100,8 +112,18 @@ class FakeRuntime {
     cancelled?: boolean;
   }> = [];
   abortWaiters = new Map<string, Deferred<void>>();
-  onExecute: (input: DesktopAgentRunInput) => Promise<DesktopAgentRunResult> = async () => ({
-    text: 'ok',
+  onExecute: (input: DesktopAgentRunInput, signal?: AbortSignal) => Promise<DesktopAgentRunResult> =
+    async () => ({ text: 'ok' });
+  onResume: (runId: string, signal?: AbortSignal) => Promise<DesktopAgentRunResult> = async () => ({
+    text: `resumed ${runId}`,
+  });
+  onReattach: (rootRunIds?: ReadonlySet<string>) => Promise<LiveRunReattachResult> = async (
+    rootRunIds,
+  ) => ({
+    protectedRootRunIds: new Set(rootRunIds ?? []),
+    handledRootRunIds: new Set(rootRunIds ?? []),
+    confirmedMissingRootRunIds: new Set(),
+    complete: true,
   });
 
   constructor(
@@ -109,9 +131,21 @@ class FakeRuntime {
     private readonly companyId = 'co',
   ) {}
 
-  async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
+  async execute(input: DesktopAgentRunInput, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
     this.executeCalls.push(input);
-    return this.onExecute(input);
+    return this.onExecute(input, signal);
+  }
+
+  async generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult> {
+    this.generateTextCalls.push(input);
+    return {
+      text: 'Recovered task title',
+      provenance: { ...input.sourceProvenance, runId: input.jobId },
+    };
+  }
+
+  async reattachLiveRuns(rootRunIds?: ReadonlySet<string>): Promise<LiveRunReattachResult> {
+    return this.onReattach(rootRunIds);
   }
 
   abort(threadId: string): void {
@@ -137,8 +171,9 @@ class FakeRuntime {
     this.answers.push(answer);
   }
 
-  async resume(): Promise<{ finalText: string } | null> {
-    return null;
+  async resume(runId: string, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
+    this.resumeCalls.push(runId);
+    return this.onResume(runId, signal);
   }
 
   async dispose(): Promise<void> {}
@@ -169,6 +204,7 @@ class FakeRuntime {
     toolCallId = 'tool-1',
     toolName = 'read_file',
     detail?: string,
+    workspaceProvenance?: WorkspaceProvenance,
   ): void {
     const startedAt = Date.now();
     this.eventBus.emit(
@@ -185,10 +221,18 @@ class FakeRuntime {
         durationMs: status === 'started' ? undefined : 12,
         status,
         detail,
+        workspaceProvenance,
         chatConversationKey: `test::${input.threadId}`,
         chatRunId: input.runId ?? 'missing-run',
       }),
     );
+  }
+
+  emitWorkspaceBinding(input: DesktopAgentRunInput, claim: TaskWorkspaceBindingClaim): void {
+    const provenance = notableWorkspaceProvenanceForBinding(claim);
+    if (!provenance) return;
+    this.emitTool(input, 'started', 'workspace-status', 'Workspace', undefined, provenance);
+    this.emitTool(input, 'completed', 'workspace-status', 'Workspace', undefined, provenance);
   }
 
   emitUiRequest(input: DesktopAgentRunInput, method: string, id = 'ui-1'): void {
@@ -212,10 +256,73 @@ class FakeRuntime {
 }
 
 class FakeRepos {
+  runRows = new Map<string, AgentRunRow>();
   activeRows = new Map<string, ActiveInteractionRow>();
   historyRows: HistoryRow[] = [];
   failActiveInteractionUpsert = false;
   failActiveInteractionDelete = 0;
+
+  agentRuns = {
+    findById: async (runId: string) => this.runRows.get(runId) ?? null,
+    findByRoot: async (rootRunId: string) =>
+      [...this.runRows.values()].filter((row) => row.root_run_id === rootRunId),
+    findByThread: async (threadId: string) =>
+      [...this.runRows.values()].filter((row) => row.thread_id === threadId),
+    findByStatus: async (companyId: string, statuses: AgentRunRow['status'][]) =>
+      [...this.runRows.values()].filter(
+        (row) => row.company_id === companyId && statuses.includes(row.status),
+      ),
+    // The production repository returns at most the latest root for the one
+    // visible Conversation; controller-side typed parsing still fails closed.
+    findLatestFreshSessionCandidate: async (companyId: string, threadId: string) => {
+      let latest: AgentRunRow | null = null;
+      for (const row of this.runRows.values()) {
+        if (
+          row.company_id !== companyId ||
+          row.thread_id !== threadId ||
+          row.run_id !== row.root_run_id ||
+          row.parent_run_id !== null
+        ) {
+          continue;
+        }
+        if (
+          !latest ||
+          row.started_at > latest.started_at ||
+          (row.started_at === latest.started_at && row.run_id > latest.run_id)
+        ) {
+          latest = row;
+        }
+      }
+      return latest;
+    },
+    findFreshSessionSource: async (companyId: string, threadId: string, sourceRunId: string) => {
+      let latest: AgentRunRow | null = null;
+      for (const row of this.runRows.values()) {
+        if (
+          row.company_id !== companyId ||
+          row.thread_id !== threadId ||
+          row.run_id !== row.root_run_id ||
+          row.parent_run_id !== null
+        ) {
+          continue;
+        }
+        if (
+          !latest ||
+          row.started_at > latest.started_at ||
+          (row.started_at === latest.started_at && row.run_id > latest.run_id)
+        ) {
+          latest = row;
+        }
+      }
+      return latest?.run_id === sourceRunId ? latest : null;
+    },
+  };
+
+  chatThreads = {
+    beginSemanticTitleJob: async () => true,
+    completeSemanticTitleJob: async () => true,
+    failSemanticTitleJob: async () => {},
+  };
 
   activeInteractions = {
     upsert: async (row: ActiveInteractionRow) => {
@@ -280,7 +387,12 @@ class FakeRepos {
 }
 
 function makeEnv(
-  options: { failPersistFirst?: boolean; failActiveInteractionUpsert?: boolean } = {},
+  options: {
+    failPersistFirst?: boolean;
+    failActiveInteractionUpsert?: boolean;
+    isMissionThreadRunning?: (threadId: string) => boolean;
+    beforeLoadMessagesByIds?: () => Promise<void>;
+  } = {},
 ): HarnessEnv {
   const eventBus = new InMemoryEventBus();
   const runtime = new FakeRuntime(eventBus);
@@ -323,6 +435,13 @@ function makeEnv(
         message: JSON.parse(JSON.stringify(call.message)) as ChatMessage,
       });
     },
+    loadMessagesByIds: async ({ threadId, messageIds }) => {
+      await options.beforeLoadMessagesByIds?.();
+      const wanted = new Set(messageIds);
+      return persisted
+        .filter((call) => call.message.threadId === threadId && wanted.has(call.message.id))
+        .map((call) => call.message);
+    },
     appendEvent: async (call) => {
       appendedEvents.push(call);
     },
@@ -331,6 +450,7 @@ function makeEnv(
       return now;
     },
     randomUUID: () => `uuid-${++uuid}`,
+    isMissionThreadRunning: options.isMissionThreadRunning ?? (() => false),
   });
   return { controller, eventBus, runtime, persisted, appendedEvents, repos };
 }
@@ -373,11 +493,885 @@ async function submitDefault(
   });
 }
 
+function conversationRow(input: {
+  runId: string;
+  threadId: string;
+  status: AgentRunRow['status'];
+  userMessageId: string;
+  assistantMessageId: string;
+  streamCursor?: number;
+}): AgentRunRow {
+  return {
+    run_id: input.runId,
+    thread_id: input.threadId,
+    company_id: 'co',
+    project_id: 'prj',
+    parent_run_id: null,
+    root_run_id: input.runId,
+    employee_id: 'emp-live',
+    relation: null,
+    work_kind: null,
+    objective: 'Continue durable work',
+    access: 'write',
+    status: input.status,
+    failure_kind: null,
+    usage_json: null,
+    result_summary_json: null,
+    session_file: '/native/session.jsonl',
+    runtime_context_json: JSON.stringify({
+      requestId: `host-${input.runId}`,
+      streamCursor: input.streamCursor ?? 0,
+      conversationProjection: {
+        userMessageId: input.userMessageId,
+        assistantMessageId: input.assistantMessageId,
+        source: 'office',
+      },
+      model: 'provider/model-leaf',
+      permissionMode: 'auto',
+    }),
+    started_at: '2026-06-20T00:00:00.000Z',
+    finished_at: null,
+  };
+}
+
+function seedConversationProjection(
+  env: HarnessEnv,
+  row: AgentRunRow,
+  userMessageId: string,
+  assistantMessageId: string,
+): void {
+  const user: ChatMessage = {
+    id: userMessageId,
+    threadId: row.thread_id,
+    author: 'boss',
+    employeeId: null,
+    body: row.objective ?? 'Continue durable work',
+    at: Date.parse(row.started_at),
+    attachments: [],
+    status: 'complete',
+  };
+  const assistant: ChatMessage = {
+    id: assistantMessageId,
+    threadId: row.thread_id,
+    author: 'employee',
+    employeeId: row.employee_id,
+    body: 'durable partial',
+    at: Date.parse(row.started_at) + 1,
+    replyToMessageId: userMessageId,
+    attemptId: row.run_id,
+    status: 'streaming',
+  };
+  for (const message of [user, assistant]) {
+    env.persisted.push({ message, companyId: row.company_id, projectId: row.project_id });
+  }
+  env.repos.runRows.set(row.run_id, row);
+}
+
+function seedFreshSessionSource(
+  env: HarnessEnv,
+  input: {
+    runId: string;
+    threadId: string;
+    recoveryLane: 'conversation' | 'direct-delegation' | 'mission';
+    userBody?: string;
+    objective?: string;
+    attachments?: ChatMessage['attachments'];
+  },
+): { userMessage: ChatMessage; assistantMessage: ChatMessage; row: AgentRunRow } {
+  const userMessageId = `boss-${input.runId}`;
+  const assistantMessageId = `assistant-${input.runId}`;
+  const userMessage: ChatMessage = {
+    id: userMessageId,
+    threadId: input.threadId,
+    author: 'boss',
+    employeeId: null,
+    body: input.userBody ?? 'Continue the visible task',
+    at: Date.parse('2026-06-20T00:00:00.000Z'),
+    attachments: input.attachments ?? [],
+    status: 'complete',
+  };
+  const assistantMessage: ChatMessage = {
+    id: assistantMessageId,
+    threadId: input.threadId,
+    author: 'employee',
+    employeeId: 'emp-1',
+    body: '',
+    at: userMessage.at + 1,
+    replyToMessageId: userMessageId,
+    attemptId: input.runId,
+    status: 'failed',
+  };
+  const row: AgentRunRow = {
+    run_id: input.runId,
+    thread_id: input.threadId,
+    company_id: 'co',
+    project_id: 'prj',
+    parent_run_id: null,
+    root_run_id: input.runId,
+    employee_id: 'emp-1',
+    relation: null,
+    work_kind: null,
+    objective: input.objective ?? userMessage.body,
+    access: 'write',
+    status: 'failed',
+    failure_kind: 'runtime',
+    usage_json: null,
+    result_summary_json: null,
+    session_file: null,
+    runtime_context_json: JSON.stringify({
+      requestId: `host-${input.runId}`,
+      streamCursor: 0,
+      projectId: 'prj',
+      recoveryLane: input.recoveryLane,
+      nativeSessionPrestartErrorCode: 'native-session-missing',
+      conversationProjection: {
+        userMessageId,
+        assistantMessageId,
+        source: 'office',
+      },
+      permissionMode: 'auto',
+    }),
+    started_at: '2026-06-20T00:00:00.000Z',
+    finished_at: '2026-06-20T00:00:01.000Z',
+  };
+  env.repos.runRows.set(row.run_id, row);
+  for (const message of [userMessage, assistantMessage]) {
+    env.persisted.push({ message, companyId: 'co', projectId: 'prj' });
+  }
+  return { userMessage, assistantMessage, row };
+}
+
+function workspaceClaim(
+  input: DesktopAgentRunInput,
+  source: 'project_catalog' | 'conversation_history',
+  reasonCode: 'current_project_folder' | 'recent_successful_workspace',
+): TaskWorkspaceBindingClaim {
+  return {
+    workspaceRef: `ref-${input.runId}`,
+    historyId: `history-${input.runId}`,
+    companyId: 'co',
+    projectId: input.projectId ?? 'prj',
+    threadId: input.threadId,
+    turnId: input.runId ?? 'missing-run',
+    requestId: `request-${input.runId}`,
+    access: 'write',
+    source,
+    confidence: 1,
+    reasonCode,
+    issuedAtUnixMs: 1,
+    expiresAtUnixMs: 2,
+    displayPath: '/Users/test/Projects/offisim',
+  };
+}
+
 const scenarios: Array<{
   name: string;
   criteria: string;
   run: () => Promise<ScenarioEvidence>;
 }> = [
+  {
+    name: 'renderer reload hydrates live run before durable terminal projection',
+    criteria:
+      'Pass when the controller exposes a controllable running projection before native reattach starts, consumes replayed events, and only completes after the runtime has durably projected the full terminal answer.',
+    run: async () => {
+      const eventBus = new InMemoryEventBus();
+      const runtime = new FakeRuntime(eventBus);
+      const persisted: ChatMessage[] = [];
+      const userMessage: ChatMessage = {
+        id: 'boss-live',
+        threadId: 'thread-live',
+        author: 'boss',
+        employeeId: null,
+        body: 'Finish the recovery design',
+        at: Date.parse('2026-06-20T00:00:00.000Z'),
+        attachments: [],
+        status: 'complete',
+      };
+      const checkpoint: ChatMessage = {
+        id: 'assistant-live',
+        threadId: 'thread-live',
+        author: 'employee',
+        employeeId: 'emp-live',
+        body: 'partial checkpoint',
+        at: Date.parse('2026-06-20T00:00:01.000Z'),
+        replyToMessageId: userMessage.id,
+        attemptId: 'run-live',
+        status: 'streaming',
+      };
+      const row: AgentRunRow = {
+        run_id: 'run-live',
+        thread_id: 'thread-live',
+        company_id: 'co',
+        project_id: 'prj',
+        parent_run_id: null,
+        root_run_id: 'run-live',
+        employee_id: 'emp-live',
+        relation: null,
+        work_kind: null,
+        objective: userMessage.body,
+        access: 'write',
+        status: 'running',
+        failure_kind: null,
+        usage_json: null,
+        result_summary_json: null,
+        session_file: '/native/session.jsonl',
+        runtime_context_json: JSON.stringify({
+          conversationProjection: {
+            userMessageId: userMessage.id,
+            assistantMessageId: checkpoint.id,
+            source: 'office',
+          },
+          model: 'provider/model-leaf',
+          permissionMode: 'auto',
+        }),
+        started_at: '2026-06-20T00:00:00.000Z',
+        finished_at: null,
+      };
+      const holder: { controller?: ConversationRunController } = {};
+      runtime.onReattach = async (rootRunIds) => {
+        assert.deepEqual([...new Set(rootRunIds ?? [])], ['run-live']);
+        assert.equal(holder.controller?.isActive('thread-live'), true);
+        assert.equal(holder.controller?.getSnapshot('thread-live').phase, 'running');
+        assert.equal(holder.controller?.getGlobalSnapshot().activeRuns.length, 1);
+        eventBus.emit(
+          llmStreamChunk('co', 'thread-live', 'pi_agent', ' replay tail', 'content', {
+            conversationKey: 'prj::thread-live::emp-live',
+            runId: 'run-live',
+            threadId: 'thread-live',
+          }),
+        );
+        persisted.push({
+          ...checkpoint,
+          body: 'full terminal answer',
+          status: 'complete',
+        });
+        eventBus.emit({
+          type: LIVE_CONVERSATION_TERMINAL_EVENT,
+          entityId: 'run-live',
+          entityType: 'runtime',
+          companyId: 'co',
+          threadId: 'thread-live',
+          timestamp: Date.now(),
+          payload: {
+            runId: 'run-live',
+            status: 'completed',
+            text: 'full terminal answer',
+          },
+        } satisfies RuntimeEvent<Record<string, unknown>>);
+        return {
+          protectedRootRunIds: new Set(['run-live']),
+          handledRootRunIds: new Set(['run-live']),
+          confirmedMissingRootRunIds: new Set(),
+          complete: true,
+        };
+      };
+      const exactLoads: Array<{ threadId: string; messageIds: readonly string[] }> = [];
+      const controller = createConversationRunController({
+        eventBus,
+        runtimeFactory: async () => runtime,
+        reposFactory: async () =>
+          ({
+            agentRuns: {
+              findByStatus: async () => [row],
+              findByRoot: async () => [row],
+            },
+          }) as unknown as RuntimeRepositories,
+        loadMessagesByIds: async ({ threadId, messageIds }) => {
+          exactLoads.push({ threadId, messageIds: [...messageIds] });
+          return [userMessage, checkpoint];
+        },
+        persistMessage: async ({ message }) => {
+          persisted.push(JSON.parse(JSON.stringify(message)) as ChatMessage);
+        },
+        appendEvent: async () => undefined,
+        now: () => Date.parse('2026-06-20T00:00:02.000Z'),
+        randomUUID: () => 'bootstrap-uuid',
+      });
+      holder.controller = controller;
+
+      const bootstrap = await controller.bootstrapLiveRuns('co');
+      assert.equal(bootstrap.complete, true);
+      await waitFor(
+        'reattached terminal projection',
+        () => controller.getSnapshot('thread-live').phase === 'completed',
+      );
+      assert.equal(controller.isActive('thread-live'), false);
+      assert.deepEqual(exactLoads, [
+        {
+          threadId: 'thread-live',
+          messageIds: ['boss-live', 'assistant-live'],
+        },
+      ]);
+      assert.equal(
+        controller.getSnapshot('thread-live').liveMessages.at(-1)?.body,
+        'full terminal answer',
+      );
+      assert.ok(
+        persisted.some(
+          (message) =>
+            message.id === 'assistant-live' &&
+            message.status === 'complete' &&
+            message.body === 'full terminal answer',
+        ),
+      );
+      return {
+        phase: controller.getSnapshot('thread-live').phase,
+        persistedTerminal: persisted.at(-1)?.body,
+        protected: [...bootstrap.protectedRootRunIds],
+      };
+    },
+  },
+  {
+    name: 'reattached failed terminal preserves host error separately from partial answer',
+    criteria:
+      'Pass when a failed native reattach keeps partial assistant content while the error banner exposes the exact host failure.',
+    run: async () => {
+      const env = makeEnv();
+      const row = conversationRow({
+        runId: 'reattach-failed-root',
+        threadId: 'reattach-failed-thread',
+        status: 'running',
+        userMessageId: 'reattach-failed-user',
+        assistantMessageId: 'reattach-failed-assistant',
+      });
+      seedConversationProjection(env, row, 'reattach-failed-user', 'reattach-failed-assistant');
+      env.runtime.onReattach = async (rootRunIds) => {
+        assert.deepEqual([...new Set(rootRunIds ?? [])], ['reattach-failed-root']);
+        env.eventBus.emit({
+          type: LIVE_CONVERSATION_TERMINAL_EVENT,
+          entityId: row.run_id,
+          entityType: 'runtime',
+          companyId: row.company_id,
+          threadId: row.thread_id,
+          timestamp: Date.now(),
+          payload: {
+            runId: row.run_id,
+            status: 'failed',
+            text: 'partial answer',
+            error: 'Provider quota exhausted',
+            failureKind: 'token',
+          },
+        } satisfies RuntimeEvent<Record<string, unknown>>);
+        return {
+          protectedRootRunIds: new Set([row.run_id]),
+          handledRootRunIds: new Set([row.run_id]),
+          confirmedMissingRootRunIds: new Set(),
+          complete: true,
+        };
+      };
+
+      await env.controller.bootstrapLiveRuns('co');
+      await waitFor(
+        'reattached failed terminal projection',
+        () => env.controller.getSnapshot(row.thread_id).phase === 'failed',
+      );
+      const snapshot = env.controller.getSnapshot(row.thread_id);
+      assert.equal(snapshot.liveMessages.at(-1)?.body, 'partial answer');
+      assert.equal(snapshot.error?.technicalDetail, 'Provider quota exhausted');
+      return {
+        phase: snapshot.phase,
+        assistant: snapshot.liveMessages.at(-1)?.body,
+        technicalDetail: snapshot.error?.technicalDetail,
+      };
+    },
+  },
+  {
+    name: 'Stop retires a reattached run only after its native terminal arrives',
+    criteria:
+      'Pass when Stop preserves the terminal subscription and exclusive lease, rejects a premature new Turn, then releases both after the cancelled native terminal.',
+    run: async () => {
+      const env = makeEnv();
+      const row = conversationRow({
+        runId: 'reattach-stop-root',
+        threadId: 'reattach-stop-thread',
+        status: 'running',
+        userMessageId: 'reattach-stop-user',
+        assistantMessageId: 'reattach-stop-assistant',
+      });
+      seedConversationProjection(env, row, 'reattach-stop-user', 'reattach-stop-assistant');
+      await env.controller.bootstrapLiveRuns('co');
+      assert.equal(env.controller.isActive(row.thread_id), true);
+
+      await env.controller.stopAndWait(row.thread_id);
+      assert.equal(env.controller.getSnapshot(row.thread_id).phase, 'interrupted');
+      assert.equal(env.controller.isActive(row.thread_id), true);
+      await assert.rejects(
+        () => submitDefault(env.controller, { threadId: row.thread_id }),
+        ConversationRunAlreadyActiveError,
+      );
+
+      env.eventBus.emit({
+        type: LIVE_CONVERSATION_TERMINAL_EVENT,
+        entityId: row.run_id,
+        entityType: 'runtime',
+        companyId: row.company_id,
+        threadId: row.thread_id,
+        timestamp: Date.now(),
+        payload: {
+          runId: row.run_id,
+          status: 'cancelled',
+          text: 'durable partial',
+        },
+      } satisfies RuntimeEvent<Record<string, unknown>>);
+      await waitFor('reattached Stop retirement', () => !env.controller.isActive(row.thread_id));
+
+      await submitDefault(env.controller, { threadId: row.thread_id });
+      await waitFor(
+        'new Turn after reattach terminal',
+        () => env.controller.getSnapshot(row.thread_id).phase === 'completed',
+      );
+      return { aborts: env.runtime.aborts, phase: 'completed', ownershipReleased: true };
+    },
+  },
+  {
+    name: 'scheduled Mission root stays outside Conversation bootstrap ownership',
+    criteria:
+      'Pass when a Mission that starts after the reload barrier is protected by renderer ownership and Conversation bootstrap neither hydrates, reattaches, nor aborts its projection-less root.',
+    run: async () => {
+      let missionStartedAfterReloadBarrier = false;
+      const env = makeEnv({
+        isMissionThreadRunning: (threadId) =>
+          missionStartedAfterReloadBarrier && threadId === 'scheduled-mission-thread',
+      });
+      const row = conversationRow({
+        runId: 'scheduled-mission-root',
+        threadId: 'scheduled-mission-thread',
+        status: 'running',
+        userMessageId: 'unused-user',
+        assistantMessageId: 'unused-assistant',
+      });
+      row.runtime_context_json = JSON.stringify({
+        requestId: 'scheduled-mission-host',
+        conversationProjection: null,
+      });
+      env.repos.runRows.set(row.run_id, row);
+      let reattachCalls = 0;
+      env.runtime.onReattach = async () => {
+        reattachCalls += 1;
+        throw new Error('Mission root must not reach Conversation native reattach.');
+      };
+
+      // The renderer-reload Mission barrier completed first. A scheduler then
+      // started fresh Mission work before Conversation recovery took its DB view.
+      missionStartedAfterReloadBarrier = true;
+      const bootstrap = await env.controller.bootstrapLiveRuns('co');
+
+      assert.equal(bootstrap.complete, true);
+      assert.deepEqual([...bootstrap.protectedRootRunIds], [row.run_id]);
+      assert.deepEqual([...bootstrap.handledRootRunIds], [row.run_id]);
+      assert.equal(reattachCalls, 0);
+      assert.deepEqual(env.runtime.aborts, []);
+      assert.equal(env.controller.isActive(row.thread_id), false);
+      assert.equal(env.controller.getSnapshot(row.thread_id).phase, 'idle');
+      return {
+        protected: [...bootstrap.protectedRootRunIds],
+        reattachCalls,
+        aborts: env.runtime.aborts,
+      };
+    },
+  },
+  {
+    name: 'live hydration race protects a thread owned by another lane',
+    criteria:
+      'Pass when lease ownership changes after Mission filtering: bootstrap protects the valid Conversation root without aborting it, and Resume reports active work rather than missing projection.',
+    run: async () => {
+      const env = makeEnv();
+      const running = conversationRow({
+        runId: 'ownership-race-running',
+        threadId: 'ownership-race-thread',
+        status: 'running',
+        userMessageId: 'ownership-race-user',
+        assistantMessageId: 'ownership-race-assistant',
+      });
+      seedConversationProjection(env, running, 'ownership-race-user', 'ownership-race-assistant');
+      const externalLease = conversationThreadLifecycle.beginRun(running.thread_id);
+      assert.ok(externalLease);
+      try {
+        const bootstrap = await env.controller.bootstrapLiveRuns('co');
+        assert.equal(bootstrap.protectedRootRunIds.has(running.run_id), true);
+        assert.deepEqual(env.runtime.aborts, []);
+        assert.equal(env.controller.isActive(running.thread_id), false);
+
+        const interrupted = { ...running, status: 'interrupted' as const };
+        env.repos.runRows.set(interrupted.run_id, interrupted);
+        await assert.rejects(
+          () => env.controller.resumeInterruptedRun('co', interrupted.run_id),
+          ConversationRunAlreadyActiveError,
+        );
+        return { protected: true, aborts: env.runtime.aborts.length, resume: 'active-work' };
+      } finally {
+        externalLease.release();
+      }
+    },
+  },
+  {
+    name: 'interrupted Resume restores streaming ownership and persists the final reply',
+    criteria:
+      'Pass when Resume hydrates the original message ids, runs through the controller, and replaces the partial checkpoint with one complete assistant reply.',
+    run: async () => {
+      const env = makeEnv();
+      const row = conversationRow({
+        runId: 'resume-root',
+        threadId: 'resume-thread',
+        status: 'interrupted',
+        userMessageId: 'resume-user',
+        assistantMessageId: 'resume-assistant',
+      });
+      seedConversationProjection(env, row, 'resume-user', 'resume-assistant');
+      env.runtime.onResume = async () => ({
+        text: 'resumed final answer',
+        reasoning: 'resumed reasoning',
+      });
+
+      await env.controller.resumeInterruptedRun('co', row.run_id);
+
+      const snapshot = env.controller.getSnapshot(row.thread_id);
+      assert.equal(snapshot.phase, 'completed');
+      assert.equal(snapshot.liveMessages.at(-1)?.id, 'resume-assistant');
+      assert.equal(snapshot.liveMessages.at(-1)?.body, 'resumed final answer');
+      assert.equal(snapshot.liveMessages.at(-1)?.status, 'complete');
+      assert.deepEqual(env.runtime.resumeCalls, ['resume-root']);
+      assert.equal(
+        env.persisted.filter(
+          (call) => call.message.id === 'resume-assistant' && call.message.status === 'complete',
+        ).length,
+        1,
+      );
+      return {
+        phase: snapshot.phase,
+        body: snapshot.liveMessages.at(-1)?.body,
+        resumeCalls: env.runtime.resumeCalls,
+      };
+    },
+  },
+  {
+    name: 'Stop during Resume preflight prevents native work from starting',
+    criteria:
+      'Pass when Stop aborts the controller-owned signal while Resume compatibility is pending, so the native resume lane never starts and the card remains interrupted.',
+    run: async () => {
+      const env = makeEnv();
+      const row = conversationRow({
+        runId: 'resume-stop-root',
+        threadId: 'resume-stop-thread',
+        status: 'interrupted',
+        userMessageId: 'resume-stop-user',
+        assistantMessageId: 'resume-stop-assistant',
+      });
+      seedConversationProjection(env, row, 'resume-stop-user', 'resume-stop-assistant');
+      const finishPreflight = new Deferred<void>();
+      let signalSeen: AbortSignal | undefined;
+      let nativeStarts = 0;
+      env.runtime.onResume = async (_runId, signal) => {
+        signalSeen = signal;
+        await finishPreflight.promise;
+        if (signal?.aborted) {
+          const error = new Error('resume stopped in preflight');
+          error.name = 'AbortError';
+          throw error;
+        }
+        nativeStarts += 1;
+        return { text: 'must not start' };
+      };
+
+      const resume = env.controller.resumeInterruptedRun('co', row.run_id);
+      await waitFor('Resume signal registration', () => signalSeen !== undefined);
+      await env.controller.stopAndWait(row.thread_id);
+      assert.equal(signalSeen?.aborted, true);
+      finishPreflight.resolve();
+      await resume;
+
+      assert.equal(nativeStarts, 0);
+      assert.equal(env.controller.getSnapshot(row.thread_id).phase, 'interrupted');
+      assert.deepEqual(env.runtime.aborts, [row.thread_id]);
+      return {
+        signalAborted: signalSeen?.aborted,
+        nativeStarts,
+        phase: env.controller.getSnapshot(row.thread_id).phase,
+      };
+    },
+  },
+  {
+    name: 'Stop during execute preflight aborts before native work starts',
+    criteria:
+      'Pass when the normal execute lane owns the same AbortSignal as Resume, so Stop during Project/delegation/persistence preflight reaches the runtime and native work never starts.',
+    run: async () => {
+      const env = makeEnv();
+      const finishPreflight = new Deferred<void>();
+      let signalSeen: AbortSignal | undefined;
+      let nativeStarts = 0;
+      env.runtime.onExecute = async (_input, signal) => {
+        signalSeen = signal;
+        await finishPreflight.promise;
+        if (signal?.aborted) {
+          const error = new Error('execute stopped in preflight');
+          error.name = 'AbortError';
+          throw error;
+        }
+        nativeStarts += 1;
+        return { text: 'must not start' };
+      };
+
+      await submitDefault(env.controller, { threadId: 'execute-stop-thread' });
+      await waitFor('execute signal registration', () => signalSeen !== undefined);
+      await env.controller.stopAndWait('execute-stop-thread');
+      assert.equal(signalSeen?.aborted, true);
+      finishPreflight.resolve();
+      await waitFor(
+        'execute stop remains interrupted',
+        () => env.controller.getSnapshot('execute-stop-thread').phase === 'interrupted',
+      );
+
+      assert.equal(nativeStarts, 0);
+      assert.deepEqual(env.runtime.aborts, ['execute-stop-thread']);
+      return {
+        signalAborted: signalSeen?.aborted,
+        nativeStarts,
+        phase: env.controller.getSnapshot('execute-stop-thread').phase,
+      };
+    },
+  },
+  {
+    name: 'Stop keeps thread ownership until the old execute really settles',
+    criteria:
+      'Pass when interrupted UI appears immediately, same-thread Submit remains a zero-write rejection while the old runtime is unresolved, and ownership releases only after settlement.',
+    run: async () => {
+      const env = makeEnv();
+      const oldExecuteStarted = new Deferred<void>();
+      const settleOldExecute = new Deferred<void>();
+      let executeCalls = 0;
+      env.runtime.onExecute = async () => {
+        executeCalls += 1;
+        if (executeCalls === 1) {
+          oldExecuteStarted.resolve(undefined);
+          await settleOldExecute.promise;
+          return { text: 'late stopped response' };
+        }
+        return { text: 'replacement response' };
+      };
+
+      await submitDefault(env.controller, { threadId: 'settle-owned-thread' });
+      await oldExecuteStarted.promise;
+      await env.controller.stopAndWait('settle-owned-thread');
+      assert.equal(env.controller.getSnapshot('settle-owned-thread').phase, 'interrupted');
+      const persistedBeforeBlockedSubmit = env.persisted.length;
+      await assert.rejects(
+        () => submitDefault(env.controller, { threadId: 'settle-owned-thread' }),
+        ConversationRunAlreadyActiveError,
+      );
+      assert.equal(env.persisted.length, persistedBeforeBlockedSubmit);
+      assert.equal(executeCalls, 1);
+
+      settleOldExecute.resolve(undefined);
+      await waitFor(
+        'old ownership retirement',
+        () => !env.controller.isActive('settle-owned-thread'),
+      );
+      await submitDefault(env.controller, { threadId: 'settle-owned-thread' });
+      await waitFor(
+        'replacement execute completed',
+        () => env.controller.getSnapshot('settle-owned-thread').phase === 'completed',
+      );
+      assert.equal(executeCalls, 2);
+      return { blockedWrites: 0, executeCalls, phase: 'completed' };
+    },
+  },
+  {
+    name: 'terminal checkpoint exhaustion auto-recovers without re-executing work',
+    criteria:
+      'Pass when a runtime terminal checkpoint error keeps the same projection subscribed, immediately replays the host terminal snapshot, reaches completed, and never dispatches the user task twice.',
+    run: async () => {
+      const env = makeEnv();
+      let reattachCalls = 0;
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitContent(input, 'durable recovered answer');
+        throw new AgentTerminalCheckpointError(
+          input.runId ?? 'missing-run',
+          new Error('terminal transaction failed three times'),
+        );
+      };
+      env.runtime.onReattach = async (rootRunIds) => {
+        reattachCalls += 1;
+        const [runId] = [...(rootRunIds ?? [])];
+        assert.ok(runId);
+        env.eventBus.emit({
+          type: LIVE_CONVERSATION_TERMINAL_EVENT,
+          entityId: runId,
+          entityType: 'runtime',
+          companyId: 'co',
+          threadId: 'terminal-recovery-thread',
+          timestamp: Date.now(),
+          payload: {
+            runId,
+            status: 'completed',
+            text: 'durable recovered answer',
+          },
+        } satisfies RuntimeEvent<Record<string, unknown>>);
+        return {
+          protectedRootRunIds: new Set([runId]),
+          handledRootRunIds: new Set([runId]),
+          confirmedMissingRootRunIds: new Set(),
+          complete: true,
+        };
+      };
+
+      await submitDefault(env.controller, { threadId: 'terminal-recovery-thread' });
+      await waitFor(
+        'automatic terminal recovery',
+        () => env.controller.getSnapshot('terminal-recovery-thread').phase === 'completed',
+      );
+      const snapshot = env.controller.getSnapshot('terminal-recovery-thread');
+      assert.equal(env.runtime.executeCalls.length, 1);
+      assert.equal(reattachCalls, 1);
+      assert.equal(snapshot.error, null);
+      assert.equal(snapshot.liveMessages.at(-1)?.body, 'durable recovered answer');
+      return {
+        executeCalls: env.runtime.executeCalls.length,
+        reattachCalls,
+        phase: snapshot.phase,
+      };
+    },
+  },
+  {
+    name: 'reload restores a live approval even when its stream cursor already advanced',
+    criteria:
+      'Pass when a handled native run restores its matching active_interactions row as answerable live state regardless of the persisted replay cursor.',
+    run: async () => {
+      const env = makeEnv();
+      const row = conversationRow({
+        runId: 'approval-live-root',
+        threadId: 'approval-live-thread',
+        status: 'running',
+        userMessageId: 'approval-live-user',
+        assistantMessageId: 'approval-live-assistant',
+        streamCursor: 99,
+      });
+      seedConversationProjection(env, row, 'approval-live-user', 'approval-live-assistant');
+      env.repos.seedStaleApproval({
+        threadId: row.thread_id,
+        companyId: row.company_id,
+        attemptId: row.run_id,
+        hostRequestId: 'host-approval-live',
+        uiRequestId: 'ui-approval-live',
+      });
+
+      const bootstrap = await env.controller.bootstrapLiveRuns('co');
+      const approval = env.controller.getSnapshot(row.thread_id).approval;
+      assert.equal(bootstrap.complete, true);
+      assert.equal(approval?.state, 'live');
+      assert.equal(env.controller.getSnapshot(row.thread_id).phase, 'awaiting-approval');
+      assert.ok(approval);
+      await env.controller.answerApproval({
+        threadId: row.thread_id,
+        attemptId: row.run_id,
+        hostRequestId: approval.hostRequestId,
+        uiRequestId: approval.uiRequestId,
+        confirmed: true,
+      });
+      assert.deepEqual(env.runtime.answers, [
+        {
+          requestId: 'host-approval-live',
+          id: 'ui-approval-live',
+          confirmed: true,
+          value: undefined,
+          cancelled: undefined,
+        },
+      ]);
+      return { cursor: 99, approvalState: approval.state, answerCount: 1 };
+    },
+  },
+  {
+    name: 'reload restores delegated workload already behind the replay cursor',
+    criteria:
+      'Pass when a running child from agent_runs repopulates the delegated employee workload before reattach, even though no historical run.started event is replayed.',
+    run: async () => {
+      const env = makeEnv();
+      const root = conversationRow({
+        runId: 'delegation-live-root',
+        threadId: 'delegation-live-thread',
+        status: 'running',
+        userMessageId: 'delegation-live-user',
+        assistantMessageId: 'delegation-live-assistant',
+        streamCursor: 77,
+      });
+      const child: AgentRunRow = {
+        ...root,
+        run_id: 'delegation-live-child',
+        parent_run_id: root.run_id,
+        root_run_id: root.run_id,
+        employee_id: 'emp-delegated',
+        relation: 'delegate',
+        work_kind: 'implement',
+        objective: 'Implement the delegated slice',
+        runtime_context_json: null,
+      };
+      seedConversationProjection(env, root, 'delegation-live-user', 'delegation-live-assistant');
+      env.repos.runRows.set(child.run_id, child);
+
+      await env.controller.bootstrapLiveRuns('co');
+      const snapshot = env.controller.getSnapshot(root.thread_id);
+      const workloads = projectEmployeeWorkloads(env.controller.getGlobalSnapshot(), 'prj');
+      assert.deepEqual(
+        snapshot.delegations.map((delegation) => [
+          delegation.runId,
+          delegation.employeeId,
+          delegation.state,
+          delegation.workKind,
+        ]),
+        [['delegation-live-child', 'emp-delegated', 'running', 'implement']],
+      );
+      assert.deepEqual(workloads.get('emp-delegated')?.activeRunIds, [child.run_id]);
+      assert.equal(workloads.get('emp-delegated')?.activeCount, 1);
+      return {
+        cursor: 77,
+        delegatedEmployee: 'emp-delegated',
+        activeRuns: workloads.get('emp-delegated')?.activeRunIds,
+      };
+    },
+  },
+  {
+    name: 'incomplete live bootstrap retries before classifying approval stale',
+    criteria:
+      'Pass when a transient native reattach failure rejects approval hydration without publishing stale state, then the next hydration restores the same request as live.',
+    run: async () => {
+      const env = makeEnv();
+      const row = conversationRow({
+        runId: 'approval-retry-root',
+        threadId: 'approval-retry-thread',
+        status: 'running',
+        userMessageId: 'approval-retry-user',
+        assistantMessageId: 'approval-retry-assistant',
+      });
+      seedConversationProjection(env, row, 'approval-retry-user', 'approval-retry-assistant');
+      env.repos.seedStaleApproval({
+        threadId: row.thread_id,
+        companyId: row.company_id,
+        attemptId: row.run_id,
+        hostRequestId: 'host-approval-retry',
+        uiRequestId: 'ui-approval-retry',
+      });
+      let attempts = 0;
+      env.runtime.onReattach = async (rootRunIds) => {
+        attempts += 1;
+        if (attempts === 1) throw new Error('transient native snapshot failure');
+        return {
+          protectedRootRunIds: new Set(rootRunIds ?? []),
+          handledRootRunIds: new Set(rootRunIds ?? []),
+          confirmedMissingRootRunIds: new Set(),
+          complete: true,
+        };
+      };
+
+      await assert.rejects(
+        () => env.controller.hydrateStaleApprovals('co'),
+        /bootstrap is incomplete/u,
+      );
+      assert.notEqual(env.controller.getSnapshot(row.thread_id).approval?.state, 'stale');
+      await env.controller.hydrateStaleApprovals('co');
+      assert.equal(env.controller.getSnapshot(row.thread_id).approval?.state, 'live');
+      assert.equal(attempts, 2);
+      return { attempts, finalApproval: 'live' };
+    },
+  },
   {
     name: 'conversation mutation lock blocks submit and retry during archive/delete',
     criteria:
@@ -671,8 +1665,9 @@ const scenarios: Array<{
           materialize: async () => {
             materializeCalls += 1;
             return {
-              start: async () => {
+              start: async (threadRunLease) => {
                 startCalls += 1;
+                threadRunLease?.release();
               },
               compensate: async () => {
                 compensateCalls += 1;
@@ -716,9 +1711,10 @@ const scenarios: Array<{
           materialize: async () => {
             materializeCalls += 1;
             return {
-              start: async () => {
+              start: async (threadRunLease) => {
                 startCalls += 1;
                 if (startCalls === 1) throw new Error('runtime assembly unavailable');
+                threadRunLease?.release();
               },
               compensate: async () => {
                 compensateCalls += 1;
@@ -750,6 +1746,114 @@ const scenarios: Array<{
     },
   },
   {
+    name: 'Stop during prelaunch Loop handoff keeps the exact ready Mission retryable',
+    criteria:
+      'Pass when Stop aborts a pending Mission assembly before paid launch, preserves interrupted UI, releases the thread, and Retry reuses the exact ready Mission.',
+    run: async () => {
+      const env = makeEnv();
+      const startEntered = new Deferred<void>();
+      const releaseStart = new Deferred<void>();
+      let materializeCalls = 0;
+      let startCalls = 0;
+      let paidLaunches = 0;
+      const handle = await submitDefault(env.controller, {
+        loopExecution: {
+          materialize: async () => {
+            materializeCalls += 1;
+            return {
+              start: async (threadRunLease, signal) => {
+                startCalls += 1;
+                startEntered.resolve(undefined);
+                await releaseStart.promise;
+                if (signal?.aborted) {
+                  threadRunLease?.release();
+                  const error = new Error('stopped before launch');
+                  error.name = 'AbortError';
+                  throw error;
+                }
+                paidLaunches += 1;
+                threadRunLease?.release();
+              },
+              compensate: async () => {},
+            };
+          },
+        },
+      });
+      await startEntered.promise;
+      await env.controller.stopAndWait('thread-1');
+      releaseStart.resolve(undefined);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal(paidLaunches, 0);
+      assert.equal(env.controller.getSnapshot('thread-1').phase, 'interrupted');
+
+      await env.controller.retry('thread-1', handle.attemptId);
+      await waitFor(
+        'exact ready Mission retry completed',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      assert.equal(materializeCalls, 1);
+      assert.equal(startCalls, 2);
+      assert.equal(paidLaunches, 1);
+      return { materializeCalls, startCalls, paidLaunches };
+    },
+  },
+  {
+    name: 'Stop after Loop launch aborts it and Retry rematerializes a new Mission',
+    criteria:
+      'Pass when a launched Mission receives Stop, late launch receipt cannot overwrite interrupted UI, and Retry never reuses the cancelled Mission handoff.',
+    run: async () => {
+      const env = makeEnv();
+      const launchEntered = new Deferred<void>();
+      const releaseLaunchReceipt = new Deferred<void>();
+      let materializeCalls = 0;
+      let paidLaunches = 0;
+      let launchAborts = 0;
+      const handle = await submitDefault(env.controller, {
+        loopExecution: {
+          materialize: async () => {
+            materializeCalls += 1;
+            const materialization = materializeCalls;
+            return {
+              start: async (threadRunLease, signal) => {
+                paidLaunches += 1;
+                if (materialization === 1) {
+                  signal?.addEventListener(
+                    'abort',
+                    () => {
+                      launchAborts += 1;
+                      threadRunLease?.release();
+                    },
+                    { once: true },
+                  );
+                  launchEntered.resolve(undefined);
+                  await releaseLaunchReceipt.promise;
+                  return;
+                }
+                threadRunLease?.release();
+              },
+              compensate: async () => {},
+            };
+          },
+        },
+      });
+      await launchEntered.promise;
+      await env.controller.stopAndWait('thread-1');
+      releaseLaunchReceipt.resolve(undefined);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal(launchAborts, 1);
+      assert.equal(env.controller.getSnapshot('thread-1').phase, 'interrupted');
+
+      await env.controller.retry('thread-1', handle.attemptId);
+      await waitFor(
+        'replacement Mission completed',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      assert.equal(materializeCalls, 2, 'cancelled Mission handoff is never reused');
+      assert.equal(paidLaunches, 2);
+      return { materializeCalls, paidLaunches, launchAborts };
+    },
+  },
+  {
     name: 'Stop while Loop materialization is pending compensates without persist or paid start',
     criteria:
       'Pass when Stop wins a deferred materialization race, the returned preparation is compensated, and neither the user message nor Mission run starts.',
@@ -765,8 +1869,9 @@ const scenarios: Array<{
             materializeStarted.resolve(undefined);
             await releaseMaterialize.promise;
             return {
-              start: async () => {
+              start: async (threadRunLease) => {
                 startCalls += 1;
+                threadRunLease?.release();
               },
               compensate: async () => {
                 compensateCalls += 1;
@@ -808,8 +1913,9 @@ const scenarios: Array<{
           materialize: async () => {
             materializeCalls += 1;
             return {
-              start: async () => {
+              start: async (threadRunLease) => {
                 startCalls += 1;
+                threadRunLease?.release();
               },
               compensate: async () => {},
             };
@@ -900,7 +2006,9 @@ const scenarios: Array<{
         () => env.controller.getSnapshot('thread-1').phase === 'interrupted',
       );
       assert.deepEqual(env.runtime.aborts, ['thread-1']);
-      assert.ok(env.persisted.some((call) => call.message.status === 'interrupted'));
+      await waitFor('durable interrupted checkpoint after runtime settlement', () =>
+        env.persisted.some((call) => call.message.status === 'interrupted'),
+      );
       return {
         phase: env.controller.getSnapshot('thread-1').phase,
         aborts: env.runtime.aborts,
@@ -932,14 +2040,26 @@ const scenarios: Array<{
       await finalPersistStarted.promise;
       await env.controller.stopAndWait('thread-1');
       assert.equal(env.controller.getSnapshot('thread-1').phase, 'interrupted');
-      assert.ok(persistedStatuses.includes('interrupted'));
+      assert.equal(
+        persistedStatuses.includes('interrupted'),
+        false,
+        'durable interruption must wait behind the already-started final write',
+      );
 
       releaseFinalPersist.resolve(undefined);
-      await new Promise<void>((resolve) => setImmediate(resolve));
+      await waitFor(
+        'interrupted terminal persistence wins last',
+        () => persistedStatuses.at(-1) === 'interrupted',
+      );
       assert.equal(
         env.controller.getSnapshot('thread-1').phase,
         'interrupted',
         'late final persistence must not resurrect the stopped run',
+      );
+      assert.equal(
+        persistedStatuses.at(-1),
+        'interrupted',
+        'event replay must observe interrupted as the final assistant state',
       );
       return {
         phase: env.controller.getSnapshot('thread-1').phase,
@@ -993,10 +2113,34 @@ const scenarios: Array<{
   {
     name: 'tool activity is live, persisted, and stripped from stored messages',
     criteria:
-      'Pass when tool start/completion updates activity, appends a terminal tool event, and no persisted chat message stores toolCalls.',
+      'Pass when workspace status and tool start/completion update activity, append terminal tool events, and no persisted chat message stores toolCalls.',
     run: async () => {
       const env = makeEnv();
+      const workspaceProvenance: WorkspaceProvenance = {
+        availability: 'bound',
+        source: 'conversation_history',
+        reasonCode: 'recent_successful_workspace',
+        displayPath: '~/Projects/offisim',
+      };
+      const workspaceDetail = formatWorkspaceProvenance(workspaceProvenance);
+      assert.ok(workspaceDetail);
       env.runtime.onExecute = async (input) => {
+        env.runtime.emitTool(
+          input,
+          'started',
+          'workspace-status',
+          'Workspace',
+          undefined,
+          workspaceProvenance,
+        );
+        env.runtime.emitTool(
+          input,
+          'completed',
+          'workspace-status',
+          'Workspace',
+          undefined,
+          workspaceProvenance,
+        );
         env.runtime.emitTool(
           input,
           'started',
@@ -1023,8 +2167,12 @@ const scenarios: Array<{
         () => env.controller.getSnapshot('thread-1').phase === 'completed',
       );
       const snapshot = env.controller.getSnapshot('thread-1');
-      assert.equal(snapshot.activity[0]?.state, 'done');
-      const richDetail = snapshot.activity[0]?.richDetail;
+      const workspaceActivity = snapshot.activity.find((entry) => entry.id === 'workspace-status');
+      assert.equal(workspaceActivity?.state, 'done');
+      assert.equal(workspaceActivity?.detail, workspaceDetail);
+      const shellActivity = snapshot.activity.find((entry) => entry.id === 'tool-shell');
+      assert.equal(shellActivity?.state, 'done');
+      const richDetail = shellActivity?.richDetail;
       assert.equal(richDetail?.family, 'terminal');
       if (richDetail?.family !== 'terminal') throw new Error('expected terminal rich detail');
       assert.equal(richDetail.command, 'ls -la');
@@ -1169,9 +2317,16 @@ const scenarios: Array<{
         hostRequestId: 'host-stale',
         uiRequestId: 'ui-stale',
       });
-      env.runtime.onExecute = async (input) => {
+      env.runtime.onExecute = async (input, signal) => {
         env.runtime.emitContent(input, `running ${input.threadId}`);
-        await new Promise(() => undefined);
+        await new Promise<void>((resolve) => signal?.addEventListener('abort', () => resolve()));
+        return { text: '' };
+      };
+      let freshLookupCalls = 0;
+      const findFreshCandidate = env.repos.agentRuns.findLatestFreshSessionCandidate;
+      env.repos.agentRuns.findLatestFreshSessionCandidate = async (companyId, threadId) => {
+        freshLookupCalls += 1;
+        return findFreshCandidate(companyId, threadId);
       };
       await env.controller.hydrateStaleApprovals('co');
       await submitDefault(env.controller, { threadId: 'direct-thread', employeeId: 'emp-1' });
@@ -1201,6 +2356,7 @@ const scenarios: Array<{
       assert.equal(employeeStates.get('emp-1')?.dominant?.state, 'working');
       assert.equal(employeeStates.get('emp-1')?.activeCount, 1);
       assert.equal(employeeStates.size, 1);
+      assert.equal(freshLookupCalls, 0, 'approval hydration never scans Fresh-session candidates');
       return {
         staleApproval: env.controller.getSnapshot('stale-thread').approval?.state,
         employeeStates: Array.from(employeeStates.entries()),
@@ -1300,9 +2456,10 @@ const scenarios: Array<{
       'Pass when two concurrent runs on one employee collapse to a single workload entry with activeCount = 2 and a working dominant — never a duplicated actor.',
     run: async () => {
       const env = makeEnv();
-      env.runtime.onExecute = async (input) => {
+      env.runtime.onExecute = async (input, signal) => {
         env.runtime.emitContent(input, `running ${input.threadId}`);
-        await new Promise(() => undefined);
+        await new Promise<void>((resolve) => signal?.addEventListener('abort', () => resolve()));
+        return { text: '' };
       };
       await submitDefault(env.controller, { threadId: 'thread-a', employeeId: 'emp-1' });
       await submitDefault(env.controller, { threadId: 'thread-b', employeeId: 'emp-1' });
@@ -1320,6 +2477,9 @@ const scenarios: Array<{
         emp?.workloadChips.map((chip) => chip.label),
         ['Work', 'Work'],
       );
+      await env.controller.stopAndWait('thread-a');
+      await env.controller.stopAndWait('thread-b');
+      await new Promise<void>((resolve) => setImmediate(resolve));
       return {
         activeCount: emp?.activeCount,
         activeRunIds: [...(emp?.activeRunIds ?? [])],
@@ -1333,13 +2493,14 @@ const scenarios: Array<{
       'Pass when a completed run B drops out of the workload and the still-running run A becomes the dominant — the office returns to active work, not the just-finished run.',
     run: async () => {
       const env = makeEnv();
-      env.runtime.onExecute = async (input) => {
+      env.runtime.onExecute = async (input, signal) => {
         if (input.threadId === 'thread-b') {
           env.runtime.emitContent(input, 'done b');
           return { text: 'done b' };
         }
         env.runtime.emitContent(input, 'running a');
-        await new Promise(() => undefined);
+        await new Promise<void>((resolve) => signal?.addEventListener('abort', () => resolve()));
+        return { text: '' };
       };
       await submitDefault(env.controller, { threadId: 'thread-a', employeeId: 'emp-1' });
       await submitDefault(env.controller, { threadId: 'thread-b', employeeId: 'emp-1' });
@@ -1354,6 +2515,8 @@ const scenarios: Array<{
       assert.equal(emp?.activeCount, 1);
       assert.equal(emp?.dominant?.state, 'working');
       assert.equal(emp?.dominant?.runId, attemptA);
+      await env.controller.stopAndWait('thread-a');
+      await new Promise<void>((resolve) => setImmediate(resolve));
       return { activeCount: emp?.activeCount, dominantRunId: emp?.dominant?.runId, attemptA };
     },
   },
@@ -1460,6 +2623,386 @@ const scenarios: Array<{
       assert.equal(cancelled?.failureKind, undefined, 'cancelled terminal carries no failureKind');
       return {
         delegations: delegations.map((d) => [d.runId, d.state, d.workKind, d.failureKind ?? null]),
+      };
+    },
+  },
+  {
+    name: 'reload restores exact Fresh action and keeps attachment internals out of titles',
+    criteria:
+      'Pass when a latest failed plain Conversation Turn hydrates only Start fresh session, executes the materialized prompt with exact source authority, and titles from the visible user body.',
+    run: async () => {
+      const env = makeEnv();
+      const userBody = 'Review the attached launch brief';
+      const materialized = `${userBody}\n\n[attachments:1 internal-ref=vault-brief]`;
+      seedFreshSessionSource(env, {
+        runId: 'fresh-reload-source',
+        threadId: 'fresh-reload-thread',
+        recoveryLane: 'conversation',
+        userBody,
+        objective: materialized,
+        attachments: [
+          {
+            id: 'vault-brief',
+            name: 'launch-brief.md',
+            sizeLabel: '12 B',
+            kind: 'document',
+          },
+        ],
+      });
+      env.runtime.onExecute = async (input) => ({
+        text: 'Fresh work completed',
+        provenance: {
+          engineId: 'pi-agent',
+          accountId: 'subscription-test',
+          billingMode: 'subscription',
+          modelId: 'provider/model-leaf',
+          runId: input.runId ?? 'missing-run',
+        },
+      });
+
+      await env.controller.hydrateFreshSessionAction('co', 'fresh-reload-thread');
+      const hydrated = env.controller.getSnapshot('fresh-reload-thread');
+      assert.equal(hydrated.phase, 'failed');
+      assert.equal(hydrated.error?.recoveryAction?.label, 'Start fresh session');
+      assert.equal(
+        hydrated.error?.retry,
+        undefined,
+        'Fresh and ordinary Retry are mutually exclusive',
+      );
+      let threadLookupCallsAfterHydration = 0;
+      const threadLookup = env.repos.agentRuns.findLatestFreshSessionCandidate;
+      env.repos.agentRuns.findLatestFreshSessionCandidate = async (
+        companyId: string,
+        threadId: string,
+      ) => {
+        threadLookupCallsAfterHydration += 1;
+        return threadLookup(companyId, threadId);
+      };
+      let exactSourceCalls = 0;
+      const findFreshSource = env.repos.agentRuns.findFreshSessionSource;
+      env.repos.agentRuns.findFreshSessionSource = async (
+        companyId: string,
+        threadId: string,
+        sourceRunId: string,
+      ) => {
+        exactSourceCalls += 1;
+        return findFreshSource(companyId, threadId, sourceRunId);
+      };
+      hydrated.error?.recoveryAction?.run();
+      await waitFor(
+        'reloaded Fresh completion',
+        () => env.controller.getSnapshot('fresh-reload-thread').phase === 'completed',
+      );
+      await waitFor('semantic title input', () => env.runtime.generateTextCalls.length === 1);
+      const execute = env.runtime.executeCalls[0];
+      const titleInput = env.runtime.generateTextCalls[0]?.text ?? '';
+      assert.equal(execute?.text, materialized, 'agent receives the durable materialized prompt');
+      assert.equal(execute?.nativeSessionMode, 'fresh');
+      assert.equal(execute?.nativeSessionResetSourceRunId, 'fresh-reload-source');
+      assert.equal(
+        threadLookupCallsAfterHydration,
+        0,
+        'one Fresh click revalidates only its exact source and never rehydrates the thread',
+      );
+      assert.equal(exactSourceCalls, 1, 'one Fresh click performs one exact source lookup');
+      assert.match(titleInput, /User:\nReview the attached launch brief/u);
+      assert.doesNotMatch(titleInput, /attachments:1|internal-ref|vault-brief/u);
+      return {
+        action: hydrated.error?.recoveryAction?.label,
+        retry: hydrated.error?.retry ?? null,
+        executeText: execute?.text,
+        sourceRunId: execute?.nativeSessionResetSourceRunId,
+        threadLookupCallsAfterHydration,
+        exactSourceCalls,
+        titleInput,
+      };
+    },
+  },
+  {
+    name: 'Fresh hydration cannot overwrite a newer completed Turn after message I/O',
+    criteria:
+      'Pass when a newer durable Turn completes while old Fresh messages are loading and the post-await exact-source check refuses to publish the stale recovery action.',
+    run: async () => {
+      const loadEntered = new Deferred<void>();
+      const releaseLoad = new Deferred<void>();
+      const env = makeEnv({
+        beforeLoadMessagesByIds: async () => {
+          loadEntered.resolve();
+          await releaseLoad.promise;
+        },
+      });
+      const source = seedFreshSessionSource(env, {
+        runId: 'fresh-hydration-stale-source',
+        threadId: 'fresh-hydration-stale-thread',
+        recoveryLane: 'conversation',
+      });
+      let exactSourceCalls = 0;
+      const findFreshSource = env.repos.agentRuns.findFreshSessionSource;
+      env.repos.agentRuns.findFreshSessionSource = async (
+        companyId: string,
+        threadId: string,
+        sourceRunId: string,
+      ) => {
+        exactSourceCalls += 1;
+        return findFreshSource(companyId, threadId, sourceRunId);
+      };
+
+      const hydration = env.controller.hydrateFreshSessionAction(
+        'co',
+        'fresh-hydration-stale-thread',
+      );
+      await loadEntered.promise;
+      env.repos.runRows.set('fresh-hydration-newer', {
+        ...source.row,
+        run_id: 'fresh-hydration-newer',
+        root_run_id: 'fresh-hydration-newer',
+        status: 'completed',
+        session_file: '/native/fresh-hydration-newer.jsonl',
+        started_at: '2026-06-20T00:00:02.000Z',
+        finished_at: '2026-06-20T00:00:03.000Z',
+      });
+      releaseLoad.resolve();
+      await hydration;
+
+      const snapshot = env.controller.getSnapshot('fresh-hydration-stale-thread');
+      assert.equal(exactSourceCalls, 1, 'hydration rechecks the exact source after message I/O');
+      assert.equal(snapshot.phase, 'idle');
+      assert.equal(snapshot.attemptId, null);
+      assert.equal(snapshot.error, null, 'stale Fresh action never overwrites the newer Turn');
+      return {
+        exactSourceCalls,
+        phase: snapshot.phase,
+        staleAction: snapshot.error?.recoveryAction?.label ?? null,
+      };
+    },
+  },
+  {
+    name: 'Fresh double-click starts one attempt and cannot overwrite its snapshot',
+    criteria:
+      'Pass when two invocations share the preflight mutation lease, dispatch exactly one Fresh attempt, and the rejected duplicate cannot replace the new running snapshot.',
+    run: async () => {
+      const env = makeEnv();
+      seedFreshSessionSource(env, {
+        runId: 'fresh-double-source',
+        threadId: 'fresh-double-thread',
+        recoveryLane: 'conversation',
+      });
+      await env.controller.hydrateFreshSessionAction('co', 'fresh-double-thread');
+      const sourceSnapshot = env.controller.getSnapshot('fresh-double-thread');
+      const action = sourceSnapshot.error?.recoveryAction?.run;
+      assert.ok(action);
+
+      const lookupEntered = new Deferred<void>();
+      const releaseLookup = new Deferred<void>();
+      const findFreshSource = env.repos.agentRuns.findFreshSessionSource;
+      env.repos.agentRuns.findFreshSessionSource = async (
+        companyId: string,
+        threadId: string,
+        sourceRunId: string,
+      ) => {
+        lookupEntered.resolve();
+        await releaseLookup.promise;
+        return findFreshSource(companyId, threadId, sourceRunId);
+      };
+      env.runtime.onExecute = async (_input, signal) => {
+        await new Promise<void>((resolve) => signal?.addEventListener('abort', () => resolve()));
+        const error = new Error('stopped');
+        error.name = 'AbortError';
+        throw error;
+      };
+
+      action();
+      action();
+      await lookupEntered.promise;
+      releaseLookup.resolve();
+      await waitFor('single Fresh dispatch', () => env.runtime.executeCalls.length === 1);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      const running = env.controller.getSnapshot('fresh-double-thread');
+      assert.notEqual(running.attemptId, 'fresh-double-source');
+      assert.equal(running.phase, 'running');
+      assert.equal(running.error, null);
+      assert.equal(env.runtime.executeCalls.length, 1);
+      await env.controller.stopAndWait('fresh-double-thread');
+      return {
+        executeCalls: env.runtime.executeCalls.length,
+        runningAttempt: running.attemptId,
+        duplicateDidNotOverwrite: running.error === null,
+      };
+    },
+  },
+  {
+    name: 'Fresh preflight blocks concurrent Submit before any write or dispatch',
+    criteria:
+      'Pass when Fresh owns the Conversation before its first DB await, so a same-thread Submit is rejected without persistence and Fresh remains the only dispatched attempt.',
+    run: async () => {
+      const env = makeEnv();
+      seedFreshSessionSource(env, {
+        runId: 'fresh-submit-source',
+        threadId: 'fresh-submit-thread',
+        recoveryLane: 'conversation',
+      });
+      await env.controller.hydrateFreshSessionAction('co', 'fresh-submit-thread');
+      const persistedBefore = env.persisted.length;
+      const lookupEntered = new Deferred<void>();
+      const releaseLookup = new Deferred<void>();
+      const findFreshSource = env.repos.agentRuns.findFreshSessionSource;
+      env.repos.agentRuns.findFreshSessionSource = async (
+        companyId: string,
+        threadId: string,
+        sourceRunId: string,
+      ) => {
+        lookupEntered.resolve();
+        await releaseLookup.promise;
+        return findFreshSource(companyId, threadId, sourceRunId);
+      };
+      env.runtime.onExecute = async () => ({ text: 'Fresh only' });
+      env.controller.getSnapshot('fresh-submit-thread').error?.recoveryAction?.run();
+      await lookupEntered.promise;
+      await assert.rejects(
+        () =>
+          submitDefault(env.controller, {
+            threadId: 'fresh-submit-thread',
+            text: 'Competing submit',
+          }),
+        ConversationRunMutationLockedError,
+      );
+      assert.equal(env.persisted.length, persistedBefore, 'blocked Submit wrote no message');
+      const blockedWriteDelta = env.persisted.length - persistedBefore;
+      assert.equal(env.runtime.executeCalls.length, 0, 'Fresh waits for durable validation');
+      releaseLookup.resolve();
+      await waitFor(
+        'Fresh after concurrent Submit rejection',
+        () => env.controller.getSnapshot('fresh-submit-thread').phase === 'completed',
+      );
+      assert.equal(env.runtime.executeCalls.length, 1);
+      return {
+        blockedWrites: blockedWriteDelta,
+        executeCalls: env.runtime.executeCalls.length,
+        phase: env.controller.getSnapshot('fresh-submit-thread').phase,
+      };
+    },
+  },
+  {
+    name: 'reload fails closed for every non-Conversation recovery lane',
+    criteria:
+      'Pass when direct delegation, Mission, and unclassified legacy rows never hydrate a Fresh action that would silently downgrade them into plain chat.',
+    run: async () => {
+      const env = makeEnv();
+      seedFreshSessionSource(env, {
+        runId: 'fresh-direct-source',
+        threadId: 'fresh-direct-thread',
+        recoveryLane: 'direct-delegation',
+      });
+      seedFreshSessionSource(env, {
+        runId: 'fresh-mission-source',
+        threadId: 'fresh-mission-thread',
+        recoveryLane: 'mission',
+      });
+      const legacy = seedFreshSessionSource(env, {
+        runId: 'fresh-legacy-source',
+        threadId: 'fresh-legacy-thread',
+        recoveryLane: 'conversation',
+      });
+      const legacyContext = JSON.parse(legacy.row.runtime_context_json ?? '{}') as Record<
+        string,
+        unknown
+      >;
+      legacyContext.recoveryLane = undefined;
+      legacy.row.runtime_context_json = JSON.stringify(legacyContext);
+
+      for (const threadId of [
+        'fresh-direct-thread',
+        'fresh-mission-thread',
+        'fresh-legacy-thread',
+      ]) {
+        await env.controller.hydrateFreshSessionAction('co', threadId);
+        const snapshot = env.controller.getSnapshot(threadId);
+        assert.equal(snapshot.attemptId, null, `${threadId} must not become plain chat`);
+        assert.equal(snapshot.error?.recoveryAction, undefined);
+      }
+      return {
+        hydratedActions: [
+          'fresh-direct-thread',
+          'fresh-mission-thread',
+          'fresh-legacy-thread',
+        ].filter((threadId) => Boolean(env.controller.getSnapshot(threadId).error?.recoveryAction)),
+      };
+    },
+  },
+  {
+    name: 'workspace producer stays silent for current Project and discloses recovery exactly once',
+    criteria:
+      'Pass when the production disclosure decision emits no Workspace activity/payload for the current Project, while a recovered binding becomes exact live activity and durable message content.',
+    run: async () => {
+      const env = makeEnv();
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitWorkspaceBinding(
+          input,
+          workspaceClaim(input, 'project_catalog', 'current_project_folder'),
+        );
+        env.runtime.emitContent(input, 'normal answer');
+        return { text: 'normal answer' };
+      };
+      await submitDefault(env.controller, { threadId: 'workspace-current-thread' });
+      await waitFor(
+        'current Project completion',
+        () => env.controller.getSnapshot('workspace-current-thread').phase === 'completed',
+      );
+      const current = env.controller.getSnapshot('workspace-current-thread');
+      assert.equal(current.activity.filter((item) => item.tool === 'Workspace').length, 0);
+      assert.equal(current.liveMessages[1]?.workspaceProvenance, undefined);
+      assert.equal(
+        env.persisted.find(
+          (call) =>
+            call.message.threadId === 'workspace-current-thread' &&
+            call.message.author === 'employee' &&
+            call.message.status === 'complete',
+        )?.message.workspaceProvenance,
+        undefined,
+      );
+
+      const provenance: WorkspaceProvenance = {
+        availability: 'bound',
+        source: 'conversation_history',
+        reasonCode: 'recent_successful_workspace',
+        displayPath: '/Users/test/Projects/offisim',
+      };
+      const detail = formatWorkspaceProvenance(provenance);
+      assert.ok(detail);
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitWorkspaceBinding(
+          input,
+          workspaceClaim(input, 'conversation_history', 'recent_successful_workspace'),
+        );
+        env.runtime.emitContent(input, 'recovered answer');
+        return { text: 'recovered answer' };
+      };
+      await submitDefault(env.controller, { threadId: 'workspace-recovered-thread' });
+      await waitFor(
+        'recovered Project completion',
+        () => env.controller.getSnapshot('workspace-recovered-thread').phase === 'completed',
+      );
+      const recovered = env.controller.getSnapshot('workspace-recovered-thread');
+      const workspaceItems = recovered.activity.filter((item) => item.tool === 'Workspace');
+      assert.equal(workspaceItems.length, 1);
+      assert.equal(workspaceItems[0]?.detail, detail);
+      assert.deepEqual(recovered.liveMessages[1]?.workspaceProvenance, provenance);
+      const durable = env.persisted.find(
+        (call) =>
+          call.message.threadId === 'workspace-recovered-thread' &&
+          call.message.author === 'employee' &&
+          call.message.status === 'complete',
+      )?.message;
+      assert.deepEqual(durable?.workspaceProvenance, provenance);
+      const reloaded = JSON.parse(JSON.stringify(durable)) as ChatMessage;
+      assert.deepEqual(reloaded.workspaceProvenance, provenance);
+      return {
+        currentWorkspaceActivities: current.activity.filter((item) => item.tool === 'Workspace')
+          .length,
+        currentProvenance: current.liveMessages[1]?.workspaceProvenance ?? null,
+        recoveredWorkspaceActivities: workspaceItems.length,
+        recoveredDetail: workspaceItems[0]?.detail,
+        reloadedProvenance: reloaded.workspaceProvenance,
       };
     },
   },

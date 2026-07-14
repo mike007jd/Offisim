@@ -295,6 +295,105 @@ export interface AgentRunStatusUpdateOptions {
   failureKind?: string | null;
 }
 
+export const RESETTABLE_NATIVE_SESSION_PRESTART_CODES = [
+  'native-session-missing',
+  'native-session-invalid',
+  'native-session-runtime-incompatible',
+  'native-session-context-invalid',
+] as const;
+
+export type ResettableNativeSessionPrestartCode =
+  (typeof RESETTABLE_NATIVE_SESSION_PRESTART_CODES)[number];
+
+export function isResettableNativeSessionPrestartCode(
+  value: unknown,
+): value is ResettableNativeSessionPrestartCode {
+  return (
+    typeof value === 'string' &&
+    (RESETTABLE_NATIVE_SESSION_PRESTART_CODES as readonly string[]).includes(value)
+  );
+}
+
+export interface FreshSessionConversationProjection {
+  userMessageId: string;
+  assistantMessageId: string;
+  source: 'office' | 'workspace';
+  model?: string;
+  permissionMode?: string;
+  thinkingLevel?: string;
+}
+
+export interface FreshSessionContext {
+  nativeSessionPrestartErrorCode: ResettableNativeSessionPrestartCode;
+  projectId: string | null;
+  projection: FreshSessionConversationProjection;
+}
+
+function trimmedString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+/**
+ * Decode the sole durable authority for a plain-Conversation Fresh action.
+ * Persistence queries may narrow candidate rows, but every backend and caller
+ * must pass this typed predicate before exposing or executing the action.
+ */
+export function decodeFreshSessionContext(row: AgentRunRow): FreshSessionContext | null {
+  if (
+    row.run_id !== row.root_run_id ||
+    row.parent_run_id !== null ||
+    row.status !== 'failed' ||
+    row.session_file !== null ||
+    !row.runtime_context_json
+  ) {
+    return null;
+  }
+
+  let context: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(row.runtime_context_json) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    context = parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  if (
+    !isResettableNativeSessionPrestartCode(context.nativeSessionPrestartErrorCode) ||
+    context.nativeSessionReset === true ||
+    context.recoveryLane !== 'conversation' ||
+    !context.conversationProjection ||
+    typeof context.conversationProjection !== 'object' ||
+    Array.isArray(context.conversationProjection)
+  ) {
+    return null;
+  }
+
+  const projection = context.conversationProjection as Record<string, unknown>;
+  const userMessageId = trimmedString(projection.userMessageId);
+  const assistantMessageId = trimmedString(projection.assistantMessageId);
+  const source = projection.source;
+  if (!userMessageId || !assistantMessageId || (source !== 'office' && source !== 'workspace')) {
+    return null;
+  }
+
+  const model = trimmedString(context.model);
+  const permissionMode = trimmedString(context.permissionMode);
+  const thinkingLevel = trimmedString(context.thinkingLevel);
+  return {
+    nativeSessionPrestartErrorCode: context.nativeSessionPrestartErrorCode,
+    projectId: trimmedString(context.projectId),
+    projection: {
+      userMessageId,
+      assistantMessageId,
+      source,
+      ...(model ? { model } : {}),
+      ...(permissionMode ? { permissionMode } : {}),
+      ...(thinkingLevel ? { thinkingLevel } : {}),
+    },
+  };
+}
+
 export interface AgentRunRepository {
   create(run: NewAgentRun): Promise<AgentRunRow>;
   findById(runId: string): Promise<AgentRunRow | null>;
@@ -305,6 +404,16 @@ export interface AgentRunRepository {
    *  durable-resume reconciliation (find `running` → mark `interrupted`) and the
    *  recovery board (list `interrupted`). Empty `statuses` yields no rows. */
   findByStatus(companyId: string, statuses: string[]): Promise<AgentRunRow[]>;
+  /** Exact current-Conversation hydration lookup: returns the latest durable
+   * root only when it remains an exact plain-Conversation Fresh candidate. */
+  findLatestFreshSessionCandidate(companyId: string, threadId: string): Promise<AgentRunRow | null>;
+  /** Exact source lookup for one Fresh action. Returns the row only while it is
+   * still the latest root in that company/thread and remains Fresh-eligible. */
+  findFreshSessionSource(
+    companyId: string,
+    threadId: string,
+    sourceRunId: string,
+  ): Promise<AgentRunRow | null>;
   updateStatus(runId: string, status: string, opts?: AgentRunStatusUpdateOptions): Promise<void>;
   /**
    * Tenant-scoped terminal/status mutation for UI actions that originate from a
@@ -1102,6 +1211,7 @@ export type NewAgentEvent = Omit<AgentEventRow, 'created_at'> & { created_at?: s
 
 export interface AgentEventRepository {
   append(event: NewAgentEvent): Promise<AgentEventRow>;
+  findById(eventId: string): Promise<AgentEventRow | null>;
   findByProject(
     projectId: string,
     opts?: { limit?: number; eventType?: string },
@@ -1377,7 +1487,9 @@ export interface MissionEvaluationRepository {
 export interface RuntimeSessionLinkRepository {
   insert(row: NewRuntimeSessionLink): Promise<void>;
   findById(runtimeSessionLinkId: string): Promise<RuntimeSessionLinkRow | null>;
-  listByMission(missionId: string): Promise<RuntimeSessionLinkRow[]>;
+  /** Latest append-only link for a Mission. Persistent backends must answer
+   * with a single-row query rather than loading the Mission's full history. */
+  findLatestByMission(missionId: string): Promise<RuntimeSessionLinkRow | null>;
   update(
     runtimeSessionLinkId: string,
     patch: Partial<

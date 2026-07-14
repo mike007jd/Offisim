@@ -1,3 +1,5 @@
+import type { WorkspaceProvenance } from '@offisim/shared-types';
+
 /**
  * Pure presentation invariant for the Office company-channel transcript.
  *
@@ -34,6 +36,8 @@ export interface PresentationMessage {
   body?: string;
   reasoning?: string;
   toolCalls?: readonly PresentationToolCall[] | undefined;
+  /** Durable structured working-directory provenance for this Turn. */
+  workspaceProvenance?: WorkspaceProvenance;
   /** Inline attachment (a real deliverable/file on the turn). */
   attachment?: unknown;
   /** Deliverable card on the turn. */
@@ -115,6 +119,15 @@ const TERMINAL_STATUSES = new Set(['interrupted', 'failed']);
 export function hasVisibleAssistantPayload(message: PresentationMessage): boolean {
   if (hasNonEmpty(message.body)) return true;
   if (hasNonEmpty(message.reasoning)) return true;
+  if (
+    message.workspaceProvenance &&
+    !(
+      message.workspaceProvenance.availability === 'bound' &&
+      message.workspaceProvenance.source === 'project_catalog'
+    )
+  ) {
+    return true;
+  }
   if (hasPresentableToolCall(message.toolCalls)) return true;
   if (message.attachment != null) return true;
   if (message.deliverable != null) return true;

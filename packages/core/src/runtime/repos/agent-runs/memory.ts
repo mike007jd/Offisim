@@ -4,6 +4,13 @@ import type {
   AgentRunStatusUpdateOptions,
   NewAgentRun,
 } from '../../repositories.js';
+import { decodeFreshSessionContext } from '../../repositories.js';
+
+function laterRoot(left: AgentRunRow, right: AgentRunRow): AgentRunRow {
+  const startedAt = left.started_at.localeCompare(right.started_at);
+  if (startedAt !== 0) return startedAt > 0 ? left : right;
+  return left.run_id.localeCompare(right.run_id) > 0 ? left : right;
+}
 
 /**
  * In-memory agent-run repository (tests / non-persistent backends). Self-contained
@@ -52,6 +59,48 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
     return [...this.store.values()]
       .filter((r) => r.company_id === companyId && wanted.has(r.status))
       .sort((a, b) => a.started_at.localeCompare(b.started_at));
+  }
+
+  async findLatestFreshSessionCandidate(
+    companyId: string,
+    threadId: string,
+  ): Promise<AgentRunRow | null> {
+    let latest: AgentRunRow | null = null;
+    for (const row of this.store.values()) {
+      if (
+        row.company_id !== companyId ||
+        row.thread_id !== threadId ||
+        row.run_id !== row.root_run_id ||
+        row.parent_run_id !== null
+      ) {
+        continue;
+      }
+      latest = latest ? laterRoot(latest, row) : row;
+    }
+    return latest && decodeFreshSessionContext(latest) ? latest : null;
+  }
+
+  async findFreshSessionSource(
+    companyId: string,
+    threadId: string,
+    sourceRunId: string,
+  ): Promise<AgentRunRow | null> {
+    let latest: AgentRunRow | null = null;
+    for (const row of this.store.values()) {
+      if (
+        row.company_id !== companyId ||
+        row.thread_id !== threadId ||
+        row.run_id !== row.root_run_id ||
+        row.parent_run_id !== null
+      ) {
+        continue;
+      }
+      latest = latest ? laterRoot(latest, row) : row;
+    }
+    if (!latest || latest.run_id !== sourceRunId || decodeFreshSessionContext(latest) === null) {
+      return null;
+    }
+    return latest;
   }
 
   async updateStatus(

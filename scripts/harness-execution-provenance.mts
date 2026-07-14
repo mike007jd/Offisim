@@ -114,6 +114,12 @@ const desktopRuntimeSource = readFileSync(
   ),
   'utf8',
 );
+const chatMessageEventsSource = readFileSync(
+  fileURLToPath(
+    new URL('../apps/desktop/renderer/src/data/chat-message-events.ts', import.meta.url),
+  ),
+  'utf8',
+);
 const childSupervisorSource = readFileSync(
   fileURLToPath(new URL('./pi-child-supervisor.mjs', import.meta.url)),
   'utf8',
@@ -270,15 +276,103 @@ check('one API-key reference cannot merge different resolved paid accounts', () 
 });
 
 check('terminal host streams remain eligible for renderer replay and DB reconciliation', () => {
-  const reattachStart = desktopRuntimeSource.indexOf('async reattachLiveRuns()');
+  const reattachStart = desktopRuntimeSource.indexOf('async reattachLiveRuns(');
   const reattachEnd = desktopRuntimeSource.indexOf('private async runPiTurn', reattachStart);
   assert.ok(reattachStart >= 0 && reattachEnd > reattachStart);
   const reattachBody = desktopRuntimeSource.slice(reattachStart, reattachEnd);
-  assert.match(reattachBody, /if \(!snapshot\) continue/u);
+  assert.match(
+    reattachBody,
+    /if \(!snapshot\) \{[\s\S]*?confirmedMissingRootRunIds\.add\(row\.run_id\);[\s\S]*?continue;/u,
+  );
   assert.doesNotMatch(reattachBody, /if \(!snapshot\?\.running\) continue/u);
   assert.match(reattachBody, /agent_runtime_reattach/u);
   assert.match(reattachBody, /event\.kind === 'result'/u);
-  assert.match(reattachBody, /reconcileRoot\(row\.run_id, 'completed'/u);
+  assert.match(
+    reattachBody,
+    /status: 'failed',[\s\S]*?text: accumulatedContentText,[\s\S]*?error: event\.message/u,
+    'failed reattach terminal must preserve the host error separately from partial assistant text',
+  );
+  assert.match(reattachBody, /pendingTerminalCheckpoint/u);
+  assert.match(reattachBody, /enqueueTerminalCheckpoint/u);
+  const checkpointStart = reattachBody.indexOf('const queueTerminalCheckpoint = (');
+  const checkpointEnd = reattachBody.indexOf('const abortRejectedBinding', checkpointStart);
+  const checkpointBody = reattachBody.slice(checkpointStart, checkpointEnd);
+  const commitDefinition = checkpointBody.indexOf('const commit = () =>');
+  const queuedCommit = checkpointBody.indexOf('this.persistQueue.enqueueTerminalCheckpoint');
+  const terminalPersist = checkpointBody.indexOf('this.persistRootTerminal(');
+  const publishDefinition = checkpointBody.indexOf('const publishTerminal = (): void =>');
+  const publishAfterCommit = checkpointBody.indexOf(
+    'const outcome = commit().then(publishTerminal)',
+  );
+  assert.ok(
+    checkpointStart >= 0 &&
+      checkpointEnd > checkpointStart &&
+      commitDefinition >= 0 &&
+      queuedCommit > commitDefinition &&
+      terminalPersist > queuedCommit &&
+      publishDefinition > terminalPersist &&
+      publishAfterCommit > publishDefinition,
+    'reattach must publish terminal UI only after the single durable terminal checkpoint commits',
+  );
+  const terminalStart = desktopRuntimeSource.indexOf('private async persistRootTerminal(');
+  const terminalEnd = desktopRuntimeSource.indexOf('/** Persist a delegation run', terminalStart);
+  assert.ok(terminalStart >= 0 && terminalEnd > terminalStart);
+  const terminalBody = desktopRuntimeSource.slice(terminalStart, terminalEnd);
+  const transaction = terminalBody.indexOf('await this.repos.asyncTransact(');
+  const rootStatusWrite = terminalBody.indexOf('tx.agentRuns.updateStatus(rootRunId, status');
+  const contextWrite = terminalBody.indexOf('tx.agentRuns.updateRuntimeContext(');
+  const chatWrite = terminalBody.indexOf('persistChatMessageWithRepositories({');
+  const committedRunReadback = terminalBody.indexOf(
+    'const readback = await this.repos.agentRuns.findById(rootRunId);',
+  );
+  const committedMessageReadback = terminalBody.indexOf(
+    'await assertPersistedChatMessageWithRepositories({',
+  );
+  assert.ok(
+    transaction >= 0 &&
+      rootStatusWrite > transaction &&
+      contextWrite > transaction &&
+      chatWrite > transaction &&
+      committedRunReadback > chatWrite &&
+      committedMessageReadback > committedRunReadback,
+    'root status, merged cursor/context, and Conversation projection must commit atomically before main-repository readback',
+  );
+  for (const exactReadback of [
+    'readback.status !== status',
+    'readback.runtime_context_json !== expectedTerminalContextJson',
+    'expected: conversationMessage',
+  ]) {
+    assert.match(terminalBody, new RegExp(exactReadback.replaceAll('.', '\\.'), 'u'));
+  }
+  assert.match(chatMessageEventsSource, /repos\.agentEvents\.findById\(directChatMessageEventId/u);
+  assert.match(
+    chatMessageEventsSource,
+    /JSON\.stringify\(actual\) !== JSON\.stringify\(expectedStored\)/u,
+  );
+  assert.ok(
+    reattachBody.match(/abortedRequests\.delete\(requestId\)/gu)?.length ?? 0 >= 3,
+    'every reattach terminal source must consume a concurrent user abort before classifying status',
+  );
+});
+
+check('empty reload terminals retain the last durable assistant checkpoint', () => {
+  const projectionStart = desktopRuntimeSource.indexOf(
+    'private async buildLiveConversationTerminalMessage(',
+  );
+  const projectionEnd = desktopRuntimeSource.indexOf(
+    'private async persistRunStreamCursor(',
+    projectionStart,
+  );
+  assert.ok(projectionStart >= 0 && projectionEnd > projectionStart);
+  const projectionBody = desktopRuntimeSource.slice(projectionStart, projectionEnd);
+  assert.match(projectionBody, /loadPersistedChatMessageWithRepositories\(\{/u);
+  assert.match(projectionBody, /messageId: projection\.assistantMessageId/u);
+  assert.match(projectionBody, /terminal\.text\.trim\(\) \|\| existing\?\.body\.trim\(\)/u);
+  assert.match(
+    projectionBody,
+    /terminal\.reasoning\?\.trim\(\) \|\| existing\?\.reasoning\?\.trim\(\)/u,
+  );
+  assert.match(projectionBody, /terminal\.status === 'failed'[\s\S]*?'failed'/u);
 });
 
 console.log(`execution-provenance gate passed (${checks} checks)`);

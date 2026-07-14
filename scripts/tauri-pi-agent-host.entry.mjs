@@ -12,6 +12,7 @@ import {
   isToolCallEventType,
 } from '@earendil-works/pi-coding-agent';
 import stripJsonComments from 'strip-json-comments';
+import { Type } from 'typebox';
 import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
 import {
   decodePiRequestPayload,
@@ -67,6 +68,88 @@ const DELEGATION_LIMIT_KEYS = Object.freeze([
   'maxTotalChildren',
   'maxTotalTokens',
 ]);
+const PROJECT_WORKSPACE_REQUIRED_TOOL = 'project_workspace_required';
+const ProjectWorkspaceRequiredParams = Type.Object({});
+
+function normalizeExecuteWorkspace(payload) {
+  const requirement = payload.workspaceRequirement;
+  const availability = payload.workspaceAvailability;
+  const reasonCode = payload.workspaceUnavailableReasonCode;
+  if (requirement !== 'required' && requirement !== 'optional') {
+    throw Object.assign(new Error('Pi work requests require a valid workspaceRequirement.'), {
+      code: 'invalid-request',
+    });
+  }
+  if (availability !== 'bound' && availability !== 'unavailable') {
+    throw Object.assign(new Error('Pi work requests require a valid workspaceAvailability.'), {
+      code: 'invalid-request',
+    });
+  }
+  if (availability === 'bound') {
+    if (reasonCode !== null) {
+      throw Object.assign(
+        new Error('A bound Pi work request cannot carry a workspace-unavailable reason.'),
+        { code: 'invalid-request' },
+      );
+    }
+    return { requirement, availability };
+  }
+  if (requirement !== 'optional') {
+    throw Object.assign(
+      new Error('A required Pi work request cannot run without a Project workspace.'),
+      { code: 'project-workspace-required' },
+    );
+  }
+  if (reasonCode !== 'none' && reasonCode !== 'ambiguous') {
+    throw Object.assign(
+      new Error('A workspace-unavailable Pi work request requires reason none or ambiguous.'),
+      { code: 'invalid-request' },
+    );
+  }
+  return { requirement, availability, reasonCode };
+}
+
+function workspaceUnavailableSystemPrompt(reasonCode) {
+  return [
+    'This Offisim turn has no authorized Project workspace.',
+    `Workspace recovery result: ${reasonCode}.`,
+    'You have no file, shell, Git, delegation, mission, skill, or MCP access in this turn.',
+    'Answer normally when the request can be handled from conversation context alone.',
+    `When the request truly requires any unavailable capability, call ${PROJECT_WORKSPACE_REQUIRED_TOOL} exactly once, then clearly tell the user to restore or reselect the Project folder.`,
+    'Never claim that you inspected, changed, ran, or verified project files in this state.',
+  ].join('\n');
+}
+
+function createProjectWorkspaceRequiredExtensionFactory(reasonCode) {
+  return (pi) => {
+    pi.registerTool({
+      name: PROJECT_WORKSPACE_REQUIRED_TOOL,
+      label: 'Project Workspace Required',
+      description:
+        'Use only when the user request truly requires project files, shell, Git, delegation, mission, skills, or MCP access and the Project workspace is unavailable.',
+      parameters: ProjectWorkspaceRequiredParams,
+      async execute() {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `PROJECT_WORKSPACE_REQUIRED reason=${reasonCode}. No Project folder is authorized for this turn. Ask the user to restore or reselect the Project folder; do not claim project work was completed.`,
+            },
+          ],
+        };
+      },
+    });
+  };
+}
+
+function assertWorkspaceToolAllowed(workspaceUnavailable, toolName) {
+  if (workspaceUnavailable && toolName !== PROJECT_WORKSPACE_REQUIRED_TOOL) {
+    throw Object.assign(
+      new Error(`Workspace-unavailable work must not execute tool "${toolName}".`),
+      { code: 'workspace-isolation' },
+    );
+  }
+}
 
 /**
  * Accept a delegation-limit override only when the whole packet is a known,
@@ -1135,17 +1218,18 @@ function piStatus(payload) {
 }
 
 async function runPrompt(payload) {
+  const workspaceState = normalizeExecuteWorkspace(payload);
+  const workspaceUnavailable = workspaceState.availability === 'unavailable';
   const cwd = asNonEmptyString(payload.cwd);
   if (cwd !== '.') {
     throw Object.assign(new Error('Pi work requests require the host-anchored cwd.'), {
       code: 'invalid-request',
     });
   }
-  // Rust has already descriptor-bound the sidecar process cwd to the verified
-  // Project inode. Keep `.` for every root SDK/tool path, while retaining the
-  // kernel-reported absolute location only as lease provenance for Rust-owned
-  // worktree operations.
-  const workspaceRoot = process.cwd();
+  // Bound runs inherit Rust's descriptor-anchored Project inode. Unavailable
+  // optional runs inherit Rust's neutral directory; they retain the same `.`
+  // session identity while the host removes every workspace capability below.
+  const workspaceRoot = workspaceUnavailable ? undefined : process.cwd();
   const text = asNonEmptyString(payload.text);
   if (!text) {
     throw Object.assign(new Error('Pi Agent requests must include text.'), {
@@ -1156,11 +1240,36 @@ async function runPrompt(payload) {
   const agentDir = asNonEmptyString(payload.agentDir);
   const { authStorage, modelRegistry } = createPiRegistries(agentDir);
   const sessionDir = asNonEmptyString(payload.sessionDir);
+  const nativeSessionMode = asNonEmptyString(payload.nativeSessionMode);
+  if (nativeSessionMode !== 'tracked' && nativeSessionMode !== 'fresh') {
+    throw Object.assign(new Error('Pi work requires a valid nativeSessionMode.'), {
+      code: 'invalid-request',
+    });
+  }
+  const exactSessionFile = asNonEmptyString(payload.exactSessionFile);
+  const exactSessionId = asNonEmptyString(payload.exactSessionId);
+  if (Boolean(exactSessionFile) !== Boolean(exactSessionId)) {
+    throw Object.assign(
+      new Error('Pi work requires one complete exact native session reference.'),
+      {
+        code: 'native-session-invalid',
+      },
+    );
+  }
+  if (nativeSessionMode === 'fresh' && exactSessionFile) {
+    throw Object.assign(new Error('A fresh Pi session cannot carry an exact session reference.'), {
+      code: 'invalid-request',
+    });
+  }
   if (sessionDir) mkdirSync(sessionDir, { recursive: true });
-  // Rust gives every threadId its own session directory, so continuing the most
-  // recent session here is simply "keep this conversation going". There is no
-  // separate resume mode — same thread, same Pi session.
-  const sessionManager = SessionManager.continueRecent(cwd, sessionDir);
+  // Rust is the Conversation-session authority. It either supplies the one
+  // durable exact file/id pair to continue (normal Turn or Resume) or supplies
+  // no pair for the Conversation's first native session. Never scan the folder
+  // for an untracked "recent" file: Project cwd changes would silently fork
+  // memory, while unrelated files could be adopted without durable provenance.
+  const sessionManager = exactSessionFile
+    ? SessionManager.open(exactSessionFile, sessionDir, cwd)
+    : SessionManager.create(cwd, sessionDir);
   const model = selectedModel(modelRegistry, payload.model);
   if (payload.model && !model) {
     throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
@@ -1174,13 +1283,13 @@ async function runPrompt(payload) {
   // the full tool set but blocks catastrophic commands; Full leaves the session
   // unrestricted.
   const permissionMode = normalizePermissionMode(payload.permissionMode);
-  const baseTools = toolAllowlistForMode(permissionMode);
+  const baseTools = workspaceUnavailable ? [] : toolAllowlistForMode(permissionMode);
   // Per-conversation thinking level (reasoning effort). Forwarded as a native
   // `createAgentSession` option; Pi clamps it to the model's capabilities (a
   // non-reasoning model collapses every level to `off`). Unknown → undefined so
   // Pi uses its settings/default level.
   const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
-  const gateFactory = buildPermissionGate(permissionMode);
+  const gateFactory = workspaceUnavailable ? null : buildPermissionGate(permissionMode);
   // Per-employee persona, forwarded as the session's appended system prompt
   // (Pi's official `appendSystemPrompt` resource-loader option). Build one
   // DefaultResourceLoader whenever there's a permission gate OR a persona, and
@@ -1189,9 +1298,10 @@ async function runPrompt(payload) {
   // Vault-authoritative employee skills use Pi's native discovery contract.
   // The renderer resolves the effective company + employee scope and Rust
   // forwards absolute SKILL.md paths; the loader parses and injects them.
-  const skillPaths = Array.isArray(payload.skillPaths)
-    ? payload.skillPaths.filter((path) => typeof path === 'string' && path.trim())
-    : [];
+  const skillPaths =
+    !workspaceUnavailable && Array.isArray(payload.skillPaths)
+      ? payload.skillPaths.filter((path) => typeof path === 'string' && path.trim())
+      : [];
   // Delegation: when the renderer supplies a root run id + thread id + a non-empty
   // company roster, register the `delegate` tool so the root agent can hand bounded
   // subtasks to teammates. Children are built in-process by the supervisor (see
@@ -1217,22 +1327,26 @@ async function runPrompt(payload) {
   // The DB may retain a model binding Pi no longer offers. Keep persistence
   // honest, but do not forward that phantom value: an invalid binding behaves
   // exactly like an unbound employee and inherits this conversation's model.
-  const roster = Array.isArray(payload.roster)
-    ? payload.roster.map((entry) => {
-        if (!isRecord(entry)) return entry;
-        const requested = asNonEmptyString(entry.model);
-        if (!requested || selectedModel(modelRegistry, requested)) return entry;
-        const rest = { ...entry };
-        // biome-ignore lint/performance/noDelete: the wire must omit stale bindings, not send null/undefined keys.
-        delete rest.model;
-        // biome-ignore lint/performance/noDelete: keep the roster packet key set exact.
-        delete rest.thinkingLevel;
-        return rest;
-      })
-    : [];
-  const directDelegation = isRecord(payload.directDelegation) ? payload.directDelegation : null;
+  const roster =
+    !workspaceUnavailable && Array.isArray(payload.roster)
+      ? payload.roster.map((entry) => {
+          if (!isRecord(entry)) return entry;
+          const requested = asNonEmptyString(entry.model);
+          if (!requested || selectedModel(modelRegistry, requested)) return entry;
+          const rest = { ...entry };
+          // biome-ignore lint/performance/noDelete: the wire must omit stale bindings, not send null/undefined keys.
+          delete rest.model;
+          // biome-ignore lint/performance/noDelete: keep the roster packet key set exact.
+          delete rest.thinkingLevel;
+          return rest;
+        })
+      : [];
+  const directDelegation =
+    !workspaceUnavailable && isRecord(payload.directDelegation) ? payload.directDelegation : null;
   const delegationLimitOverrides = normalizeDelegationLimitOverrides(payload.delegationLimits);
-  const delegationEnabled = Boolean(rootRunId && threadId && roster.length > 0);
+  const delegationEnabled = Boolean(
+    !workspaceUnavailable && rootRunId && threadId && roster.length > 0,
+  );
   const delegationBudgetState = delegationEnabled
     ? delegationLimitOverrides === undefined
       ? createDelegationLimits()
@@ -1244,7 +1358,8 @@ async function runPrompt(payload) {
   // publish an artifact. Excluded from `plan` mode: planning is read-only, so the
   // agent cannot have written a file to publish (a publish there would be a
   // phantom row the renderer's workspace read rejects anyway).
-  const publishArtifactEnabled = Boolean(rootRunId && threadId) && permissionMode !== 'plan';
+  const publishArtifactEnabled =
+    !workspaceUnavailable && Boolean(rootRunId && threadId) && permissionMode !== 'plan';
   // Mission bridge (MS-005): register `submit_for_evaluation` + `query_mission_state`
   // only when this run carries a mission context packet (the renderer's
   // MissionRunController injects `missionContextJson` for an attempt). A plain chat
@@ -1252,8 +1367,12 @@ async function runPrompt(payload) {
   // scope (rootRunId + threadId) to stamp its events so the renderer can correlate
   // submissions to the current attempt. Unlike publish_artifact it is allowed in
   // every mode — a mission run may legitimately submit a read-only criterion.
-  const missionContextJson = asNonEmptyString(payload.missionContextJson);
-  const missionEnabled = Boolean(rootRunId && threadId && missionContextJson);
+  const missionContextJson = workspaceUnavailable
+    ? undefined
+    : asNonEmptyString(payload.missionContextJson);
+  const missionEnabled = Boolean(
+    !workspaceUnavailable && rootRunId && threadId && missionContextJson,
+  );
   // MCP bridge (B3): the discovery meta-tools (mcp_search_tools /
   // mcp_describe_tool) are registered on EVERY run so an employee with no MCP
   // grants can still answer "what tools do I have?" — mcp_search_tools returns an
@@ -1262,7 +1381,7 @@ async function runPrompt(payload) {
   // grant-scoped catalog exists, so discovery never becomes an ungated call path:
   // the per-employee grant catalog stays the trust boundary. Plan mode keeps only
   // read-class MCP tools; write-class tools are filtered out of the catalog.
-  const mcpTools = Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
+  const mcpTools = !workspaceUnavailable && Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
   const scopedMcpTools =
     permissionMode === 'plan' ? mcpTools.filter((tool) => !isWriteMcpTool(tool)) : mcpTools;
   const mcpHasCatalog = scopedMcpTools.length > 0;
@@ -1273,18 +1392,20 @@ async function runPrompt(payload) {
   // harness/gateway path — AI Runtime Policy), the same surface the MCP path
   // already enforced. This enumeration is complete: they are the only tools any
   // Offisim-registered extension exposes (harness:pi-agent-host locks it).
-  const tools = [
-    ...baseTools,
-    ...(delegationEnabled ? ['delegate'] : []),
-    ...(publishArtifactEnabled ? ['publish_artifact'] : []),
-    ...(missionEnabled ? ['submit_for_evaluation', 'query_mission_state'] : []),
-    'mcp_search_tools',
-    'mcp_describe_tool',
-    ...(mcpHasCatalog ? ['mcp_call'] : []),
-  ];
+  const tools = workspaceUnavailable
+    ? [PROJECT_WORKSPACE_REQUIRED_TOOL]
+    : [
+        ...baseTools,
+        ...(delegationEnabled ? ['delegate'] : []),
+        ...(publishArtifactEnabled ? ['publish_artifact'] : []),
+        ...(missionEnabled ? ['submit_for_evaluation', 'query_mission_state'] : []),
+        'mcp_search_tools',
+        'mcp_describe_tool',
+        ...(mcpHasCatalog ? ['mcp_call'] : []),
+      ];
   // A write-class MCP tool pauses for ctx.ui.confirm, which needs the forwarding
   // UI context bound — the same bind `ask` mode already does.
-  const mcpNeedsUi = mcpHasCatalog && scopedMcpTools.some(isWriteMcpTool);
+  const mcpNeedsUi = !workspaceUnavailable && mcpHasCatalog && scopedMcpTools.some(isWriteMcpTool);
   // When the conversation does not carry an explicit override, Pi chooses the
   // real root model during createAgentSession. The delegation supervisor reads
   // this live binding later, when delegate executes, so unbound employees inherit
@@ -1405,25 +1526,34 @@ async function runPrompt(payload) {
         }),
       );
     }
-    // Always register the MCP bridge so mcp_search_tools/mcp_describe_tool exist
-    // on every run; when scopedMcpTools is empty, search returns the actionable
-    // "no tools granted yet" state and mcp_call is not in the allowlist above.
-    extensionFactories.push(
-      createMcpBridgeExtensionFactory({
-        mcpTools: scopedMcpTools,
-        requestMcpResult: mcpChannel.requestMcpResult,
-        confirmMcpToolCall,
-        emit,
-        threadId,
-        rootRunId,
-        employeeId: asNonEmptyString(payload.employeeId),
-      }),
-    );
+    if (workspaceUnavailable) {
+      extensionFactories.push(
+        createProjectWorkspaceRequiredExtensionFactory(workspaceState.reasonCode),
+      );
+    } else {
+      // Bound work always gets MCP discovery, including the actionable empty
+      // catalog state. Workspace-unavailable work must not register any MCP
+      // bridge, even when a stale renderer packet carried grants.
+      extensionFactories.push(
+        createMcpBridgeExtensionFactory({
+          mcpTools: scopedMcpTools,
+          requestMcpResult: mcpChannel.requestMcpResult,
+          confirmMcpToolCall,
+          emit,
+          threadId,
+          rootRunId,
+          employeeId: asNonEmptyString(payload.employeeId),
+        }),
+      );
+    }
     // Append the employee persona and, when delegation is on, the fixed-flow
     // guidance — both are generic appended system prompts (Pi's official option).
     const appendSystemPrompt = [];
     if (systemPromptAppend) appendSystemPrompt.push(systemPromptAppend);
     if (delegationEnabled) appendSystemPrompt.push(DELEGATION_FLOW_GUIDANCE);
+    if (workspaceUnavailable) {
+      appendSystemPrompt.push(workspaceUnavailableSystemPrompt(workspaceState.reasonCode));
+    }
     resourceLoader = new DefaultResourceLoader({
       cwd,
       agentDir,
@@ -1431,6 +1561,15 @@ async function runPrompt(payload) {
       ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
       ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
       ...(skillPaths.length > 0 ? { additionalSkillPaths: skillPaths } : {}),
+      ...(workspaceUnavailable
+        ? {
+            noExtensions: true,
+            noSkills: true,
+            noPromptTemplates: true,
+            noThemes: true,
+            noContextFiles: true,
+          }
+        : {}),
     });
     await resourceLoader.reload();
   }
@@ -1489,11 +1628,23 @@ async function runPrompt(payload) {
     settingsManager,
     ...(model ? { model } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
+    ...(workspaceUnavailable ? { noTools: 'builtin' } : {}),
     ...(tools ? { tools } : {}),
     ...(resourceLoader ? { resourceLoader } : {}),
   });
   activeRootSession = session;
   effectiveRootModel = session.model ?? model;
+  if (
+    exactSessionFile &&
+    (session.sessionFile !== exactSessionFile || session.sessionId !== exactSessionId)
+  ) {
+    session.dispose();
+    activeRootSession = null;
+    throw Object.assign(
+      new Error('The exact native Pi session changed before this Turn could start.'),
+      { code: 'native-session-invalid' },
+    );
+  }
 
   // Bind a forwarding UI context so a mid-run `ctx.ui.confirm` routes through our
   // stdin channel. Needed by Ask mode (the bash gate) AND by the MCP bridge when
@@ -1569,12 +1720,14 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'tool_call') {
+      assertWorkspaceToolAllowed(workspaceUnavailable, event.toolName);
       if (hasRecordKeys(event.input) || isNonEmptyArray(event.input)) {
         toolInputsById.set(event.toolCallId, event.input);
       }
       return;
     }
     if (event.type === 'tool_execution_start') {
+      assertWorkspaceToolAllowed(workspaceUnavailable, event.toolName);
       const input = firstPresent(
         event.input,
         event.args,
@@ -1593,6 +1746,7 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'tool_execution_update') {
+      assertWorkspaceToolAllowed(workspaceUnavailable, event.toolName);
       const input = firstPresent(
         event.input,
         event.args,
@@ -1614,6 +1768,7 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'tool_execution_end') {
+      assertWorkspaceToolAllowed(workspaceUnavailable, event.toolName);
       const input = firstPresent(
         event.input,
         event.args,

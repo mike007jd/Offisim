@@ -175,10 +175,14 @@ sqlite
   .prepare(
     `INSERT INTO task_workspace_binding_history
       (binding_id, company_id, project_id, thread_id, turn_id, request_id, access,
-       canonical_root, root_identity_json, source, confidence, reason_code,
+       canonical_root, root_identity_json, workspace_basename_normalized,
+       project_name_normalized, workspace_anchor, authority_snapshot_canonical_root,
+       authority_snapshot_root_identity_json, authority_snapshot_updated_at_unix_ms,
+       source, confidence, reason_code,
        issued_at_unix_ms, expires_at_unix_ms, activated_at_unix_ms,
        last_used_at_unix_ms, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'write', ?, ?, 'project_catalog', 1,
+     VALUES (?, ?, ?, ?, ?, ?, 'write', ?, ?, 'project', 'project', '/tmp/offisim-fixture',
+       ?, ?, 1, 'project_catalog', 1,
        'current_project_folder', 1, 60001, 1, 1, 'active')`,
   )
   .run(
@@ -188,6 +192,8 @@ sqlite
     'thread-keep',
     'turn-active-keep',
     'request-active-keep',
+    projectRoot,
+    projectRootIdentityJson,
     projectRoot,
     projectRootIdentityJson,
   );

@@ -5,7 +5,12 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import {
+  parseTaskWorkspaceBindingProjection,
+  parseWorkspaceBoundProvenance,
+} from '../apps/desktop/renderer/src/lib/tauri-commands.js';
+import {
   acceptWorkspaceBinding,
+  acceptWorkspaceUnavailable,
   canConsumeWorkspaceEvent,
   createWorkspaceBindingGate,
   rejectWorkspaceBinding,
@@ -21,6 +26,7 @@ const paths = {
   schema: `${ROOT}/packages/db-local/src/schema.sql`,
   commands: `${ROOT}/apps/desktop/renderer/src/lib/tauri-commands.ts`,
   runtime: `${ROOT}/apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`,
+  conversationController: `${ROOT}/apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.ts`,
   recovery: `${ROOT}/apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.ts`,
   missionController: `${ROOT}/apps/desktop/renderer/src/runtime/mission/mission-run-controller.ts`,
   missionLoop: `${ROOT}/packages/core/src/runtime/mission/mission-loop-controller.ts`,
@@ -28,6 +34,7 @@ const paths = {
   tools: `${ROOT}/apps/desktop/src-tauri/src/builtin_tools.rs`,
   git: `${ROOT}/apps/desktop/src-tauri/src/git.rs`,
   binding: `${ROOT}/apps/desktop/src-tauri/src/task_workspace_binding.rs`,
+  workspaceRecovery: `${ROOT}/apps/desktop/src-tauri/src/workspace_recovery.rs`,
   tauriLib: `${ROOT}/apps/desktop/src-tauri/src/lib.rs`,
   bridgePermissions: `${ROOT}/apps/desktop/src-tauri/permissions/agent-bridges.toml`,
   piRun: `${ROOT}/apps/desktop/src-tauri/src/pi_agent_host/run.rs`,
@@ -114,14 +121,25 @@ function insertProject(
 
 type HistoryRow = {
   access?: string;
+  authoritySnapshotCanonicalRoot?: string;
+  authoritySnapshotRootIdentityJson?: string;
+  authoritySnapshotUpdatedAtUnixMs?: number;
   bindingId: string;
   canonicalRoot?: string;
   companyId: string;
+  gitOriginDigest?: string | null;
   projectId: string;
+  projectNameNormalized?: string;
+  reasonCode?: string;
+  recoveryWitnessAuthorityProjectId?: string | null;
+  recoveryWitnessBindingId?: string | null;
   requestId: string;
   rootIdentityJson?: string;
+  source?: 'project_catalog' | 'conversation_history' | 'known_root_recovery' | 'resume_history';
   status?: string;
   threadId: string;
+  workspaceBasenameNormalized?: string;
+  workspaceAnchor?: string;
 };
 
 function insertAgentRun(
@@ -187,32 +205,59 @@ function insertWorkspaceLease(
 
 function insertHistory(db: Database.Database, row: HistoryRow): void {
   const canonicalRoot = row.canonicalRoot ?? `/fixture/${row.projectId}`;
+  const authority = db
+    .prepare(
+      `SELECT canonical_root, root_identity_json, updated_at_unix_ms
+       FROM project_workspace_authority WHERE project_id = ?`,
+    )
+    .get(row.projectId) as
+    | { canonical_root: string; root_identity_json: string; updated_at_unix_ms: number }
+    | undefined;
   db.prepare(
-    'INSERT INTO task_workspace_binding_history (' +
-      'binding_id, company_id, project_id, thread_id, turn_id, request_id, ' +
-      'access, canonical_root, root_identity_json, source, confidence, reason_code, ' +
-      'issued_at_unix_ms, expires_at_unix_ms, activated_at_unix_ms, ' +
-      'last_used_at_unix_ms, status' +
-      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-  ).run(
-    row.bindingId,
-    row.companyId,
-    row.projectId,
-    row.threadId,
-    `turn-${row.bindingId}`,
-    row.requestId,
-    row.access ?? 'write',
+    `INSERT INTO task_workspace_binding_history (
+       binding_id, company_id, project_id, thread_id, turn_id, request_id,
+       access, canonical_root, root_identity_json, source, confidence, reason_code,
+       workspace_basename_normalized, project_name_normalized, workspace_anchor,
+       git_origin_digest, recovery_witness_binding_id,
+       recovery_witness_authority_project_id, authority_snapshot_canonical_root,
+       authority_snapshot_root_identity_json, authority_snapshot_updated_at_unix_ms,
+       issued_at_unix_ms, expires_at_unix_ms, activated_at_unix_ms,
+       last_used_at_unix_ms, status
+     ) VALUES (
+       @bindingId, @companyId, @projectId, @threadId, @turnId, @requestId,
+       @access, @canonicalRoot, @rootIdentityJson, @source, 1, @reasonCode,
+       @workspaceBasenameNormalized, @projectNameNormalized, @workspaceAnchor,
+       @gitOriginDigest, @recoveryWitnessBindingId,
+       @recoveryWitnessAuthorityProjectId, @authoritySnapshotCanonicalRoot,
+       @authoritySnapshotRootIdentityJson, @authoritySnapshotUpdatedAtUnixMs,
+       1000, 61000, 1000, 1000, @status
+     )`,
+  ).run({
+    bindingId: row.bindingId,
+    companyId: row.companyId,
+    projectId: row.projectId,
+    threadId: row.threadId,
+    turnId: `turn-${row.bindingId}`,
+    requestId: row.requestId,
+    access: row.access ?? 'write',
     canonicalRoot,
-    row.rootIdentityJson ?? JSON.stringify({ canonicalRoot }),
-    'project_catalog',
-    1,
-    'current_project_folder',
-    1_000,
-    61_000,
-    1_000,
-    1_000,
-    row.status ?? 'active',
-  );
+    rootIdentityJson: row.rootIdentityJson ?? JSON.stringify({ canonicalRoot }),
+    source: row.source ?? 'project_catalog',
+    reasonCode: row.reasonCode ?? 'current_project_folder',
+    workspaceBasenameNormalized: row.workspaceBasenameNormalized ?? row.projectId.toLowerCase(),
+    projectNameNormalized: row.projectNameNormalized ?? `project ${row.projectId}`.toLowerCase(),
+    workspaceAnchor: row.workspaceAnchor ?? '/fixture',
+    gitOriginDigest: row.gitOriginDigest ?? null,
+    recoveryWitnessBindingId: row.recoveryWitnessBindingId ?? null,
+    recoveryWitnessAuthorityProjectId: row.recoveryWitnessAuthorityProjectId ?? null,
+    authoritySnapshotCanonicalRoot:
+      row.authoritySnapshotCanonicalRoot ?? authority?.canonical_root ?? '/missing-authority',
+    authoritySnapshotRootIdentityJson:
+      row.authoritySnapshotRootIdentityJson ?? authority?.root_identity_json ?? '{}',
+    authoritySnapshotUpdatedAtUnixMs:
+      row.authoritySnapshotUpdatedAtUnixMs ?? authority?.updated_at_unix_ms ?? -1,
+    status: row.status ?? 'active',
+  });
 }
 
 function verifySqlOracle(schemaSql: string): void {
@@ -251,6 +296,25 @@ function verifySqlOracle(schemaSql: string): void {
       projectId: 'project-cas',
       workspaceRoot: '/fixture/project-cas',
     });
+    db.prepare(
+      `INSERT INTO projects
+       (project_id, company_id, name, workspace_root, created_at, updated_at)
+       VALUES ('project-authority-guard', 'company-a', 'Authority guard',
+               '/fixture/authority-guard', '2026-07-14', '2026-07-14')`,
+    ).run();
+    expectConstraint(
+      () =>
+        db
+          .prepare(
+            `INSERT INTO project_workspace_authority
+             (project_id, company_id, canonical_root, root_identity_json,
+              selected_at_unix_ms, updated_at_unix_ms)
+             VALUES ('project-authority-guard', 'company-b', '/fixture/foreign-root', '{}', 1, 1)`,
+          )
+          .run(),
+      'SQLITE_CONSTRAINT_TRIGGER',
+      'foreign Company/root cannot manufacture Project workspace authority',
+    );
     expectConstraint(
       () =>
         insertProject(db, {
@@ -277,9 +341,180 @@ function verifySqlOracle(schemaSql: string): void {
         'VALUES (?, ?, ?, ?, ?)',
     );
     insertThread.run('thread-a', 'project-a', 'Thread A', '2026-07-14', '2026-07-14');
+    insertThread.run('thread-a-shared', 'project-a', 'Thread A shared', '2026-07-14', '2026-07-14');
     insertThread.run('thread-b', 'project-b', 'Thread B', '2026-07-14', '2026-07-14');
     insertThread.run('thread-cas', 'project-cas', 'Thread CAS', '2026-07-14', '2026-07-14');
+    insertThread.run(
+      'thread-live-unique',
+      'project-b',
+      'One live root',
+      '2026-07-14',
+      '2026-07-14',
+    );
 
+    insertAgentRun(db, {
+      runId: 'root-live-first',
+      companyId: 'company-b',
+      projectId: 'project-b',
+      threadId: 'thread-live-unique',
+      parentRunId: null,
+      rootRunId: 'root-live-first',
+    });
+    expectConstraint(
+      () =>
+        insertAgentRun(db, {
+          runId: 'root-live-race',
+          companyId: 'company-b',
+          projectId: 'project-b',
+          threadId: 'thread-live-unique',
+          parentRunId: null,
+          rootRunId: 'root-live-race',
+        }),
+      'SQLITE_CONSTRAINT_UNIQUE',
+      'one Conversation cannot persist two running roots',
+    );
+    expectConstraint(
+      () =>
+        insertAgentRun(db, {
+          runId: 'root-live-cross-company-race',
+          companyId: 'company-a',
+          projectId: 'project-a',
+          threadId: 'thread-live-unique',
+          parentRunId: null,
+          rootRunId: 'root-live-cross-company-race',
+        }),
+      'SQLITE_CONSTRAINT_UNIQUE',
+      'a forged cross-company row cannot reuse a Conversation live-root slot',
+    );
+    db.prepare(
+      "UPDATE agent_runs SET status = 'interrupted' WHERE run_id = 'root-live-first'",
+    ).run();
+    expectConstraint(
+      () =>
+        insertAgentRun(db, {
+          runId: 'root-live-after-interruption',
+          companyId: 'company-b',
+          projectId: 'project-b',
+          threadId: 'thread-live-unique',
+          parentRunId: null,
+          rootRunId: 'root-live-after-interruption',
+        }),
+      'SQLITE_CONSTRAINT_UNIQUE',
+      'an unresolved interrupted root reserves the Conversation until Resume or Discard',
+    );
+    db.prepare("UPDATE agent_runs SET status = 'cancelled' WHERE run_id = 'root-live-first'").run();
+    insertAgentRun(db, {
+      runId: 'root-live-next',
+      companyId: 'company-b',
+      projectId: 'project-b',
+      threadId: 'thread-live-unique',
+      parentRunId: null,
+      rootRunId: 'root-live-next',
+    });
+    insertAgentRun(db, {
+      runId: 'child-live-next',
+      companyId: 'company-b',
+      projectId: 'project-b',
+      threadId: 'thread-live-unique',
+      parentRunId: 'root-live-next',
+      rootRunId: 'root-live-next',
+    });
+
+    insertProject(db, {
+      companyId: 'company-a',
+      projectId: 'project-recovery-owner',
+      workspaceRoot: '/fixture/recovery-owner-old',
+    });
+    insertThread.run(
+      'thread-recovery-owner',
+      'project-recovery-owner',
+      'Recovery owner',
+      '2026-07-14',
+      '2026-07-14',
+    );
+    insertHistory(db, {
+      bindingId: 'binding-recovery-owner-witness',
+      canonicalRoot: '/fixture/recovery-owner-old',
+      companyId: 'company-a',
+      gitOriginDigest: 'sha256:recovery-owner',
+      projectId: 'project-recovery-owner',
+      requestId: 'request-recovery-owner-witness',
+      status: 'completed',
+      threadId: 'thread-recovery-owner',
+    });
+    insertHistory(db, {
+      bindingId: 'binding-recovery-owner-active',
+      canonicalRoot: '/fixture/recovered-only',
+      companyId: 'company-a',
+      gitOriginDigest: 'sha256:recovery-owner',
+      projectId: 'project-recovery-owner',
+      reasonCode: 'unique_name_repo_identity_match',
+      recoveryWitnessBindingId: 'binding-recovery-owner-witness',
+      requestId: 'request-recovery-owner-active',
+      rootIdentityJson: JSON.stringify({ canonicalRoot: '/fixture/recovered-only' }),
+      source: 'known_root_recovery',
+      status: 'active',
+      threadId: 'thread-recovery-owner',
+      workspaceBasenameNormalized: 'project-recovery-owner',
+    });
+    expectConstraint(
+      () =>
+        db.transaction(() => {
+          insertProject(db, {
+            companyId: 'company-b',
+            projectId: 'project-recovery-seizer-create',
+            workspaceRoot: '/fixture/recovered-only',
+          });
+        })(),
+      'SQLITE_CONSTRAINT_TRIGGER',
+      'a later Project cannot create authority over another Project active recovered root',
+    );
+    insertProject(db, {
+      companyId: 'company-b',
+      projectId: 'project-recovery-seizer-update',
+      workspaceRoot: '/fixture/recovery-seizer-own',
+    });
+    expectConstraint(
+      () =>
+        db.transaction(() => {
+          db.prepare(
+            `UPDATE projects SET workspace_root = '/fixture/recovered-only'
+             WHERE project_id = 'project-recovery-seizer-update'`,
+          ).run();
+          db.prepare(
+            `UPDATE project_workspace_authority
+             SET canonical_root = '/fixture/recovered-only',
+                 root_identity_json = ?, updated_at_unix_ms = 2000
+             WHERE project_id = 'project-recovery-seizer-update'`,
+          ).run(JSON.stringify({ canonicalRoot: '/fixture/recovered-only' }));
+        })(),
+      'SQLITE_CONSTRAINT_TRIGGER',
+      'a later Project cannot update authority over another Project active recovered root',
+    );
+    assert.equal(
+      db
+        .prepare(
+          "SELECT workspace_root FROM projects WHERE project_id = 'project-recovery-seizer-update'",
+        )
+        .pluck()
+        .get(),
+      '/fixture/recovery-seizer-own',
+      'rejected reverse authority CAS rolls back the Project catalog update',
+    );
+
+    const staleCasRoot = '/fixture/project-cas';
+    const staleCasIdentity = JSON.stringify({ canonicalRoot: staleCasRoot });
+    insertHistory(db, {
+      bindingId: 'binding-cas-witness',
+      canonicalRoot: staleCasRoot,
+      companyId: 'company-b',
+      gitOriginDigest: 'sha256:cas-witness',
+      projectId: 'project-cas',
+      requestId: 'request-cas-witness',
+      rootIdentityJson: staleCasIdentity,
+      status: 'completed',
+      threadId: 'thread-cas',
+    });
     db.transaction(() => {
       db.prepare(
         "UPDATE projects SET workspace_root = '/fixture/project-cas-new' WHERE project_id = 'project-cas'",
@@ -306,6 +541,29 @@ function verifySqlOracle(schemaSql: string): void {
       'SQLITE_CONSTRAINT_TRIGGER',
       'issue CAS rejects a binding prepared against the old protected Project root',
     );
+    expectConstraint(
+      () =>
+        insertHistory(db, {
+          authoritySnapshotCanonicalRoot: staleCasRoot,
+          authoritySnapshotRootIdentityJson: staleCasIdentity,
+          authoritySnapshotUpdatedAtUnixMs: 1000,
+          bindingId: 'binding-cas-stale-recovery',
+          canonicalRoot: '/fixture/recovered-project-cas',
+          companyId: 'company-b',
+          gitOriginDigest: 'sha256:cas-witness',
+          projectId: 'project-cas',
+          reasonCode: 'unique_name_repo_identity_match',
+          recoveryWitnessBindingId: 'binding-cas-witness',
+          requestId: 'request-cas-stale-recovery',
+          rootIdentityJson: JSON.stringify({ canonicalRoot: '/fixture/recovered-project-cas' }),
+          source: 'known_root_recovery',
+          status: 'completed',
+          threadId: 'thread-cas',
+          workspaceBasenameNormalized: 'project-cas',
+        }),
+      'SQLITE_CONSTRAINT_TRIGGER',
+      'resolver barrier CAS rejects recovered history signed by the authority selected before A to B reselection',
+    );
     insertHistory(db, {
       bindingId: 'binding-cas-current-root',
       canonicalRoot: '/fixture/project-cas-new',
@@ -326,6 +584,9 @@ function verifySqlOracle(schemaSql: string): void {
       'turn_id',
       'request_id',
       'access',
+      'authority_snapshot_canonical_root',
+      'authority_snapshot_root_identity_json',
+      'authority_snapshot_updated_at_unix_ms',
       'status',
     ] as const;
     for (const column of requiredScopeColumns) {
@@ -382,6 +643,25 @@ function verifySqlOracle(schemaSql: string): void {
       requestId: 'request-cross-scope',
       threadId: 'thread-a',
     });
+    insertHistory(db, {
+      bindingId: 'binding-a-shared',
+      companyId: 'company-a',
+      projectId: 'project-a',
+      requestId: 'request-same-project-shared-root',
+      threadId: 'thread-a-shared',
+    });
+    assert.equal(
+      db
+        .prepare(
+          `SELECT COUNT(*) FROM task_workspace_binding_history
+           WHERE project_id = 'project-a' AND canonical_root = '/fixture/project-a'
+             AND status = 'active'`,
+        )
+        .pluck()
+        .get(),
+      2,
+      'Conversations in one Project may share the same active workspace root',
+    );
     expectConstraint(
       () =>
         insertHistory(db, {
@@ -439,6 +719,36 @@ function verifySqlOracle(schemaSql: string): void {
       'SQLITE_CONSTRAINT_CHECK',
       'history access domain',
     );
+    insertHistory(db, {
+      bindingId: 'binding-valid-resume-provenance',
+      companyId: 'company-a',
+      projectId: 'project-a',
+      reasonCode: 'resume_history_identity_match',
+      requestId: 'request-valid-resume-provenance',
+      source: 'resume_history',
+      threadId: 'thread-a',
+    });
+    for (const [sourceValue, reasonCode] of [
+      ['project_catalog', 'resume_history_identity_match'],
+      ['conversation_history', 'current_project_folder'],
+      ['known_root_recovery', 'recent_successful_workspace'],
+      ['resume_history', 'current_project_folder'],
+    ] as const) {
+      expectConstraint(
+        () =>
+          insertHistory(db, {
+            bindingId: `binding-invalid-provenance-${sourceValue}`,
+            companyId: 'company-a',
+            projectId: 'project-a',
+            reasonCode,
+            requestId: `request-invalid-provenance-${sourceValue}`,
+            source: sourceValue,
+            threadId: 'thread-a',
+          }),
+        'SQLITE_CONSTRAINT_TRIGGER',
+        `history provenance pair ${sourceValue}/${reasonCode}`,
+      );
+    }
     expectConstraint(
       () =>
         insertHistory(db, {
@@ -505,6 +815,18 @@ function verifySqlOracle(schemaSql: string): void {
       requestId: 'request-cross-scope',
       projectId: 'project-a',
     });
+    expectConstraint(
+      () =>
+        db.transaction(() => {
+          insertProject(db, {
+            companyId: 'company-b',
+            projectId: 'project-retained-worktree-seizer',
+            workspaceRoot: '/fixture/project-a/.offisim/worktrees/lease-valid',
+          });
+        })(),
+      'SQLITE_CONSTRAINT_TRIGGER',
+      'a later Project cannot claim an active retained worktree as its authority root',
+    );
     expectConstraint(
       () =>
         db
@@ -600,6 +922,7 @@ function verifySqlOracle(schemaSql: string): void {
     console.log(
       '  ✓ lease provenance and destructive deletion gates are atomic SQLite constraints',
     );
+    console.log('  ✓ SQLite permits only one running or interrupted root per Conversation');
   } finally {
     db.close();
   }
@@ -612,6 +935,7 @@ function verifyWireAndRuntimeContracts(): void {
   const tools = source(paths.tools);
   const git = source(paths.git);
   const binding = source(paths.binding);
+  const workspaceRecovery = source(paths.workspaceRecovery);
   const tauriLib = source(paths.tauriLib);
   const bridgePermissions = source(paths.bridgePermissions);
   const piRun = source(paths.piRun);
@@ -642,11 +966,16 @@ function verifyWireAndRuntimeContracts(): void {
 
   const projection = sliceBetween(
     commands,
-    'export interface TaskWorkspaceBindingProjection',
+    'interface TaskWorkspaceBindingProjectionBase',
     '/** Ephemeral claim',
     'workspace binding projection',
   );
   assertContains(projection, 'turnId: string;', 'workspace binding projection');
+  assertContains(
+    projection,
+    'WorkspaceBindingProvenanceFields<WorkspaceBoundProvenance>',
+    'workspace binding discriminated provenance',
+  );
   assertExcludes(
     projection,
     ['workspaceRef:', 'canonicalRoot:', 'workspaceRoot:'],
@@ -654,11 +983,11 @@ function verifyWireAndRuntimeContracts(): void {
   );
   const claim = sliceBetween(
     commands,
-    'export interface TaskWorkspaceBindingClaim',
+    'export type TaskWorkspaceBindingClaim',
     '/** Parse the persistable projection',
     'workspace binding claim',
   );
-  assertContains(claim, 'extends TaskWorkspaceBindingProjection', 'workspace binding claim');
+  assertContains(claim, 'TaskWorkspaceBindingProjection &', 'workspace binding claim');
   assertContains(claim, 'workspaceRef: string;', 'workspace binding claim');
   const evaluationLease = sliceBetween(
     commands,
@@ -725,6 +1054,33 @@ function verifyWireAndRuntimeContracts(): void {
   ] as const) {
     assertContains(text, 'task_workspace_resume_compatibility', label);
   }
+  const resumeCompatibilityBackend = sliceBetween(
+    binding,
+    'async fn task_workspace_resume_compatibility_from_pool',
+    '/// Read-only preflight for Recovery UI.',
+    'workspace resume compatibility backend',
+  );
+  assertContains(
+    resumeCompatibilityBackend,
+    'resolve_resumed_workspace_root_from_pool',
+    'resume compatibility shares durable recovered-history validation',
+  );
+  assertExcludes(
+    resumeCompatibilityBackend,
+    ['SELECT p.workspace_root', 'canonical_root_text', 'resume_identity_matches'],
+    'resume compatibility must not compare recovered history to the catalog root',
+  );
+  for (const token of [
+    'ResumedWorkspaceRootError::Incompatible',
+    'ResumedWorkspaceRootError::Operational(error)',
+    'Err(error)',
+  ]) {
+    assertContains(
+      resumeCompatibilityBackend,
+      token,
+      'resume compatibility separates durable mismatch from retryable operational failure',
+    );
+  }
   const projectionParser = sliceBetween(
     commands,
     'export function parseTaskWorkspaceBindingProjection',
@@ -732,6 +1088,11 @@ function verifyWireAndRuntimeContracts(): void {
     'workspace binding projection parser',
   );
   assertContains(projectionParser, 'return {', 'workspace binding projection parser');
+  assertContains(
+    projectionParser,
+    'parseWorkspaceBoundProvenance(',
+    'workspace binding projection shares the discriminated provenance parser',
+  );
   assertExcludes(
     projectionParser,
     ['workspaceRef', 'canonicalRoot', 'workspaceRoot', '...record', '...value'],
@@ -742,11 +1103,17 @@ function verifyWireAndRuntimeContracts(): void {
     "| ({ kind: 'workspaceBound' } & TaskWorkspaceBindingClaim)",
     'workspaceBound renderer event',
   );
+  assertContains(commands, "kind: 'workspaceUnavailable'", 'workspaceUnavailable renderer event');
+  assertContains(
+    commands,
+    "workspaceRequirement: 'optional' | 'required';",
+    'workspace requirement request wire',
+  );
 
   const persistedRunContext = sliceBetween(
     runtime,
     'interface PersistedRunContext',
-    'function projectWorkspaceBinding',
+    'interface SharedHostStreamState',
     'persisted runtime context',
   );
   assertContains(
@@ -754,9 +1121,24 @@ function verifyWireAndRuntimeContracts(): void {
     'workspaceBinding: TaskWorkspaceBindingProjection | null;',
     'persisted runtime context',
   );
+  for (const field of [
+    'workspaceRequirement: WorkspaceRequirement;',
+    "workspaceAvailability: 'pending' | 'bound' | 'unavailable';",
+    'workspaceProvenance?: WorkspaceProvenance;',
+  ]) {
+    assertContains(persistedRunContext, field, 'persisted workspace state');
+  }
   assertExcludes(
     persistedRunContext,
-    ['TaskWorkspaceBindingClaim', 'workspaceRef', 'workspaceRoot', 'canonicalRoot'],
+    [
+      'TaskWorkspaceBindingClaim',
+      'workspaceRef',
+      'workspaceRoot',
+      'canonicalRoot',
+      'workspaceDisclosure',
+      'workspaceSource',
+      'workspaceReasonCode',
+    ],
     'persisted runtime context',
   );
   const projectionBuilder = sliceBetween(
@@ -772,8 +1154,13 @@ function verifyWireAndRuntimeContracts(): void {
   );
   assert.equal(
     runtime.split('runtimeContext.workspaceBinding = projectWorkspaceBinding(event)').length - 1,
+    1,
+    'the shared live/reattach consumer must persist only the safe projection',
+  );
+  assert.equal(
+    runtime.split('this.consumeSharedHostEvent({').length - 1,
     2,
-    'live and reattached runtime_context paths must persist only the safe projection',
+    'live and reattached streams must both use the same typed host-event consumer',
   );
   assert.ok(
     !runtime.includes('runtimeContext.workspaceBinding = event'),
@@ -791,9 +1178,9 @@ function verifyWireAndRuntimeContracts(): void {
   );
 
   assert.equal(
-    runtime.split('this.persistArtifact(agentEvt, workspaceBindingGate.claim)').length - 1,
-    2,
-    'live and reattached artifact paths must pass the complete ephemeral claim',
+    runtime.split('this.persistArtifact(agentEvent, state.workspaceGate.claim)').length - 1,
+    1,
+    'the shared live/reattach artifact path must pass the complete ephemeral claim',
   );
   const artifactPersistence = sliceBetween(
     runtime,
@@ -818,27 +1205,58 @@ function verifyWireAndRuntimeContracts(): void {
   );
   assertContains(
     runResult,
-    'workspaceBindingClaim: TaskWorkspaceBindingClaim;',
+    'workspaceBindingClaim?: TaskWorkspaceBindingClaim;',
     'desktop run result',
   );
   assertContains(
     runtime,
-    'Backend completed the Turn without a task workspace binding claim.',
-    'successful Turn binding requirement',
+    'Backend completed a workspace-required Turn without a binding claim.',
+    'workspace-required Turn binding requirement',
   );
   assertContains(
     runtime,
-    'canConsumeWorkspaceEvent(workspaceBindingGate',
+    'Backend completed the Turn without declaring workspace availability.',
+    'optional Turn availability declaration requirement',
+  );
+  assertContains(
+    runtime,
+    'canConsumeWorkspaceEvent(state.workspaceGate, event, input.policy)',
     'runtime events cannot mutate an interrupted row before workspace binding',
   );
   assertContains(
     runtime,
     'workspaceBindingClaim: workspaceBindingGate.claim',
-    'successful Turn binding result',
+    'bound Turn result claim',
+  );
+  assertContains(
+    runtime,
+    'resolveWorkspaceRequirement(input, commandName)',
+    'workspace requirement',
+  );
+  assertContains(runtime, 'input.missionId?.trim()', 'Mission workspace requirement');
+  assertContains(runtime, 'input.directDelegation', 'delegation workspace requirement');
+  assertContains(runtime, 'workspaceRequirement,', 'workspace requirement backend request');
+  const projectPreflight = source(
+    `${ROOT}/apps/desktop/renderer/src/runtime/require-project-workspace.ts`,
+  );
+  assertExcludes(
+    projectPreflight,
+    ['project.workspace_root', 'Project folder is unavailable'],
+    'renderer project ownership preflight',
+  );
+  assertContains(
+    runtime,
+    "event.kind === 'workspaceUnavailable'",
+    'live and reattach workspace unavailable handling',
+  );
+  assertContains(
+    runtime,
+    "evidenceClass: 'offisim-gateway'",
+    'workspace status projection provenance',
   );
   const resume = sliceBetween(
     runtime,
-    'async resume(runId: string)',
+    'async resume(runId: string, signal?: AbortSignal)',
     'async reattachLiveRuns',
     'desktop resume authority preflight',
   );
@@ -851,6 +1269,18 @@ function verifyWireAndRuntimeContracts(): void {
     resume,
     'workspaceBinding.turnId !== row.root_run_id',
     'desktop resume scope preflight',
+  );
+  const compatibilityIndex = resume.indexOf("invokeCommand('task_workspace_resume_compatibility'");
+  const abortCheckIndex = resume.indexOf('throwIfRunAborted(signal)', compatibilityIndex);
+  assert.ok(
+    compatibilityIndex >= 0 && abortCheckIndex > compatibilityIndex,
+    'Stop must be rechecked after the async Resume compatibility preflight',
+  );
+  assertContains(resume, 'workspaceBinding,\n      signal,', 'Resume signal forwarding');
+  assertContains(
+    runtime,
+    "signal?.addEventListener('abort', abortFromSignal",
+    'native Resume abort',
   );
   assertContains(
     resume,
@@ -870,6 +1300,11 @@ function verifyWireAndRuntimeContracts(): void {
     'desktop resume backend compatibility preflight',
   );
   assertContains(
+    resume,
+    "compatibility.status !== 'same'",
+    'desktop resume consumes only the compatibility enum',
+  );
+  assertContains(
     runtime,
     'workspaceBindingHistoryId: resumeWorkspaceBinding?.historyId',
     'desktop resume backend history request',
@@ -878,6 +1313,68 @@ function verifyWireAndRuntimeContracts(): void {
     runtime,
     "commandName === 'agent_runtime_resume' && !rootRunOpened",
     'resume TOCTOU failure preserves interrupted recovery state',
+  );
+  const runPiTurn = sliceBetween(
+    runtime,
+    'private async runPiTurn(',
+    '/** Mark the root run terminal',
+    'desktop run persistence boundary',
+  );
+  const rootReadbackIndex = runPiTurn.indexOf(
+    'const openedRoot = await this.repos.agentRuns.findById(runScope.runId)',
+  );
+  const finalAbortCheckIndex = runPiTurn.indexOf('throwIfRunAborted(signal)', rootReadbackIndex);
+  const nativeInvokeIndex = runPiTurn.indexOf('hostCommandStarted = true', rootReadbackIndex);
+  assert.ok(
+    rootReadbackIndex >= 0 &&
+      finalAbortCheckIndex > rootReadbackIndex &&
+      nativeInvokeIndex > finalAbortCheckIndex,
+    'root authority readback and final Stop check must both precede native execution',
+  );
+  const preflightTerminal = sliceBetween(
+    runPiTurn,
+    'if (!hostCommandStarted)',
+    '} else {',
+    'pre-native terminal convergence',
+  );
+  assertContains(
+    preflightTerminal,
+    'await commitFailedTerminal()',
+    'pre-native Stop/error terminalizes an already-open root',
+  );
+  const rootTerminal = sliceBetween(
+    runtime,
+    'private async persistRootTerminal(',
+    '/** Persist a delegation run',
+    'atomic root terminal persistence',
+  );
+  for (const expected of [
+    'this.repos.asyncTransact',
+    'tx.agentRuns.updateStatus(rootRunId, status',
+    'persistChatMessageWithRepositories',
+  ]) {
+    assertContains(rootTerminal, expected, 'atomic root + Conversation terminal persistence');
+  }
+  const streamCursorPersistence = sliceBetween(
+    runtime,
+    'private async persistRunStreamCursor(',
+    'async execute(',
+    'atomic assistant checkpoint cursor persistence',
+  );
+  assertContains(
+    streamCursorPersistence,
+    'persistConversationStreamCheckpointWithRepositories',
+    'runtime must use the behaviorally tested assistant checkpoint transaction',
+  );
+  assertContains(
+    runtime,
+    'readonly ownsConversationProjectionPersistence = true',
+    'production runtime owns conversation checkpoint persistence',
+  );
+  assertContains(
+    source(paths.conversationController),
+    'run.runtime?.ownsConversationProjectionPersistence',
+    'controller must not race the runtime with an independent assistant checkpoint',
   );
   assertContains(
     recovery,
@@ -928,8 +1425,15 @@ function verifyWireAndRuntimeContracts(): void {
   );
   assert.ok(
     missionController.indexOf('setRootRunId(input.attemptId, attemptRunId)') <
-      missionController.indexOf('deps.agentRuntime.execute(runInput)'),
+      missionController.indexOf(
+        'deps.agentRuntime.execute(runInput, attemptAbortController.signal)',
+      ),
     'Mission attempt rootRunId must persist before the paid/writing runtime starts',
+  );
+  assertContains(
+    missionController,
+    'attemptAbortController.abort()',
+    'Mission deadline and user cancellation share the preflight-safe signal',
   );
   assertContains(
     missionController,
@@ -1060,16 +1564,50 @@ function verifyWireAndRuntimeContracts(): void {
 
   const issuer = sliceBetween(
     binding,
-    'pub(crate) async fn issue_task_workspace_binding',
-    'fn host_error_message',
+    'async fn record_task_workspace_binding_from_pool',
+    'pub(crate) async fn resolve_task_workspace_binding',
     'workspace binding issuer',
   );
-  for (const predicate of [
-    'WHERE t.thread_id = ?',
-    'AND t.project_id = ?',
-    'AND p.company_id = ?',
+  for (const token of [
+    'authority_snapshot_canonical_root',
+    'authority_snapshot_root_identity_json',
+    'authority_snapshot_updated_at_unix_ms',
+    'AND EXISTS (',
+    'for authority_attempt in 0..2',
+    'publish_resolved_task_workspace_binding(',
   ]) {
-    assertContains(issuer, predicate, 'workspace binding issuer');
+    assertContains(issuer, token, 'workspace binding authority CAS');
+  }
+  assertContains(
+    issuer,
+    'WorkspaceRootResolution::Unavailable',
+    'workspace binding unavailable result',
+  );
+  const recoveredPublisher = sliceBetween(
+    binding,
+    'async fn publish_resolved_task_workspace_binding',
+    'pub(crate) async fn resolve_task_workspace_for_turn',
+    'recovered workspace capability publisher',
+  );
+  for (const token of [
+    'resume.is_some()',
+    'resolved.verify_live()',
+    'verify_initial_recovery_issuance()',
+  ]) {
+    assertContains(recoveredPublisher, token, 'initial recovery-only repository signing recheck');
+  }
+  const recoveryScope = sliceBetween(
+    workspaceRecovery,
+    'async fn load_project_workspace',
+    'async fn load_successful_witnesses',
+    'workspace recovery scope',
+  );
+  for (const predicate of [
+    'FROM chat_threads AS thread',
+    'JOIN projects AS project ON project.project_id = thread.project_id',
+    'WHERE thread.thread_id = ? AND project.project_id = ? AND project.company_id = ?',
+  ]) {
+    assertContains(recoveryScope, predicate, 'workspace recovery scope');
   }
   const evaluationScope = sliceBetween(
     binding,
@@ -1156,10 +1694,17 @@ function verifyRustBehavioralOracleNames(): void {
     [paths.binding, 'claim_projection_cannot_forge_history_access_or_catalog_project'],
     [
       paths.binding,
-      'resume_compatibility_compares_scope_identity_and_access_without_returning_root',
+      'resume_compatibility_accepts_durable_recovered_history_without_returning_root',
     ],
     [paths.binding, 'registry_rejects_replaced_root_identity'],
     [paths.binding, 'resume_and_discard_are_atomic_and_mutually_exclusive'],
+    [paths.binding, 'authority_snapshot_cas_rejects_reselection_after_resolver_barrier'],
+    [paths.workspaceRecovery, 'injected_truncated_scan_never_signs_an_observed_unique_match'],
+    [
+      paths.workspaceRecovery,
+      'repository_match_rejects_effective_origin_change_before_binding_issuance',
+    ],
+    [paths.workspaceRecovery, 'truncated_known_anchor_query_never_signs_an_observed_unique_match'],
     [
       paths.binding,
       'interrupted_discard_without_projection_is_safe_but_fail_closed_for_live_writers',
@@ -1193,6 +1738,14 @@ function verifyRustBehavioralOracleNames(): void {
 function verifyWorkspaceBindingStreamGate(): void {
   const matchingClaim = { historyId: 'history-good', workspaceRef: 'ref-good' };
   const mismatchedClaim = { historyId: 'history-wrong', workspaceRef: 'ref-wrong' };
+  const unavailable = {
+    projectId: 'project-1',
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    requestId: 'request-1',
+    source: 'workspace_recovery',
+    reasonCode: 'none',
+  };
 
   const pendingExecute = createWorkspaceBindingGate<typeof matchingClaim>();
   assert.equal(
@@ -1247,6 +1800,68 @@ function verifyWorkspaceBindingStreamGate(): void {
     'a second scope-matching claim cannot replace the first workspaceRef/historyId',
   );
 
+  const pendingOptional = createWorkspaceBindingGate<typeof matchingClaim, typeof unavailable>();
+  const unavailableOptional = acceptWorkspaceUnavailable(pendingOptional, unavailable, true, true);
+  assert.equal(unavailableOptional.status, 'unavailable');
+  for (const kind of ['started', 'messageDelta', 'messageEnd', 'result', 'error']) {
+    assert.equal(
+      canConsumeWorkspaceEvent(unavailableOptional, kind, 'workspace-optional'),
+      true,
+      `optional no-workspace stream must accept safe ${kind}`,
+    );
+  }
+  assert.equal(
+    canConsumeWorkspaceEvent(
+      unavailableOptional,
+      { kind: 'tool', toolName: 'project_workspace_required' },
+      'workspace-optional',
+    ),
+    true,
+    'optional no-workspace stream accepts only the project-workspace-required control tool',
+  );
+  for (const event of [
+    { kind: 'tool', toolName: 'bash' },
+    { kind: 'agentRun' },
+    { kind: 'uiRequest' },
+  ]) {
+    assert.equal(
+      canConsumeWorkspaceEvent(unavailableOptional, event, 'workspace-optional'),
+      false,
+      `optional no-workspace stream must reject ${event.kind}`,
+    );
+  }
+  assert.equal(
+    canConsumeWorkspaceEvent(unavailableOptional, 'started', 'bound-required'),
+    false,
+    'workspace-required run cannot start after an unavailable declaration',
+  );
+  assert.equal(
+    canConsumeWorkspaceEvent(unavailableOptional, 'error', 'bound-required'),
+    true,
+    'workspace-required run may surface the backend terminal error',
+  );
+  assert.equal(
+    acceptWorkspaceBinding(unavailableOptional, matchingClaim, true, true).status,
+    'rejected',
+    'a workspace cannot bind after the Turn declared itself unavailable',
+  );
+  const boundOptional = acceptWorkspaceBinding(pendingOptional, matchingClaim, true, true);
+  assert.equal(
+    acceptWorkspaceUnavailable(boundOptional, unavailable, true, true).status,
+    'rejected',
+    'a bound workspace cannot later become unavailable',
+  );
+  assert.equal(
+    acceptWorkspaceUnavailable(
+      unavailableOptional,
+      { ...unavailable, reasonCode: 'ambiguous' },
+      true,
+      false,
+    ).status,
+    'rejected',
+    'an unavailable explanation cannot change after it was accepted',
+  );
+
   const pendingLiveReattach = createWorkspaceBindingGate<typeof matchingClaim>();
   assert.equal(
     canConsumeWorkspaceEvent(pendingLiveReattach, 'started', 'bound-required'),
@@ -1293,7 +1908,7 @@ function verifyWorkspaceBindingStreamGate(): void {
 
   const reattachRuntime = sliceBetween(
     source(paths.runtime),
-    'async reattachLiveRuns()',
+    'async reattachLiveRuns(rootRunIds?: ReadonlySet<string>)',
     'private async runPiTurn(',
     'reattach snapshot gate',
   );
@@ -1304,7 +1919,7 @@ function verifyWorkspaceBindingStreamGate(): void {
   );
   assertContains(
     reattachRuntime,
-    "reattachSnapshot.running || bufferedBindingGate.status === 'bound'",
+    "bufferedBindingGate.status === 'unavailable'",
     'reattach must decide policy from the atomic command snapshot',
   );
   const runtime = source(paths.runtime);
@@ -1319,17 +1934,101 @@ function verifyWorkspaceBindingStreamGate(): void {
   );
   assertContains(
     runtime,
-    'isSameWorkspaceBindingClaim(workspaceBindingGate.claim, event)',
+    'isSameWorkspaceBindingClaim(state.workspaceGate.claim, event)',
     'bound claim replacement gate',
+  );
+  assertContains(
+    reattachRuntime,
+    'isSameWorkspaceBindingClaim(bufferedBindingGate.claim, event)',
+    'reattach buffered claim replacement gate',
   );
 
   console.log('  ✓ workspace binding stream gate is monotonic and terminal replay stays bounded');
+}
+
+function verifyWorkspaceProvenanceParser(): void {
+  const legalPairs = [
+    ['project_catalog', 'current_project_folder'],
+    ['conversation_history', 'recent_successful_workspace'],
+    ['known_root_recovery', 'renamed_same_filesystem_object'],
+    ['known_root_recovery', 'unique_name_repo_identity_match'],
+    ['resume_history', 'resume_history_identity_match'],
+  ] as const;
+  const sources = [
+    'project_catalog',
+    'conversation_history',
+    'known_root_recovery',
+    'resume_history',
+  ] as const;
+  const reasons = [
+    'current_project_folder',
+    'recent_successful_workspace',
+    'renamed_same_filesystem_object',
+    'unique_name_repo_identity_match',
+    'resume_history_identity_match',
+  ] as const;
+  const baseProjection = {
+    historyId: 'history-1',
+    companyId: 'company-1',
+    projectId: 'project-1',
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    requestId: 'request-1',
+    access: 'write',
+    confidence: 1,
+    issuedAtUnixMs: 1,
+    expiresAtUnixMs: 2,
+    displayPath: '/fixture/project-1',
+  } as const;
+
+  for (const [sourceValue, reasonCode] of legalPairs) {
+    const provenance = parseWorkspaceBoundProvenance(
+      sourceValue,
+      reasonCode,
+      baseProjection.displayPath,
+    );
+    assert.deepEqual(provenance, {
+      availability: 'bound',
+      source: sourceValue,
+      reasonCode,
+      displayPath: baseProjection.displayPath,
+    });
+    assert.deepEqual(
+      parseTaskWorkspaceBindingProjection({ ...baseProjection, source: sourceValue, reasonCode }),
+      {
+        ...baseProjection,
+        source: sourceValue,
+        reasonCode,
+      },
+    );
+  }
+
+  for (const sourceValue of sources) {
+    for (const reasonCode of reasons) {
+      if (legalPairs.some(([source, reason]) => source === sourceValue && reason === reasonCode)) {
+        continue;
+      }
+      assert.equal(
+        parseWorkspaceBoundProvenance(sourceValue, reasonCode, baseProjection.displayPath),
+        null,
+        `${sourceValue}/${reasonCode} must not parse as bound provenance`,
+      );
+      assert.equal(
+        parseTaskWorkspaceBindingProjection({ ...baseProjection, source: sourceValue, reasonCode }),
+        null,
+        `${sourceValue}/${reasonCode} must not parse as a persisted projection`,
+      );
+    }
+  }
+
+  console.log('  ✓ TypeScript workspace provenance parser accepts only exact source/reason pairs');
 }
 
 function main(): void {
   console.log('project-workspace contract');
   verifySqlOracle(source(paths.schema));
   verifyWireAndRuntimeContracts();
+  verifyWorkspaceProvenanceParser();
   verifyWorkspaceBindingStreamGate();
   verifyRustBehavioralOracleNames();
   console.log('project-workspace contract: PASS');

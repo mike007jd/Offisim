@@ -126,6 +126,98 @@ async function verifyWorktreeCallChannel() {
 
 await verifyWorktreeCallChannel();
 
+function verifyExactNativeSessionSemantics() {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'offisim-pi-exact-session-'));
+  const sessionDir = join(fixtureRoot, 'sessions');
+  const originalProject = join(fixtureRoot, 'project-before-rename');
+  const renamedProject = join(fixtureRoot, 'project-after-rename');
+  mkdirSync(originalProject, { recursive: true });
+  mkdirSync(renamedProject, { recursive: true });
+
+  try {
+    const sessionA = SessionManager.create(originalProject, sessionDir);
+    sessionA.appendMessage({
+      role: 'user',
+      content: [{ type: 'text', text: 'session A user history' }],
+      timestamp: Date.now(),
+    });
+    sessionA.appendMessage({
+      role: 'assistant',
+      content: [{ type: 'text', text: 'session A assistant history' }],
+      api: 'openai-responses',
+      provider: 'oracle',
+      model: 'oracle',
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: 'stop',
+      timestamp: Date.now(),
+    });
+    const sessionAId = sessionA.getSessionId();
+    const sessionAFile = sessionA.getSessionFile();
+    assert(sessionAFile, 'persisted session A must expose its exact file');
+
+    const sessionB = SessionManager.create(originalProject, sessionDir);
+    sessionB.appendMessage({
+      role: 'assistant',
+      content: [{ type: 'text', text: 'session B decoy history' }],
+      api: 'openai-responses',
+      provider: 'oracle',
+      model: 'oracle',
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: 'stop',
+      timestamp: Date.now(),
+    });
+    assert(
+      sessionB.getSessionId() !== sessionAId && sessionB.getSessionFile() !== sessionAFile,
+      'the decoy native session must be distinct from durable session A',
+    );
+
+    const reopenedA = SessionManager.open(sessionAFile, sessionDir, renamedProject);
+    assert(
+      reopenedA.getSessionId() === sessionAId && reopenedA.getSessionFile() === sessionAFile,
+      'opening a durable exact file/id must select session A even when another session exists',
+    );
+    assert(
+      reopenedA.getCwd() === renamedProject && reopenedA.getHeader()?.cwd === originalProject,
+      'project rename must override the effective cwd without rewriting native session history',
+    );
+    assert(
+      reopenedA
+        .getEntries()
+        .some(
+          (entry) =>
+            entry.type === 'message' &&
+            entry.message.role === 'user' &&
+            entry.message.content?.[0]?.text === 'session A user history',
+        ),
+      'the exact reopened session must retain session A history',
+    );
+
+    const fresh = SessionManager.create(renamedProject, sessionDir);
+    assert(
+      fresh.getSessionId() !== sessionAId && fresh.getSessionId() !== sessionB.getSessionId(),
+      'explicit fresh mode must create a new native session instead of adopting a recent file',
+    );
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+verifyExactNativeSessionSemantics();
+
 async function verifyBoundWorkspaceTools() {
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'offisim-pi-workspace-tools-'));
   const boundRoot = join(fixtureRoot, 'project');
@@ -682,6 +774,7 @@ const rustHostSource = globSync('apps/desktop/src-tauri/src/pi_agent_host/*.rs')
   .sort()
   .map((path) => readFileSync(path, 'utf8'))
   .join('\n');
+const rustRunSource = readFileSync('apps/desktop/src-tauri/src/pi_agent_host/run.rs', 'utf8');
 const nodeHostSource = readFileSync(HOST_SCRIPT, 'utf8');
 const bundledNodeHostSource = readFileSync(BUNDLED_HOST_SCRIPT, 'utf8');
 const taskBashRegistrySource = readFileSync('scripts/pi-task-bash-process-registry.mjs', 'utf8');
@@ -697,6 +790,14 @@ const executePayloadSource = rustHostSource.slice(
 const collaboratePayloadSource = rustHostSource.slice(
   rustHostSource.indexOf('fn collaborate_payload'),
   rustHostSource.indexOf('/// Write the execute/status payload'),
+);
+const workspaceRequirementGateSource = rustRunSource.slice(
+  rustRunSource.indexOf('fn validate_execute_workspace_requirement'),
+  rustRunSource.indexOf('fn workspace_unavailable_error'),
+);
+const unavailableExecuteSource = rustRunSource.slice(
+  rustRunSource.indexOf('async fn execute_without_workspace'),
+  rustRunSource.indexOf('async fn do_execute'),
 );
 const desktopRuntimeScopeSource = readFileSync(
   'apps/desktop/renderer/src/data/employee-persona.ts',
@@ -748,22 +849,27 @@ assert(
   'execute request must deserialize mcpTools so Office runs can receive employee MCP grants',
 );
 assert(
-  /fn sidecar_payload\([\s\S]*agent_dir: Option<&Path>[\s\S]*"mode": "execute"[\s\S]*"mcpTools": req\.mcp_tools/.test(
+  /fn sidecar_payload\([\s\S]*agent_dir: Option<&Path>[\s\S]*"mode": "execute"[\s\S]*"mcpTools": mcp_tools/.test(
     executePayloadSource,
   ),
   'execute sidecar payload must be AppHandle-free and forward mcpTools to the Node Pi host',
 );
 assert(
-  /"projectId": binding\.project_id/.test(executePayloadSource) &&
-    /"projectVerifyCommand": binding\.project_verify_command/.test(executePayloadSource) &&
+  /let project_id = binding[\s\S]*\.or\(req\.project_id\.as_deref\(\)\)/.test(
+    executePayloadSource,
+  ) &&
+    /"projectId": project_id/.test(executePayloadSource) &&
+    /"projectVerifyCommand": binding\.and_then/.test(executePayloadSource) &&
     !/"projectId": req\.project_id/.test(executePayloadSource),
-  'execute sidecar payload must derive project scope and verification policy from the backend-issued workspace binding, never renderer request fields',
+  'bound execute payloads must derive project scope and verification policy from the backend-issued workspace binding; only unavailable runs may retain the validated project identity',
 );
 assert(
   /"cwd": "\."/.test(executePayloadSource) &&
     !/"cwd": binding\.canonical_root/.test(executePayloadSource) &&
     /if \(cwd !== '\.'\)/.test(nodeHostSource) &&
-    /const workspaceRoot = process\.cwd\(\)/.test(nodeHostSource) &&
+    /const workspaceRoot = workspaceUnavailable \? undefined : process\.cwd\(\)/.test(
+      nodeHostSource,
+    ) &&
     /acquireRootLease\(workspaceRoot\)/.test(nodeHostSource) &&
     /executeBoundWorkspaceOperation/.test(nodeHostSource) &&
     /const VIRTUAL_WORKSPACE_ROOT = '\/__offisim_workspace__'/.test(taskBashRegistrySource),
@@ -782,7 +888,8 @@ assert(
   'optional delegationLimits must cross renderer → opaque Rust → Node without appearing on absent plain-chat requests',
 );
 assert(
-  /"skillPaths": req\.skill_paths/.test(executePayloadSource) &&
+  /let skill_paths = has_workspace/.test(executePayloadSource) &&
+    /"skillPaths": skill_paths/.test(executePayloadSource) &&
     /additionalSkillPaths: skillPaths/.test(nodeHostSource) &&
     /additionalSkillPaths: skillPaths/.test(childSupervisorSource) &&
     /additionalSkillPaths: skillPaths/.test(bundledNodeHostSource) &&
@@ -809,6 +916,131 @@ assert(
 assert(
   /const projectId = asNonEmptyString\(payload\.projectId\)/.test(nodeHostSource),
   'execute host must declare projectId from the run payload before delegating (a bare projectId reference throws "projectId is not defined")',
+);
+assert(
+  /"workspaceRequirement": req\.workspace_requirement\.as_str\(\)/.test(executePayloadSource) &&
+    /"workspaceAvailability": workspace_availability/.test(executePayloadSource) &&
+    /"workspaceUnavailableReasonCode": workspace_unavailable_reason_code/.test(
+      executePayloadSource,
+    ) &&
+    /workspaceRequirement/.test(wireSource) &&
+    /workspaceAvailability/.test(wireSource) &&
+    /workspaceUnavailableReasonCode/.test(wireSource),
+  'execute request wire must carry the required/optional workspace policy and exact bound/unavailable resolution',
+);
+assert(
+  /const tools = workspaceUnavailable\s*\? \[PROJECT_WORKSPACE_REQUIRED_TOOL\]/.test(
+    nodeHostSource,
+  ) &&
+    /workspaceUnavailable \? \{ noTools: 'builtin' \} : \{\}/.test(nodeHostSource) &&
+    /noExtensions: true,[\s\S]*noSkills: true,[\s\S]*noContextFiles: true/.test(nodeHostSource) &&
+    /createProjectWorkspaceRequiredExtensionFactory\(workspaceState\.reasonCode\)/.test(
+      nodeHostSource,
+    ) &&
+    /assertWorkspaceToolAllowed\(workspaceUnavailable, event\.toolName\)/.test(nodeHostSource) &&
+    /const tools = \w+\s*\? \[\w+\]/.test(bundledNodeHostSource) &&
+    /noTools:\s*"builtin"/.test(bundledNodeHostSource),
+  'workspace-unavailable execute must retain the same host path while exposing only project_workspace_required and disabling built-ins/resources',
+);
+assert(
+  /if is_resume/.test(workspaceRequirementGateSource) &&
+    /req\.direct_delegation\.is_some\(\)/.test(workspaceRequirementGateSource) &&
+    /req\.mission_context_json\.is_some\(\)/.test(workspaceRequirementGateSource) &&
+    /workspaceRequirement must be required/.test(workspaceRequirementGateSource) &&
+    /TaskWorkspaceResolution::Unavailable\(unavailable\)[\s\S]*if req\.workspace_requirement\.is_optional\(\)/.test(
+      rustRunSource,
+    ),
+  'host must reject hostile optional downgrades for resume, direct delegation, and Missions before permitting an unavailable run',
+);
+const unavailableEventIndex = unavailableExecuteSource.indexOf('publish_workspace_unavailable(');
+const unavailableNeutralCwdIndex = unavailableExecuteSource.indexOf('let cwd = neutral_cwd(app)?');
+const unavailableSidecarIndex = unavailableExecuteSource.indexOf('run_pi_sidecar_jsonl(');
+const unavailablePublisherSource = rustRunSource.slice(
+  rustRunSource.indexOf('fn publish_workspace_unavailable'),
+  rustRunSource.indexOf('async fn do_execute'),
+);
+assert(
+  unavailableEventIndex >= 0 &&
+    unavailableEventIndex < unavailableNeutralCwdIndex &&
+    unavailableNeutralCwdIndex < unavailableSidecarIndex &&
+    /PiAgentHostEvent::WorkspaceUnavailable/.test(unavailablePublisherSource) &&
+    /publish_host_event\(/.test(unavailablePublisherSource),
+  'workspaceUnavailable must be published before neutral cwd setup and before any sidecar started/message/tool event can exist',
+);
+
+const normalizeWorkspaceForHarness = Function(
+  `${extractNamedFunction(nodeHostSource, 'normalizeExecuteWorkspace')}; return normalizeExecuteWorkspace;`,
+)();
+assert(
+  normalizeWorkspaceForHarness({
+    workspaceRequirement: 'required',
+    workspaceAvailability: 'bound',
+    workspaceUnavailableReasonCode: null,
+  }).availability === 'bound',
+  'bound workspace state must validate',
+);
+for (const [packet, expectedCode] of [
+  [
+    {
+      workspaceRequirement: 'optional',
+      workspaceAvailability: 'unavailable',
+      workspaceUnavailableReasonCode: 'ambiguous',
+    },
+    undefined,
+  ],
+  [
+    {
+      workspaceRequirement: 'required',
+      workspaceAvailability: 'unavailable',
+      workspaceUnavailableReasonCode: 'none',
+    },
+    'project-workspace-required',
+  ],
+  [
+    {
+      workspaceRequirement: 'optional',
+      workspaceAvailability: 'unavailable',
+      workspaceUnavailableReasonCode: 'guessed',
+    },
+    'invalid-request',
+  ],
+]) {
+  if (!expectedCode) {
+    assert(
+      normalizeWorkspaceForHarness(packet).reasonCode === 'ambiguous',
+      'optional unavailable state must preserve its exact blocker reason',
+    );
+    continue;
+  }
+  let code;
+  try {
+    normalizeWorkspaceForHarness(packet);
+  } catch (error) {
+    code = error?.code;
+  }
+  assert(code === expectedCode, `workspace state must fail with ${expectedCode}`);
+}
+
+const createWorkspaceRequiredForHarness = Function(
+  'PROJECT_WORKSPACE_REQUIRED_TOOL',
+  'ProjectWorkspaceRequiredParams',
+  `${extractNamedFunction(nodeHostSource, 'createProjectWorkspaceRequiredExtensionFactory')}; return createProjectWorkspaceRequiredExtensionFactory;`,
+)('project_workspace_required', {});
+let workspaceRequiredTool;
+createWorkspaceRequiredForHarness('none')({
+  registerTool(tool) {
+    workspaceRequiredTool = tool;
+  },
+});
+assert(
+  workspaceRequiredTool?.name === 'project_workspace_required',
+  'unavailable workspace control extension must register its one deterministic tool',
+);
+const workspaceRequiredResult = await workspaceRequiredTool.execute();
+assert(
+  workspaceRequiredResult.content?.[0]?.text.includes('reason=none') &&
+    workspaceRequiredResult.content[0].text.includes('restore or reselect'),
+  'project_workspace_required must return the explicit no-candidate blocker and recovery action',
 );
 assert(
   /function normalizeDelegationLimitOverrides\(value\)/.test(nodeHostSource) &&
@@ -924,18 +1156,20 @@ assert(
   'bundled Pi Agent host must also declare projectId from the run payload — rebuild with pnpm build:pi-agent-host',
 );
 assert(
-  /const baseTools = toolAllowlistForMode\(permissionMode\)/.test(nodeHostSource) &&
+  /const baseTools = workspaceUnavailable \? \[\] : toolAllowlistForMode\(permissionMode\)/.test(
+    nodeHostSource,
+  ) &&
     /const scopedMcpTools =[\s\S]*permissionMode === 'plan'[\s\S]*mcpTools\.filter\(\(tool\) => !isWriteMcpTool\(tool\)\)[\s\S]*: mcpTools/.test(
       nodeHostSource,
     ) &&
     /const mcpHasCatalog = scopedMcpTools\.length > 0/.test(nodeHostSource) &&
-    /const tools = \[[\s\S]*\.\.\.baseTools[\s\S]*'mcp_search_tools',[\s\S]*'mcp_describe_tool',[\s\S]*\.\.\.\(mcpHasCatalog \? \['mcp_call'\] : \[\]\)/.test(
+    /const tools = workspaceUnavailable[\s\S]*PROJECT_WORKSPACE_REQUIRED_TOOL[\s\S]*\.\.\.baseTools[\s\S]*'mcp_search_tools',[\s\S]*'mcp_describe_tool'[\s\S]*\.\.\.\(mcpHasCatalog \? \['mcp_call'\] : \[\]\)/.test(
       nodeHostSource,
     ) &&
     /export const WORK_TOOL_ALLOWLIST[\s\S]*'read'[\s\S]*'write'[\s\S]*'edit'[\s\S]*'grep'[\s\S]*'find'[\s\S]*'ls'[\s\S]*'bash'/.test(
       permissionModesSource,
     ),
-  'execute host must always expose MCP discovery (mcp_search_tools/mcp_describe_tool) in the explicit tool allowlist, gate mcp_call on a non-empty grant catalog, and filter write MCP in plan mode',
+  'bound execute hosts must expose MCP discovery in the explicit allowlist, while workspace-unavailable turns expose only their deterministic control tool',
 );
 assert(
   /permissionMode,\s*resolveModel/.test(nodeHostSource) &&
@@ -962,8 +1196,8 @@ assert(
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 assert(
-  /PI_HOST_PROTOCOL_VERSION = 8/.test(wireSource) &&
-    /PI_HOST_PROTOCOL_VERSION: u32 = 8/.test(rustHostSource) &&
+  /PI_HOST_PROTOCOL_VERSION = 9/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 9/.test(rustHostSource) &&
     /'worktreeCall'/.test(wireSource) &&
     /WorktreeCall/.test(rustHostSource) &&
     /'verifyCall'/.test(wireSource) &&
@@ -1108,7 +1342,8 @@ assert(
   'bundled Pi Agent host must carry employee model/thinking binding and stale-binding filtering',
 );
 assert(
-  /"roster": req\.roster/.test(executePayloadSource) &&
+  /let roster = has_workspace/.test(executePayloadSource) &&
+    /"roster": roster/.test(executePayloadSource) &&
     /const model = e\.model\?\.trim\(\)/.test(desktopRuntimeScopeSource) &&
     /model && thinkingLevel \? \{ thinkingLevel \} : \{\}/.test(desktopRuntimeScopeSource),
   'employee model/thinking fields must cross renderer roster projection and opaque Rust roster forwarding',

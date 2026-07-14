@@ -7,6 +7,7 @@ mod types;
 mod wire;
 mod workspace_files;
 
+pub(crate) use payload::app_pi_session_dir;
 pub use stream::PiRunStreamSnapshot;
 #[allow(unused_imports)]
 pub use types::{
@@ -15,6 +16,7 @@ pub use types::{
     PiAgentProviderConfigInput, PiAgentProviderConfigStatus, PiAgentProviderModelConfig,
     PiAgentProviderStatus, PiAgentProviderTemplate, PiAgentStatusResponse, PiModelSummary,
 };
+pub(crate) use wire::PI_HOST_PROTOCOL_VERSION;
 
 use bridge::ui_response_impl;
 use provider::status_impl;

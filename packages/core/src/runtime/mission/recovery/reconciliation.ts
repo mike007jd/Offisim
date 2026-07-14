@@ -108,8 +108,7 @@ async function reconcileOne(mission: MissionRow, deps: ReconcileOneDeps): Promis
   const missionId = mission.mission_id;
 
   // --- 1. mark the active attempt `interrupted` (§22.3.2) -------------------
-  // The active attempt is the one the mission is bound to (current_attempt_id),
-  // or the latest non-terminal attempt as a fallback.
+  // The active attempt is exactly the one the Mission durably owns.
   const interruptedAttemptId = await markActiveAttemptInterrupted(mission, repos, now);
 
   // --- 2. transition the mission through the §18 recovery path --------------
@@ -175,16 +174,12 @@ async function markActiveAttemptInterrupted(
   repos: ReconciliationRepos,
   now: () => string,
 ): Promise<string | null> {
-  const attempts = await repos.missionAttempts.listByMission(mission.mission_id);
-  const active =
-    (mission.current_attempt_id
-      ? attempts.find((a) => a.attempt_id === mission.current_attempt_id)
-      : undefined) ??
-    // Fallback: the latest non-terminal attempt.
-    [...attempts]
-      .reverse()
-      .find((a) => a.status === 'running' || a.status === 'verifying');
+  if (!mission.current_attempt_id) return null;
+  const active = await repos.missionAttempts.findById(mission.current_attempt_id);
   if (!active) return null;
+  if (active.mission_id !== mission.mission_id) {
+    throw new Error(`Mission ${mission.mission_id} points at an attempt owned by another Mission.`);
+  }
   await repos.missionAttempts.updateStatus(active.attempt_id, 'interrupted', {
     finishedAt: now(),
   });
@@ -196,11 +191,7 @@ async function latestSessionLink(
   missionId: string,
   repo: RuntimeSessionLinkRepository,
 ): Promise<RuntimeSessionLinkRow | null> {
-  const links = await repo.listByMission(missionId);
-  if (links.length === 0) return null;
-  // No created_at column on the link; the last inserted is the live one. The
-  // memory + drizzle repos preserve insertion order for listByMission.
-  return links[links.length - 1] ?? null;
+  return repo.findLatestByMission(missionId);
 }
 
 /**

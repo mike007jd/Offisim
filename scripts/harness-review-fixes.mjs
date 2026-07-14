@@ -99,7 +99,7 @@ const desktopRuntime = await source('apps/desktop/renderer/src/runtime/desktop-a
 assertIncludesAll(
   desktopRuntime,
   [
-    "return this.runPiTurn(input, 'agent_runtime_execute')",
+    "return this.runPiTurn(input, 'agent_runtime_execute', undefined, signal)",
     "'agent_runtime_execute' | 'agent_runtime_resume'",
     'await invokeCommand(commandName',
     "invokeCommand('agent_runtime_abort'",

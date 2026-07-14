@@ -56,6 +56,14 @@ pub(crate) enum HostError {
     HostUnavailable(String),
     Spawn(String),
     Request(String),
+    ResumePrestart {
+        code: &'static str,
+        message: String,
+    },
+    NativeSessionPrestart {
+        code: &'static str,
+        message: String,
+    },
     Protocol(String),
     Upstream {
         code: Option<String>,
@@ -70,11 +78,63 @@ impl HostError {
             Self::HostUnavailable(message) => ("host-unavailable".into(), message),
             Self::Spawn(message) => ("spawn".into(), message),
             Self::Request(message) => ("request".into(), message),
+            Self::ResumePrestart { code, message } => (code.into(), message),
+            Self::NativeSessionPrestart { code, message } => (code.into(), message),
             Self::Protocol(message) => ("protocol".into(), message),
             Self::Upstream { code, message } => {
-                (code.unwrap_or_else(|| "upstream".into()), message)
+                // Native-session codes authorize a destructive continuity reset
+                // in the renderer. SDK/provider/sidecar errors are untrusted and
+                // may choose arbitrary codes, so the entire internal namespace
+                // is reserved to HostError::NativeSessionPrestart.
+                let safe_code = code
+                    .filter(|value| !value.trim().starts_with("native-session-"))
+                    .unwrap_or_else(|| "upstream".into());
+                (safe_code, message)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod host_error_tests {
+    use super::*;
+
+    const TEST_LANE: AgentHostLane = AgentHostLane {
+        name: "test",
+        execution_lane: "test",
+        resource_path: "test",
+        dev_script_name: "test",
+        aborted_message: "aborted",
+    };
+
+    #[test]
+    fn upstream_cannot_forge_reserved_native_session_codes() {
+        for forged in [
+            "native-session-missing",
+            "native-session-invalid",
+            "native-session-runtime-incompatible",
+            "native-session-context-invalid",
+            "native-session-reset-persistence",
+        ] {
+            let (code, message) = HostError::Upstream {
+                code: Some(forged.into()),
+                message: "provider supplied this code".into(),
+            }
+            .into_code_message(TEST_LANE);
+            assert_eq!(code, "upstream");
+            assert_eq!(message, "provider supplied this code");
+        }
+    }
+
+    #[test]
+    fn internal_native_session_prestart_code_remains_structured() {
+        let (code, message) = HostError::NativeSessionPrestart {
+            code: "native-session-missing",
+            message: "durable resolver rejected the exact session".into(),
+        }
+        .into_code_message(TEST_LANE);
+        assert_eq!(code, "native-session-missing");
+        assert_eq!(message, "durable resolver rejected the exact session");
     }
 }
 

@@ -3,6 +3,7 @@ import { reposOrNull } from '@/data/adapters.js';
 import { deleteCompanyDeep } from '@/data/local-data-deletion.js';
 import { useCompanies } from '@/data/queries.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
+import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import { ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { CompanyTemplateService } from '@offisim/core/browser';
@@ -128,9 +129,13 @@ export function LifecycleSurface() {
     await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
     await queryClient.invalidateQueries({ queryKey: ['projects', companyId] });
 
-    setScope(companyId, projectId);
+    await activateCompanyScope({
+      companyId,
+      setScope,
+      setSurface,
+      surface: request.openStudio ? 'studio' : 'office',
+    });
     setOverride('portal');
-    setSurface(request.openStudio ? 'studio' : 'office');
 
     toast.success(`${request.name} created.`);
   }

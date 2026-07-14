@@ -1,3 +1,4 @@
+import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
 import {
   type TaskWorkspaceResumeCompatibility,
   type TaskWorkspaceResumeCompatibilityArgs,
@@ -5,7 +6,7 @@ import {
 } from '@/lib/tauri-commands.js';
 import type { AgentRunRepository } from '@offisim/core/browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDesktopAgentRuntime } from '../desktop-agent-runtime.js';
+import type { LiveRunReattachResult } from '../desktop-agent-runtime.js';
 import { getRepos } from '../repos.js';
 import {
   type InterruptedRunCard,
@@ -116,10 +117,29 @@ export async function loadInterruptedRunRecovery(input: {
   checkResumeCompatibility?: (
     args: TaskWorkspaceResumeCompatibilityArgs,
   ) => Promise<TaskWorkspaceResumeCompatibility>;
+  bootstrapLiveRuns?: (companyId: string) => Promise<LiveRunReattachResult>;
 }): Promise<InterruptedRunRecoveryLoad> {
-  const result = input.skipReconcile
-    ? { cards: [], failedRootRunIds: [] }
-    : await reconcileInterruptedRuns(input);
+  let bootstrap: LiveRunReattachResult | null = null;
+  let bootstrapFailed = false;
+  if (input.bootstrapLiveRuns) {
+    try {
+      bootstrap = await input.bootstrapLiveRuns(input.companyId);
+    } catch (error) {
+      bootstrapFailed = true;
+      console.warn('[useInterruptedRunRecovery] live-run bootstrap failed', {
+        companyId: input.companyId,
+        error,
+      });
+    }
+  }
+  const result =
+    input.skipReconcile || bootstrapFailed
+      ? { cards: [], failedRootRunIds: bootstrapFailed ? ['live-bootstrap'] : [] }
+      : await reconcileInterruptedRuns({
+          ...input,
+          preserveRootRunIds: bootstrap?.protectedRootRunIds,
+          candidateRootRunIds: bootstrap?.confirmedMissingRootRunIds,
+        });
   const merged = new Map<string, InterruptedRunCard>(
     result.cards.map((card) => [card.runId, card]),
   );
@@ -177,6 +197,7 @@ export async function loadInterruptedRunRecovery(input: {
     cards: [...merged.values()],
     complete:
       result.failedRootRunIds.length === 0 &&
+      bootstrap?.complete !== false &&
       compatibilityChecks.every((check) => !check.retryableFailure),
   };
 }
@@ -246,6 +267,7 @@ export function useInterruptedRunRecovery(
           companyId: scopeCompanyId,
           now: () => new Date().toISOString(),
           skipReconcile,
+          bootstrapLiveRuns: (id) => conversationRunController.bootstrapLiveRuns(id),
         });
         loadGeneration.commit(generation, () => {
           if (recovery.complete) {
@@ -312,16 +334,15 @@ export function useInterruptedRunRecovery(
       if (!card || card.companyId !== scopeCompanyId) {
         throw new Error('Interrupted run no longer belongs to the active company.');
       }
-      if (card.classification === 'incompatible') {
+      if (card.classification !== 'resumable') {
         throw new Error(
           card.classificationReasons.join(' ') ||
             'Interrupted run is incompatible with the current workspace.',
         );
       }
       loadGeneration.invalidate();
-      const runtime = await getDesktopAgentRuntime(scopeCompanyId);
       try {
-        await runtime.resume(runId);
+        await conversationRunController.resumeInterruptedRun(scopeCompanyId, runId);
       } catch (error) {
         // The folder can change after card hydration. Re-run backend identity
         // compatibility so the retained card immediately becomes incompatible

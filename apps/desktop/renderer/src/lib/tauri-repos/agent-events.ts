@@ -47,6 +47,13 @@ export function createAgentEventsTauriRepos(db: TauriDrizzleDb): AgentEventsTaur
       }
       return row;
     },
+    async findById(eventId) {
+      const rows = (await db
+        .select()
+        .from(schema.agentEvents)
+        .where(eq(schema.agentEvents.event_id, eventId))) as AgentEventRow[];
+      return rows[0] ?? null;
+    },
     async findByProject(projectId, opts) {
       let query = db
         .select()

@@ -61,7 +61,7 @@ import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mis
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 10;
+const TOTAL = 11;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -842,7 +842,71 @@ await check(
 );
 
 await check(
-  '(e) wall-clock timer aborts a never-resolving Pi run → wall_clock_budget, not runtime_incompatible',
+  '(e) user cancel aborts Mission execute preflight before native work starts',
+  async () => {
+    const eventBus = new InMemoryEventBus();
+    const { repos } = makeRepos('/tmp/fake-ws');
+    const { missionId } = await createDevMission(repos, {
+      companyId: 'co-1',
+      threadId: 'thr-cancel-preflight',
+      projectId: 'proj-1',
+      goal: 'Cancel before native work',
+      criteria: [
+        {
+          description: 'tests pass',
+          evaluatorId: 'command_exit_zero',
+          evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+          required: true,
+        },
+      ],
+    });
+    let signalSeen: AbortSignal | undefined;
+    let releasePreflight!: () => void;
+    const preflight = new Promise<void>((resolve) => {
+      releasePreflight = resolve;
+    });
+    let nativeStarts = 0;
+    const runtime: DesktopAgentRuntime = {
+      async execute(_input, signal) {
+        signalSeen = signal;
+        await preflight;
+        if (signal?.aborted) {
+          const error = new Error('Mission cancelled in preflight');
+          error.name = 'AbortError';
+          throw error;
+        }
+        nativeStarts += 1;
+        return { text: 'must not start' };
+      },
+      resume: async () => ({ text: '' }),
+      abort() {},
+      abortChild() {},
+      async answerUiRequest() {},
+      async dispose() {},
+    };
+    const controller = createMissionRunController({
+      agentRuntime: runtime,
+      repos,
+      evaluatorRegistry: createDefaultEvaluatorRegistry(),
+      eventBus,
+      ...makeFakeEvaluationLeaseLifecycle().deps,
+      createEvaluationContext: makeFakeEvaluationContextFactory(() => 0, { n: 1 }),
+    });
+
+    const resultPromise = controller.runMission(missionId);
+    while (!signalSeen) await new Promise((resolve) => setTimeout(resolve, 1));
+    controller.abortMission(missionId);
+    releasePreflight();
+    const result = await resultPromise;
+
+    assert.equal(signalSeen.aborted, true);
+    assert.equal(nativeStarts, 0);
+    assert.equal(result.status, 'blocked');
+  },
+);
+
+await check(
+  '(f) wall-clock timer aborts a never-resolving Pi run → wall_clock_budget, not runtime_incompatible',
   async () => {
     const eventBus = new InMemoryEventBus();
     const { repos } = makeRepos('/tmp/fake-ws');
@@ -867,8 +931,10 @@ await check(
       resolveStarted = resolve;
     });
     let abortCount = 0;
+    let executionSignal: AbortSignal | undefined;
     const runtime: DesktopAgentRuntime = {
-      execute: async () => {
+      execute: async (_input, signal) => {
+        executionSignal = signal;
         resolveStarted();
         return new Promise<DesktopAgentRunResult>(() => {});
       },
@@ -907,6 +973,7 @@ await check(
     fireDeadline!();
     const result = await resultPromise;
 
+    assert.equal(executionSignal?.aborted, true, 'deadline aborts the preflight-safe signal');
     assert.equal(abortCount, 1, 'deadline aborts the active Pi thread exactly once');
     assert.equal(cleared, 1, 'deadline timer is cleared in finally');
     assert.equal(result.status, 'failed');

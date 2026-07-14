@@ -55,7 +55,9 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
     : null;
   const isLeaseReview = leaseId !== null;
   const leaseDecisionComplete =
-    leaseReview?.status === 'merged' || leaseReview?.status === 'discarded';
+    leaseReview?.status === 'merged' ||
+    leaseReview?.status === 'discarded' ||
+    leaseReview?.status === 'failed';
   // A persisted lease remains safely reviewable after an app restart even
   // though the transient Pi approval envelope is restored as stale. For this
   // card the lease row is the decision authority and the shared idempotent

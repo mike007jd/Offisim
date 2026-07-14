@@ -86,6 +86,9 @@ export interface MissionRunControllerDeps {
 export interface MissionRunController {
   /** Run a created+ready mission to a terminal {@link MissionLoopResult}. */
   runMission(missionId: string): Promise<MissionLoopResult>;
+  /** Cancel the current/preparing attempt without waiting for a native request
+   * id to exist. The authoritative Mission status remains MissionService-owned. */
+  abortMission(missionId: string): void;
 }
 
 /** The minimal mission context packet injected into the host (§16.3). Canonical
@@ -153,6 +156,8 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
   const cancelDeadline =
     deps.cancelDeadline ??
     ((handle: unknown) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>));
+  const attemptAbortControllers = new Map<string, AbortController>();
+  const missionAbortRequested = new Set<string>();
 
   const missionService = createMissionService(
     {
@@ -314,6 +319,9 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
     let evaluationLease: TaskWorkspaceEvaluationLeaseClaim | null = null;
     let deadlineTimer: unknown;
     let wallClockTimedOut = false;
+    const attemptAbortController = new AbortController();
+    attemptAbortControllers.set(input.missionId, attemptAbortController);
+    if (missionAbortRequested.has(input.missionId)) attemptAbortController.abort();
     let resolveDeadline!: () => void;
     const deadlineReached = new Promise<void>((resolve) => {
       resolveDeadline = resolve;
@@ -324,6 +332,7 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
     const remainingMs = deadlineMs === undefined ? undefined : deadlineMs - Date.parse(now());
     const abortForDeadline = () => {
       wallClockTimedOut = true;
+      attemptAbortController.abort();
       resolveDeadline();
       // The hard return is driven by `deadlineReached`, not by abort success.
       // Abort stays best-effort cleanup: a missing preflight request or failed
@@ -356,7 +365,7 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
       const runtimeOutcome = wallClockTimedOut
         ? ({ kind: 'deadline' } as const)
         : await Promise.race([
-            deps.agentRuntime.execute(runInput).then(
+            deps.agentRuntime.execute(runInput, attemptAbortController.signal).then(
               (result) => ({ kind: 'result', result }) as const,
               (error: unknown) => ({ kind: 'error', error }) as const,
             ),
@@ -398,6 +407,9 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
           };
     } finally {
       if (deadlineTimer !== undefined) cancelDeadline(deadlineTimer);
+      if (attemptAbortControllers.get(input.missionId) === attemptAbortController) {
+        attemptAbortControllers.delete(input.missionId);
+      }
       unsubscribe();
     }
 
@@ -465,7 +477,13 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
     };
   }
 
-  return { runMission };
+  return {
+    runMission,
+    abortMission(missionId: string): void {
+      missionAbortRequested.add(missionId);
+      attemptAbortControllers.get(missionId)?.abort();
+    },
+  };
 }
 
 /**

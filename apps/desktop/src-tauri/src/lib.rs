@@ -70,6 +70,7 @@ mod sidecar_stderr;
 mod stage_audit;
 mod task_workspace_binding;
 mod terminal_session;
+mod workspace_recovery;
 
 use std::path::Path;
 use tauri::{Emitter, Manager};
@@ -251,6 +252,7 @@ pub fn run() {
             computer_driver::computer_driver_status,
             git::git_exec,
             gh::gh_exec,
+            git::workspace_lease_list,
             git::workspace_lease_changed,
             git::workspace_lease_release,
             git::workspace_lease_discard,

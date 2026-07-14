@@ -1,4 +1,10 @@
-import type { AgentRunUsage, AttachmentMeta, CollaborationProfile } from '@offisim/shared-types';
+import type {
+  AgentRunUsage,
+  AttachmentMeta,
+  CollaborationProfile,
+  WorkspaceBoundProvenance,
+  WorkspaceUnavailableProvenance,
+} from '@offisim/shared-types';
 import type { Channel } from '@tauri-apps/api/core';
 
 interface LocalDbTransactionStatement {
@@ -60,8 +66,11 @@ interface ProjectUpdateCommandInput {
   verifyTokenBudget: number | null;
 }
 
-/** Persistable, non-secret explanation of the backend-issued workspace binding. */
-export interface TaskWorkspaceBindingProjection {
+type WorkspaceBindingProvenanceFields<Provenance> = Provenance extends WorkspaceBoundProvenance
+  ? Pick<Provenance, 'source' | 'reasonCode'>
+  : never;
+
+interface TaskWorkspaceBindingProjectionBase {
   historyId: string;
   companyId: string;
   projectId: string;
@@ -69,18 +78,20 @@ export interface TaskWorkspaceBindingProjection {
   turnId: string;
   requestId: string;
   access: 'read' | 'write';
-  source: string;
   confidence: number;
-  reasonCode: string;
   issuedAtUnixMs: number;
   expiresAtUnixMs: number;
   displayPath: string;
 }
 
+/** Persistable, non-secret explanation of the backend-issued workspace binding. */
+export type TaskWorkspaceBindingProjection = TaskWorkspaceBindingProjectionBase &
+  WorkspaceBindingProvenanceFields<WorkspaceBoundProvenance>;
+
 /** Ephemeral claim used only when invoking binding-scoped backend commands. */
-export interface TaskWorkspaceBindingClaim extends TaskWorkspaceBindingProjection {
+export type TaskWorkspaceBindingClaim = TaskWorkspaceBindingProjection & {
   workspaceRef: string;
-}
+};
 
 /**
  * Ephemeral, bounded authority for deterministic Mission evaluation. It keeps
@@ -136,12 +147,16 @@ export function parseTaskWorkspaceBindingProjection(
     'turnId',
     'requestId',
     'access',
-    'source',
-    'reasonCode',
     'displayPath',
   ] as const;
   if (stringKeys.some((key) => typeof record[key] !== 'string')) return null;
   if (record.access !== 'read' && record.access !== 'write') return null;
+  const provenance = parseWorkspaceBoundProvenance(
+    record.source,
+    record.reasonCode,
+    record.displayPath,
+  );
+  if (!provenance) return null;
   if (typeof record.confidence !== 'number' || !Number.isFinite(record.confidence)) return null;
   if (typeof record.issuedAtUnixMs !== 'number' || !Number.isFinite(record.issuedAtUnixMs)) {
     return null;
@@ -149,6 +164,11 @@ export function parseTaskWorkspaceBindingProjection(
   if (typeof record.expiresAtUnixMs !== 'number' || !Number.isFinite(record.expiresAtUnixMs)) {
     return null;
   }
+  const {
+    availability: _availability,
+    displayPath: _displayPath,
+    ...provenanceFields
+  } = provenance;
   return {
     historyId: record.historyId as string,
     companyId: record.companyId as string,
@@ -157,13 +177,37 @@ export function parseTaskWorkspaceBindingProjection(
     turnId: record.turnId as string,
     requestId: record.requestId as string,
     access: record.access,
-    source: record.source as string,
+    ...provenanceFields,
     confidence: record.confidence,
-    reasonCode: record.reasonCode as string,
     issuedAtUnixMs: record.issuedAtUnixMs,
     expiresAtUnixMs: record.expiresAtUnixMs,
     displayPath: record.displayPath as string,
   };
+}
+
+export function parseWorkspaceBoundProvenance(
+  source: unknown,
+  reasonCode: unknown,
+  displayPath: unknown,
+): WorkspaceBoundProvenance | null {
+  if (typeof displayPath !== 'string' || !displayPath.trim()) return null;
+  if (source === 'project_catalog' && reasonCode === 'current_project_folder') {
+    return { availability: 'bound', source, reasonCode, displayPath };
+  }
+  if (source === 'conversation_history' && reasonCode === 'recent_successful_workspace') {
+    return { availability: 'bound', source, reasonCode, displayPath };
+  }
+  if (
+    source === 'known_root_recovery' &&
+    (reasonCode === 'renamed_same_filesystem_object' ||
+      reasonCode === 'unique_name_repo_identity_match')
+  ) {
+    return { availability: 'bound', source, reasonCode, displayPath };
+  }
+  if (source === 'resume_history' && reasonCode === 'resume_history_identity_match') {
+    return { availability: 'bound', source, reasonCode, displayPath };
+  }
+  return null;
 }
 
 export interface CodexPetMetadata {
@@ -252,6 +296,12 @@ interface PiAgentExecuteRequest {
   companyId: string;
   threadId: string;
   projectId: string;
+  workspaceRequirement: 'optional' | 'required';
+  /** Normal Turns continue the tracked native Conversation session. `fresh` is
+   * accepted only for the explicit recovery action authorized by the failed
+   * root identified below. */
+  nativeSessionMode: 'tracked' | 'fresh';
+  nativeSessionResetSourceRunId?: string | null;
   employeeId?: string | null;
   model?: string | null;
   permissionMode?: string | null;
@@ -329,6 +379,15 @@ type PiAgentHostEvent =
       modelFallbackMessage?: string;
     }
   | ({ kind: 'workspaceBound' } & TaskWorkspaceBindingClaim)
+  | {
+      kind: 'workspaceUnavailable';
+      projectId: string;
+      threadId: string;
+      turnId: string;
+      requestId: string;
+      source: WorkspaceUnavailableProvenance['source'];
+      reasonCode: WorkspaceUnavailableProvenance['reasonCode'];
+    }
   | { kind: 'messageDelta'; delta: string; channel?: 'content' | 'reasoning' }
   | { kind: 'messageEnd'; text: string; stopReason?: string; errorMessage?: string }
   | {
@@ -608,6 +667,29 @@ type AgentUiResponseArgs = {
   cancelled?: boolean | null;
 };
 
+export interface WorkspaceLeaseLifecycleRow {
+  leaseId: string;
+  projectId: string;
+  threadId: string | null;
+  activeRootRunId: string | null;
+  createdRootRunId: string;
+  registeredRunId: string;
+  workspaceRoot: string | null;
+  cwd: string;
+  branch: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'active' | 'released' | 'discarded' | 'invalid';
+  ownerBindingStatus:
+    | 'active'
+    | 'completed'
+    | 'failed'
+    | 'aborted'
+    | 'expired'
+    | 'app_restart'
+    | null;
+}
+
 type CommandSpec<TArgs, TResult> = {
   args: TArgs;
   result: TResult;
@@ -805,6 +887,7 @@ export interface CommandMap {
     GitExecResult
   >;
   gh_exec: CommandSpec<{ args: string[]; projectId: string }, GhExecResult>;
+  workspace_lease_list: CommandSpec<{ projectId: string }, WorkspaceLeaseLifecycleRow[]>;
   workspace_lease_changed: CommandSpec<
     { projectId: string; leaseId: string; path: string },
     boolean

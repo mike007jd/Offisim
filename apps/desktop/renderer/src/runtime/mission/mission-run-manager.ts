@@ -1,10 +1,14 @@
 import { safeErrorMessage } from '@/lib/error-message.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import {
   type DesktopAgentRuntime,
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
-import { conversationThreadLifecycle } from '@/runtime/thread-lifecycle-guard.js';
+import {
+  type ThreadRunLease,
+  conversationThreadLifecycle,
+} from '@/runtime/thread-lifecycle-guard.js';
 import { type MissionLoopResult, createDefaultEvaluatorRegistry } from '@offisim/core/browser';
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { toast } from 'sonner';
@@ -12,6 +16,11 @@ import {
   MISSION_STATUS_CHANGED_EVENT,
   type MissionStatusChangedPayload,
 } from './mission-events.js';
+import {
+  type MissionReloadRecoveryResult,
+  bootstrapMissionReloadCompanies,
+  convergeMissionReload,
+} from './mission-reload-recovery.js';
 import { createMissionRunController } from './mission-run-controller.js';
 
 /**
@@ -23,9 +32,9 @@ import { createMissionRunController } from './mission-run-controller.js';
  *
  * It mirrors the {@link conversationRunController} shape deliberately:
  *  - In-flight run state is IN-MEMORY and per-session (a `Map` keyed by missionId).
- *    A reload mid-run abandons the in-memory run; the mission row stays
- *    `running`/`verifying` with a non-terminal attempt — that is the M4 durable
- *    recovery case (a later Tier C slice). This manager does NOT pretend to resume.
+ *    A reload cannot recreate the deterministic loop's lost promise. Startup
+ *    therefore stops the Mission-owned native root and parks the durable attempt
+ *    at `ready_to_resume`; it never pretends to continue the old loop.
  *  - A double-start is rejected; concurrent runs of DIFFERENT missions are allowed
  *    (each is an independent entry).
  *
@@ -53,8 +62,10 @@ interface ActiveMissionRun {
   /** The run's runtime + thread, set once assembly succeeds, so a cancel can
    *  abort the in-flight agent call (collapsing the running↔cancelled window). */
   runtime: DesktopAgentRuntime | null;
+  controller: ReturnType<typeof createMissionRunController> | null;
   threadId: string | null;
-  releaseThreadRun: (() => void) | null;
+  threadRunLease: ThreadRunLease | null;
+  removeAbortListener: (() => void) | null;
 }
 
 interface ActiveMissionRunSnapshot {
@@ -67,7 +78,40 @@ interface ActiveMissionRunSnapshot {
 class MissionRunManager {
   private readonly activeRuns = new Map<string, ActiveMissionRun>();
   private readonly listeners = new Set<() => void>();
+  private readonly reloadBootstrapByCompany = new Map<
+    string,
+    Promise<MissionReloadRecoveryResult>
+  >();
   private snapshot: readonly ActiveMissionRunSnapshot[] = [];
+
+  /**
+   * Converge Mission-owned roots before the company scope is exposed to the
+   * Conversation recovery surface. Strict-mode remounts share one in-flight
+   * pass; a failed pass is evicted so the next bootstrap can retry it.
+   */
+  async bootstrapRendererReload(companyId: string): Promise<MissionReloadRecoveryResult> {
+    const cached = this.reloadBootstrapByCompany.get(companyId);
+    if (cached) return cached;
+    const pending = this.runRendererReloadBootstrap(companyId).catch((error) => {
+      this.reloadBootstrapByCompany.delete(companyId);
+      throw error;
+    });
+    this.reloadBootstrapByCompany.set(companyId, pending);
+    return pending;
+  }
+
+  /**
+   * Global startup barrier. Missions may be running in companies other than the
+   * first scope shown after reload, so every active company must converge before
+   * any Conversation UI is exposed.
+   */
+  async bootstrapAllRendererReload(
+    companyIds: readonly string[],
+  ): Promise<MissionReloadRecoveryResult[]> {
+    return bootstrapMissionReloadCompanies(companyIds, (companyId) =>
+      this.bootstrapRendererReload(companyId),
+    );
+  }
 
   /**
    * Start a ready mission's run loop. Resolves once the loop has been handed off
@@ -76,7 +120,12 @@ class MissionRunManager {
    * if the deps could not be assembled (e.g. no desktop runtime) — the caller
    * surfaces that to the user.
    */
-  async start(missionId: string, companyId: string): Promise<void> {
+  async start(
+    missionId: string,
+    companyId: string,
+    transferredThreadRun?: ThreadRunLease,
+    signal?: AbortSignal,
+  ): Promise<void> {
     if (this.activeRuns.has(missionId)) throw new MissionAlreadyRunningError(missionId);
 
     // Reserve the slot synchronously (before the first await) so isRunning() flips
@@ -86,29 +135,42 @@ class MissionRunManager {
       companyId,
       startedAt: Date.now(),
       runtime: null,
+      controller: null,
       threadId: null,
-      releaseThreadRun: null,
+      threadRunLease: transferredThreadRun ?? null,
+      removeAbortListener: null,
     };
     this.activeRuns.set(missionId, entry);
     this.notify();
 
+    if (signal) {
+      const abortFromSignal = () => this.requestAbort(missionId);
+      signal.addEventListener('abort', abortFromSignal, { once: true });
+      entry.removeAbortListener = () => signal.removeEventListener('abort', abortFromSignal);
+    }
+
     let threadId: string;
     try {
+      throwIfMissionStartAborted(signal);
       const repos = await getRepos();
       const mission = await repos.missions.findById(missionId);
+      throwIfMissionStartAborted(signal);
       if (!mission) throw new Error('This mission no longer exists.');
       if (mission.company_id !== companyId) {
         throw new Error('This mission does not belong to the active company.');
       }
       threadId = mission.thread_id;
-      const releaseThreadRun = conversationThreadLifecycle.beginRun(threadId);
-      if (!releaseThreadRun) {
-        throw new Error('This conversation is being archived or deleted.');
+      if (entry.threadRunLease && entry.threadRunLease.threadId !== threadId) {
+        throw new Error('The transferred run belongs to a different conversation.');
       }
-      entry.releaseThreadRun = releaseThreadRun;
+      entry.threadRunLease ??= conversationThreadLifecycle.beginRun(threadId);
+      if (!entry.threadRunLease) {
+        throw new Error('This conversation already has an active run.');
+      }
       entry.threadId = threadId;
       this.notify();
       const runtime = await getDesktopAgentRuntime(companyId);
+      throwIfMissionStartAborted(signal);
       // Record the runtime + thread so a concurrent cancel can abort the in-flight
       // agent call (see requestAbort) instead of leaving the run spinning.
       entry.runtime = runtime;
@@ -118,6 +180,8 @@ class MissionRunManager {
         evaluatorRegistry: createDefaultEvaluatorRegistry(),
         eventBus: runtimeEventBus,
       });
+      entry.controller = controller;
+      throwIfMissionStartAborted(signal);
       // Office Theater: the run is beginning → a planning beat.
       this.emitStatus(companyId, threadId, missionId, 'running');
       // Drive the loop to a terminal status off this call's stack.
@@ -126,7 +190,8 @@ class MissionRunManager {
       // Assembly failed before the loop started: release the slot and rethrow so
       // the Start handler can toast it. No status event was emitted in this path.
       this.activeRuns.delete(missionId);
-      entry.releaseThreadRun?.();
+      entry.removeAbortListener?.();
+      entry.threadRunLease?.release();
       this.notify();
       throw err;
     }
@@ -137,7 +202,7 @@ class MissionRunManager {
   }
 
   isThreadRunning(threadId: string): boolean {
-    return conversationThreadLifecycle.isRunActive(threadId);
+    return Array.from(this.activeRuns.values()).some((run) => run.threadId === threadId);
   }
 
   getSnapshot = (): readonly ActiveMissionRunSnapshot[] => this.snapshot;
@@ -152,8 +217,9 @@ class MissionRunManager {
    */
   requestAbort(missionId: string): void {
     const entry = this.activeRuns.get(missionId);
-    if (!entry?.runtime || !entry.threadId) return;
-    entry.runtime.abort(entry.threadId);
+    if (!entry) return;
+    entry.controller?.abortMission(missionId);
+    if (entry.runtime && entry.threadId) entry.runtime.abort(entry.threadId);
   }
 
   /** Stable subscribe (bound) so `useSyncExternalStore` does not resubscribe each
@@ -175,6 +241,22 @@ class MissionRunManager {
     for (const listener of this.listeners) listener();
   }
 
+  private async runRendererReloadBootstrap(
+    companyId: string,
+  ): Promise<MissionReloadRecoveryResult> {
+    const repos = await getRepos();
+    return convergeMissionReload({
+      companyId,
+      repos,
+      host: {
+        snapshot: (requestId) => invokeCommand('agent_runtime_stream_snapshot', { requestId }),
+        abort: (requestId) => invokeCommand('agent_runtime_abort', { requestId }),
+      },
+      now: () => new Date().toISOString(),
+      newId: () => crypto.randomUUID(),
+    });
+  }
+
   private async runToTerminal(
     controller: ReturnType<typeof createMissionRunController>,
     companyId: string,
@@ -194,7 +276,8 @@ class MissionRunManager {
     } finally {
       const entry = this.activeRuns.get(missionId);
       this.activeRuns.delete(missionId);
-      entry?.releaseThreadRun?.();
+      entry?.removeAbortListener?.();
+      entry?.threadRunLease?.release();
       this.notify();
     }
 
@@ -245,6 +328,13 @@ class MissionRunManager {
     };
     runtimeEventBus.emit(event);
   }
+}
+
+function throwIfMissionStartAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const error = new Error('Mission start was stopped before launch.');
+  error.name = 'AbortError';
+  throw error;
 }
 
 /** A short, user-legible reason for a non-completion stop. */

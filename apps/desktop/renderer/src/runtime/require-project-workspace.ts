@@ -1,9 +1,10 @@
 import type { RuntimeRepositories } from '@offisim/core/browser';
 
 /**
- * Validate the Project selected for a work Turn. Project selection is explicit:
- * this function never creates a Project, falls back to another Project, or
- * rewrites the Project catalog.
+ * Validate the Project selected for a work Turn. This intentionally checks only
+ * catalog ownership. Workspace availability and recovery are backend authority
+ * decisions made for the exact Turn; a stale/missing catalog path must not erase
+ * Conversation history or prevent an optional no-files response.
  */
 export async function requireProjectWorkspaceForRun(
   repos: RuntimeRepositories,
@@ -18,9 +19,6 @@ export async function requireProjectWorkspaceForRun(
   if (!project) throw new Error('The selected Project is unavailable. Choose another Project.');
   if (project.company_id !== companyId) {
     throw new Error('The selected Project is unavailable. Choose another Project.');
-  }
-  if (!project.workspace_root.trim()) {
-    throw new Error('This Project folder is unavailable. Choose it again.');
   }
   return projectId;
 }

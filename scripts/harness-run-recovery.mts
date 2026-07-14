@@ -9,7 +9,8 @@
  *
  * Covers:
  *   (a) a crashed `running` ROOT with no session_file → `interrupted` (NOT
- *       cancelled), finished_at stays null, card `needs_user_confirm`.
+ *       cancelled), finished_at stays null, but Resume is incompatible because
+ *       Offisim never fabricates continuity by restarting the objective.
  *   (b) a still-`running` child under that root → `cancelled` with finished_at.
  *   (c) a `completed` child under that root → untouched.
  *   (d) partial usage from terminal children is aggregated onto the root + card.
@@ -48,7 +49,7 @@ import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 29;
+const TOTAL = 32;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -278,18 +279,27 @@ async function main(): Promise<void> {
     assert.equal(card?.sessionFile, '/sessions/root2.jsonl');
     assert.equal(card?.projectId, 'proj-2');
     assert.equal(card?.workspaceBinding?.displayPath, '/tmp/offisim/proj-2');
-    assert.match(card?.whatResumeWillDo ?? '', /saved agent session/);
+    assert.equal(
+      card?.whatResumeWillDo,
+      'Continue this task in /tmp/offisim/proj-2 from where it stopped.',
+    );
     assert.doesNotMatch(card?.whatResumeWillDo ?? '', /\bPi\b/);
     const root2 = await repo.findById('root2');
     assert.equal(root2?.status, 'interrupted');
   });
 
-  await check('(a2) no-session root → needs_user_confirm card', async () => {
+  await check('(a2) no-session root → incompatible, never fake Resume', async () => {
     const card = result.cards.find((c) => c.runId === 'root1');
-    assert.equal(card?.classification, 'needs_user_confirm');
+    assert.equal(card?.classification, 'incompatible');
     assert.equal(card?.cancelledChildRunIds.length, 1, 'only the running child was cancelled');
     assert.equal(card?.cancelledChildRunIds[0], 'child1');
-    assert.match(card?.whatResumeWillDo ?? '', /No saved agent session was recorded/);
+    assert.match(card?.classificationReasons.join(' ') ?? '', /stopped before it could save/i);
+    assert.equal(
+      card?.whatResumeWillDo,
+      "This task can't safely resume. Discard it to start again in this Conversation.",
+    );
+    assert.match(card?.whatResumeWillDo ?? '', /Discard it to start again/);
+    assert.doesNotMatch(card?.whatResumeWillDo ?? '', /restart|confirm before resuming/i);
     assert.doesNotMatch(card?.classificationReasons.join(' ') ?? '', /\bPi\b/);
   });
 
@@ -327,6 +337,66 @@ async function main(): Promise<void> {
     assert.equal((await fresh.findByStatus(CO_A, [])).length, 0, 'empty statuses → []');
     const multi = await fresh.findByStatus(CO_A, ['running', 'completed']);
     assert.ok(multi.length > runningA.length, 'multi-status returns more rows');
+  });
+
+  await check('(k1) exact Fresh source is invalidated by any newer durable root', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'fresh-old',
+      thread_id: 'fresh-thread',
+      company_id: CO_A,
+      project_id: 'proj-fresh',
+      parent_run_id: null,
+      root_run_id: 'fresh-old',
+      employee_id: null,
+      relation: null,
+      objective: 'Recover this Conversation',
+      access: 'write',
+      status: 'failed',
+      failure_kind: 'runtime',
+      session_file: null,
+      runtime_context_json: JSON.stringify({
+        projectId: 'proj-fresh',
+        recoveryLane: 'conversation',
+        nativeSessionPrestartErrorCode: 'native-session-missing',
+        conversationProjection: {
+          userMessageId: 'fresh-user',
+          assistantMessageId: 'fresh-assistant',
+          source: 'office',
+        },
+      }),
+      started_at: '2026-06-27T10:00:00.000Z',
+    });
+    assert.equal(
+      (await repo2.findFreshSessionSource(CO_A, 'fresh-thread', 'fresh-old'))?.run_id,
+      'fresh-old',
+      'exact query returns the latest eligible source',
+    );
+    await repo2.create({
+      run_id: 'fresh-newer',
+      thread_id: 'fresh-thread',
+      company_id: CO_A,
+      project_id: 'proj-fresh',
+      parent_run_id: null,
+      root_run_id: 'fresh-newer',
+      employee_id: null,
+      relation: null,
+      objective: 'Newer work completed',
+      access: 'write',
+      status: 'completed',
+      session_file: '/sessions/fresh-newer.jsonl',
+      started_at: '2026-06-27T10:01:00.000Z',
+    });
+    assert.equal(
+      await repo2.findFreshSessionSource(CO_A, 'fresh-thread', 'fresh-old'),
+      null,
+      'an older source can never reappear after a newer terminal Turn',
+    );
+    assert.deepEqual(
+      await repo2.findLatestFreshSessionCandidate(CO_A, 'fresh-thread'),
+      null,
+      'current-Conversation hydration uses the same latest-root and typed eligibility rules',
+    );
   });
 
   await check('(k2) scoped status update rejects a cross-company discard', async () => {
@@ -541,6 +611,77 @@ async function main(): Promise<void> {
     assert.ok(second.cards.some((card) => card.runId === 'root1'));
   });
 
+  await check(
+    '(k5) a run submitted after bootstrap is never claimed by stale reconciliation',
+    async () => {
+      const repo2 = new MemoryAgentRunRepository();
+      for (const run of [
+        {
+          run_id: 'bootstrap-stale-root',
+          thread_id: 'bootstrap-stale-thread',
+          company_id: CO_A,
+          parent_run_id: null,
+          root_run_id: 'bootstrap-stale-root',
+          employee_id: null,
+          relation: null,
+          objective: 'stale before bootstrap',
+          access: 'write',
+          status: 'running' as const,
+          started_at: FIXED_NOW,
+        },
+        {
+          run_id: 'new-submit-root',
+          thread_id: 'new-submit-thread',
+          company_id: CO_A,
+          parent_run_id: null,
+          root_run_id: 'new-submit-root',
+          employee_id: 'emp-new',
+          relation: null,
+          objective: 'submitted after bootstrap snapshot',
+          access: 'write',
+          status: 'running' as const,
+          started_at: FIXED_NOW,
+        },
+        {
+          run_id: 'new-submit-child',
+          thread_id: 'new-submit-thread',
+          company_id: CO_A,
+          parent_run_id: 'new-submit-root',
+          root_run_id: 'new-submit-root',
+          employee_id: 'emp-child',
+          relation: 'delegate',
+          objective: 'new child',
+          access: 'write',
+          status: 'running' as const,
+          started_at: FIXED_NOW,
+        },
+      ] satisfies NewAgentRun[]) {
+        await repo2.create(run);
+      }
+
+      const recovery = await loadInterruptedRunRecovery({
+        repo: repo2,
+        companyId: CO_A,
+        now,
+        bootstrapLiveRuns: async () => ({
+          protectedRootRunIds: new Set(),
+          handledRootRunIds: new Set(),
+          confirmedMissingRootRunIds: new Set(['bootstrap-stale-root']),
+          complete: true,
+        }),
+        checkResumeCompatibility: async () => ({
+          status: 'same',
+          reason: 'workspace_identity_match',
+        }),
+      });
+
+      assert.equal((await repo2.findById('bootstrap-stale-root'))?.status, 'interrupted');
+      assert.equal((await repo2.findById('new-submit-root'))?.status, 'running');
+      assert.equal((await repo2.findById('new-submit-child'))?.status, 'running');
+      assert.equal(recovery.complete, true);
+    },
+  );
+
   await check('(l) missing workspace blocks resume classification', async () => {
     const repo2 = new MemoryAgentRunRepository();
     await repo2.create({
@@ -629,8 +770,49 @@ async function main(): Promise<void> {
     assert.equal(card.classification, 'incompatible');
     assert.match(
       card.classificationReasons.join(' '),
-      /workspace authority history is missing or does not match this run/,
+      /original Project folder cannot be verified for this task/,
     );
+  });
+
+  await check('(l2b) restart explains a conversation-only workspace state', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-workspace-unavailable',
+      thread_id: 't-workspace-unavailable',
+      company_id: CO_A,
+      project_id: 'proj-workspace-unavailable',
+      parent_run_id: null,
+      root_run_id: 'r-workspace-unavailable',
+      employee_id: null,
+      relation: null,
+      objective: 'continue the conversation',
+      access: 'write',
+      status: 'interrupted',
+      started_at: '2026-06-27T10:00:00.000Z',
+      session_file: '/sessions/r-workspace-unavailable.jsonl',
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        projectId: 'proj-workspace-unavailable',
+        workspaceBinding: null,
+        workspaceRequirement: 'optional',
+        workspaceAvailability: 'unavailable',
+        workspaceProvenance: {
+          availability: 'unavailable',
+          source: 'workspace_recovery',
+          reasonCode: 'ambiguous',
+          requirement: 'optional',
+        },
+        wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+      }),
+    });
+    const row = await repo2.findById('r-workspace-unavailable');
+    const card = buildInterruptedRunCard(row!, [], null);
+    assert.equal(card.classification, 'incompatible');
+    assert.match(
+      card.classificationReasons.join(' '),
+      /Conversation continued without Project file access because the Project folder could not be uniquely confirmed/,
+    );
+    assert.doesNotMatch(card.classificationReasons.join(' '), /workspace_recovery|ambiguous/);
   });
 
   await check(
@@ -701,7 +883,7 @@ async function main(): Promise<void> {
       currentWireProtocolVersion: 4,
     });
     assert.equal(card.classification, 'incompatible');
-    assert.match(card.classificationReasons.join(' '), /does not match current protocol/);
+    assert.match(card.classificationReasons.join(' '), /older Offisim version/);
   });
 
   // --- A3: insert-if-absent run.started persistence (resume-replay idempotency) ---

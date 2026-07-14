@@ -223,16 +223,16 @@ export function createMissionTauriRepos(db: TauriDrizzleDb): MissionTauriRepos {
         )) as RuntimeSessionLinkRow[];
       return rows[0] ?? null;
     },
-    async listByMission(missionId) {
-      // runtime_session_link rows are append-only (no UPDATE of identity columns),
-      // so SQLite `rowid` is a stable insertion-order anchor. Reconciliation reads
-      // the LAST element as the live link, so ordering must be deterministic — the
-      // table has no created_at column, and ORDER BY rowid needs no migration.
-      return (await db
+    async findLatestByMission(missionId) {
+      // Identity columns are append-only, so rowid is the stable insertion-order
+      // anchor even though the table intentionally has no created_at column.
+      const rows = (await db
         .select()
         .from(schema.runtimeSessionLink)
         .where(eq(schema.runtimeSessionLink.mission_id, missionId))
-        .orderBy(asc(sql`rowid`))) as RuntimeSessionLinkRow[];
+        .orderBy(desc(sql`rowid`))
+        .limit(1)) as RuntimeSessionLinkRow[];
+      return rows[0] ?? null;
     },
     async update(runtimeSessionLinkId, patch) {
       await db
@@ -250,12 +250,13 @@ export function createMissionTauriRepos(db: TauriDrizzleDb): MissionTauriRepos {
         .onConflictDoNothing({ target: schema.missionEvent.mission_event_id });
     },
     async listByMission(missionId, opts) {
-      return (await db
+      const rows = (await db
         .select()
         .from(schema.missionEvent)
         .where(eq(schema.missionEvent.mission_id, missionId))
-        .orderBy(asc(schema.missionEvent.created_at))
+        .orderBy(desc(schema.missionEvent.created_at))
         .limit(opts?.limit ?? DEFAULT_LIST_LIMIT)) as MissionEventRow[];
+      return rows.reverse();
     },
   };
 

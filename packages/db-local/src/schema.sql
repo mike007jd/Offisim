@@ -411,6 +411,15 @@ CREATE TABLE IF NOT EXISTS task_workspace_binding_history (
   access                    TEXT NOT NULL CHECK(access IN ('read', 'write')),
   canonical_root            TEXT NOT NULL,
   root_identity_json        TEXT NOT NULL,
+  workspace_basename_normalized TEXT NOT NULL,
+  project_name_normalized   TEXT NOT NULL,
+  workspace_anchor          TEXT NOT NULL,
+  git_origin_digest         TEXT,
+  recovery_witness_binding_id TEXT,
+  recovery_witness_authority_project_id TEXT,
+  authority_snapshot_canonical_root TEXT NOT NULL,
+  authority_snapshot_root_identity_json TEXT NOT NULL,
+  authority_snapshot_updated_at_unix_ms INTEGER NOT NULL,
   source                    TEXT NOT NULL,
   confidence                REAL NOT NULL CHECK(confidence BETWEEN 0 AND 1),
   reason_code               TEXT NOT NULL,
@@ -424,7 +433,19 @@ CREATE TABLE IF NOT EXISTS task_workspace_binding_history (
   revoked_at_unix_ms        INTEGER,
   read_grace_until_unix_ms  INTEGER,
   release_reason            TEXT,
-  resumed_from_binding_id   TEXT
+  resumed_from_binding_id   TEXT,
+  CHECK (
+    (source = 'project_catalog' AND reason_code = 'current_project_folder')
+    OR (source = 'conversation_history' AND reason_code = 'recent_successful_workspace')
+    OR (
+      source = 'known_root_recovery'
+      AND reason_code IN (
+        'renamed_same_filesystem_object',
+        'unique_name_repo_identity_match'
+      )
+    )
+    OR (source = 'resume_history' AND reason_code = 'resume_history_identity_match')
+  )
 );
 -- Backend authority/provenance for isolated writable worktrees. Renderer and
 -- Node lease packets are only consistency projections; a worktree is usable or
@@ -686,6 +707,13 @@ CREATE INDEX IF NOT EXISTS idx_agent_runs_company_started
   ON agent_runs(company_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_company_thread
   ON agent_runs(company_id, thread_id);
+-- A Conversation may own at most one unresolved root. An interrupted root keeps
+-- its native-session branch reserved until Resume or Discard; renderer
+-- activation barriers provide friendly errors, while this durable constraint is
+-- the final authority across processes, reloads, Conversation, and Mission.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_one_unresolved_root_per_thread
+  ON agent_runs(thread_id)
+  WHERE run_id = root_run_id AND status IN ('running', 'interrupted');
 CREATE INDEX IF NOT EXISTS idx_agent_runs_root ON agent_runs(root_run_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_parent ON agent_runs(parent_run_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_company_project_status
@@ -734,6 +762,23 @@ WHEN NOT EXISTS (
   SELECT 1
   FROM chat_threads AS thread
   JOIN projects AS project ON project.project_id = thread.project_id
+  WHERE thread.thread_id = NEW.thread_id
+    AND project.project_id = NEW.project_id
+    AND project.company_id = NEW.company_id
+)
+BEGIN
+  SELECT RAISE(ABORT, 'task workspace binding scope does not match Company, Project, and Conversation');
+END;
+
+-- Issuance is a compare-and-swap against the exact Project authority observed
+-- by the resolver. Recovery may bind a different live root, so binding root
+-- columns cannot stand in for this issuer snapshot.
+CREATE TRIGGER IF NOT EXISTS trg_task_workspace_binding_authority_snapshot_insert
+BEFORE INSERT ON task_workspace_binding_history
+WHEN NOT EXISTS (
+  SELECT 1
+  FROM chat_threads AS thread
+  JOIN projects AS project ON project.project_id = thread.project_id
   JOIN project_workspace_authority AS authority
     ON authority.project_id = project.project_id
    AND authority.company_id = project.company_id
@@ -741,11 +786,150 @@ WHEN NOT EXISTS (
   WHERE thread.thread_id = NEW.thread_id
     AND project.project_id = NEW.project_id
     AND project.company_id = NEW.company_id
-    AND authority.canonical_root = NEW.canonical_root
-    AND authority.root_identity_json = NEW.root_identity_json
+    AND NEW.authority_snapshot_canonical_root = project.workspace_root
+    AND NEW.authority_snapshot_canonical_root = authority.canonical_root
+    AND NEW.authority_snapshot_root_identity_json = authority.root_identity_json
+    AND NEW.authority_snapshot_updated_at_unix_ms = authority.updated_at_unix_ms
 )
 BEGIN
-  SELECT RAISE(ABORT, 'task workspace binding scope does not match Company, Project, and Conversation');
+  SELECT RAISE(ABORT, 'task workspace binding Project authority snapshot is stale');
+END;
+
+-- A recovered root is Conversation evidence, not permission to adopt a folder
+-- currently claimed by another Project, Company, or retained worktree.
+-- Keep this check in SQLite as the final compare-and-swap boundary after the
+-- resolver's read-side ownership check.
+CREATE TRIGGER IF NOT EXISTS trg_task_workspace_recovered_root_unoccupied_insert
+BEFORE INSERT ON task_workspace_binding_history
+WHEN NEW.source IN ('conversation_history', 'known_root_recovery')
+AND (
+  EXISTS (
+    SELECT 1
+    FROM project_workspace_authority AS authority
+    WHERE authority.project_id <> NEW.project_id
+      AND authority.canonical_root = NEW.canonical_root
+  )
+  OR EXISTS (
+    SELECT 1
+    FROM task_workspace_binding_history AS binding
+    WHERE binding.status = 'active'
+      AND binding.canonical_root = NEW.canonical_root
+      AND binding.project_id <> NEW.project_id
+  )
+  OR EXISTS (
+    SELECT 1
+    FROM task_workspace_lease_history AS lease
+    WHERE lease.status = 'active'
+      AND lease.canonical_worktree = NEW.canonical_root
+  )
+)
+BEGIN
+  SELECT RAISE(ABORT, 'recovered workspace root is already claimed by another Project or retained worktree');
+END;
+
+-- A live binding is either backed by the current native-picked Project folder,
+-- or by one completed binding from the same Conversation. Recovery rows never
+-- rewrite Project catalog authority; they carry their own immutable witness.
+CREATE TRIGGER IF NOT EXISTS trg_task_workspace_binding_authority_insert
+BEFORE INSERT ON task_workspace_binding_history
+WHEN NOT (
+  (
+    (
+      (NEW.source = 'project_catalog' AND NEW.reason_code = 'current_project_folder')
+      OR (
+        NEW.source = 'resume_history'
+        AND NEW.reason_code = 'resume_history_identity_match'
+      )
+    )
+    AND NEW.recovery_witness_binding_id IS NULL
+    AND NEW.recovery_witness_authority_project_id IS NULL
+    AND EXISTS (
+      SELECT 1
+      FROM projects AS project
+      JOIN project_workspace_authority AS authority
+        ON authority.project_id = project.project_id
+       AND authority.company_id = project.company_id
+       AND authority.canonical_root = project.workspace_root
+      WHERE project.project_id = NEW.project_id
+        AND project.company_id = NEW.company_id
+        AND authority.canonical_root = NEW.canonical_root
+        AND authority.root_identity_json = NEW.root_identity_json
+    )
+  )
+  OR (
+    NEW.source = 'conversation_history'
+    AND NEW.reason_code = 'recent_successful_workspace'
+    AND NEW.recovery_witness_authority_project_id IS NULL
+    AND EXISTS (
+      SELECT 1
+      FROM task_workspace_binding_history AS witness
+      WHERE witness.binding_id = NEW.recovery_witness_binding_id
+        AND witness.company_id = NEW.company_id
+        AND witness.project_id = NEW.project_id
+        AND witness.thread_id = NEW.thread_id
+        AND witness.status = 'completed'
+        AND witness.authority_snapshot_canonical_root = NEW.authority_snapshot_canonical_root
+        AND witness.authority_snapshot_root_identity_json = NEW.authority_snapshot_root_identity_json
+        AND witness.authority_snapshot_updated_at_unix_ms = NEW.authority_snapshot_updated_at_unix_ms
+        AND witness.canonical_root = NEW.canonical_root
+        AND witness.root_identity_json = NEW.root_identity_json
+    )
+  )
+  OR (
+    NEW.source = 'known_root_recovery'
+    AND (
+      (
+        NEW.recovery_witness_authority_project_id IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM task_workspace_binding_history AS witness
+          WHERE witness.binding_id = NEW.recovery_witness_binding_id
+            AND witness.company_id = NEW.company_id
+            AND witness.project_id = NEW.project_id
+            AND witness.thread_id = NEW.thread_id
+            AND witness.status = 'completed'
+            AND witness.authority_snapshot_canonical_root = NEW.authority_snapshot_canonical_root
+            AND witness.authority_snapshot_root_identity_json = NEW.authority_snapshot_root_identity_json
+            AND witness.authority_snapshot_updated_at_unix_ms = NEW.authority_snapshot_updated_at_unix_ms
+            AND (
+              (
+                NEW.reason_code = 'renamed_same_filesystem_object'
+                AND json_extract(witness.root_identity_json, '$.device') = json_extract(NEW.root_identity_json, '$.device')
+                AND json_extract(witness.root_identity_json, '$.inode') = json_extract(NEW.root_identity_json, '$.inode')
+              )
+              OR (
+                NEW.reason_code = 'unique_name_repo_identity_match'
+                AND NEW.git_origin_digest IS NOT NULL
+                AND NEW.git_origin_digest = witness.git_origin_digest
+                AND NEW.workspace_basename_normalized IN (
+                  witness.workspace_basename_normalized,
+                  witness.project_name_normalized
+                )
+              )
+            )
+        )
+      )
+      OR (
+        NEW.reason_code = 'renamed_same_filesystem_object'
+        AND NEW.recovery_witness_binding_id IS NULL
+        AND NEW.recovery_witness_authority_project_id = NEW.project_id
+        AND EXISTS (
+          SELECT 1
+          FROM project_workspace_authority AS authority
+          WHERE authority.project_id = NEW.recovery_witness_authority_project_id
+            AND authority.company_id = NEW.company_id
+            AND authority.canonical_root = NEW.authority_snapshot_canonical_root
+            AND authority.root_identity_json = NEW.authority_snapshot_root_identity_json
+            AND authority.updated_at_unix_ms = NEW.authority_snapshot_updated_at_unix_ms
+            AND json_extract(authority.root_identity_json, '$.device') = json_extract(NEW.root_identity_json, '$.device')
+            AND json_extract(authority.root_identity_json, '$.inode') = json_extract(NEW.root_identity_json, '$.inode')
+        )
+      )
+    )
+  )
+)
+BEGIN
+  SELECT RAISE(ABORT, 'task workspace binding has no durable Project or Conversation authority');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_project_workspace_authority_scope_insert
@@ -770,6 +954,60 @@ WHEN NOT EXISTS (
 )
 BEGIN
   SELECT RAISE(ABORT, 'Project workspace authority does not match its Project catalog scope');
+END;
+
+-- Reverse compare-and-swap: a Project catalog write cannot retroactively seize
+-- a root already proven by another Project's authority, active Conversation,
+-- or retained worktree. The recovered-binding trigger above protects issuance;
+-- these two protect the opposite write order.
+CREATE TRIGGER IF NOT EXISTS trg_project_workspace_authority_root_unoccupied_insert
+BEFORE INSERT ON project_workspace_authority
+WHEN EXISTS (
+  SELECT 1 FROM project_workspace_authority AS authority
+  WHERE authority.project_id <> NEW.project_id
+    AND authority.canonical_root = NEW.canonical_root
+)
+OR EXISTS (
+  SELECT 1 FROM task_workspace_binding_history AS binding
+  WHERE binding.project_id <> NEW.project_id
+    AND binding.status = 'active'
+    AND binding.canonical_root = NEW.canonical_root
+)
+OR EXISTS (
+  SELECT 1 FROM task_workspace_lease_history AS lease
+  WHERE lease.status = 'active'
+    AND lease.canonical_worktree = NEW.canonical_root
+)
+BEGIN
+  SELECT RAISE(ABORT, 'Project workspace root is already claimed by another Project, active Conversation, or retained worktree');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_project_workspace_authority_root_unoccupied_update
+BEFORE UPDATE OF project_id, canonical_root ON project_workspace_authority
+WHEN (
+  NEW.project_id <> OLD.project_id
+  OR NEW.canonical_root <> OLD.canonical_root
+)
+AND (
+  EXISTS (
+    SELECT 1 FROM project_workspace_authority AS authority
+    WHERE authority.project_id <> NEW.project_id
+      AND authority.canonical_root = NEW.canonical_root
+  )
+  OR EXISTS (
+    SELECT 1 FROM task_workspace_binding_history AS binding
+    WHERE binding.project_id <> NEW.project_id
+      AND binding.status = 'active'
+      AND binding.canonical_root = NEW.canonical_root
+  )
+  OR EXISTS (
+    SELECT 1 FROM task_workspace_lease_history AS lease
+    WHERE lease.status = 'active'
+      AND lease.canonical_worktree = NEW.canonical_root
+  )
+)
+BEGIN
+  SELECT RAISE(ABORT, 'Project workspace root is already claimed by another Project, active Conversation, or retained worktree');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_project_workspace_authority_identity_update
@@ -819,24 +1057,31 @@ BEGIN
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_task_workspace_binding_scope_update
-BEFORE UPDATE OF company_id, project_id, thread_id, canonical_root, root_identity_json
+BEFORE UPDATE OF company_id, project_id, thread_id
 ON task_workspace_binding_history
 WHEN NOT EXISTS (
   SELECT 1
   FROM chat_threads AS thread
   JOIN projects AS project ON project.project_id = thread.project_id
-  JOIN project_workspace_authority AS authority
-    ON authority.project_id = project.project_id
-   AND authority.company_id = project.company_id
-   AND authority.canonical_root = project.workspace_root
   WHERE thread.thread_id = NEW.thread_id
     AND project.project_id = NEW.project_id
     AND project.company_id = NEW.company_id
-    AND authority.canonical_root = NEW.canonical_root
-    AND authority.root_identity_json = NEW.root_identity_json
 )
 BEGIN
   SELECT RAISE(ABORT, 'task workspace binding scope does not match Company, Project, and Conversation');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_task_workspace_binding_authority_immutable
+BEFORE UPDATE OF
+  company_id, project_id, thread_id, canonical_root, root_identity_json,
+  workspace_basename_normalized, project_name_normalized, workspace_anchor,
+  git_origin_digest, recovery_witness_binding_id,
+  recovery_witness_authority_project_id, authority_snapshot_canonical_root,
+  authority_snapshot_root_identity_json,
+  authority_snapshot_updated_at_unix_ms, source, confidence, reason_code
+ON task_workspace_binding_history
+BEGIN
+  SELECT RAISE(ABORT, 'task workspace binding authority provenance is immutable');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_task_workspace_lease_provenance_insert
@@ -844,11 +1089,6 @@ BEFORE INSERT ON task_workspace_lease_history
 WHEN NOT EXISTS (
   SELECT 1
   FROM task_workspace_binding_history AS binding
-  JOIN project_workspace_authority AS authority
-    ON authority.project_id = binding.project_id
-   AND authority.company_id = binding.company_id
-   AND authority.canonical_root = binding.canonical_root
-   AND authority.root_identity_json = binding.root_identity_json
   JOIN agent_runs AS child ON child.run_id = NEW.child_run_id
   JOIN agent_runs AS root ON root.run_id = NEW.created_root_run_id
   WHERE binding.binding_id = NEW.created_binding_id
@@ -858,6 +1098,62 @@ WHEN NOT EXISTS (
     AND binding.request_id = NEW.created_request_id
     AND binding.access = 'write'
     AND binding.status = 'active'
+    AND EXISTS (
+      SELECT 1
+      FROM projects AS project
+      JOIN project_workspace_authority AS authority
+        ON authority.project_id = project.project_id
+       AND authority.company_id = project.company_id
+       AND authority.canonical_root = project.workspace_root
+      WHERE project.project_id = binding.project_id
+        AND project.company_id = binding.company_id
+        AND binding.authority_snapshot_canonical_root = project.workspace_root
+        AND binding.authority_snapshot_root_identity_json = authority.root_identity_json
+        AND binding.authority_snapshot_updated_at_unix_ms = authority.updated_at_unix_ms
+    )
+    AND (
+      (
+        binding.source IN ('project_catalog', 'resume_history')
+        AND binding.recovery_witness_binding_id IS NULL
+        AND binding.recovery_witness_authority_project_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM project_workspace_authority AS authority
+          WHERE authority.project_id = binding.project_id
+            AND authority.company_id = binding.company_id
+            AND authority.canonical_root = binding.canonical_root
+            AND authority.root_identity_json = binding.root_identity_json
+        )
+      )
+      OR
+      (
+        binding.source IN ('conversation_history', 'known_root_recovery')
+        AND (
+          EXISTS (
+          SELECT 1 FROM task_workspace_binding_history AS witness
+          WHERE witness.binding_id = binding.recovery_witness_binding_id
+            AND witness.company_id = binding.company_id
+            AND witness.project_id = binding.project_id
+            AND witness.thread_id = binding.thread_id
+            AND witness.status = 'completed'
+            AND witness.authority_snapshot_canonical_root = binding.authority_snapshot_canonical_root
+            AND witness.authority_snapshot_root_identity_json = binding.authority_snapshot_root_identity_json
+            AND witness.authority_snapshot_updated_at_unix_ms = binding.authority_snapshot_updated_at_unix_ms
+            AND binding.recovery_witness_authority_project_id IS NULL
+          )
+          OR EXISTS (
+            SELECT 1 FROM project_workspace_authority AS authority
+            WHERE authority.project_id = binding.recovery_witness_authority_project_id
+              AND authority.project_id = binding.project_id
+              AND authority.company_id = binding.company_id
+              AND authority.canonical_root = binding.authority_snapshot_canonical_root
+              AND authority.root_identity_json = binding.authority_snapshot_root_identity_json
+              AND authority.updated_at_unix_ms = binding.authority_snapshot_updated_at_unix_ms
+              AND binding.recovery_witness_binding_id IS NULL
+              AND binding.reason_code = 'renamed_same_filesystem_object'
+          )
+        )
+      )
+    )
     AND NEW.project_root_identity_json = binding.root_identity_json
     AND child.company_id = binding.company_id
     AND child.project_id = binding.project_id
@@ -893,6 +1189,62 @@ WHEN NOT EXISTS (
     AND binding.project_id = NEW.project_id
     AND binding.access = 'write'
     AND binding.status = 'active'
+    AND EXISTS (
+      SELECT 1
+      FROM projects AS project
+      JOIN project_workspace_authority AS authority
+        ON authority.project_id = project.project_id
+       AND authority.company_id = project.company_id
+       AND authority.canonical_root = project.workspace_root
+      WHERE project.project_id = binding.project_id
+        AND project.company_id = binding.company_id
+        AND binding.authority_snapshot_canonical_root = project.workspace_root
+        AND binding.authority_snapshot_root_identity_json = authority.root_identity_json
+        AND binding.authority_snapshot_updated_at_unix_ms = authority.updated_at_unix_ms
+    )
+    AND (
+      (
+        binding.source IN ('project_catalog', 'resume_history')
+        AND binding.recovery_witness_binding_id IS NULL
+        AND binding.recovery_witness_authority_project_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM project_workspace_authority AS authority
+          WHERE authority.project_id = binding.project_id
+            AND authority.company_id = binding.company_id
+            AND authority.canonical_root = binding.canonical_root
+            AND authority.root_identity_json = binding.root_identity_json
+        )
+      )
+      OR
+      (
+        binding.source IN ('conversation_history', 'known_root_recovery')
+        AND (
+          EXISTS (
+          SELECT 1 FROM task_workspace_binding_history AS witness
+          WHERE witness.binding_id = binding.recovery_witness_binding_id
+            AND witness.company_id = binding.company_id
+            AND witness.project_id = binding.project_id
+            AND witness.thread_id = binding.thread_id
+            AND witness.status = 'completed'
+            AND witness.authority_snapshot_canonical_root = binding.authority_snapshot_canonical_root
+            AND witness.authority_snapshot_root_identity_json = binding.authority_snapshot_root_identity_json
+            AND witness.authority_snapshot_updated_at_unix_ms = binding.authority_snapshot_updated_at_unix_ms
+            AND binding.recovery_witness_authority_project_id IS NULL
+          )
+          OR EXISTS (
+            SELECT 1 FROM project_workspace_authority AS authority
+            WHERE authority.project_id = binding.recovery_witness_authority_project_id
+              AND authority.project_id = binding.project_id
+              AND authority.company_id = binding.company_id
+              AND authority.canonical_root = binding.authority_snapshot_canonical_root
+              AND authority.root_identity_json = binding.authority_snapshot_root_identity_json
+              AND authority.updated_at_unix_ms = binding.authority_snapshot_updated_at_unix_ms
+              AND binding.recovery_witness_binding_id IS NULL
+              AND binding.reason_code = 'renamed_same_filesystem_object'
+          )
+        )
+      )
+    )
 )
 BEGIN
   SELECT RAISE(ABORT, 'task workspace lease adoption requires an active writable binding for the same Project');

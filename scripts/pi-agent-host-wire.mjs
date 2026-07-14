@@ -11,7 +11,7 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 8;
+export const PI_HOST_PROTOCOL_VERSION = 9;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',
@@ -46,7 +46,13 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'mode',
       'text',
       'cwd',
+      'workspaceRequirement',
+      'nativeSessionMode',
+      'workspaceAvailability',
+      'workspaceUnavailableReasonCode',
       'sessionDir',
+      'exactSessionFile',
+      'exactSessionId',
       'agentDir',
       'model',
       'permissionMode',
@@ -66,6 +72,9 @@ export const PI_REQUEST_SPEC = Object.freeze({
     ],
     [
       'agentDir',
+      'workspaceUnavailableReasonCode',
+      'exactSessionFile',
+      'exactSessionId',
       'model',
       'permissionMode',
       'thinkingLevel',
@@ -120,7 +129,13 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
     mode: payload.mode,
     text: payload.text,
     cwd: payload.cwd,
+    workspaceRequirement: payload.workspaceRequirement,
+    nativeSessionMode: payload.nativeSessionMode,
+    workspaceAvailability: payload.workspaceAvailability,
+    workspaceUnavailableReasonCode: payload.workspaceUnavailableReasonCode,
     sessionDir: payload.sessionDir,
+    exactSessionFile: payload.exactSessionFile,
+    exactSessionId: payload.exactSessionId,
     agentDir: payload.agentDir,
     model: payload.model,
     permissionMode: payload.permissionMode,

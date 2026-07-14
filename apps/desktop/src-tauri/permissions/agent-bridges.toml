@@ -21,6 +21,7 @@ commands.allow = [
   "agent_runtime_status",
   "computer_driver_status",
   "git_exec",
+  "workspace_lease_list",
   "workspace_lease_changed",
   "workspace_lease_release",
   "workspace_lease_discard",

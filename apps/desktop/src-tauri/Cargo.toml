@@ -76,3 +76,6 @@ objc2-foundation = { version = "0.3", features = ["NSString", "NSUserDefaults"] 
 objc2 = "0.6"
 block2 = "0.6"
 objc2-web-kit = { version = "=0.3.2", default-features = false, features = ["WKWebView"] }
+
+[dev-dependencies]
+tauri = { version = "=2.10.3", features = ["test"] }

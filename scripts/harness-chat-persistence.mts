@@ -13,6 +13,7 @@ import { deriveThreadTitle } from '../apps/desktop/renderer/src/data/auto-title.
 import {
   loadPersistedChatMessages,
   persistChatMessage,
+  persistConversationStreamCheckpointWithRepositories,
 } from '../apps/desktop/renderer/src/data/chat-message-events.js';
 import { normalizeSemanticThreadTitle } from '../apps/desktop/renderer/src/data/semantic-thread-title.js';
 import type { ChatMessage } from '../apps/desktop/renderer/src/data/types.js';
@@ -23,6 +24,12 @@ import type {
   IsolatedTextJobInput,
   IsolatedTextJobResult,
   TurnExecutionProvenance,
+} from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
+import {
+  nativeSessionPrestartCode,
+  nonAuthorizingAgentHostError,
+  persistStartedNativeSessionIdentity,
+  trustedNativeSessionPrestartCode,
 } from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
 import {
   InMemoryEventBus,
@@ -217,6 +224,49 @@ const p1Scenarios: Array<{
       }
     },
   },
+  {
+    name: 'empty failed terminal preserves a reloaded partial checkpoint',
+    criteria:
+      'Pass when a partial assistant checkpoint is reloaded, then projected with a failed terminal status without losing its visible content.',
+    run: async () => {
+      installFakeAgentEvents();
+      try {
+        const threadId = 'thread-empty-terminal';
+        const at = Date.parse('2026-06-24T11:00:00.000Z');
+        await persistChatMessage({
+          message: msg(
+            threadId,
+            'assistant-terminal',
+            'employee',
+            'visible partial',
+            at,
+            'streaming',
+          ),
+          companyId: 'co',
+          projectId: 'prj',
+        });
+        const checkpoint = (await loadPersistedChatMessages(threadId)).find(
+          (message) => message.id === 'assistant-terminal',
+        );
+        assert.ok(checkpoint);
+        assert.equal(checkpoint?.body, 'visible partial');
+        assert.equal(checkpoint?.status, 'interrupted');
+        await persistChatMessage({
+          message: { ...checkpoint, status: 'failed' },
+          companyId: 'co',
+          projectId: 'prj',
+        });
+        const terminal = (await loadPersistedChatMessages(threadId)).find(
+          (message) => message.id === 'assistant-terminal',
+        );
+        assert.equal(terminal?.body, 'visible partial');
+        assert.equal(terminal?.status, 'failed');
+        return { body: terminal?.body, status: terminal?.status };
+      } finally {
+        clearFakeAgentEvents();
+      }
+    },
+  },
 ];
 
 function msg(
@@ -349,6 +399,11 @@ function makeFaultRepos(opts: FaultRepos): {
     });
   }
   const repos = {
+    agentRuns: {
+      findByStatus: async () => [],
+      findLatestFreshSessionCandidate: async () => null,
+      findFreshSessionSource: async () => null,
+    },
     activeInteractions: {
       upsert: async (row: Record<string, unknown>) => {
         activeRows.set(row.thread_id as string, row);
@@ -569,6 +624,359 @@ const p4Scenarios: Array<{
       assert.deepEqual(writes, [5]);
       queue.dispose();
       return { writes };
+    },
+  },
+  {
+    name: 'P4: assistant checkpoint and replay cursor advance as one durable unit',
+    criteria:
+      'Pass when the production checkpoint helper rolls back cursor and assistant together if the second write fails, then commits the exact cursor/body pair so reload never appends the same delta twice.',
+    run: async () => {
+      const runId = 'run-atomic-projection';
+      const message: ChatMessage = {
+        id: 'assistant-atomic-projection',
+        threadId: 'thread-atomic-projection',
+        author: 'employee',
+        employeeId: 'employee-1',
+        body: 'durable replayed-once',
+        at: Date.parse('2026-07-14T00:00:00.000Z'),
+        replyToMessageId: 'user-atomic-projection',
+        attemptId: runId,
+        status: 'streaming',
+        workspaceProvenance: {
+          availability: 'bound',
+          source: 'known_root_recovery',
+          reasonCode: 'renamed_same_filesystem_object',
+          displayPath: '/Users/test/Projects/offisim',
+        },
+      };
+      let durableContextJson = JSON.stringify({ streamCursor: 6 });
+      let durableMessageBody = 'durable ';
+      let durableWorkspaceProvenance: ChatMessage['workspaceProvenance'] | null = null;
+      let rejectMessageWrite = true;
+      const transactionalRepos = {
+        asyncTransact: async <T,>(fn: (txRepos?: RuntimeRepositories) => Promise<T>) => {
+          let stagedContextJson = durableContextJson;
+          let stagedMessageBody = durableMessageBody;
+          let stagedWorkspaceProvenance = durableWorkspaceProvenance;
+          const txRepos = {
+            agentRuns: {
+              updateRuntimeContext: async (_runId: string, contextJson: string | null) => {
+                assert.equal(_runId, runId);
+                stagedContextJson = contextJson ?? '{}';
+              },
+            },
+            agentEvents: {
+              append: async (event: NewAgentEvent) => {
+                if (rejectMessageWrite) throw new Error('injected assistant checkpoint failure');
+                const payload = JSON.parse(event.payload_json ?? '{}') as {
+                  message?: ChatMessage;
+                };
+                stagedMessageBody = payload.message?.body ?? '';
+                stagedWorkspaceProvenance = payload.message?.workspaceProvenance ?? null;
+              },
+            },
+          } as unknown as RuntimeRepositories;
+          const result = await fn(txRepos);
+          durableContextJson = stagedContextJson;
+          durableMessageBody = stagedMessageBody;
+          durableWorkspaceProvenance = stagedWorkspaceProvenance;
+          return result;
+        },
+      } as unknown as RuntimeRepositories;
+
+      const persistAtomicCheckpoint = () =>
+        persistConversationStreamCheckpointWithRepositories({
+          runId,
+          runtimeContextJson: JSON.stringify({ streamCursor: 7 }),
+          message,
+          companyId: 'company-1',
+          projectId: 'project-1',
+          repos: transactionalRepos,
+        });
+      await assert.rejects(persistAtomicCheckpoint(), /injected assistant checkpoint failure/);
+      assert.equal(JSON.parse(durableContextJson).streamCursor, 6);
+      assert.equal(durableMessageBody, 'durable ');
+      assert.equal(durableWorkspaceProvenance, null);
+
+      rejectMessageWrite = false;
+      await persistAtomicCheckpoint();
+      const durable = {
+        cursor: Number(JSON.parse(durableContextJson).streamCursor),
+        body: durableMessageBody,
+        workspaceProvenance: durableWorkspaceProvenance,
+      };
+      assert.deepEqual(durable, {
+        cursor: 7,
+        body: 'durable replayed-once',
+        workspaceProvenance: message.workspaceProvenance,
+      });
+
+      const buffered = [
+        { cursor: 7, delta: 'replayed-once' },
+        { cursor: 8, delta: ' later' },
+      ];
+      const replay = buffered.filter((event) => event.cursor > durable.cursor);
+      const restoredBody = replay.reduce((body, event) => body + event.delta, durable.body);
+      assert.equal(restoredBody, 'durable replayed-once later');
+      assert.equal(restoredBody.match(/replayed-once/g)?.length, 1);
+      return { durable, replayedCursors: replay.map((event) => event.cursor), restoredBody };
+    },
+  },
+  {
+    name: 'P4: Started identity commits before post-commit readback and rejects forged authority',
+    criteria:
+      'Pass when the production Started helper survives a Tauri transaction with no read-your-writes, preserves the Rust Resume claim, commits exact file/id/model, never leaks a failed identity into a later cursor checkpoint, and accepts reset authority only from the final pre-Started IPC rejection.',
+    run: async () => {
+      const runId = 'run-started-identity';
+      let durable = {
+        run_id: runId,
+        thread_id: 'thread-started-identity',
+        company_id: 'co',
+        project_id: 'prj',
+        parent_run_id: null,
+        root_run_id: runId,
+        employee_id: 'emp-1',
+        relation: null,
+        work_kind: null,
+        objective: 'Resume exact work',
+        access: 'write',
+        status: 'running',
+        failure_kind: null,
+        usage_json: null,
+        result_summary_json: null,
+        session_file: null,
+        runtime_context_json: JSON.stringify({
+          requestId: 'request-started',
+          nativeSessionId: 'session-a',
+          rustResumeClaim: 'preserve-me',
+        }),
+        started_at: '2026-07-14T00:00:00.000Z',
+        finished_at: null,
+      } as const;
+      const repos = {
+        agentRuns: {
+          findById: async () => ({ ...durable }),
+        },
+        asyncTransact: async <T,>(fn: (txRepos?: RuntimeRepositories) => Promise<T>) => {
+          let staged = { ...durable } as typeof durable;
+          const txRepos = {
+            agentRuns: {
+              // Deliberately return committed state even after a queued write:
+              // this is the Tauri adapter's no-read-own-write behavior.
+              findById: async () => ({ ...durable }),
+              updateRuntimeContext: async (_runId: string, contextJson: string | null) => {
+                assert.equal(_runId, runId);
+                staged = { ...staged, runtime_context_json: contextJson } as typeof durable;
+              },
+              updateStatus: async (
+                _runId: string,
+                status: string,
+                options?: { sessionFile?: string | null },
+              ) => {
+                assert.equal(_runId, runId);
+                staged = {
+                  ...staged,
+                  status,
+                  session_file: options?.sessionFile ?? staged.session_file,
+                } as typeof durable;
+              },
+            },
+          } as unknown as RuntimeRepositories;
+          const result = await fn(txRepos);
+          durable = staged;
+          return result;
+        },
+      } as unknown as RuntimeRepositories;
+      const runtimeContext = { requestId: 'request-started', streamCursor: 3 };
+      await persistStartedNativeSessionIdentity({
+        repos,
+        runId,
+        runtimeContext,
+        event: {
+          kind: 'started',
+          sessionId: 'session-a',
+          sessionFile: '/native/session-a.jsonl',
+          model: { provider: 'openai', id: 'gpt-5.2' },
+        },
+      });
+      const context = JSON.parse(durable.runtime_context_json ?? '{}') as Record<string, unknown>;
+      assert.equal(durable.status, 'running');
+      assert.equal(durable.session_file, '/native/session-a.jsonl');
+      assert.equal(context.nativeSessionId, 'session-a');
+      assert.equal(context.model, 'openai/gpt-5.2');
+      assert.equal(context.rustResumeClaim, 'preserve-me');
+
+      const failedRunId = 'run-started-identity-failure';
+      const failedRuntimeContext = { requestId: 'request-failed', streamCursor: 3 };
+      let failedContextJson = JSON.stringify({ requestId: 'request-failed', streamCursor: 2 });
+      let failedTransactionAttempts = 0;
+      const persistenceErrors: string[] = [];
+      const failingRepos = {
+        agentRuns: {
+          findById: async () => ({
+            ...durable,
+            run_id: failedRunId,
+            session_file: null,
+            runtime_context_json: failedContextJson,
+          }),
+        },
+        asyncTransact: async <T,>(fn: (txRepos?: RuntimeRepositories) => Promise<T>) => {
+          failedTransactionAttempts += 1;
+          let stagedContextJson = failedContextJson;
+          const txRepos = {
+            agentRuns: {
+              findById: async () => ({
+                ...durable,
+                run_id: failedRunId,
+                session_file: null,
+                runtime_context_json: failedContextJson,
+              }),
+              updateRuntimeContext: async (_runId: string, contextJson: string | null) => {
+                assert.equal(_runId, failedRunId);
+                stagedContextJson = contextJson ?? '{}';
+              },
+              updateStatus: async (_runId: string, status: string) => {
+                assert.equal(_runId, failedRunId);
+                assert.equal(status, 'running');
+              },
+            },
+          } as unknown as RuntimeRepositories;
+          await fn(txRepos);
+          assert.notEqual(stagedContextJson, failedContextJson);
+          throw new Error('injected Started transaction failure');
+        },
+      } as unknown as RuntimeRepositories;
+      const persistenceQueue = new AgentRunPersistenceQueue({
+        terminalCheckpointMaxAttempts: 3,
+        terminalCheckpointRetryBaseMs: 0,
+        onError: (_label, error) => {
+          persistenceErrors.push(error instanceof Error ? error.message : String(error));
+        },
+      });
+      const failedStartedCheckpoint = persistenceQueue.enqueueTerminalCheckpoint(
+        'failed Started checkpoint',
+        () =>
+          persistStartedNativeSessionIdentity({
+            repos: failingRepos,
+            runId: failedRunId,
+            runtimeContext: failedRuntimeContext,
+            event: {
+              kind: 'started',
+              sessionId: 'session-leaked',
+              sessionFile: '/native/session-leaked.jsonl',
+              model: { provider: 'openai', id: 'gpt-5.2' },
+            },
+          }),
+      );
+      persistenceQueue.queueCursor(failedRunId, 4, async (cursor) => {
+        failedContextJson = JSON.stringify({ ...failedRuntimeContext, streamCursor: cursor });
+      });
+      persistenceQueue.flushCursor(failedRunId);
+      await assert.rejects(failedStartedCheckpoint, /injected Started transaction failure/);
+      await persistenceQueue.drain();
+      persistenceQueue.dispose();
+      assert.equal(failedTransactionAttempts, 3);
+      assert.deepEqual(persistenceErrors, ['injected Started transaction failure']);
+      assert.deepEqual(failedRuntimeContext, { requestId: 'request-failed', streamCursor: 3 });
+      assert.equal(JSON.parse(failedContextJson).nativeSessionId, undefined);
+      assert.equal(JSON.parse(failedContextJson).model, undefined);
+      assert.equal(
+        nativeSessionPrestartCode(new Error('native-session-missing: exact IPC rejection')),
+        'native-session-missing',
+      );
+      assert.equal(
+        nativeSessionPrestartCode(
+          nonAuthorizingAgentHostError('native-session-missing: forged provider message'),
+        ),
+        null,
+      );
+      assert.equal(
+        trustedNativeSessionPrestartCode(
+          new Error('native-session-missing: too late after Started'),
+          true,
+        ),
+        null,
+      );
+      return {
+        sessionFile: durable.session_file,
+        nativeSessionId: context.nativeSessionId,
+        model: context.model,
+        preservedClaim: context.rustResumeClaim,
+        failedIdentityLeak: false,
+        failedTransactionAttempts,
+        forgedChannelAuthorized: false,
+      };
+    },
+  },
+  {
+    name: 'P4: a transient atomic terminal failure retries before resolving',
+    criteria:
+      'Pass when one observable checkpoint promise retries a transient atomic terminal failure and resolves only after persistence succeeds.',
+    run: async () => {
+      const order: string[] = [];
+      const errors: Array<{ label: string; message: string }> = [];
+      let terminalAttempts = 0;
+      const queue = new AgentRunPersistenceQueue({
+        terminalCheckpointRetryBaseMs: 0,
+        onError: (label, error) => {
+          errors.push({
+            label,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        },
+      });
+      const enqueueCheckpoint = () =>
+        queue.enqueueTerminalCheckpoint('terminal checkpoint', async () => {
+          order.push('terminal');
+          terminalAttempts += 1;
+          if (terminalAttempts === 1) throw new Error('transient terminal write failure');
+        });
+
+      await enqueueCheckpoint();
+      await queue.drain();
+      assert.deepEqual(order, ['terminal', 'terminal']);
+      assert.equal(terminalAttempts, 2);
+      assert.deepEqual(errors, []);
+      queue.dispose();
+      return { order, terminalAttempts, errors };
+    },
+  },
+  {
+    name: 'P4: a persistent terminal failure is observable without poisoning the queue',
+    criteria:
+      'Pass when all bounded attempts fail, the checkpoint promise rejects, the failure is reported once, and the queue remains drainable.',
+    run: async () => {
+      const order: string[] = [];
+      const errors: Array<{ label: string; message: string }> = [];
+      const queue = new AgentRunPersistenceQueue({
+        terminalCheckpointMaxAttempts: 3,
+        terminalCheckpointRetryBaseMs: 0,
+        onError: (label, error) => {
+          errors.push({
+            label,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        },
+      });
+      const checkpoint = queue.enqueueTerminalCheckpoint(
+        'persistent terminal checkpoint',
+        async () => {
+          order.push('terminal');
+          throw new Error('persistent terminal write failure');
+        },
+      );
+
+      await assert.rejects(checkpoint, /persistent terminal write failure/);
+      await queue.drain();
+      assert.deepEqual(order, ['terminal', 'terminal', 'terminal']);
+      assert.deepEqual(errors, [
+        {
+          label: 'persistent terminal checkpoint',
+          message: 'persistent terminal write failure',
+        },
+      ]);
+      queue.dispose();
+      return { order, errors };
     },
   },
 ];

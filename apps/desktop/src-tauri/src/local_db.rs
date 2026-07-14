@@ -19,7 +19,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 ///
 /// Any existing local database with another version is a disposable dev artifact:
 /// delete it and let the app rebuild from the current baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 10;
+const LOCAL_SCHEMA_VERSION: i64 = 11;
 
 pub struct OffisimDbState {
     pool: SqlitePool,
@@ -49,6 +49,11 @@ pub fn get_offisim_pool<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<SqliteP
     app.try_state::<OffisimDbState>()
         .map(|state| state.pool.clone())
         .ok_or_else(|| "offisim db pool is not initialized".to_string())
+}
+
+#[cfg(test)]
+pub(crate) fn install_test_offisim_pool<R: Runtime>(app: &tauri::AppHandle<R>, pool: SqlitePool) {
+    app.manage(OffisimDbState { pool });
 }
 
 #[derive(Debug, Deserialize)]

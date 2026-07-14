@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，4/17 implemented；T05a 前置已交付，release 验收统一留在 T16
+> 状态：IN PROGRESS，5/17 implemented；T05a 前置已交付，release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -12,7 +12,7 @@
 | T01 | 历史 approval 与 live run 分离 | T00 | [x] |
 | T02 | 首次成功回复后的语义标题 | T00,T05a | [x] |
 | T03 | 后端签发 effective task workspace | T00 | [x] |
-| T04 | 缺失 Project 目录自主恢复 | T03 | [ ] |
+| T04 | 缺失 Project 目录自主恢复 | T03 | [x] |
 | T05 | 生产 engine gateway 与 API account | T00 | [ ] |
 | T06 | Codex subscription 完整 engine | T05 | [ ] |
 | T07 | Claude subscription 完整 engine | T05 | [ ] |
@@ -180,17 +180,25 @@
 
 ### Acceptance
 
-- [ ] 原目录存在时不触发搜索。
-- [ ] 自动恢复在首条进度中披露实际 cwd 与采用原因。
-- [ ] multiple/none 情况绝不误写。
-- [ ] 自动恢复不新增、删除或改写 Projects catalog。
-- [ ] 重启后能解释上次 workspace binding。
-- [ ] 非文件对话不因 folder 缺失被阻断。
+- [x] 原目录存在时不触发搜索。
+- [x] 自动恢复在首条进度中披露实际 cwd 与采用原因。
+- [x] multiple/none 情况绝不误写。
+- [x] 自动恢复不新增、删除或改写 Projects catalog。
+- [x] 重启后能解释上次 workspace binding。
+- [x] 非文件对话不因 folder 缺失被阻断。
 
 ### Oracles
 
 - workspace harness：normal、deleted、renamed、unique、ambiguous、none。
 - T16 使用临时目录副本完成破坏性 fixture，验收后清理。
+
+### Evidence（2026-07-14 AEST）
+
+- Rust recovery oracle 覆盖 current、recent、renamed inode、唯一 name + repo identity、ambiguous、none、候选换根、查询截断与 Git probe timeout；全量 `cargo test --locked --all-targets` 377/377。
+- `pnpm harness:project-workspace`、Conversation controller 46/46、chat persistence 18/18、Mission reload 17/17、run recovery 32/32、Task Board child tree — PASS。
+- Fresh 只对当前可见 Conversation 做 `company + thread` 精确查询与 `LIMIT 1`；live reattach 只读取 projection 的两条消息；Started native identity 仅在事务与 readback 成功后进入共享状态。
+- `pnpm validate`、`pnpm lint`、`cargo fmt --all -- --check`、`cargo clippy --locked --all-targets -- -D warnings`、`git diff --check` — PASS；三路独立冷审未发现剩余可证 P1/P2。
+- `pnpm build` 生成当前 worktree 的 release `Offisim.app`；T04 不据此声明最终体验通过，删除目录后的两轮 fresh-state release `.app` 真实交互统一留在 T16。
 
 ---
 

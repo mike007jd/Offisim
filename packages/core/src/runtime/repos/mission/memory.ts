@@ -219,10 +219,12 @@ export class MemoryRuntimeSessionLinkRepository implements RuntimeSessionLinkRep
     return row ? { ...row } : null;
   }
 
-  async listByMission(missionId: string): Promise<RuntimeSessionLinkRow[]> {
-    return [...this.store.values()]
-      .filter((r) => r.mission_id === missionId)
-      .map((r) => ({ ...r }));
+  async findLatestByMission(missionId: string): Promise<RuntimeSessionLinkRow | null> {
+    let latest: RuntimeSessionLinkRow | null = null;
+    for (const row of this.store.values()) {
+      if (row.mission_id === missionId) latest = row;
+    }
+    return latest ? { ...latest } : null;
   }
 
   async update(
@@ -255,10 +257,11 @@ export class MemoryMissionEventRepository implements MissionEventRepository {
   }
 
   async listByMission(missionId: string, opts?: { limit?: number }): Promise<MissionEventRow[]> {
+    const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
     return [...this.store.values()]
       .filter((r) => r.mission_id === missionId)
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .slice(0, opts?.limit ?? DEFAULT_LIST_LIMIT)
+      .slice(-limit)
       .map((r) => ({ ...r }));
   }
 

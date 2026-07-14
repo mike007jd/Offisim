@@ -30,6 +30,7 @@ import type {
   BindingType,
   InstallSourceType,
   InstallState,
+  WorkspaceBoundProvenance,
 } from '@offisim/shared-types';
 import { sql } from 'drizzle-orm';
 import {
@@ -409,9 +410,20 @@ export const taskWorkspaceBindingHistory = sqliteTable(
     access: text('access').notNull(),
     canonical_root: text('canonical_root').notNull(),
     root_identity_json: text('root_identity_json').notNull(),
-    source: text('source').notNull(),
+    workspace_basename_normalized: text('workspace_basename_normalized').notNull(),
+    project_name_normalized: text('project_name_normalized').notNull(),
+    workspace_anchor: text('workspace_anchor').notNull(),
+    git_origin_digest: text('git_origin_digest'),
+    recovery_witness_binding_id: text('recovery_witness_binding_id'),
+    recovery_witness_authority_project_id: text('recovery_witness_authority_project_id'),
+    authority_snapshot_canonical_root: text('authority_snapshot_canonical_root').notNull(),
+    authority_snapshot_root_identity_json: text('authority_snapshot_root_identity_json').notNull(),
+    authority_snapshot_updated_at_unix_ms: integer(
+      'authority_snapshot_updated_at_unix_ms',
+    ).notNull(),
+    source: text('source').$type<WorkspaceBoundProvenance['source']>().notNull(),
     confidence: real('confidence').notNull(),
-    reason_code: text('reason_code').notNull(),
+    reason_code: text('reason_code').$type<WorkspaceBoundProvenance['reasonCode']>().notNull(),
     issued_at_unix_ms: integer('issued_at_unix_ms').notNull(),
     expires_at_unix_ms: integer('expires_at_unix_ms').notNull(),
     activated_at_unix_ms: integer('activated_at_unix_ms').notNull(),
@@ -433,6 +445,13 @@ export const taskWorkspaceBindingHistory = sqliteTable(
       .where(sql`${table.resumed_from_binding_id} IS NOT NULL`),
     check('task_workspace_binding_access', sql`${table.access} IN ('read', 'write')`),
     check('task_workspace_binding_confidence', sql`${table.confidence} BETWEEN 0 AND 1`),
+    check(
+      'task_workspace_binding_provenance',
+      sql`(${table.source} = 'project_catalog' AND ${table.reason_code} = 'current_project_folder')
+          OR (${table.source} = 'conversation_history' AND ${table.reason_code} = 'recent_successful_workspace')
+          OR (${table.source} = 'known_root_recovery' AND ${table.reason_code} IN ('renamed_same_filesystem_object', 'unique_name_repo_identity_match'))
+          OR (${table.source} = 'resume_history' AND ${table.reason_code} = 'resume_history_identity_match')`,
+    ),
     check(
       'task_workspace_binding_status',
       sql`${table.status} IN ('active', 'completed', 'failed', 'aborted', 'expired', 'app_restart')`,
@@ -562,6 +581,11 @@ export const agentRuns = sqliteTable(
     index('idx_agent_runs_thread').on(table.thread_id),
     index('idx_agent_runs_company_started').on(table.company_id, table.started_at),
     index('idx_agent_runs_company_thread').on(table.company_id, table.thread_id),
+    uniqueIndex('idx_agent_runs_one_unresolved_root_per_thread')
+      .on(table.thread_id)
+      .where(
+        sql`${table.run_id} = ${table.root_run_id} AND ${table.status} IN ('running', 'interrupted')`,
+      ),
     index('idx_agent_runs_root').on(table.root_run_id),
     index('idx_agent_runs_parent').on(table.parent_run_id),
     index('idx_agent_runs_company_project_status').on(

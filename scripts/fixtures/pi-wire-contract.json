@@ -1,5 +1,5 @@
 [
-  { "kind": "ready", "protocolVersion": 8 },
+  { "kind": "ready", "protocolVersion": 9 },
   {
     "kind": "started",
     "sessionId": "sess_1",

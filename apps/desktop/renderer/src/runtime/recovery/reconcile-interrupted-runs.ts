@@ -34,7 +34,8 @@ import type {
   AgentRunRow,
   RecoveryClassification,
 } from '@offisim/core/browser';
-import type { AgentRunUsage } from '@offisim/shared-types';
+import type { AgentRunUsage, WorkspaceUnavailableProvenance } from '@offisim/shared-types';
+import { parseWorkspaceProvenance } from '../workspace-provenance.js';
 import { aggregateSubtreeUsage } from './usage-aggregation.js';
 
 /**
@@ -51,7 +52,7 @@ export interface InterruptedRunCard {
   /** The run's objective (the resume target's intent), if recorded. */
   objective: string | null;
   startedAt: string;
-  /** Saved native agent session path: present → resumable; null → confirmation. */
+  /** Saved work-session path: present may be resumable; null is incompatible. */
   sessionFile: string | null;
   /** Partial usage aggregated from the subtree at interruption (JSON), or null. */
   partialUsageJson: string | null;
@@ -65,6 +66,9 @@ export interface InterruptedRunCard {
 
 interface RunContextSnapshot {
   workspaceBinding?: unknown;
+  workspaceRequirement?: unknown;
+  workspaceAvailability?: unknown;
+  workspaceProvenance?: unknown;
   runtime?: unknown;
   piSdkVersion?: unknown;
   wireProtocolVersion?: unknown;
@@ -79,7 +83,7 @@ interface InterruptedRunCardOptions {
   currentWireProtocolVersion?: number;
 }
 
-export const PI_HOST_PROTOCOL_VERSION = 8;
+export const PI_HOST_PROTOCOL_VERSION = 9;
 
 const RESUME_COMPATIBILITY_COPY: Readonly<Record<string, string>> = {
   workspace_history_missing: 'The saved workspace record is unavailable.',
@@ -88,8 +92,23 @@ const RESUME_COMPATIBILITY_COPY: Readonly<Record<string, string>> = {
   project_workspace_changed: 'The Project folder has changed since this run started.',
   workspace_history_identity_invalid: 'The saved workspace record can no longer be verified.',
   workspace_identity_changed: 'The Project folder was replaced or changed since this run started.',
+  workspace_history_not_recoverable: 'This interrupted run is no longer recoverable.',
+  workspace_history_incompatible: 'The saved workspace no longer matches this interrupted run.',
+  session_missing: "Offisim can't find where this task stopped.",
+  session_invalid: "Offisim can't safely reopen where this task stopped.",
+  runtime_incompatible: 'This task was created by an older Offisim version.',
+  resume_context_invalid: "Offisim can't safely reconstruct where this task stopped.",
+  resume_conflict: 'This task changed while Offisim was preparing to continue it.',
+  resume_persistence_unavailable: 'Offisim could not safely prepare this task to continue.',
   workspace_compatibility_unavailable:
     'The Project folder could not be verified, so resume remains blocked.',
+};
+
+const UNAVAILABLE_WORKSPACE_COPY: Readonly<
+  Record<WorkspaceUnavailableProvenance['reasonCode'], string>
+> = {
+  none: 'no matching Project folder was found',
+  ambiguous: 'the Project folder could not be uniquely confirmed',
 };
 
 /** Convert backend-only compatibility codes into stable product copy. */
@@ -177,6 +196,10 @@ export interface RunReconciliationResult {
 export interface ReconcileInterruptedRunsInput {
   repo: AgentRunRepository;
   companyId: string;
+  /** Native-host rows already reattached or still uncertain; never park these. */
+  preserveRootRunIds?: ReadonlySet<string>;
+  /** Exact root ids observed by the startup bootstrap as stale. */
+  candidateRootRunIds?: ReadonlySet<string>;
   /** Injected clock for the `finished_at` stamp on cancelled children (determinism). */
   now: () => string;
 }
@@ -189,10 +212,14 @@ export async function reconcileInterruptedRuns(
   input: ReconcileInterruptedRunsInput,
 ): Promise<RunReconciliationResult> {
   const { repo, companyId, now } = input;
+  const preserveRootRunIds = input.preserveRootRunIds ?? new Set<string>();
+  const candidateRootRunIds = input.candidateRootRunIds;
   const running = await repo.findByStatus(companyId, ['running']);
 
   // Roots reconcile to `interrupted` (resumable); their running children cancel.
-  const roots = running.filter((r) => r.run_id === r.root_run_id);
+  const roots = running
+    .filter((r) => r.run_id === r.root_run_id && !preserveRootRunIds.has(r.root_run_id))
+    .filter((r) => candidateRootRunIds === undefined || candidateRootRunIds.has(r.root_run_id));
   const processedRootIds = new Set<string>();
   const cancelledChildIds = new Set<string>();
   const failedRootRunIds: string[] = [];
@@ -239,6 +266,8 @@ export async function reconcileInterruptedRuns(
   const orphans = running.filter(
     (r) =>
       r.run_id !== r.root_run_id &&
+      !preserveRootRunIds.has(r.root_run_id) &&
+      (candidateRootRunIds === undefined || candidateRootRunIds.has(r.root_run_id)) &&
       !processedRootIds.has(r.root_run_id) &&
       !cancelledChildIds.has(r.run_id),
   );
@@ -269,17 +298,26 @@ export function buildInterruptedRunCard(
   const context = parseRuntimeContext(root.runtime_context_json);
   const projectId = resolveAgentRunProjectId(root);
   const workspaceBinding = resolveAgentRunWorkspaceBinding(root);
+  const workspaceAvailability = stringOrNull(context?.workspaceAvailability);
+  const workspaceProvenance = parseWorkspaceProvenance(context?.workspaceProvenance);
   const workspaceBindingMatchesRun = resolveAgentRunResumeCompatibilityArgs(root) !== null;
   const wireProtocolVersion =
     typeof context?.wireProtocolVersion === 'number' ? context.wireProtocolVersion : null;
   const currentWireProtocolVersion = options.currentWireProtocolVersion ?? PI_HOST_PROTOCOL_VERSION;
   const classificationReasons: string[] = [];
   if (!projectId) {
-    classificationReasons.push('original project context is missing');
+    classificationReasons.push('The original Project is no longer available.');
   }
   if (!workspaceBindingMatchesRun) {
+    classificationReasons.push('The original Project folder cannot be verified for this task.');
+  }
+  if (workspaceAvailability === 'unavailable') {
+    const reason =
+      workspaceProvenance?.availability === 'unavailable'
+        ? UNAVAILABLE_WORKSPACE_COPY[workspaceProvenance.reasonCode]
+        : 'the Project folder availability could not be verified';
     classificationReasons.push(
-      'original backend-issued workspace authority history is missing or does not match this run',
+      `This Conversation continued without Project file access because ${reason}.`,
     );
   }
   if (options.resumeCompatibility && options.resumeCompatibility.status !== 'same') {
@@ -287,41 +325,26 @@ export function buildInterruptedRunCard(
     if (reason) classificationReasons.push(reason);
   }
   if (!sessionFile) {
-    classificationReasons.push(
-      'no saved agent session was recorded; this run cannot continue from its prior session',
-    );
+    classificationReasons.push('This task stopped before it could save its place.');
   }
   const protocolMismatch =
     wireProtocolVersion !== null && wireProtocolVersion !== currentWireProtocolVersion;
   if (protocolMismatch) {
     classificationReasons.push(
-      `saved host protocol ${wireProtocolVersion} does not match current protocol ${currentWireProtocolVersion}`,
+      "This task was created by an older Offisim version and can't safely continue.",
     );
   }
   const workspaceBlocked =
     !projectId ||
     !workspaceBindingMatchesRun ||
     (options.resumeCompatibility !== undefined && options.resumeCompatibility.status !== 'same');
-  const classification: RecoveryClassification = protocolMismatch
-    ? 'incompatible'
-    : workspaceBlocked
-      ? 'incompatible'
-      : sessionFile
-        ? 'resumable'
-        : 'needs_user_confirm';
-  const cancelledNote =
-    cancelledChildRunIds.length > 0
-      ? ` ${cancelledChildRunIds.length} child run(s) left running were cancelled and would be re-delegated as needed.`
-      : '';
-  const workspaceNote = workspaceBinding?.displayPath ? ` in ${workspaceBinding.displayPath}` : '';
+  const classification: RecoveryClassification =
+    protocolMismatch || workspaceBlocked || !sessionFile ? 'incompatible' : 'resumable';
+  const workspaceName = workspaceBinding?.displayPath || 'the original Project folder';
   const whatResumeWillDo =
     classification === 'resumable'
-      ? `Resume the interrupted run from its saved agent session${workspaceNote}.${cancelledNote}`
-      : classification === 'needs_user_confirm'
-        ? `No saved agent session was recorded; resuming restarts this run from its objective${workspaceNote}. Confirm before resuming.${cancelledNote}`
-        : classification === 'incompatible'
-          ? `Resume is blocked for this run. Start a fresh run or discard it.${cancelledNote}`
-          : `Start a fresh run or discard this interrupted run.${cancelledNote}`;
+      ? `Continue this task in ${workspaceName} from where it stopped.`
+      : "This task can't safely resume. Discard it to start again in this Conversation.";
   return {
     runId: root.run_id,
     companyId: root.company_id,

@@ -10,6 +10,7 @@ const desktopDialogPath = 'apps/desktop/renderer/src/lib/desktop-dialog.ts';
 const capabilitiesPath = 'apps/desktop/renderer/src/assistant/runtime/use-thread-capabilities.ts';
 const requireProjectWorkspacePath =
   'apps/desktop/renderer/src/runtime/require-project-workspace.ts';
+const recoveryPanelPath = 'apps/desktop/renderer/src/surfaces/office/RecoveryPanel.tsx';
 const source = readFileSync(panelPath, 'utf8');
 const workspacePanel = source.slice(source.indexOf('export function WorkspacePanel()'));
 const projectDialog = readFileSync(projectDialogPath, 'utf8');
@@ -19,6 +20,7 @@ const projectsRepo = readFileSync(projectsRepoPath, 'utf8');
 const desktopDialog = readFileSync(desktopDialogPath, 'utf8');
 const capabilities = readFileSync(capabilitiesPath, 'utf8');
 const requireProjectWorkspace = readFileSync(requireProjectWorkspacePath, 'utf8');
+const recoveryPanel = readFileSync(recoveryPanelPath, 'utf8');
 
 assert.match(
   source,
@@ -210,11 +212,27 @@ assert.equal(
   ).length,
   2,
 );
-assert.match(requireProjectWorkspace, /This Project folder is unavailable\. Choose it again\./u);
+assert.match(requireProjectWorkspace, /Workspace availability and recovery are backend authority/u);
+assert.doesNotMatch(
+  requireProjectWorkspace,
+  /project\.workspace_root|This Project folder is unavailable/u,
+  'renderer preflight must not block Conversation-only fallback before backend recovery runs',
+);
 assert.doesNotMatch(
   requireProjectWorkspace,
   /new Error\(`[^`]*\$\{(?:projectId|companyId)\}/u,
   'Project selection errors must not expose internal ids',
+);
+
+assert.match(recoveryPanel, /toast\.error\(failureTitle/u);
+assert.match(recoveryPanel, /aria-expanded=\{showAll\}/u);
+assert.match(recoveryPanel, /`\+\$\{cards\.length - 4\} more`/u);
+assert.match(recoveryPanel, />\s*Details\s*</u);
+assert.doesNotMatch(recoveryPanel, /View partial|card\.sessionFile|\.slice\(0, 8\)/u);
+assert.doesNotMatch(
+  recoveryPanel,
+  /partialUsageJson\.(?:slice|trim)|description:\s*safeErrorMessage/u,
+  'Recovery UI must not expose raw usage, native session refs, or backend error details',
 );
 
 console.log('workspace-panel-project-gate: PASS');
