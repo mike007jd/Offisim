@@ -114,8 +114,14 @@ export function OfficeStage() {
     <section className={cn('off-stage', isRunning && 'is-live')}>
       <StageTopBar
         isRunning={isRunning}
-        tokensLabel={runCost.data ? runCost.data.tokens.toLocaleString() : '0'}
-        costLabel={runCost.data?.costLabel ?? '$0.00'}
+        tokensLabel={
+          runCost.data?.tokenCoverage === 'complete' && runCost.data.tokens !== null
+            ? runCost.data.tokens.toLocaleString()
+            : runCost.data?.tokenCoverage === 'partial'
+              ? `≥${runCost.data.knownTokens.toLocaleString()}`
+              : '—'
+        }
+        costLabel={runCost.data?.costLabel ?? 'Cost pending'}
       />
       <div
         className={cn(

@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛计划
 
-> 状态：IN PROGRESS（T00-T03 已完成；最终 release 验收未开始）
-> 时间基准：2026-07-14 AEST（+10:00）
+> 状态：IN PROGRESS（T00-T05 已完成；整包 final release 验收留在 T16）
+> 时间基准：2026-07-15 AEST（+10:00）
 > 代码基线：`a142000cf360`
 > 执行清单：[tasks.md](./tasks.md)
 > 架构真源：[Engine-neutral AI Accounts](../../architecture/2026-07-13-engine-neutral-ai-accounts.md)
@@ -40,15 +40,15 @@
 
 | 结论 | 当前事实 | 计划含义 |
 |---|---|---|
-| 当前生产 runtime | `DesktopAgentRuntime` 仍组装 `DesktopPiAgentRuntime` | T00 只解除错误产品门禁；T05-T07 未完成前不得声称 engine-neutral 已交付 |
+| 当前生产 runtime | `DesktopAgentRuntimeGateway` 是唯一生产入口，当前只注册完整 API adapter；内部 Pi host 只是该 adapter 的实现，不是产品 engine | T05 已交付 API 纵切；Codex / Claude engine 仍分别等待 T06 / T07，禁止冒充已支持 |
 | Conversation 标题 | 已有首条消息 fallback 与 `title_set_by_user` 锁 | T02 复用现有合同，补首次成功回复后的语义标题 |
 | stale approval | 旧投影可制造 active run | T01 从控制器真源修复，不在按钮层 no-op |
 | Project workspace | T03 已交付后端签发、scope 防伪、内存 capability 与安全历史投影 | T04 只负责 Project folder 缺失后的高置信恢复与明确披露 |
-| Settings | 仍包含 Pi/provider 实现语言 | T05-T08 完成能力后再改用户信息架构，禁止只换文案 |
+| Settings | 已以 `AI Accounts / Models / Usage / Cost` 展示当前真实 API 能力；subscription account 尚未交付 | T06-T08 增加真实 Codex / Claude account 后再完成跨账户整合，不预放空壳 |
 | UI finding | 原始 15 张截图涵盖 radius、rails、cost、run pill、nav、Market、presence、error 等 | T12-T14 统一收敛并加入 deterministic gates |
 | 最终验收 | 仓库明确只认 release `.app` + Computer Use | dev server、localhost、dev webview 仅用于排查 |
 
-按 2026-07-13 当前资料，账户/订阅方向的官方参考已记录在 engine-neutral ADR；执行 T05-T08 时仍须重新核对真实日期、官方模型列表、CLI/protocol 与计费/Usage 来源。
+T05 API account 的模型、费率与 Usage 来源已按 2026-07-14 官方资料固化；进入 T06 时已于 2026-07-15 重新核对 Codex 稳定 release、app-server protocol、认证、模型与 Usage 来源，T07-T08 仍须在各自实施时刷新真实日期和官方资料。
 
 ## 5. 执行 Waves
 

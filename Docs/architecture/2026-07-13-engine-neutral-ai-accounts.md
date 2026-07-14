@@ -1,14 +1,16 @@
 # Engine-neutral AI Accounts and Native Session Boundaries
 
-Checked at: 2026-07-13 22:45 AEST
-Status: accepted target; implementation in progress
+Checked at: 2026-07-15 00:15 AEST
+Status: API engine implemented and release-verified; Codex and Claude engines pending
 
 ## Current implementation truth
 
-Offisim currently assembles `DesktopPiAgentRuntime` behind the production
-`DesktopAgentRuntime` renderer boundary. Codex and Claude are not shipped engine
-adapters yet. UI wording, docs, or a settings card cannot be used as evidence
-that an engine exists.
+Offisim now routes production work through `DesktopAgentRuntimeGateway`. The
+gateway currently registers one complete `api` adapter; its internal
+`DesktopPiAgentRuntime` host is an implementation detail, not a product engine
+or provider lane. Codex and Claude are not shipped engine adapters yet. UI
+wording, docs, or a settings card cannot be used as evidence that an engine
+exists.
 
 ## Product decision
 
@@ -16,10 +18,11 @@ Offisim is an engine-neutral desktop AI workbench. `DesktopAgentRuntime` is the
 single production engine gateway. Each task selects one complete, mutually
 exclusive engine; a run cannot mix Pi, Codex, Claude, or another lane.
 
-The existing `AgentRuntimeDriver` is a neutral conformance SPI that currently
-runs parallel to live chat. It is not already the production gateway. A concrete
-driver may enter live chat only through an explicit adapter into
-`DesktopAgentRuntime` and after passing runtime plus release conformance.
+`RuntimeEngineAdapter` is the production gateway SPI. `AgentRuntimeDriver` is a
+separate neutral conformance SPI; passing its harness alone does not place an
+engine in live chat. A concrete engine may enter production only through an
+explicit `RuntimeEngineAdapter` and after passing runtime plus release
+conformance.
 
 ## Account and billing contract
 
@@ -83,8 +86,18 @@ and recovery behavior, credential isolation, model provenance, Usage contract,
 and the exact current-worktree release `.app` have all been verified. Dev UI or
 localhost evidence is insufficient.
 
+The current API-engine release proof is the exact worktree binary SHA-256
+`b62ae06de3280d332b7f5ccc0a180e59fe901b5cfaf85352b1a6ea299693f206`,
+verified on 2026-07-15 AEST from fresh schema v12 through real file tools,
+Ask approval, Stop, restart recovery, and live Usage/Cost rendering.
+
 ## Current references checked
 
+- OpenRouter API overview: https://openrouter.ai/docs/api/reference/overview
+- OpenRouter generation metadata:
+  https://openrouter.ai/docs/api/api-reference/generations/get-generation
+- OpenRouter Usage accounting:
+  https://openrouter.ai/docs/cookbook/administration/usage-accounting
 - OpenAI Codex plan behavior: https://help.openai.com/en/articles/11369540/
 - OpenAI Codex rate card: https://help.openai.com/en/articles/20001106
 - Anthropic Claude Code subscription behavior:

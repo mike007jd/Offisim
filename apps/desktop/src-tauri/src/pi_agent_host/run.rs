@@ -31,8 +31,8 @@ use crate::task_workspace_binding::{
 use crate::workspace_recovery::{WorkspaceRecoveryReason, WorkspaceRecoverySource};
 
 use super::bridge::{
-    handle_mcp_call, handle_verify_call, handle_worktree_call, pi_stdin_guard, write_mcp_result,
-    PiMcpResult, StdinGuard, PI_MCP_CALL_TIMEOUT,
+    handle_mcp_call, handle_verify_call, handle_worktree_call, pi_stdin_guard,
+    register_execution_prepared, write_mcp_result, PiMcpResult, StdinGuard, PI_MCP_CALL_TIMEOUT,
 };
 use super::payload::{
     app_pi_agent_dir, app_pi_session_dir, collaborate_payload, enhance_payload, pi_env,
@@ -451,6 +451,20 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
                 };
                 if consume_ready_handshake(&mut saw_ready, &parsed)? {
                     continue;
+                }
+                if let PiSidecarLine::ExecutionPrepared {
+                    prepare_id,
+                    target_digest,
+                    ..
+                } = &parsed
+                {
+                    let request_id = register_stdin.ok_or_else(|| {
+                        HostError::Protocol(
+                            "Execution preparation is missing its stdin acknowledgement channel"
+                                .into(),
+                        )
+                    })?;
+                    register_execution_prepared(request_id, prepare_id, target_digest)?;
                 }
                 // Intercept mcpCall in-process: invoke the MCP tool and write the
                 // result back to the host stdin, never forwarding it to the
@@ -1257,8 +1271,8 @@ async fn do_enhance<R: tauri::Runtime>(
     let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
     let agent_dir = app_pi_agent_dir(app);
     let payload = enhance_payload(&req, &cwd, agent_dir.as_deref());
-    // `register_stdin: None` — enhance has no extension-UI response channel, so
-    // stdin is closed immediately after the single payload line (single-shot).
+    // No UI/MCP tools are enabled, but stdin stays open for the mandatory
+    // execution-target acknowledgement before the one-shot prompt.
     let response = run_pi_sidecar_jsonl(
         app,
         PiSidecarRun {
@@ -1269,7 +1283,7 @@ async fn do_enhance<R: tauri::Runtime>(
             payload,
             token,
             on_event: Some(on_event),
-            register_stdin: None,
+            register_stdin: Some(req.request_id.as_str()),
             stream_request_id: None,
         },
     )
@@ -1352,14 +1366,9 @@ async fn do_collaborate<R: tauri::Runtime>(
     let script_path = sidecar_script_path(app, dev_root.as_ref(), PI_LANE)?;
     let agent_dir = app_pi_agent_dir(app);
     let payload = collaborate_payload(&req, &cwd, agent_dir.as_deref());
-    // Strict collaboration registers zero tools and closes stdin. Read-only
-    // collaboration keeps stdin open so the host can receive MCP results through
-    // the same JSONL response channel as work runs.
-    let register_stdin = if req.collaboration_profile.as_deref() == Some("collaboration_read") {
-        Some(req.request_id.as_str())
-    } else {
-        None
-    };
+    // Every collaboration profile needs stdin for the execution-target ACK.
+    // Read-only collaboration additionally reuses it for MCP results.
+    let register_stdin = Some(req.request_id.as_str());
     let response = run_pi_sidecar_jsonl(
         app,
         PiSidecarRun {

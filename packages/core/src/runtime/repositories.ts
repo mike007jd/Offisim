@@ -1728,7 +1728,11 @@ export interface CollaborationTurnRow {
   employee_id: string | null;
   sequence_index: number;
   status: string;
-  runtime_request_id: string | null;
+  runtime_request_id: string;
+  /** Exact engine/account/model selection frozen before the runtime is invoked. */
+  execution_target_json: string;
+  /** Host-observed final identity. Required for complete turns by the SQL baseline. */
+  result_provenance_json: string | null;
   usage_json: string | null;
   error_summary: string | null;
   started_at: string | null;
@@ -1737,10 +1741,26 @@ export interface CollaborationTurnRow {
 
 export type NewCollaborationTurn = CollaborationTurnRow;
 
+/** Immutable engine/account/billing lane claimed by the first turn on a thread. */
+export interface CollaborationExecutionLane {
+  engineId: string;
+  accountId: string;
+  billingMode: 'api' | 'subscription';
+}
+
+/** Storage shape for the one first-writer-wins lane row owned by a thread. */
+export interface CollaborationExecutionLaneRow {
+  thread_id: string;
+  engine_id: string;
+  account_id: string;
+  billing_mode: 'api' | 'subscription';
+}
+
 /** Patch for the mutable turn fields the controller advances over a turn's life. */
 export interface CollaborationTurnPatch {
   status?: string;
-  runtime_request_id?: string | null;
+  runtime_request_id?: string;
+  result_provenance_json?: string | null;
   usage_json?: string | null;
   error_summary?: string | null;
   started_at?: string | null;
@@ -1844,6 +1864,12 @@ export interface CollaborationReadStateRepository {
 }
 
 export interface CollaborationTurnRepository {
+  /**
+   * Atomically claim the thread's immutable execution lane, or verify that the
+   * existing claim matches. Returns false when another caller already claimed a
+   * different engine/account/billing lane.
+   */
+  bindThreadExecutionLane(threadId: string, lane: CollaborationExecutionLane): Promise<boolean>;
   /** Idempotent insert keyed on turn_id (INSERT OR IGNORE semantics). */
   insert(row: NewCollaborationTurn): Promise<void>;
   findById(turnId: string): Promise<CollaborationTurnRow | null>;

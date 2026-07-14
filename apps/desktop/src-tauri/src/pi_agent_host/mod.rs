@@ -11,15 +11,15 @@ pub(crate) use payload::app_pi_session_dir;
 pub use stream::PiRunStreamSnapshot;
 #[allow(unused_imports)]
 pub use types::{
-    PiAgentCollaborateRequest, PiAgentEnhanceRequest, PiAgentExecuteRequest, PiAgentHostEvent,
-    PiAgentHostResponse, PiAgentModelsConfig, PiAgentPaths, PiAgentProviderAuthStatus,
-    PiAgentProviderConfigInput, PiAgentProviderConfigStatus, PiAgentProviderModelConfig,
-    PiAgentProviderStatus, PiAgentProviderTemplate, PiAgentStatusResponse, PiModelSummary,
+    AiRuntimeStatusResponse, PiAgentCollaborateRequest, PiAgentEnhanceRequest,
+    PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse, PiAgentModelsConfig,
+    PiAgentPaths, PiAgentProviderAuthStatus, PiAgentProviderStatus, PiAgentStatusResponse,
+    PiModelSummary,
 };
 pub(crate) use wire::PI_HOST_PROTOCOL_VERSION;
 
-use bridge::ui_response_impl;
-use provider::status_impl;
+use bridge::{confirm_execution_impl, ui_response_impl};
+use provider::{runtime_status_impl, status_impl};
 use run::{abort_impl, collaborate_impl, enhance_impl, execute_impl, resume_impl};
 
 use tauri::{ipc::Channel, AppHandle};
@@ -142,6 +142,18 @@ pub async fn agent_runtime_control(
     bridge::control_impl(request_id, action, run_id).await
 }
 
+/// Confirm the exact host-observed API execution target. Rust only writes this
+/// ACK when requestId + prepareId + targetDigest match a preparation frame it
+/// already received from the live sidecar.
+#[tauri::command]
+pub async fn agent_runtime_confirm_execution(
+    request_id: String,
+    prepare_id: String,
+    target_digest: String,
+) -> Result<(), String> {
+    confirm_execution_impl(request_id, prepare_id, target_digest).await
+}
+
 /// Agent-agnostic gateway for an interaction answer. Forwards verbatim to
 /// `ui_response_impl`.
 #[tauri::command]
@@ -156,27 +168,14 @@ pub async fn agent_runtime_answer(
 }
 
 #[tauri::command]
-pub async fn pi_agent_open_config_folder(app: AppHandle) -> Result<(), String> {
-    provider::open_config_folder(app).await
-}
-
-#[tauri::command]
-pub async fn pi_agent_save_provider(
-    app: AppHandle,
-    config: PiAgentProviderConfigInput,
-) -> Result<PiAgentStatusResponse, String> {
-    provider::save_provider(app, config).await
-}
-
-#[tauri::command]
 pub async fn pi_agent_status(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
     status_impl(app).await
 }
 
 /// Agent-agnostic gateway status. Forwards verbatim to `status_impl`.
 #[tauri::command]
-pub async fn agent_runtime_status(app: AppHandle) -> Result<PiAgentStatusResponse, String> {
-    status_impl(app).await
+pub async fn agent_runtime_status(app: AppHandle) -> Result<AiRuntimeStatusResponse, String> {
+    runtime_status_impl(app).await
 }
 
 #[cfg(test)]

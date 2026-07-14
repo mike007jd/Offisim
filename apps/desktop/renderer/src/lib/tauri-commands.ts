@@ -1,7 +1,10 @@
 import type {
   AgentRunUsage,
+  AiExecutionTarget,
+  AiRuntimeStatus,
   AttachmentMeta,
   CollaborationProfile,
+  TurnExecutionProvenance,
   WorkspaceBoundProvenance,
   WorkspaceUnavailableProvenance,
 } from '@offisim/shared-types';
@@ -293,6 +296,8 @@ export interface BrowserSessionSnapshot {
 interface PiAgentExecuteRequest {
   requestId: string;
   text: string;
+  expectedTarget: AiExecutionTarget;
+  runtimeModelRef: string;
   companyId: string;
   threadId: string;
   projectId: string;
@@ -320,23 +325,21 @@ interface PiAgentExecuteRequest {
 interface PiAgentEnhanceRequest {
   requestId: string;
   text: string;
+  expectedTarget: AiExecutionTarget;
+  runtimeModelRef: string;
   systemPrompt: string;
   model?: string | null;
   thinkingLevel?: string | null;
   sourceProvenance?: PiExecutionProvenance | null;
 }
 
-interface PiExecutionProvenance {
-  engineId: string;
-  accountId: string;
-  billingMode: 'api' | 'subscription';
-  modelId: string;
-  runId: string;
-}
+type PiExecutionProvenance = TurnExecutionProvenance;
 
 interface PiAgentCollaborateRequest {
   requestId: string;
   text: string;
+  expectedTarget: AiExecutionTarget;
+  runtimeModelRef: string;
   capabilityProfile?: 'collaboration' | null;
   collaborationProfile?: CollaborationProfile | null;
   companyId: string;
@@ -371,6 +374,14 @@ interface PiAgentHostResponse {
 }
 
 type PiAgentHostEvent =
+  | {
+      kind: 'executionPrepared';
+      prepareId: string;
+      runId: string;
+      identity: TurnExecutionProvenance;
+      targetDigest: string;
+      adapter: { id: string; version: string };
+    }
   | {
       kind: 'started';
       sessionId?: string;
@@ -447,41 +458,11 @@ interface PiAgentProviderStatus {
   auth: PiAgentProviderAuthStatus;
 }
 
-interface PiAgentProviderModelConfig {
-  id: string;
-  name?: string;
-  api?: string;
-  contextWindow?: number;
-  maxTokens?: number;
-}
-
-interface PiAgentProviderConfigStatus {
-  provider: string;
-  displayName: string;
-  name?: string;
-  baseUrl?: string;
-  api?: string;
-  hasApiKey: boolean;
-  authSource?: string;
-  models: PiAgentProviderModelConfig[];
-}
-
-interface PiAgentProviderTemplate {
-  provider: string;
-  displayName: string;
-  baseUrl?: string;
-  api?: string;
-  configured: boolean;
-  models: PiAgentProviderModelConfig[];
-}
-
 interface PiAgentStatusResponse {
   ok: boolean;
   authProviders: string[];
   providerStatus: PiAgentProviderStatus[];
   configuredProviderStatus: PiAgentProviderStatus[];
-  providerConfigs: PiAgentProviderConfigStatus[];
-  providerTemplates: PiAgentProviderTemplate[];
   availableModels: PiAgentModelSummary[];
   allModelCount: number;
   paths?: {
@@ -499,24 +480,6 @@ interface PiAgentStatusResponse {
     parseError?: string;
   };
   checkedAt?: string;
-}
-
-interface PiAgentProviderModelInput {
-  id: string;
-  name?: string | null;
-  api?: string | null;
-  contextWindow?: number | null;
-  maxTokens?: number | null;
-}
-
-interface PiAgentProviderConfigInput {
-  providerId: string;
-  displayName?: string | null;
-  baseUrl: string;
-  api: string;
-  apiKey?: string | null;
-  keepExistingApiKey?: boolean;
-  models?: PiAgentProviderModelInput[];
 }
 
 interface ComputerDriverStatus {
@@ -818,12 +781,7 @@ export interface CommandMap {
     { sessionId: string; scope: NativeStageSessionScope },
     BrowserSessionSnapshot
   >;
-  pi_agent_open_config_folder: CommandSpec<undefined, void>;
   pi_agent_status: CommandSpec<undefined, PiAgentStatusResponse>;
-  pi_agent_save_provider: CommandSpec<
-    { config: PiAgentProviderConfigInput },
-    PiAgentStatusResponse
-  >;
   agent_runtime_execute: CommandSpec<AgentRuntimeArgs<PiAgentExecuteRequest>, PiAgentHostResponse>;
   agent_runtime_enhance: CommandSpec<AgentRuntimeArgs<PiAgentEnhanceRequest>, PiAgentHostResponse>;
   agent_runtime_collaborate: CommandSpec<
@@ -836,6 +794,10 @@ export interface CommandMap {
     { requestId: string; action: 'stopChild'; runId: string },
     void
   >;
+  agent_runtime_confirm_execution: CommandSpec<
+    { requestId: string; prepareId: string; targetDigest: string },
+    void
+  >;
   agent_runtime_answer: CommandSpec<AgentUiResponseArgs, void>;
   agent_runtime_stream_snapshot: CommandSpec<{ requestId: string }, PiRunStreamSnapshot | null>;
   agent_runtime_release_stream: CommandSpec<{ requestId: string }, void>;
@@ -843,7 +805,7 @@ export interface CommandMap {
     { requestId: string; afterCursor?: number | null; onEvent: Channel<PiAgentHostEvent> },
     PiRunStreamSnapshot
   >;
-  agent_runtime_status: CommandSpec<undefined, PiAgentStatusResponse>;
+  agent_runtime_status: CommandSpec<undefined, AiRuntimeStatus>;
   computer_driver_status: CommandSpec<undefined, ComputerDriverStatus>;
   task_workspace_evaluation_lease_acquire: CommandSpec<
     {

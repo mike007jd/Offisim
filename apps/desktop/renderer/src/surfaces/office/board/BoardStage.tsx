@@ -3,6 +3,12 @@ import { conversationRunController } from '@/assistant/runtime/conversation-run-
 import { useInterruptedRunRecovery } from '@/assistant/runtime/conversation-run-react.js';
 import { useCompanyEmployees, useProjects } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
+import {
+  type UsageTokenSummary,
+  combineUsageTokenSummaries,
+  formatUsageTokens,
+  summarizeUsageTokens,
+} from '@/data/usage-token-coverage.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
@@ -97,26 +103,42 @@ function taskTitle(objective: string | null): string {
   return sentence.length > TITLE_MAX ? `${sentence.slice(0, TITLE_MAX).trimEnd()}…` : sentence;
 }
 
-function tokenCount(usageJson: string | null): number {
-  if (!usageJson) return 0;
+function tokenCount(
+  usageJson: string | null,
+): UsageTokenSummary & { includesChildren: boolean; recorded: boolean } {
+  if (!usageJson) {
+    return {
+      knownTokens: 0,
+      coverage: 'unavailable',
+      includesChildren: false,
+      recorded: false,
+    };
+  }
   try {
     const usage = JSON.parse(usageJson) as Record<string, unknown>;
-    const value =
-      usage.totalTokens ??
-      usage.total_tokens ??
-      usage.tokens ??
-      usage.outputTokens ??
-      usage.output_tokens;
-    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+    const scope = usage.scope as Record<string, unknown> | undefined;
+    return {
+      ...summarizeUsageTokens(usage),
+      includesChildren: scope?.kind === 'task-aggregate',
+      recorded: true,
+    };
   } catch {
-    return 0;
+    return {
+      knownTokens: 0,
+      coverage: 'unavailable',
+      includesChildren: false,
+      recorded: true,
+    };
   }
 }
 
-function rowTokens(row: TaskBoardRow): number {
-  return (
-    tokenCount(row.usageJson) +
-    row.children.reduce((sum, child) => sum + tokenCount(child.usageJson), 0)
+function rowTokens(row: TaskBoardRow): UsageTokenSummary {
+  const root = tokenCount(row.usageJson);
+  if (root.includesChildren) return root;
+  return combineUsageTokenSummaries(
+    [root, ...row.children.map((child) => tokenCount(child.usageJson))].filter(
+      (summary) => summary.recorded,
+    ),
   );
 }
 
@@ -636,7 +658,7 @@ function BoardCard({
           <span>
             {completedChildren(row)}/{row.children.length} subtasks
           </span>
-          <span>{rowTokens(row).toLocaleString()} tok</span>
+          <span>{formatUsageTokens(rowTokens(row))}</span>
           {row.live ? <span className="off-board-live">live</span> : null}
         </span>
       </div>

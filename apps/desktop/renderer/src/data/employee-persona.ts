@@ -116,29 +116,26 @@ export interface EmployeeRuntimeSelection {
   thinkingLevel?: string;
 }
 
-interface PiModelSummaryLike {
-  provider?: string;
-  id?: string;
-  name?: string;
-}
-
-function piModelValue(model: PiModelSummaryLike): string {
-  const id = model.id ?? model.name ?? 'model';
-  return model.provider ? `${model.provider}/${id}` : id;
+interface RuntimeModelSummaryLike {
+  runtimeModelRef?: string;
 }
 
 /**
- * Employee bindings override the inherited conversation selection only while Pi
- * still exposes the exact model id. A stale binding behaves like no binding and
- * keeps both inherited fields, so it never blocks a run.
+ * Employee bindings override the inherited conversation selection only while the
+ * selected account still exposes the exact adapter model reference. A stale
+ * binding behaves like no binding and keeps both inherited fields.
  */
 export function resolveEmployeeRuntimeSelection(
   employee: Pick<EmployeeRow, 'model' | 'thinking_level'> | null,
-  availableModels: readonly PiModelSummaryLike[],
+  availableModels: readonly RuntimeModelSummaryLike[],
   inherited: EmployeeRuntimeSelection,
 ): EmployeeRuntimeSelection {
   const model = employee?.model?.trim();
-  const validModels = new Set(availableModels.map(piModelValue));
+  const validModels = new Set(
+    availableModels
+      .map((availableModel) => availableModel.runtimeModelRef?.trim())
+      .filter((runtimeModelRef): runtimeModelRef is string => Boolean(runtimeModelRef)),
+  );
   if (!model || !validModels.has(model)) return inherited;
   const thinkingLevel = employee?.thinking_level?.trim() || inherited.thinkingLevel;
   return {
@@ -201,12 +198,14 @@ export async function buildDelegationContext(
   actingEmployeeId: string | null,
   inheritedRuntime: EmployeeRuntimeSelection = {},
 ): Promise<DelegationContext> {
-  const [employees, company, skills, vaultStatus, piStatus] = await Promise.all([
+  const [employees, company, skills, vaultStatus, runtimeStatus] = await Promise.all([
     repos.employees.findByCompany(companyId),
     repos.companies.findById(companyId).catch(() => null),
     repos.skills.listByCompany(companyId),
     invokeCommand('runtime_vault_status'),
-    actingEmployeeId ? invokeCommand('pi_agent_status').catch(() => null) : Promise.resolve(null),
+    actingEmployeeId
+      ? invokeCommand('agent_runtime_status').catch(() => null)
+      : Promise.resolve(null),
   ]);
   const vaultRoot = vaultStatus.path;
   const companySkillPaths = skills
@@ -244,7 +243,7 @@ export async function buildDelegationContext(
     skillPaths: acting ? skillPathsForEmployee(acting.employee_id) : companySkillPaths,
     runtimeSelection: resolveEmployeeRuntimeSelection(
       acting,
-      piStatus?.availableModels ?? [],
+      runtimeStatus?.models ?? [],
       inheritedRuntime,
     ),
     roster,

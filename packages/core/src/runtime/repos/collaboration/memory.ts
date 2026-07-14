@@ -1,4 +1,5 @@
 import type {
+  CollaborationExecutionLane,
   CollaborationMemberRepository,
   CollaborationMessagePatch,
   CollaborationMessageRepository,
@@ -237,9 +238,41 @@ export class MemoryCollaborationReadStateRepository implements CollaborationRead
 
 export class MemoryCollaborationTurnRepository implements CollaborationTurnRepository {
   private readonly store = new Map<string, CollaborationTurnRow>();
+  private readonly laneByThread = new Map<string, CollaborationExecutionLane>();
+
+  async bindThreadExecutionLane(
+    threadId: string,
+    lane: CollaborationExecutionLane,
+  ): Promise<boolean> {
+    const bound = this.laneByThread.get(threadId);
+    if (!bound) {
+      this.laneByThread.set(threadId, { ...lane });
+      return true;
+    }
+    return (
+      bound.engineId === lane.engineId &&
+      bound.accountId === lane.accountId &&
+      bound.billingMode === lane.billingMode
+    );
+  }
 
   async insert(row: NewCollaborationTurn): Promise<void> {
     if (this.store.has(row.turn_id)) return;
+    let target: { engineId?: unknown; accountId?: unknown; billingMode?: unknown };
+    try {
+      target = JSON.parse(row.execution_target_json) as typeof target;
+    } catch {
+      throw new Error('collaboration execution lane mismatch');
+    }
+    const bound = this.laneByThread.get(row.thread_id);
+    if (
+      !bound ||
+      bound.engineId !== target.engineId ||
+      bound.accountId !== target.accountId ||
+      bound.billingMode !== target.billingMode
+    ) {
+      throw new Error('collaboration execution lane mismatch');
+    }
     this.store.set(row.turn_id, { ...row });
   }
 
@@ -263,6 +296,10 @@ export class MemoryCollaborationTurnRepository implements CollaborationTurnRepos
       status: patch.status !== undefined ? patch.status : row.status,
       runtime_request_id:
         patch.runtime_request_id !== undefined ? patch.runtime_request_id : row.runtime_request_id,
+      result_provenance_json:
+        patch.result_provenance_json !== undefined
+          ? patch.result_provenance_json
+          : row.result_provenance_json,
       usage_json: patch.usage_json !== undefined ? patch.usage_json : row.usage_json,
       error_summary: patch.error_summary !== undefined ? patch.error_summary : row.error_summary,
       started_at: patch.started_at !== undefined ? patch.started_at : row.started_at,

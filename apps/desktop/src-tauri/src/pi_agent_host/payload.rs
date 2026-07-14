@@ -86,6 +86,7 @@ pub(super) fn sidecar_payload(
         // `mode` is the host dispatch discriminator (execute vs status); the
         // permission mode rides under a distinct key so it cannot collide.
         "mode": "execute",
+        "requestId": req.request_id,
         "text": req.text,
         // The Rust host fchdir(2)s the sidecar into the verified Project inode
         // immediately before exec. Every root-session file/tool operation must
@@ -124,6 +125,8 @@ pub(super) fn sidecar_payload(
         // registers the mission-bridge extension only when this is present.
         "missionContextJson": mission_context_json,
         "mcpTools": mcp_tools,
+        "expectedTarget": req.expected_target,
+        "runtimeModelRef": req.runtime_model_ref,
     });
     if has_workspace {
         if let Some(direct_delegation) = authorized_direct_delegation {
@@ -160,6 +163,8 @@ pub(super) fn enhance_payload(
         "agentDir": agent_dir.map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
         "thinkingLevel": req.thinking_level,
+        "expectedTarget": req.expected_target,
+        "runtimeModelRef": req.runtime_model_ref,
     });
     if let Some(source_provenance) = &req.source_provenance {
         payload
@@ -195,6 +200,8 @@ pub(super) fn collaborate_payload(
         "model": req.model,
         "thinkingLevel": req.thinking_level,
         "systemPromptAppend": req.system_prompt_append,
+        "expectedTarget": req.expected_target,
+        "runtimeModelRef": req.runtime_model_ref,
     })
 }
 

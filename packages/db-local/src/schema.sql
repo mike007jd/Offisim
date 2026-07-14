@@ -1699,6 +1699,16 @@ CREATE INDEX IF NOT EXISTS idx_loop_invocations_company_created
 -- never an `agent_runs` / mission row.
 -- ---------------------------------------------------------------------------
 
+-- The first scheduled turn claims one immutable engine/account/billing lane for
+-- the whole collaboration thread. A dedicated first-writer-wins row makes the
+-- claim atomic even when two turns are opened concurrently.
+CREATE TABLE IF NOT EXISTS collaboration_execution_lanes (
+  thread_id    TEXT PRIMARY KEY NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
+  engine_id    TEXT NOT NULL CHECK (length(trim(engine_id)) > 0),
+  account_id   TEXT NOT NULL CHECK (length(trim(account_id)) > 0),
+  billing_mode TEXT NOT NULL CHECK (billing_mode IN ('api', 'subscription'))
+);
+
 CREATE TABLE IF NOT EXISTS collaboration_turns (
   turn_id            TEXT PRIMARY KEY NOT NULL,
   thread_id          TEXT NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
@@ -1712,13 +1722,59 @@ CREATE TABLE IF NOT EXISTS collaboration_turns (
   sequence_index     INTEGER NOT NULL,
   status             TEXT NOT NULL DEFAULT 'pending'
                        CHECK (status IN ('pending', 'streaming', 'complete', 'interrupted', 'failed')),
-  runtime_request_id TEXT,
+  runtime_request_id TEXT NOT NULL,
+  execution_target_json TEXT NOT NULL
+    CHECK (
+      json_valid(execution_target_json)
+      AND length(trim(json_extract(execution_target_json, '$.engineId'))) > 0
+      AND length(trim(json_extract(execution_target_json, '$.accountId'))) > 0
+      AND json_extract(execution_target_json, '$.billingMode') IN ('api', 'subscription')
+      AND length(trim(json_extract(execution_target_json, '$.modelId'))) > 0
+      AND json_extract(execution_target_json, '$.modelSource.kind') IN ('official-api', 'native')
+      AND length(trim(json_extract(execution_target_json, '$.modelSource.sourceUrl'))) > 0
+      AND length(trim(json_extract(execution_target_json, '$.modelSource.checkedAt'))) > 0
+    ),
+  result_provenance_json TEXT
+    CHECK (
+      result_provenance_json IS NULL
+      OR (
+        json_valid(result_provenance_json)
+        AND json_extract(result_provenance_json, '$.runId') = runtime_request_id
+        AND json_extract(result_provenance_json, '$.engineId') = json_extract(execution_target_json, '$.engineId')
+        AND json_extract(result_provenance_json, '$.accountId') = json_extract(execution_target_json, '$.accountId')
+        AND json_extract(result_provenance_json, '$.billingMode') = json_extract(execution_target_json, '$.billingMode')
+        AND json_extract(result_provenance_json, '$.modelId') = json_extract(execution_target_json, '$.modelId')
+        AND json_extract(result_provenance_json, '$.modelSource.kind') = json_extract(execution_target_json, '$.modelSource.kind')
+        AND json_extract(result_provenance_json, '$.modelSource.sourceUrl') = json_extract(execution_target_json, '$.modelSource.sourceUrl')
+        AND json_extract(result_provenance_json, '$.modelSource.checkedAt') = json_extract(execution_target_json, '$.modelSource.checkedAt')
+        AND length(trim(json_extract(result_provenance_json, '$.adapter.id'))) > 0
+        AND length(trim(json_extract(result_provenance_json, '$.adapter.version'))) > 0
+      )
+    ),
   usage_json         TEXT,
   error_summary      TEXT,
   started_at         TEXT,
-  finished_at        TEXT
+  finished_at        TEXT,
+  CHECK (status <> 'complete' OR result_provenance_json IS NOT NULL)
 );
 
 -- turn scheduling / recovery lookup: a thread's turns in speaker order
 CREATE INDEX IF NOT EXISTS idx_collaboration_turns_thread_sequence
   ON collaboration_turns(thread_id, sequence_index);
+
+-- Defense in depth: even a caller bypassing CollaborationTurnRepository cannot
+-- insert a turn until its target matches the thread's immutable lane claim.
+CREATE TRIGGER IF NOT EXISTS trg_collaboration_turns_execution_lane
+BEFORE INSERT ON collaboration_turns
+FOR EACH ROW
+WHEN NOT EXISTS (
+  SELECT 1
+    FROM collaboration_execution_lanes lane
+   WHERE lane.thread_id = NEW.thread_id
+     AND lane.engine_id = json_extract(NEW.execution_target_json, '$.engineId')
+     AND lane.account_id = json_extract(NEW.execution_target_json, '$.accountId')
+     AND lane.billing_mode = json_extract(NEW.execution_target_json, '$.billingMode')
+)
+BEGIN
+  SELECT RAISE(ABORT, 'collaboration execution lane mismatch');
+END;

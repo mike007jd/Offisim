@@ -1,4 +1,4 @@
-import type { PiAgentModelOption } from '@/assistant/composer/usePiAgentModels.js';
+import type { AgentRuntimeModelOption } from '@/assistant/composer/usePiAgentModels.js';
 import type { Employee } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Select } from '@/design-system/grammar/Select.js';
@@ -9,7 +9,7 @@ import { useId } from 'react';
 
 interface RuntimeTabProps {
   employee: Employee;
-  models: PiAgentModelOption[] | undefined;
+  models: AgentRuntimeModelOption[] | undefined;
   modelsLoading: boolean;
   model: string;
   thinkingLevel: string;
@@ -17,7 +17,7 @@ interface RuntimeTabProps {
   onThinkingLevelChange: (value: string) => void;
 }
 
-/** How this employee runs. Models come only from Pi's available-model projection;
+/** How this employee runs. Models come only from the gateway's account projection;
  * persisted bindings that disappear remain visible as invalid but are never sent. */
 export function RuntimeTab({
   employee,
@@ -89,11 +89,11 @@ export function RuntimeTab({
               options={[
                 {
                   value: '',
-                  label: modelsLoading ? 'Loading Pi models…' : 'Inherit conversation model',
+                  label: modelsLoading ? 'Loading models…' : 'Inherit conversation model',
                 },
                 ...(models ?? []).map((option) => ({
                   value: option.value,
-                  label: `${option.provider} · ${option.name}`,
+                  label: `${option.accountName} · ${option.name}`,
                 })),
               ]}
             />
@@ -114,8 +114,8 @@ export function RuntimeTab({
         </div>
         {invalid ? (
           <p className="off-pers-runtime-warning">
-            Saved model “{model}” is no longer available in Pi. It is not sent; this employee
-            inherits the conversation model until you choose another.
+            Saved model “{model}” is no longer available. It is not sent; this employee inherits the
+            conversation model until you choose another.
           </p>
         ) : null}
       </div>

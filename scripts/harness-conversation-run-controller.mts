@@ -2172,6 +2172,8 @@ const scenarios: Array<{
       assert.equal(workspaceActivity?.detail, workspaceDetail);
       const shellActivity = snapshot.activity.find((entry) => entry.id === 'tool-shell');
       assert.equal(shellActivity?.state, 'done');
+      assert.equal(shellActivity?.detail, 'Built-in');
+      assert.ok(!shellActivity?.detail?.includes('pi_agent'));
       const richDetail = shellActivity?.richDetail;
       assert.equal(richDetail?.family, 'terminal');
       if (richDetail?.family !== 'terminal') throw new Error('expected terminal rich detail');

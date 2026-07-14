@@ -18,6 +18,7 @@ const EVALUATION_LEASE_TTL_MS: i64 = 2 * 60 * 60 * 1_000;
 const REVOKED_READ_GRACE_MS: i64 =
     crate::pi_agent_host::PI_RUN_STREAM_TERMINAL_TTL_SECS as i64 * 1_000;
 const PROJECT_WORKSPACE_SELECTION_TTL_MS: i64 = 10 * 60 * 1_000;
+const AGENT_RUNTIME_CONTEXT_ID: &str = "agent-runtime";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TaskWorkspaceAccess {
@@ -1592,11 +1593,12 @@ fn validate_conversation_native_session(
             "The saved Conversation native session context is invalid.",
         )
     })?;
-    let compatible_runtime = context_string_matches(context_object, "runtime", "pi-agent")
-        && context_object
-            .get("wireProtocolVersion")
-            .and_then(serde_json::Value::as_u64)
-            == Some(u64::from(crate::pi_agent_host::PI_HOST_PROTOCOL_VERSION));
+    let compatible_runtime =
+        context_string_matches(context_object, "runtime", AGENT_RUNTIME_CONTEXT_ID)
+            && context_object
+                .get("wireProtocolVersion")
+                .and_then(serde_json::Value::as_u64)
+                == Some(u64::from(crate::pi_agent_host::PI_HOST_PROTOCOL_VERSION));
     if !compatible_runtime {
         return Err(ResumePrestartFailure::new(
             ResumePrestartFailureKind::RuntimeIncompatible,
@@ -2019,11 +2021,12 @@ fn validate_resume_root_prestart(
             "The interrupted task's durable runtime context is invalid. Start a new task instead.",
         )
     })?;
-    let compatible_runtime = context_string_matches(context_object, "runtime", "pi-agent")
-        && context_object
-            .get("wireProtocolVersion")
-            .and_then(serde_json::Value::as_u64)
-            == Some(u64::from(crate::pi_agent_host::PI_HOST_PROTOCOL_VERSION));
+    let compatible_runtime =
+        context_string_matches(context_object, "runtime", AGENT_RUNTIME_CONTEXT_ID)
+            && context_object
+                .get("wireProtocolVersion")
+                .and_then(serde_json::Value::as_u64)
+                == Some(u64::from(crate::pi_agent_host::PI_HOST_PROTOCOL_VERSION));
     if !compatible_runtime {
         return Err(ResumePrestartFailure::new(
             ResumePrestartFailureKind::RuntimeIncompatible,
@@ -4535,7 +4538,7 @@ mod tests {
             },
             "workspaceRequirement": "optional",
             "workspaceAvailability": "bound",
-            "runtime": "pi-agent",
+            "runtime": AGENT_RUNTIME_CONTEXT_ID,
             "piSdkVersion": "0.79.8",
             "wireProtocolVersion": crate::pi_agent_host::PI_HOST_PROTOCOL_VERSION,
             "nativeSessionId": "session-a",

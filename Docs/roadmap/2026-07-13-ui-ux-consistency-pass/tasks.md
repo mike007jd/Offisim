@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，5/17 implemented；T05a 前置已交付，release 验收统一留在 T16
+> 状态：IN PROGRESS，6/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -13,7 +13,7 @@
 | T02 | 首次成功回复后的语义标题 | T00,T05a | [x] |
 | T03 | 后端签发 effective task workspace | T00 | [x] |
 | T04 | 缺失 Project 目录自主恢复 | T03 | [x] |
-| T05 | 生产 engine gateway 与 API account | T00 | [ ] |
+| T05 | 生产 engine gateway 与 API account | T00 | [x] |
 | T06 | Codex subscription 完整 engine | T05 | [ ] |
 | T07 | Claude subscription 完整 engine | T05 | [ ] |
 | T08 | AI Accounts / Models 设置整合 | T02,T05,T06,T07 | [ ] |
@@ -51,7 +51,7 @@
 
 ### Acceptance
 
-- [x] 当前实现仍明确是 `DesktopPiAgentRuntime`，没有把目标态写成 shipped。
+- [x] T00 baseline 当时明确只有 `DesktopPiAgentRuntime`；T05 后当前真值已更新为 production `DesktopAgentRuntimeGateway` + 完整 API adapter，内部 Pi host 仅是实现细节，Codex / Claude 仍未写成 shipped。
 - [x] 产品目标明确为单一 production gateway + 每 task 一个互斥完整 engine。
 - [x] API 显示 Cost；subscription 显示官方 Usage。
 - [x] Project、Conversation、Native Agent Home/Session/Memory、effective workspace 四层分离。
@@ -219,13 +219,13 @@
 - [x] **T05a：** root run result 与持久化 context 都包含 engineId/accountId/billingMode/exact modelId/runId，值来自实际 host selection。
 - [x] **T05a：** isolated text job 必须消费 source Turn provenance；engine/account/model 不匹配或 adapter fallback 时明确失败。
 - [x] **T05a：** isolated job host-enforced no tools/no workspace/no transcript persistence，并返回实际 provenance 与 usage。
-- [ ] API account 可完成真实 run、stream、tool、approval、Stop、recovery。
-- [ ] 一个 task 只绑定一个 engine/account，不静默 fallback。
-- [ ] token 分 input/output/cache/reasoning；缺失字段不伪造 0。
-- [ ] Cost 标注 actual / estimate / unavailable。
-- [ ] runtime/account/billing/model/usage provenance 可审计。
-- [ ] Pi/provider implementation 名称不进入普通 UI。
-- [ ] 旧 provider profile、sidecar 或双主路径不回流。
+- [x] API account 可完成真实 run、stream、tool、approval、Stop、recovery。
+- [x] 一个 task 只绑定一个 engine/account，不静默 fallback。
+- [x] token 分 input/output/cache/reasoning；缺失字段不伪造 0。
+- [x] Cost 标注 actual / estimate / unavailable。
+- [x] runtime/account/billing/model/usage provenance 可审计。
+- [x] Pi/provider implementation 名称不进入普通 UI。
+- [x] 旧 provider profile、sidecar 或双主路径不回流。
 
 ### Oracles
 
@@ -239,7 +239,20 @@
 - Provider-native stable account id 优先；无 stable id 的 opaque credential 使用不可逆 generation fingerprint，宁可在轮换时拆分历史，也不把显式换号的 Usage/Cost 或 isolated job 合并。
 - 成功 root、direct delegation 与 live reattach 缺 provenance 均 fail closed；abort 仍允许无 provenance。
 - `SessionManager.inMemory` + discovery 全关闭 + 专用 temp cwd；Pi in-memory 写消息后无 session 文件。
-- `pnpm harness:pi-agent-host`、Pi wire v7、Rust Pi host 27/27、run recovery 23/23 — PASS。
+- `pnpm harness:pi-agent-host`、Pi wire v10、Rust 378/378、run recovery 32/32 — PASS。
+
+### T05 Evidence（2026-07-15 AEST）
+
+- `DesktopAgentRuntimeGateway` 是 production 唯一入口，当前只注册 `api` adapter；root、child、enhance、collaboration 全部冻结同一 execution target，host ACK 与持久化 readback 不一致时 fail closed。
+- 普通 Settings 已改为 `AI Accounts / Models / Usage / Cost`；旧 provider profile、config write command、全局 override 与 `PiAgentPane` 已删除。内部 Pi host 只保留为 API adapter 实现与必要诊断，普通 Tool activity 不再展示 `pi_agent`。
+- OpenRouter catalog 在 `2026-07-14T21:56:24+10:00` 核对 5 个 exact leaf：`cohere/north-mini-code:free`、`openai/gpt-oss-20b:free`、`nvidia/nemotron-3-ultra-550b-a55b:free`、`qwen/qwen3-coder:free`、`qwen/qwen3-next-80b-a3b-instruct:free`；每项保留官方 endpoint、availability 与 checkedAt。
+- API Usage 按 input/output/cache/reasoning 分字段记录；供应商缺失 cache/reasoning 时保持 unknown，不写 0。Cost 只记录供应商 actual、exact rate estimate 或 unavailable，不把免费模型的 `$0.00` 冒充 actual。
+- 当前 worktree 精确 release `.app` 二进制为 31,214,064 bytes，mtime `2026-07-15 00:02:44+10:00`，SHA-256 `b62ae06de3280d332b7f5ccc0a180e59fe901b5cfaf85352b1a6ea299693f206`，codesign 验证通过；Computer Use 绑定该绝对 `.app` 路径和 `Offisim` 窗口完成最终 T05 live verify。
+- 归档 schema v11 开发库后，精确 release `.app` 从 fresh state 创建 schema v12、Company 与绑定 Project；真实 OpenRouter task 创建并读回 `LIVE_T05_FINAL.txt`，内容为 `T05_FINAL_MARKER_20260715`。Tool activity 明确显示 `bash · Built-in`，普通 UI 未泄露 `pi_agent`。
+- Settings 在真实 run 前显示 `No recorded usage/cost`；运行后显示 OpenRouter API、5 个 exact model、7 条当月 partial usage、input/output 实值、cache/reasoning `Unknown` 与 `Estimate from the verified model price`，没有把缺失字段补 0 或把免费价格冒充 actual。
+- 同一 Conversation 的 8 个 run 只使用一个 native session `019f60f4-db51-7492-8596-c741ae999280`；精确 `.app` 退出重启后历史完整恢复，继续执行时精确复述首次回复 `T05_FINAL_MARKER_20260715`。
+- Ask 模式的 `rm -rf /private/tmp/offisim-t05-external-approval-proof` 在 approval card 暂停时目录仍存在，点击 Approve 后才删除；`interaction_history` 记录 resolved `human_in_loop` 与 `confirmed: true`。
+- Stop 在 `sleep 20` 实际运行后中断；run `attempt-5ae41176-4abb-49bb-a7d1-d28b3004bb08` durable 状态为 `cancelled`、finished at `2026-07-14T14:13:30.310Z`，两分钟后复核仍无 late response 覆盖。
 
 ---
 

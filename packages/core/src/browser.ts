@@ -161,6 +161,8 @@ export type {
   NewCollaborationMessage,
   CollaborationReadStateRepository,
   CollaborationReadStateRow,
+  CollaborationExecutionLane,
+  CollaborationExecutionLaneRow,
   CollaborationTurnRepository,
   CollaborationTurnRow,
   CollaborationTurnPatch,

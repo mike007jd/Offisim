@@ -1196,8 +1196,8 @@ assert(
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 assert(
-  /PI_HOST_PROTOCOL_VERSION = 9/.test(wireSource) &&
-    /PI_HOST_PROTOCOL_VERSION: u32 = 9/.test(rustHostSource) &&
+  /PI_HOST_PROTOCOL_VERSION = 10/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 10/.test(rustHostSource) &&
     /'worktreeCall'/.test(wireSource) &&
     /WorktreeCall/.test(rustHostSource) &&
     /'verifyCall'/.test(wireSource) &&
@@ -1319,27 +1319,40 @@ assert(
   'execute host must surface Pi model error stops as upstream failures instead of empty completed replies',
 );
 assert(
+  /The selected AI account has no usable credential for this model/.test(nodeHostSource) &&
+    !/Sign in through Pi Agent/.test(nodeHostSource) &&
+    !/Pi Agent model returned an error stop/.test(nodeHostSource),
+  'ordinary missing-credential guidance must use the neutral AI Accounts product surface',
+);
+assert(
   /get rootModel\(\)[\s\S]*return effectiveRootModel/.test(nodeHostSource) &&
     /effectiveRootModel = session\.model \?\? model/.test(nodeHostSource) &&
     /rootThinkingLevel:\s*thinkingLevel/.test(nodeHostSource) &&
     /function resolveEmployeeBinding\(employee\)/.test(childSupervisorSource) &&
-    /ctx\.resolveModel\(requestedModel\)/.test(childSupervisorSource) &&
-    /thinkingLevel = requestedThinking \?\? ctx\.rootThinkingLevel/.test(childSupervisorSource) &&
+    /resolveChildExecutionBinding\(\{/.test(childSupervisorSource) &&
+    /executionTargetDigest\(requestedTarget, requestedRuntimeModelRef\)/.test(
+      childSupervisorSource,
+    ) &&
+    /for \(const key of \['engineId', 'accountId', 'billingMode'\]\)/.test(childSupervisorSource) &&
+    /expectedTarget:\s*binding\.expectedTarget/.test(childSupervisorSource) &&
+    /runtimeModelRef:\s*binding\.runtimeModelRef/.test(childSupervisorSource) &&
     /\.\.\.\(thinkingLevel \? \{ thinkingLevel \} : \{\}\)/.test(childSupervisorSource),
-  'delegated children must inherit the parent run model unless an employee model override is provided',
+  'delegated children must inherit the frozen root target or prove an exact same-account override before prompt',
 );
 assert(
-  /selectedModel\(modelRegistry, requested\)/.test(nodeHostSource) &&
-    /delete rest\.model/.test(nodeHostSource) &&
-    /delete rest\.thinkingLevel/.test(nodeHostSource),
-  'execute host must strip stale employee model/thinking bindings before the roster reaches delegation',
+  /const roster = !workspaceUnavailable && Array\.isArray\(payload\.roster\)/.test(
+    nodeHostSource,
+  ) && !/delete rest\.model/.test(nodeHostSource),
+  'execute host must preserve catalog-proven roster bindings for fail-closed child validation',
 );
 assert(
   /function resolveEmployeeBinding\(employee\)/.test(bundledNodeHostSource) &&
+    /function resolveChildExecutionBinding\(/.test(bundledNodeHostSource) &&
+    /expectedTarget:\s*binding\.expectedTarget/.test(bundledNodeHostSource) &&
+    /runtimeModelRef:\s*binding\.runtimeModelRef/.test(bundledNodeHostSource) &&
     /rootThinkingLevel:\s*thinkingLevel/.test(bundledNodeHostSource) &&
-    /thinkingLevel:\s*thinkingLevel2/.test(bundledNodeHostSource) &&
-    /selectedModel\(modelRegistry2, requested\)/.test(bundledNodeHostSource),
-  'bundled Pi Agent host must carry employee model/thinking binding and stale-binding filtering',
+    /thinkingLevel:\s*thinkingLevel2/.test(bundledNodeHostSource),
+  'bundled API adapter host must carry exact child target and model binding validation',
 );
 assert(
   /let roster = has_workspace/.test(executePayloadSource) &&
@@ -1473,36 +1486,15 @@ try {
   );
   assert(
     result.response.configuredProviderStatus?.some((account) => account.provider === 'local-test'),
-    'Pi Agent status response must expose configuredProviderStatus for the editable provider list',
+    'Pi Agent diagnostics must expose configuredProviderStatus without an edit path',
   );
   assert(
     result.response.providerStatus.length > result.response.configuredProviderStatus.length,
     'configuredProviderStatus must not be the full built-in provider catalog',
   );
-  const editableLocalProvider = result.response.providerConfigs?.find(
-    (provider) => provider.provider === 'local-test',
-  );
   assert(
-    editableLocalProvider?.displayName === 'Local Test' &&
-      editableLocalProvider.baseUrl === 'http://127.0.0.1:11434/v1' &&
-      editableLocalProvider.api === 'openai-completions' &&
-      editableLocalProvider.hasApiKey === true &&
-      editableLocalProvider.models?.[0]?.contextWindow === 2048 &&
-      editableLocalProvider.models?.[0]?.maxTokens === 512,
-    'Pi Agent status response must expose editable models.json provider config without raw keys',
-  );
-  assert(
-    !JSON.stringify(editableLocalProvider).includes('apiKey'),
-    'Pi Agent status editable provider config must not echo raw API keys',
-  );
-  const openAiTemplate = result.response.providerTemplates?.find(
-    (template) => template.provider === 'openai',
-  );
-  assert(
-    openAiTemplate?.models?.length > 0 &&
-      typeof openAiTemplate.baseUrl === 'string' &&
-      openAiTemplate.configured === false,
-    'Pi Agent status response must expose add-provider templates from the Pi registry',
+    !('providerConfigs' in result.response) && !('providerTemplates' in result.response),
+    'Pi Agent diagnostics must not expose the removed provider-profile editor payload',
   );
   const invalidAgentDir = mkdtempSync(join(tmpdir(), 'offisim-pi-agent-invalid-'));
   try {
@@ -1529,13 +1521,10 @@ try {
       );
       assert(
         invalidResult.response.modelsConfig?.parseError &&
-          invalidResult.response.providerConfigs?.some(
-            (provider) => provider.provider === 'broken-local',
-          ) &&
           invalidResult.response.configuredProviderStatus?.some(
             (provider) => provider.provider === 'broken-local',
           ),
-        'Pi Agent status must keep models.json providers editable even when Pi ModelRegistry reports a schema error',
+        'Pi Agent diagnostics must report configured providers even when Pi ModelRegistry reports a schema error',
       );
     }
   } finally {
@@ -1545,118 +1534,6 @@ try {
     !/function stripJsoncComments/.test(nodeHostSource) &&
       !/function parseJsonc/.test(nodeHostSource),
     'Pi Agent host must not duplicate Pi ModelRegistry JSONC parsing',
-  );
-
-  runHost(
-    HOST_SCRIPT,
-    {
-      mode: 'saveProvider',
-      agentDir: tempAgentDir,
-      config: {
-        providerId: 'local-test',
-        displayName: 'Local Test Edited',
-        baseUrl: 'http://127.0.0.1:11434/v2',
-        api: 'openai-completions',
-        apiKey: '',
-        keepExistingApiKey: true,
-        models: [
-          {
-            id: 'fixture-model',
-            name: 'Fixture Model Edited',
-            api: 'openai-responses',
-            contextWindow: 4096,
-            maxTokens: 1024,
-          },
-        ],
-      },
-    },
-    'Pi Agent saveProvider keep-key edit',
-  );
-  let modelsRoot = readJson(join(tempAgentDir, 'models.json'));
-  let localProvider = modelsRoot.providers['local-test'];
-  assert(
-    localProvider.name === 'Local Test Edited' &&
-      localProvider.baseUrl === 'http://127.0.0.1:11434/v2' &&
-      localProvider.apiKey === 'test' &&
-      localProvider.headers['x-keep'] === 'provider' &&
-      localProvider.compat.mode === 'fixture' &&
-      localProvider.authHeader === true &&
-      localProvider.modelOverrides['builtin-model'].name === 'Fixture override',
-    'Pi Agent saveProvider must preserve provider-level unknown fields and keep an existing API key when blank',
-  );
-  assert(
-    localProvider.models[0].name === 'Fixture Model Edited' &&
-      localProvider.models[0].api === 'openai-responses' &&
-      localProvider.models[0].contextWindow === 4096 &&
-      localProvider.models[0].maxTokens === 1024 &&
-      localProvider.models[0].headers['x-keep'] === 'model' &&
-      localProvider.models[0].compat.modelMode === 'fixture',
-    'Pi Agent saveProvider must update editable model fields while preserving model-level unknown fields',
-  );
-
-  runHost(
-    HOST_SCRIPT,
-    {
-      mode: 'saveProvider',
-      agentDir: tempAgentDir,
-      config: {
-        providerId: 'local-test',
-        displayName: 'Local Test Edited',
-        baseUrl: 'http://127.0.0.1:11434/v2',
-        api: 'openai-completions',
-        apiKey: 'replacement-key',
-        keepExistingApiKey: true,
-        models: [{ id: 'fixture-model', name: 'Fixture Model Edited' }],
-      },
-    },
-    'Pi Agent saveProvider key replacement',
-  );
-  modelsRoot = readJson(join(tempAgentDir, 'models.json'));
-  localProvider = modelsRoot.providers['local-test'];
-  assert(
-    localProvider.apiKey === 'replacement-key',
-    'Pi Agent saveProvider must replace an existing API key when a new key is entered',
-  );
-  assert(
-    localProvider.models[0].name === 'Fixture Model Edited' &&
-      !('api' in localProvider.models[0]) &&
-      !('contextWindow' in localProvider.models[0]) &&
-      !('maxTokens' in localProvider.models[0]) &&
-      localProvider.models[0].headers['x-keep'] === 'model' &&
-      localProvider.models[0].compat.modelMode === 'fixture',
-    'Pi Agent saveProvider must allow editable model fields to be cleared while preserving unknown model fields',
-  );
-
-  const saveResult = runHost(
-    HOST_SCRIPT,
-    {
-      mode: 'saveProvider',
-      agentDir: tempAgentDir,
-      config: {
-        providerId: 'custom-jsonc',
-        displayName: 'Custom JSONC',
-        baseUrl: 'https://api.example.com/v1',
-        api: 'openai-completions',
-        apiKey: 'test',
-        keepExistingApiKey: false,
-        models: [{ id: 'custom-model', name: 'Custom Model' }],
-      },
-    },
-    'Pi Agent saveProvider host',
-  );
-  assert(saveResult.response?.ok === true, 'Pi Agent saveProvider response must be ok');
-  assert(
-    saveResult.response.modelsConfig?.providers.includes('custom-jsonc') &&
-      saveResult.response.availableModels.some(
-        (model) => model.provider === 'custom-jsonc' && model.id === 'custom-model',
-      ),
-    'Pi Agent saveProvider must preserve JSONC-readable models.json and expose the saved provider',
-  );
-  assert(
-    readFileSync(join(tempAgentDir, 'models.json'), 'utf8').includes(
-      '// Pi models.json accepts JSONC comments and trailing commas.',
-    ),
-    'Pi Agent saveProvider must preserve existing JSONC comments while editing a provider',
   );
 } finally {
   rmSync(tempAgentDir, { recursive: true, force: true });

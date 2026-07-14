@@ -1,4 +1,4 @@
-import { usePiAgentModels } from '@/assistant/composer/usePiAgentModels.js';
+import { useAgentRuntimeModels } from '@/assistant/composer/usePiAgentModels.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useCompanyTemplates } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
@@ -142,7 +142,7 @@ export function CompanyCreationWizard({
   dismissible = true,
 }: CompanyCreationWizardProps) {
   const templatesQuery = useCompanyTemplates();
-  const modelsQuery = usePiAgentModels();
+  const modelsQuery = useAgentRuntimeModels();
 
   const templates = useMemo<WizardTemplate[]>(
     () => [...(templatesQuery.data ?? []), CREATE_YOUR_OWN_TEMPLATE],
@@ -168,7 +168,7 @@ export function CompanyCreationWizard({
       { value: '', label: 'Inherit conversation model' },
       ...availableModels.map((model) => ({
         value: model.value,
-        label: `${model.name} · ${model.provider}`,
+        label: `${model.name} · ${model.accountName}`,
       })),
     ],
     [availableModels],
@@ -341,9 +341,8 @@ export function CompanyCreationWizard({
             <>
               {showModelLayeringHint ? (
                 <div className="off-wiz-model-notice" role="note">
-                  Add more models in Pi <code>models.json</code> to give planners and builders
-                  distinct model tiers. Check its status in Settings; you can still create this
-                  company now.
+                  Add another verified model in AI Accounts to give planners and builders distinct
+                  model tiers. You can still create this company now.
                 </div>
               ) : null}
               <details className="off-wiz-team" open>

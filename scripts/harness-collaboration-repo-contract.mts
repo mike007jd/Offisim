@@ -31,7 +31,10 @@ import {
   readSenderLabel,
 } from '../packages/core/src/runtime/collaboration/collaboration-service.js';
 import { createCollaborationDrizzleRepos } from '../packages/core/src/runtime/repos/collaboration/drizzle.js';
-import type { NewCollaborationThread } from '../packages/core/src/runtime/repositories.js';
+import type {
+  CollaborationTurnRepository,
+  NewCollaborationThread,
+} from '../packages/core/src/runtime/repositories.js';
 
 let passed = 0;
 let failed = 0;
@@ -112,6 +115,55 @@ CREATE TABLE collaboration_read_state (
   last_read_message_id TEXT,
   updated_at           TEXT NOT NULL
 );
+CREATE TABLE collaboration_execution_lanes (
+  thread_id    TEXT PRIMARY KEY REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
+  engine_id    TEXT NOT NULL CHECK (length(trim(engine_id)) > 0),
+  account_id   TEXT NOT NULL CHECK (length(trim(account_id)) > 0),
+  billing_mode TEXT NOT NULL CHECK (billing_mode IN ('api', 'subscription'))
+);
+CREATE TABLE collaboration_turns (
+  turn_id            TEXT PRIMARY KEY NOT NULL,
+  thread_id          TEXT NOT NULL REFERENCES collaboration_threads(thread_id) ON DELETE CASCADE,
+  trigger_message_id TEXT,
+  employee_id        TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
+  sequence_index     INTEGER NOT NULL,
+  status             TEXT NOT NULL DEFAULT 'pending'
+                       CHECK (status IN ('pending', 'streaming', 'complete', 'interrupted', 'failed')),
+  runtime_request_id TEXT NOT NULL,
+  execution_target_json TEXT NOT NULL
+    CHECK (
+      json_valid(execution_target_json)
+      AND length(trim(json_extract(execution_target_json, '$.engineId'))) > 0
+      AND length(trim(json_extract(execution_target_json, '$.accountId'))) > 0
+      AND json_extract(execution_target_json, '$.billingMode') IN ('api', 'subscription')
+      AND length(trim(json_extract(execution_target_json, '$.modelId'))) > 0
+      AND json_extract(execution_target_json, '$.modelSource.kind') IN ('official-api', 'native')
+      AND length(trim(json_extract(execution_target_json, '$.modelSource.sourceUrl'))) > 0
+      AND length(trim(json_extract(execution_target_json, '$.modelSource.checkedAt'))) > 0
+    ),
+  result_provenance_json TEXT
+    CHECK (
+      result_provenance_json IS NULL
+      OR (
+        json_valid(result_provenance_json)
+        AND json_extract(result_provenance_json, '$.runId') = runtime_request_id
+        AND json_extract(result_provenance_json, '$.engineId') = json_extract(execution_target_json, '$.engineId')
+        AND json_extract(result_provenance_json, '$.accountId') = json_extract(execution_target_json, '$.accountId')
+        AND json_extract(result_provenance_json, '$.billingMode') = json_extract(execution_target_json, '$.billingMode')
+        AND json_extract(result_provenance_json, '$.modelId') = json_extract(execution_target_json, '$.modelId')
+        AND json_extract(result_provenance_json, '$.modelSource.kind') = json_extract(execution_target_json, '$.modelSource.kind')
+        AND json_extract(result_provenance_json, '$.modelSource.sourceUrl') = json_extract(execution_target_json, '$.modelSource.sourceUrl')
+        AND json_extract(result_provenance_json, '$.modelSource.checkedAt') = json_extract(execution_target_json, '$.modelSource.checkedAt')
+        AND length(trim(json_extract(result_provenance_json, '$.adapter.id'))) > 0
+        AND length(trim(json_extract(result_provenance_json, '$.adapter.version'))) > 0
+      )
+    ),
+  usage_json         TEXT,
+  error_summary      TEXT,
+  started_at         TEXT,
+  finished_at        TEXT,
+  CHECK (status <> 'complete' OR result_provenance_json IS NOT NULL)
+);
 CREATE INDEX idx_collaboration_threads_company_updated
   ON collaboration_threads(company_id, updated_at DESC);
 CREATE UNIQUE INDEX idx_collaboration_threads_active_direct
@@ -124,6 +176,22 @@ CREATE UNIQUE INDEX idx_collaboration_messages_idempotency
   WHERE idempotency_key IS NOT NULL;
 CREATE INDEX idx_collaboration_members_thread ON collaboration_thread_members(thread_id);
 CREATE INDEX idx_collaboration_members_employee ON collaboration_thread_members(employee_id);
+CREATE INDEX idx_collaboration_turns_thread_sequence
+  ON collaboration_turns(thread_id, sequence_index);
+CREATE TRIGGER trg_collaboration_turns_execution_lane
+BEFORE INSERT ON collaboration_turns
+FOR EACH ROW
+WHEN NOT EXISTS (
+  SELECT 1
+    FROM collaboration_execution_lanes lane
+   WHERE lane.thread_id = NEW.thread_id
+     AND lane.engine_id = json_extract(NEW.execution_target_json, '$.engineId')
+     AND lane.account_id = json_extract(NEW.execution_target_json, '$.accountId')
+     AND lane.billing_mode = json_extract(NEW.execution_target_json, '$.billingMode')
+)
+BEGIN
+  SELECT RAISE(ABORT, 'collaboration execution lane mismatch');
+END;
 `;
 
 function seed(db: Database.Database): void {
@@ -187,12 +255,14 @@ function makeProxyDb(sqlite: Database.Database): TauriDrizzleDb {
 interface Backend {
   label: string;
   db: Database.Database;
-  repos: CollaborationServiceRepos;
+  repos: CollaborationServiceRepos & { collaborationTurns: CollaborationTurnRepository };
 }
 
 function withAtomicBoundary(
-  repos: Omit<CollaborationServiceRepos, 'asyncTransact'>,
-): CollaborationServiceRepos {
+  repos: Omit<CollaborationServiceRepos, 'asyncTransact'> & {
+    collaborationTurns: CollaborationTurnRepository;
+  },
+): CollaborationServiceRepos & { collaborationTurns: CollaborationTurnRepository } {
   return { ...repos, asyncTransact: async (fn) => fn() };
 }
 
@@ -416,6 +486,11 @@ async function runContract(make: () => Backend): Promise<void> {
     const t = await svc.getOrCreateDirect('co-1', 'emp-1');
     await svc.appendMessage({ threadId: t.threadId, senderType: 'boss', body: 'hi' });
     await svc.markRead(t.threadId);
+    await repos.collaborationTurns.bindThreadExecutionLane(t.threadId, {
+      engineId: 'api',
+      accountId: 'api:fixture:0123456789abcdef',
+      billingMode: 'api',
+    });
     assert.ok(collabThreadRows(db) > 0, 'rows exist before delete');
     db.prepare('DELETE FROM companies WHERE company_id = ?').run('co-1');
     assert.equal(collabThreadRows(db), 0, 'threads cascaded');
@@ -434,6 +509,12 @@ async function runContract(make: () => Backend): Promise<void> {
       (db.prepare('SELECT count(*) AS n FROM collaboration_read_state').get() as { n: number }).n,
       0,
       'read_state cascaded',
+    );
+    assert.equal(
+      (db.prepare('SELECT count(*) AS n FROM collaboration_execution_lanes').get() as { n: number })
+        .n,
+      0,
+      'execution lane cascaded',
     );
   });
 
@@ -551,6 +632,203 @@ async function runContract(make: () => Backend): Promise<void> {
     const byKey = await repos.collaborationMessages.findByIdempotencyKey(t.threadId, 'whatever');
     assert.equal(byKey, null, 'idempotency lookup tolerates malformed metadata');
     assert.equal(readSenderLabel('{not valid json'), null, 'reader tolerates malformed json');
+  });
+
+  await check(`[${label}] execution lane: target + request read back exactly`, async () => {
+    const { repos } = make();
+    const svc = createCollaborationService(repos, makeDeps());
+    const thread = await svc.getOrCreateDirect('co-1', 'emp-1');
+    const target = {
+      engineId: 'api',
+      accountId: 'api:fixture:0123456789abcdef',
+      billingMode: 'api' as const,
+      modelId: 'maker/model',
+      modelSource: {
+        kind: 'official-api',
+        sourceUrl: 'https://provider.example/models/maker/model',
+        checkedAt: '2026-07-14T00:00:00.000Z',
+      },
+    };
+    const targetJson = JSON.stringify(target);
+    assert.equal(
+      await repos.collaborationTurns.bindThreadExecutionLane(thread.threadId, target),
+      true,
+      'the first target claims the thread lane',
+    );
+    await repos.collaborationTurns.insert({
+      turn_id: 'turn-exact',
+      thread_id: thread.threadId,
+      trigger_message_id: null,
+      employee_id: 'emp-1',
+      sequence_index: 1,
+      status: 'pending',
+      runtime_request_id: 'collab-turn-exact',
+      execution_target_json: targetJson,
+      result_provenance_json: null,
+      usage_json: null,
+      error_summary: null,
+      started_at: null,
+      finished_at: null,
+    });
+    const pending = await repos.collaborationTurns.findById('turn-exact');
+    assert.equal(pending?.runtime_request_id, 'collab-turn-exact');
+    assert.deepEqual(JSON.parse(pending?.execution_target_json ?? '{}'), target);
+
+    const provenanceJson = JSON.stringify({
+      ...target,
+      runId: 'collab-turn-exact',
+      adapter: { id: 'fixture-adapter', version: '1.0.0' },
+    });
+    await repos.collaborationTurns.update('turn-exact', {
+      status: 'complete',
+      result_provenance_json: provenanceJson,
+      usage_json: JSON.stringify({ input: 3, output: 5 }),
+      finished_at: '2026-07-14T00:01:00.000Z',
+    });
+    const complete = await repos.collaborationTurns.findById('turn-exact');
+    assert.equal(complete?.status, 'complete');
+    assert.deepEqual(JSON.parse(complete?.result_provenance_json ?? '{}'), {
+      ...target,
+      runId: 'collab-turn-exact',
+      adapter: { id: 'fixture-adapter', version: '1.0.0' },
+    });
+  });
+
+  await check(`[${label}] execution lane: SQL rejects missing/mismatched facts`, async () => {
+    const { db, repos } = make();
+    const svc = createCollaborationService(repos, makeDeps());
+    const thread = await svc.getOrCreateDirect('co-1', 'emp-1');
+    assert.throws(
+      () =>
+        db
+          .prepare(
+            `INSERT INTO collaboration_turns
+              (turn_id, thread_id, employee_id, sequence_index, status, runtime_request_id)
+             VALUES (?, ?, ?, 1, 'pending', ?)`,
+          )
+          .run('turn-no-target', thread.threadId, 'emp-1', 'collab-turn-no-target'),
+      /NOT NULL|constraint|lane mismatch/iu,
+    );
+
+    const target = {
+      engineId: 'api',
+      accountId: 'api:fixture:0123456789abcdef',
+      billingMode: 'api' as const,
+      modelId: 'maker/model',
+      modelSource: {
+        kind: 'official-api',
+        sourceUrl: 'https://provider.example/models/maker/model',
+        checkedAt: '2026-07-14T00:00:00.000Z',
+      },
+    };
+    assert.equal(
+      await repos.collaborationTurns.bindThreadExecutionLane(thread.threadId, target),
+      true,
+      'the valid target claims the thread lane before turn insert',
+    );
+    assert.throws(
+      () =>
+        db
+          .prepare(
+            `INSERT INTO collaboration_turns
+              (turn_id, thread_id, employee_id, sequence_index, status, runtime_request_id, execution_target_json)
+             VALUES (?, ?, ?, 2, 'pending', ?, ?)`,
+          )
+          .run(
+            'turn-wrong-lane',
+            thread.threadId,
+            'emp-1',
+            'collab-turn-wrong-lane',
+            JSON.stringify({ ...target, accountId: 'api:other:0123456789abcdef' }),
+          ),
+      /collaboration execution lane mismatch/iu,
+      'the SQL trigger rejects a valid target from a different account lane',
+    );
+    await repos.collaborationTurns.insert({
+      turn_id: 'turn-mismatch',
+      thread_id: thread.threadId,
+      trigger_message_id: null,
+      employee_id: 'emp-1',
+      sequence_index: 2,
+      status: 'pending',
+      runtime_request_id: 'collab-turn-mismatch',
+      execution_target_json: JSON.stringify(target),
+      result_provenance_json: null,
+      usage_json: null,
+      error_summary: null,
+      started_at: null,
+      finished_at: null,
+    });
+    await assert.rejects(
+      repos.collaborationTurns.update('turn-mismatch', {
+        status: 'complete',
+        result_provenance_json: JSON.stringify({
+          ...target,
+          accountId: 'api:other:0123456789abcdef',
+          runId: 'collab-turn-mismatch',
+          adapter: { id: 'fixture-adapter', version: '1.0.0' },
+        }),
+      }),
+      /CHECK|constraint/iu,
+    );
+    assert.equal(
+      (await repos.collaborationTurns.findById('turn-mismatch'))?.status,
+      'pending',
+      'failed terminal update leaves the prior durable state intact',
+    );
+  });
+
+  await check(`[${label}] execution lane: concurrent first writer is immutable`, async () => {
+    const { db, repos } = make();
+    const svc = createCollaborationService(repos, makeDeps());
+    const thread = await svc.getOrCreateDirect('co-1', 'emp-1');
+    const fixtureLane = {
+      engineId: 'api',
+      accountId: 'api:fixture:0123456789abcdef',
+      billingMode: 'api' as const,
+    };
+    const otherLane = {
+      engineId: 'api',
+      accountId: 'api:other:0123456789abcdef',
+      billingMode: 'api' as const,
+    };
+    const claims = await Promise.all([
+      repos.collaborationTurns.bindThreadExecutionLane(thread.threadId, fixtureLane),
+      repos.collaborationTurns.bindThreadExecutionLane(thread.threadId, otherLane),
+    ]);
+    assert.equal(
+      claims.filter(Boolean).length,
+      1,
+      'exactly one concurrent account lane wins the first-write claim',
+    );
+    const stored = db
+      .prepare(
+        'SELECT engine_id, account_id, billing_mode FROM collaboration_execution_lanes WHERE thread_id = ?',
+      )
+      .get(thread.threadId) as {
+      engine_id: string;
+      account_id: string;
+      billing_mode: string;
+    };
+    const winner = claims[0] ? fixtureLane : otherLane;
+    assert.deepEqual(stored, {
+      engine_id: winner.engineId,
+      account_id: winner.accountId,
+      billing_mode: winner.billingMode,
+    });
+    assert.equal(
+      await repos.collaborationTurns.bindThreadExecutionLane(thread.threadId, winner),
+      true,
+      'the winning lane remains idempotently accepted',
+    );
+    assert.equal(
+      await repos.collaborationTurns.bindThreadExecutionLane(
+        thread.threadId,
+        claims[0] ? otherLane : fixtureLane,
+      ),
+      false,
+      'the losing lane stays rejected after the race',
+    );
   });
 
   // Invariant: speaker limit is clamped to 1–8.

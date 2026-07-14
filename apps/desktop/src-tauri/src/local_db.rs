@@ -19,7 +19,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 ///
 /// Any existing local database with another version is a disposable dev artifact:
 /// delete it and let the app rebuild from the current baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 11;
+const LOCAL_SCHEMA_VERSION: i64 = 12;
 
 pub struct OffisimDbState {
     pool: SqlitePool,
@@ -845,10 +845,13 @@ mod tests {
     #[tokio::test]
     async fn unsupported_local_database_version_is_rejected() {
         let pool = memory_pool().await;
-        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY); PRAGMA user_version = 12")
-            .execute(&pool)
-            .await
-            .unwrap();
+        let unsupported = LOCAL_SCHEMA_VERSION + 1;
+        raw_sql(&format!(
+            "CREATE TABLE companies (company_id TEXT PRIMARY KEY); PRAGMA user_version = {unsupported}"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
         let err = ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL)
             .await
             .unwrap_err();

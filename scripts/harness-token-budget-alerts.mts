@@ -3,14 +3,21 @@ import { readFileSync } from 'node:fs';
 import { computeTokenBudgetAlerts } from '../apps/desktop/renderer/src/data/token-budget-policy.ts';
 
 const budgets = { monthlyTokenBudget: 100_000, sessionTokenBudget: 10_000 };
+const completeUsage = (monthlyTokens: number, sessionTokens: number) => ({
+  monthlyTokens,
+  monthlyKnownTokens: monthlyTokens,
+  monthlyTokenCoverage: 'complete' as const,
+  sessionTokens,
+  sessionKnownTokens: sessionTokens,
+  sessionTokenCoverage: 'complete' as const,
+});
 assert.deepEqual(
-  computeTokenBudgetAlerts({ monthlyTokens: 79_999, sessionTokens: 7_999, budgets }),
+  computeTokenBudgetAlerts({ ...completeUsage(79_999, 7_999), budgets }),
   [],
   'below 80% is quiet',
 );
 const warning = computeTokenBudgetAlerts({
-  monthlyTokens: 80_000,
-  sessionTokens: 8_000,
+  ...completeUsage(80_000, 8_000),
   budgets,
 });
 assert.deepEqual(
@@ -21,8 +28,7 @@ assert.deepEqual(
   ],
 );
 const critical = computeTokenBudgetAlerts({
-  monthlyTokens: 100_000,
-  sessionTokens: 10_001,
+  ...completeUsage(100_000, 10_001),
   budgets,
 });
 assert.ok(
@@ -31,12 +37,29 @@ assert.ok(
 );
 assert.deepEqual(
   computeTokenBudgetAlerts({
-    monthlyTokens: 999_999,
-    sessionTokens: 999_999,
+    ...completeUsage(999_999, 999_999),
     budgets: { monthlyTokenBudget: null, sessionTokenBudget: null },
   }),
   [],
   'no configured budget never warns',
+);
+const partialLowerBound = computeTokenBudgetAlerts({
+  monthlyTokens: null,
+  monthlyKnownTokens: 100_000,
+  monthlyTokenCoverage: 'partial',
+  sessionTokens: null,
+  sessionKnownTokens: 8_000,
+  sessionTokenCoverage: 'partial',
+  budgets,
+});
+assert.ok(partialLowerBound.every((item) => item.lowerBound));
+assert.deepEqual(
+  partialLowerBound.map((item) => [item.scope, item.level]),
+  [
+    ['monthly', 'critical'],
+    ['session', 'warning'],
+  ],
+  'a known partial subtotal that crosses a threshold remains actionable as a lower bound',
 );
 
 const budgetSource = readFileSync(
@@ -45,6 +68,10 @@ const budgetSource = readFileSync(
 );
 const appFrameSource = readFileSync(
   new URL('../apps/desktop/renderer/src/design-system/shell/AppFrame.tsx', import.meta.url),
+  'utf8',
+);
+const usageCoverageSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/data/usage-token-coverage.ts', import.meta.url),
   'utf8',
 );
 assert.match(
@@ -60,5 +87,7 @@ assert.doesNotMatch(
 assert.match(appFrameSource, /Advisory only — this run continues\./);
 assert.match(appFrameSource, /openSettings\('runtime'\)/);
 assert.doesNotMatch(appFrameSource, /toast\.error\(message/);
+assert.match(appFrameSource, /Usage incomplete/);
+assert.match(usageCoverageSource, /≥/);
 
-console.log('token-budget-alerts: 9 checks passed');
+console.log('token-budget-alerts: 13 checks passed');

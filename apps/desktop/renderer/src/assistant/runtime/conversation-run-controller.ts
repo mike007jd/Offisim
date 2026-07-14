@@ -385,7 +385,15 @@ function detailFromTelemetry(payload: ToolExecutionTelemetryPayload): string | u
   if (payload.workspaceProvenance) {
     return formatWorkspaceProvenance(payload.workspaceProvenance) ?? undefined;
   }
-  const parts = [payload.serverName, payload.nodeName, payload.toolType].filter(Boolean);
+  // `nodeName` is execution telemetry, not product identity. The current API
+  // adapter still emits the historical `pi_agent` node internally, but ordinary
+  // activity UI must stay engine-neutral while diagnostics keep the raw event.
+  const productNodeName =
+    payload.nodeName === 'pi_agent' || payload.nodeName === 'agent_runtime'
+      ? undefined
+      : payload.nodeName;
+  const productToolType = payload.toolType === 'builtin' ? 'Built-in' : payload.toolType;
+  const parts = [payload.serverName, productNodeName, productToolType].filter(Boolean);
   return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 

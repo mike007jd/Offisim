@@ -49,6 +49,37 @@ async function runScenario({
       return { ...lease, status: 'released' };
     },
   };
+  const rootModel = { provider: 'fixture', id: 'fixture-stable' };
+  const runtimeModelRef = `${rootModel.provider}/${rootModel.id}`;
+  const expectedTarget = {
+    engineId: 'api',
+    accountId: 'api:fixture:0123456789abcdef',
+    billingMode: 'api',
+    modelId: rootModel.id,
+    modelSource: {
+      kind: 'official-api',
+      sourceUrl: 'https://fixture.example/models/fixture-stable',
+      checkedAt: '2026-07-14T00:00:00Z',
+    },
+  } as const;
+  const executionTargetGate = {
+    async prepare({ session, runId }: { session: unknown; runId: string }) {
+      return {
+        session,
+        model: rootModel,
+        runtimeModelRef,
+        targetDigest: `digest:${runtimeModelRef}`,
+        identity: {
+          ...expectedTarget,
+          runId,
+          adapter: { id: 'pi-agent', version: '0.79.8' },
+        },
+      };
+    },
+    assertPrepared(prepared: { session: unknown }, session: unknown) {
+      assert.equal(prepared.session, session);
+    },
+  };
   const supervisor = createChildSupervisor({
     emit: (line: Record<string, unknown>) => lines.push(line),
     cwd: '/fixture/project',
@@ -56,7 +87,11 @@ async function runScenario({
     threadId: 'thread-1',
     rootRunId: 'root-1',
     roster: [{ employeeId: 'executor-1', name: 'Executor' }],
-    resolveModel: () => undefined,
+    resolveModel: (modelRef?: string) => (modelRef === runtimeModelRef ? rootModel : undefined),
+    rootModel,
+    expectedTarget,
+    runtimeModelRef,
+    executionTargetGate,
     settingsManager: {},
     authStorage: {},
     modelRegistry: {},
@@ -77,6 +112,7 @@ async function runScenario({
     createSessionManager: () => ({}),
     createAgentSession: async () => ({
       session: {
+        model: rootModel,
         subscribe(next: (event: Record<string, unknown>) => void) {
           listener = next;
           return () => {

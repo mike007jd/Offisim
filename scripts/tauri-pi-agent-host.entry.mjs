@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import {
@@ -14,9 +14,12 @@ import {
 import stripJsonComments from 'strip-json-comments';
 import { Type } from 'typebox';
 import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
+import { resolveApiRunUsage } from './agent-run-usage.mjs';
+import { projectApiAccountCatalog } from './ai-account-catalog.mjs';
 import {
   decodePiRequestPayload,
   errorLine,
+  executionPreparedLine,
   messageDeltaLine,
   messageEndLine,
   readyLine,
@@ -40,7 +43,11 @@ import {
   createDelegationLimits,
 } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
-import { assertSameExecutionAccount, executionProvenance } from './pi-execution-provenance.mjs';
+import {
+  assertSameExecutionAccount,
+  createExecutionTargetGate,
+  executionAccountIdentity,
+} from './pi-execution-provenance.mjs';
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
 import { createVerifyCallChannel } from './pi-host-verify-channel.mjs';
 import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
@@ -265,6 +272,7 @@ const createTaskScopedAgentSession = createTaskScopedAgentSessionFactory(
   taskBashRegistry,
 );
 let activeRootSession = null;
+let activeExecutionTargetGate = null;
 let hostTerminating = false;
 
 function createWorkAgentSession(options) {
@@ -281,8 +289,47 @@ async function shutdownActiveWork({ abort }) {
     worktreeChannel.rejectAllWorktreeCalls();
     verifyChannel.rejectAllVerifyCalls();
   }
+  activeExecutionTargetGate?.close(
+    abort
+      ? 'Execution target acknowledgement was aborted.'
+      : 'Execution target acknowledgement channel closed.',
+  );
   pending.push(taskBashRegistry.cleanup());
   await Promise.allSettled(pending);
+}
+
+function createRequestExecutionTargetGate(payload) {
+  if (activeExecutionTargetGate) {
+    throw Object.assign(new Error('The host already owns an execution target gate.'), {
+      code: 'execution-target-gate-reused',
+    });
+  }
+  activeExecutionTargetGate = createExecutionTargetGate({
+    emit: (line) => emit(executionPreparedLine(line)),
+    requestId: payload.requestId,
+  });
+  return activeExecutionTargetGate;
+}
+
+function requireRuntimeModel(payload, modelRegistry) {
+  const runtimeModelRef = asNonEmptyString(payload.runtimeModelRef);
+  if (!runtimeModelRef) {
+    throw Object.assign(new Error('An exact runtimeModelRef is required.'), {
+      code: 'execution-target-missing',
+    });
+  }
+  if (payload.model && asNonEmptyString(payload.model) !== runtimeModelRef) {
+    throw Object.assign(new Error('The legacy model selector differs from runtimeModelRef.'), {
+      code: 'execution-target-mismatch',
+    });
+  }
+  const model = selectedModel(modelRegistry, runtimeModelRef);
+  if (!model) {
+    throw Object.assign(new Error(`Runtime model was not found: ${runtimeModelRef}`), {
+      code: 'model-not-found',
+    });
+  }
+  return { model, runtimeModelRef };
 }
 
 function resolveRuntimeControl(message) {
@@ -518,7 +565,7 @@ function emit(line) {
 
 function normalizePiErrorMessage(message) {
   if (/No API key found for the selected model/i.test(message)) {
-    return 'Pi Agent is not logged in or has no available model. Sign in through Pi Agent, then refresh status and retry.';
+    return 'The selected AI account has no usable credential for this model. Refresh AI Accounts in Settings, then retry.';
   }
   return message;
 }
@@ -750,190 +797,6 @@ function readModelsJsonForWrite(modelsPath) {
   return parsed;
 }
 
-function skipJsoncTrivia(source, index) {
-  let cursor = index;
-  while (cursor < source.length) {
-    const char = source[cursor];
-    if (/\s/u.test(char)) {
-      cursor += 1;
-      continue;
-    }
-    if (char === '/' && source[cursor + 1] === '/') {
-      cursor += 2;
-      while (cursor < source.length && source[cursor] !== '\n') cursor += 1;
-      continue;
-    }
-    if (char === '/' && source[cursor + 1] === '*') {
-      cursor += 2;
-      while (cursor < source.length && !(source[cursor] === '*' && source[cursor + 1] === '/')) {
-        cursor += 1;
-      }
-      cursor = Math.min(cursor + 2, source.length);
-      continue;
-    }
-    break;
-  }
-  return cursor;
-}
-
-function parseJsonStringAt(source, index) {
-  if (source[index] !== '"') throw new Error('Expected JSON string key in models.json');
-  let cursor = index + 1;
-  while (cursor < source.length) {
-    const char = source[cursor];
-    if (char === '\\') {
-      cursor += 2;
-      continue;
-    }
-    if (char === '"') {
-      const end = cursor + 1;
-      return {
-        value: JSON.parse(source.slice(index, end)),
-        end,
-      };
-    }
-    cursor += 1;
-  }
-  throw new Error('Unterminated JSON string in models.json');
-}
-
-function findJsoncMatching(source, openIndex, openChar, closeChar) {
-  let depth = 0;
-  let cursor = openIndex;
-  while (cursor < source.length) {
-    const char = source[cursor];
-    if (char === '"') {
-      cursor = parseJsonStringAt(source, cursor).end;
-      continue;
-    }
-    if (char === '/' && (source[cursor + 1] === '/' || source[cursor + 1] === '*')) {
-      cursor = skipJsoncTrivia(source, cursor);
-      continue;
-    }
-    if (char === openChar) depth += 1;
-    if (char === closeChar) {
-      depth -= 1;
-      if (depth === 0) return cursor;
-    }
-    cursor += 1;
-  }
-  throw new Error('Unbalanced models.json object');
-}
-
-function findJsoncValueEnd(source, valueStart) {
-  const start = skipJsoncTrivia(source, valueStart);
-  const char = source[start];
-  if (char === '{') return findJsoncMatching(source, start, '{', '}') + 1;
-  if (char === '[') return findJsoncMatching(source, start, '[', ']') + 1;
-  if (char === '"') return parseJsonStringAt(source, start).end;
-  let cursor = start;
-  while (cursor < source.length && !/[,\]}]/u.test(source[cursor])) cursor += 1;
-  return cursor;
-}
-
-function lineIndentAt(source, index) {
-  const lineStart = source.lastIndexOf('\n', Math.max(0, index - 1)) + 1;
-  return source.slice(lineStart, index).match(/^\s*/u)?.[0] ?? '';
-}
-
-function previousJsoncSignificantChar(source, index) {
-  let cursor = index - 1;
-  while (cursor >= 0) {
-    if (/\s/u.test(source[cursor])) {
-      cursor -= 1;
-      continue;
-    }
-    if (source[cursor] === '/' && source[cursor - 1] === '/') {
-      cursor -= 2;
-      while (cursor >= 0 && source[cursor] !== '\n') cursor -= 1;
-      continue;
-    }
-    if (source[cursor] === '/' && source[cursor - 1] === '*') {
-      cursor -= 2;
-      while (cursor >= 0 && !(source[cursor] === '/' && source[cursor + 1] === '*')) {
-        cursor -= 1;
-      }
-      cursor -= 1;
-      continue;
-    }
-    return source[cursor];
-  }
-  return undefined;
-}
-
-function findJsoncObjectProperty(source, objectStart, propertyName) {
-  const objectEnd = findJsoncMatching(source, objectStart, '{', '}');
-  let cursor = skipJsoncTrivia(source, objectStart + 1);
-  while (cursor < objectEnd) {
-    if (source[cursor] === ',') {
-      cursor = skipJsoncTrivia(source, cursor + 1);
-      continue;
-    }
-    if (source[cursor] !== '"') break;
-    const key = parseJsonStringAt(source, cursor);
-    const colon = skipJsoncTrivia(source, key.end);
-    if (source[colon] !== ':') throw new Error('Expected colon in models.json object');
-    const valueStart = skipJsoncTrivia(source, colon + 1);
-    const valueEnd = findJsoncValueEnd(source, valueStart);
-    if (key.value === propertyName) {
-      return {
-        valueStart,
-        valueEnd,
-      };
-    }
-    cursor = skipJsoncTrivia(source, valueEnd);
-    if (source[cursor] === ',') cursor = skipJsoncTrivia(source, cursor + 1);
-  }
-  return null;
-}
-
-function formatJsoncValue(value, indent) {
-  return JSON.stringify(value, null, 2)
-    .split('\n')
-    .map((line, index) => (index === 0 ? line : `${indent}${line}`))
-    .join('\n');
-}
-
-function insertJsoncObjectProperty(source, objectStart, propertyName, value) {
-  const objectEnd = findJsoncMatching(source, objectStart, '{', '}');
-  const parentIndent = lineIndentAt(source, objectStart);
-  const firstChild = skipJsoncTrivia(source, objectStart + 1);
-  const childIndent =
-    firstChild < objectEnd ? lineIndentAt(source, firstChild) : `${parentIndent}  `;
-  const propertyText = `${JSON.stringify(propertyName)}: ${formatJsoncValue(value, childIndent)}`;
-  const hasProperties = firstChild < objectEnd;
-  const needsComma = hasProperties && previousJsoncSignificantChar(source, objectEnd) !== ',';
-  const insertion = `${needsComma ? ',' : ''}\n${childIndent}${propertyText}\n${parentIndent}`;
-  return `${source.slice(0, objectEnd)}${insertion}${source.slice(objectEnd)}`;
-}
-
-function upsertJsoncObjectProperty(source, objectStart, propertyName, value) {
-  const property = findJsoncObjectProperty(source, objectStart, propertyName);
-  if (!property) return insertJsoncObjectProperty(source, objectStart, propertyName, value);
-  const indent = lineIndentAt(source, property.valueStart);
-  return `${source.slice(0, property.valueStart)}${formatJsoncValue(value, indent)}${source.slice(
-    property.valueEnd,
-  )}`;
-}
-
-function writeModelsJsonProvider(modelsPath, providerId, provider) {
-  if (!existsSync(modelsPath)) {
-    writeFileSync(
-      modelsPath,
-      `${JSON.stringify({ providers: { [providerId]: provider } }, null, 2)}\n`,
-    );
-    return;
-  }
-  const source = readFileSync(modelsPath, 'utf8');
-  const rootStart = skipJsoncTrivia(source, 0);
-  if (source[rootStart] !== '{') throw new Error('models.json root must be an object');
-  const providersProperty = findJsoncObjectProperty(source, rootStart, 'providers');
-  const next = providersProperty
-    ? upsertJsoncObjectProperty(source, providersProperty.valueStart, providerId, provider)
-    : insertJsoncObjectProperty(source, rootStart, 'providers', { [providerId]: provider });
-  writeFileSync(modelsPath, next.endsWith('\n') ? next : `${next}\n`);
-}
-
 function positiveInteger(value) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? Math.floor(number) : undefined;
@@ -972,41 +835,6 @@ function normalizedProviderModelConfig(model, existingModel) {
   return next;
 }
 
-function normalizeProviderId(value) {
-  const providerId = asNonEmptyString(value);
-  if (!providerId) throw new Error('Provider id is required');
-  if (!/^[A-Za-z0-9._-]+$/u.test(providerId)) {
-    throw new Error('Provider id may only contain letters, numbers, dot, dash, and underscore');
-  }
-  return providerId;
-}
-
-function normalizeBaseUrl(value) {
-  const baseUrl = asNonEmptyString(value);
-  if (!baseUrl) throw new Error('Base URL is required');
-  let parsed;
-  try {
-    parsed = new URL(baseUrl);
-  } catch (error) {
-    throw new Error(`Base URL is invalid: ${error?.message ?? String(error)}`);
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error('Base URL must start with http:// or https://');
-  }
-  return baseUrl;
-}
-
-function normalizeApi(value) {
-  const api = asNonEmptyString(value);
-  if (!api) throw new Error('API format is required');
-  if (!/^[A-Za-z0-9._/-]+$/u.test(api)) {
-    throw new Error(
-      'API format may only contain letters, numbers, dot, slash, dash, and underscore',
-    );
-  }
-  return api;
-}
-
 function providerConfigsFromModelsJson(modelsPath, modelRegistry) {
   const path = asNonEmptyString(modelsPath);
   if (!path || !existsSync(path)) return [];
@@ -1039,108 +867,6 @@ function providerConfigsFromModelsJson(modelsPath, modelRegistry) {
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
-function providerTemplatesFromRegistry(modelRegistry, configuredProviders) {
-  const templates = new Map();
-  for (const model of modelRegistry.getAll()) {
-    const provider = asNonEmptyString(model.provider);
-    const id = asNonEmptyString(model.id);
-    if (!provider || !id) continue;
-    const current = templates.get(provider) ?? {
-      provider,
-      displayName: modelRegistry.getProviderDisplayName(provider),
-      configured: configuredProviders.has(provider),
-      models: [],
-    };
-    if (!current.baseUrl && asNonEmptyString(model.baseUrl)) {
-      current.baseUrl = asNonEmptyString(model.baseUrl);
-    }
-    if (!current.api && asNonEmptyString(model.api)) {
-      current.api = asNonEmptyString(model.api);
-    }
-    if (current.models.length < 3) {
-      current.models.push(normalizedProviderModelConfig(model));
-    }
-    templates.set(provider, current);
-  }
-  return [...templates.values()]
-    .map((template) => ({
-      ...template,
-      models: template.models.filter(Boolean),
-    }))
-    .sort((a, b) => a.displayName.localeCompare(b.displayName));
-}
-
-function providerConfigForWrite(payload, existingProvider, authStatus) {
-  const config = isRecord(payload.config) ? payload.config : undefined;
-  if (!config) throw new Error('saveProvider requires config');
-  const providerId = normalizeProviderId(config.providerId);
-  const baseUrl = normalizeBaseUrl(config.baseUrl);
-  const api = normalizeApi(config.api);
-  const apiKey = asNonEmptyString(config.apiKey);
-  const keepExistingApiKey = config.keepExistingApiKey === true;
-  const hasExistingKey = Boolean(asNonEmptyString(existingProvider?.apiKey));
-  const canKeepExistingKey = keepExistingApiKey && (hasExistingKey || authStatus?.configured);
-  if (!apiKey && !canKeepExistingKey) throw new Error('API key is required');
-  const existingModels = new Map(
-    Array.isArray(existingProvider?.models)
-      ? existingProvider.models
-          .filter((model) => isRecord(model) && asNonEmptyString(model.id))
-          .map((model) => [asNonEmptyString(model.id), model])
-      : [],
-  );
-  const models = Array.isArray(config.models)
-    ? config.models
-        .map((model) => {
-          const id = asNonEmptyString(model?.id);
-          if (!id) return undefined;
-          const api = asNonEmptyString(model.api);
-          return normalizedProviderModelConfig(
-            {
-              ...model,
-              ...(api ? { api: normalizeApi(api) } : {}),
-            },
-            existingModels.get(id),
-          );
-        })
-        .filter(Boolean)
-    : [];
-  if (!models.length) throw new Error('Add at least one model id');
-  return {
-    providerId,
-    provider: {
-      name: asNonEmptyString(config.displayName),
-      baseUrl,
-      api,
-      ...(apiKey ? { apiKey } : {}),
-      models,
-    },
-  };
-}
-
-function piSaveProvider(payload) {
-  const agentDir = asNonEmptyString(payload.agentDir);
-  if (!agentDir) throw new Error('saveProvider requires agentDir');
-  mkdirSync(agentDir, { recursive: true });
-  const modelsPath = join(agentDir, 'models.json');
-  const root = readModelsJsonForWrite(modelsPath);
-  const { modelRegistry } = createPiRegistries(agentDir);
-  const config = isRecord(payload.config) ? payload.config : {};
-  const requestedProviderId = asNonEmptyString(config.providerId);
-  const existingProvider =
-    requestedProviderId && isRecord(root.providers[requestedProviderId])
-      ? root.providers[requestedProviderId]
-      : {};
-  const authStatus = requestedProviderId
-    ? modelRegistry.getProviderAuthStatus(requestedProviderId)
-    : undefined;
-  const { providerId, provider } = providerConfigForWrite(payload, existingProvider, authStatus);
-  writeModelsJsonProvider(modelsPath, providerId, {
-    ...existingProvider,
-    ...provider,
-  });
-  piStatus(payload);
-}
-
 function selectedModel(modelRegistry, override) {
   const raw = asNonEmptyString(override);
   if (!raw) return undefined;
@@ -1159,7 +885,38 @@ function lastAssistantMessage(session) {
   return undefined;
 }
 
-function piStatus(payload) {
+async function runtimeStatusProjection({ authStorage, modelRegistry, providerConfigs, checkedAt }) {
+  const providerAccounts = [];
+  for (const config of providerConfigs) {
+    const auth = modelRegistry.getProviderAuthStatus(config.provider);
+    if (!config.hasApiKey && !auth?.configured) continue;
+    const model = modelRegistry.getAll().find((entry) => entry.provider === config.provider);
+    if (!model) continue;
+    try {
+      const identity = await executionAccountIdentity(authStorage, modelRegistry, model);
+      if (identity.billingMode !== 'api') continue;
+      providerAccounts.push({
+        providerId: config.provider,
+        accountId: identity.accountId,
+        configured: true,
+        authMode: 'api',
+        baseUrl: config.baseUrl,
+        api: config.api,
+      });
+    } catch {
+      // A configured-looking provider without a resolvable credential is not an
+      // executable account. Product status must not invent or expose an identity.
+    }
+  }
+  return projectApiAccountCatalog({
+    providerAccounts,
+    availableModels: modelRegistry.getAvailable(),
+    checkedAt,
+    now: new Date(checkedAt),
+  });
+}
+
+async function piStatus(payload) {
   const { agentDir, authPath, modelsPath, authStorage, modelRegistry } = createPiRegistries(
     asNonEmptyString(payload.agentDir),
   );
@@ -1192,18 +949,20 @@ function piStatus(payload) {
       };
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
-  const providerTemplates = providerTemplatesFromRegistry(
+  const checkedAt = new Date().toISOString();
+  const runtimeStatus = await runtimeStatusProjection({
+    authStorage,
     modelRegistry,
-    new Set(configuredProviderStatus.map((account) => account.provider)),
-  );
+    providerConfigs,
+    checkedAt,
+  });
   emit(
     resultLine({
       ok: true,
+      runtimeStatus,
       authProviders: authStorage.list().sort(),
       providerStatus,
       configuredProviderStatus,
-      providerConfigs,
-      providerTemplates,
       availableModels: modelRegistry.getAvailable().map(modelSummary),
       allModelCount: modelRegistry.getAll().length,
       paths: {
@@ -1212,12 +971,13 @@ function piStatus(payload) {
         modelsPath,
       },
       modelsConfig: modelsConfigSummary(modelsPath, modelRegistry),
-      checkedAt: new Date().toISOString(),
+      checkedAt,
     }),
   );
 }
 
 async function runPrompt(payload) {
+  const executionGate = createRequestExecutionTargetGate(payload);
   const workspaceState = normalizeExecuteWorkspace(payload);
   const workspaceUnavailable = workspaceState.availability === 'unavailable';
   const cwd = asNonEmptyString(payload.cwd);
@@ -1270,12 +1030,7 @@ async function runPrompt(payload) {
   const sessionManager = exactSessionFile
     ? SessionManager.open(exactSessionFile, sessionDir, cwd)
     : SessionManager.create(cwd, sessionDir);
-  const model = selectedModel(modelRegistry, payload.model);
-  if (payload.model && !model) {
-    throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
-      code: 'model-not-found',
-    });
-  }
+  const { model, runtimeModelRef } = requireRuntimeModel(payload, modelRegistry);
 
   // Per-conversation permission mode (plan / ask / auto / full). Plan restricts
   // the tool set to the read-only built-ins (no gate needed — bash/edit/write are
@@ -1324,23 +1079,7 @@ async function runPrompt(payload) {
   const projectVerifyTokenBudget = Number.isFinite(payload.projectVerifyTokenBudget)
     ? Math.max(1, payload.projectVerifyTokenBudget)
     : undefined;
-  // The DB may retain a model binding Pi no longer offers. Keep persistence
-  // honest, but do not forward that phantom value: an invalid binding behaves
-  // exactly like an unbound employee and inherits this conversation's model.
-  const roster =
-    !workspaceUnavailable && Array.isArray(payload.roster)
-      ? payload.roster.map((entry) => {
-          if (!isRecord(entry)) return entry;
-          const requested = asNonEmptyString(entry.model);
-          if (!requested || selectedModel(modelRegistry, requested)) return entry;
-          const rest = { ...entry };
-          // biome-ignore lint/performance/noDelete: the wire must omit stale bindings, not send null/undefined keys.
-          delete rest.model;
-          // biome-ignore lint/performance/noDelete: keep the roster packet key set exact.
-          delete rest.thinkingLevel;
-          return rest;
-        })
-      : [];
+  const roster = !workspaceUnavailable && Array.isArray(payload.roster) ? payload.roster : [];
   const directDelegation =
     !workspaceUnavailable && isRecord(payload.directDelegation) ? payload.directDelegation : null;
   const delegationLimitOverrides = normalizeDelegationLimitOverrides(payload.delegationLimits);
@@ -1500,6 +1239,9 @@ async function runPrompt(payload) {
         parentRunId: rootRunId,
         childControllers: activeChildControllers,
         createAgentSession: createWorkAgentSession,
+        executionTargetGate: executionGate,
+        expectedTarget: payload.expectedTarget,
+        runtimeModelRef,
       });
       directSupervisor = supervisor;
       extensionFactories.push(createDelegationExtensionFactory(supervisor));
@@ -1594,9 +1336,9 @@ async function runPrompt(payload) {
         : undefined,
     });
     const summary = directResult.text;
-    if (!directResult.model) {
+    if (!directResult.model || !directResult.provenance) {
       throw Object.assign(
-        new Error('Direct delegation completed without an actual child execution model.'),
+        new Error('Direct delegation completed without a prepared child execution identity.'),
         { code: 'provenance-missing' },
       );
     }
@@ -1607,12 +1349,7 @@ async function runPrompt(payload) {
         ok: true,
         text: summary,
         model: modelSummary(directResult.model),
-        provenance: await executionProvenance(
-          authStorage,
-          modelRegistry,
-          directResult.model,
-          rootRunId,
-        ),
+        provenance: directResult.provenance,
         ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
       }),
     );
@@ -1645,6 +1382,22 @@ async function runPrompt(payload) {
       { code: 'native-session-invalid' },
     );
   }
+  let preparedExecution;
+  try {
+    preparedExecution = await executionGate.prepare({
+      authStorage,
+      modelRegistry,
+      session,
+      modelFallbackMessage,
+      expectedTarget: payload.expectedTarget,
+      runtimeModelRef,
+      runId: asNonEmptyString(payload.rootRunId) ?? session.sessionId,
+    });
+  } catch (error) {
+    session.dispose();
+    activeRootSession = null;
+    throw error;
+  }
 
   // Bind a forwarding UI context so a mid-run `ctx.ui.confirm` routes through our
   // stdin channel. Needed by Ask mode (the bash gate) AND by the MCP bridge when
@@ -1658,10 +1411,9 @@ async function runPrompt(payload) {
   let activeReasoningText = '';
   let latestReasoningText = '';
   let emittedReasoning = false;
-  // Root session's own token/cost accounting, summed across assistant turns and
-  // returned on the result line. The renderer folds this into reconcileRoot — the
-  // solo (non-delegation) path otherwise records no root usage at all.
-  const rootUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+  // Only messages from this Turn are collected. Provider-native accounting is
+  // resolved after the prompt so SDK placeholder zeroes never become product truth.
+  const runAssistantMessages = [];
   const toolInputsById = new Map();
   const unsubscribe = session.subscribe((event) => {
     if (event.type === 'agent_start') {
@@ -1697,16 +1449,11 @@ async function runPrompt(payload) {
         latestReasoningText = reasoningText;
         activeReasoningText = '';
         latestText = clampText(messageText(event.message));
-        // Accumulate this turn's usage (field names mirror the child supervisor's
-        // exactly; SDK usage.cost is an object → `.total`).
+        runAssistantMessages.push(event.message);
+        // The delegation budget is an execution guard, not product accounting;
+        // adapter token counters remain sufficient for this bounded-loop check.
         const u = event.message.usage;
         if (u) {
-          rootUsage.input += u.input || 0;
-          rootUsage.output += u.output || 0;
-          rootUsage.cacheRead += u.cacheRead || 0;
-          rootUsage.cacheWrite += u.cacheWrite || 0;
-          rootUsage.cost += u.cost?.total || 0;
-          rootUsage.turns += 1;
           delegationBudgetState?.recordTokens({ ...u, turns: 1 });
         }
         emit(
@@ -1794,12 +1541,13 @@ async function runPrompt(payload) {
   });
 
   try {
+    executionGate.assertPrepared(preparedExecution, session);
     await session.prompt(text);
     const finalAssistant = lastAssistantMessage(session);
     const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
     if (finalAssistant?.stopReason === 'error' || assistantError) {
       const message = normalizePiErrorMessage(
-        assistantError ?? 'Pi Agent model returned an error stop without a message.',
+        assistantError ?? 'The selected AI model returned an error without details.',
       );
       throw Object.assign(new Error(message), { code: 'upstream' });
     }
@@ -1815,6 +1563,12 @@ async function runPrompt(payload) {
     // The result line is the Rust gateway's terminal. Every host-tracked Bash
     // call must be settled before Rust accepts that line.
     await taskBashRegistry.cleanup();
+    const rootUsage = await resolveApiRunUsage({
+      messages: runAssistantMessages,
+      provenance: preparedExecution.identity,
+      model: session.model ?? model,
+      modelRegistry,
+    }).catch(() => undefined);
     emit(
       resultLine({
         ok: true,
@@ -1823,13 +1577,8 @@ async function runPrompt(payload) {
         sessionId: session.sessionId,
         sessionFile: session.sessionFile,
         model: session.model ? modelSummary(session.model) : undefined,
-        provenance: await executionProvenance(
-          authStorage,
-          modelRegistry,
-          session.model ?? model,
-          asNonEmptyString(payload.rootRunId) ?? session.sessionId,
-        ),
-        usage: rootUsage,
+        provenance: preparedExecution.identity,
+        ...(rootUsage ? { usage: rootUsage } : {}),
         ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
       }),
     );
@@ -1857,6 +1606,7 @@ async function runPrompt(payload) {
 //      ZERO `extensionFactories` — no permission gate, no delegation, no publish,
 //      no mission bridge, no `ctx.ui` binding. There is no second stdin channel.
 async function runEnhance(payload) {
+  const executionGate = createRequestExecutionTargetGate(payload);
   const text = asNonEmptyString(payload.text);
   if (!text) {
     throw Object.assign(new Error('Prompt enhance requests must include text.'), {
@@ -1879,16 +1629,10 @@ async function runEnhance(payload) {
   const sourceProvenance = isRecord(payload.sourceProvenance)
     ? payload.sourceProvenance
     : undefined;
-  const requestedModel = sourceProvenance?.modelId ?? payload.model;
-  if (sourceProvenance && payload.model && payload.model !== sourceProvenance.modelId) {
+  const { model, runtimeModelRef } = requireRuntimeModel(payload, modelRegistry);
+  if (sourceProvenance && sourceProvenance.modelId !== payload.expectedTarget?.modelId) {
     throw Object.assign(new Error('Isolated text job model does not match source provenance.'), {
       code: 'provenance-mismatch',
-    });
-  }
-  const model = selectedModel(modelRegistry, requestedModel);
-  if (requestedModel && !model) {
-    throw Object.assign(new Error(`Pi model override was not found: ${requestedModel}`), {
-      code: 'model-not-found',
     });
   }
   const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
@@ -1925,24 +1669,27 @@ async function runEnhance(payload) {
     ...(model ? { model } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
   });
-  if (sourceProvenance && modelFallbackMessage) {
+  let preparedExecution;
+  try {
+    preparedExecution = await executionGate.prepare({
+      authStorage,
+      modelRegistry,
+      session,
+      modelFallbackMessage,
+      expectedTarget: payload.expectedTarget,
+      runtimeModelRef,
+      runId: payload.requestId,
+    });
+    if (sourceProvenance) {
+      assertSameExecutionAccount(sourceProvenance, preparedExecution.identity);
+    }
+  } catch (error) {
     session.dispose();
-    throw Object.assign(
-      new Error(`Isolated text job refused model fallback: ${modelFallbackMessage}`),
-      { code: 'provenance-mismatch' },
-    );
+    throw error;
   }
 
-  const actualProvenance = await executionProvenance(
-    authStorage,
-    modelRegistry,
-    session.model ?? model,
-    asNonEmptyString(payload.requestId) ?? session.sessionId,
-  );
-  if (sourceProvenance) assertSameExecutionAccount(sourceProvenance, actualProvenance);
-
   let latestText = '';
-  const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+  const runAssistantMessages = [];
   const unsubscribe = session.subscribe((event) => {
     // Stream content deltas so the renderer can show a live, cancelable preview.
     if (event.type === 'message_update') {
@@ -1954,15 +1701,7 @@ async function runEnhance(payload) {
     }
     if (event.type === 'message_end' && event.message?.role === 'assistant') {
       latestText = clampText(messageText(event.message));
-      const value = event.message.usage;
-      if (value) {
-        usage.input += value.input || 0;
-        usage.output += value.output || 0;
-        usage.cacheRead += value.cacheRead || 0;
-        usage.cacheWrite += value.cacheWrite || 0;
-        usage.cost += value.cost?.total || 0;
-        usage.turns += 1;
-      }
+      runAssistantMessages.push(event.message);
       return;
     }
     // A tool event here would mean isolation broke. There is no tool registered,
@@ -1980,8 +1719,15 @@ async function runEnhance(payload) {
   });
 
   try {
+    executionGate.assertPrepared(preparedExecution, session);
     await session.prompt(text);
     const enhanced = clampText(session.getLastAssistantText() || latestText);
+    const usage = await resolveApiRunUsage({
+      messages: runAssistantMessages,
+      provenance: preparedExecution.identity,
+      model: session.model ?? model,
+      modelRegistry,
+    }).catch(() => undefined);
     emit(
       resultLine({
         ok: true,
@@ -1992,8 +1738,8 @@ async function runEnhance(payload) {
         text: enhanced,
         sessionId: session.sessionId,
         model: session.model ? modelSummary(session.model) : undefined,
-        provenance: actualProvenance,
-        usage,
+        provenance: preparedExecution.identity,
+        ...(usage ? { usage } : {}),
       }),
     );
   } finally {
@@ -2025,6 +1771,7 @@ async function runEnhance(payload) {
 // never a delegate roster (no `roster` is read here, and no delegate tool is
 // ever registered).
 async function runCollaboration(payload) {
+  const executionGate = createRequestExecutionTargetGate(payload);
   const text = asNonEmptyString(payload.text);
   if (!text) {
     throw Object.assign(new Error('Collaboration requests must include text.'), {
@@ -2035,12 +1782,7 @@ async function runCollaboration(payload) {
   const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
   const agentDir = asNonEmptyString(payload.agentDir);
   const { authStorage, modelRegistry } = createPiRegistries(agentDir);
-  const model = selectedModel(modelRegistry, payload.model);
-  if (payload.model && !model) {
-    throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
-      code: 'model-not-found',
-    });
-  }
+  const { model, runtimeModelRef } = requireRuntimeModel(payload, modelRegistry);
   const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
   const collaborationProfile = normalizeCollaborationProfile(payload.collaborationProfile);
   const collaborationRead = collaborationProfile === 'collaboration_read';
@@ -2114,12 +1856,27 @@ async function runCollaboration(payload) {
   if (collaborationRead && rawMcpTools.some(isWriteMcpTool)) {
     await session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' });
   }
+  let preparedExecution;
+  try {
+    preparedExecution = await executionGate.prepare({
+      authStorage,
+      modelRegistry,
+      session,
+      modelFallbackMessage,
+      expectedTarget: payload.expectedTarget,
+      runtimeModelRef,
+      runId: payload.requestId,
+    });
+  } catch (error) {
+    session.dispose();
+    throw error;
+  }
 
   let latestText = '';
   let activeReasoningText = '';
   let latestReasoningText = '';
   let emittedReasoning = false;
-  const rootUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+  const runAssistantMessages = [];
   const unsubscribe = session.subscribe((event) => {
     if (event.type === 'agent_start') {
       emit(
@@ -2154,15 +1911,7 @@ async function runCollaboration(payload) {
         latestReasoningText = reasoningText;
         activeReasoningText = '';
         latestText = clampText(messageText(event.message));
-        const u = event.message.usage;
-        if (u) {
-          rootUsage.input += u.input || 0;
-          rootUsage.output += u.output || 0;
-          rootUsage.cacheRead += u.cacheRead || 0;
-          rootUsage.cacheWrite += u.cacheWrite || 0;
-          rootUsage.cost += u.cost?.total || 0;
-          rootUsage.turns += 1;
-        }
+        runAssistantMessages.push(event.message);
         emit(
           messageEndLine({
             text: latestText,
@@ -2192,6 +1941,7 @@ async function runCollaboration(payload) {
   });
 
   try {
+    executionGate.assertPrepared(preparedExecution, session);
     await session.prompt(text);
     const fallbackReasoning = clampText(messageThinking(lastAssistantMessage(session)));
     const finalReasoning = clampText(latestReasoningText || fallbackReasoning);
@@ -2199,6 +1949,12 @@ async function runCollaboration(payload) {
       emit(messageDeltaLine({ channel: 'reasoning', delta: fallbackReasoning }));
     }
     const finalText = clampText(session.getLastAssistantText() || latestText);
+    const rootUsage = await resolveApiRunUsage({
+      messages: runAssistantMessages,
+      provenance: preparedExecution.identity,
+      model: session.model ?? model,
+      modelRegistry,
+    }).catch(() => undefined);
     emit(
       resultLine({
         ok: true,
@@ -2209,7 +1965,8 @@ async function runCollaboration(payload) {
         reasoning: finalReasoning || undefined,
         sessionId: session.sessionId,
         model: session.model ? modelSummary(session.model) : undefined,
-        usage: rootUsage,
+        provenance: preparedExecution.identity,
+        ...(rootUsage ? { usage: rootUsage } : {}),
       }),
     );
   } finally {
@@ -2226,6 +1983,7 @@ async function runCollaboration(payload) {
 function main() {
   const rl = createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY });
   let sawPayload = false;
+  let statusInFlight = false;
   // The run settled (status emitted or prompt resolved): readline keeps stdin
   // open as an extension UI response channel, so exit explicitly rather than
   // waiting for EOF.
@@ -2264,23 +2022,8 @@ function main() {
       // before it processes any event line.
       emit(readyLine());
       if (payload.mode === 'status') {
-        try {
-          piStatus(payload);
-        } catch (error) {
-          fail(error);
-          return;
-        }
-        finishHost();
-        return;
-      }
-      if (payload.mode === 'saveProvider') {
-        try {
-          piSaveProvider(payload);
-        } catch (error) {
-          fail(error);
-          return;
-        }
-        finishHost();
+        statusInFlight = true;
+        void piStatus(payload).then(finishHost).catch(fail);
         return;
       }
       try {
@@ -2312,6 +2055,7 @@ function main() {
     // the id is in its own pending map).
     try {
       const msg = JSON.parse(trimmed);
+      activeExecutionTargetGate?.resolveAck(msg);
       resolveUiResponse(msg);
       resolveRuntimeControl(msg);
       mcpChannel.resolveMcpResult(msg);
@@ -2325,6 +2069,7 @@ function main() {
   // Parent closed stdin (process teardown / abort) — release any parked prompts
   // and fail any parked MCP calls so the loop unwinds.
   rl.on('close', () => {
+    if (statusInFlight) return;
     rejectAllUiRequests();
     mcpChannel.rejectAllMcpCalls();
     worktreeChannel.rejectAllWorktreeCalls();

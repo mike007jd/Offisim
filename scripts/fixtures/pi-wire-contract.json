@@ -1,5 +1,25 @@
 [
-  { "kind": "ready", "protocolVersion": 9 },
+  { "kind": "ready", "protocolVersion": 10 },
+  {
+    "kind": "executionPrepared",
+    "prepareId": "prepare-1",
+    "runId": "root-run-1",
+    "identity": {
+      "engineId": "api",
+      "accountId": "api:fixture-provider:0123456789abcdef",
+      "billingMode": "api",
+      "modelId": "fixture-model",
+      "modelSource": {
+        "kind": "official-api",
+        "sourceUrl": "https://fixture.example/models/fixture-model",
+        "checkedAt": "2026-07-14T00:00:00Z"
+      },
+      "runId": "root-run-1",
+      "adapter": { "id": "pi-agent", "version": "0.79.8" }
+    },
+    "targetDigest": "fixture-digest",
+    "adapter": { "id": "pi-agent", "version": "0.79.8" }
+  },
   {
     "kind": "started",
     "sessionId": "sess_1",
@@ -116,11 +136,17 @@
         "id": "fixture-model"
       },
       "provenance": {
-        "engineId": "pi-agent",
-        "accountId": "pi-agent:fixture-provider:0123456789abcdef",
+        "engineId": "api",
+        "accountId": "api:fixture-provider:0123456789abcdef",
         "billingMode": "api",
-        "modelId": "fixture-provider/fixture-model",
-        "runId": "root-run-1"
+        "modelId": "fixture-model",
+        "modelSource": {
+          "kind": "official-api",
+          "sourceUrl": "https://fixture.example/models/fixture-model",
+          "checkedAt": "2026-07-14T00:00:00Z"
+        },
+        "runId": "root-run-1",
+        "adapter": { "id": "pi-agent", "version": "0.79.8" }
       },
       "usage": {
         "input": 10,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
 use serde::Serialize;
@@ -27,6 +27,16 @@ use super::workspace_files::{is_workspace_file_operation, run_workspace_file_ope
 /// stdin (EOF).
 static PI_STDIN: Lazy<Mutex<HashMap<String, Arc<AsyncMutex<ChildStdin>>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+#[derive(Debug, Clone)]
+struct ExecutionPreparationState {
+    target_digest: String,
+    acknowledged: bool,
+    registered_at: Instant,
+}
+
+static EXECUTION_PREPARATIONS: Lazy<Mutex<HashMap<(String, String), ExecutionPreparationState>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+const EXECUTION_PREPARATION_REPLAY_TTL: Duration = Duration::from_secs(30 * 60);
 pub(super) const PI_MCP_CALL_TIMEOUT: Duration = Duration::from_secs(75);
 
 pub(super) fn pi_stdin_guard(
@@ -44,8 +54,137 @@ impl Drop for StdinGuard {
     fn drop(&mut self) {
         if let Some(id) = self.0.take() {
             pi_stdin_guard().remove(&id);
+            clear_execution_preparations(&id);
         }
     }
+}
+
+fn execution_preparations_guard(
+) -> std::sync::MutexGuard<'static, HashMap<(String, String), ExecutionPreparationState>> {
+    EXECUTION_PREPARATIONS
+        .lock()
+        .unwrap_or_else(|_| panic!("pi_agent_host EXECUTION_PREPARATIONS poisoned"))
+}
+
+fn clear_execution_preparations(request_id: &str) {
+    let now = Instant::now();
+    execution_preparations_guard().retain(|(request, _), state| {
+        (request != request_id || state.acknowledged)
+            && now.duration_since(state.registered_at) <= EXECUTION_PREPARATION_REPLAY_TTL
+    });
+}
+
+/// Register the exact host preparation before it is forwarded to the renderer.
+/// Replaying an identical frame is idempotent; reusing a prepare id with another
+/// digest is a protocol violation and terminates the sidecar.
+pub(super) fn register_execution_prepared(
+    request_id: &str,
+    prepare_id: &str,
+    target_digest: &str,
+) -> Result<(), HostError> {
+    if request_id.trim().is_empty()
+        || prepare_id.trim().is_empty()
+        || target_digest.trim().is_empty()
+    {
+        return Err(HostError::Protocol(
+            "Execution preparation is missing requestId, prepareId, or targetDigest".into(),
+        ));
+    }
+    let key = (request_id.to_string(), prepare_id.to_string());
+    let mut preparations = execution_preparations_guard();
+    let now = Instant::now();
+    preparations.retain(|_, state| {
+        now.duration_since(state.registered_at) <= EXECUTION_PREPARATION_REPLAY_TTL
+    });
+    match preparations.get(&key) {
+        Some(existing) if existing.target_digest == target_digest => Ok(()),
+        Some(_) => Err(HostError::Protocol(format!(
+            "Execution preparation id was reused with another digest: {prepare_id}"
+        ))),
+        None => {
+            preparations.insert(
+                key,
+                ExecutionPreparationState {
+                    target_digest: target_digest.to_string(),
+                    acknowledged: false,
+                    registered_at: now,
+                },
+            );
+            Ok(())
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ExecutionTargetAck {
+    r#type: &'static str,
+    request_id: String,
+    prepare_id: String,
+    target_digest: String,
+}
+
+/// Renderer acknowledgement for a host-observed execution identity. The
+/// renderer may only acknowledge an exact preparation frame Rust already saw.
+/// Duplicate acknowledgements for a replayed event are idempotent.
+pub(super) async fn confirm_execution_impl(
+    request_id: String,
+    prepare_id: String,
+    target_digest: String,
+) -> Result<(), String> {
+    let key = (request_id.clone(), prepare_id.clone());
+    {
+        let mut preparations = execution_preparations_guard();
+        let now = Instant::now();
+        preparations.retain(|_, state| {
+            now.duration_since(state.registered_at) <= EXECUTION_PREPARATION_REPLAY_TTL
+        });
+        let Some(state) = preparations.get_mut(&key) else {
+            return Err("No matching execution preparation is pending".into());
+        };
+        if state.target_digest != target_digest {
+            return Err("Execution target digest does not match the prepared identity".into());
+        }
+        if state.acknowledged {
+            return Ok(());
+        }
+        state.acknowledged = true;
+    }
+
+    let writer = pi_stdin_guard().get(&request_id).cloned();
+    let Some(writer) = writer else {
+        if let Some(state) = execution_preparations_guard().get_mut(&key) {
+            state.acknowledged = false;
+        }
+        return Err("Execution host stdin is no longer available".into());
+    };
+    let response = ExecutionTargetAck {
+        r#type: "executionTargetAck",
+        request_id,
+        prepare_id,
+        target_digest,
+    };
+    let mut line = serde_json::to_string(&response)
+        .map_err(|err| format!("Serialize execution target acknowledgement: {err}"))?;
+    line.push('\n');
+    let write_result = async {
+        let mut stdin = writer.lock().await;
+        stdin
+            .write_all(line.as_bytes())
+            .await
+            .map_err(|err| format!("Write execution target acknowledgement: {err}"))?;
+        stdin
+            .flush()
+            .await
+            .map_err(|err| format!("Flush execution target acknowledgement: {err}"))
+    }
+    .await;
+    if write_result.is_err() {
+        if let Some(state) = execution_preparations_guard().get_mut(&key) {
+            state.acknowledged = false;
+        }
+    }
+    write_result
 }
 
 /// Inbound `mcpResult` line written back to the host's stdin after the Rust host

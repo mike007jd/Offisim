@@ -638,7 +638,11 @@ export function useRunCost() {
         ...cost,
         alerts: computeTokenBudgetAlerts({
           monthlyTokens: cost.monthlyTokens,
+          monthlyKnownTokens: cost.monthlyKnownTokens,
+          monthlyTokenCoverage: cost.monthlyTokenCoverage,
           sessionTokens: cost.sessionTokens,
+          sessionKnownTokens: cost.sessionKnownTokens,
+          sessionTokenCoverage: cost.sessionTokenCoverage,
           budgets,
         }),
       };

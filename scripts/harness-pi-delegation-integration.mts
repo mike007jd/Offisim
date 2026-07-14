@@ -155,6 +155,57 @@ try {
   const rootModel = { provider: 'fixture', id: 'root-model' };
   const modelA = { provider: 'fixture', id: 'employee-a' };
   const modelB = { provider: 'fixture', id: 'employee-b' };
+  const targetFor = (model: { provider: string; id: string }) => ({
+    engineId: 'api',
+    accountId: 'api:fixture:0123456789abcdef',
+    billingMode: 'api',
+    modelId: model.id,
+    modelSource: {
+      kind: 'official-api',
+      sourceUrl: `https://fixture.example/models/${model.id}`,
+      checkedAt: '2026-07-14T00:00:00Z',
+    },
+  });
+  const rootExecutionTarget = targetFor(rootModel);
+  const rootRuntimeModelRef = `${rootModel.provider}/${rootModel.id}`;
+  const executionTargetGate = {
+    async prepare({
+      session,
+      expectedTarget,
+      runtimeModelRef,
+      runId,
+    }: {
+      session: { model?: { provider: string; id: string } };
+      expectedTarget: ReturnType<typeof targetFor>;
+      runtimeModelRef: string;
+      runId: string;
+    }) {
+      assert.equal(
+        `${session.model?.provider}/${session.model?.id}`,
+        runtimeModelRef,
+        'the prepared child session must match its exact runtime model ref',
+      );
+      return {
+        session,
+        model: session.model,
+        runtimeModelRef,
+        targetDigest: `digest:${runtimeModelRef}`,
+        identity: {
+          ...expectedTarget,
+          runId,
+          adapter: { id: 'pi-agent', version: '0.79.8' },
+        },
+      };
+    },
+    assertPrepared(prepared: { session: unknown }, session: unknown) {
+      assert.equal(prepared.session, session, 'the prompt must use the acknowledged child session');
+    },
+  };
+  const rootExecutionContext = {
+    expectedTarget: rootExecutionTarget,
+    runtimeModelRef: rootRuntimeModelRef,
+    executionTargetGate,
+  };
   const modelById = new Map([
     ['fixture/employee-a', modelA],
     ['fixture/employee-b', modelB],
@@ -165,9 +216,10 @@ try {
   const sharedValidationClaims: Array<Record<string, unknown>> = [];
   const inheritedPermissionModes: string[] = [];
   let askUiBindings = 0;
-  const makeSession = () => {
+  const makeSession = (selectedModel = rootModel) => {
     let subscriber: ((event: unknown) => void) | undefined;
     return {
+      model: selectedModel,
       subscribe(callback: (event: unknown) => void) {
         subscriber = callback;
         return () => {};
@@ -199,18 +251,23 @@ try {
       {
         employeeId: 'employee-a',
         model: 'fixture/employee-a',
+        executionTarget: targetFor(modelA),
+        runtimeModelRef: 'fixture/employee-a',
         thinkingLevel: 'high',
         skillPaths: ['/fixture/vault/company/SKILL.md', '/fixture/vault/employee-a/SKILL.md'],
       },
       {
         employeeId: 'employee-b',
         model: 'fixture/employee-b',
+        executionTarget: targetFor(modelB),
+        runtimeModelRef: 'fixture/employee-b',
         thinkingLevel: 'low',
       },
       { employeeId: 'employee-inherit' },
     ],
     resolveModel: (modelId?: string) => (modelId ? modelById.get(modelId) : undefined),
     rootModel,
+    ...rootExecutionContext,
     rootThinkingLevel: 'medium',
     permissionMode: 'ask',
     buildPermissionGate: (mode: string) => {
@@ -235,7 +292,11 @@ try {
     },
     createAgentSession: async (options: Record<string, unknown>) => {
       sessionOptions.push(options);
-      return { session: makeSession() };
+      return {
+        session: makeSession(
+          (options.model as { provider: string; id: string } | undefined) ?? rootModel,
+        ),
+      };
     },
   });
   await supervisor.runSingle({ employeeId: 'employee-a', objective: 'A', access: 'read' });
@@ -287,6 +348,7 @@ try {
     roster: [{ employeeId: 'employee-a' }],
     resolveModel: () => undefined,
     rootModel,
+    ...rootExecutionContext,
     rootThinkingLevel: 'medium',
     buildPermissionGate: () => null,
     limits: createDelegationLimits({ childTimeoutMs: 0 }),
@@ -294,7 +356,7 @@ try {
     createSessionManager: () => ({}),
     createAgentSession: async (options: Record<string, unknown>) => {
       freshLeaseSessions.push(options);
-      return { session: makeSession() };
+      return { session: makeSession(rootModel) };
     },
     leaseManager: freshLeaseManager,
     rootLease: freshRoot,
@@ -352,6 +414,7 @@ try {
     roster: [{ employeeId: 'employee-a' }],
     resolveModel: () => undefined,
     rootModel,
+    ...rootExecutionContext,
     rootThinkingLevel: 'medium',
     buildPermissionGate: () => null,
     limits: createDelegationLimits({ childTimeoutMs: 0 }),
@@ -359,7 +422,7 @@ try {
     createSessionManager: () => ({}),
     createAgentSession: async () => {
       invalidSessionStarts += 1;
-      return { session: makeSession() };
+      return { session: makeSession(rootModel) };
     },
     leaseManager: invalidLeaseManager,
     rootLease: invalidRoot,
@@ -426,6 +489,7 @@ try {
     roster: [{ employeeId: 'employee-a' }],
     resolveModel: () => undefined,
     rootModel,
+    ...rootExecutionContext,
     rootThinkingLevel: 'medium',
     buildPermissionGate: () => null,
     limits: createDelegationLimits({ childTimeoutMs: 0 }),
@@ -433,7 +497,7 @@ try {
     createSessionManager: () => ({}),
     createAgentSession: async (options: Record<string, unknown>) => {
       reworkSessions.push(options);
-      return { session: makeSession() };
+      return { session: makeSession(rootModel) };
     },
     leaseManager: resumedManager,
     rootLease: resumedRoot,
@@ -564,6 +628,7 @@ try {
       roster: [{ employeeId: 'employee-bash' }],
       resolveModel: () => undefined,
       rootModel,
+      ...rootExecutionContext,
       rootThinkingLevel: 'medium',
       permissionMode: 'auto',
       buildPermissionGate: () => null,

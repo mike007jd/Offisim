@@ -83,7 +83,7 @@ interface InterruptedRunCardOptions {
   currentWireProtocolVersion?: number;
 }
 
-export const PI_HOST_PROTOCOL_VERSION = 9;
+export const PI_HOST_PROTOCOL_VERSION = 10;
 
 const RESUME_COMPATIBILITY_COPY: Readonly<Record<string, string>> = {
   workspace_history_missing: 'The saved workspace record is unavailable.',
@@ -234,7 +234,7 @@ export async function reconcileInterruptedRuns(
       const { usageJson, dangling } = aggregateSubtreeUsage(
         subtree,
         root.run_id,
-        parseUsage(root.usage_json),
+        parseUsage(root.usage_json, root.run_id),
       );
       const finishedAt = now();
       // Park the root `interrupted` (NOT cancelled — it can be resumed). Do NOT set
@@ -279,10 +279,20 @@ export async function reconcileInterruptedRuns(
   return { cards, failedRootRunIds, autoResumed: false };
 }
 
-function parseUsage(usageJson: string | null): AgentRunUsage | undefined {
+function parseUsage(usageJson: string | null, rootRunId: string): AgentRunUsage | undefined {
   if (!usageJson) return undefined;
   try {
-    return JSON.parse(usageJson) as AgentRunUsage;
+    const parsed = JSON.parse(usageJson) as
+      | AgentRunUsage
+      | {
+          scope?: { kind?: unknown };
+          contributions?: Array<{ runId?: unknown; usage?: AgentRunUsage }>;
+        };
+    if (parsed.scope?.kind !== 'task-aggregate') return parsed as AgentRunUsage;
+    const aggregate = parsed as {
+      contributions?: Array<{ runId?: unknown; usage?: AgentRunUsage }>;
+    };
+    return aggregate.contributions?.find((entry) => entry.runId === rootRunId)?.usage;
   } catch {
     return undefined;
   }

@@ -4,11 +4,9 @@
 // `agent_runtime_*` Tauri commands and consumes the typed events declared here.
 // Pi-specific event/response/model shapes live behind this module so the gateway
 // never names a backend. (RD-004 type confinement.)
-//
-// Note: the Settings > Pi Agent pane (PiAgentPane.tsx, usePiAgentModels.ts) stays
-// intentionally Pi-specific — config-folder path and models.json are inherently
-// Pi adapter concerns, so those surfaces keep calling the `pi_agent_*` commands
-// directly and are NOT routed through this gateway boundary.
+// Adapter-private diagnostics may still expose Pi wire details, but ordinary
+// product surfaces consume only the neutral AI Accounts / Models / Usage / Cost
+// contracts and never use Pi as the product identity.
 
 import type { TaskWorkspaceBindingClaim } from '@/lib/tauri-commands.js';
 import type { AgentRunUsage, WorkspaceUnavailableProvenance } from '@offisim/shared-types';
@@ -53,6 +51,14 @@ export interface WorkspaceUnavailableEvent {
 }
 
 export type PiAgentHostEvent =
+  | {
+      kind: 'executionPrepared';
+      prepareId: string;
+      runId: string;
+      identity: TurnExecutionProvenance;
+      targetDigest: string;
+      adapter: { id: string; version: string };
+    }
   | {
       kind: 'started';
       sessionId?: string;
@@ -104,6 +110,26 @@ export type PiAgentHostEvent =
 // and the Node emitter (scripts/pi-agent-host-wire.mjs). The runtime round-trip is
 // gated by check:pi-wire-contract and the cargo fixture test.
 void ([
+  {
+    kind: 'executionPrepared',
+    prepareId: 'prepare-1',
+    runId: 'run-1',
+    identity: {
+      engineId: 'api',
+      accountId: 'api:provider:fingerprint',
+      billingMode: 'api',
+      modelId: 'maker/model',
+      modelSource: {
+        kind: 'official-api',
+        sourceUrl: 'https://provider.example/models/maker/model',
+        checkedAt: '2026-07-14T00:00:00Z',
+      },
+      runId: 'run-1',
+      adapter: { id: 'pi-agent', version: '0.79.8' },
+    },
+    targetDigest: 'digest',
+    adapter: { id: 'pi-agent', version: '0.79.8' },
+  },
   { kind: 'started', sessionId: 's', sessionFile: '/f', modelFallbackMessage: 'm' },
   {
     kind: 'workspaceBound',

@@ -1643,6 +1643,15 @@ export const loopInvocations = sqliteTable(
 // constraint lives in schema.sql; this is the Drizzle typing layer only.
 // ---------------------------------------------------------------------------
 
+export const collaborationExecutionLanes = sqliteTable('collaboration_execution_lanes', {
+  thread_id: text('thread_id')
+    .primaryKey()
+    .references(() => collaborationThreads.thread_id, { onDelete: 'cascade' }),
+  engine_id: text('engine_id').notNull(),
+  account_id: text('account_id').notNull(),
+  billing_mode: text('billing_mode').notNull(),
+});
+
 export const collaborationTurns = sqliteTable(
   'collaboration_turns',
   {
@@ -1658,7 +1667,9 @@ export const collaborationTurns = sqliteTable(
     }),
     sequence_index: integer('sequence_index').notNull(),
     status: text('status').notNull().default('pending'),
-    runtime_request_id: text('runtime_request_id'),
+    runtime_request_id: text('runtime_request_id').notNull(),
+    execution_target_json: text('execution_target_json').notNull(),
+    result_provenance_json: text('result_provenance_json'),
     usage_json: text('usage_json'),
     error_summary: text('error_summary'),
     started_at: text('started_at'),

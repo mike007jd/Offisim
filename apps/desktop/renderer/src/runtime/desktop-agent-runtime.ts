@@ -26,6 +26,9 @@ import {
   type AgentRunFinishedPayload,
   type AgentRunStartedPayload,
   type AgentRunUsage,
+  type AiExecutionTarget,
+  type AiModelCatalogEntry,
+  type AiRuntimeStatus,
   type RunFailureKind,
   type RuntimeEvent,
   type WorkspaceProvenance,
@@ -37,12 +40,12 @@ import {
   type TurnExecutionProvenance,
   assertSameExecutionAccount,
   requireTurnExecutionProvenance,
+  validateExecutionTarget,
 } from './execution-provenance.js';
 import {
   MISSION_EVALUATION_SUBMITTED_EVENT,
   type MissionEvaluationSubmittedPayload,
 } from './mission/mission-events.js';
-import { readPiModelOverride } from './pi-agent-config.js';
 import type {
   PiAgentHostEvent,
   PiAgentHostResponse,
@@ -223,6 +226,10 @@ export interface DesktopAgentRunInput {
   threadId: string;
   employeeId: string | null;
   projectId: string | null;
+  /** Product engine selected for this Turn. Omitted only before a new task has a binding. */
+  engineId?: string;
+  /** Exact account/model target frozen before the host may perform paid work. */
+  executionTarget?: AiExecutionTarget;
   /**
    * Frozen capability enum (PR-03). Absent / `'work'` = the existing work execute
    * path, unchanged. `'collaboration'` is NOT served through this `execute()` —
@@ -384,6 +391,45 @@ export interface DesktopAgentRuntime {
   dispose(): Promise<void>;
 }
 
+interface RuntimeEngineAdapter extends DesktopAgentRuntime {
+  readonly engineId: string;
+}
+
+type ExecutionPreparedEvent = Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>;
+
+interface ExecutionPreparationRecord {
+  readonly targetDigest: string;
+  readonly identity: TurnExecutionProvenance;
+  readonly promise: Promise<void>;
+}
+
+function parsePreparedExecutionIdentity(event: ExecutionPreparedEvent): TurnExecutionProvenance {
+  const identity = requireTurnExecutionProvenance(event.identity, event.runId);
+  if (
+    !identity.adapter ||
+    identity.adapter.id !== event.adapter.id ||
+    identity.adapter.version !== event.adapter.version
+  ) {
+    throw new Error('Agent runtime adapter identity changed during execution preparation.');
+  }
+  return identity;
+}
+
+function requirePreparedExecutionIdentity(
+  preparations: ReadonlyMap<string, ExecutionPreparationRecord>,
+  runId: string,
+): TurnExecutionProvenance {
+  const matching = [...preparations.values()].filter((entry) => entry.identity.runId === runId);
+  const expected = matching[0]?.identity;
+  if (!expected?.adapter) {
+    throw new Error('Agent runtime returned a result without a prepared adapter identity.');
+  }
+  for (const entry of matching.slice(1)) {
+    assertSameExecutionAccount(expected, entry.identity);
+  }
+  return expected;
+}
+
 function newRequestId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
@@ -524,6 +570,112 @@ function hostModelRef(
   return model.provider ? `${model.provider}/${model.id}` : model.id;
 }
 
+export interface ResolvedApiExecutionSelection {
+  readonly target: AiExecutionTarget;
+  readonly runtimeModelRef: string;
+}
+
+export function isSameExecutionTarget(
+  expected: AiExecutionTarget | null | undefined,
+  actual: AiExecutionTarget | null | undefined,
+): boolean {
+  return Boolean(
+    expected &&
+      actual &&
+      expected.engineId === actual.engineId &&
+      expected.accountId === actual.accountId &&
+      expected.billingMode === actual.billingMode &&
+      expected.modelId === actual.modelId &&
+      expected.modelSource.kind === actual.modelSource.kind &&
+      expected.modelSource.sourceUrl === actual.modelSource.sourceUrl &&
+      expected.modelSource.checkedAt === actual.modelSource.checkedAt,
+  );
+}
+
+function availableApiModel(status: AiRuntimeStatus, model: AiModelCatalogEntry): boolean {
+  const account = status.accounts.find(
+    (candidate) => candidate.engineId === model.engineId && candidate.accountId === model.accountId,
+  );
+  return Boolean(
+    model.engineId === 'api' &&
+      model.billingMode === 'api' &&
+      model.runtimeModelRef.trim() &&
+      model.modelId.trim() &&
+      (model.availability === 'available' ||
+        (model.availability === 'expiring' &&
+          model.expiresAt &&
+          Date.parse(model.expiresAt) > Date.now())) &&
+      account?.billingMode === 'api' &&
+      account.status === 'available' &&
+      account.capabilities.execute.status === 'available' &&
+      account.capabilities.models.status === 'available',
+  );
+}
+
+export function resolveApiExecutionSelection(
+  statusValue: unknown,
+  requestedModel: string | undefined,
+  frozenTarget: AiExecutionTarget | undefined,
+): ResolvedApiExecutionSelection {
+  const status = statusValue as Partial<AiRuntimeStatus>;
+  if (!Array.isArray(status.accounts) || !Array.isArray(status.models)) {
+    throw new Error('AI Accounts status is unavailable. Check the configured API account.');
+  }
+  const runtimeStatus: AiRuntimeStatus = {
+    accounts: status.accounts,
+    models: status.models,
+    checkedAt: typeof status.checkedAt === 'string' ? status.checkedAt : '',
+  };
+  const candidates = runtimeStatus.models.filter((model) =>
+    availableApiModel(runtimeStatus, model),
+  );
+  const requested = requestedModel?.trim();
+  let selected: AiModelCatalogEntry | undefined;
+  if (frozenTarget) {
+    const validTarget = validateExecutionTarget(frozenTarget);
+    if (!validTarget || validTarget.engineId !== 'api' || validTarget.billingMode !== 'api') {
+      throw new Error('This task does not have a valid API execution target.');
+    }
+    selected = candidates.find(
+      (model) =>
+        model.engineId === validTarget.engineId &&
+        model.accountId === validTarget.accountId &&
+        model.billingMode === validTarget.billingMode &&
+        model.modelId === validTarget.modelId &&
+        (!requested || requested === model.runtimeModelRef || requested === model.modelId),
+    );
+    if (!selected) {
+      throw new Error("The task's saved API account or exact model is no longer available.");
+    }
+    return { target: validTarget, runtimeModelRef: selected.runtimeModelRef };
+  }
+  if (requested) {
+    const matches = candidates.filter(
+      (model) => model.runtimeModelRef === requested || model.modelId === requested,
+    );
+    if (matches.length !== 1) {
+      throw new Error(`The selected exact API model is unavailable or ambiguous: ${requested}.`);
+    }
+    [selected] = matches;
+  } else {
+    selected = candidates.find((model) => model.availability === 'available');
+  }
+  if (!selected) {
+    throw new Error('No verified, stable API model is available for the configured account.');
+  }
+  const target = validateExecutionTarget({
+    engineId: selected.engineId,
+    accountId: selected.accountId,
+    billingMode: selected.billingMode,
+    modelId: selected.modelId,
+    modelSource: selected.source,
+  });
+  if (!target) {
+    throw new Error('The selected model catalog entry has invalid execution provenance.');
+  }
+  return { target, runtimeModelRef: selected.runtimeModelRef };
+}
+
 interface PersistedRunContext {
   requestId?: string | null;
   streamCursor?: number | null;
@@ -531,7 +683,8 @@ interface PersistedRunContext {
   workspaceRequirement: WorkspaceRequirement;
   workspaceAvailability: 'pending' | 'bound' | 'unavailable';
   workspaceProvenance?: WorkspaceProvenance;
-  runtime: 'pi-agent';
+  runtime: 'agent-runtime';
+  executionTarget: AiExecutionTarget | null;
   piSdkVersion: string;
   wireProtocolVersion: number;
   model: string | null;
@@ -694,7 +847,8 @@ function parseRunContext(raw: string | null | undefined): Partial<PersistedRunCo
       workspaceRequirement: parsed.workspaceRequirement === 'optional' ? 'optional' : 'required',
       workspaceAvailability,
       workspaceProvenance: workspaceProvenance ?? undefined,
-      runtime: parsed.runtime === 'pi-agent' ? 'pi-agent' : undefined,
+      runtime: parsed.runtime === 'agent-runtime' ? 'agent-runtime' : undefined,
+      executionTarget: validateExecutionTarget(parsed.executionTarget),
       piSdkVersion: typeof parsed.piSdkVersion === 'string' ? parsed.piSdkVersion : undefined,
       wireProtocolVersion:
         typeof parsed.wireProtocolVersion === 'number' ? parsed.wireProtocolVersion : undefined,
@@ -917,7 +1071,8 @@ function throwIfRunAborted(signal?: AbortSignal): void {
   throw error;
 }
 
-class DesktopPiAgentRuntime implements DesktopAgentRuntime {
+class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
+  readonly engineId = 'api';
   readonly ownsConversationProjectionPersistence = true;
   private readonly inFlightByThread = new Map<string, string>();
   // Request ids the user aborted. A Rust-side abort kills the host and resolves
@@ -932,6 +1087,121 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     private readonly companyId: string,
     private readonly repos: RuntimeRepositories,
   ) {}
+
+  private async resolveExecutionSelection(
+    requestedModel: string | undefined,
+    frozenTarget: AiExecutionTarget | undefined,
+    statusValue?: unknown,
+  ): Promise<ResolvedApiExecutionSelection> {
+    const status = statusValue ?? (await invokeCommand('agent_runtime_status'));
+    return resolveApiExecutionSelection(status, requestedModel, frozenTarget);
+  }
+
+  private async assertTaskExecutionAccount(
+    threadId: string,
+    currentRunId: string,
+    target: AiExecutionTarget,
+  ): Promise<void> {
+    const rows = await this.repos.agentRuns.findByThread(threadId);
+    for (const row of rows) {
+      if (
+        row.run_id === currentRunId ||
+        row.parent_run_id !== null ||
+        row.company_id !== this.companyId
+      ) {
+        continue;
+      }
+      const priorTarget = parseRunContext(row.runtime_context_json)?.executionTarget;
+      if (!priorTarget) {
+        throw new Error(
+          'This task predates engine binding and cannot safely continue. Start a new task.',
+        );
+      }
+      if (
+        priorTarget.engineId !== target.engineId ||
+        priorTarget.accountId !== target.accountId ||
+        priorTarget.billingMode !== target.billingMode
+      ) {
+        throw new Error(
+          'A task cannot switch AI engine, account, or billing lane after execution begins.',
+        );
+      }
+    }
+  }
+
+  private async assertDurableExecutionTarget(
+    runId: string,
+    target: AiExecutionTarget,
+    requestId?: string,
+  ): Promise<void> {
+    await this.persistQueue.drain();
+    const row = await this.repos.agentRuns.findById(runId);
+    const context = parseRunContext(row?.runtime_context_json ?? null);
+    if (
+      !row ||
+      row.company_id !== this.companyId ||
+      (requestId !== undefined && context?.requestId !== requestId) ||
+      !isSameExecutionTarget(context?.executionTarget, target)
+    ) {
+      throw new Error('The exact AI execution target was not durably persisted.');
+    }
+  }
+
+  private async confirmPreparedExecution(
+    event: ExecutionPreparedEvent,
+    rootRunId: string,
+    requestId: string,
+    target: AiExecutionTarget,
+    durableRunId = rootRunId,
+    durableRequestId: string | undefined = requestId,
+  ): Promise<void> {
+    if (!event.prepareId.trim() || !event.targetDigest.trim()) {
+      throw new Error('Agent runtime returned an invalid execution preparation receipt.');
+    }
+    const identity = parsePreparedExecutionIdentity(event);
+    if (event.runId === rootRunId) {
+      const expectedIdentity: TurnExecutionProvenance = { ...target, runId: rootRunId };
+      assertSameExecutionAccount(expectedIdentity, identity);
+    } else {
+      if (
+        identity.engineId !== target.engineId ||
+        identity.accountId !== target.accountId ||
+        identity.billingMode !== target.billingMode
+      ) {
+        throw new Error('A delegated run tried to switch engine, account, or billing lane.');
+      }
+      const childTarget = validateExecutionTarget(identity);
+      if (!childTarget) {
+        throw new Error('A delegated run returned an invalid exact execution target.');
+      }
+      await this.persistQueue.drain();
+      const childRow = await this.repos.agentRuns.findById(event.runId);
+      if (
+        !childRow ||
+        childRow.company_id !== this.companyId ||
+        childRow.root_run_id !== rootRunId ||
+        childRow.parent_run_id === null
+      ) {
+        throw new Error('The delegated run was not durably linked to its root before execution.');
+      }
+      await this.persistRunContextPatch(event.runId, {
+        executionTarget: childTarget,
+        provenance: identity,
+      });
+      const childReadback = parseRunContext(
+        (await this.repos.agentRuns.findById(event.runId))?.runtime_context_json ?? null,
+      );
+      if (!isSameExecutionTarget(childReadback?.executionTarget, childTarget)) {
+        throw new Error('The delegated run execution target failed durable readback.');
+      }
+    }
+    await this.assertDurableExecutionTarget(durableRunId, target, durableRequestId);
+    await invokeCommand('agent_runtime_confirm_execution', {
+      requestId,
+      prepareId: event.prepareId,
+      targetDigest: event.targetDigest,
+    });
+  }
 
   private enqueuePersist(work: () => Promise<void>, label = 'agent runtime persistence'): void {
     this.persistQueue.enqueue(label, work);
@@ -1315,20 +1585,58 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
   }
 
   async execute(input: DesktopAgentRunInput, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
+    if (input.engineId && input.engineId !== this.engineId) {
+      throw new Error(`API adapter cannot execute engine ${input.engineId}.`);
+    }
     return this.runPiTurn(input, 'agent_runtime_execute', undefined, signal);
   }
 
   async generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult> {
-    if (input.sourceProvenance.engineId !== 'pi-agent') {
+    if (input.sourceProvenance.engineId !== this.engineId) {
       throw new Error(
-        `Pi adapter cannot run an isolated job for engine ${input.sourceProvenance.engineId}.`,
+        `API adapter cannot run an isolated job for engine ${input.sourceProvenance.engineId}.`,
       );
     }
     const requestId = input.jobId.trim();
     if (!requestId || !input.text.trim() || !input.systemPrompt.trim()) {
       throw new Error('Isolated text job requires jobId, text, and systemPrompt.');
     }
+    throwIfRunAborted(input.signal);
+    const selection = await this.resolveExecutionSelection(
+      input.sourceProvenance.modelId,
+      input.sourceProvenance,
+    );
     const onEvent = new Channel<PiAgentHostEvent>();
+    let preparation: Promise<void> | null = null;
+    let preparedIdentity: TurnExecutionProvenance | null = null;
+    let preparationError: Error | null = null;
+    onEvent.onmessage = (event) => {
+      if (event.kind !== 'executionPrepared') return;
+      if (preparation) {
+        preparationError = new Error('Agent runtime prepared the same isolated job twice.');
+        onAbort();
+        return;
+      }
+      try {
+        preparedIdentity = parsePreparedExecutionIdentity(event);
+      } catch (error) {
+        preparationError = error instanceof Error ? error : new Error(String(error));
+        onAbort();
+        return;
+      }
+      preparation = this.confirmPreparedExecution(
+        event,
+        requestId,
+        requestId,
+        selection.target,
+        input.sourceProvenance.runId,
+        undefined,
+      );
+      void preparation.catch((error: unknown) => {
+        preparationError = error instanceof Error ? error : new Error(String(error));
+        onAbort();
+      });
+    };
     const onAbort = () => {
       void invokeCommand('agent_runtime_abort', { requestId }).catch(() => undefined);
     };
@@ -1342,14 +1650,25 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           requestId,
           text: input.text,
           systemPrompt: input.systemPrompt,
-          model: input.sourceProvenance.modelId,
+          model: selection.runtimeModelRef,
+          expectedTarget: selection.target,
+          runtimeModelRef: selection.runtimeModelRef,
           thinkingLevel: input.thinkingLevel,
           sourceProvenance: input.sourceProvenance,
         },
         onEvent,
       })) as PiAgentHostResponse;
+      if (!preparation) {
+        throw new Error('Agent runtime did not prepare the isolated execution target.');
+      }
+      await preparation;
+      if (preparationError) throw preparationError;
+      if (!preparedIdentity) {
+        throw new Error('Agent runtime did not retain its prepared adapter identity.');
+      }
       const provenance = requireTurnExecutionProvenance(response.provenance, requestId);
       assertSameExecutionAccount(input.sourceProvenance, provenance);
+      assertSameExecutionAccount(preparedIdentity, provenance);
       return {
         text: response.text,
         provenance,
@@ -1423,6 +1742,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         employeeId: row.employee_id,
         projectId,
         runId: row.run_id,
+        engineId: context?.executionTarget?.engineId,
+        executionTarget: context?.executionTarget ?? undefined,
         permissionMode: savedPermissionMode
           ? savedPermissionMode
           : row.access === 'read'
@@ -1458,6 +1779,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       if (rootRunIds && !rootRunIds.has(row.run_id)) continue;
       const context = parseRunContext(row.runtime_context_json);
       const runtimeContext: Partial<PersistedRunContext> = context ?? {};
+      const executionTarget = context?.executionTarget ?? null;
       const requestId =
         typeof context?.requestId === 'string' && context.requestId.trim()
           ? context.requestId.trim()
@@ -1536,6 +1858,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       };
       let bindingFailurePersisted = false;
       let bindingAbortPromise: Promise<void> | null = null;
+      const executionPreparations = new Map<string, ExecutionPreparationRecord>();
+      let executionAckAllowed = snapshot.running;
       let terminalEventSeen = false;
       let pendingTerminalCheckpoint:
         | {
@@ -1703,6 +2027,51 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           );
           return;
         }
+        if (event.kind === 'executionPrepared') {
+          if (!executionAckAllowed) return;
+          if (!executionTarget) {
+            failReattachedBinding('The running task has no durable AI execution target.');
+            return;
+          }
+          let identity: TurnExecutionProvenance;
+          try {
+            identity = parsePreparedExecutionIdentity(event);
+          } catch (error) {
+            failReattachedBinding(error instanceof Error ? error.message : String(error));
+            return;
+          }
+          const existing = executionPreparations.get(event.prepareId);
+          if (existing) {
+            if (existing.targetDigest !== event.targetDigest) {
+              failReattachedBinding(
+                'Agent runtime reused an execution preparation id with another target.',
+              );
+            } else {
+              try {
+                assertSameExecutionAccount(existing.identity, identity);
+              } catch (error) {
+                failReattachedBinding(error instanceof Error ? error.message : String(error));
+              }
+            }
+            return;
+          }
+          const promise = this.confirmPreparedExecution(
+            event,
+            row.run_id,
+            requestId,
+            executionTarget,
+          );
+          executionPreparations.set(event.prepareId, {
+            targetDigest: event.targetDigest,
+            identity,
+            promise,
+          });
+          terminalCheckpointPromises.push(promise);
+          void promise.catch((error: unknown) => {
+            failReattachedBinding(error instanceof Error ? error.message : String(error));
+          });
+          return;
+        }
         const sharedHandled = this.consumeSharedHostEvent({
           event,
           state: sharedHostState,
@@ -1766,6 +2135,14 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           let provenance: TurnExecutionProvenance;
           try {
             provenance = requireTurnExecutionProvenance(event.response.provenance, row.run_id);
+            if (!executionTarget) {
+              throw new Error('Agent runtime returned provenance without a durable target.');
+            }
+            assertSameExecutionAccount({ ...executionTarget, runId: row.run_id }, provenance);
+            assertSameExecutionAccount(
+              requirePreparedExecutionIdentity(executionPreparations, row.run_id),
+              provenance,
+            );
           } catch (error) {
             const summary = error instanceof Error ? error.message : String(error);
             this.flushRunStreamCursor(row.run_id);
@@ -1790,7 +2167,6 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             return;
           }
           runtimeContext.provenance = provenance;
-          runtimeContext.model = provenance.modelId;
           this.enqueuePersist(() => this.persistRunContextPatch(row.run_id, runtimeContext));
           this.flushRunStreamCursor(row.run_id);
           const conversationTerminal: LiveConversationTerminalPayload = {
@@ -1945,6 +2321,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
               : normalizeStreamCursor(runtimeContext.streamCursor),
           onEvent,
         });
+        executionAckAllowed = reattachSnapshot.running;
         if (bindingFailurePersisted) {
           if (bindingAbortPromise) await bindingAbortPromise;
           bufferedEvents.length = 0;
@@ -2057,6 +2434,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     let reasoningText = '';
     let channelError: Error | null = null;
     const startedIdentityCheckpoints: Promise<void>[] = [];
+    const executionPreparations = new Map<string, ExecutionPreparationRecord>();
+    let executionTarget = input.executionTarget ?? null;
 
     // The renderer is the AgentRunEventNormalizer for the ROOT run: it already
     // sees every root fact as a legacy wire line (tool / uiRequest / result /
@@ -2067,7 +2446,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     // office dramaturgy + run projection just like delegated work.
     const permissionMode = input.permissionMode?.trim() || resolveThreadMode(input.threadId);
     const rootAccess: 'read' | 'write' = permissionMode === 'plan' ? 'read' : 'write';
-    let resolvedModel = input.model?.trim() || readPiModelOverride() || undefined;
+    let resolvedModel = input.model?.trim() || undefined;
     let resolvedThinkingLevel =
       input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId);
     const runtimeContext: PersistedRunContext = {
@@ -2077,7 +2456,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         commandName === 'agent_runtime_resume' ? (resumeWorkspaceBinding ?? null) : null,
       workspaceRequirement,
       workspaceAvailability: commandName === 'agent_runtime_resume' ? 'bound' : 'pending',
-      runtime: 'pi-agent',
+      runtime: 'agent-runtime',
+      executionTarget: input.executionTarget ?? null,
       piSdkVersion: PI_SDK_VERSION,
       wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
       model: resolvedModel ?? null,
@@ -2187,6 +2567,54 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         );
         return;
       }
+      if (event.kind === 'executionPrepared') {
+        if (!executionTarget) {
+          channelError ??= new Error('Agent runtime prepared work without an execution target.');
+          void abortRejectedBinding();
+          return;
+        }
+        let identity: TurnExecutionProvenance;
+        try {
+          identity = parsePreparedExecutionIdentity(event);
+        } catch (error) {
+          channelError = error instanceof Error ? error : new Error(String(error));
+          void abortRejectedBinding();
+          return;
+        }
+        const existing = executionPreparations.get(event.prepareId);
+        if (existing) {
+          if (existing.targetDigest !== event.targetDigest) {
+            channelError ??= new Error(
+              'Agent runtime reused an execution preparation id with another target.',
+            );
+            void abortRejectedBinding();
+          } else {
+            try {
+              assertSameExecutionAccount(existing.identity, identity);
+            } catch (error) {
+              channelError = error instanceof Error ? error : new Error(String(error));
+              void abortRejectedBinding();
+            }
+          }
+          return;
+        }
+        const promise = this.confirmPreparedExecution(
+          event,
+          runScope.runId,
+          requestId,
+          executionTarget,
+        );
+        executionPreparations.set(event.prepareId, {
+          targetDigest: event.targetDigest,
+          identity,
+          promise,
+        });
+        void promise.catch((error: unknown) => {
+          channelError ??= error instanceof Error ? error : new Error(String(error));
+          void abortRejectedBinding();
+        });
+        return;
+      }
       const workspacePolicy =
         workspaceRequirement === 'optional' ? 'workspace-optional' : 'bound-required';
       const sharedHandled = this.consumeSharedHostEvent({
@@ -2245,8 +2673,15 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             event.response.provenance,
             runScope.runId,
           );
+          if (!executionTarget) {
+            throw new Error('Agent runtime returned provenance without an execution target.');
+          }
+          assertSameExecutionAccount({ ...executionTarget, runId: runScope.runId }, provenance);
+          assertSameExecutionAccount(
+            requirePreparedExecutionIdentity(executionPreparations, runScope.runId),
+            provenance,
+          );
           runtimeContext.provenance = provenance;
-          runtimeContext.model = provenance.modelId;
           this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
         } catch (error) {
           channelError = error instanceof Error ? error : new Error(String(error));
@@ -2298,6 +2733,40 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         runtimeContext.thinkingLevel = resolvedThinkingLevel ?? null;
         this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
       }
+      const runtimeStatus = await invokeCommand('agent_runtime_status');
+      const executionSelection = await this.resolveExecutionSelection(
+        resolvedModel,
+        input.executionTarget,
+        runtimeStatus,
+      );
+      executionTarget = executionSelection.target;
+      resolvedModel = executionSelection.runtimeModelRef;
+      const boundRoster = roster.map((entry) => {
+        const employeeModel = entry.model?.trim();
+        if (!employeeModel) return entry;
+        const childSelection = resolveApiExecutionSelection(
+          runtimeStatus,
+          employeeModel,
+          undefined,
+        );
+        if (
+          childSelection.target.engineId !== executionTarget?.engineId ||
+          childSelection.target.accountId !== executionTarget.accountId ||
+          childSelection.target.billingMode !== executionTarget.billingMode
+        ) {
+          throw new Error(`Employee ${entry.name} is bound to another AI account or billing lane.`);
+        }
+        return {
+          ...entry,
+          model: childSelection.runtimeModelRef,
+          runtimeModelRef: childSelection.runtimeModelRef,
+          executionTarget: childSelection.target,
+        };
+      });
+      runtimeContext.executionTarget = executionTarget;
+      runtimeContext.model = resolvedModel;
+      await this.assertTaskExecutionAccount(input.threadId, runScope.runId, executionTarget);
+      this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
       const mcpTools = await buildMcpScope(
         this.repos,
         this.companyId,
@@ -2306,6 +2775,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       ).catch(() => []);
       throwIfRunAborted(signal);
 
+      await this.assertDurableExecutionTarget(runScope.runId, executionTarget, requestId);
       if (commandName === 'agent_runtime_execute') {
         // Opening the root is a paid/side-effect boundary, not best-effort
         // telemetry. The host must not start until the exact run authority is
@@ -2322,7 +2792,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           openedRoot.parent_run_id !== null ||
           openedRoot.status !== 'running' ||
           openedContext?.requestId !== requestId ||
-          openedContext?.projectId !== projectId
+          openedContext?.projectId !== projectId ||
+          !isSameExecutionTarget(openedContext?.executionTarget, executionTarget)
         ) {
           throw new Error('Agent run authority could not be persisted before execution.');
         }
@@ -2340,6 +2811,8 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           workspaceRequirement,
           employeeId: input.employeeId,
           model: resolvedModel,
+          expectedTarget: executionTarget,
+          runtimeModelRef: resolvedModel,
           permissionMode,
           // Like `model`: forward only an explicit override, else `undefined` so
           // the host omits it and Pi resolves its own default/session level
@@ -2358,7 +2831,7 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           ...(commandName === 'agent_runtime_resume'
             ? { workspaceBindingHistoryId: resumeWorkspaceBinding?.historyId }
             : {}),
-          roster,
+          roster: boundRoster,
           // Mission scope (MS-005): present only on a mission attempt. When set,
           // the host registers the mission-bridge tools; the bridge's events ride
           // this run's rootRunId so the MissionRunController correlates them to the
@@ -2372,6 +2845,10 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         },
         onEvent,
       })) as PiAgentHostResponse;
+      if (executionPreparations.size === 0) {
+        throw new Error('Agent runtime did not prepare the exact execution target.');
+      }
+      await Promise.all([...executionPreparations.values()].map((entry) => entry.promise));
       await Promise.all(startedIdentityCheckpoints);
       if (channelError) throw channelError;
       if (workspaceRequirement === 'required' && workspaceBindingGate.status !== 'bound') {
@@ -2389,9 +2866,16 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       // branch's invoke threw before returning.
       const rootUsage = commandResponse.usage;
       const provenance = requireTurnExecutionProvenance(commandResponse.provenance, runScope.runId);
+      if (!executionTarget) {
+        throw new Error('Agent runtime completed without an execution target.');
+      }
+      assertSameExecutionAccount({ ...executionTarget, runId: runScope.runId }, provenance);
+      assertSameExecutionAccount(
+        requirePreparedExecutionIdentity(executionPreparations, runScope.runId),
+        provenance,
+      );
       if (runtimeContext.provenance?.runId !== provenance.runId) {
         runtimeContext.provenance = provenance;
-        runtimeContext.model = provenance.modelId;
         this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
       }
       this.flushRunStreamCursor(runScope.runId);
@@ -2978,6 +3462,93 @@ class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
 const runtimeCache = new Map<string, Promise<DesktopAgentRuntime>>();
 
+class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
+  readonly ownsConversationProjectionPersistence = true;
+  private readonly adapters: ReadonlyMap<string, RuntimeEngineAdapter>;
+
+  constructor(
+    private readonly companyId: string,
+    private readonly repos: RuntimeRepositories,
+    adapters: readonly RuntimeEngineAdapter[],
+  ) {
+    this.adapters = new Map(adapters.map((adapter) => [adapter.engineId, adapter]));
+  }
+
+  private adapter(engineId: string): RuntimeEngineAdapter {
+    const adapter = this.adapters.get(engineId);
+    if (!adapter) {
+      throw new Error(`AI engine ${engineId} is not available for this task.`);
+    }
+    return adapter;
+  }
+
+  execute(input: DesktopAgentRunInput, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
+    const engineId = input.executionTarget?.engineId ?? input.engineId ?? 'api';
+    return this.adapter(engineId).execute({ ...input, engineId }, signal);
+  }
+
+  generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult> {
+    return this.adapter(input.sourceProvenance.engineId).generateText(input);
+  }
+
+  async resume(runId: string, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
+    const row = await this.repos.agentRuns.findById(runId);
+    if (!row || row.company_id !== this.companyId) {
+      throw new Error('Cannot resume Agent runtime run: run not found for this company.');
+    }
+    const context = parseRunContext(row.runtime_context_json);
+    const engineId = context?.executionTarget?.engineId;
+    if (!engineId) {
+      throw new Error('Cannot resume Agent runtime run: execution target is missing.');
+    }
+    return this.adapter(engineId).resume(runId, signal);
+  }
+
+  abort(threadId: string): void {
+    for (const adapter of this.adapters.values()) adapter.abort(threadId);
+  }
+
+  abortChild(threadId: string, runId: string): void {
+    for (const adapter of this.adapters.values()) adapter.abortChild(threadId, runId);
+  }
+
+  async answerUiRequest(answer: AgentUiAnswer): Promise<void> {
+    const adapters = [...this.adapters.values()];
+    const adapter = adapters[0];
+    if (adapters.length !== 1 || !adapter) {
+      throw new Error('Cannot route an interaction without an exact engine binding.');
+    }
+    await adapter.answerUiRequest(answer);
+  }
+
+  async reattachLiveRuns(rootRunIds?: ReadonlySet<string>): Promise<LiveRunReattachResult> {
+    const results = await Promise.all(
+      [...this.adapters.values()].map((adapter) =>
+        adapter.reattachLiveRuns
+          ? adapter.reattachLiveRuns(rootRunIds)
+          : Promise.resolve({
+              protectedRootRunIds: new Set<string>(),
+              handledRootRunIds: new Set<string>(),
+              confirmedMissingRootRunIds: new Set<string>(),
+              complete: true,
+            }),
+      ),
+    );
+    return {
+      protectedRootRunIds: new Set(results.flatMap((result) => [...result.protectedRootRunIds])),
+      handledRootRunIds: new Set(results.flatMap((result) => [...result.handledRootRunIds])),
+      confirmedMissingRootRunIds: new Set(
+        results.flatMap((result) => [...result.confirmedMissingRootRunIds]),
+      ),
+      complete: results.every((result) => result.complete),
+    };
+  }
+
+  async dispose(): Promise<void> {
+    await Promise.all([...this.adapters.values()].map((adapter) => adapter.dispose()));
+  }
+}
+
 async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> {
   const repos = await getRepos();
   for (const required of ['threads', 'chatThreads', 'projects'] as const) {
@@ -2985,7 +3556,8 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
       throw new Error(`Cannot start Agent runtime: repos.${required} is unavailable.`);
     }
   }
-  return new DesktopPiAgentRuntime(companyId, repos);
+  const apiAdapter = new DesktopPiAgentRuntime(companyId, repos);
+  return new DesktopAgentRuntimeGateway(companyId, repos, [apiAdapter]);
 }
 
 export function getDesktopAgentRuntime(companyId: string): Promise<DesktopAgentRuntime> {

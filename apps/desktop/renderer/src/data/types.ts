@@ -236,9 +236,17 @@ export type GitRepoState =
   | { status: 'unbound' };
 
 export interface RunCost {
-  tokens: number;
-  monthlyTokens: number;
-  sessionTokens: number;
+  /** Exact only when every provider contribution supplied every additive bucket. */
+  tokens: number | null;
+  knownTokens: number;
+  tokenCoverage: 'complete' | 'partial' | 'unavailable';
+  monthlyTokens: number | null;
+  monthlyKnownTokens: number;
+  monthlyTokenCoverage: 'complete' | 'partial' | 'unavailable';
+  sessionTokens: number | null;
+  sessionKnownTokens: number;
+  sessionTokenCoverage: 'complete' | 'partial' | 'unavailable';
+  costKind: 'actual' | 'estimate' | 'unavailable' | 'none';
   costLabel: string;
   live: boolean;
   breakdown: RunCostBreakdown[];
@@ -249,7 +257,10 @@ export interface RunCostBreakdown {
   employeeId: string | null;
   employeeName: string;
   model: string;
-  tokens: number;
+  tokens: number | null;
+  knownTokens: number;
+  tokenCoverage: 'complete' | 'partial' | 'unavailable';
+  costKind: 'actual' | 'estimate' | 'unavailable';
   costLabel: string;
 }
 

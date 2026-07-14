@@ -1,18 +1,55 @@
 import { getTauriDb } from '@/lib/tauri-db.js';
+import type { AgentRunCost, AgentRunUsage } from '@offisim/shared-types';
 import { isTauriRuntime } from './adapters.js';
 import type { RunCost, RunCostBreakdown } from './types.js';
+import {
+  type UsageTokenSummary,
+  combineUsageTokenSummaries,
+  exactUsageTokens,
+  summarizeUsageTokens,
+} from './usage-token-coverage.js';
 
-// Run-cost reader: aggregates the live cost truth from `agent_runs.usage_json`
-// (the rolled-up `{ input, output, cacheRead, cacheWrite, cost, turns }` blob
-// written by reconcileRoot). Totals read only root rows; the employee/model
-// breakdown subtracts child rows from each rolled-up root, then groups every
-// run's own usage without double-counting. The old `llm_calls` +
-// `model_cost_rates` pricing engine is gone (that table is dead).
+// `agent_runs.usage_json` is the only run accounting source. Root rows carry a
+// task aggregate with exact per-run contributions; child rows carry their own
+// account-scoped usage. No token rate is inferred in the renderer.
 
-function formatCostLabel(cost: number): string {
-  if (cost > 0 && cost < 0.01) return `$${cost.toFixed(4)}`;
-  return `$${cost.toFixed(2)}`;
+type CostKind = RunCost['costKind'];
+
+interface AggregateCostActual {
+  kind: 'actual';
+  amountUsd: number;
 }
+
+interface AggregateCostEstimate {
+  kind: 'estimate';
+  amountUsd: number;
+}
+
+interface AggregateCostUnavailable {
+  kind: 'unavailable';
+  reason: string;
+  knownAmountUsd?: number;
+}
+
+type CostRecord =
+  | AgentRunCost
+  | AggregateCostActual
+  | AggregateCostEstimate
+  | AggregateCostUnavailable;
+
+interface TaskAggregateUsage {
+  scope: { kind: 'task-aggregate' };
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  reasoning?: number;
+  turns?: number;
+  cost: CostRecord;
+  contributions: Array<{ runId: string; usage: AgentRunUsage }>;
+}
+
+type UsageRecord = AgentRunUsage | TaskAggregateUsage;
 
 interface RunCostDatabase {
   select<T>(query: string, bindValues?: unknown[]): Promise<T>;
@@ -29,20 +66,111 @@ interface RunCostRow {
   runtime_context_json: string | null;
 }
 
-interface Usage {
-  input?: number;
-  output?: number;
-  cacheRead?: number;
-  cacheWrite?: number;
-  cost?: number;
+interface CostSummary {
+  kind: Exclude<CostKind, 'none'>;
+  amountUsd?: number;
+  knownAmountUsd?: number;
+}
+
+function finiteNonNegative(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isAgentUsage(value: unknown): value is AgentRunUsage {
+  return (
+    isRecord(value) &&
+    isRecord(value.scope) &&
+    (value.scope.kind === 'api-run' || value.scope.kind === 'subscription-run-diagnostic') &&
+    isRecord(value.cost) &&
+    (value.cost.kind === 'actual' ||
+      value.cost.kind === 'estimate' ||
+      value.cost.kind === 'unavailable')
+  );
+}
+
+function isTaskAggregateUsage(value: UsageRecord): value is TaskAggregateUsage {
+  return value.scope.kind === 'task-aggregate';
+}
+
+function parseUsage(value: string): UsageRecord | undefined {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (isAgentUsage(parsed)) return parsed;
+    if (
+      isRecord(parsed) &&
+      isRecord(parsed.scope) &&
+      parsed.scope.kind === 'task-aggregate' &&
+      isRecord(parsed.cost) &&
+      Array.isArray(parsed.contributions) &&
+      parsed.contributions.every(
+        (entry) => isRecord(entry) && typeof entry.runId === 'string' && isAgentUsage(entry.usage),
+      )
+    ) {
+      return parsed as unknown as TaskAggregateUsage;
+    }
+  } catch {
+    // Invalid prelaunch rows are ignored instead of becoming a fabricated zero.
+  }
+  return undefined;
+}
+
+function tokenCount(usage: UsageRecord): UsageTokenSummary {
+  return summarizeUsageTokens(usage);
+}
+
+function summarizeCosts(costs: CostRecord[]): CostSummary | undefined {
+  if (costs.length === 0) return undefined;
+  const unavailable = costs.filter((cost) => cost.kind === 'unavailable');
+  const known = costs.filter((cost) => cost.kind !== 'unavailable');
+  const partialKnown = unavailable
+    .map((cost) => finiteNonNegative(cost.knownAmountUsd))
+    .filter((amount): amount is number => amount !== undefined);
+  const knownAmountUsd =
+    known.reduce((sum, cost) => sum + (finiteNonNegative(cost.amountUsd) ?? 0), 0) +
+    partialKnown.reduce((sum, amount) => sum + amount, 0);
+  if (unavailable.length > 0) {
+    return {
+      kind: 'unavailable',
+      ...(known.length > 0 || partialKnown.length > 0 ? { knownAmountUsd } : {}),
+    };
+  }
+  return {
+    kind: known.some((cost) => cost.kind === 'estimate') ? 'estimate' : 'actual',
+    amountUsd: knownAmountUsd,
+  };
+}
+
+function formatAmount(amount: number): string {
+  if (amount > 0 && amount < 0.01) return `$${amount.toFixed(4)}`;
+  return `$${amount.toFixed(2)}`;
+}
+
+function formatCostLabel(cost: CostSummary | undefined): string {
+  if (!cost) return 'No API usage';
+  if (cost.kind === 'actual') return `Actual ${formatAmount(cost.amountUsd ?? 0)}`;
+  if (cost.kind === 'estimate') return `Estimated ${formatAmount(cost.amountUsd ?? 0)}`;
+  return cost.knownAmountUsd === undefined
+    ? 'Cost unavailable'
+    : `Cost unavailable · ${formatAmount(cost.knownAmountUsd)} known`;
 }
 
 function emptyRunCost(): RunCost {
   return {
-    tokens: 0,
-    monthlyTokens: 0,
-    sessionTokens: 0,
-    costLabel: '$0.00',
+    tokens: null,
+    knownTokens: 0,
+    tokenCoverage: 'unavailable',
+    monthlyTokens: null,
+    monthlyKnownTokens: 0,
+    monthlyTokenCoverage: 'unavailable',
+    sessionTokens: null,
+    sessionKnownTokens: 0,
+    sessionTokenCoverage: 'unavailable',
+    costKind: 'none',
+    costLabel: 'No API usage',
     live: false,
     breakdown: [],
     alerts: [],
@@ -59,8 +187,6 @@ export async function loadRunCost(
     const db = await getTauriDb();
     return await loadRunCostFromDatabase(db, companyId, threadId);
   } catch {
-    // A missing/renamed table or column should degrade to a non-live zero cost,
-    // not surface as a hard query error in the cost UI.
     return empty;
   }
 }
@@ -89,13 +215,8 @@ export async function loadRunCostFromDatabase(
       [companyId, monthStartIso],
     ),
     threadId
-      ? db.select<Array<{ session_tokens: number | null }>>(
-          `SELECT SUM(
-                    COALESCE(CAST(json_extract(usage_json, '$.input') AS REAL), 0) +
-                    COALESCE(CAST(json_extract(usage_json, '$.output') AS REAL), 0) +
-                    COALESCE(CAST(json_extract(usage_json, '$.cacheRead') AS REAL), 0) +
-                    COALESCE(CAST(json_extract(usage_json, '$.cacheWrite') AS REAL), 0)
-                  ) AS session_tokens
+      ? db.select<Array<{ usage_json: string }>>(
+          `SELECT usage_json
              FROM agent_runs
             WHERE company_id = $1
               AND thread_id = $2
@@ -106,62 +227,27 @@ export async function loadRunCostFromDatabase(
         )
       : Promise.resolve([]),
   ]);
-  let input = 0;
-  let output = 0;
-  let cacheRead = 0;
-  let cacheWrite = 0;
-  let cost = 0;
+
   const parsedRows = rows.flatMap((row) => {
-    try {
-      const u = JSON.parse(row.usage_json) as Usage;
-      return [{ ...row, usage: u }];
-    } catch {
-      return [];
-    }
+    const usage = parseUsage(row.usage_json);
+    return usage ? [{ ...row, usage }] : [];
   });
-  const roots: typeof parsedRows = [];
-  const childrenByRoot = new Map<string, typeof parsedRows>();
-  for (const row of parsedRows) {
-    if (row.run_id === row.root_run_id) {
-      roots.push(row);
-      continue;
-    }
-    const children = childrenByRoot.get(row.root_run_id) ?? [];
-    children.push(row);
-    childrenByRoot.set(row.root_run_id, children);
-  }
-  for (const row of roots) {
-    input += row.usage.input ?? 0;
-    output += row.usage.output ?? 0;
-    cacheRead += row.usage.cacheRead ?? 0;
-    cacheWrite += row.usage.cacheWrite ?? 0;
-    cost += row.usage.cost ?? 0;
-  }
-  const tokens = input + output + cacheRead + cacheWrite;
-  const sessionTokens = Number(sessionRows[0]?.session_tokens ?? 0);
-  // Tokens flowed but cost is zero → the lane didn't report a price (e.g. the
-  // compat default provider where cost is 0). Surface that honestly rather than
-  // claiming a free run. With no tokens at all, '$0.00' is the correct label.
-  const costLabel = tokens > 0 && cost === 0 ? 'Cost unavailable' : formatCostLabel(cost);
-  const groups = new Map<string, RunCostBreakdown & { cost: number }>();
-  const add = (employeeId: string | null, employeeName: string, model: string, usage: Usage) => {
-    const rowTokens =
-      (usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
-    const rowCost = usage.cost ?? 0;
-    if (rowTokens === 0 && rowCost === 0) return;
-    const key = `${employeeId ?? 'root'}\0${model}`;
-    const current = groups.get(key) ?? {
-      employeeId,
-      employeeName,
-      model,
-      tokens: 0,
-      cost: 0,
-      costLabel: '$0.00',
-    };
-    current.tokens += rowTokens;
-    current.cost += rowCost;
-    groups.set(key, current);
+  const roots = parsedRows.filter((row) => row.run_id === row.root_run_id);
+  const children = parsedRows.filter((row) => row.run_id !== row.root_run_id);
+  const monthlyTokenSummary = combineUsageTokenSummaries(roots.map((row) => tokenCount(row.usage)));
+  const sessionTokenSummary = combineUsageTokenSummaries(
+    sessionRows.flatMap((row) => {
+      const usage = parseUsage(row.usage_json);
+      return usage ? [tokenCount(usage)] : [];
+    }),
+  );
+  const monthlyCost = summarizeCosts(roots.map((row) => row.usage.cost));
+
+  type MutableBreakdown = Omit<RunCostBreakdown, 'tokens' | 'knownTokens' | 'tokenCoverage'> & {
+    costs: CostRecord[];
+    tokenSummaries: UsageTokenSummary[];
   };
+  const groups = new Map<string, MutableBreakdown>();
   const contextModel = (value: string | null, fallback: string): string => {
     if (!value) return fallback;
     try {
@@ -172,45 +258,80 @@ export async function loadRunCostFromDatabase(
       return fallback;
     }
   };
-  for (const children of childrenByRoot.values()) {
-    for (const child of children) {
-      add(
-        child.employee_id,
-        child.employee_name ?? 'Employee',
-        contextModel(child.runtime_context_json, 'Inherited conversation model'),
-        child.usage,
-      );
-    }
+  const usageModel = (usage: AgentRunUsage, fallback: string) => usage.scope.modelId || fallback;
+  const add = (
+    employeeId: string | null,
+    employeeName: string,
+    model: string,
+    usage: AgentRunUsage,
+  ) => {
+    const key = `${employeeId ?? 'root'}\0${model}`;
+    const current = groups.get(key) ?? {
+      employeeId,
+      employeeName,
+      model,
+      costKind: 'unavailable' as const,
+      costLabel: 'Cost unavailable',
+      costs: [],
+      tokenSummaries: [],
+    };
+    current.tokenSummaries.push(tokenCount(usage));
+    current.costs.push(usage.cost);
+    groups.set(key, current);
+  };
+
+  for (const child of children) {
+    if (!isAgentUsage(child.usage)) continue;
+    add(
+      child.employee_id,
+      child.employee_name ?? 'Employee',
+      contextModel(child.runtime_context_json, usageModel(child.usage, 'Conversation model')),
+      child.usage,
+    );
   }
   for (const root of roots) {
-    const descendants = childrenByRoot.get(root.run_id) ?? [];
-    const own: Usage = { ...root.usage };
-    for (const child of descendants) {
-      own.input = Math.max(0, (own.input ?? 0) - (child.usage.input ?? 0));
-      own.output = Math.max(0, (own.output ?? 0) - (child.usage.output ?? 0));
-      own.cacheRead = Math.max(0, (own.cacheRead ?? 0) - (child.usage.cacheRead ?? 0));
-      own.cacheWrite = Math.max(0, (own.cacheWrite ?? 0) - (child.usage.cacheWrite ?? 0));
-      own.cost = Math.max(0, (own.cost ?? 0) - (child.usage.cost ?? 0));
-    }
+    const ownUsage = isTaskAggregateUsage(root.usage)
+      ? root.usage.contributions.find((entry) => entry.runId === root.run_id)?.usage
+      : root.usage;
+    if (!ownUsage) continue;
     add(
       root.employee_id,
       root.employee_name ?? 'Lead agent',
-      contextModel(root.runtime_context_json, 'Pi default'),
-      own,
+      contextModel(root.runtime_context_json, usageModel(ownUsage, 'Conversation model')),
+      ownUsage,
     );
   }
+
   const breakdown = [...groups.values()]
-    .map(({ cost: groupCost, ...group }) => ({
-      ...group,
-      costLabel:
-        group.tokens > 0 && groupCost === 0 ? 'Cost unavailable' : formatCostLabel(groupCost),
-    }))
-    .sort((a, b) => b.tokens - a.tokens || a.employeeName.localeCompare(b.employeeName));
+    .map(({ costs, tokenSummaries, ...group }) => {
+      const cost = summarizeCosts(costs) ?? { kind: 'unavailable' as const };
+      const tokens = combineUsageTokenSummaries(tokenSummaries);
+      return {
+        ...group,
+        tokens: exactUsageTokens(tokens),
+        knownTokens: tokens.knownTokens,
+        tokenCoverage: tokens.coverage,
+        costKind: cost.kind,
+        costLabel: formatCostLabel(cost),
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.knownTokens - left.knownTokens || left.employeeName.localeCompare(right.employeeName),
+    );
+  const costKind = monthlyCost?.kind ?? 'none';
   return {
-    tokens,
-    monthlyTokens: tokens,
-    sessionTokens,
-    costLabel,
+    tokens: exactUsageTokens(monthlyTokenSummary),
+    knownTokens: monthlyTokenSummary.knownTokens,
+    tokenCoverage: monthlyTokenSummary.coverage,
+    monthlyTokens: exactUsageTokens(monthlyTokenSummary),
+    monthlyKnownTokens: monthlyTokenSummary.knownTokens,
+    monthlyTokenCoverage: monthlyTokenSummary.coverage,
+    sessionTokens: exactUsageTokens(sessionTokenSummary),
+    sessionKnownTokens: sessionTokenSummary.knownTokens,
+    sessionTokenCoverage: sessionTokenSummary.coverage,
+    costKind,
+    costLabel: formatCostLabel(monthlyCost),
     live: roots.length > 0,
     breakdown,
     alerts: [],

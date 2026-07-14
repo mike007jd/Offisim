@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 use crate::agent_host_runtime::HostError;
 use crate::task_workspace_binding::{test_task_workspace_binding, TaskWorkspaceBindingRegistry};
 
-use super::bridge::PiUiResponse;
+use super::bridge::{confirm_execution_impl, register_execution_prepared, PiUiResponse};
 use super::payload::{
     collaborate_payload, enhance_payload, pi_session_dir_under, sidecar_payload,
     ExecuteWorkspacePayload, TestPiSessionDir,
@@ -47,6 +47,41 @@ fn pi_run_stream_test_guard() -> std::sync::MutexGuard<'static, ()> {
     PI_RUN_STREAM_TEST_LOCK
         .lock()
         .expect("pi run stream test lock poisoned")
+}
+
+#[tokio::test]
+async fn execution_preparation_replay_is_idempotent_and_ack_is_exact() {
+    let request_id = format!("request-{}", unique_suffix());
+    register_execution_prepared(&request_id, "prepare-1", "digest-1")
+        .expect("register preparation");
+    register_execution_prepared(&request_id, "prepare-1", "digest-1")
+        .expect("replay identical preparation");
+    assert!(register_execution_prepared(&request_id, "prepare-1", "digest-other").is_err());
+    assert!(confirm_execution_impl(
+        request_id.clone(),
+        "prepare-1".into(),
+        "digest-other".into(),
+    )
+    .await
+    .is_err());
+    let missing_stdin = confirm_execution_impl(request_id, "prepare-1".into(), "digest-1".into())
+        .await
+        .expect_err("an exact ACK still fails closed after stdin is gone");
+    assert!(missing_stdin.contains("stdin"));
+}
+
+fn execution_target_fixture() -> serde_json::Value {
+    serde_json::json!({
+        "engineId": "api",
+        "accountId": "api:fixture-provider:0123456789abcdef",
+        "billingMode": "api",
+        "modelId": "fixture-model",
+        "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+        }
+    })
 }
 
 fn unique_suffix() -> String {
@@ -115,7 +150,7 @@ async fn resume_prestart_fixture(runtime_context_json: serde_json::Value) -> Res
     std::fs::write(
         &script,
         format!(
-            "import fs from 'node:fs';\nimport {{ createInterface }} from 'node:readline';\nfs.appendFileSync({invocation_path}, 'spawned\\n');\nconsole.log(JSON.stringify({{ kind: 'ready', protocolVersion: 9 }}));\nconst input = createInterface({{ input: process.stdin }});\nfor await (const line of input) {{\n  fs.writeFileSync({payload_path}, line);\n  break;\n}}\ninput.close();\nif (fs.existsSync({failure_path})) {{\n  console.log(JSON.stringify({{ kind: 'error', code: 'fixture-upstream', message: 'injected sidecar failure after durable session reset' }}));\n}} else {{\n  console.log(JSON.stringify({{ kind: 'result', response: {{ text: 'done' }} }}));\n}}\n"
+            "import fs from 'node:fs';\nimport {{ createInterface }} from 'node:readline';\nfs.appendFileSync({invocation_path}, 'spawned\\n');\nconsole.log(JSON.stringify({{ kind: 'ready', protocolVersion: 10 }}));\nconst input = createInterface({{ input: process.stdin }});\nfor await (const line of input) {{\n  fs.writeFileSync({payload_path}, line);\n  break;\n}}\ninput.close();\nif (fs.existsSync({failure_path})) {{\n  console.log(JSON.stringify({{ kind: 'error', code: 'fixture-upstream', message: 'injected sidecar failure after durable session reset' }}));\n}} else {{\n  console.log(JSON.stringify({{ kind: 'result', response: {{ text: 'done' }} }}));\n}}\n"
         ),
     )
     .expect("write resume test sidecar");
@@ -238,7 +273,7 @@ fn interrupted_runtime_context() -> serde_json::Value {
         },
         "workspaceRequirement": "optional",
         "workspaceAvailability": "bound",
-        "runtime": "pi-agent",
+        "runtime": "agent-runtime",
         "piSdkVersion": "0.79.8",
         "wireProtocolVersion": PI_HOST_PROTOCOL_VERSION,
         "nativeSessionId": "session-a",
@@ -256,6 +291,8 @@ async fn run_resume(fixture: &ResumePrestartFixture) -> Result<PiAgentHostRespon
     let req: PiAgentExecuteRequest = serde_json::from_value(serde_json::json!({
         "requestId": "new-request",
         "text": "Resume",
+        "expectedTarget": execution_target_fixture(),
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "companyId": "company-1",
         "threadId": "thread-1",
         "projectId": "project-1",
@@ -290,7 +327,7 @@ async fn insert_execute_root(fixture: &ResumePrestartFixture, run_id: &str, star
     .bind(
         serde_json::json!({
             "requestId": format!("request-{run_id}"),
-            "runtime": "pi-agent",
+            "runtime": "agent-runtime",
             "wireProtocolVersion": 9
         })
         .to_string(),
@@ -324,6 +361,8 @@ async fn run_execute_request(
     let mut value = serde_json::json!({
         "requestId": request_id,
         "text": "Continue the Conversation",
+        "expectedTarget": execution_target_fixture(),
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "companyId": "company-1",
         "threadId": "thread-1",
         "projectId": "project-1",
@@ -578,6 +617,7 @@ async fn resume_runtime_lane_and_wire_faults_never_spawn_real_sidecar() {
     let mut cases = Vec::new();
     for (field, replacement) in [
         ("runtime", None),
+        ("runtime", Some(serde_json::json!("pi-agent"))),
         ("runtime", Some(serde_json::json!("codex-subscription"))),
         ("wireProtocolVersion", None),
         (
@@ -729,7 +769,7 @@ async fn normal_execute_uses_latest_terminalized_exact_session_not_newer_filenam
           runtime_context_json, session_file, started_at, finished_at
         ) VALUES (
           'turn-b', 'thread-1', 'company-1', 'project-1', 'turn-b', 'completed',
-          '{"runtime":"pi-agent","wireProtocolVersion":9,"nativeSessionId":"session-b"}',
+          '{"runtime":"agent-runtime","wireProtocolVersion":9,"nativeSessionId":"session-b"}',
           ?, '2026-07-14T02:00:00Z', '2026-07-14T02:30:00Z'
         )
         "#,
@@ -1099,7 +1139,7 @@ async fn normal_execute_unique_index_rejects_new_root_while_interrupted() {
           runtime_context_json, started_at
         ) VALUES (
           'turn-2', 'thread-1', 'company-1', 'project-1', 'turn-2', 'running',
-          '{"requestId":"execute-request","runtime":"pi-agent","wireProtocolVersion":9}',
+          '{"requestId":"execute-request","runtime":"agent-runtime","wireProtocolVersion":9}',
           '2026-07-14T04:00:00Z'
         )
         "#,
@@ -1180,6 +1220,8 @@ fn optional_workspace_is_allowed_only_for_plain_execute_turns() {
     let plain: PiAgentExecuteRequest = serde_json::from_value(serde_json::json!({
         "requestId": "request-plain",
         "text": "Continue our discussion",
+        "expectedTarget": execution_target_fixture(),
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "companyId": "company-1",
         "threadId": "thread-1",
         "projectId": "project-1",
@@ -1198,6 +1240,8 @@ fn optional_workspace_is_allowed_only_for_plain_execute_turns() {
         let mut value = serde_json::to_value(serde_json::json!({
             "requestId": "request-scoped",
             "text": "Run scoped work",
+            "expectedTarget": execution_target_fixture(),
+            "runtimeModelRef": "fixture-provider/fixture-model",
             "companyId": "company-1",
             "threadId": "thread-1",
             "projectId": "project-1",
@@ -1301,7 +1345,7 @@ async fn pi_sidecar_success_waits_for_clean_exit() {
     let sidecar = test_sidecar(
         "success-cleanup",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 9 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 10 }));
 console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
 "#,
     );
@@ -1323,7 +1367,7 @@ async fn pi_sidecar_success_reaps_same_group_background_descendant() {
 const { spawn } = await import('node:child_process');
 const descendant = spawn(process.execPath, ['-e', "setTimeout(() => require('node:fs').writeFileSync('descendant-marker', 'leaked'), 800)"], { stdio: 'ignore' });
 descendant.unref();
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 9 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 10 }));
 console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
 "#,
     );
@@ -1344,7 +1388,7 @@ async fn pi_sidecar_protocol_failure_kills_and_reaps_hostile_child() {
     let sidecar = test_sidecar(
         "protocol-cleanup",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 9 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 10 }));
 console.log(JSON.stringify({ kind: 'tool', status: 'started', toolCallId: 'call-1' }));
 setInterval(() => {}, 1_000);
 "#,
@@ -1437,7 +1481,7 @@ async fn unavailable_sidecar_mcp_call_is_rejected_before_the_app_bridge() {
     let sidecar = test_sidecar(
         "unavailable-mcp-isolation",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 9 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 10 }));
 console.log(JSON.stringify({ kind: 'mcpCall', id: 'mcp-1', server: 'files', tool: 'read_file', arguments: {} }));
 setInterval(() => {}, 1_000);
 "#,
@@ -1498,7 +1542,7 @@ async fn pi_sidecar_abort_kills_and_reaps_hostile_child() {
     let sidecar = test_sidecar(
         "abort-cleanup",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 9 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 10 }));
 setInterval(() => {}, 1_000);
 "#,
     );
@@ -2326,6 +2370,8 @@ fn pi_execute_payload_omits_absent_delegation_limits() {
     let req: PiAgentExecuteRequest = serde_json::from_value(serde_json::json!({
         "requestId": "plain-request",
         "text": "Plain chat",
+        "expectedTarget": execution_target_fixture(),
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "companyId": "company-1",
         "threadId": "thread-1"
     }))
@@ -2353,6 +2399,8 @@ fn pi_execute_unavailable_payload_strips_every_workspace_capability() {
     let req: PiAgentExecuteRequest = serde_json::from_value(serde_json::json!({
         "requestId": "unavailable-request",
         "text": "What did we decide earlier?",
+        "expectedTarget": execution_target_fixture(),
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "companyId": "company-1",
         "threadId": "thread-1",
         "projectId": "project-1",

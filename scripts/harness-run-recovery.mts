@@ -69,6 +69,30 @@ const now = () => FIXED_NOW;
 const CO_A = 'co-A';
 const CO_B = 'co-B';
 
+function apiUsage(
+  modelId: string,
+  input: number,
+  output: number,
+  amountUsd: number,
+  turns: number,
+) {
+  return {
+    scope: {
+      kind: 'api-run',
+      engineId: 'api',
+      accountId: 'api:test:opaque',
+      modelId,
+    },
+    input,
+    output,
+    turns,
+    inputAccounting: 'excludes-cache',
+    outputAccounting: 'includes-reasoning',
+    usageSource: { kind: 'provider', capturedAt: FIXED_NOW },
+    cost: { kind: 'actual', amountUsd, source: 'provider', capturedAt: FIXED_NOW },
+  } as const;
+}
+
 function workspaceBinding(
   projectId: string,
   threadId: string,
@@ -125,7 +149,7 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
         thinkingLevel: null,
         createdAt: FIXED_NOW,
       }),
-      usage_json: JSON.stringify({ input: 5, output: 5, cost: 0.05, turns: 1 }),
+      usage_json: JSON.stringify(apiUsage('root-model', 5, 5, 0.05, 1)),
     },
     {
       run_id: 'child1',
@@ -152,7 +176,7 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
       access: null,
       status: 'completed',
       started_at: '2026-06-27T10:02:00.000Z',
-      usage_json: JSON.stringify({ input: 10, output: 20, cost: 0.5, turns: 2 }),
+      usage_json: JSON.stringify(apiUsage('child-model', 10, 20, 0.5, 2)),
     },
     // co-A: crashed root WITH a session_file (resumable).
     {
@@ -261,8 +285,14 @@ async function main(): Promise<void> {
     const usage = JSON.parse(root1!.usage_json!);
     assert.equal(usage.input, 15, '10 (child2) + 5 (root own), counted once');
     assert.equal(usage.output, 25);
-    assert.equal(usage.cost, 0.55);
+    assert.equal(usage.cost.kind, 'actual');
+    assert.equal(usage.cost.amountUsd, 0.55);
     assert.equal(usage.turns, 3);
+    assert.deepEqual(
+      usage.contributions.map((entry: { runId: string }) => entry.runId),
+      ['root1', 'child2'],
+      'aggregate preserves exact per-run accounting provenance',
+    );
     const card = result.cards.find((c) => c.runId === 'root1');
     assert.ok(card?.partialUsageJson, 'card surfaces the partial usage');
     assert.equal(JSON.parse(card!.partialUsageJson!).output, 25);

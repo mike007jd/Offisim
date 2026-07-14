@@ -1,58 +1,73 @@
 import { isTauriRuntime } from '@/data/adapters.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
-import { readPiModelOverride, writePiModelOverride } from '@/runtime/pi-agent-config.js';
 import { usePiThreadModelStore } from '@/runtime/pi-thread-model-store.js';
+import type { AiModelCatalogEntry, AiRuntimeStatus } from '@offisim/shared-types';
 import { useQuery } from '@tanstack/react-query';
 
-/** One Pi-available model, as projected by the `pi_agent_status` command. */
-export interface PiAgentModelOption {
-  /** `provider/id` registry label — the value forwarded to the Pi host. */
+/** One runnable model projected by the engine-neutral desktop runtime. */
+export interface AgentRuntimeModelOption {
+  /** Adapter-private selector sent to the runtime; never shown to the user. */
   value: string;
-  /** Short model id for display (e.g. `glm-4.6`). */
+  /** Friendly product label. */
   name: string;
-  provider: string;
+  /** Account display name used to group choices. */
+  accountName: string;
+  accountId: string;
+  modelId: string;
+  billingMode: 'api' | 'subscription';
+  availability: 'available' | 'expiring';
   reasoning: boolean;
 }
 
-interface PiAgentModelSummary {
-  provider?: string;
-  id?: string;
-  name?: string;
-  reasoning?: boolean;
+function isRuntimeStatus(value: unknown): value is AiRuntimeStatus {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<AiRuntimeStatus>;
+  return (
+    Array.isArray(candidate.accounts) &&
+    Array.isArray(candidate.models) &&
+    typeof candidate.checkedAt === 'string'
+  );
 }
 
-function modelValue(model: PiAgentModelSummary): string {
-  const id = model.id ?? model.name ?? 'model';
-  return model.provider ? `${model.provider}/${id}` : id;
-}
+async function loadModels(): Promise<AgentRuntimeModelOption[]> {
+  const rawStatus: unknown = await invokeCommand('agent_runtime_status');
+  if (!isRuntimeStatus(rawStatus)) {
+    throw new Error('The desktop runtime returned an invalid model catalog.');
+  }
 
-async function loadModels(): Promise<PiAgentModelOption[]> {
-  const status = await invokeCommand('pi_agent_status');
-  const models = status.availableModels ?? [];
-  const options = models.map((model) => ({
-    value: modelValue(model),
-    name: model.id ?? model.name ?? 'model',
-    provider: model.provider ?? 'pi',
-    reasoning: model.reasoning === true,
-  }));
-  // Pi's list is the only truth for what can run. Persisted picks (the global
-  // Settings override and per-thread selections) that no longer exist there
-  // are cleared, never displayed or sent — no phantom defaults.
-  const valid = options.map((option) => option.value);
-  const override = readPiModelOverride();
-  if (override && !valid.includes(override)) writePiModelOverride('');
-  usePiThreadModelStore.getState().pruneInvalidModels(valid);
+  const accountNames = new Map(
+    rawStatus.accounts.map((account) => [account.accountId, account.displayName] as const),
+  );
+  const options = rawStatus.models
+    .filter(
+      (model): model is AiModelCatalogEntry & { readonly availability: 'available' | 'expiring' } =>
+        model.availability === 'available' || model.availability === 'expiring',
+    )
+    .map((model) => {
+      const accountName = accountNames.get(model.accountId) ?? 'AI account';
+      return {
+        value: model.runtimeModelRef,
+        name: model.displayName,
+        accountName,
+        accountId: model.accountId,
+        modelId: model.modelId,
+        billingMode: model.billingMode,
+        availability: model.availability,
+        reasoning: model.capabilities.reasoning,
+      };
+    });
+
+  // The runtime catalog is the only source of runnable models. Stale
+  // per-conversation picks are removed; no hidden global model override is
+  // allowed to compete with the conversation selection.
+  usePiThreadModelStore.getState().pruneInvalidModels(options.map((option) => option.value));
   return options;
 }
 
-/**
- * The models Pi has valid auth for, grouped-friendly for the composer picker.
- * Only meaningful in the desktop runtime; the browser preview returns an empty
- * list (the picker then just shows the Pi default). Cached for the session.
- */
-export function usePiAgentModels() {
+/** Runnable models from the engine-neutral runtime, cached for the desktop session. */
+export function useAgentRuntimeModels() {
   return useQuery({
-    queryKey: ['pi-agent', 'models'],
+    queryKey: ['agent-runtime', 'models'],
     queryFn: loadModels,
     enabled: isTauriRuntime(),
     staleTime: 5 * 60_000,

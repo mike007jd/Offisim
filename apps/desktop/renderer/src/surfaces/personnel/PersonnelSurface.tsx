@@ -1,7 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import {
-  type PiAgentModelOption,
-  usePiAgentModels,
+  type AgentRuntimeModelOption,
+  useAgentRuntimeModels,
 } from '@/assistant/composer/usePiAgentModels.js';
 import { displayRole, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
@@ -365,7 +365,7 @@ function EmployeeDetail({
 }: {
   employee: Employee;
   companyName: string;
-  models: PiAgentModelOption[] | undefined;
+  models: AgentRuntimeModelOption[] | undefined;
   modelsLoading: boolean;
   tab: InspectorTab;
   onTabChange: (tab: InspectorTab) => void;
@@ -640,7 +640,7 @@ function HireEmployeeDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const models = usePiAgentModels();
+  const models = useAgentRuntimeModels();
   const nameInputId = useId();
   const roleInputId = useId();
   const [name, setName] = useState('');
@@ -738,11 +738,11 @@ function HireEmployeeDialog({
               options={[
                 {
                   value: '',
-                  label: models.isLoading ? 'Loading Pi models…' : 'Inherit conversation model',
+                  label: models.isLoading ? 'Loading models…' : 'Inherit conversation model',
                 },
                 ...(models.data ?? []).map((option) => ({
                   value: option.value,
-                  label: `${option.provider} · ${option.name}`,
+                  label: `${option.accountName} · ${option.name}`,
                 })),
               ]}
             />
@@ -798,7 +798,7 @@ function HireEmployeeDialog({
 
 export function PersonnelSurface() {
   const employees = useEmployees();
-  const models = usePiAgentModels();
+  const models = useAgentRuntimeModels();
   const companies = useCompanies();
   const companyId = useUiState((s) => s.companyId);
   const selectedEmployeeId = useUiState((s) => s.selectedEmployeeId);

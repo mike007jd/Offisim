@@ -32,19 +32,31 @@ function changed(
 console.log('execution-provenance gate');
 
 const subscriptionTurn: TurnExecutionProvenance = {
-  engineId: 'pi-agent',
-  accountId: 'pi-agent:anthropic:0123456789abcdef',
+  engineId: 'codex',
+  accountId: 'subscription:openai:0123456789abcdef',
   billingMode: 'subscription',
-  modelId: 'anthropic/claude-sonnet-4-20250514',
+  modelId: 'gpt-5.2-codex',
+  modelSource: {
+    kind: 'native',
+    sourceUrl: 'https://developers.openai.com/codex/models',
+    checkedAt: '2026-07-14T00:00:00Z',
+  },
   runId: 'turn-1',
+  adapter: { id: 'codex-app-server', version: '2026-07-14' },
 };
 
 const apiTurn: TurnExecutionProvenance = {
-  engineId: 'pi-agent',
-  accountId: 'pi-agent:openai:fedcba9876543210',
+  engineId: 'api',
+  accountId: 'api:openrouter:fedcba9876543210',
   billingMode: 'api',
-  modelId: 'openai/gpt-5.2',
+  modelId: 'openai/gpt-oss-20b:free',
+  modelSource: {
+    kind: 'official-api',
+    sourceUrl: 'https://openrouter.ai/api/v1/models/openai/gpt-oss-20b:free/endpoints',
+    checkedAt: '2026-07-14T00:00:00Z',
+  },
   runId: 'turn-2',
+  adapter: { id: 'pi-agent', version: '0.79.8' },
 };
 
 check('subscription provenance validates with its exact Turn id', () => {
@@ -68,7 +80,7 @@ check('incomplete provenance is rejected', () => {
 check('unknown billing modes are rejected', () => {
   assert.throws(
     () => validateTurnExecutionProvenance({ ...subscriptionTurn, billingMode: 'credits' }),
-    /unsupported billing mode/u,
+    /incomplete execution provenance/u,
   );
 });
 check('a host result cannot be attributed to another Turn', () => {
@@ -84,9 +96,9 @@ check('an isolated text job may have its own run id', () => {
 });
 for (const [key, value] of [
   ['engineId', 'other-engine'],
-  ['accountId', 'pi-agent:openai:fedcba9876543210'],
+  ['accountId', 'subscription:openai:fedcba9876543210'],
   ['billingMode', 'api'],
-  ['modelId', 'anthropic/claude-opus-4-20250514'],
+  ['modelId', 'gpt-5.2-codex-max'],
 ] as const) {
   check(`isolated text job rejects ${key} drift`, () => {
     assert.throws(
@@ -95,6 +107,16 @@ for (const [key, value] of [
     );
   });
 }
+check('a prepared adapter cannot change before the result', () => {
+  assert.throws(
+    () =>
+      assertSameExecutionAccount(subscriptionTurn, {
+        ...isolatedJob,
+        adapter: { id: 'other-adapter', version: '9.9.9' },
+      }),
+    /provenance mismatch for adapter/u,
+  );
+});
 
 const nodeHostSource = readFileSync(
   fileURLToPath(new URL('./tauri-pi-agent-host.entry.mjs', import.meta.url)),
@@ -135,10 +157,19 @@ check('host delegates OAuth billing truth to Pi without exposing the credential'
   assert.match(hostProvenanceSource, /accountFingerprint/u);
   assert.doesNotMatch(hostProvenanceSource, /accountId:.*credential\.(key|access|refresh)/u);
 });
-check('isolated host jobs pin the source model and refuse fallback', () => {
-  assert.match(nodeHostSource, /requestedModel = sourceProvenance\?\.modelId \?\? payload\.model/u);
-  assert.match(nodeHostSource, /Isolated text job refused model fallback/u);
-  assert.match(nodeHostSource, /assertSameExecutionAccount\(sourceProvenance, actualProvenance\)/u);
+check('isolated host jobs require an exact target and refuse provenance drift', () => {
+  assert.match(
+    nodeHostSource,
+    /const \{ model, runtimeModelRef \} = requireRuntimeModel\(payload, modelRegistry\)/u,
+  );
+  assert.match(nodeHostSource, /sourceProvenance\.modelId !== payload\.expectedTarget\?\.modelId/u);
+  assert.match(nodeHostSource, /Isolated text job model does not match source provenance/u);
+  assert.match(
+    nodeHostSource,
+    /assertSameExecutionAccount\(sourceProvenance, preparedExecution\.identity\)/u,
+  );
+  assert.match(nodeHostSource, /expectedTarget: payload\.expectedTarget/u);
+  assert.match(nodeHostSource, /runtimeModelRef,/u);
 });
 check('isolated host jobs load no workspace resources and persist no native session', () => {
   assert.match(nodeHostSource, /SessionManager\.inMemory\(cwd\)/u);
@@ -178,22 +209,39 @@ check('desktop isolated jobs send and verify the source execution identity', () 
     /assertSameExecutionAccount\(input\.sourceProvenance, provenance\)/u,
   );
 });
-check('root runs persist host-selected provenance instead of requested settings', () => {
+check('root runs persist their exact target before execution and retain host provenance', () => {
   assert.match(desktopRuntimeSource, /requireTurnExecutionProvenance/u);
+  assert.match(desktopRuntimeSource, /runtimeContext\.executionTarget = executionTarget/u);
+  assert.match(desktopRuntimeSource, /runtimeContext\.model = resolvedModel/u);
+  assert.match(
+    desktopRuntimeSource,
+    /assertDurableExecutionTarget\(runScope\.runId, executionTarget, requestId\)/u,
+  );
   assert.match(desktopRuntimeSource, /runtimeContext\.provenance = provenance/u);
-  assert.match(desktopRuntimeSource, /runtimeContext\.model = provenance\.modelId/u);
+  assert.match(desktopRuntimeSource, /requirePreparedExecutionIdentity/u);
 });
 check('direct delegated roots report the child session actual model', () => {
   assert.match(childSupervisorSource, /binding\.actualModel = session\.model \?\? model/u);
   assert.match(childSupervisorSource, /runSingleWithMetadata/u);
   assert.match(
     nodeHostSource,
-    /await executionProvenance\([\s\S]*?authStorage,[\s\S]*?modelRegistry,[\s\S]*?directResult\.model,[\s\S]*?rootRunId/u,
+    /if \(!directResult\.model \|\| !directResult\.provenance\)[\s\S]*?Direct delegation completed without a prepared child execution identity/u,
   );
+  assert.match(nodeHostSource, /provenance: directResult\.provenance/u);
 });
 
 const oauthRegistry = { isUsingOAuth: () => true };
 const apiRegistry = { isUsingOAuth: () => false };
+const nativeModelSource = {
+  kind: 'native',
+  sourceUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview',
+  checkedAt: '2026-07-14T00:00:00Z',
+} as const;
+const apiModelSource = {
+  kind: 'official-api',
+  sourceUrl: 'https://platform.openai.com/docs/models',
+  checkedAt: '2026-07-14T00:00:00Z',
+} as const;
 const oauthA = await hostExecutionProvenance(
   {
     get: () => ({ type: 'oauth', accountId: 'native-account-a', refresh: 'refresh-v1' }),
@@ -201,6 +249,7 @@ const oauthA = await hostExecutionProvenance(
   oauthRegistry,
   { provider: 'anthropic', id: 'claude-fixture' },
   'oauth-run-a',
+  nativeModelSource,
 );
 const oauthARepeat = await hostExecutionProvenance(
   {
@@ -209,6 +258,7 @@ const oauthARepeat = await hostExecutionProvenance(
   oauthRegistry,
   { provider: 'anthropic', id: 'claude-fixture' },
   'oauth-run-b',
+  nativeModelSource,
 );
 const oauthB = await hostExecutionProvenance(
   {
@@ -217,6 +267,7 @@ const oauthB = await hostExecutionProvenance(
   oauthRegistry,
   { provider: 'anthropic', id: 'claude-fixture' },
   'oauth-run-c',
+  nativeModelSource,
 );
 check(
   'provider-native account identity survives OAuth refresh and changes with the account',
@@ -236,6 +287,7 @@ const opaqueOauthA = await hostExecutionProvenance(
   oauthRegistry,
   { provider: 'anthropic', id: 'claude-fixture' },
   'opaque-oauth-a',
+  nativeModelSource,
 );
 const opaqueOauthB = await hostExecutionProvenance(
   {
@@ -245,6 +297,7 @@ const opaqueOauthB = await hostExecutionProvenance(
   oauthRegistry,
   { provider: 'anthropic', id: 'claude-fixture' },
   'opaque-oauth-b',
+  nativeModelSource,
 );
 check('opaque OAuth account replacement cannot merge credential generations', () => {
   assert.notEqual(opaqueOauthA.accountId, opaqueOauthB.accountId);
@@ -259,6 +312,7 @@ const apiA = await hostExecutionProvenance(
   apiRegistry,
   { provider: 'openai', id: 'gpt-fixture' },
   'api-run-a',
+  apiModelSource,
 );
 const apiB = await hostExecutionProvenance(
   {
@@ -268,6 +322,7 @@ const apiB = await hostExecutionProvenance(
   apiRegistry,
   { provider: 'openai', id: 'gpt-fixture' },
   'api-run-b',
+  apiModelSource,
 );
 check('one API-key reference cannot merge different resolved paid accounts', () => {
   assert.equal(apiA.billingMode, 'api');

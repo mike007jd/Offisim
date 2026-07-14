@@ -47,6 +47,12 @@ impl NativeSessionMode {
 pub struct PiAgentExecuteRequest {
     pub(super) request_id: String,
     pub(super) text: String,
+    /// Product-authoritative target frozen before the request can cross the API
+    /// side-effect boundary. The Node host must prove the created session matches.
+    pub(super) expected_target: PiExecutionTarget,
+    /// Adapter-private model selector (for example `openrouter-free/openai/...`).
+    /// Never presented as product model identity.
+    pub(super) runtime_model_ref: String,
     pub(super) company_id: String,
     pub(super) thread_id: String,
     /// Whether a turn may continue from Conversation/native session context when
@@ -138,6 +144,8 @@ pub struct PiAgentExecuteRequest {
 pub struct PiAgentEnhanceRequest {
     pub(super) request_id: String,
     pub(super) text: String,
+    pub(super) expected_target: PiExecutionTarget,
+    pub(super) runtime_model_ref: String,
     /// The selected enhance profile's versioned system instruction. Built
     /// renderer-side from the frozen profile constants; opaque to Rust.
     pub(super) system_prompt: String,
@@ -168,6 +176,8 @@ pub struct PiAgentEnhanceRequest {
 pub struct PiAgentCollaborateRequest {
     pub(super) request_id: String,
     pub(super) text: String,
+    pub(super) expected_target: PiExecutionTarget,
+    pub(super) runtime_model_ref: String,
     /// Frozen capability enum. The renderer always sends `'collaboration'` here;
     /// shaped so future profiles only ADD a branch. Opaque to Rust beyond routing.
     #[serde(default)]
@@ -244,14 +254,41 @@ pub struct PiAgentHostResponse {
     pub(super) budget_usage: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PiExecutionProvenance {
     pub(super) engine_id: String,
     pub(super) account_id: String,
     pub(super) billing_mode: String,
     pub(super) model_id: String,
+    pub(super) model_source: PiModelSource,
     pub(super) run_id: String,
+    pub(super) adapter: PiAdapterIdentity,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PiExecutionTarget {
+    pub(super) engine_id: String,
+    pub(super) account_id: String,
+    pub(super) billing_mode: String,
+    pub(super) model_id: String,
+    pub(super) model_source: PiModelSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PiModelSource {
+    pub(super) kind: String,
+    pub(super) source_url: String,
+    pub(super) checked_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAdapterIdentity {
+    pub(super) id: String,
+    pub(super) version: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -294,6 +331,13 @@ pub enum PiAgentHostEvent {
         model: Option<PiModelSummary>,
         #[serde(default)]
         model_fallback_message: Option<String>,
+    },
+    ExecutionPrepared {
+        prepare_id: String,
+        run_id: String,
+        identity: PiExecutionProvenance,
+        target_digest: String,
+        adapter: PiAdapterIdentity,
     },
     MessageDelta {
         delta: String,
@@ -376,50 +420,12 @@ pub struct PiAgentProviderStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PiAgentProviderModelConfig {
-    pub(super) id: String,
+pub struct AiRuntimeStatusResponse {
     #[serde(default)]
-    pub(super) name: Option<String>,
+    pub(super) accounts: Vec<serde_json::Value>,
     #[serde(default)]
-    pub(super) api: Option<String>,
-    #[serde(default)]
-    pub(super) context_window: Option<u64>,
-    #[serde(default)]
-    pub(super) max_tokens: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PiAgentProviderConfigStatus {
-    pub(super) provider: String,
-    pub(super) display_name: String,
-    #[serde(default)]
-    pub(super) name: Option<String>,
-    #[serde(default)]
-    pub(super) base_url: Option<String>,
-    #[serde(default)]
-    pub(super) api: Option<String>,
-    #[serde(default)]
-    pub(super) has_api_key: bool,
-    #[serde(default)]
-    pub(super) auth_source: Option<String>,
-    #[serde(default)]
-    pub(super) models: Vec<PiAgentProviderModelConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PiAgentProviderTemplate {
-    pub(super) provider: String,
-    pub(super) display_name: String,
-    #[serde(default)]
-    pub(super) base_url: Option<String>,
-    #[serde(default)]
-    pub(super) api: Option<String>,
-    #[serde(default)]
-    pub(super) configured: bool,
-    #[serde(default)]
-    pub(super) models: Vec<PiAgentProviderModelConfig>,
+    pub(super) models: Vec<serde_json::Value>,
+    pub(super) checked_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -427,15 +433,13 @@ pub struct PiAgentProviderTemplate {
 pub struct PiAgentStatusResponse {
     pub(super) ok: bool,
     #[serde(default)]
+    pub(super) runtime_status: Option<AiRuntimeStatusResponse>,
+    #[serde(default)]
     pub(super) auth_providers: Vec<String>,
     #[serde(default)]
     pub(super) provider_status: Vec<PiAgentProviderStatus>,
     #[serde(default)]
     pub(super) configured_provider_status: Vec<PiAgentProviderStatus>,
-    #[serde(default)]
-    pub(super) provider_configs: Vec<PiAgentProviderConfigStatus>,
-    #[serde(default)]
-    pub(super) provider_templates: Vec<PiAgentProviderTemplate>,
     #[serde(default)]
     pub(super) available_models: Vec<PiModelSummary>,
     #[serde(default)]
@@ -475,20 +479,4 @@ pub struct PiAgentModelsConfig {
     pub(super) providers: Vec<String>,
     #[serde(default)]
     pub(super) parse_error: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PiAgentProviderConfigInput {
-    pub(super) provider_id: String,
-    #[serde(default)]
-    pub(super) display_name: Option<String>,
-    pub(super) base_url: String,
-    pub(super) api: String,
-    #[serde(default)]
-    pub(super) api_key: Option<String>,
-    #[serde(default)]
-    pub(super) keep_existing_api_key: bool,
-    #[serde(default)]
-    pub(super) models: Vec<PiAgentProviderModelConfig>,
 }

@@ -18,9 +18,7 @@ async function exists(path) {
 }
 
 function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
+  if (!condition) throw new Error(message);
 }
 
 function assertIncludesAll(text, fragments, message) {
@@ -34,263 +32,165 @@ function assertNoMatch(text, pattern, message) {
 }
 
 const rootPackage = JSON.parse(await source('package.json'));
-assert(rootPackage.scripts['build:pi-agent-host'], 'root scripts must build the Pi Agent host.');
 assert(
-  !rootPackage.scripts['provider:check'],
-  'provider:check must not exist after Pi-only cutover.',
+  rootPackage.scripts['build:pi-agent-host'],
+  'The current API adapter host must be buildable.',
 );
 assert(
-  rootPackage.scripts.validate.includes('harness:pi-agent-host'),
-  'validate must include the Pi Agent host harness.',
+  rootPackage.scripts['harness:review-fixes'].includes('check:model-catalog-freshness'),
+  'The architecture guard must verify the exact model catalog.',
 );
 assert(
-  !rootPackage.scripts.validate.includes('provider:check'),
-  'validate must not include the old provider catalog freshness gate.',
+  rootPackage.scripts.validate.includes('harness:pi-agent-host') &&
+    rootPackage.scripts.validate.includes('harness:runtime-conformance'),
+  'Validate must cover the production API adapter and neutral runtime conformance.',
 );
 
 const desktopPackage = JSON.parse(await source('apps/desktop/package.json'));
 assert(
   desktopPackage.scripts['build:frontend'].includes('build:pi-agent-host'),
-  'desktop build must bundle the Pi Agent host.',
-);
-assertNoMatch(
-  desktopPackage.scripts['build:frontend'],
-  /claude|codex|provider:check/u,
-  'desktop build must not invoke old Claude/Codex/provider lanes.',
+  'Desktop release builds must bundle the current API adapter host.',
 );
 
 const tauriConfig = await source('apps/desktop/src-tauri/tauri.conf.json');
 assertIncludesAll(
   tauriConfig,
   ['resources/pi-agent-host.mjs', 'resources/node/bin/node'],
-  'release bundle must include the Pi Agent host and bundled Node runtime.',
-);
-assertNoMatch(
-  tauriConfig,
-  /claude-agent-host|codex-agent-host|provider-source-registry/u,
-  'release bundle must not include old sidecar or catalog resources.',
+  'The release bundle must include the current API adapter host and its runtime.',
 );
 
+const neutralCommands = [
+  'agent_runtime_execute',
+  'agent_runtime_enhance',
+  'agent_runtime_collaborate',
+  'agent_runtime_resume',
+  'agent_runtime_abort',
+  'agent_runtime_control',
+  'agent_runtime_confirm_execution',
+  'agent_runtime_answer',
+  'agent_runtime_stream_snapshot',
+  'agent_runtime_release_stream',
+  'agent_runtime_reattach',
+  'agent_runtime_status',
+];
 const agentBridgePermission = await source('apps/desktop/src-tauri/permissions/agent-bridges.toml');
 assertIncludesAll(
   agentBridgePermission,
-  ['"agent_runtime_execute"', '"agent_runtime_abort"', '"pi_agent_status"'],
-  'Tauri permissions must expose the Pi Agent host commands.',
+  neutralCommands.map((command) => `"${command}"`),
+  'Tauri permissions must expose the complete neutral production gateway.',
+);
+assert(
+  agentBridgePermission.includes('"pi_agent_status"'),
+  'The implementation diagnostic status command must remain explicitly scoped.',
 );
 assertNoMatch(
   agentBridgePermission,
-  /runtime_secret_|runtime_provider_|claude_agent_|codex_agent_|llm_fetch/u,
-  'Tauri permissions must not expose old provider, sidecar, or raw LLM transport commands.',
+  /pi_agent_(save_provider|open_config_folder)|runtime_provider_|llm_fetch/u,
+  'Tauri permissions must not expose a second provider configuration or raw transport path.',
 );
 
 const rustLib = await source('apps/desktop/src-tauri/src/lib.rs');
 assertIncludesAll(
   rustLib,
-  ['mod pi_agent_host;', 'agent_runtime_execute', 'agent_runtime_abort', 'pi_agent_status'],
-  'Rust command registry must mount only the Pi Agent host for AI execution.',
+  neutralCommands.map((command) => `pi_agent_host::${command}`),
+  'The Rust command registry must mount the complete neutral production gateway.',
 );
 assertNoMatch(
   rustLib,
-  /mod (claude_agent_host|codex_agent_host|llm_transport|runtime_secrets)|claude_agent_|codex_agent_|llm_fetch|runtime_provider_/u,
-  'Rust command registry must not retain old AI lane modules or commands.',
+  /pi_agent_(save_provider|open_config_folder)|runtime_provider_|llm_fetch/u,
+  'The Rust registry must not retain a writable implementation-config lane.',
+);
+
+const workspaceBindingHost = await source('apps/desktop/src-tauri/src/task_workspace_binding.rs');
+assertIncludesAll(
+  workspaceBindingHost,
+  [
+    'const AGENT_RUNTIME_CONTEXT_ID: &str = "agent-runtime";',
+    'context_string_matches(context_object, "runtime", AGENT_RUNTIME_CONTEXT_ID)',
+  ],
+  'Native Conversation continuation and interrupted-run resume must accept the neutral durable runtime identity.',
+);
+assert(
+  workspaceBindingHost.match(
+    /context_string_matches\(context_object, "runtime", AGENT_RUNTIME_CONTEXT_ID\)/gu,
+  )?.length === 2,
+  'Both native Conversation prestart paths must share the neutral runtime identity guard.',
 );
 
 const desktopRuntime = await source('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 assertIncludesAll(
   desktopRuntime,
   [
-    "return this.runPiTurn(input, 'agent_runtime_execute', undefined, signal)",
-    "'agent_runtime_execute' | 'agent_runtime_resume'",
-    'await invokeCommand(commandName',
-    "invokeCommand('agent_runtime_abort'",
-    "nodeName: 'pi_agent'",
+    'class DesktopAgentRuntimeGateway',
+    'interface RuntimeEngineAdapter',
+    'new DesktopAgentRuntimeGateway',
+    "invokeCommand('agent_runtime_status'",
+    'assertDurableExecutionTarget',
+    'assertTaskExecutionAccount',
+    'runtimeModelRef: resolvedModel',
+    'expectedTarget: executionTarget',
   ],
-  'DesktopAgentRuntime must be a thin runtime-gateway host client (generic agent_runtime_* commands, RD-002/003/004).',
+  'Live chat must route through one account-scoped engine gateway with exact target evidence.',
 );
 assertNoMatch(
   desktopRuntime,
-  /PiOrchestrationService|createGateway|ModelResolver|provider-bridge|tauri-llm-fetch|llm_fetch|claude_agent_|codex_agent_/u,
-  'DesktopAgentRuntime must not rebuild the old provider/model/sidecar path.',
-);
-assertIncludesAll(
-  desktopRuntime,
-  [
-    'answerUiRequest(answer: AgentUiAnswer): Promise<void>',
-    "await invokeCommand('agent_runtime_answer'",
-  ],
-  'Agent UI answers must be awaited and failures surfaced to the approval bar.',
-);
-const answerUiRequestStart = desktopRuntime.indexOf('async answerUiRequest');
-const answerUiRequestEnd = desktopRuntime.indexOf('\n  async dispose', answerUiRequestStart);
-assert(
-  answerUiRequestStart >= 0 && answerUiRequestEnd > answerUiRequestStart,
-  'DesktopAgentRuntime must expose a class-level async answerUiRequest method.',
-);
-const answerUiRequestMethod = desktopRuntime.slice(answerUiRequestStart, answerUiRequestEnd);
-assertNoMatch(
-  answerUiRequestMethod,
-  /void invoke\('agent_runtime_answer'/u,
-  'answerUiRequest must not fire-and-forget Pi UI responses.',
-);
-assertNoMatch(
-  answerUiRequestMethod,
-  /\.catch\(/u,
-  'answerUiRequest must not swallow Pi UI response failures.',
+  /readPiModelOverride|offisim:pi-agent:model-override|runtime_provider_|llm_fetch/u,
+  'Live chat must not have an adapter-global model override or legacy provider fallback.',
 );
 
-const permissionBar = await source(
-  'apps/desktop/renderer/src/assistant/parts/PermissionApprovalBar.tsx',
-);
+const employeePersona = await source('apps/desktop/renderer/src/data/employee-persona.ts');
 assertIncludesAll(
-  permissionBar,
-  [
-    'conversationRunController.answerApproval',
-    'conversationRunController.dismissApproval',
-    'setDecisionError',
-    'Could not deliver approval. Retry or stop the run.',
-  ],
-  'Approval bar must route decisions through the ConversationRunController and keep failed responses visible.',
+  employeePersona,
+  ["invokeCommand('agent_runtime_status'", 'availableModel.runtimeModelRef?.trim()'],
+  'Employee model bindings must resolve against the safe account catalog exact reference.',
 );
 assertNoMatch(
-  permissionBar,
-  /getDesktopAgentRuntime|runtime\.answerUiRequest|clearPendingUiRequest/u,
-  'Approval bar must not bypass the ConversationRunController.',
+  employeePersona,
+  /pi_agent_status|piModelValue/u,
+  'Production delegation must not consume implementation diagnostics or rebuild old provider/model ids.',
 );
-
-const chatRuntime = await source(
-  'apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts',
-);
-assertIncludesAll(
-  chatRuntime,
-  ['Agent runtime run failed.', 'materializeChatTurn', 'displayAttachmentsFromStaged'],
-  'desktop chat helper must keep only shared message/attachment helpers.',
-);
-assertNoMatch(
-  chatRuntime,
-  /subscribeReplyStream|subscribeRunActivity|subscribeToolCalls|subscribeAgentUiRequests|runtimeEventBus|getDesktopAgentRuntime/u,
-  'stream/tool/UI subscriptions must live in ConversationRunController, not shared chat helpers.',
-);
-
-const conversationController = await source(
-  'apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.ts',
-);
-assertIncludesAll(
-  conversationController,
-  [
-    'runId: run.attemptId',
-    "eventBus.on('llm.stream.chunk'",
-    "eventBus.on('tool.execution.telemetry'",
-    'AGENT_UI_REQUEST_EVENT',
-  ],
-  'ConversationRunController must own runId-scoped stream, tool, and UI request projection.',
-);
-
-// The old Connect chat (WorkspaceAssistantThread) was removed in the Connect/
-// Loops refactor — company-channel chat is now ConnectRail over the collaboration
-// aggregate and deliberately does NOT use ConversationRunController (it runs the
-// isolated PR-03 collaboration turn controller; guarded by harness-connect-chat-
-// flow + harness-pi-collaboration-runtime). Office's runtime is the lone owner.
-for (const uiOwner of ['apps/desktop/renderer/src/assistant/runtime/useOfficeRuntime.ts']) {
-  const text = await source(uiOwner);
-  assertIncludesAll(
-    text,
-    ['conversationRunController.submit', 'useConversationRun'],
-    `${uiOwner} must submit through and read from ConversationRunController.`,
-  );
-  assertNoMatch(
-    text,
-    /getDesktopAgentRuntime|runtimeEventBus|subscribeReplyStream|subscribeRunActivity|subscribeToolCalls|subscribeAgentUiRequests|persistChatMessage/u,
-    `${uiOwner} must not own Pi runtime, runtime bus subscriptions, or direct chat persistence.`,
-  );
-}
 
 const settingsSurface = await source(
   'apps/desktop/renderer/src/surfaces/settings/SettingsSurface.tsx',
 );
-const settingsData = await source('apps/desktop/renderer/src/surfaces/settings/settings-data.ts');
-const runtimePane = await source('apps/desktop/renderer/src/surfaces/settings/RuntimePane.tsx');
-const piAgentPane = await source('apps/desktop/renderer/src/surfaces/settings/PiAgentPane.tsx');
-const computerSetupPanel = await source(
-  'apps/desktop/renderer/src/surfaces/office/computer/ComputerSetupPanel.tsx',
-);
+const accountsPane = await source('apps/desktop/renderer/src/surfaces/settings/AiAccountsPane.tsx');
 assertIncludesAll(
   settingsSurface,
-  ['PiAgentPane', 'RuntimePane', 'ComputerSetupPanel', 'Agent runtime'],
-  'Settings must present provider, runtime, and Computer Use panes with neutral runtime copy.',
-);
-assertNoMatch(
-  settingsSurface,
-  /disposeDesktopAgentRuntime/u,
-  'Saving Settings must not dispose the Pi runtime: runtime settings no longer feed Pi, so a save has nothing to reload.',
-);
-assertNoMatch(
-  settingsData,
-  /runtimeFormSchema|executionMode|summarizationTrigger|memoryMaxFacts|runtimeBinding/u,
-  'Settings must not keep a runtime form of fake controls that never reach the Pi request.',
+  ['AiAccountsPane', "label: 'AI Accounts'", 'RuntimePane', 'ComputerSetupPanel'],
+  'Settings must lead with the neutral account information architecture.',
 );
 assertIncludesAll(
-  runtimePane,
-  ['per conversation', 'Cost alerts', 'Local vault', '2D scene diagnostics'],
-  'Runtime pane must keep per-conversation guidance, cost alerts, vault, and diagnostics.',
+  accountsPane,
+  ["invokeCommand('agent_runtime_status'", 'Models', 'Usage', 'Cost'],
+  'AI Accounts must use the safe status projection and truthful Usage/Cost sections.',
 );
 assertNoMatch(
-  runtimePane,
-  /Resolved:|Pi Agent session runtime|All employees route through/u,
-  'Runtime pane must not restore the removed runtime promotion card.',
+  settingsSurface + accountsPane,
+  /PiAgentPane|pi_agent_status|pi_agent_open_config_folder|pi_agent_save_provider|auth\.json|models\.json|Provider profile/u,
+  'Ordinary Settings must not expose implementation identity, auth files, or provider-profile editing.',
 );
+
+const hostSource = await source('scripts/tauri-pi-agent-host.entry.mjs');
 assertIncludesAll(
-  piAgentPane,
-  [
-    'pi_agent_status',
-    'pi_agent_open_config_folder',
-    'Agent runtime',
-    'Runtime configuration files',
-    'Model configuration',
-    'models.json',
-    'Advanced model override',
-  ],
-  'Pi Agent settings page must read Pi SDK-owned auth/model status.',
-);
-assertIncludesAll(
-  computerSetupPanel,
-  [
-    'useMcpToolGrants',
-    'grantMcpTool',
-    'revokeMcpTool',
-    'Employee access',
-    'Enforced by the runtime MCP tool-grant gate.',
-  ],
-  'Computer Use settings must enforce per-employee access through the MCP grant repository.',
-);
-const piAgentConfig = await source('apps/desktop/renderer/src/runtime/pi-agent-config.ts');
-assertIncludesAll(
-  desktopRuntime + piAgentConfig,
-  ['offisim:pi-agent:model-override', 'input.model?.trim() || readPiModelOverride() || undefined'],
-  'Desktop runtime must pass the Pi-owned advanced model override to the Pi host.',
+  hostSource,
+  ['runtimeStatusProjection', 'createRequestExecutionTargetGate', 'resolveApiRunUsage'],
+  'The current API adapter must project a safe catalog, gate exact targets, and report honest usage.',
 );
 assertNoMatch(
-  settingsSurface + settingsData + piAgentPane,
-  /ProviderPane|runtime_provider_|provider:check|model suggestions|Type any model id|claude-agent-sdk|codex-agent-sdk|openai-agents-sdk/u,
-  'Settings must not expose the old provider catalog or SDK lane mental model.',
+  hostSource,
+  /saveProvider|piSaveProvider|writeModelsJsonProvider|providerTemplates:/u,
+  'The host must not retain the old writable provider-profile mode.',
 );
 
 for (const removedPath of [
+  'apps/desktop/renderer/src/surfaces/settings/PiAgentPane.tsx',
   'apps/desktop/renderer/src/surfaces/settings/ProviderPane.tsx',
+  'apps/desktop/renderer/src/runtime/pi-agent-config.ts',
   'apps/desktop/renderer/src/lib/provider-bridge.ts',
   'apps/desktop/renderer/src/lib/tauri-llm-fetch.ts',
   'apps/desktop/renderer/src/lib/llm-transport-protocol.ts',
-  'apps/desktop/src-tauri/src/claude_agent_host.rs',
-  'apps/desktop/src-tauri/src/codex_agent_host.rs',
-  'apps/desktop/src-tauri/src/llm_transport.rs',
-  'apps/desktop/src-tauri/src/runtime_secrets.rs',
-  'scripts/tauri-claude-agent-host.mjs',
-  'scripts/tauri-claude-agent-host.entry.mjs',
-  'scripts/tauri-codex-agent-host.entry.mjs',
-  'scripts/tauri-codex-agent-host.mjs',
-  'catalog/provider-source-registry/official-fixtures.json',
-  'scripts/provider-source-registry/check-freshness.mjs',
 ]) {
-  assert(!(await exists(removedPath)), `${removedPath} must stay removed in Pi-only runtime.`);
+  assert(!(await exists(removedPath)), `${removedPath} must stay removed from the product path.`);
 }
 
-console.log('harness-review-fixes: Pi-only runtime guards passed');
+console.log('harness-review-fixes: engine gateway and API account guards passed');

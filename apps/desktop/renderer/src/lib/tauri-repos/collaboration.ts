@@ -1,4 +1,6 @@
 import type {
+  CollaborationExecutionLane,
+  CollaborationExecutionLaneRow,
   CollaborationMemberRepository,
   CollaborationMessagePatch,
   CollaborationMessageRepository,
@@ -273,6 +275,29 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
   };
 
   const collaborationTurns: CollaborationTurnRepository = {
+    async bindThreadExecutionLane(threadId: string, lane: CollaborationExecutionLane) {
+      await db
+        .insert(schema.collaborationExecutionLanes)
+        .values({
+          thread_id: threadId,
+          engine_id: lane.engineId,
+          account_id: lane.accountId,
+          billing_mode: lane.billingMode,
+        })
+        .onConflictDoNothing({ target: schema.collaborationExecutionLanes.thread_id });
+      const rows = (await db
+        .select()
+        .from(schema.collaborationExecutionLanes)
+        .where(
+          eq(schema.collaborationExecutionLanes.thread_id, threadId),
+        )) as CollaborationExecutionLaneRow[];
+      const bound = rows[0];
+      return (
+        bound?.engine_id === lane.engineId &&
+        bound.account_id === lane.accountId &&
+        bound.billing_mode === lane.billingMode
+      );
+    },
     async insert(row: NewCollaborationTurn) {
       await db
         .insert(schema.collaborationTurns)
@@ -297,6 +322,9 @@ export function createCollaborationTauriRepos(db: TauriDrizzleDb): Collaboration
       const set: Partial<CollaborationTurnRow> = {};
       if (patch.status !== undefined) set.status = patch.status;
       if (patch.runtime_request_id !== undefined) set.runtime_request_id = patch.runtime_request_id;
+      if (patch.result_provenance_json !== undefined) {
+        set.result_provenance_json = patch.result_provenance_json;
+      }
       if (patch.usage_json !== undefined) set.usage_json = patch.usage_json;
       if (patch.error_summary !== undefined) set.error_summary = patch.error_summary;
       if (patch.started_at !== undefined) set.started_at = patch.started_at;

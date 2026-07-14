@@ -4,18 +4,22 @@ use tauri::ipc::Channel;
 use crate::agent_host_runtime::HostError;
 
 use super::stream::publish_host_event;
-use super::types::{PiAgentHostEvent, PiAgentHostResponse, PiAgentStatusResponse, PiModelSummary};
+use super::types::{
+    PiAdapterIdentity, PiAgentHostEvent, PiAgentHostResponse, PiAgentStatusResponse,
+    PiExecutionProvenance, PiModelSummary,
+};
 
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
 /// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
 /// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
-pub(crate) const PI_HOST_PROTOCOL_VERSION: u32 = 9;
+pub(crate) const PI_HOST_PROTOCOL_VERSION: u32 = 10;
 
 /// Wire kinds the Rust bridge knows how to decode. A line with an unknown kind is
 /// skipped (forward-compatible with newer hosts); a malformed line on a KNOWN kind
 /// is surfaced as a protocol error rather than silently dropped.
 pub(super) const PI_KNOWN_WIRE_KINDS: &[&str] = &[
     "ready",
+    "executionPrepared",
     "started",
     "messageDelta",
     "messageEnd",
@@ -38,6 +42,13 @@ pub(super) const PI_KNOWN_WIRE_KINDS: &[&str] = &[
 pub(super) enum PiSidecarLine {
     Ready {
         protocol_version: u32,
+    },
+    ExecutionPrepared {
+        prepare_id: String,
+        run_id: String,
+        identity: PiExecutionProvenance,
+        target_digest: String,
+        adapter: PiAdapterIdentity,
     },
     Started {
         #[serde(default)]
@@ -133,6 +144,7 @@ impl PiSidecarLine {
     pub(super) fn kind_name(&self) -> &'static str {
         match self {
             Self::Ready { .. } => "ready",
+            Self::ExecutionPrepared { .. } => "executionPrepared",
             Self::Started { .. } => "started",
             Self::MessageDelta { .. } => "messageDelta",
             Self::MessageEnd { .. } => "messageEnd",
@@ -166,6 +178,27 @@ pub(super) fn send_sidecar_event(
     match line {
         // The handshake is consumed by the stream loop before this point; never forwarded.
         PiSidecarLine::Ready { .. } => Ok(None),
+        PiSidecarLine::ExecutionPrepared {
+            prepare_id,
+            run_id,
+            identity,
+            target_digest,
+            adapter,
+        } => {
+            publish_host_event(
+                request_id,
+                on_event,
+                PiAgentHostEvent::ExecutionPrepared {
+                    prepare_id,
+                    run_id,
+                    identity,
+                    target_digest,
+                    adapter,
+                },
+                "Send execution prepared event",
+            )?;
+            Ok(None)
+        }
         PiSidecarLine::Started {
             session_id,
             session_file,
