@@ -59,6 +59,29 @@ export class AgentRunPersistenceQueue {
     this.tail = this.tail.then(run, run);
   }
 
+  /**
+   * Ordered semantic checkpoint whose failure must remain observable to its
+   * caller. The internal tail still absorbs the rejection so later persistence
+   * work is not poisoned.
+   */
+  enqueueRequired(label: string, work: PersistenceWork): Promise<void> {
+    if (this.disposed) {
+      return Promise.reject(new Error(`Cannot enqueue ${label}: persistence queue is disposed.`));
+    }
+    const result = this.tail.then(work, work);
+    this.tail = result.catch((error) => {
+      try {
+        this.onError(label, error);
+      } catch (observerError) {
+        console.warn('[desktop-agent-runtime] persistence error observer failed', {
+          label,
+          error: observerError,
+        });
+      }
+    });
+    return result;
+  }
+
   queueCursor(runId: string, cursor: number, persist: CursorPersist): void {
     if (this.disposed || !Number.isSafeInteger(cursor) || cursor <= 0) return;
     const existing = this.cursors.get(runId);

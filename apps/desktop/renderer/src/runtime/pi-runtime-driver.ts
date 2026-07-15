@@ -65,6 +65,7 @@ export type PiAgentHostEvent =
       placeholder?: string;
       prefill?: string;
     }
+  | { kind: 'lifecycle'; event: string; payload: unknown }
   | {
       kind: 'agentRun';
       threadId: string;
@@ -106,6 +107,7 @@ void ([
     title: 'Approve command?',
     message: 'force-push\n\ngit push --force',
   },
+  { kind: 'lifecycle', event: 'context', payload: { percent: 42 } },
   {
     kind: 'agentRun',
     threadId: 'th',

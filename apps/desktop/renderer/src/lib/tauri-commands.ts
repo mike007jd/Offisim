@@ -114,6 +114,7 @@ export interface BrowserSessionSnapshot {
 interface PiAgentExecuteRequest {
   requestId: string;
   text: string;
+  images?: Array<{ data: string; mimeType: string }> | null;
   companyId: string;
   threadId: string;
   cwd?: string | null;
@@ -125,6 +126,9 @@ interface PiAgentExecuteRequest {
   model?: string | null;
   permissionMode?: string | null;
   thinkingLevel?: string | null;
+  /** Internal durable-recovery selector; ordinary turns omit both fields. */
+  resumeMode?: 'open' | 'fresh' | null;
+  resumeSessionFile?: string | null;
   systemPromptAppend?: string | null;
   skillPaths?: string[] | null;
   rootRunId?: string | null;
@@ -205,6 +209,7 @@ type PiAgentHostEvent =
       placeholder?: string;
       prefill?: string;
     }
+  | { kind: 'lifecycle'; event: string; payload: unknown }
   | {
       kind: 'agentRun';
       threadId: string;
@@ -221,7 +226,7 @@ type PiAgentHostEvent =
   | { kind: 'error'; code: string; message: string }
   | { kind: 'streamCursor'; cursor: number };
 
-interface PiRunStreamSnapshot {
+export interface PiRunStreamSnapshot {
   requestId: string;
   running: boolean;
   cursor: number;
@@ -593,7 +598,14 @@ export interface CommandMap {
   agent_runtime_resume: CommandSpec<AgentRuntimeArgs<PiAgentExecuteRequest>, PiAgentHostResponse>;
   agent_runtime_abort: CommandSpec<{ requestId: string }, void>;
   agent_runtime_control: CommandSpec<
-    { requestId: string; action: 'stopChild'; runId: string },
+    {
+      requestId: string;
+      action: 'stopChild' | 'steer' | 'followUp' | 'reattach';
+      controlId?: string | null;
+      runId?: string | null;
+      text?: string | null;
+      images?: Array<{ data: string; mimeType: string }> | null;
+    },
     void
   >;
   agent_runtime_answer: CommandSpec<AgentUiResponseArgs, void>;

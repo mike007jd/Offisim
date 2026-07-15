@@ -33,11 +33,13 @@ export function OfficeEnhanceButton({
   projectName,
   scopeEmployeeId,
   employees,
+  onComposerTextMutation,
 }: {
   threadId: string;
   projectName: string;
   scopeEmployeeId: string | null;
   employees: readonly Employee[];
+  onComposerTextMutation: () => void;
 }) {
   const composer = useComposerRuntime();
   // Subscribe to the composer text so the button's disabled state tracks typing.
@@ -79,6 +81,7 @@ export function OfficeEnhanceButton({
     const result = enhance.state.result;
     if (!result) return;
     const original = composer.getState().text;
+    onComposerTextMutation();
     composer.setText(result.enhanced);
     setOpen(false);
     enhance.reset();
@@ -86,7 +89,10 @@ export function OfficeEnhanceButton({
       description: 'Applied the enhanced version.',
       action: {
         label: 'Undo',
-        onClick: () => composer.setText(original),
+        onClick: () => {
+          onComposerTextMutation();
+          composer.setText(original);
+        },
       },
     });
   }

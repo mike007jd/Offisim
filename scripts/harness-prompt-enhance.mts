@@ -382,7 +382,7 @@ const ROSTER = [
   );
   check(
     'host enhance creates an ephemeral session (no session dir persistence)',
-    /SessionManager\.create\(cwd\)/.test(enhanceCode) && !/sessionDir/.test(enhanceCode),
+    /SessionManager\.inMemory\(cwd\)/.test(enhanceCode) && !/sessionDir/.test(enhanceCode),
   );
   check(
     'host enhance never writes agent_runs / chat_threads / mission tables',

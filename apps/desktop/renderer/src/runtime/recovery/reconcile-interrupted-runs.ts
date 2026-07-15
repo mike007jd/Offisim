@@ -17,8 +17,9 @@
  * {@link RecoveryClassification} taxonomy + the never-auto-resume invariant.
  *
  * CONTRACT (mirrors M4 §22.3.6): it NEVER auto-resumes. The result is presented;
- * nothing is re-run here. POST-INVARIANT: after a pass, no agent_run for the
- * company is left `running` — roots become `interrupted`, children `cancelled`.
+ * nothing is re-run here. POST-INVARIANT: after a pass, no unclaimed agent_run
+ * for the company is left `running`; roots still backed by a live Rust stream are
+ * owned by the conversation controller and deliberately excluded.
  *
  * Determinism: `now` is injected (no `Date.now()`).
  */
@@ -74,7 +75,7 @@ interface InterruptedRunCardOptions {
   currentWireProtocolVersion?: number;
 }
 
-export const PI_HOST_PROTOCOL_VERSION = 7;
+export const PI_HOST_PROTOCOL_VERSION = 8;
 
 function parseRuntimeContext(raw: string | null): RunContextSnapshot | null {
   if (!raw) return null;
@@ -118,6 +119,8 @@ export interface ReconcileInterruptedRunsInput {
   companyId: string;
   /** Injected clock for the `finished_at` stamp on cancelled children (determinism). */
   now: () => string;
+  /** Root ids already adopted from a still-running Rust Pi host stream. */
+  liveRootRunIds?: ReadonlySet<string>;
 }
 
 /**
@@ -128,10 +131,11 @@ export async function reconcileInterruptedRuns(
   input: ReconcileInterruptedRunsInput,
 ): Promise<RunReconciliationResult> {
   const { repo, companyId, now } = input;
+  const liveRootRunIds = input.liveRootRunIds ?? new Set<string>();
   const running = await repo.findByStatus(companyId, ['running']);
 
   // Roots reconcile to `interrupted` (resumable); their running children cancel.
-  const roots = running.filter((r) => r.run_id === r.root_run_id);
+  const roots = running.filter((r) => r.run_id === r.root_run_id && !liveRootRunIds.has(r.run_id));
   const processedRootIds = new Set<string>();
   const cancelledChildIds = new Set<string>();
   const failedRootRunIds: string[] = [];
@@ -178,6 +182,7 @@ export async function reconcileInterruptedRuns(
   const orphans = running.filter(
     (r) =>
       r.run_id !== r.root_run_id &&
+      !liveRootRunIds.has(r.root_run_id) &&
       !processedRootIds.has(r.root_run_id) &&
       !cancelledChildIds.has(r.run_id),
   );

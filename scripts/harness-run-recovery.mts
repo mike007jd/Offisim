@@ -31,6 +31,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { persistRunStartIfAbsent } from '../apps/desktop/renderer/src/runtime/recovery/persist-run-idempotency.js';
 import {
   PI_HOST_PROTOCOL_VERSION,
@@ -47,7 +48,26 @@ import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 23;
+const TOTAL = 28;
+
+const recoveryHookSource = readFileSync(
+  new URL(
+    '../apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
+const desktopRuntimeSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts', import.meta.url),
+  'utf8',
+);
+const conversationControllerSource = readFileSync(
+  new URL(
+    '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -233,14 +253,14 @@ async function main(): Promise<void> {
     // guard would yield 20 (root counted twice) and fail these assertions.
     const root1 = await repo.findById('root1');
     assert.ok(root1?.usage_json, 'root carries aggregated partial usage');
-    const usage = JSON.parse(root1!.usage_json!);
+    const usage = JSON.parse(root1.usage_json);
     assert.equal(usage.input, 15, '10 (child2) + 5 (root own), counted once');
     assert.equal(usage.output, 25);
     assert.equal(usage.cost, 0.55);
     assert.equal(usage.turns, 3);
     const card = result.cards.find((c) => c.runId === 'root1');
     assert.ok(card?.partialUsageJson, 'card surfaces the partial usage');
-    assert.equal(JSON.parse(card!.partialUsageJson!).output, 25);
+    assert.equal(JSON.parse(card.partialUsageJson).output, 25);
   });
 
   await check('(e) company scoping: other company root untouched', async () => {
@@ -410,7 +430,8 @@ async function main(): Promise<void> {
       }),
     });
     const row = await repo2.findById('r-missing-workspace');
-    const card = buildInterruptedRunCard(row!, [], null, { workspaceExists: false });
+    assert.ok(row);
+    const card = buildInterruptedRunCard(row, [], null, { workspaceExists: false });
     assert.equal(card.classification, 'incompatible');
     assert.match(card.classificationReasons.join(' '), /workspace folder is no longer accessible/);
     assert.equal(card.projectId, 'proj-missing');
@@ -446,7 +467,8 @@ async function main(): Promise<void> {
       }),
     });
     const row = await repo2.findById('r-protocol');
-    const card = buildInterruptedRunCard(row!, [], null, {
+    assert.ok(row);
+    const card = buildInterruptedRunCard(row, [], null, {
       workspaceExists: true,
       currentWireProtocolVersion: 4,
     });
@@ -506,7 +528,7 @@ async function main(): Promise<void> {
     assert.equal(created, false, 'replay does not create a second row');
     const row = await repo2.findById('r1');
     assert.ok(row?.usage_json, 'replay must NOT clobber the resumed row (usage preserved)');
-    assert.equal(JSON.parse(row!.usage_json!).input, 7);
+    assert.equal(JSON.parse(row.usage_json).input, 7);
   });
 
   await check('(n) updateStatus can persist the Pi session_file without finishing', async () => {
@@ -553,7 +575,8 @@ async function main(): Promise<void> {
       );
       const row = await repo2.findById('r-cursor');
       assert.equal(row?.status, 'completed', 'cursor persistence must not reopen a terminal run');
-      assert.equal(JSON.parse(row!.runtime_context_json!).streamCursor, 7);
+      assert.ok(row?.runtime_context_json);
+      assert.equal(JSON.parse(row.runtime_context_json).streamCursor, 7);
     },
   );
 
@@ -617,6 +640,85 @@ async function main(): Promise<void> {
     const row = await repo2.findById('r-live');
     assert.equal(row?.status, 'running', 'skipReconcile must not park a live run');
     assert.equal(row?.finished_at, null);
+  });
+
+  await check('(q) adopted live roots are excluded while dead roots still reconcile', async () => {
+    const repo2 = await seedRepo();
+    const liveRootRunIds = new Set(['root1']);
+    const reconciled = await reconcileInterruptedRuns({
+      repo: repo2,
+      companyId: CO_A,
+      now,
+      liveRootRunIds,
+    });
+    assert.equal((await repo2.findById('root1'))?.status, 'running');
+    assert.equal((await repo2.findById('child1'))?.status, 'running');
+    assert.equal((await repo2.findById('root2'))?.status, 'interrupted');
+    assert.deepEqual(
+      reconciled.cards.map((card) => card.runId),
+      ['root2'],
+      'only the unclaimed crashed root becomes a recovery card',
+    );
+  });
+
+  await check('(r) Resume enters through conversation-controller ownership', () => {
+    assert.match(
+      recoveryHookSource,
+      /conversationRunController\.resumeInterrupted\(scopeCompanyId, runId\)/,
+      'the recovery card must claim the thread through ConversationRunController',
+    );
+    assert.doesNotMatch(
+      recoveryHookSource,
+      /getDesktopAgentRuntime|\.resume\(runId\)/,
+      'the hook must not bypass controller ownership by invoking the runtime directly',
+    );
+  });
+
+  await check('(s) runtime chooses exact-open or fresh-replay recovery', () => {
+    assert.match(desktopRuntimeSource, /mode: resumeSessionFile \? 'open' : 'fresh'/);
+    assert.match(desktopRuntimeSource, /sessionFile: resumeSessionFile/);
+    assert.match(
+      desktopRuntimeSource,
+      /images: resumeSessionFile \? \[\] : restart\.images/,
+      'a missing Pi session must replay the durable objective and native attachments',
+    );
+    const admission = desktopRuntimeSource.indexOf(
+      'this.acceptingControlThreads.add(admissionThreadId)',
+    );
+    const durableLookup = desktopRuntimeSource.indexOf('await repo.findById(runId)', admission);
+    assert.ok(admission >= 0 && durableLookup > admission, 'Resume admission must precede awaits');
+    assert.match(conversationControllerSource, /threadId: run\.threadId/);
+  });
+
+  await check('(t) terminal stream release waits for durable observer settlement', () => {
+    assert.match(
+      desktopRuntimeSource,
+      /Promise\.resolve\(completion\)[\s\S]*\.then\(\(\) => this\.settleRun\(row\.thread_id, terminalStatus\)\)/,
+      'reattach must wait for the observer transcript/interaction commit before root settlement',
+    );
+    const settleStart = desktopRuntimeSource.indexOf('async settleRun(');
+    const rootCommit = desktopRuntimeSource.indexOf('this.reconcileRoot(', settleStart);
+    const streamRelease = desktopRuntimeSource.indexOf(
+      "invokeCommand('agent_runtime_release_stream'",
+      rootCommit,
+    );
+    assert.ok(
+      settleStart >= 0 && rootCommit > settleStart && streamRelease > rootCommit,
+      'root terminal commit must precede retained stream release',
+    );
+  });
+
+  await check('(u) failed observer settlement retains the terminal stream for retry', () => {
+    assert.match(
+      desktopRuntimeSource,
+      /\.then\(\(\) => this\.settleRun\(row\.thread_id, terminalStatus\)\)[\s\S]*reattached run settlement retained stream/,
+      'observer rejection must skip root settlement/release and retain the replay source',
+    );
+    assert.doesNotMatch(
+      desktopRuntimeSource,
+      /if \(snapshot\.terminal\?\.status === 'aborted'\)[\s\S]{0,300}agent_runtime_release_stream/,
+      'initial aborted snapshots must hydrate controller ownership and use the shared settlement path',
+    );
   });
 
   console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);

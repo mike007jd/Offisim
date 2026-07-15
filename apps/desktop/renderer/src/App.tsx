@@ -7,7 +7,6 @@ import { SurfaceRouter } from '@/surfaces/SurfaceRouter.js';
 import { LifecycleSurface } from '@/surfaces/lifecycle/LifecycleSurface.js';
 import { CodexPetProvider } from '@/surfaces/office/scene/office-companion/CodexPetProvider.js';
 import { useLoadPersistedAppearance } from '@/surfaces/settings/appearance.js';
-import { useEffect } from 'react';
 
 export function App() {
   useRealDataBootstrap();
@@ -18,18 +17,6 @@ export function App() {
   // rendering inside the app shell, so the topbar/nav chrome is hidden.
   const isLifecycle = useUiState((s) => s.surface === 'lifecycle');
 
-  // Detach the previous company's renderer-side runtime when the active company
-  // changes (or the app unmounts). Detach must not abort a live Pi host: renderer
-  // reload reconnect relies on the Rust host continuing until explicit Stop.
-  const companyId = useUiState((s) => s.companyId);
-  useEffect(() => {
-    if (!companyId) return;
-    return () => {
-      void import('@/runtime/desktop-agent-runtime.js')
-        .then(({ disposeDesktopAgentRuntime }) => disposeDesktopAgentRuntime(companyId))
-        .catch(() => undefined);
-    };
-  }, [companyId]);
   return (
     <CodexPetProvider>
       {isLifecycle ? (

@@ -1,8 +1,8 @@
+import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { AgentRunRepository } from '@offisim/core/browser';
 import type { ProjectRepository } from '@offisim/core/browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDesktopAgentRuntime } from '../desktop-agent-runtime.js';
 import { getRepos } from '../repos.js';
 import {
   type InterruptedRunCard,
@@ -54,6 +54,7 @@ export async function loadInterruptedRunRecoveryCards(input: {
   companyId: string;
   now: () => string;
   skipReconcile?: boolean;
+  liveRootRunIds?: ReadonlySet<string>;
 }): Promise<InterruptedRunCard[]> {
   return (await loadInterruptedRunRecovery(input)).cards;
 }
@@ -70,6 +71,7 @@ export async function loadInterruptedRunRecovery(input: {
   companyId: string;
   now: () => string;
   skipReconcile?: boolean;
+  liveRootRunIds?: ReadonlySet<string>;
 }): Promise<InterruptedRunRecoveryLoad> {
   const result = input.skipReconcile
     ? { cards: [], failedRootRunIds: [] }
@@ -175,12 +177,16 @@ export function useInterruptedRunRecovery(
       }
       try {
         const repos = await getRepos();
+        const liveRootRunIds = skipReconcile
+          ? new Set<string>()
+          : await conversationRunController.hydrateRuntimeState(scopeCompanyId);
         const recovery = await loadInterruptedRunRecovery({
           repo: repos.agentRuns,
           projects: repos.projects,
           companyId: scopeCompanyId,
           now: () => new Date().toISOString(),
           skipReconcile,
+          liveRootRunIds,
         });
         loadGeneration.commit(generation, () => {
           if (!skipReconcile && recovery.complete) hydratedByCompany.add(scopeCompanyId);
@@ -241,8 +247,7 @@ export function useInterruptedRunRecovery(
         throw new Error('Interrupted run no longer belongs to the active company.');
       }
       loadGeneration.invalidate();
-      const runtime = await getDesktopAgentRuntime(scopeCompanyId);
-      await runtime.resume(runId);
+      await conversationRunController.resumeInterrupted(scopeCompanyId, runId);
       const nextCards = removeCard(scopeCompanyId, runId);
       if (currentCompanyIdRef.current === scopeCompanyId) setCards(nextCards);
     },

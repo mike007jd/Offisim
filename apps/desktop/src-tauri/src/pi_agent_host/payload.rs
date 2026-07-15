@@ -55,6 +55,7 @@ pub(super) fn sidecar_payload(
         // permission mode rides under a distinct key so it cannot collide.
         "mode": "execute",
         "text": req.text,
+        "images": req.images,
         "cwd": cwd.to_string_lossy().to_string(),
         "sessionDir": session_dir.to_string_lossy().to_string(),
         "agentDir": agent_dir.map(|path| path.to_string_lossy().to_string()),
@@ -98,6 +99,16 @@ pub(super) fn sidecar_payload(
             .as_object_mut()
             .expect("execute payload is an object")
             .insert("delegationLimits".into(), delegation_limits.clone());
+    }
+    if let Some(resume_mode) = &req.resume_mode {
+        let object = payload
+            .as_object_mut()
+            .expect("execute payload is an object");
+        object.insert("resumeMode".into(), resume_mode.clone().into());
+        object.insert(
+            "resumeSessionFile".into(),
+            req.resume_session_file.clone().into(),
+        );
     }
     payload
 }

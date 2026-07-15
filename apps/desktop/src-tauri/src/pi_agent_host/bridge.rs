@@ -582,8 +582,8 @@ pub(super) struct PiUiResponse {
 /// Shared interaction-answer impl. Ask mode: deliver the user's answer to a
 /// paused Pi extension-UI prompt back to the running host by writing a one-line
 /// response to its stdin. `request_id` locates the run; `id` matches the host's
-/// `uiRequest`. A missing request id means the run already ended (the answer is
-/// moot) — not an error. `agent_runtime_answer` calls this verbatim.
+/// `uiRequest`. A missing request id means the run no longer has a writable host
+/// stdin, so delivery failed. `agent_runtime_answer` calls this verbatim.
 pub(super) async fn ui_response_impl(
     request_id: String,
     id: String,
@@ -593,7 +593,9 @@ pub(super) async fn ui_response_impl(
 ) -> Result<(), String> {
     let writer = pi_stdin_guard().get(&request_id).cloned();
     let Some(writer) = writer else {
-        return Ok(());
+        return Err(format!(
+            "Agent runtime request {request_id} is no longer accepting UI answers"
+        ));
     };
     let response = PiUiResponse {
         id,
@@ -619,17 +621,43 @@ pub(super) async fn ui_response_impl(
 pub(super) async fn control_impl(
     request_id: String,
     action: String,
-    run_id: String,
+    control_id: Option<String>,
+    run_id: Option<String>,
+    text: Option<String>,
+    images: Option<serde_json::Value>,
 ) -> Result<(), String> {
     let writer = pi_stdin_guard().get(&request_id).cloned();
     let Some(writer) = writer else {
-        return Ok(());
+        return Err("Agent runtime is not accepting control input yet".into());
     };
-    if action != "stopChild" || run_id.trim().is_empty() {
-        return Err("Unsupported agent runtime control request".into());
-    }
-    let mut line =
-        serde_json::json!({ "type": "control", "action": action, "runId": run_id }).to_string();
+    let payload = match action.as_str() {
+        "reattach" => serde_json::json!({ "type": "control", "action": action }),
+        "stopChild"
+            if run_id
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty()) =>
+        {
+            serde_json::json!({ "type": "control", "action": action, "runId": run_id })
+        }
+        "steer" | "followUp"
+            if control_id
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty())
+                && text
+                    .as_deref()
+                    .is_some_and(|value| !value.trim().is_empty()) =>
+        {
+            serde_json::json!({
+                "type": "control",
+                "action": action,
+                "controlId": control_id,
+                "text": text,
+                "images": images
+            })
+        }
+        _ => return Err("Unsupported agent runtime control request".into()),
+    };
+    let mut line = payload.to_string();
     line.push('\n');
     let mut stdin = writer.lock().await;
     stdin

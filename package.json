@@ -1,7 +1,7 @@
 {
   "name": "offisim",
   "private": true,
-  "packageManager": "pnpm@10.15.1",
+  "packageManager": "pnpm@11.13.0",
   "engines": {
     "node": ">=22.19.0"
   },
@@ -25,7 +25,7 @@
     "harness:conversation-deletion": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-conversation-deletion.mts",
     "harness:thread-lifecycle-guard": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-thread-lifecycle-guard.mts",
     "harness:workspace-chat-presentation": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-workspace-chat-presentation.mts",
-    "harness:chat-persistence": "NODE_OPTIONS=\"--import $PWD/scripts/harness-chat-persistence.loader-register.mjs\" pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-chat-persistence.mts",
+    "harness:chat-persistence": "pnpm --filter @offisim/platform exec env NODE_OPTIONS=\"--import $PWD/scripts/harness-chat-persistence.loader-register.mjs\" tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-chat-persistence.mts",
     "harness:activity-data": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-activity-data.mts",
     "harness:pi-permission": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-pi-permission-modes.mts",
     "harness:install-core-integrity": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-install-core-integrity.mts",
@@ -50,6 +50,7 @@
     "harness:workload-chips": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-workload-chips.mts",
     "harness:scene-staging": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-scene-staging.mts",
     "harness:office-projection": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-projection.mts",
+    "harness:ui-run-scope": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-ui-run-scope.mts",
     "harness:mission-office-projection": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-mission-office-projection.mts",
     "harness:dramaturgy-modes": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-dramaturgy-modes.mts",
     "harness:dramaturgy-stress": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-dramaturgy-stress.mts",
@@ -84,7 +85,7 @@
     "harness:pi-collaboration-runtime": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-pi-collaboration-runtime.mts",
     "harness:connect-chat-flow": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-connect-chat-flow.mts",
     "prevalidate": "pnpm harness:conversation-deletion && pnpm harness:thread-lifecycle-guard",
-    "validate": "pnpm typecheck && pnpm check:local-schema-drift && pnpm check:tauri-command-hygiene && pnpm harness:platform-zod-contract && pnpm harness:review-fixes && pnpm harness:studio-placement && pnpm harness:template-contract && pnpm harness:agent-run-projection && pnpm harness:run-cost-scope && pnpm harness:computer-rich-detail && pnpm harness:runtime-conformance && pnpm harness:beat-composer && pnpm harness:artifact-claim && pnpm harness:stage-preview-targets && pnpm harness:workload-chips && pnpm harness:scene-staging && pnpm harness:office-projection && pnpm harness:mission-office-projection && pnpm harness:dramaturgy-modes && pnpm harness:dramaturgy-stress && pnpm harness:scene-cue && pnpm harness:character-clip-map && pnpm harness:character-actions-p3 && pnpm harness:office-visual-language-p4 && pnpm harness:office-ambient-p5 && pnpm harness:office-companion && pnpm harness:office-seating-p2 && pnpm harness:office-diorama-p6 && pnpm harness:pi-agent-host && pnpm harness:pi-loop-until-green && pnpm harness:conversation-run-controller && pnpm harness:workspace-chat-presentation && pnpm harness:chat-persistence && pnpm harness:activity-data && pnpm harness:workspace-repo-contract && pnpm harness:collaboration-repo-contract && pnpm harness:collaboration-profile && pnpm harness:eval-suite && pnpm harness:employee-version-on-save && pnpm harness:mission-service && pnpm harness:mission-evaluators && pnpm harness:mission-loop-controller && pnpm harness:mission-run-controller && pnpm harness:mission-recovery && pnpm harness:run-recovery && pnpm harness:task-board-child-tree && pnpm harness:workspace-lease && pnpm harness:workspace-lease-decisions && pnpm harness:playbook-validation && pnpm harness:loop-compiler && pnpm harness:loop-repository && pnpm harness:loop-mission-adapter && pnpm harness:loop-graph-projection && pnpm harness:loop-office-invocation && pnpm harness:loop-authoring-flow && pnpm harness:prompt-enhance && pnpm harness:pi-collaboration-runtime && pnpm harness:connect-chat-flow && pnpm check:pi-wire-contract && pnpm harness:mcp-host-channel && pnpm harness:mcp-grant-risk-class && pnpm harness:mcp-bridge-extension && pnpm harness:mcp-bridge-sdk && pnpm harness:pi-permission && pnpm check:src-imports && pnpm check:agent-runtime-capabilities && pnpm check:deadcode",
+    "validate": "pnpm typecheck && pnpm check:local-schema-drift && pnpm check:tauri-command-hygiene && pnpm harness:platform-zod-contract && pnpm harness:review-fixes && pnpm harness:studio-placement && pnpm harness:template-contract && pnpm harness:agent-run-projection && pnpm harness:run-cost-scope && pnpm harness:computer-rich-detail && pnpm harness:runtime-conformance && pnpm harness:beat-composer && pnpm harness:artifact-claim && pnpm harness:stage-preview-targets && pnpm harness:workload-chips && pnpm harness:scene-staging && pnpm harness:office-projection && pnpm harness:ui-run-scope && pnpm harness:mission-office-projection && pnpm harness:dramaturgy-modes && pnpm harness:dramaturgy-stress && pnpm harness:scene-cue && pnpm harness:character-clip-map && pnpm harness:character-actions-p3 && pnpm harness:office-visual-language-p4 && pnpm harness:office-ambient-p5 && pnpm harness:office-companion && pnpm harness:office-seating-p2 && pnpm harness:office-diorama-p6 && pnpm harness:pi-agent-host && pnpm harness:pi-loop-until-green && pnpm harness:conversation-run-controller && pnpm harness:workspace-chat-presentation && pnpm harness:chat-persistence && pnpm harness:activity-data && pnpm harness:workspace-repo-contract && pnpm harness:collaboration-repo-contract && pnpm harness:collaboration-profile && pnpm harness:eval-suite && pnpm harness:employee-version-on-save && pnpm harness:mission-service && pnpm harness:mission-evaluators && pnpm harness:mission-loop-controller && pnpm harness:mission-run-controller && pnpm harness:mission-recovery && pnpm harness:run-recovery && pnpm harness:task-board-child-tree && pnpm harness:workspace-lease && pnpm harness:workspace-lease-decisions && pnpm harness:playbook-validation && pnpm harness:loop-compiler && pnpm harness:loop-repository && pnpm harness:loop-mission-adapter && pnpm harness:loop-graph-projection && pnpm harness:loop-office-invocation && pnpm harness:loop-authoring-flow && pnpm harness:prompt-enhance && pnpm harness:pi-collaboration-runtime && pnpm harness:connect-chat-flow && pnpm check:pi-wire-contract && pnpm harness:mcp-host-channel && pnpm harness:mcp-grant-risk-class && pnpm harness:mcp-bridge-extension && pnpm harness:mcp-bridge-sdk && pnpm harness:pi-permission && pnpm check:src-imports && pnpm check:agent-runtime-capabilities && pnpm check:deadcode",
     "typecheck": "turbo run typecheck",
     "harness:pi-agent-host": "node scripts/harness-pi-agent-host.mjs && pnpm harness:pi-delegation-integration",
     "harness:pi-delegation-integration": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-pi-delegation-integration.mts",
@@ -137,7 +138,7 @@
   },
   "author": "Offisim Contributors",
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "0.79.8",
+    "@earendil-works/pi-coding-agent": "0.80.7",
     "strip-json-comments": "5.0.3",
     "typebox": "1.1.38"
   }

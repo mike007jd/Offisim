@@ -60,7 +60,9 @@ export async function buildAgentHost({ root, entry, outfile }) {
     bundle: true,
     format: 'esm',
     platform: 'node',
-    target: ['node20'],
+    // Pi 0.80.x requires Node >=22.19. The desktop host already bundles and
+    // resolves Node 22.22.3, so compile to the real runtime contract.
+    target: ['node22'],
     sourcemap: false,
     legalComments: 'none',
     banner: {

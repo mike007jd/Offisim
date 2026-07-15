@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{resolved_request_cwd, HostError};
 
-use super::bridge::PiUiResponse;
+use super::bridge::{ui_response_impl, PiUiResponse};
 use super::payload::{collaborate_payload, enhance_payload, pi_session_dir_under, sidecar_payload};
 use super::run::{run_pi_sidecar_jsonl_inner, PiSidecarRun};
 use super::stream::{
@@ -19,6 +19,7 @@ use super::stream::{
 };
 use super::types::{
     PiAgentCollaborateRequest, PiAgentEnhanceRequest, PiAgentExecuteRequest, PiAgentHostEvent,
+    PiAgentHostResponse,
 };
 use super::wire::{
     consume_ready_handshake, decode_sidecar_line, parse_response, PiSidecarLine,
@@ -144,10 +145,14 @@ async fn run_test_sidecar(
 async fn pi_sidecar_success_waits_for_clean_exit() {
     let sidecar = test_sidecar(
         "success-cleanup",
-        r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 7 }));
+        &r#"
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: __PROTOCOL_VERSION__ }));
 console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
-"#,
+"#
+        .replace(
+            "__PROTOCOL_VERSION__",
+            &PI_HOST_PROTOCOL_VERSION.to_string(),
+        ),
     );
 
     let response = run_test_sidecar(&sidecar, CancellationToken::new())
@@ -162,11 +167,15 @@ console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
 async fn pi_sidecar_protocol_failure_kills_and_reaps_hostile_child() {
     let sidecar = test_sidecar(
         "protocol-cleanup",
-        r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 7 }));
+        &r#"
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: __PROTOCOL_VERSION__ }));
 console.log(JSON.stringify({ kind: 'tool', status: 'started', toolCallId: 'call-1' }));
 setInterval(() => {}, 1_000);
-"#,
+"#
+        .replace(
+            "__PROTOCOL_VERSION__",
+            &PI_HOST_PROTOCOL_VERSION.to_string(),
+        ),
     );
 
     let error = run_test_sidecar(&sidecar, CancellationToken::new())
@@ -201,10 +210,14 @@ setInterval(() => {}, 1_000);
 async fn pi_sidecar_abort_kills_and_reaps_hostile_child() {
     let sidecar = test_sidecar(
         "abort-cleanup",
-        r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 7 }));
+        &r#"
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: __PROTOCOL_VERSION__ }));
 setInterval(() => {}, 1_000);
-"#,
+"#
+        .replace(
+            "__PROTOCOL_VERSION__",
+            &PI_HOST_PROTOCOL_VERSION.to_string(),
+        ),
     );
     let token = CancellationToken::new();
     let cancel = token.clone();
@@ -485,7 +498,6 @@ fn pi_run_stream_reattach_replays_after_cursor_and_subscribes() {
         2,
         "reattach should replay the second event and its cursor"
     );
-
     publish_host_event(
         Some(&request_id),
         None,
@@ -536,13 +548,38 @@ fn pi_run_stream_reattach_subscribes_before_replay_without_lock_send() {
     .expect("publish second buffered event");
 
     let delivered = Arc::new(Mutex::new(0usize));
+    let delivery_order = Arc::new(Mutex::new(Vec::<String>::new()));
     let lock_failures = Arc::new(Mutex::new(0usize));
     let published_during_replay = Arc::new(Mutex::new(false));
     let request_id_for_channel = request_id.clone();
     let delivered_for_channel = delivered.clone();
+    let order_for_channel = delivery_order.clone();
     let lock_failures_for_channel = lock_failures.clone();
     let published_for_channel = published_during_replay.clone();
-    let channel: Channel<PiAgentHostEvent> = Channel::new(move |_body| {
+    let channel: Channel<PiAgentHostEvent> = Channel::new(move |body| {
+        let value = body
+            .deserialize::<serde_json::Value>()
+            .expect("deserialize reattached channel event");
+        let marker = match value.get("kind").and_then(serde_json::Value::as_str) {
+            Some("messageDelta") => value
+                .get("delta")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("missing-delta")
+                .to_string(),
+            Some("streamCursor") => format!(
+                "cursor:{}",
+                value
+                    .get("cursor")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0)
+            ),
+            Some(kind) => kind.to_string(),
+            None => "missing-kind".to_string(),
+        };
+        order_for_channel
+            .lock()
+            .expect("delivery order poisoned")
+            .push(marker);
         if PI_RUN_STREAMS.try_lock().is_err() {
             *lock_failures_for_channel
                 .lock()
@@ -586,11 +623,19 @@ fn pi_run_stream_reattach_subscribes_before_replay_without_lock_send() {
         snapshot.running,
         "reattach snapshot should still be running"
     );
-    assert_eq!(snapshot.cursor, 2);
+    assert_eq!(
+        snapshot.cursor, 3,
+        "reattach snapshot must include events published while replay was draining"
+    );
     assert_eq!(
         *delivered.lock().expect("delivered counter poisoned"),
         4,
         "reattach should deliver replay event/cursor plus future event/cursor"
+    );
+    assert_eq!(
+        *delivery_order.lock().expect("delivery order poisoned"),
+        vec!["second", "cursor:2", "third", "cursor:3"],
+        "events published during replay must drain after history in cursor order"
     );
     assert_eq!(
         *lock_failures.lock().expect("lock failure counter poisoned"),
@@ -611,6 +656,331 @@ fn pi_run_stream_reattach_subscribes_before_replay_without_lock_send() {
         .expect("test instant should support subtracting terminal ttl");
     finish_run_stream_at(&request_id, "completed", None, old_finished_at);
     cleanup_terminal_run_streams(Instant::now());
+}
+
+#[test]
+fn pi_run_stream_reattach_returns_terminal_if_abort_wins_during_replay() {
+    let _stream_test_guard = pi_run_stream_test_guard();
+    let request_id = format!("test-stream-reattach-abort-{}", unique_suffix());
+    begin_run_stream(&request_id);
+    publish_host_event(
+        Some(&request_id),
+        None,
+        PiAgentHostEvent::MessageDelta {
+            delta: "before-abort".into(),
+            channel: Some("content".into()),
+        },
+        "test replay before abort",
+    )
+    .expect("publish replay event");
+
+    let finished = Arc::new(Mutex::new(false));
+    let finished_for_channel = finished.clone();
+    let request_id_for_channel = request_id.clone();
+    let channel: Channel<PiAgentHostEvent> = Channel::new(move |_body| {
+        let should_finish = {
+            let mut finished = finished_for_channel.lock().expect("abort flag poisoned");
+            if *finished {
+                false
+            } else {
+                *finished = true;
+                true
+            }
+        };
+        if should_finish {
+            finish_run_stream(&request_id_for_channel, "aborted", None);
+        }
+        Ok(())
+    });
+
+    let snapshot =
+        agent_runtime_reattach(request_id.clone(), Some(0), channel).expect("reattach stream");
+    assert!(
+        !snapshot.running,
+        "abort during replay must win over the initial snapshot"
+    );
+    assert_eq!(
+        snapshot
+            .terminal
+            .as_ref()
+            .map(|terminal| terminal.status.as_str()),
+        Some("aborted")
+    );
+
+    let old_finished_at = Instant::now()
+        .checked_sub(PI_RUN_STREAM_TERMINAL_TTL + Duration::from_secs(1))
+        .expect("test instant should support subtracting terminal ttl");
+    finish_run_stream_at(&request_id, "aborted", None, old_finished_at);
+    cleanup_terminal_run_streams(Instant::now());
+}
+
+#[test]
+fn pi_run_stream_reattach_rejects_gap_after_buffer_truncation() {
+    let _stream_test_guard = pi_run_stream_test_guard();
+    let request_id = format!("test-stream-reattach-gap-{}", unique_suffix());
+    begin_run_stream(&request_id);
+    for cursor in 1..=4097_u64 {
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::MessageDelta {
+                delta: format!("event-{cursor}"),
+                channel: Some("content".into()),
+            },
+            "test truncated replay buffer",
+        )
+        .expect("publish event into bounded replay buffer");
+    }
+
+    let delivered = Arc::new(Mutex::new(0usize));
+    let delivered_for_channel = delivered.clone();
+    let channel: Channel<PiAgentHostEvent> = Channel::new(move |_body| {
+        *delivered_for_channel
+            .lock()
+            .expect("delivered counter poisoned") += 1;
+        Ok(())
+    });
+    let error = agent_runtime_reattach(request_id.clone(), Some(0), channel)
+        .expect_err("reattach must reject a cursor older than retained history");
+
+    assert!(
+        error.contains("replay gap")
+            && error.contains("renderer cursor 0")
+            && error.contains("first retained cursor 2"),
+        "expected an explicit replay-gap error, got: {error}"
+    );
+    assert_eq!(
+        *delivered.lock().expect("delivered counter poisoned"),
+        0,
+        "a gapped replay must fail before delivering partial history"
+    );
+    let snapshot = agent_runtime_stream_snapshot(request_id.clone())
+        .expect("snapshot")
+        .expect("stream exists");
+    assert_eq!(snapshot.cursor, 4097);
+    assert_eq!(snapshot.buffered, 4096);
+
+    let old_finished_at = Instant::now()
+        .checked_sub(PI_RUN_STREAM_TERMINAL_TTL + Duration::from_secs(1))
+        .expect("test instant should support subtracting terminal ttl");
+    finish_run_stream_at(&request_id, "completed", None, old_finished_at);
+    cleanup_terminal_run_streams(Instant::now());
+}
+
+#[test]
+fn pi_run_stream_terminal_reattach_replays_only_authoritative_tail_after_truncation() {
+    let _stream_test_guard = pi_run_stream_test_guard();
+    let request_id = format!("test-stream-terminal-tail-{}", unique_suffix());
+    begin_run_stream(&request_id);
+    for cursor in 1..=4096_u64 {
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::MessageDelta {
+                delta: format!("event-{cursor}"),
+                channel: Some("content".into()),
+            },
+            "test long terminal replay buffer",
+        )
+        .expect("publish event into bounded replay buffer");
+    }
+    publish_host_event(
+        Some(&request_id),
+        None,
+        PiAgentHostEvent::Result {
+            response: PiAgentHostResponse {
+                text: "authoritative terminal result".into(),
+                reasoning: None,
+                session_id: None,
+                session_file: None,
+                model: None,
+                usage: None,
+                budget_usage: None,
+            },
+        },
+        "test terminal result is the final buffered event",
+    )
+    .expect("publish terminal result");
+    finish_run_stream(&request_id, "completed", None);
+
+    let before = agent_runtime_stream_snapshot(request_id.clone())
+        .expect("snapshot")
+        .expect("terminal stream exists");
+    assert_eq!(before.cursor, 4097);
+    assert_eq!(before.buffered, 4096);
+
+    let delivered = Arc::new(Mutex::new(0usize));
+    let delivered_for_channel = delivered.clone();
+    let channel: Channel<PiAgentHostEvent> = Channel::new(move |_body| {
+        *delivered_for_channel
+            .lock()
+            .expect("delivered counter poisoned") += 1;
+        Ok(())
+    });
+    let replayed = agent_runtime_reattach(
+        request_id.clone(),
+        Some(before.cursor.saturating_sub(1)),
+        channel,
+    )
+    .expect("terminal tail reattach must not hit a replay gap");
+
+    assert!(!replayed.running);
+    assert_eq!(replayed.cursor, before.cursor);
+    assert_eq!(
+        *delivered.lock().expect("delivered counter poisoned"),
+        2,
+        "terminal reattach should emit only Result and its stream cursor"
+    );
+
+    agent_runtime_release_stream(request_id).expect("release terminal stream");
+}
+
+#[test]
+fn pi_run_stream_byte_limit_truncates_deltas_and_retains_terminal_tail() {
+    let _stream_test_guard = pi_run_stream_test_guard();
+    let request_id = format!("test-stream-byte-limit-{}", unique_suffix());
+    begin_run_stream(&request_id);
+    let one_mebibyte_delta = "x".repeat(1024 * 1024);
+    for _ in 0..9 {
+        publish_host_event(
+            Some(&request_id),
+            None,
+            PiAgentHostEvent::MessageDelta {
+                delta: one_mebibyte_delta.clone(),
+                channel: Some("content".into()),
+            },
+            "test byte-bounded replay buffer",
+        )
+        .expect("publish large delta into byte-bounded replay buffer");
+    }
+    publish_host_event(
+        Some(&request_id),
+        None,
+        PiAgentHostEvent::Result {
+            response: PiAgentHostResponse {
+                text: "authoritative byte-limited result".into(),
+                reasoning: None,
+                session_id: None,
+                session_file: None,
+                model: None,
+                usage: None,
+                budget_usage: None,
+            },
+        },
+        "test byte-limited terminal result",
+    )
+    .expect("publish terminal result after large deltas");
+    finish_run_stream(&request_id, "completed", None);
+
+    let before = agent_runtime_stream_snapshot(request_id.clone())
+        .expect("snapshot")
+        .expect("terminal stream exists");
+    assert_eq!(before.cursor, 10);
+    assert!(
+        (2..10).contains(&before.buffered),
+        "the byte cap must truncate before 4096 events without collapsing retained history"
+    );
+
+    let delivered = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let delivered_for_channel = delivered.clone();
+    let channel: Channel<PiAgentHostEvent> = Channel::new(move |body| {
+        delivered_for_channel
+            .lock()
+            .expect("delivered events poisoned")
+            .push(
+                body.deserialize::<serde_json::Value>()
+                    .expect("deserialize byte-limited replay event"),
+            );
+        Ok(())
+    });
+    let replayed = agent_runtime_reattach(
+        request_id.clone(),
+        Some(before.cursor.saturating_sub(1)),
+        channel,
+    )
+    .expect("terminal tail reattach must retain the final Result");
+
+    assert!(!replayed.running);
+    assert_eq!(replayed.cursor, before.cursor);
+    let delivered = delivered.lock().expect("delivered events poisoned");
+    assert_eq!(delivered.len(), 2, "reattach should emit Result and cursor");
+    assert_eq!(
+        delivered[0].get("kind").and_then(|value| value.as_str()),
+        Some("result")
+    );
+    assert_eq!(
+        delivered[0]
+            .pointer("/response/text")
+            .and_then(|value| value.as_str()),
+        Some("authoritative byte-limited result")
+    );
+    assert_eq!(
+        delivered[1].get("kind").and_then(|value| value.as_str()),
+        Some("streamCursor")
+    );
+
+    drop(delivered);
+    agent_runtime_release_stream(request_id).expect("release terminal stream");
+}
+
+#[test]
+fn pi_run_stream_terminal_release_during_replay_returns_snapshot_then_removes_state() {
+    let _stream_test_guard = pi_run_stream_test_guard();
+    let request_id = format!("test-stream-reattach-release-{}", unique_suffix());
+    begin_run_stream(&request_id);
+    publish_host_event(
+        Some(&request_id),
+        None,
+        PiAgentHostEvent::MessageDelta {
+            delta: "terminal-history".into(),
+            channel: Some("content".into()),
+        },
+        "test terminal replay before release",
+    )
+    .expect("publish terminal replay event");
+    finish_run_stream(&request_id, "completed", None);
+
+    let released = Arc::new(Mutex::new(false));
+    let released_for_channel = released.clone();
+    let request_id_for_channel = request_id.clone();
+    let channel: Channel<PiAgentHostEvent> = Channel::new(move |_body| {
+        let should_release = {
+            let mut released = released_for_channel.lock().expect("release flag poisoned");
+            if *released {
+                false
+            } else {
+                *released = true;
+                true
+            }
+        };
+        if should_release {
+            agent_runtime_release_stream(request_id_for_channel.clone())
+                .expect("release terminal stream from replay callback");
+        }
+        Ok(())
+    });
+
+    let snapshot = agent_runtime_reattach(request_id.clone(), Some(0), channel)
+        .expect("reattach must retain state through its final snapshot");
+    assert!(!snapshot.running);
+    assert_eq!(snapshot.cursor, 1);
+    assert_eq!(
+        snapshot
+            .terminal
+            .as_ref()
+            .map(|terminal| terminal.status.as_str()),
+        Some("completed")
+    );
+    assert!(
+        *released.lock().expect("release flag poisoned"),
+        "the replay callback must exercise release_stream"
+    );
+    assert!(
+        agent_runtime_stream_snapshot(request_id)
+            .expect("snapshot after deferred release")
+            .is_none(),
+        "deferred release should remove the stream after reattach captures its snapshot"
+    );
 }
 
 #[test]
@@ -699,6 +1069,19 @@ fn pi_ui_response_serializes_camel_case_for_host() {
     assert!(
         !line.contains("value") && !line.contains("cancelled"),
         "unset response fields must be dropped, not serialized as null: {line}"
+    );
+}
+
+#[tokio::test]
+async fn pi_ui_response_rejects_missing_stdin_writer() {
+    let request_id = format!("missing-ui-writer-{}", unique_suffix());
+    let error = ui_response_impl(request_id.clone(), "ui-1".into(), Some(true), None, None)
+        .await
+        .expect_err("a response without a live host stdin writer must not report delivery");
+
+    assert!(
+        error.contains(&request_id) && error.contains("no longer accepting UI answers"),
+        "expected a delivery error tied to the request, got: {error}"
     );
 }
 
@@ -802,6 +1185,39 @@ fn pi_execute_payload_omits_absent_delegation_limits() {
     assert!(
         payload.get("delegationLimits").is_none(),
         "plain-chat payload must not gain a delegationLimits key"
+    );
+    assert!(
+        payload.get("resumeMode").is_none() && payload.get("resumeSessionFile").is_none(),
+        "ordinary execution must not gain recovery session selectors"
+    );
+}
+
+#[test]
+fn pi_resume_payload_forwards_exact_session_selector() {
+    let req: PiAgentExecuteRequest = serde_json::from_value(serde_json::json!({
+        "requestId": "resume-request",
+        "text": "Continue",
+        "companyId": "company-1",
+        "threadId": "thread-1",
+        "resumeMode": "open",
+        "resumeSessionFile": "/fixture/sessions/thread-1/recorded.jsonl"
+    }))
+    .expect("decode resume request");
+    let payload = sidecar_payload(
+        &req,
+        Path::new("/fixture/project"),
+        Path::new("/fixture/sessions/thread-1"),
+        None,
+    );
+    assert_eq!(
+        payload.get("resumeMode").and_then(|value| value.as_str()),
+        Some("open")
+    );
+    assert_eq!(
+        payload
+            .get("resumeSessionFile")
+            .and_then(|value| value.as_str()),
+        Some("/fixture/sessions/thread-1/recorded.jsonl")
     );
 }
 

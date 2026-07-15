@@ -39,9 +39,12 @@ export function usePendingConversationApprovals(
   const snapshot = useActiveConversationRuns();
   useEffect(() => {
     if (!companyId) return;
-    void conversationRunController.hydrateStaleApprovals(companyId).catch((err: unknown) => {
-      console.warn('[conversation-run-react] stale approval hydration failed', { companyId, err });
-    });
+    void conversationRunController
+      .hydrateRuntimeState(companyId)
+      .then(() => conversationRunController.hydrateStaleApprovals(companyId))
+      .catch((err: unknown) => {
+        console.warn('[conversation-run-react] runtime state hydration failed', { companyId, err });
+      });
   }, [companyId]);
 
   return useMemo(() => {

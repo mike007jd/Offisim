@@ -11,7 +11,7 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 7;
+export const PI_HOST_PROTOCOL_VERSION = 8;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',
@@ -20,6 +20,7 @@ export const PI_WIRE_KINDS = Object.freeze([
   'messageEnd',
   'tool',
   'uiRequest',
+  'lifecycle',
   'mcpCall',
   'worktreeCall',
   'verifyCall',
@@ -45,6 +46,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
     [
       'mode',
       'text',
+      'images',
       'cwd',
       'sessionDir',
       'agentDir',
@@ -66,6 +68,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
     ],
     [
       'agentDir',
+      'images',
       'model',
       'permissionMode',
       'thinkingLevel',
@@ -81,7 +84,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'missionContextJson',
       'mcpTools',
     ],
-    ['directDelegation', 'delegationLimits'],
+    ['directDelegation', 'delegationLimits', 'resumeMode', 'resumeSessionFile'],
   ),
   enhance: requestSpec(
     ['mode', 'text', 'systemPrompt', 'cwd', 'agentDir', 'model', 'thinkingLevel'],
@@ -118,6 +121,7 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
   execute: (payload) => ({
     mode: payload.mode,
     text: payload.text,
+    images: payload.images,
     cwd: payload.cwd,
     sessionDir: payload.sessionDir,
     agentDir: payload.agentDir,
@@ -136,6 +140,10 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
     roster: payload.roster,
     missionContextJson: payload.missionContextJson,
     mcpTools: payload.mcpTools,
+    ...(payload.resumeMode !== undefined ? { resumeMode: payload.resumeMode } : {}),
+    ...(payload.resumeSessionFile !== undefined
+      ? { resumeSessionFile: payload.resumeSessionFile }
+      : {}),
     ...(payload.directDelegation !== undefined
       ? { directDelegation: payload.directDelegation }
       : {}),
@@ -327,6 +335,13 @@ export function uiRequestLine({ id, method, title, message, options, placeholder
   });
 }
 
+// Pi owns queueing, compaction, retry, and context accounting. Offisim only
+// projects those native lifecycle facts so users can see what the runtime is
+// doing without recreating any of the underlying policies.
+export function lifecycleLine({ event, payload } = {}) {
+  return withoutUndefined({ kind: 'lifecycle', event, payload });
+}
+
 // The host's MCP bridge extension wants to invoke an MCP tool. Unlike every
 // other line, `mcpCall` is NOT forwarded to the renderer: the Rust host
 // intercepts it in-process, calls mcp_bridge::call_tool against the connected
@@ -411,6 +426,7 @@ export const PI_WIRE_BUILDERS = Object.freeze({
   messageEnd: messageEndLine,
   tool: toolLine,
   uiRequest: uiRequestLine,
+  lifecycle: lifecycleLine,
   mcpCall: mcpCallLine,
   worktreeCall: worktreeCallLine,
   verifyCall: verifyCallLine,

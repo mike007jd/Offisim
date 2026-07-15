@@ -427,6 +427,7 @@ async function mapWithConcurrencyLimit(items, limit, fn) {
  * @param {object} [ctx.rootLease]
  * @param {(plan: object) => Promise<boolean>} [ctx.confirmIntegration]
  * @param {object} ctx.settingsManager
+ * @param {(cwd: string) => object} [ctx.createSettingsManager]
  * @param {string} ctx.threadId
  * @param {string} ctx.rootRunId
  * @param {Array<{employeeId:string,name?:string,roleSlug?:string,persona?:string,model?:string,thinkingLevel?:string}>} ctx.roster
@@ -840,11 +841,14 @@ export function createChildSupervisor(ctx) {
     // aborted by one child losing its siblings' terminals.
     let session;
     try {
+      const childSettingsManager = ctx.createSettingsManager
+        ? ctx.createSettingsManager(childCwd)
+        : ctx.settingsManager;
       const resourceLoader = ctx.createResourceLoader
         ? ctx.createResourceLoader({
             cwd: childCwd,
             agentDir: ctx.agentDir,
-            settingsManager: ctx.settingsManager,
+            settingsManager: childSettingsManager,
             extensionFactories,
             appendSystemPrompt: persona
               ? [persona, CHILD_RESULT_GUIDANCE]
@@ -854,7 +858,7 @@ export function createChildSupervisor(ctx) {
         : new DefaultResourceLoader({
             cwd: childCwd,
             agentDir: ctx.agentDir,
-            settingsManager: ctx.settingsManager,
+            settingsManager: childSettingsManager,
             extensionFactories,
             // Persona (if any) + the structured-result format the child should end on.
             appendSystemPrompt: persona
@@ -877,7 +881,7 @@ export function createChildSupervisor(ctx) {
         ...(tools ? { tools } : {}),
         resourceLoader,
       }));
-      if (permissionMode === 'ask' && ctx.bindChildUi) {
+      if (ctx.bindChildUi) {
         await ctx.bindChildUi(session);
       }
     } catch (error) {

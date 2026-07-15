@@ -22,7 +22,7 @@ docker compose -f docker/docker-compose.yml up --build
 If you are pulling this repo onto a new machine, start here:
 
 1. Install `Node.js >=22.19.0` and enable `corepack`.
-2. Install `pnpm@10.15.1`.
+2. Install `pnpm@11.13.0`.
 3. If you plan to run the desktop app, install Rust/Cargo and the Tauri system prerequisites for your OS.
 4. If you plan to run the platform API, install PostgreSQL and create a local database.
 5. Copy `.env.example` to `.env.local` and fill in the values you need.

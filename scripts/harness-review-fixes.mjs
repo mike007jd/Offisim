@@ -102,7 +102,7 @@ assertIncludesAll(
     "return this.runPiTurn(input, 'agent_runtime_execute')",
     "'agent_runtime_execute' | 'agent_runtime_resume'",
     'await invokeCommand(commandName',
-    "invokeCommand('agent_runtime_abort'",
+    "this.invokeRuntimeCommand('agent_runtime_abort'",
     "nodeName: 'pi_agent'",
   ],
   'DesktopAgentRuntime must be a thin runtime-gateway host client (generic agent_runtime_* commands, RD-002/003/004).',

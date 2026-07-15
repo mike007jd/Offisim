@@ -1,6 +1,6 @@
-FROM node:20-slim AS builder
+FROM node:22.22.3-slim AS builder
 
-RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
+RUN corepack enable && corepack prepare pnpm@11.13.0 --activate
 
 WORKDIR /app
 
@@ -11,9 +11,9 @@ COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @offisim/platform... build
 
-FROM node:20-slim
+FROM node:22.22.3-slim
 
-RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
+RUN corepack enable && corepack prepare pnpm@11.13.0 --activate
 
 WORKDIR /app
 

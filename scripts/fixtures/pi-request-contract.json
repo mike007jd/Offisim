@@ -6,6 +6,7 @@
       "request": {
         "requestId": "request-execute-1",
         "text": "Inspect the workspace",
+        "images": [{ "data": "iVBORw0KGgo=", "mimeType": "image/png" }],
         "companyId": "company-1",
         "threadId": "thread-1",
         "cwd": "/fixture/project/requested-cwd",
@@ -66,6 +67,7 @@
       "payload": {
         "mode": "execute",
         "text": "Inspect the workspace",
+        "images": [{ "data": "iVBORw0KGgo=", "mimeType": "image/png" }],
         "cwd": "/fixture/project/resolved-cwd",
         "sessionDir": "/fixture/sessions/thread-1",
         "agentDir": "/fixture/home/.pi/agent",
@@ -122,6 +124,7 @@
       "normalized": {
         "mode": "execute",
         "text": "Inspect the workspace",
+        "images": [{ "data": "iVBORw0KGgo=", "mimeType": "image/png" }],
         "cwd": "/fixture/project/resolved-cwd",
         "sessionDir": "/fixture/sessions/thread-1",
         "agentDir": "/fixture/home/.pi/agent",

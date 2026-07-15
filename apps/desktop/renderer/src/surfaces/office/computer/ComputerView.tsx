@@ -8,6 +8,7 @@ import {
   isConversationRunActive,
   useActiveConversationRuns,
 } from '@/assistant/runtime/conversation-run-react.js';
+import { scopeConversationRunsToCompany } from '@/assistant/runtime/conversation-run-scope.js';
 import { useDeliverables, useEmployees } from '@/data/queries.js';
 import type { Deliverable } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -100,12 +101,14 @@ function uniqueArtifactPaths(entries: readonly ComputerActivity[]) {
 }
 
 export function ComputerView({ threadId }: { threadId?: string | null }) {
+  const companyId = useUiState((s) => s.companyId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openStageView = useUiState((s) => s.openStageView);
   const setSurface = useUiState((s) => s.setSurface);
   const runsSnapshot = useActiveConversationRuns();
+  const companyRuns = scopeConversationRunsToCompany(runsSnapshot, companyId);
   const requestedThreadId = threadId ?? selectedThreadId;
-  const run = pickRun(runsSnapshot.runs, runsSnapshot.activeRuns, requestedThreadId);
+  const run = pickRun(companyRuns.runs, companyRuns.activeRuns, requestedThreadId);
   const entries = useMemo(() => computerEntries(run), [run]);
   const runId = run?.attemptId ?? run?.threadId ?? null;
   const active = run ? isConversationRunActive(run.phase) : false;

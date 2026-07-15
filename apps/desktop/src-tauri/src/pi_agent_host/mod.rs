@@ -60,6 +60,9 @@ pub async fn agent_runtime_execute(
     req: PiAgentExecuteRequest,
     on_event: Channel<PiAgentHostEvent>,
 ) -> Result<PiAgentHostResponse, String> {
+    if req.resume_mode.is_some() || req.resume_session_file.is_some() {
+        return Err("Ordinary Pi execution cannot select a recovery session.".into());
+    }
     execute_impl(app, req, on_event).await
 }
 
@@ -101,6 +104,19 @@ pub async fn agent_runtime_resume(
     req: PiAgentExecuteRequest,
     on_event: Channel<PiAgentHostEvent>,
 ) -> Result<PiAgentHostResponse, String> {
+    match req.resume_mode.as_deref() {
+        Some("open")
+            if req
+                .resume_session_file
+                .as_deref()
+                .is_some_and(|v| !v.trim().is_empty()) => {}
+        Some("fresh") if req.resume_session_file.is_none() => {}
+        Some("open") => return Err("Pi recovery mode `open` requires a session file.".into()),
+        Some("fresh") => {
+            return Err("Pi recovery mode `fresh` cannot select a session file.".into())
+        }
+        _ => return Err("Pi recovery requires mode `open` or `fresh`.".into()),
+    }
     execute_impl(app, req, on_event).await
 }
 
@@ -114,9 +130,12 @@ pub fn agent_runtime_abort(request_id: String) -> Result<(), String> {
 pub async fn agent_runtime_control(
     request_id: String,
     action: String,
-    run_id: String,
+    control_id: Option<String>,
+    run_id: Option<String>,
+    text: Option<String>,
+    images: Option<serde_json::Value>,
 ) -> Result<(), String> {
-    bridge::control_impl(request_id, action, run_id).await
+    bridge::control_impl(request_id, action, control_id, run_id, text, images).await
 }
 
 /// Agent-agnostic gateway for an interaction answer. Forwards verbatim to

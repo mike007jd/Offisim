@@ -684,7 +684,7 @@ await (async () => {
   const fn = entry.slice(start, end);
   // Sanity-bound the slice: if the end sentinel ever moves, `end` could land far
   // away (or -1) and the isolation assertions below would scan the wrong/whole
-  // file and pass vacuously. The real runCollaboration body is ~6 KB; the whole
+  // file and pass vacuously. The real runCollaboration body is <8 KB; the whole
   // host file is tens of KB, so an 8 KB ceiling catches a runaway slice.
   check(
     '(2) runCollaboration slice is bounded (not the whole file)',
@@ -725,7 +725,7 @@ await (async () => {
   );
   check(
     '(2) host collaborate creates an ephemeral session (no session dir persistence)',
-    /SessionManager\.create\(cwd\)/.test(fn) && !/sessionDir/.test(fnCode),
+    /SessionManager\.inMemory\(cwd\)/.test(fn) && !/sessionDir/.test(fnCode),
   );
   check(
     '(4) host collaborate never writes agent_runs / chat_threads / mission tables',

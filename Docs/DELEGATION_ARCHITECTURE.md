@@ -3,12 +3,13 @@
 > Status: **Phases 1–4 implemented** (delegation, worktree review, and project-gated
 > loop-until-green). This document is the architectural source of truth for the
 > delegation epic. It records the child-execution decision, the neutral wire
-> contract, persistence shape, host-policy limits, and the reason we stay on the
-> pinned Pi version.
+> contract, persistence shape, host-policy limits, and the exact active Pi pin.
 >
 > Plan of record: `~/.claude/plans/gpt-5-5-pro-golden-kite.md`.
-> Verified against the actually-installed `@earendil-works/pi-coding-agent@0.79.8`
-> on 2026-06-21.
+> Original concurrency ruling verified against `0.79.8` on 2026-06-21; active
+> architecture reverified against the actually installed exact
+> `@earendil-works/pi-coding-agent@0.80.7` on 2026-07-15 AEST. The npm registry
+> reported `0.80.7` as `latest` on that recheck.
 
 ---
 
@@ -43,8 +44,9 @@ it every child.
 
 ### Why (live-proven, not assumed)
 
-`scripts/pi-delegation-smoke.mjs` runs against the installed 0.79.8 and passed all
-structural checks **plus the live concurrency check** on 2026-06-21:
+The original `scripts/pi-delegation-smoke.mjs` decision record ran against
+installed `0.79.8` and passed all structural checks **plus the live concurrency
+check** on 2026-06-21:
 
 | Check | Result |
 |---|---|
@@ -53,6 +55,12 @@ structural checks **plus the live concurrency check** on 2026-06-21:
 | C — two concurrent in-process sessions are isolated | ✅ distinct sessionIds, independent `messages` arrays, per-instance `prompt`/`subscribe`/`dispose`/`abort` |
 | D — per-session subscriptions independent | ✅ distinct unsubscribe closures |
 | E — **live** concurrent isolation | ✅ two concurrent prompts returned `ALPHA` / `BETA` with zero cross-contamination (z.ai `glm-4.5-air`) |
+
+That table is historical evidence, not the active pin. On 2026-07-15 the same
+smoke passed on exact `0.80.7`: 10 required exports, two isolated concurrent
+sessions, independent subscriptions, and a live `ALPHA` / `BETA` isolation run.
+The Pi registry contained 1065 models in that machine-local snapshot; the count
+is diagnostic output, not an Offisim catalog or product contract.
 
 Structural evidence backing the decision:
 
@@ -91,6 +99,10 @@ wire contract and renderer projection below are unaffected by the choice.
 ### How a child is constructed (Phase 1+)
 
 ```
+const settingsManager = SettingsManager.create(cwd, agentDir, {
+  projectTrusted: resolveHeadlessProjectTrust(cwd, agentDir),
+})
+
 createAgentSession({
   cwd,                                   // Phase 1: root cwd; later: child workspace
   agentDir,                              // shared
@@ -100,6 +112,7 @@ createAgentSession({
   thinkingLevel,                         // child default
   tools,                                 // from child access band (read / write / review)
   resourceLoader: DefaultResourceLoader({
+    cwd, agentDir, settingsManager,      // child cwd + Pi's canonical trust decision
     extensionFactories: [
       permissionGate,                    // reuse host gate
       delegateToolFactory,               // Phase 2: recursion (depth-gated)
@@ -111,6 +124,52 @@ createAgentSession({
 
 Abort: `childSession.abort()` plus the supervisor's `AbortController`; the parent
 `AbortSignal` cascades to every descendant.
+
+### Root interaction capabilities shared with delegation
+
+The root harness gained a small set of additive interaction surfaces on
+2026-07-15/16. They
+do not change the child-execution ruling and must not be reimplemented inside
+`ChildAgentSupervisor`:
+
+- **Real attachments:** parsed document/text content enters the prompt; PNG,
+  JPEG, GIF, and WebP bytes enter Pi as native image content. Initial prompts,
+  steering messages, and follow-ups can carry images.
+- **Steer/follow-up:** while a root run is active, Offisim forwards explicit
+  controls as Pi `offisim.control` custom messages using native
+  `deliverAs: steer | followUp` semantics and waits for `session.waitForIdle()`.
+  Correlated host admission and custom-message consumption prevent false
+  acknowledgements and replay only accepted-but-unconsumed intent. The consumed
+  ledger is hydrated from the exact Pi session's active JSONL branch after a host
+  crash, so matching ids remain exactly-once across both renderer reattach and
+  sidecar restart; a payload fingerprint rejects conflicting reuse. Pi owns
+  delivery and ordering.
+- **Lifecycle:** protocol v8 projects Pi's queue counts, compaction, automatic
+  retry, settled, and context-usage events. Offisim renders these facts but owns
+  none of those policies.
+- **Blocking extension UI:** Pi `confirm`, `select`, `input`, and `editor`
+  requests share one correlated FIFO request/answer channel. Host cancellation
+  clears the corresponding desktop interaction. Other TUI-only UI methods remain
+  no-ops in the headless host.
+- **Reload adoption:** a new renderer claims surviving root hosts and their
+  streams before interrupted-run recovery; active UI, queue counts, and
+  non-pending control outcomes are resurfaced without creating another Pi
+  session.
+- **Durable Resume:** the conversation controller owns continuation of the same
+  durable root under the same run id, with a replacement host and a new assistant
+  message. A recorded Pi JSONL is opened exactly; only a row with no recorded
+  session file gets a fresh replay of the objective, attachments, and unconsumed
+  controls. Invalid recorded paths fail closed.
+- **Project trust:** root and child worktrees use Pi's canonical project trust
+  store and cwd-bound settings. Unknown worktrees with executable resources are
+  not silently trusted.
+- **Utility isolation:** Enhance and collaboration use in-memory Pi sessions with
+  project resource discovery disabled; collaboration registers only its explicit
+  read profile tools.
+
+The deterministic project verification/repair loop below is an Offisim product
+policy around delegated write acceptance. It is not a replacement for Pi's
+provider retry, compaction, tool loop, or prompt queue.
 
 ### Project-gated write loop (P4)
 
@@ -129,21 +188,21 @@ additive `workspace.lease.snapshot` in `agent_events`, not a second event store.
 
 ---
 
-## 3. Target architecture (post-landing)
+## 3. Current architecture
 
 ```
 Root Pi Host Process (Rust-spawned, still single-shot)
 ├─ Root Pi Session                    ← cognition + loop + tools + delegation decision
 ├─ Offisim Permission Gate Extension  ← existing (plan/ask/auto/full)
-├─ Offisim Delegation Extension       ← NEW: registers the `delegate` tool
-└─ ChildAgentSupervisor (Node)        ← NEW: child session lifecycle + limits + event re-stamping
+├─ Offisim Delegation Extension       ← registers the `delegate` tool
+└─ ChildAgentSupervisor (Node)        ← child session lifecycle + limits + event re-stamping
    ├─ Child Run A / employeeId X
    ├─ Child Run B / employeeId Y   (parallel)
    └─ Child Run C                  (controlled recursion, Phase 2)
 
 Neutral event AgentRunEvent { threadId, rootRunId, runId, parentRunId?, employeeId?, relation?, type, payload }
    → Node host stdout (single `agentRun` wire kind)
-   → Rust wire (PiAgentHostEvent::AgentRun, protocol v5)
+   → Rust wire (PiAgentHostEvent::AgentRun, protocol v8)
    → renderer Channel onmessage → runtimeEventBus (neutral `agent.run.*`)
    → run-tree projection → chat (RunActivityStrip) + office (employee run states)
 
@@ -154,92 +213,25 @@ mcp_audit_log; it is not a delegation/run-tree state sink.
 
 ### Component responsibilities
 
-| Component | Owns | New / existing |
+| Component | Owns | Current implementation |
 |---|---|---|
 | Root Pi Session | the user conversation, delegation decision | existing path |
-| Delegation Extension | `delegate` tool registration + arg validation | NEW (`scripts/pi-delegation-extension.mjs`) |
-| ChildAgentSupervisor | child build / run / collect / re-stamp / limits / abort cascade | NEW (`scripts/pi-child-supervisor.mjs`) |
-| Rust bridge | spawn root, stream stdout, cancel root, write uiResponse | existing + 1 wire variant |
-| Renderer runtime | translate wire → neutral bus events | existing seam, extended |
-| Run-tree projection | rebuild the run tree from events + `agent_runs` | NEW (renderer) |
+| Delegation Extension | `delegate` tool registration + arg validation | `scripts/pi-delegation-extension.mjs` |
+| ChildAgentSupervisor | child build / run / collect / re-stamp / limits / abort cascade | `scripts/pi-child-supervisor.mjs` |
+| Rust bridge | spawn/cancel root, ordered stream replay, live control, reattach, and UI responses | `apps/desktop/src-tauri/src/pi_agent_host/` |
+| Renderer runtime | translate wire → neutral bus events | desktop runtime seam |
+| Run-tree projection | rebuild the run tree from events + `agent_runs` | renderer projection |
 
 ---
 
-## 4. Neutral contract: `AgentRunEvent` (Phase 1 draft)
+## 4. Neutral contract: `AgentRunEvent`
 
-Lands in `packages/shared-types/src/events/agent-run.ts`. **Reuses** `RunScope`'s
-runId generation (`packages/shared-types/src/run-scope.ts`) — no new id minter.
+The canonical contract is `packages/shared-types/src/events/agent-run.ts`; this
+document intentionally does not duplicate its evolving type definitions. It
+**reuses** `RunScope`'s runId generation
+(`packages/shared-types/src/run-scope.ts`) — no new id minter.
 This vocabulary is **agent-agnostic**: no `pi_agent_*` term crosses into the
 renderer or the Rust wire semantic layer (global constraint #1).
-
-```ts
-// `parallel` is NOT a relation — fan-out is DelegateExecutionMode ('single' |
-// 'parallel'). Relation is parent-child semantics only.
-export type AgentRunRelation = 'delegate' | 'review';
-
-export type AgentRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
-
-export type AgentRunEventType =
-  | 'run.started'
-  | 'run.delta'        // child token stream (content | reasoning)
-  | 'tool.started'
-  | 'tool.completed'   // includes failed (carries status)
-  | 'artifact.created'
-  | 'approval.requested'
-  | 'run.completed'
-  | 'run.failed'
-  | 'run.cancelled';
-
-/** Scope fields ride on every event — the run-tree is rebuilt purely from these. */
-export interface AgentRunScopeFields {
-  readonly threadId: string;
-  readonly rootRunId: string;       // the controller attemptId of the user turn
-  readonly runId: string;           // this run's id (RunScope-minted)
-  readonly parentRunId?: string;    // omitted for the root
-  readonly employeeId?: string;     // stable identity executing this run
-  readonly relation?: AgentRunRelation;
-  readonly workKind?: WorkKind;     // semantic kind of work (delegate-stamped)
-}
-
-export interface AgentRunEvent extends AgentRunScopeFields {
-  readonly type: AgentRunEventType;
-  readonly payload: AgentRunPayload;
-}
-
-/** Discriminated by AgentRunEvent.type (kept small; extended per phase). */
-export type AgentRunPayload =
-  | { objective: string; access: AgentRunAccess }            // run.started
-  | { channel: 'content' | 'reasoning'; delta: string }      // run.delta
-  | { toolCallId: string; toolName: string; detail?: string } // tool.started
-  | { toolCallId: string; toolName: string; status: 'completed' | 'failed'; detail?: string; durationMs?: number } // tool.completed
-  | { title: string; ref?: string }                          // artifact.created
-  | { uiRequestId: string; title: string; message?: string } // approval.requested
-  | { status: AgentRunStatus; summary?: string; usage?: AgentRunUsage } // run.completed | failed | cancelled
-  | Record<string, never>;
-
-export type AgentRunAccess = 'read' | 'write' | 'review';
-
-export interface AgentRunUsage {
-  readonly input?: number;
-  readonly output?: number;
-  readonly cacheRead?: number;
-  readonly cacheWrite?: number;
-  readonly cost?: number;
-  readonly turns?: number;
-}
-
-/** Persisted run record (mirrors the agent_runs row). */
-export interface AgentRunRecord extends AgentRunScopeFields {
-  readonly companyId: string;
-  readonly objective: string;
-  readonly access: AgentRunAccess;
-  readonly status: AgentRunStatus;
-  readonly usage?: AgentRunUsage;
-  readonly resultSummary?: string;
-  readonly startedAt: string;
-  readonly finishedAt?: string;
-}
-```
 
 ### Minimal delegation interface (v1)
 
@@ -262,9 +254,10 @@ model is not offered a relation the runtime can't honor.
 
 ## 5. Wire transport decision: **one neutral `agentRun` envelope kind**
 
-The root agent keeps its existing event stream unchanged (`started` / `messageDelta`
-/ `tool` / `messageEnd` / `result` / `error`). Its `runId` **is** the controller
-`attemptId` and serves as the `rootRunId`. We do **not** churn the root path.
+The root agent keeps its established stream (`started` / `messageDelta` / `tool`
+/ `messageEnd` / `uiRequest` / `lifecycle` / `result` / `error`). Its `runId`
+**is** the controller `attemptId` and serves as the `rootRunId`. The v8 lifecycle
+kind is additive and does not move root events into the child `agentRun` envelope.
 
 **Children** flow through a single new wire kind, `agentRun`, whose payload is the
 neutral `AgentRunEvent` envelope. One extensible kind (rather than a kind per event
@@ -282,10 +275,11 @@ agent-agnostic.
 - **Gate**: the `agentRun` spec (required: `threadId`, `rootRunId`, `runId`,
   `runType`, `payload`; allowed: + `parentRunId`, `employeeId`, `relation`,
   `workKind`) in `scripts/check-pi-wire-contract.mjs`, plus a cargo round-trip test.
-- **Protocol version**: `PI_HOST_PROTOCOL_VERSION = 5`. `workKind` was introduced
-  as an optional-additive field in v4 (no required-shape bump); v5 is the current
-  contract after the Computer event additions. The wire convention bumps only
-  when a line's required shape changes.
+- **Protocol version**: `PI_HOST_PROTOCOL_VERSION = 8`. The current contract
+  includes the additive `lifecycle` envelope plus the existing Computer,
+  worktree, and verification calls. The wire convention bumps only when the
+  negotiated contract requires it; optional `AgentRunEvent` payload growth stays
+  additive.
 
 The renderer's Channel `onmessage` (`apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`)
 translates an `agentRun` line into a neutral `agent.run.*` bus event tagged with the
@@ -370,13 +364,17 @@ hit, depth block) must `log` / emit an event — never silently truncate.
 
 ---
 
-## 8. Pi version policy: stay on **0.79.8**
+## 8. Pi version policy: exact **0.80.7**
 
-The smoke proved every required API is present and that in-process concurrency
-**live-works** on the pinned 0.79.8. Upstream main is 0.79.9, but the delegation
-seam holds at 0.79.8 and 0.79.9 offers no needed delta. Per global constraint #2
-("don't refactor while upgrading Pi"), the entire epic stays on 0.79.8; a Pi
-upgrade is a separate, later effort.
+The June 2026 decision to hold `0.79.8` while the delegation epic landed remains
+historically valid: it isolated an SDK upgrade from orchestration work. That
+upgrade was subsequently completed. As checked on 2026-07-15 AEST, both the
+root manifest and lockfile resolve exact `0.80.7`, npm marks `0.80.7` as
+`latest`, and the delegation smoke passes on the installed build.
+
+Future Pi changes remain separate, exact-pin changes with registry/changelog,
+bundle, harness, and release-app verification. Delegation does not create an
+independent Pi version lane.
 
 Re-run the proof any time: `node scripts/pi-delegation-smoke.mjs` (exit 0 ⇒ viable;
 exit 1 ⇒ fall back to subprocess per §2).
@@ -389,9 +387,11 @@ exit 1 ⇒ fall back to subprocess per §2).
   conversation; different UX from a child run).
 - **Detached background agents** (`spawn_agents` / `await_agents`) — v1 `delegate()`
   awaits results synchronously; the async handle is already in place for later.
-- **Handoff mode** (a specialist takes over the user conversation) — reserved
-  `AgentRunRelation` value only.
-- **Full Pi RPC Extension UI Protocol** — the host stays single-shot; trigger =
-  host becomes long-lived OR a second mid-run UI scenario appears.
-- **Pi 0.79.8 → 0.79.9 upgrade** — out for the whole epic.
-```
+- **Handoff mode** (a specialist takes over the user conversation) — not present
+  in the current relation contract; a future implementation must extend that
+  contract explicitly.
+- **Full Pi TUI/RPC surface** — the headless host implements only the four
+  blocking UI requests and the live controls the desktop needs.
+- **An Offisim tool loop, provider retry/compaction policy, model catalog, or
+  full Pi session-tree/fork browser** — these remain Pi-owned and are not part
+  of delegation.

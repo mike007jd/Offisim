@@ -6,7 +6,7 @@ Required:
 
 - Node.js >=22.19.0
 - `corepack` enabled
-- `pnpm@10`
+- `pnpm@11.13.0`
 
 Optional:
 

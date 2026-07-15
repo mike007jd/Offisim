@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 pub struct PiAgentExecuteRequest {
     pub(super) request_id: String,
     pub(super) text: String,
+    /// Native multimodal images for this turn. The Node host validates the
+    /// `{data,mimeType}` entries and forwards them to Pi's prompt API.
+    #[serde(default)]
+    pub(super) images: Option<serde_json::Value>,
     pub(super) company_id: String,
     pub(super) thread_id: String,
     #[serde(default)]
@@ -33,6 +37,13 @@ pub struct PiAgentExecuteRequest {
     /// capabilities. Absent → host default.
     #[serde(default)]
     pub(super) thinking_level: Option<String>,
+    /// Internal durable-recovery selector. Ordinary turns omit it; `open`
+    /// resumes the exact recorded Pi JSONL and `fresh` restarts from the durable
+    /// objective/attachments without inheriting another session in the thread.
+    #[serde(default)]
+    pub(super) resume_mode: Option<String>,
+    #[serde(default)]
+    pub(super) resume_session_file: Option<String>,
     /// Employee persona forwarded as the Pi session's `appendSystemPrompt`. An
     /// opaque string the renderer builds from the saved employee profile; the
     /// host hands it to the resource loader. Absent → Pi uses its base prompt.
@@ -234,6 +245,10 @@ pub enum PiAgentHostEvent {
         placeholder: Option<String>,
         #[serde(default)]
         prefill: Option<String>,
+    },
+    Lifecycle {
+        event: String,
+        payload: serde_json::Value,
     },
     AgentRun {
         thread_id: String,

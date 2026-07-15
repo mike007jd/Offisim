@@ -1,14 +1,16 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import {
   AuthStorage,
   DefaultResourceLoader,
   ModelRegistry,
+  ProjectTrustStore,
   SessionManager,
   SettingsManager,
   createAgentSession,
+  hasTrustRequiringProjectResources,
   isToolCallEventType,
 } from '@earendil-works/pi-coding-agent';
 import stripJsonComments from 'strip-json-comments';
@@ -16,6 +18,7 @@ import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
 import {
   decodePiRequestPayload,
   errorLine,
+  lifecycleLine,
   messageDeltaLine,
   messageEndLine,
   readyLine,
@@ -56,6 +59,7 @@ import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-ext
  */
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
 const MCP_APPROVAL_TIMEOUT_MS = 75_000;
+const ROOT_CONTROL_CUSTOM_TYPE = 'offisim.control';
 const DELEGATION_LIMIT_KEYS = Object.freeze([
   'maxDepth',
   'maxParallelPerDelegation',
@@ -88,6 +92,48 @@ function normalizeThinkingLevel(value) {
   return typeof value === 'string' && THINKING_LEVELS.includes(value) ? value : undefined;
 }
 
+function createRootSessionManager(payload, cwd, sessionDir) {
+  const resumeMode = asNonEmptyString(payload.resumeMode);
+  const resumeSessionFile = asNonEmptyString(payload.resumeSessionFile);
+  if (!resumeMode) return SessionManager.continueRecent(cwd, sessionDir);
+  if (resumeMode === 'fresh') {
+    if (resumeSessionFile) {
+      throw Object.assign(new Error('Fresh Pi recovery cannot select a session file.'), {
+        code: 'invalid-session',
+      });
+    }
+    return SessionManager.create(cwd, sessionDir);
+  }
+  if (resumeMode !== 'open' || !resumeSessionFile) {
+    throw Object.assign(new Error('Pi recovery requires an exact saved session file.'), {
+      code: 'invalid-session',
+    });
+  }
+  const resolvedSessionDir = resolve(sessionDir);
+  const resolvedSessionFile = resolve(resumeSessionFile);
+  if (
+    dirname(resolvedSessionFile) !== resolvedSessionDir ||
+    !resolvedSessionFile.endsWith('.jsonl') ||
+    !existsSync(resolvedSessionFile)
+  ) {
+    throw Object.assign(
+      new Error('The saved Pi session is missing or outside this conversation session folder.'),
+      { code: 'invalid-session' },
+    );
+  }
+  return SessionManager.open(resolvedSessionFile, resolvedSessionDir, cwd);
+}
+
+function normalizePromptImages(value) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((image) => {
+    const data = asNonEmptyString(image?.data);
+    const mimeType = asNonEmptyString(image?.mimeType)?.toLowerCase();
+    if (!data || !mimeType || !/^image\/(png|jpe?g|gif|webp)$/.test(mimeType)) return [];
+    return [{ type: 'image', data, mimeType }];
+  });
+}
+
 // Ask mode pauses a tool call and asks the user through Pi's extension UI
 // (`ctx.ui.confirm`). Pi's TUI would render that dialog itself; the host is
 // headless, so we inject a custom `uiContext` (via `session.bindExtensions`) that
@@ -97,41 +143,155 @@ function normalizeThinkingLevel(value) {
 // confirm / select / input / editor — routes the same way. Mirrors Pi RPC's
 // `extension_ui_request` / `extension_ui_response` while staying on
 // `createAgentSession` (no persistent RPC sidecar).
-let uiRequestSeq = 0;
-const pendingUiRequests = new Map(); // request id -> settle(responseObject)
+function createUiRequestChannel(emitRequest, options = {}) {
+  let sequence = 0;
+  let activeRequest = null;
+  let closed = false;
+  const queuedRequests = [];
+  const scheduleTimeout = options.setTimeout ?? setTimeout;
+  const cancelTimeout = options.clearTimeout ?? clearTimeout;
+  const keepTimeoutRef = options.keepTimeoutRef === true;
+  const onHostCancelled = options.onHostCancelled;
+
+  function cleanupRequest(request) {
+    if (request.timeoutId !== undefined) {
+      cancelTimeout(request.timeoutId);
+      request.timeoutId = undefined;
+    }
+    if (request.signal && request.abortHandler) {
+      request.signal.removeEventListener?.('abort', request.abortHandler);
+      request.abortHandler = undefined;
+    }
+  }
+
+  function emitNextRequest() {
+    if (closed || activeRequest) return;
+    while (queuedRequests.length > 0) {
+      const request = queuedRequests.shift();
+      if (request.settled) continue;
+      activeRequest = request;
+      emitRequest(uiRequestLine({ id: request.id, method: request.method, ...request.fields }));
+      return;
+    }
+  }
+
+  function settleRequest(request, response, beforeNext) {
+    if (request.settled) return false;
+    request.settled = true;
+    cleanupRequest(request);
+    if (activeRequest === request) {
+      activeRequest = null;
+    } else {
+      const index = queuedRequests.indexOf(request);
+      if (index >= 0) queuedRequests.splice(index, 1);
+    }
+    request.resolve(response);
+    beforeNext?.();
+    emitNextRequest();
+    return true;
+  }
+
+  function cancelRequest(request, reason) {
+    if (request.settled) return;
+    request.settled = true;
+    cleanupRequest(request);
+    request.resolve({ id: request.id, cancelled: true });
+    onHostCancelled?.({ id: request.id, reason });
+  }
+
+  return {
+    requestUiResponse(method, fields, opts) {
+      sequence += 1;
+      const id = `ui-${sequence}`;
+      return new Promise((resolve) => {
+        if (closed) {
+          resolve({ id, cancelled: true });
+          return;
+        }
+        const signal = opts?.signal;
+        const request = {
+          id,
+          method,
+          fields,
+          resolve,
+          signal,
+          abortHandler: undefined,
+          timeoutId: undefined,
+          settled: false,
+        };
+        if (signal) {
+          request.abortHandler = () => {
+            settleRequest(request, { id: request.id, cancelled: true }, () =>
+              onHostCancelled?.({ id: request.id, reason: 'aborted' }),
+            );
+          };
+          signal.addEventListener('abort', request.abortHandler, { once: true });
+          if (signal.aborted) {
+            settleRequest(request, { id: request.id, cancelled: true }, () =>
+              onHostCancelled?.({ id: request.id, reason: 'aborted' }),
+            );
+            return;
+          }
+        }
+        const timeout = typeof opts?.timeout === 'number' ? opts.timeout : 0;
+        if (timeout > 0) {
+          request.timeoutId = scheduleTimeout(() => {
+            settleRequest(request, { id: request.id, cancelled: true }, () =>
+              onHostCancelled?.({ id: request.id, reason: 'timeout' }),
+            );
+          }, timeout);
+          if (!keepTimeoutRef) request.timeoutId.unref?.();
+        }
+        queuedRequests.push(request);
+        emitNextRequest();
+      });
+    },
+
+    resolveUiResponse(response) {
+      if (!response || typeof response.id !== 'string') return false;
+      if (!activeRequest || response.id !== activeRequest.id) return false;
+      return settleRequest(activeRequest, response);
+    },
+
+    resurfaceActiveRequest() {
+      if (closed || !activeRequest || activeRequest.settled) return false;
+      emitRequest(
+        uiRequestLine({
+          id: activeRequest.id,
+          method: activeRequest.method,
+          ...activeRequest.fields,
+        }),
+      );
+      return true;
+    },
+
+    rejectAllUiRequests() {
+      if (closed) return;
+      closed = true;
+      const pending = activeRequest ? [activeRequest, ...queuedRequests] : [...queuedRequests];
+      activeRequest = null;
+      queuedRequests.length = 0;
+      for (const request of pending) cancelRequest(request, 'closed');
+    },
+  };
+}
+
+const uiRequestChannel = createUiRequestChannel(emit, {
+  onHostCancelled: ({ id, reason }) =>
+    emit(lifecycleLine({ event: 'ui', payload: { state: 'cancelled', uiRequestId: id, reason } })),
+});
 
 function requestUiResponse(method, fields, opts) {
-  uiRequestSeq += 1;
-  const id = `ui-${uiRequestSeq}`;
-  return new Promise((resolve) => {
-    const settle = (response) => {
-      if (!pendingUiRequests.delete(id)) return;
-      resolve(response);
-    };
-    pendingUiRequests.set(id, settle);
-    emit(uiRequestLine({ id, method, ...fields }));
-    // ExtensionUIDialogOptions: a parked prompt can be cancelled by an abort
-    // signal or a timeout. Either way the primitive resolves to its "no answer"
-    // value (false / undefined) so the agent loop never hangs.
-    const signal = opts?.signal;
-    if (signal?.aborted) settle({ id, cancelled: true });
-    else if (signal)
-      signal.addEventListener('abort', () => settle({ id, cancelled: true }), { once: true });
-    const timeout = typeof opts?.timeout === 'number' ? opts.timeout : 0;
-    if (timeout > 0) setTimeout(() => settle({ id, cancelled: true }), timeout).unref?.();
-  });
+  return uiRequestChannel.requestUiResponse(method, fields, opts);
 }
 
 function resolveUiResponse(response) {
-  if (!response || typeof response.id !== 'string') return;
-  const settle = pendingUiRequests.get(response.id);
-  if (settle) settle(response);
+  uiRequestChannel.resolveUiResponse(response);
 }
 
 /** stdin EOF / abort — unblock every parked prompt as cancelled so the loop unwinds. */
 function rejectAllUiRequests() {
-  for (const settle of [...pendingUiRequests.values()]) settle({ cancelled: true });
-  pendingUiRequests.clear();
+  uiRequestChannel.rejectAllUiRequests();
 }
 
 // MCP-call park-and-resume channel (B2). The Rust host intercepts the emitted
@@ -143,11 +303,245 @@ const mcpChannel = createMcpCallChannel(emit);
 const worktreeChannel = createWorktreeCallChannel(emit);
 const verifyChannel = createVerifyCallChannel(emit);
 const activeChildControllers = new Map();
+let activeRootSession = null;
+const pendingRootControls = [];
+const acceptedRootControls = { steer: [], followUp: [] };
+const rootControlLedger = new Map();
+let rootControlDrain = Promise.resolve();
+let rootControlsOpen = false;
+let activeRootRunId = null;
+let nativeRootQueueCounts = { steer: 0, followUp: 0 };
+
+function publishControlState(control, state, errorMessage) {
+  emit(
+    lifecycleLine({
+      event: 'control',
+      payload: {
+        state,
+        action: control.action,
+        controlId: control.controlId,
+        ...(errorMessage ? { errorMessage } : {}),
+      },
+    }),
+  );
+}
+
+function emitControlState(control, state, errorMessage) {
+  const recorded = rootControlLedger.get(control.controlId);
+  rootControlLedger.set(control.controlId, {
+    control: { ...control },
+    state,
+    errorMessage,
+    rootRunId: recorded?.rootRunId ?? activeRootRunId,
+    payloadFingerprint: recorded?.payloadFingerprint ?? controlPayloadFingerprint(control),
+  });
+  publishControlState(control, state, errorMessage);
+}
+
+function controlPayloadFingerprint(control) {
+  const images = normalizePromptImages(control.images).map(({ data, mimeType }) => ({
+    data,
+    mimeType,
+  }));
+  return createHash('sha256')
+    .update(JSON.stringify({ action: control.action, text: control.text, images }))
+    .digest('hex');
+}
+
+function rootControlMessage(control, rootRunId) {
+  const images = normalizePromptImages(control.images);
+  return {
+    customType: ROOT_CONTROL_CUSTOM_TYPE,
+    content: [{ type: 'text', text: control.text }, ...images],
+    display: true,
+    details: {
+      version: 1,
+      rootRunId,
+      controlId: control.controlId,
+      action: control.action,
+      payloadFingerprint: controlPayloadFingerprint(control),
+    },
+  };
+}
+
+function rootControlFromCustomMessage(message, rootRunId) {
+  if (message?.role !== 'custom' || message.customType !== ROOT_CONTROL_CUSTOM_TYPE) return null;
+  const details = message.details;
+  if (
+    !details ||
+    details.version !== 1 ||
+    asNonEmptyString(details.rootRunId) !== rootRunId ||
+    (details.action !== 'steer' && details.action !== 'followUp')
+  ) {
+    return null;
+  }
+  const controlId = asNonEmptyString(details.controlId);
+  const payloadFingerprint = asNonEmptyString(details.payloadFingerprint);
+  if (!controlId || !payloadFingerprint) return null;
+  const content = Array.isArray(message.content)
+    ? message.content
+    : [{ type: 'text', text: String(message.content ?? '') }];
+  const text = content
+    .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+    .map((part) => part.text)
+    .join('\n');
+  const images = content.filter((part) => part?.type === 'image');
+  const control = { action: details.action, controlId, text, images };
+  if (controlPayloadFingerprint(control) !== payloadFingerprint) return null;
+  return { control, payloadFingerprint, rootRunId };
+}
+
+function hydrateRootControlLedger(sessionManager, rootRunId) {
+  if (!rootRunId) return;
+  for (const entry of sessionManager.getBranch()) {
+    if (entry.type !== 'custom_message') continue;
+    const decoded = rootControlFromCustomMessage(
+      {
+        role: 'custom',
+        customType: entry.customType,
+        content: entry.content,
+        details: entry.details,
+      },
+      rootRunId,
+    );
+    if (!decoded || rootControlLedger.has(decoded.control.controlId)) continue;
+    rootControlLedger.set(decoded.control.controlId, {
+      control: decoded.control,
+      state: 'consumed',
+      rootRunId,
+      payloadFingerprint: decoded.payloadFingerprint,
+    });
+  }
+}
+
+function rootControlQueueCount() {
+  return acceptedRootControls.steer.length + acceptedRootControls.followUp.length;
+}
+
+function emitRootQueueState() {
+  emit(
+    lifecycleLine({
+      event: 'queue',
+      payload: {
+        steeringCount: nativeRootQueueCounts.steer + acceptedRootControls.steer.length,
+        followUpCount: nativeRootQueueCounts.followUp + acceptedRootControls.followUp.length,
+      },
+    }),
+  );
+}
+
+function consumeRootControlMessage(message) {
+  const decoded = rootControlFromCustomMessage(message, activeRootRunId);
+  if (!decoded) return;
+  const record = rootControlLedger.get(decoded.control.controlId);
+  if (!record || record.payloadFingerprint !== decoded.payloadFingerprint) return;
+  // AgentSession appends the CustomMessageEntry synchronously immediately after
+  // notifying subscribers. Defer the terminal ACK one microtask so `consumed`
+  // can never outrun its durable JSONL proof if the host crashes.
+  queueMicrotask(() => {
+    const current = rootControlLedger.get(decoded.control.controlId);
+    if (!current || current.state !== 'accepted') return;
+    const accepted = acceptedRootControls[decoded.control.action];
+    const index = accepted.findIndex((control) => control.controlId === decoded.control.controlId);
+    if (index >= 0) accepted.splice(index, 1);
+    emitControlState(current.control, 'consumed');
+    emitRootQueueState();
+  });
+}
+
+async function deliverRootControl(session, control, onAccepted) {
+  const message = rootControlMessage(control, activeRootRunId);
+  onAccepted();
+  await session.sendCustomMessage(message, {
+    deliverAs: control.action,
+    triggerTurn: true,
+  });
+}
+
+function drainRootControls() {
+  if (!activeRootSession || pendingRootControls.length === 0) return;
+  const session = activeRootSession;
+  rootControlDrain = rootControlDrain.then(async () => {
+    while (activeRootSession === session && pendingRootControls.length > 0) {
+      const control = pendingRootControls.shift();
+      let acceptedControl = null;
+      try {
+        await deliverRootControl(session, control, () => {
+          acceptedControl = { ...control };
+          acceptedRootControls[control.action].push(acceptedControl);
+          emitControlState(acceptedControl, 'accepted');
+          emitRootQueueState();
+        });
+      } catch (error) {
+        if (acceptedControl) {
+          const accepted = acceptedRootControls[control.action];
+          const index = accepted.indexOf(acceptedControl);
+          if (index >= 0) accepted.splice(index, 1);
+        }
+        if (rootControlLedger.get(control.controlId)?.state !== 'consumed') {
+          emitControlState(
+            control,
+            'failed',
+            normalizePiErrorMessage(error instanceof Error ? error.message : String(error)),
+          );
+          emitRootQueueState();
+        }
+      }
+    }
+  });
+}
 
 function resolveRuntimeControl(message) {
-  if (message?.type !== 'control' || message.action !== 'stopChild') return;
-  const runId = asNonEmptyString(message.runId);
-  if (runId) activeChildControllers.get(runId)?.abort();
+  if (message?.type !== 'control') return;
+  if (message.action === 'reattach') {
+    uiRequestChannel.resurfaceActiveRequest();
+    if (activeRootSession) {
+      emitRootQueueState();
+      for (const record of rootControlLedger.values()) {
+        if (record.state !== 'pending') {
+          publishControlState(record.control, record.state, record.errorMessage);
+        }
+      }
+    }
+    emit(lifecycleLine({ event: 'reattach', payload: { state: 'ready' } }));
+    return;
+  }
+  if (message.action === 'stopChild') {
+    const runId = asNonEmptyString(message.runId);
+    if (runId) activeChildControllers.get(runId)?.abort();
+    return;
+  }
+  if (message.action !== 'steer' && message.action !== 'followUp') return;
+  const controlId = asNonEmptyString(message.controlId);
+  const text = asNonEmptyString(message.text);
+  if (!controlId || !text) return;
+  const control = { action: message.action, controlId, text, images: message.images };
+  const recorded = rootControlLedger.get(controlId);
+  if (recorded) {
+    const samePayload = recorded.payloadFingerprint === controlPayloadFingerprint(control);
+    if (!samePayload) {
+      publishControlState(
+        control,
+        'rejected',
+        'This control id was already used for a different queued instruction.',
+      );
+    } else if (recorded.state !== 'pending') {
+      publishControlState(recorded.control, recorded.state, recorded.errorMessage);
+    }
+    return;
+  }
+  if (!rootControlsOpen) {
+    emitControlState(control, 'rejected', 'The Pi run is no longer accepting queued instructions.');
+    return;
+  }
+  rootControlLedger.set(controlId, {
+    control: { ...control },
+    state: 'pending',
+    rootRunId: activeRootRunId,
+    payloadFingerprint: controlPayloadFingerprint(control),
+  });
+  pendingRootControls.push(control);
+  drainRootControls();
 }
 
 function assertWorktreeOk(response, label) {
@@ -535,6 +929,18 @@ function createPiRegistries(agentDir) {
   const authStorage = AuthStorage.create(authPath);
   const modelRegistry = ModelRegistry.create(authStorage, modelsPath);
   return { agentDir, authPath, modelsPath, authStorage, modelRegistry };
+}
+
+/** Mirror Pi 0.80's headless project-trust decision without inventing a second
+ * trust store. Unknown projects with executable/local resources fail closed;
+ * saved decisions and the user's global `defaultProjectTrust` remain canonical. */
+function resolveHeadlessProjectTrust(cwd, agentDir) {
+  if (!hasTrustRequiringProjectResources(cwd)) return true;
+  if (!agentDir) return false;
+  const saved = new ProjectTrustStore(agentDir).get(cwd);
+  if (saved !== null) return saved;
+  const globalSettings = SettingsManager.create(cwd, agentDir, { projectTrusted: false });
+  return globalSettings.getDefaultProjectTrust() === 'always';
 }
 
 function modelsConfigSummary(modelsPath, modelRegistry) {
@@ -1065,6 +1471,18 @@ function piStatus(payload) {
 }
 
 async function runPrompt(payload) {
+  // A direct-delegation run and any bootstrap failure have no root Pi session
+  // that can consume steer/follow-up. Open admission only after the real root
+  // session exists; otherwise a control could be parked forever without an ACK.
+  rootControlsOpen = false;
+  activeRootSession = null;
+  pendingRootControls.length = 0;
+  acceptedRootControls.steer.length = 0;
+  acceptedRootControls.followUp.length = 0;
+  rootControlLedger.clear();
+  nativeRootQueueCounts = { steer: 0, followUp: 0 };
+  const rootRunId = asNonEmptyString(payload.rootRunId);
+  activeRootRunId = rootRunId ?? asNonEmptyString(payload.requestId);
   const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
   const text = asNonEmptyString(payload.text);
   if (!text) {
@@ -1072,15 +1490,23 @@ async function runPrompt(payload) {
       code: 'invalid-request',
     });
   }
+  const promptImages = normalizePromptImages(payload.images);
 
   const agentDir = asNonEmptyString(payload.agentDir);
   const { authStorage, modelRegistry } = createPiRegistries(agentDir);
   const sessionDir = asNonEmptyString(payload.sessionDir);
   if (sessionDir) mkdirSync(sessionDir, { recursive: true });
-  // Rust gives every threadId its own session directory, so continuing the most
-  // recent session here is simply "keep this conversation going". There is no
-  // separate resume mode — same thread, same Pi session.
-  const sessionManager = SessionManager.continueRecent(cwd, sessionDir);
+  // Ordinary turns continue the thread's recent Pi session. Durable recovery is
+  // explicit: open the exact recorded JSONL, or create a fresh session when the
+  // user confirmed an objective-only restart. Never guess "most recent" during
+  // recovery, because a later session in the same thread would resume the wrong
+  // work.
+  const sessionManager = createRootSessionManager(payload, cwd, sessionDir);
+  // A consumed steer/follow-up is the custom message entry itself. Exact-open
+  // recovery scans only the active branch and only this root-run scope, so a
+  // renderer retry after a sidecar crash can observe `consumed` without ever
+  // adding the same instruction to Pi a second time.
+  hydrateRootControlLedger(sessionManager, activeRootRunId);
   const model = selectedModel(modelRegistry, payload.model);
   if (payload.model && !model) {
     throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
@@ -1118,7 +1544,6 @@ async function runPrompt(payload) {
   // Docs/DELEGATION_ARCHITECTURE.md), bounded by deterministic caps (depth /
   // concurrency / total / token budget), and may recursively delegate up to
   // maxDepth. When delegation is on, the fixed-flow guidance is appended too.
-  const rootRunId = asNonEmptyString(payload.rootRunId);
   const threadId = asNonEmptyString(payload.threadId);
   // The project owning this workspace, forwarded verbatim by the Tauri host. The
   // delegation supervisor stamps every child agentRun event with it so the
@@ -1202,9 +1627,6 @@ async function runPrompt(payload) {
     'mcp_describe_tool',
     ...(mcpHasCatalog ? ['mcp_call'] : []),
   ];
-  // A write-class MCP tool pauses for ctx.ui.confirm, which needs the forwarding
-  // UI context bound — the same bind `ask` mode already does.
-  const mcpNeedsUi = mcpHasCatalog && scopedMcpTools.some(isWriteMcpTool);
   // When the conversation does not carry an explicit override, Pi chooses the
   // real root model during createAgentSession. The delegation supervisor reads
   // this live binding later, when delegate executes, so unbound employees inherit
@@ -1216,7 +1638,8 @@ async function runPrompt(payload) {
   let resourceLoader;
   let directSupervisor = null;
   {
-    const settingsManager = SettingsManager.create(cwd, agentDir);
+    const projectTrusted = resolveHeadlessProjectTrust(cwd, agentDir);
+    const settingsManager = SettingsManager.create(cwd, agentDir, { projectTrusted });
     const extensionFactories = [];
     if (gateFactory) extensionFactories.push(gateFactory);
     if (delegationEnabled) {
@@ -1273,6 +1696,10 @@ async function runPrompt(payload) {
           : undefined,
         requestVerifyResult: verifyChannel.requestVerifyResult,
         settingsManager,
+        createSettingsManager: (childCwd) =>
+          SettingsManager.create(childCwd, agentDir, {
+            projectTrusted: resolveHeadlessProjectTrust(childCwd, agentDir),
+          }),
         threadId,
         rootRunId,
         roster,
@@ -1390,16 +1817,18 @@ async function runPrompt(payload) {
     ...(resourceLoader ? { resourceLoader } : {}),
   });
   effectiveRootModel = session.model ?? model;
+  activeRootSession = session;
+  rootControlsOpen = true;
+  drainRootControls();
 
-  // Bind a forwarding UI context so a mid-run `ctx.ui.confirm` routes through our
-  // stdin channel. Needed by Ask mode (the bash gate) AND by the MCP bridge when
-  // any scoped tool is write-class (its gate confirms before running). Other
-  // modes leave Pi's default no-op context in place.
-  if (permissionMode === 'ask' || mcpNeedsUi) {
-    await session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' });
-  }
+  // Every explicitly registered extension receives the same four renderer UI
+  // primitives. Permission mode controls tools, not whether an extension can ask
+  // a recoverable question.
+  await session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' });
 
   let latestText = '';
+  const assistantTexts = [];
+  let separateNextContent = false;
   let activeReasoningText = '';
   let latestReasoningText = '';
   let emittedReasoning = false;
@@ -1408,7 +1837,87 @@ async function runPrompt(payload) {
   // solo (non-delegation) path otherwise records no root usage at all.
   const rootUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
   const toolInputsById = new Map();
+  const emitContextUsage = () => {
+    const context = session.getContextUsage();
+    if (!context) return;
+    emit(
+      lifecycleLine({
+        event: 'context',
+        payload: {
+          tokens: context.tokens,
+          contextWindow: context.contextWindow,
+          percent: context.percent,
+        },
+      }),
+    );
+  };
   const unsubscribe = session.subscribe((event) => {
+    if (event.type === 'queue_update') {
+      nativeRootQueueCounts = {
+        steer: event.steering.length,
+        followUp: event.followUp.length,
+      };
+      emitRootQueueState();
+      return;
+    }
+    if (event.type === 'compaction_start') {
+      emit(
+        lifecycleLine({
+          event: 'compaction',
+          payload: { state: 'started', reason: event.reason },
+        }),
+      );
+      return;
+    }
+    if (event.type === 'compaction_end') {
+      emit(
+        lifecycleLine({
+          event: 'compaction',
+          payload: {
+            state: 'finished',
+            reason: event.reason,
+            aborted: event.aborted,
+            willRetry: event.willRetry,
+            errorMessage: event.errorMessage,
+          },
+        }),
+      );
+      emitContextUsage();
+      return;
+    }
+    if (event.type === 'auto_retry_start') {
+      emit(
+        lifecycleLine({
+          event: 'retry',
+          payload: {
+            state: 'started',
+            attempt: event.attempt,
+            maxAttempts: event.maxAttempts,
+            delayMs: event.delayMs,
+            errorMessage: event.errorMessage,
+          },
+        }),
+      );
+      return;
+    }
+    if (event.type === 'auto_retry_end') {
+      emit(
+        lifecycleLine({
+          event: 'retry',
+          payload: {
+            state: 'finished',
+            success: event.success,
+            attempt: event.attempt,
+            finalError: event.finalError,
+          },
+        }),
+      );
+      return;
+    }
+    if (event.type === 'agent_settled') {
+      emitContextUsage();
+      return;
+    }
     if (event.type === 'agent_start') {
       emit(
         startedLine({
@@ -1423,6 +1932,10 @@ async function runPrompt(payload) {
     if (event.type === 'message_update') {
       const streamEvent = event.assistantMessageEvent;
       if (streamEvent?.type === 'text_delta' && streamEvent.delta) {
+        if (separateNextContent) {
+          emit(messageDeltaLine({ channel: 'content', delta: '\n\n' }));
+          separateNextContent = false;
+        }
         emit(messageDeltaLine({ channel: 'content', delta: clampText(streamEvent.delta) }));
       }
       if (streamEvent?.type === 'thinking_delta' && streamEvent.delta) {
@@ -1433,6 +1946,10 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'message_end') {
+      if (event.message?.role === 'custom') {
+        consumeRootControlMessage(event.message);
+        return;
+      }
       if (event.message?.role === 'assistant') {
         const reasoningText = clampText(messageThinking(event.message) || activeReasoningText);
         if (reasoningText && !activeReasoningText.trim()) {
@@ -1442,6 +1959,8 @@ async function runPrompt(payload) {
         latestReasoningText = reasoningText;
         activeReasoningText = '';
         latestText = clampText(messageText(event.message));
+        if (latestText) assistantTexts.push(latestText);
+        separateNextContent = assistantTexts.length > 0;
         // Accumulate this turn's usage (field names mirror the child supervisor's
         // exactly; SDK usage.cost is an object → `.total`).
         const u = event.message.usage;
@@ -1461,6 +1980,7 @@ async function runPrompt(payload) {
             errorMessage: event.message.errorMessage,
           }),
         );
+        emitContextUsage();
       }
       return;
     }
@@ -1535,7 +2055,26 @@ async function runPrompt(payload) {
   });
 
   try {
-    await session.prompt(text);
+    await session.prompt(text, promptImages.length > 0 ? { images: promptImages } : undefined);
+    while (true) {
+      await session.waitForIdle();
+      await rootControlDrain;
+      if (pendingRootControls.length > 0) continue;
+      // Close admission synchronously before the final idle check. Any later
+      // stdin control receives an explicit rejection instead of being accepted
+      // behind a result line that is already being composed.
+      rootControlsOpen = false;
+      await rootControlDrain;
+      if (
+        pendingRootControls.length === 0 &&
+        rootControlQueueCount() === 0 &&
+        session.pendingMessageCount === 0
+      ) {
+        break;
+      }
+      rootControlsOpen = true;
+      drainRootControls();
+    }
     const finalAssistant = lastAssistantMessage(session);
     const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
     if (finalAssistant?.stopReason === 'error' || assistantError) {
@@ -1552,7 +2091,11 @@ async function runPrompt(payload) {
     // Fall back to the streamed messageEnd text when the SDK returns an empty
     // final string — `??` would keep the empty string (only null/undefined are
     // nullish), surfacing a blank result line.
-    const finalText = clampText(session.getLastAssistantText() || latestText);
+    const finalText = clampText(
+      assistantTexts.filter((value) => value.trim()).join('\n\n') ||
+        session.getLastAssistantText() ||
+        latestText,
+    );
     emit(
       resultLine({
         ok: true,
@@ -1566,6 +2109,29 @@ async function runPrompt(payload) {
       }),
     );
   } finally {
+    rootControlsOpen = false;
+    await rootControlDrain.catch(() => {});
+    for (const control of pendingRootControls) {
+      emitControlState(control, 'failed', 'The Pi run ended before this instruction was accepted.');
+    }
+    let failedAcceptedControl = false;
+    for (const action of ['steer', 'followUp']) {
+      for (const control of acceptedRootControls[action]) {
+        if (rootControlLedger.get(control.controlId)?.state === 'accepted') {
+          failedAcceptedControl = true;
+          emitControlState(
+            control,
+            'failed',
+            'The Pi run ended before this instruction was consumed.',
+          );
+        }
+      }
+      acceptedRootControls[action].length = 0;
+    }
+    if (failedAcceptedControl) emitRootQueueState();
+    if (activeRootSession === session) activeRootSession = null;
+    activeRootRunId = null;
+    pendingRootControls.length = 0;
     unsubscribe();
     session.dispose();
   }
@@ -1584,9 +2150,9 @@ async function runPrompt(payload) {
 // Isolation, enforced three ways so a regression can't silently re-arm tools:
 //   1. `noTools: 'all'`  — the SDK starts with NO tools enabled.
 //   2. `tools: []`       — the explicit allowlist enables nothing on top.
-//   3. resourceLoader carries ONLY `appendSystemPrompt` (the profile prompt) and
-//      ZERO `extensionFactories` — no permission gate, no delegation, no publish,
-//      no mission bridge, no `ctx.ui` binding. There is no second stdin channel.
+//   3. resourceLoader disables every auto-discovered Pi resource and carries ONLY
+//      `appendSystemPrompt` (the profile prompt) — no extension import, skill,
+//      prompt template, theme, context file, or `ctx.ui` binding.
 async function runEnhance(payload) {
   const text = asNonEmptyString(payload.text);
   if (!text) {
@@ -1617,13 +2183,18 @@ async function runEnhance(payload) {
 
   // No SessionManager persistence: a fresh, ephemeral session per enhance with no
   // session directory, so nothing is written to disk and no transcript survives.
-  const sessionManager = SessionManager.create(cwd);
+  const sessionManager = SessionManager.inMemory(cwd);
   const settingsManager = SettingsManager.create(cwd, agentDir);
   // The profile system prompt is the ONLY appended prompt; NO extension factories.
   const resourceLoader = new DefaultResourceLoader({
     cwd,
     agentDir,
     settingsManager,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
     appendSystemPrompt: [systemPrompt],
   });
   await resourceLoader.reload();
@@ -1703,9 +2274,10 @@ async function runEnhance(payload) {
 // same belt-and-suspenders as enhance):
 //   1. `noTools: 'all'`  — the SDK starts with NO tools enabled.
 //   2. `tools: []`       — the explicit allowlist enables nothing on top.
-//   3. resourceLoader carries ONLY `appendSystemPrompt` (the persona + collab
-//      context packet) and ZERO `extensionFactories` — no permission gate, no
-//      delegation, no publish, no mission bridge, no `ctx.ui` binding.
+//   3. resourceLoader disables every auto-discovered Pi resource. It carries only
+//      `appendSystemPrompt` plus the collaboration_read profile's explicit inline
+//      MCP bridge — no project/global extension import, skill, template, theme,
+//      context file, permission gate, delegation, publish, or mission bridge.
 //
 // The collaborationThreadId + employeeId correlation scope is NOT a project
 // workspace. companyId is validated at the Tauri boundary and is not forwarded
@@ -1737,13 +2309,9 @@ async function runCollaboration(payload) {
   // No SessionManager persistence: a fresh, ephemeral session with no session
   // directory, so nothing is written to disk and no transcript survives. The
   // renderer owns the persisted collaboration message / turn rows.
-  const sessionManager = SessionManager.create(cwd);
+  const sessionManager = SessionManager.inMemory(cwd);
   const settingsManager = SettingsManager.create(cwd, agentDir);
-  // The persona + collaboration context packet is the ONLY appended prompt; NO
-  // extension factories. `systemPromptAppend` is built renderer-side and carries
-  // the speaking employee's persona, the thread's reply policy, the participant
-  // identities, the recent message window, and the explicit "daily chat, no tools,
-  // no project work" instruction (the spec's Context packet).
+  // The renderer supplies the isolated persona and collaboration context packet.
   const systemPromptAppend = asNonEmptyString(payload.systemPromptAppend);
   const appendSystemPrompt = systemPromptAppend ? [systemPromptAppend] : [];
   const rawMcpTools = Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
@@ -1768,6 +2336,11 @@ async function runCollaboration(payload) {
     cwd,
     agentDir,
     settingsManager,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
     ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
     ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
   });
@@ -1785,11 +2358,7 @@ async function runCollaboration(payload) {
     modelRegistry,
     sessionManager,
     resourceLoader,
-    // Belt-and-suspenders tool suppression — see the isolation note above. The
-    // tool list is the collaboration profile's allowlist; `strict` (the default)
-    // is the current zero-tools daily chat. `collaboration_read` (E2) relaxes
-    // noTools + the isolation throw to permit the read-only allowlist; in E1 the
-    // renderer never sets it, so this stays behavior-identical to `tools: []`.
+    // Strict daily chat has no tools; collaboration_read gets only its read allowlist.
     ...(collaborationRead ? {} : { noTools: 'all' }),
     tools: collaborationTools,
     ...(model ? { model } : {}),

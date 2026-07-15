@@ -4,7 +4,7 @@
  *
  * Locks down the two facts the multi-agent delegation epic needs before any
  * orchestration code is written, against the *actually installed*
- * `@earendil-works/pi-coding-agent@0.79.8` (not docs, not the upstream main):
+ * exact `@earendil-works/pi-coding-agent@0.80.7` (not docs, not upstream main):
  *
  *   (a) Can multiple independent `createAgentSession` instances live in the same
  *       Node process with isolated state (distinct sessionId, independent message
@@ -30,6 +30,12 @@
  * has at least one available model, and is purely informational — it never fails
  * the run.
  *
+ * This smoke stays delegation-focused. The active host's real image attachments,
+ * Pi-native steer/followUp queue, lifecycle projection, and confirm/select/input/
+ * editor request bridge are separately pinned by `pnpm harness:pi-agent-host`.
+ * Neither harness implements a second tool loop, provider retry/compaction policy,
+ * model catalog, or complete Pi session tree.
+ *
  *   node scripts/pi-delegation-smoke.mjs
  */
 
@@ -37,6 +43,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+const EXPECTED_PI_VERSION = '0.80.7';
 const ICONS = { pass: '✅', skip: '⏭️ ', info: 'ℹ️ ', fail: '❌' };
 const errMsg = (error) => (error instanceof Error ? error.message : String(error));
 
@@ -76,6 +83,15 @@ async function main() {
     record('A', 'SDK surface present', 'fail', `missing: ${missing.join(', ')}`);
     return finish();
   }
+  if (pkg.VERSION !== EXPECTED_PI_VERSION) {
+    record(
+      'A',
+      'SDK surface present',
+      'fail',
+      `expected exact ${EXPECTED_PI_VERSION}, installed ${pkg.VERSION ?? 'unknown'}`,
+    );
+    return finish();
+  }
   record(
     'A',
     'SDK surface present',
@@ -96,7 +112,7 @@ async function main() {
       'B',
       'Build shared registries',
       'pass',
-      `${sharedModels.getAll().length} catalog models`,
+      `${sharedModels.getAll().length} Pi registry models (diagnostic, not an Offisim catalog)`,
     );
   } catch (error) {
     record('B', 'Build shared registries', 'fail', errMsg(error));
@@ -135,15 +151,24 @@ async function main() {
     Array.isArray(sessA.messages) &&
     Array.isArray(sessB.messages) &&
     sessA.messages !== sessB.messages;
-  const hasInstanceApi = ['prompt', 'subscribe', 'dispose', 'abort'].every(
-    (m) => typeof sessA[m] === 'function' && typeof sessB[m] === 'function',
-  );
+  const hasInstanceApi = [
+    'prompt',
+    'steer',
+    'followUp',
+    'waitForIdle',
+    'getContextUsage',
+    'getSteeringMessages',
+    'getFollowUpMessages',
+    'subscribe',
+    'dispose',
+    'abort',
+  ].every((m) => typeof sessA[m] === 'function' && typeof sessB[m] === 'function');
   if (distinctObjects && distinctIds && independentMessages && hasInstanceApi) {
     record(
       'C',
       'Concurrent in-process sessions are isolated',
       'pass',
-      `2 sessions, distinct ids (${sessA.sessionId.slice(0, 8)}…/${sessB.sessionId.slice(0, 8)}…), independent message arrays, per-instance prompt/subscribe/dispose/abort`,
+      `2 sessions, distinct ids (${sessA.sessionId.slice(0, 8)}…/${sessB.sessionId.slice(0, 8)}…), independent messages + prompt/steer/followUp/waitForIdle/context/queue APIs`,
     );
   } else {
     record(
@@ -162,14 +187,8 @@ async function main() {
   // Check C's independent message arrays and confirmed end-to-end by the live
   // Check E (ALPHA vs BETA never bleed across the two concurrent sessions).
   try {
-    let aCount = 0;
-    let bCount = 0;
-    const offA = sessA.subscribe(() => {
-      aCount += 1;
-    });
-    const offB = sessB.subscribe(() => {
-      bCount += 1;
-    });
+    const offA = sessA.subscribe(() => {});
+    const offB = sessB.subscribe(() => {});
     const independentUnsub =
       typeof offA === 'function' && typeof offB === 'function' && offA !== offB;
     offA();

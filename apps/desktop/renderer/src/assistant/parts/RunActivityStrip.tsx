@@ -19,6 +19,7 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
   const activity = run.activity;
   const activityTotal = run.activityTotal;
   const delegations = run.delegations;
+  const runtimeStatus = run.runtimeStatus;
   const rootId = run.attemptId;
   // Flatten the delegation forest into DFS order with depth, so the strip shows
   // the real run tree (who delegated whom, nested) rather than a flat list. A
@@ -54,7 +55,14 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
   }, [delegations, rootId]);
   // Render while active if there's either direct tool work or a delegation — a
   // run that only delegates has no tool calls of its own.
-  if (!isRunning || (activity.length === 0 && delegations.length === 0)) return null;
+  const hasRuntimeStatus =
+    Boolean(runtimeStatus.message) ||
+    runtimeStatus.contextPercent !== null ||
+    runtimeStatus.steeringQueued > 0 ||
+    runtimeStatus.followUpQueued > 0;
+  if (!isRunning || (activity.length === 0 && delegations.length === 0 && !hasRuntimeStatus)) {
+    return null;
+  }
   // Most recent calls, oldest→newest, capped so the strip stays one compact row.
   const recent = activity.slice(-6);
   const latest = recent[recent.length - 1];
@@ -79,10 +87,17 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
         <span className="off-run-act-current">
           {latestError
             ? `${latestError.tool} failed${latestError.detail ? `: ${latestError.detail}` : ''}`
-            : latest
-              ? `${latest.tool}${latest.detail ? ` · ${latest.detail}` : ''}`
-              : 'Preparing tools'}
+            : runtimeStatus.message
+              ? runtimeStatus.message
+              : latest
+                ? `${latest.tool}${latest.detail ? ` · ${latest.detail}` : ''}`
+                : 'Preparing tools'}
         </span>
+        {runtimeStatus.contextPercent !== null ? (
+          <span className="off-run-act-more">
+            Context {Math.round(runtimeStatus.contextPercent)}%
+          </span>
+        ) : null}
         {hidden > 0 ? <span className="off-run-act-more">+{hidden}</span> : null}
       </button>
       {orderedDelegations.length > 0 ? (

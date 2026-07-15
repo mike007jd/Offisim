@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
+import { scopeConversationRunsToCompany } from '@/assistant/runtime/conversation-run-scope.js';
 import { useMissionBeats } from '@/assistant/runtime/office-dramaturgy.js';
 import { useOfficeLayout, useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -87,13 +88,14 @@ export function OfficeStage() {
 
   const runCost = useRunCost();
   const conversationRuns = useActiveConversationRuns();
+  const companyConversationRuns = scopeConversationRunsToCompany(conversationRuns, companyId);
   const activeMissionRuns = useSyncExternalStore(
     missionRunManager.subscribe,
     missionRunManager.getSnapshot,
     missionRunManager.getSnapshot,
   );
   const isRunning =
-    conversationRuns.activeRuns.length > 0 ||
+    companyConversationRuns.activeRuns.length > 0 ||
     activeMissionRuns.some((run) => run.companyId === companyId);
   // Read-only mission projection (§24.4): the latest live mission beat's phase
   // label. Empty when no mission is signaling, so a plain chat renders nothing

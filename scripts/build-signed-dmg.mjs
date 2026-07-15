@@ -133,7 +133,7 @@ const build = spawnSync(
   'npx',
   [
     '--yes',
-    'pnpm@10.15.1',
+    'pnpm@11.13.0',
     '--filter',
     '@offisim/desktop',
     'exec',

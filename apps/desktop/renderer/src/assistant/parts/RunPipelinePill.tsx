@@ -9,6 +9,7 @@ import {
   useActiveConversationRuns,
   usePendingConversationApprovals,
 } from '../runtime/conversation-run-react.js';
+import { scopeConversationRunsToCompany } from '../runtime/conversation-run-scope.js';
 
 type StageState = 'done' | 'active' | 'pending';
 
@@ -24,14 +25,15 @@ export function RunPipelinePill() {
   const companyId = useUiState((s) => s.companyId);
   usePendingConversationApprovals(companyId || null);
   const runs = useActiveConversationRuns();
+  const companyRuns = scopeConversationRunsToCompany(runs, companyId || null);
   const employees = useEmployees();
 
   const run = useMemo(
     () =>
-      runs.activeRuns.find((candidate) => candidate.threadId === selectedThreadId) ??
-      runs.activeRuns[0] ??
+      companyRuns.activeRuns.find((candidate) => candidate.threadId === selectedThreadId) ??
+      companyRuns.activeRuns[0] ??
       null,
-    [runs.activeRuns, selectedThreadId],
+    [companyRuns.activeRuns, selectedThreadId],
   );
 
   const assignee = useMemo(

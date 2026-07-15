@@ -246,10 +246,12 @@ class FakeRuntime {
     private readonly eventBus: InMemoryEventBus,
     private readonly companyId = 'co',
   ) {}
+  async admitRun(): Promise<void> {}
   async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
     return this.onExecute(input);
   }
-  abort(): void {}
+  async abort(): Promise<void> {}
+  async settleRun(): Promise<void> {}
   async answerUiRequest(answer: Record<string, unknown>): Promise<void> {
     this.answers.push(answer);
   }
@@ -364,7 +366,7 @@ function makeController(repos: RuntimeRepositories): {
     eventBus,
     runtimeFactory: async () => runtime as never,
     reposFactory: async () => repos,
-    materializeTurn: async ({ text }) => ({ promptText: text, attachments: undefined }),
+    materializeTurn: async ({ text }) => ({ promptText: text, attachments: [], images: [] }),
     persistMessage: async () => undefined,
     appendEvent: async () => undefined,
     now: () => {
@@ -537,6 +539,29 @@ const p4Scenarios: Array<{
       assert.deepEqual(writes, [5]);
       queue.dispose();
       return { writes };
+    },
+  },
+  {
+    name: 'P4: required terminal persistence rejects without poisoning later work',
+    criteria:
+      'Pass when a required terminal checkpoint surfaces its write failure to the release owner while the ordered queue still accepts the next task.',
+    run: async () => {
+      const order: string[] = [];
+      const queue = new AgentRunPersistenceQueue({ onError: () => {} });
+      await assert.rejects(
+        queue.enqueueRequired('required terminal', async () => {
+          order.push('required');
+          throw new Error('terminal write failed');
+        }),
+        /terminal write failed/,
+      );
+      queue.enqueue('after required failure', async () => {
+        order.push('after');
+      });
+      await queue.drain();
+      assert.deepEqual(order, ['required', 'after']);
+      queue.dispose();
+      return { order, failureSurfaced: true };
     },
   },
 ];

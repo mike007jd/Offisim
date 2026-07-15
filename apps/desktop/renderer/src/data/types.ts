@@ -159,6 +159,12 @@ export interface ChatMessage {
   replyToMessageId?: string;
   /** Stable run attempt id emitted by the ConversationRunController. */
   attemptId?: string;
+  /** Pi control lane used when this boss message was queued into an active run. */
+  queueBehavior?: 'steer' | 'followUp';
+  /** Durable host admission state; chat persistence is the reload recovery journal. */
+  queueState?: 'pending' | 'accepted' | 'consumed' | 'failed';
+  /** Rust stream cursor committed atomically with this assistant checkpoint. */
+  streamCursor?: number;
   /** Live persistence state for streamed checkpoints and interrupted runs. */
   status?: 'streaming' | 'complete' | 'interrupted' | 'failed';
   /** Live + in-session tool steps; not persisted (lost on reload by design). */

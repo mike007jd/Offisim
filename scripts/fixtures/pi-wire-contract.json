@@ -1,5 +1,5 @@
 [
-  { "kind": "ready", "protocolVersion": 7 },
+  { "kind": "ready", "protocolVersion": 8 },
   {
     "kind": "started",
     "sessionId": "sess_1",
@@ -30,6 +30,11 @@
     "method": "confirm",
     "title": "Approve command?",
     "message": "git force-push rewrites shared history — approve to proceed.\n\ngit push --force origin main"
+  },
+  {
+    "kind": "lifecycle",
+    "event": "context",
+    "payload": { "tokens": 42000, "contextWindow": 200000, "percent": 21 }
   },
   {
     "kind": "mcpCall",
