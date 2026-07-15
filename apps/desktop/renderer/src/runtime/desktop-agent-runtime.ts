@@ -380,6 +380,7 @@ interface PendingTerminalSettlement {
   runId: string;
   requestId: string;
   status: 'completed' | 'failed' | 'cancelled';
+  source: 'host' | 'confirmed-stop' | 'pre-host-stop' | 'synthetic-failure';
   usage?: AgentRunUsage;
   failureKind?: RunFailureKind;
 }
@@ -444,7 +445,8 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       reject: (error: unknown) => void;
     }
   >();
-  private readonly pendingAbortThreads = new Set<string>();
+  private readonly pendingAbortByThread = new Map<string, string>();
+  private readonly abortDecisionByRequest = new Map<string, Promise<void>>();
   private readonly runIdentityByThread = new Map<string, { runId: string; requestId: string }>();
   private readonly pendingTerminalByThread = new Map<string, PendingTerminalSettlement>();
   private readonly admissionsByThread = new Map<
@@ -581,29 +583,44 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     threadId: string,
     settlement: PendingTerminalSettlement,
   ): PendingTerminalSettlement {
-    const stopWon = this.abortedRequests.has(settlement.requestId);
-    const next = stopWon ? { ...settlement, status: 'cancelled' as const } : settlement;
     const existing = this.pendingTerminalByThread.get(threadId);
-    if (existing?.status === 'cancelled') return existing;
-    if (existing && existing.status !== next.status) {
-      // A user Stop is the only legal terminal override. Any other conflict means
-      // two business outcomes raced and must stay visible instead of being hidden
-      // by whichever persistence task happened to run last.
-      if (next.status !== 'cancelled') {
+    if (
+      existing &&
+      (existing.runId !== settlement.runId || existing.requestId !== settlement.requestId)
+    ) {
+      throw new Error(`Conflicting Pi run ownership while settling ${threadId}.`);
+    }
+    if (existing?.source === 'confirmed-stop') return existing;
+    if (existing && existing.status !== settlement.status) {
+      // Only an authoritative aborted terminal may override a natural host
+      // Result/Error. A provisional Stop intent never rewrites business truth.
+      if (settlement.status !== 'cancelled' || settlement.source !== 'confirmed-stop') {
         throw new Error(
-          `Conflicting Pi terminal settlement for ${threadId}: ${existing.status} -> ${next.status}.`,
+          `Conflicting Pi terminal settlement for ${threadId}: ${existing.status} -> ${settlement.status}.`,
         );
       }
     }
-    this.pendingTerminalByThread.set(threadId, next);
-    return next;
+    this.pendingTerminalByThread.set(threadId, settlement);
+    return settlement;
+  }
+
+  private async waitForAbortDecision(requestId: string): Promise<void> {
+    await this.abortDecisionByRequest.get(requestId);
   }
 
   async settleRun(threadId: string, status: 'completed' | 'failed' | 'cancelled'): Promise<void> {
-    const identity = this.runIdentityByThread.get(threadId);
+    let identity = this.runIdentityByThread.get(threadId);
     let pending = this.pendingTerminalByThread.get(threadId);
+    const decisionRequestId = pending?.requestId ?? identity?.requestId;
+    if (decisionRequestId) await this.waitForAbortDecision(decisionRequestId);
+    identity = this.runIdentityByThread.get(threadId);
+    pending = this.pendingTerminalByThread.get(threadId);
     if (!pending && identity) {
-      pending = this.registerTerminalSettlement(threadId, { ...identity, status });
+      pending = this.registerTerminalSettlement(threadId, {
+        ...identity,
+        status,
+        source: status === 'cancelled' ? 'confirmed-stop' : 'host',
+      });
     }
     if (!pending) return;
     const requestedStatus = this.abortedRequests.has(pending.requestId) ? 'cancelled' : status;
@@ -615,21 +632,23 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     await this.persistQueue.enqueueRequired(`commit ${pending.status} root ${pending.runId}`, () =>
       this.reconcileRoot(pending.runId, pending.status, pending.usage, pending.failureKind),
     );
-    await invokeCommand('agent_runtime_release_stream', { requestId: pending.requestId }).catch(
-      (error: unknown) => {
-        // The root terminal marker is already durable. A failed best-effort release
-        // cannot roll that commit back; Rust's bounded terminal TTL reaps it.
-        console.warn('[desktop-agent-runtime] terminal stream release deferred to TTL', {
-          requestId: pending.requestId,
-          runId: pending.runId,
-          error,
-        });
-      },
-    );
+    await this.invokeRuntimeCommand('agent_runtime_release_stream', {
+      requestId: pending.requestId,
+    }).catch((error: unknown) => {
+      // The root terminal marker is already durable. A failed best-effort release
+      // cannot roll that commit back; Rust's bounded terminal TTL reaps it.
+      console.warn('[desktop-agent-runtime] terminal stream release deferred to TTL', {
+        requestId: pending.requestId,
+        runId: pending.runId,
+        error,
+      });
+    });
     this.pendingTerminalByThread.delete(threadId);
     this.runIdentityByThread.delete(threadId);
     this.admissionsByThread.delete(threadId);
-    this.pendingAbortThreads.delete(threadId);
+    if (this.pendingAbortByThread.get(threadId) === pending.runId) {
+      this.pendingAbortByThread.delete(threadId);
+    }
     this.abortedRequests.delete(pending.requestId);
   }
 
@@ -681,12 +700,14 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
   private async createRunAdmission(input: DesktopAgentRunInput): Promise<PiRunAdmission> {
     if (this.disposed) throw new Error('This renderer runtime has detached.');
+    const runId = input.runId?.trim();
+    if (!runId) throw new Error('Pi run admission requires a stable run id.');
     this.acceptingControlThreads.add(input.threadId);
     const projectId = await ensureProjectBoundForRun(this.repos, this.companyId, input.projectId);
-    if (this.pendingAbortThreads.has(input.threadId)) {
+    if (this.pendingAbortByThread.get(input.threadId) === runId) {
       throw new Error('The Pi run was cancelled before admission completed.');
     }
-    const runScope = piRunScope(projectId, input.threadId, input.employeeId, input.runId);
+    const runScope = piRunScope(projectId, input.threadId, input.employeeId, runId);
     const requestId = newRequestId('pi-agent');
     const permissionMode = input.permissionMode?.trim() || resolveThreadMode(input.threadId);
     const rootAccess: 'read' | 'write' = permissionMode === 'plan' ? 'read' : 'write';
@@ -749,9 +770,13 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     const runId = input.runId?.trim() || `pi-${crypto.randomUUID()}`;
     const admittedInput = { ...input, runId };
     const promise = this.createRunAdmission(admittedInput).catch((error) => {
-      this.admissionsByThread.delete(input.threadId);
+      if (this.admissionsByThread.get(input.threadId)?.runId === runId) {
+        this.admissionsByThread.delete(input.threadId);
+      }
       this.acceptingControlThreads.delete(input.threadId);
-      this.pendingAbortThreads.delete(input.threadId);
+      if (this.pendingAbortByThread.get(input.threadId) === runId) {
+        this.pendingAbortByThread.delete(input.threadId);
+      }
       this.rejectPendingControls(
         input.threadId,
         new Error('The Pi run could not be admitted, so its queued message was not delivered.'),
@@ -777,16 +802,23 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     if (!restart?.threadId.trim()) {
       throw new Error('Cannot resume Agent runtime run: thread context is missing.');
     }
+    const normalizedRunId = runId.trim();
+    if (!normalizedRunId) {
+      throw new Error('Cannot resume Agent runtime run: run id is missing.');
+    }
     const admissionThreadId = restart.threadId.trim();
-    // Resume performs durable run/project checks before runPiTurn can allocate a
-    // request id. Open admission synchronously so Stop becomes a pending abort
-    // and steer/follow-up waits for host readiness instead of being rejected in
-    // that preflight window.
+    if (this.admissionsByThread.has(admissionThreadId)) {
+      throw new Error('This conversation already has an admitted Pi run.');
+    }
+    // Register one admission promise before the first preflight await. Stop can
+    // now bind cancellation to this exact run and await its exit; the same entry
+    // hands off into runPiTurn without an ownership gap.
     this.acceptingControlThreads.add(admissionThreadId);
-    let handedOffToRun = false;
-    try {
+    let resumeInput: DesktopAgentRunInput | null = null;
+    let resumeSession: { mode: 'open' | 'fresh'; sessionFile: string | null } | null = null;
+    const admissionPromise = (async (): Promise<PiRunAdmission> => {
       const repo = this.repos.agentRuns;
-      const row = await repo.findById(runId);
+      const row = await repo.findById(normalizedRunId);
       if (!row || row.company_id !== this.companyId || row.thread_id !== admissionThreadId) {
         throw new Error('Cannot resume Agent runtime run: run not found for this conversation.');
       }
@@ -804,45 +836,60 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
       await this.assertProjectWorkspaceAvailable(projectId);
       const resumeSessionFile = row.session_file?.trim() || null;
+      resumeSession = {
+        mode: resumeSessionFile ? 'open' : 'fresh',
+        sessionFile: resumeSessionFile,
+      };
+      resumeInput = {
+        text: resumeSessionFile
+          ? `Continue the interrupted task from its saved Pi session.\n\nOriginal objective:\n${
+              row.objective || 'Untitled run'
+            }`
+          : restart.text || row.objective || 'Continue the interrupted task.',
+        images: resumeSessionFile ? [] : restart.images,
+        threadId: row.thread_id,
+        employeeId: row.employee_id,
+        projectId,
+        runId: row.run_id,
+        deferTerminalSettlement: true,
+        permissionMode:
+          typeof context?.permissionMode === 'string' && context.permissionMode.trim()
+            ? context.permissionMode.trim()
+            : row.access === 'read'
+              ? 'plan'
+              : undefined,
+        model:
+          typeof context?.model === 'string' && context.model.trim()
+            ? context.model.trim()
+            : undefined,
+        thinkingLevel:
+          typeof context?.thinkingLevel === 'string' && context.thinkingLevel.trim()
+            ? context.thinkingLevel.trim()
+            : undefined,
+      };
+      return this.createRunAdmission(resumeInput);
+    })();
+    this.admissionsByThread.set(admissionThreadId, {
+      runId: normalizedRunId,
+      promise: admissionPromise,
+    });
+    let handedOffToRun = false;
+    try {
+      await admissionPromise;
+      if (!resumeInput || !resumeSession) {
+        throw new Error('Cannot resume Agent runtime run: admission did not produce a run input.');
+      }
       handedOffToRun = true;
-      return await this.runPiTurn(
-        {
-          text: resumeSessionFile
-            ? `Continue the interrupted task from its saved Pi session.\n\nOriginal objective:\n${
-                row.objective || 'Untitled run'
-              }`
-            : restart.text || row.objective || 'Continue the interrupted task.',
-          images: resumeSessionFile ? [] : restart.images,
-          threadId: row.thread_id,
-          employeeId: row.employee_id,
-          projectId,
-          runId: row.run_id,
-          deferTerminalSettlement: true,
-          permissionMode:
-            typeof context?.permissionMode === 'string' && context.permissionMode.trim()
-              ? context.permissionMode.trim()
-              : row.access === 'read'
-                ? 'plan'
-                : undefined,
-          model:
-            typeof context?.model === 'string' && context.model.trim()
-              ? context.model.trim()
-              : undefined,
-          thinkingLevel:
-            typeof context?.thinkingLevel === 'string' && context.thinkingLevel.trim()
-              ? context.thinkingLevel.trim()
-              : undefined,
-        },
-        'agent_runtime_resume',
-        {
-          mode: resumeSessionFile ? 'open' : 'fresh',
-          sessionFile: resumeSessionFile,
-        },
-      );
+      return await this.runPiTurn(resumeInput, 'agent_runtime_resume', resumeSession);
     } catch (error) {
       if (!handedOffToRun) {
+        if (this.admissionsByThread.get(admissionThreadId)?.promise === admissionPromise) {
+          this.admissionsByThread.delete(admissionThreadId);
+        }
         this.acceptingControlThreads.delete(admissionThreadId);
-        this.pendingAbortThreads.delete(admissionThreadId);
+        if (this.pendingAbortByThread.get(admissionThreadId) === normalizedRunId) {
+          this.pendingAbortByThread.delete(admissionThreadId);
+        }
         this.rejectPendingControls(
           admissionThreadId,
           new Error('The Pi run could not resume, so its queued message was not delivered.'),
@@ -1216,6 +1263,7 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
               runId: row.run_id,
               requestId,
               status: 'completed',
+              source: 'host',
               usage: event.response.usage,
             });
             if (this.inFlightByThread.get(row.thread_id) === requestId) {
@@ -1254,6 +1302,7 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
               runId: row.run_id,
               requestId,
               status: 'failed',
+              source: 'host',
               failureKind,
             });
             if (this.inFlightByThread.get(row.thread_id) === requestId) {
@@ -1330,13 +1379,16 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           const reattachError =
             err instanceof Error ? err : new Error(String(err ?? 'Pi reattach failed'));
           const failureKind = classifyRunFailure(reattachError.message);
-          this.registerTerminalSettlement(row.thread_id, {
+          const settlement = this.registerTerminalSettlement(row.thread_id, {
             runId: row.run_id,
             requestId,
             status: 'failed',
+            source: 'synthetic-failure',
             failureKind,
           });
-          settleReattached(null, reattachError, false, 'failed');
+          if (settlement.status !== 'cancelled') {
+            settleReattached(null, reattachError, false, 'failed');
+          }
           attachedRunIds.push(row.run_id);
           console.warn('[desktop-agent-runtime] reattach live Pi stream failed', {
             requestId,
@@ -1351,6 +1403,7 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             runId: row.run_id,
             requestId,
             status: 'cancelled',
+            source: 'confirmed-stop',
           });
           settleReattached(null, null, true, 'cancelled');
         }
@@ -1399,13 +1452,16 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
             await this.abortUnsafeReattachHost(requestId, ownershipError);
             if (!terminalSettled) {
               const failureKind = classifyRunFailure(ownershipError.message);
-              this.registerTerminalSettlement(row.thread_id, {
+              const settlement = this.registerTerminalSettlement(row.thread_id, {
                 runId: row.run_id,
                 requestId,
                 status: 'failed',
+                source: 'synthetic-failure',
                 failureKind,
               });
-              settleReattached(null, ownershipError, false, 'failed');
+              if (settlement.status !== 'cancelled') {
+                settleReattached(null, ownershipError, false, 'failed');
+              }
             }
             console.warn('[desktop-agent-runtime] Pi reattach ownership failed closed', {
               requestId,
@@ -1434,14 +1490,6 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     resumeSession?: { mode: 'open' | 'fresh'; sessionFile: string | null },
   ): Promise<DesktopAgentRunResult> {
     const admission = await this.ensureRunAdmission(input);
-    if (this.pendingAbortThreads.delete(input.threadId)) {
-      this.acceptingControlThreads.delete(input.threadId);
-      this.rejectPendingControls(
-        input.threadId,
-        new Error('The Pi run was cancelled before it started.'),
-      );
-      throw new Error('The Pi run was cancelled before it started.');
-    }
     const {
       runScope,
       requestId,
@@ -1451,6 +1499,28 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       runtimeContext,
       startedEvent,
     } = admission;
+    if (this.pendingAbortByThread.get(input.threadId) === runScope.runId) {
+      this.pendingAbortByThread.delete(input.threadId);
+      this.acceptingControlThreads.delete(input.threadId);
+      this.rejectPendingControls(
+        input.threadId,
+        new Error('The Pi run was cancelled before it started.'),
+      );
+      const pending = this.pendingTerminalByThread.get(input.threadId);
+      if (!pending) {
+        this.abortedRequests.add(requestId);
+        this.registerTerminalSettlement(input.threadId, {
+          runId: runScope.runId,
+          requestId,
+          status: 'cancelled',
+          source: 'pre-host-stop',
+        });
+      }
+      if (!input.deferTerminalSettlement) {
+        await this.settleRun(input.threadId, 'cancelled');
+      }
+      throw new Error('The Pi run was cancelled before it started.');
+    }
     let resolvedModel = admission.resolvedModel;
     let resolvedThinkingLevel = admission.resolvedThinkingLevel;
     const startedAtByTool = new Map<string, number>();
@@ -1479,6 +1549,14 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }) as AgentRunEvent;
     const emitRootBus = (evt: AgentRunEvent): void => {
       runtimeEventBus.emit(agentRunEvent(this.companyId, evt));
+    };
+    const throwIfStoppedBeforeHost = (): void => {
+      if (
+        this.pendingAbortByThread.get(input.threadId) === runScope.runId ||
+        this.abortedRequests.has(requestId)
+      ) {
+        throw new Error('The Pi run was cancelled before its host started.');
+      }
     };
 
     let pendingMessageDelta: Extract<PiAgentHostEvent, { kind: 'messageDelta' }> | null = null;
@@ -1707,7 +1785,8 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
 
     // Admission already committed the root ahead of both the visible boss message
     // and any paid/tool-capable host work. Re-check Stop immediately before invoke.
-    if (this.pendingAbortThreads.delete(input.threadId)) {
+    if (this.pendingAbortByThread.get(input.threadId) === runScope.runId) {
+      this.pendingAbortByThread.delete(input.threadId);
       this.acceptingControlThreads.delete(input.threadId);
       this.rejectPendingControls(
         input.threadId,
@@ -1715,7 +1794,6 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       );
       throw new Error('The Pi run was cancelled before it started.');
     }
-    this.inFlightByThread.set(input.threadId, requestId);
     this.runIdentityByThread.set(input.threadId, { runId: runScope.runId, requestId });
     try {
       if (commandName === 'agent_runtime_resume') {
@@ -1725,16 +1803,19 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         await this.repos.agentRuns.updateStatus(runScope.runId, 'running', {
           finishedAt: null,
         });
+        throwIfStoppedBeforeHost();
       }
       // The durable root row (including requestId) is the discovery anchor for
       // renderer reload. Commit it before any paid/tool-capable Pi work begins.
       // Resume reuses the run id, so refresh its context to the new host request.
       await this.persistAgentRun(startedEvent);
+      throwIfStoppedBeforeHost();
       if (commandName === 'agent_runtime_resume') {
         await this.repos.agentRuns.updateRuntimeContext(
           runScope.runId,
           JSON.stringify(runtimeContext),
         );
+        throwIfStoppedBeforeHost();
       }
       emitRootBus(startedEvent);
 
@@ -1747,6 +1828,7 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           model: resolvedModel,
           thinkingLevel: resolvedThinkingLevel,
         });
+      throwIfStoppedBeforeHost();
       // A resume stays on its persisted Pi session selection. A new employee-owned
       // run resolves the latest employee binding at send time, so Personnel and
       // TeamDock changes apply without restarting the desktop app.
@@ -1765,11 +1847,12 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
         input.employeeId,
         projectId,
       ).catch(() => []);
+      throwIfStoppedBeforeHost();
 
-      if (this.abortedRequests.has(requestId)) {
-        throw new Error('The Pi run was cancelled before its host started.');
-      }
-
+      // This map means a Rust host exists and can accept abort/snapshot IPC. Keep
+      // preflight in admission ownership until the exact synchronous invoke edge;
+      // otherwise Stop can falsely acknowledge an abort for a host not yet born.
+      this.inFlightByThread.set(input.threadId, requestId);
       const commandResponse = (await invokeCommand(commandName, {
         req: {
           requestId,
@@ -1829,6 +1912,7 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
       finalText = commandResponse.text || finalText;
       if (channelError) throw channelError;
+      await this.waitForAbortDecision(requestId);
       const reasoning = (commandResponse.reasoning || reasoningText).trim();
       // A Rust abort resolves the invoke with empty text (not an error), so
       // classify the terminal from the aborted-set: cancelled, not completed.
@@ -1838,6 +1922,7 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           runId: runScope.runId,
           requestId,
           status: 'cancelled',
+          source: 'confirmed-stop',
           usage: rootUsage,
         });
       } else {
@@ -1852,6 +1937,7 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
           runId: runScope.runId,
           requestId,
           status: 'completed',
+          source: 'host',
           usage: rootUsage,
         });
       }
@@ -1871,6 +1957,7 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     } catch (err) {
       // A thrown invoke / channel error is a failure unless the user aborted —
       // abort wins (it can surface as a throw on some teardown paths).
+      await this.waitForAbortDecision(requestId);
       const aborted = this.abortedRequests.has(requestId);
       const status = aborted ? 'cancelled' : 'failed';
       const message = err instanceof Error ? err.message : String(err);
@@ -1886,10 +1973,17 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       );
       // rootUsage isn't in scope here — the invoke threw before returning it, so
       // there is no root usage to fold in. reconcileRoot still sums any children.
+      const pending = this.pendingTerminalByThread.get(input.threadId);
       this.registerTerminalSettlement(input.threadId, {
         runId: runScope.runId,
         requestId,
         status,
+        source:
+          pending?.source === 'pre-host-stop'
+            ? 'pre-host-stop'
+            : aborted
+              ? 'confirmed-stop'
+              : 'host',
         failureKind,
       });
       await this.persistQueue.drain();
@@ -1898,7 +1992,9 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
       }
       throw err;
     } finally {
-      this.pendingAbortThreads.delete(input.threadId);
+      if (this.pendingAbortByThread.get(input.threadId) === runScope.runId) {
+        this.pendingAbortByThread.delete(input.threadId);
+      }
       this.acceptingControlThreads.delete(input.threadId);
       this.controlReadyByThread.delete(input.threadId);
       this.rejectPendingControls(
@@ -2192,101 +2288,134 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     let identity = this.runIdentityByThread.get(threadId);
     const admission = this.admissionsByThread.get(threadId);
     if (!identity && admission) {
-      this.pendingAbortThreads.add(threadId);
+      this.pendingAbortByThread.set(threadId, admission.runId);
       try {
         await admission.promise;
       } catch {
         // Admission observed the pending Stop and created no durable row/host.
-        this.pendingAbortThreads.delete(threadId);
+        if (this.pendingAbortByThread.get(threadId) === admission.runId) {
+          this.pendingAbortByThread.delete(threadId);
+        }
         return;
       }
       identity = this.runIdentityByThread.get(threadId);
     }
     const liveRequestId = this.inFlightByThread.get(threadId);
     const requestId = liveRequestId ?? identity?.requestId;
-    if (!requestId) {
-      if (this.acceptingControlThreads.has(threadId)) this.pendingAbortThreads.add(threadId);
+    if (!requestId) return;
+    const terminalBeforeStop = this.pendingTerminalByThread.get(threadId);
+    if (!liveRequestId && terminalBeforeStop) {
+      if (terminalBeforeStop.status === 'cancelled') return;
+      throw new Error(
+        `Pi request ${requestId} reached ${terminalBeforeStop.status} before Stop was acknowledged.`,
+      );
+    }
+    const existingDecision = this.abortDecisionByRequest.get(requestId);
+    if (existingDecision) {
+      await existingDecision;
       return;
     }
-    // Mark before invoking: a Rust abort resolves execute()'s invoke with empty
-    // text, and the flag is how execute() knows to classify the terminal as
-    // cancelled rather than completed.
-    const abortWasAlreadyAcknowledged = this.abortedRequests.has(requestId);
-    this.abortedRequests.add(requestId);
-    if (!liveRequestId) {
-      if (identity) this.registerTerminalSettlement(threadId, { ...identity, status: 'cancelled' });
-      return;
-    }
-    let terminalSnapshot: PiRunStreamSnapshot | null;
+    let resolveAbortDecision!: () => void;
+    const abortDecision = new Promise<void>((resolve) => {
+      resolveAbortDecision = resolve;
+    });
+    this.abortDecisionByRequest.set(requestId, abortDecision);
     try {
-      await this.invokeRuntimeCommand('agent_runtime_abort', { requestId });
-    } catch (error) {
-      try {
-        terminalSnapshot = await this.invokeRuntimeCommand('agent_runtime_stream_snapshot', {
-          requestId,
-        });
-      } catch (snapshotError) {
-        if (!abortWasAlreadyAcknowledged) this.abortedRequests.delete(requestId);
-        if (this.inFlightByThread.get(threadId) === requestId) {
-          this.controlReadyByThread.set(threadId, requestId);
-          this.acceptingControlThreads.add(threadId);
+      // Mark before invoking: a Rust abort resolves execute()'s invoke with empty
+      // text, and the flag is how execute() knows to classify the terminal as
+      // cancelled after the authoritative snapshot confirms the Stop. Settlement
+      // waits on abortDecision, so this provisional flag cannot commit early.
+      const abortWasAlreadyAcknowledged = this.abortedRequests.has(requestId);
+      this.abortedRequests.add(requestId);
+      if (!liveRequestId) {
+        if (identity) {
+          this.pendingAbortByThread.set(threadId, identity.runId);
+          this.registerTerminalSettlement(threadId, {
+            ...identity,
+            status: 'cancelled',
+            source: 'pre-host-stop',
+          });
         }
-        throw new AggregateError(
-          [error, snapshotError],
-          `Could not confirm whether Pi request ${requestId} stopped.`,
-        );
+        return;
       }
+      let terminalSnapshot: PiRunStreamSnapshot | null;
+      try {
+        await this.invokeRuntimeCommand('agent_runtime_abort', { requestId });
+      } catch (error) {
+        try {
+          terminalSnapshot = await this.invokeRuntimeCommand('agent_runtime_stream_snapshot', {
+            requestId,
+          });
+        } catch (snapshotError) {
+          if (!abortWasAlreadyAcknowledged) this.abortedRequests.delete(requestId);
+          if (this.inFlightByThread.get(threadId) === requestId) {
+            this.controlReadyByThread.set(threadId, requestId);
+            this.acceptingControlThreads.add(threadId);
+          }
+          throw new AggregateError(
+            [error, snapshotError],
+            `Could not confirm whether Pi request ${requestId} stopped.`,
+          );
+        }
+        if (terminalSnapshot?.terminal?.status !== 'aborted') {
+          if (!abortWasAlreadyAcknowledged) this.abortedRequests.delete(requestId);
+          if (terminalSnapshot?.running && this.inFlightByThread.get(threadId) === requestId) {
+            this.controlReadyByThread.set(threadId, requestId);
+            this.acceptingControlThreads.add(threadId);
+          }
+          throw error;
+        }
+        if (terminalSnapshot?.terminal?.status === 'aborted') {
+          this.controlReadyByThread.delete(threadId);
+          this.rejectPendingControls(
+            threadId,
+            new Error('The queued message was cancelled with the run.'),
+          );
+          const unsettledIdentity = this.runIdentityByThread.get(threadId);
+          if (unsettledIdentity) {
+            this.registerTerminalSettlement(threadId, {
+              ...unsettledIdentity,
+              status: 'cancelled',
+              source: 'confirmed-stop',
+            });
+          }
+          return;
+        }
+        throw error;
+      }
+      // Rust synchronously accepted the cancellation token. There is no safe
+      // timeout rollback from this point: a slow child may unwind after any local
+      // deadline and must still classify as cancelled. Keep controller ownership
+      // and duplicate-submit blocking until the retained stream proves terminal.
+      terminalSnapshot = await this.waitForTerminalStream(requestId, 'confirmed-stop');
       if (terminalSnapshot?.terminal?.status !== 'aborted') {
         if (!abortWasAlreadyAcknowledged) this.abortedRequests.delete(requestId);
         if (terminalSnapshot?.running && this.inFlightByThread.get(threadId) === requestId) {
           this.controlReadyByThread.set(threadId, requestId);
           this.acceptingControlThreads.add(threadId);
         }
-        throw error;
-      }
-      if (terminalSnapshot?.terminal?.status === 'aborted') {
-        this.controlReadyByThread.delete(threadId);
-        this.rejectPendingControls(
-          threadId,
-          new Error('The queued message was cancelled with the run.'),
+        throw new Error(
+          `Pi request ${requestId} reached ${terminalSnapshot?.terminal?.status ?? 'an unknown terminal state'} before Stop was acknowledged.`,
         );
-        const unsettledIdentity = this.runIdentityByThread.get(threadId);
-        if (unsettledIdentity) {
-          this.registerTerminalSettlement(threadId, {
-            ...unsettledIdentity,
-            status: 'cancelled',
-          });
-        }
-        return;
       }
-      throw error;
-    }
-    // Rust synchronously accepted the cancellation token. There is no safe
-    // timeout rollback from this point: a slow child may unwind after any local
-    // deadline and must still classify as cancelled. Keep controller ownership
-    // and duplicate-submit blocking until the retained stream proves terminal.
-    terminalSnapshot = await this.waitForTerminalStream(requestId, 'confirmed-stop');
-    if (terminalSnapshot?.terminal?.status !== 'aborted') {
-      if (!abortWasAlreadyAcknowledged) this.abortedRequests.delete(requestId);
-      if (terminalSnapshot?.running && this.inFlightByThread.get(threadId) === requestId) {
-        this.controlReadyByThread.set(threadId, requestId);
-        this.acceptingControlThreads.add(threadId);
-      }
-      throw new Error(
-        `Pi request ${requestId} reached ${terminalSnapshot?.terminal?.status ?? 'an unknown terminal state'} before Stop was acknowledged.`,
+      this.controlReadyByThread.delete(threadId);
+      this.rejectPendingControls(
+        threadId,
+        new Error('The queued message was cancelled with the run.'),
       );
-    }
-    this.controlReadyByThread.delete(threadId);
-    this.rejectPendingControls(
-      threadId,
-      new Error('The queued message was cancelled with the run.'),
-    );
-    const unsettledIdentity = this.runIdentityByThread.get(threadId);
-    if (unsettledIdentity) {
-      this.registerTerminalSettlement(threadId, {
-        ...unsettledIdentity,
-        status: 'cancelled',
-      });
+      const unsettledIdentity = this.runIdentityByThread.get(threadId);
+      if (unsettledIdentity) {
+        this.registerTerminalSettlement(threadId, {
+          ...unsettledIdentity,
+          status: 'cancelled',
+          source: 'confirmed-stop',
+        });
+      }
+    } finally {
+      resolveAbortDecision();
+      if (this.abortDecisionByRequest.get(requestId) === abortDecision) {
+        this.abortDecisionByRequest.delete(requestId);
+      }
     }
   }
 
@@ -2316,7 +2445,7 @@ export class DesktopPiAgentRuntime implements DesktopAgentRuntime {
     this.inFlightByThread.clear();
     this.controlReadyByThread.clear();
     this.acceptingControlThreads.clear();
-    this.pendingAbortThreads.clear();
+    this.pendingAbortByThread.clear();
     for (const threadId of this.pendingControlsByThread.keys()) {
       this.rejectPendingControls(threadId, new Error('The renderer detached before delivery.'));
     }

@@ -951,6 +951,84 @@ const scenarios: Array<{
     },
   },
   {
+    name: 'reattached terminal observer waits for Stop arbitration',
+    criteria:
+      'Pass when a retained Result arrives inside abort IPC, the Stop then loses, and the observer promise resolves only after controller recovery has durably completed the transcript and root.',
+    run: async () => {
+      const base = Date.parse('2026-06-20T00:00:00.000Z');
+      const descriptor: ReattachedAgentRun = {
+        requestId: 'host-reattach-stop-loses',
+        runId: 'attempt-reattach-stop-loses',
+        companyId: 'co',
+        threadId: 'thread-1',
+        employeeId: 'emp-1',
+        projectId: 'prj',
+        objective: 'Preserve the retained terminal ordering',
+        startedAt: new Date(base + 1_000).toISOString(),
+      };
+      const rootUser: ChatMessage = {
+        id: 'boss-reattach-stop-loses',
+        threadId: 'thread-1',
+        author: 'boss',
+        employeeId: null,
+        body: descriptor.objective,
+        at: base,
+        attemptId: descriptor.runId,
+        status: 'complete',
+      };
+      const checkpoint: ChatMessage = {
+        id: 'assistant-reattach-stop-loses',
+        threadId: 'thread-1',
+        author: 'employee',
+        employeeId: 'emp-1',
+        body: 'Partial retained reply',
+        at: base + 500,
+        attemptId: descriptor.runId,
+        streamCursor: 9,
+        status: 'interrupted',
+      };
+      const env = makeEnv({
+        reattachRuns: [descriptor],
+        loadedMessages: [rootUser, checkpoint],
+      });
+      await env.controller.hydrateRuntimeState('co');
+      const order: string[] = [];
+      let observerCompletion: Promise<void> | null = null;
+      env.runtime.onAbort = async () => {
+        observerCompletion = env.runtime
+          .completeReattached(descriptor.runId, { text: 'Retained completion won' })
+          .then(() => {
+            order.push('observer-resolved');
+          });
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        order.push('abort-rejected');
+        throw new Error('Pi request completed before Stop was acknowledged.');
+      };
+
+      await assert.rejects(
+        () => env.controller.stopAndWait(descriptor.threadId),
+        /completed before Stop was acknowledged/,
+      );
+      assert.ok(observerCompletion);
+      await observerCompletion;
+      assert.deepEqual(order, ['abort-rejected', 'observer-resolved']);
+      assert.equal(env.controller.getSnapshot(descriptor.threadId).phase, 'completed');
+      assert.deepEqual(env.runtime.settlements, [
+        { threadId: descriptor.threadId, status: 'completed' },
+      ]);
+      const finalPersist = env.persisted
+        .filter((call) => call.message.id === checkpoint.id)
+        .at(-1)?.message;
+      assert.equal(finalPersist?.body, 'Retained completion won');
+      assert.equal(finalPersist?.status, 'complete');
+      return {
+        order,
+        phase: env.controller.getSnapshot(descriptor.threadId).phase,
+        rootStatus: env.runtime.settlements[0]?.status,
+      };
+    },
+  },
+  {
     name: 'renderer reload redelivers only durable pending controls with vault attachments',
     criteria:
       'Pass when a queued message persisted before host admission is rebuilt from its vault metadata, keeps steer semantics and native images, and advances pending to accepted exactly once.',
@@ -2178,6 +2256,588 @@ const scenarios: Array<{
         controllerReadyCalls: readyCalls,
         observerError: observerErrors[0]?.message,
         rootFailed: true,
+      };
+    },
+  },
+  {
+    name: 'reattach synthetic failure yields to an already confirmed Stop',
+    criteria:
+      'Pass when user Stop confirms an aborted retained host before replay failure cleanup, the synthetic failure path emits no controller error, and the cancelled root remains the only durable terminal.',
+    run: async () => {
+      const runId = 'run-reattach-stop-wins-synthetic';
+      const requestId = 'request-reattach-stop-wins-synthetic';
+      const threadId = 'thread-reattach-stop-wins-synthetic';
+      const row: AgentRunRow = {
+        run_id: runId,
+        thread_id: threadId,
+        company_id: 'co',
+        project_id: 'prj',
+        parent_run_id: null,
+        root_run_id: runId,
+        employee_id: null,
+        relation: null,
+        work_kind: null,
+        objective: 'Retained host stopped during replay failure',
+        access: 'write',
+        status: 'running',
+        failure_kind: null,
+        usage_json: null,
+        result_summary_json: null,
+        session_file: null,
+        runtime_context_json: JSON.stringify({ requestId, streamCursor: 0 }),
+        started_at: '2026-06-20T00:00:00.000Z',
+        finished_at: null,
+      };
+      const statusUpdates: string[] = [];
+      const repositories = {
+        agentRuns: {
+          findByStatus: async () => [row],
+          findByRoot: async () => [row],
+          updateStatus: async (_updatedRunId: string, status: string) => {
+            statusUpdates.push(status);
+          },
+        },
+      } as unknown as RuntimeRepositories;
+      const reattachStarted = new Deferred<void>();
+      const releaseReattach = new Deferred<void>();
+      const commands: string[] = [];
+      let aborted = false;
+      const runtime = new DesktopPiAgentRuntime('co', repositories, (async (command: string) => {
+        commands.push(command);
+        if (command === 'agent_runtime_stream_snapshot') {
+          return aborted
+            ? {
+                requestId,
+                running: false,
+                cursor: 1,
+                buffered: 1,
+                terminal: { status: 'aborted' },
+              }
+            : { requestId, running: true, cursor: 0, buffered: 0 };
+        }
+        if (command === 'agent_runtime_reattach') {
+          reattachStarted.resolve();
+          await releaseReattach.promise;
+          throw new Error('retained replay transport failed');
+        }
+        if (command === 'agent_runtime_abort') {
+          aborted = true;
+          return undefined;
+        }
+        if (command === 'agent_runtime_release_stream') return undefined;
+        throw new Error(`unexpected command ${command}`);
+      }) as never);
+      const observerErrors: Error[] = [];
+      let observerCancelled = 0;
+      const harnessGlobal = globalThis as unknown as {
+        window?: {
+          __TAURI_INTERNALS__: {
+            transformCallback: (callback: (message: unknown) => void) => number;
+          };
+        };
+      };
+      const originalWindow = harnessGlobal.window;
+      harnessGlobal.window = {
+        __TAURI_INTERNALS__: {
+          transformCallback: () => 1,
+        },
+      };
+      let attached: readonly string[];
+      try {
+        const attaching = runtime.reattachLiveRuns(async () => ({
+          afterCursor: 0,
+          onResult: () => undefined,
+          onError: (error) => {
+            observerErrors.push(error);
+          },
+          onCancelled: () => {
+            observerCancelled += 1;
+          },
+        }));
+        await reattachStarted.promise;
+        await runtime.abort(threadId);
+        releaseReattach.resolve();
+        attached = await attaching;
+      } finally {
+        if (originalWindow) harnessGlobal.window = originalWindow;
+        else harnessGlobal.window = undefined;
+      }
+      assert.deepEqual(attached, [runId]);
+      assert.equal(aborted, true);
+      assert.deepEqual(observerErrors, []);
+      assert.equal(observerCancelled, 0);
+      await runtime.settleRun(threadId, 'cancelled');
+      assert.deepEqual(statusUpdates, ['cancelled']);
+      assert.equal(commands.at(-1), 'agent_runtime_release_stream');
+      return {
+        observerErrors: observerErrors.length,
+        observerCancelled,
+        rootStatus: statusUpdates[0],
+      };
+    },
+  },
+  {
+    name: 'Resume preflight Stop is scoped to the exact run admission',
+    criteria:
+      'Pass when Stop waits for an old Resume preflight to observe its run-scoped cancellation, the old Resume never reaches Pi, and a replacement admission succeeds only after Stop completes.',
+    run: async () => {
+      const oldRunId = 'run-resume-preflight-old';
+      const newRunId = 'run-resume-preflight-new';
+      const threadId = 'thread-resume-preflight';
+      const row: AgentRunRow = {
+        run_id: oldRunId,
+        thread_id: threadId,
+        company_id: 'co',
+        project_id: 'prj',
+        parent_run_id: null,
+        root_run_id: oldRunId,
+        employee_id: null,
+        relation: null,
+        work_kind: null,
+        objective: 'Resume the interrupted task',
+        access: 'write',
+        status: 'interrupted',
+        failure_kind: null,
+        usage_json: null,
+        result_summary_json: null,
+        session_file: null,
+        runtime_context_json: null,
+        started_at: '2026-06-20T00:00:00.000Z',
+        finished_at: null,
+      };
+      const rows = new Map<string, AgentRunRow>([[oldRunId, row]]);
+      const oldLookupStarted = new Deferred<void>();
+      const releaseOldLookup = new Deferred<void>();
+      let delayedOldLookup = false;
+      const repositories = {
+        agentRuns: {
+          findById: async (candidateRunId: string) => {
+            if (candidateRunId === oldRunId && !delayedOldLookup) {
+              delayedOldLookup = true;
+              oldLookupStarted.resolve();
+              await releaseOldLookup.promise;
+            }
+            return rows.get(candidateRunId) ?? null;
+          },
+          create: async (created: AgentRunRow) => {
+            rows.set(created.run_id, created);
+          },
+        },
+        projects: {
+          findById: async (projectId: string) => ({
+            project_id: projectId,
+            company_id: 'co',
+            name: 'Harness project',
+            workspace_root: '/tmp/offisim-harness-project',
+            verify_command: null,
+            verify_max_attempts: null,
+            verify_token_budget: null,
+          }),
+        },
+      } as unknown as RuntimeRepositories;
+      const runtime = new DesktopPiAgentRuntime('co', repositories, (async (command: string) => {
+        throw new Error(`unexpected command ${command}`);
+      }) as never);
+      type ResumeInternals = {
+        assertProjectWorkspaceAvailable: (projectId: string) => Promise<void>;
+        runPiTurn: (input: DesktopAgentRunInput) => Promise<DesktopAgentRunResult>;
+        pendingAbortByThread: Map<string, string>;
+      };
+      const internals = runtime as unknown as ResumeInternals;
+      internals.assertProjectWorkspaceAvailable = async () => undefined;
+      const startedRunIds: string[] = [];
+      internals.runPiTurn = async (input) => {
+        startedRunIds.push(input.runId ?? 'missing-run-id');
+        return { text: 'unexpected old Resume execution' };
+      };
+
+      const resuming = runtime.resume(oldRunId, {
+        text: row.objective ?? '',
+        threadId,
+      });
+      await oldLookupStarted.promise;
+      let stopSettled = false;
+      const stopping = runtime.abort(threadId).then(() => {
+        stopSettled = true;
+      });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal(stopSettled, false);
+
+      releaseOldLookup.resolve();
+      await assert.rejects(resuming, /cancelled before admission completed/);
+      await stopping;
+      assert.equal(stopSettled, true);
+      assert.deepEqual(startedRunIds, []);
+      assert.equal(internals.pendingAbortByThread.has(threadId), false);
+
+      await runtime.admitRun({
+        text: 'Replacement task after Stop',
+        threadId,
+        employeeId: null,
+        projectId: 'prj',
+        runId: newRunId,
+      });
+      assert.equal(rows.has(newRunId), true);
+      assert.equal(internals.pendingAbortByThread.has(threadId), false);
+      return {
+        stopWaitedForPreflight: true,
+        oldResumeInvokeCount: startedRunIds.length,
+        replacementAdmitted: rows.has(newRunId),
+      };
+    },
+  },
+  {
+    name: 'direct runtime pre-host Stop settles and releases its admission',
+    criteria:
+      'Pass when a direct non-controller run stopped after durable admission but before host invoke never starts Pi, durably cancels its root, and clears every run-scoped ownership map for the next turn.',
+    run: async () => {
+      const runId = 'run-direct-pre-host-stop';
+      const threadId = 'thread-direct-pre-host-stop';
+      const rows = new Map<string, AgentRunRow>();
+      const statusUpdates: string[] = [];
+      const repositories = {
+        agentRuns: {
+          findById: async (candidateRunId: string) => rows.get(candidateRunId) ?? null,
+          create: async (row: AgentRunRow) => {
+            rows.set(row.run_id, row);
+          },
+          findByRoot: async (rootRunId: string) =>
+            [...rows.values()].filter((row) => row.root_run_id === rootRunId),
+          updateStatus: async (updatedRunId: string, status: AgentRunRow['status']) => {
+            const row = rows.get(updatedRunId);
+            if (row) rows.set(updatedRunId, { ...row, status });
+            statusUpdates.push(status);
+          },
+        },
+        projects: {
+          findById: async (projectId: string) => ({
+            project_id: projectId,
+            company_id: 'co',
+            name: 'Harness project',
+            workspace_root: '/tmp/offisim-harness-project',
+            verify_command: null,
+            verify_max_attempts: null,
+            verify_token_budget: null,
+          }),
+        },
+      } as unknown as RuntimeRepositories;
+      const commands: string[] = [];
+      const runtime = new DesktopPiAgentRuntime('co', repositories, (async (command: string) => {
+        commands.push(command);
+        if (command === 'agent_runtime_release_stream') return undefined;
+        throw new Error(`unexpected command ${command}`);
+      }) as never);
+      const input: DesktopAgentRunInput = {
+        text: 'Direct mission task',
+        threadId,
+        employeeId: null,
+        projectId: 'prj',
+        runId,
+      };
+      type DirectStopInternals = {
+        runIdentityByThread: Map<string, unknown>;
+        admissionsByThread: Map<string, unknown>;
+        pendingAbortByThread: Map<string, string>;
+        abortedRequests: Set<string>;
+        pendingTerminalByThread: Map<string, unknown>;
+      };
+      const internals = runtime as unknown as DirectStopInternals;
+
+      await runtime.admitRun(input);
+      await runtime.abort(threadId);
+      await assert.rejects(() => runtime.execute(input), /cancelled before it started/);
+      assert.equal(rows.get(runId)?.status, 'cancelled');
+      assert.deepEqual(statusUpdates, ['cancelled']);
+      assert.deepEqual(commands, ['agent_runtime_release_stream']);
+      assert.equal(internals.runIdentityByThread.has(threadId), false);
+      assert.equal(internals.admissionsByThread.has(threadId), false);
+      assert.equal(internals.pendingAbortByThread.has(threadId), false);
+      assert.equal(internals.pendingTerminalByThread.has(threadId), false);
+      assert.equal(internals.abortedRequests.size, 0);
+      return {
+        hostInvokeCount: 0,
+        rootStatus: rows.get(runId)?.status,
+        ownershipMapsCleared: true,
+      };
+    },
+  },
+  {
+    name: 'direct runtime Stop during preflight never starts a host',
+    criteria:
+      'Pass when Stop lands during the second durable-root preflight write, stays in admission ownership instead of issuing Rust abort IPC, and the direct run self-settles cancelled before persona/MCP or host work.',
+    run: async () => {
+      const runId = 'run-direct-preflight-stop';
+      const threadId = 'thread-direct-preflight-stop';
+      const rows = new Map<string, AgentRunRow>();
+      const statusUpdates: string[] = [];
+      const secondLookupStarted = new Deferred<void>();
+      const releaseSecondLookup = new Deferred<void>();
+      let lookupCount = 0;
+      const repositories = {
+        agentRuns: {
+          findById: async (candidateRunId: string) => {
+            lookupCount += 1;
+            if (lookupCount === 2) {
+              secondLookupStarted.resolve();
+              await releaseSecondLookup.promise;
+            }
+            return rows.get(candidateRunId) ?? null;
+          },
+          create: async (row: AgentRunRow) => {
+            rows.set(row.run_id, row);
+          },
+          findByRoot: async (rootRunId: string) =>
+            [...rows.values()].filter((row) => row.root_run_id === rootRunId),
+          updateStatus: async (updatedRunId: string, status: AgentRunRow['status']) => {
+            const row = rows.get(updatedRunId);
+            if (row) rows.set(updatedRunId, { ...row, status });
+            statusUpdates.push(status);
+          },
+        },
+        projects: {
+          findById: async (projectId: string) => ({
+            project_id: projectId,
+            company_id: 'co',
+            name: 'Harness project',
+            workspace_root: '/tmp/offisim-harness-project',
+            verify_command: null,
+            verify_max_attempts: null,
+            verify_token_budget: null,
+          }),
+        },
+      } as unknown as RuntimeRepositories;
+      const commands: string[] = [];
+      const runtime = new DesktopPiAgentRuntime('co', repositories, (async (command: string) => {
+        commands.push(command);
+        if (command === 'agent_runtime_release_stream') return undefined;
+        throw new Error(`unexpected command ${command}`);
+      }) as never);
+      const input: DesktopAgentRunInput = {
+        text: 'Direct mission stopped during preflight',
+        threadId,
+        employeeId: null,
+        projectId: 'prj',
+        runId,
+      };
+      type PreflightStopInternals = {
+        inFlightByThread: Map<string, string>;
+        admissionsByThread: Map<string, unknown>;
+        pendingAbortByThread: Map<string, string>;
+        abortedRequests: Set<string>;
+        pendingTerminalByThread: Map<string, unknown>;
+      };
+      const internals = runtime as unknown as PreflightStopInternals;
+      const harnessGlobal = globalThis as unknown as {
+        window?: {
+          __TAURI_INTERNALS__: {
+            transformCallback: (callback: (message: unknown) => void) => number;
+          };
+        };
+      };
+      const originalWindow = harnessGlobal.window;
+      harnessGlobal.window = {
+        __TAURI_INTERNALS__: {
+          transformCallback: () => 1,
+        },
+      };
+      try {
+        const executing = runtime.execute(input);
+        await secondLookupStarted.promise;
+        assert.equal(internals.inFlightByThread.has(threadId), false);
+        await runtime.abort(threadId);
+        assert.equal(commands.length, 0);
+        releaseSecondLookup.resolve();
+        await assert.rejects(executing, /cancelled before its host started/);
+      } finally {
+        if (originalWindow) harnessGlobal.window = originalWindow;
+        else harnessGlobal.window = undefined;
+      }
+      assert.equal(rows.get(runId)?.status, 'cancelled');
+      assert.deepEqual(statusUpdates, ['cancelled']);
+      assert.deepEqual(commands, ['agent_runtime_release_stream']);
+      assert.equal(internals.admissionsByThread.has(threadId), false);
+      assert.equal(internals.pendingAbortByThread.has(threadId), false);
+      assert.equal(internals.pendingTerminalByThread.has(threadId), false);
+      assert.equal(internals.abortedRequests.size, 0);
+      return {
+        rustAbortCalls: 0,
+        hostInvokeCalls: 0,
+        rootStatus: rows.get(runId)?.status,
+      };
+    },
+  },
+  {
+    name: 'real runtime retains natural Result when Stop loses arbitration',
+    criteria:
+      'Pass when a provisional Stop overlaps a natural completed terminal, the authoritative snapshot reports completed, and the real runtime rolls back only the Stop intent before durably settling completed.',
+    run: async () => {
+      const runId = 'run-stop-loses-natural-result';
+      const requestId = 'request-stop-loses-natural-result';
+      const threadId = 'thread-stop-loses-natural-result';
+      const row: AgentRunRow = {
+        run_id: runId,
+        thread_id: threadId,
+        company_id: 'co',
+        project_id: 'prj',
+        parent_run_id: null,
+        root_run_id: runId,
+        employee_id: null,
+        relation: null,
+        work_kind: null,
+        objective: 'Finish naturally while Stop races',
+        access: 'write',
+        status: 'running',
+        failure_kind: null,
+        usage_json: null,
+        result_summary_json: null,
+        session_file: null,
+        runtime_context_json: JSON.stringify({ requestId }),
+        started_at: '2026-06-20T00:00:00.000Z',
+        finished_at: null,
+      };
+      const statusUpdates: string[] = [];
+      const repositories = {
+        agentRuns: {
+          findByRoot: async () => [row],
+          updateStatus: async (_updatedRunId: string, status: string) => {
+            statusUpdates.push(status);
+          },
+        },
+      } as unknown as RuntimeRepositories;
+      type TerminalInternals = {
+        runIdentityByThread: Map<string, { runId: string; requestId: string }>;
+        inFlightByThread: Map<string, string>;
+        abortedRequests: Set<string>;
+        pendingTerminalByThread: Map<
+          string,
+          { status: string; source: string; runId: string; requestId: string }
+        >;
+        registerTerminalSettlement: (
+          threadId: string,
+          settlement: {
+            runId: string;
+            requestId: string;
+            status: 'completed';
+            source: 'host';
+          },
+        ) => unknown;
+      };
+      const runtime = new DesktopPiAgentRuntime('co', repositories, (async (command: string) => {
+        const internals = runtime as unknown as TerminalInternals;
+        if (command === 'agent_runtime_abort') {
+          internals.registerTerminalSettlement(threadId, {
+            runId,
+            requestId,
+            status: 'completed',
+            source: 'host',
+          });
+          return undefined;
+        }
+        if (command === 'agent_runtime_stream_snapshot') {
+          return {
+            requestId,
+            running: false,
+            cursor: 5,
+            buffered: 5,
+            terminal: { status: 'completed' },
+          };
+        }
+        if (command === 'agent_runtime_release_stream') return undefined;
+        throw new Error(`unexpected command ${command}`);
+      }) as never);
+      const internals = runtime as unknown as TerminalInternals;
+      internals.runIdentityByThread.set(threadId, { runId, requestId });
+      internals.inFlightByThread.set(threadId, requestId);
+
+      await assert.rejects(
+        () => runtime.abort(threadId),
+        /reached completed before Stop was acknowledged/,
+      );
+      assert.equal(internals.abortedRequests.has(requestId), false);
+      assert.deepEqual(internals.pendingTerminalByThread.get(threadId), {
+        runId,
+        requestId,
+        status: 'completed',
+        source: 'host',
+      });
+      await runtime.settleRun(threadId, 'completed');
+      assert.deepEqual(statusUpdates, ['completed']);
+      assert.equal(internals.pendingTerminalByThread.has(threadId), false);
+      return {
+        provisionalStopRolledBack: true,
+        retainedStatus: 'completed',
+        statusUpdates,
+      };
+    },
+  },
+  {
+    name: 'real runtime rejects a late Stop after host terminal handoff',
+    criteria:
+      'Pass when the host terminal is already retained after in-flight ownership ends, a late Stop explicitly loses instead of interrupting the controller transcript, and the natural root status remains durable.',
+    run: async () => {
+      const runId = 'run-late-stop-after-terminal';
+      const requestId = 'request-late-stop-after-terminal';
+      const threadId = 'thread-late-stop-after-terminal';
+      const statusUpdates: string[] = [];
+      const repositories = {
+        agentRuns: {
+          findByRoot: async () => [],
+          updateStatus: async (_updatedRunId: string, status: string) => {
+            statusUpdates.push(status);
+          },
+        },
+      } as unknown as RuntimeRepositories;
+      type TerminalHandoffInternals = {
+        runIdentityByThread: Map<string, { runId: string; requestId: string }>;
+        abortedRequests: Set<string>;
+        pendingTerminalByThread: Map<
+          string,
+          { status: string; source: string; runId: string; requestId: string }
+        >;
+        registerTerminalSettlement: (
+          threadId: string,
+          settlement: {
+            runId: string;
+            requestId: string;
+            status: 'completed';
+            source: 'host';
+          },
+        ) => unknown;
+      };
+      const commands: string[] = [];
+      const runtime = new DesktopPiAgentRuntime('co', repositories, (async (command: string) => {
+        commands.push(command);
+        if (command === 'agent_runtime_release_stream') return undefined;
+        throw new Error(`unexpected command ${command}`);
+      }) as never);
+      const internals = runtime as unknown as TerminalHandoffInternals;
+      internals.runIdentityByThread.set(threadId, { runId, requestId });
+      internals.registerTerminalSettlement(threadId, {
+        runId,
+        requestId,
+        status: 'completed',
+        source: 'host',
+      });
+
+      await assert.rejects(
+        () => runtime.abort(threadId),
+        /reached completed before Stop was acknowledged/,
+      );
+      assert.equal(internals.abortedRequests.has(requestId), false);
+      assert.deepEqual(internals.pendingTerminalByThread.get(threadId), {
+        runId,
+        requestId,
+        status: 'completed',
+        source: 'host',
+      });
+      assert.deepEqual(commands, []);
+      await runtime.settleRun(threadId, 'completed');
+      assert.deepEqual(statusUpdates, ['completed']);
+      assert.deepEqual(commands, ['agent_runtime_release_stream']);
+      return {
+        lateStopRejected: true,
+        retainedStatus: 'completed',
+        statusUpdates,
       };
     },
   },

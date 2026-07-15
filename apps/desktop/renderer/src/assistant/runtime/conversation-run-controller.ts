@@ -872,7 +872,10 @@ export class ConversationRunController {
   stopAndWait(threadId: string): Promise<void> {
     const existing = this.stopOperations.get(threadId);
     if (existing) return existing;
-    const operation = this.performStopAndWait(threadId);
+    // Publish Stop ownership before runtime.abort can synchronously surface a
+    // retained Result/Error. Terminal observers can then await this exact
+    // arbitration instead of acknowledging persistence before the transcript.
+    const operation = Promise.resolve().then(() => this.performStopAndWait(threadId));
     this.stopOperations.set(threadId, operation);
     void operation.then(
       () => {
@@ -1328,7 +1331,10 @@ export class ConversationRunController {
   private async completeRun(run: ActiveRun, response: DesktopAgentRunResult): Promise<void> {
     if (!this.isActiveRun(run)) return;
     run.terminalOutcome = { kind: 'completed', response };
-    if (run.stopped) return;
+    if (run.stopped) {
+      await this.stopOperations.get(run.threadId)?.catch(() => {});
+      if (!this.isActiveRun(run) || run.stopped) return;
+    }
     return this.runTerminalTask(run, () => this.performCompleteRun(run, response));
   }
 
@@ -1842,7 +1848,10 @@ export class ConversationRunController {
   private async failRun(run: ActiveRun, error: unknown): Promise<void> {
     if (!this.isActiveRun(run)) return;
     run.terminalOutcome = { kind: 'failed', error };
-    if (run.stopped) return;
+    if (run.stopped) {
+      await this.stopOperations.get(run.threadId)?.catch(() => {});
+      if (!this.isActiveRun(run) || run.stopped) return;
+    }
     return this.runTerminalTask(run, () => this.performFailRun(run, error));
   }
 

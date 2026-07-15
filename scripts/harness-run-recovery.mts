@@ -682,11 +682,23 @@ async function main(): Promise<void> {
       /images: resumeSessionFile \? \[\] : restart\.images/,
       'a missing Pi session must replay the durable objective and native attachments',
     );
-    const admission = desktopRuntimeSource.indexOf(
+    const controlAdmission = desktopRuntimeSource.indexOf(
       'this.acceptingControlThreads.add(admissionThreadId)',
     );
-    const durableLookup = desktopRuntimeSource.indexOf('await repo.findById(runId)', admission);
-    assert.ok(admission >= 0 && durableLookup > admission, 'Resume admission must precede awaits');
+    const admissionRegistration = desktopRuntimeSource.indexOf(
+      'this.admissionsByThread.set(admissionThreadId',
+      controlAdmission,
+    );
+    const admissionAwait = desktopRuntimeSource.indexOf(
+      'await admissionPromise',
+      admissionRegistration,
+    );
+    assert.ok(
+      controlAdmission >= 0 &&
+        admissionRegistration > controlAdmission &&
+        admissionAwait > admissionRegistration,
+      'Resume must register the run-scoped admission before the outer preflight await',
+    );
     assert.match(conversationControllerSource, /threadId: run\.threadId/);
   });
 
@@ -699,7 +711,7 @@ async function main(): Promise<void> {
     const settleStart = desktopRuntimeSource.indexOf('async settleRun(');
     const rootCommit = desktopRuntimeSource.indexOf('this.reconcileRoot(', settleStart);
     const streamRelease = desktopRuntimeSource.indexOf(
-      "invokeCommand('agent_runtime_release_stream'",
+      "this.invokeRuntimeCommand('agent_runtime_release_stream'",
       rootCommit,
     );
     assert.ok(
