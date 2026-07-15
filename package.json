@@ -35,6 +35,7 @@
     "harness:eval-suite": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-eval-suite.mts",
     "eval:live-ledger": "pnpm --filter @offisim/platform exec tsx ../../scripts/eval-suite-live-ledger.mts",
     "security:harness": "pnpm platform:auth-harness && pnpm platform:moderation-harness && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-platform-body-limit-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-doc-engine-csv-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-doc-engine-xlsx-limits.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-git-source-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-registry-client-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-web-fetch-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-web-search-security.mts && pnpm harness:pi-permission && pnpm harness:install-core-integrity",
+    "audit:prod": "npx --yes pnpm@11.13.0 --config.pm-on-fail=ignore audit --prod --audit-level high",
     "harness:review-fixes": "node scripts/harness-review-fixes.mjs && pnpm harness:settings-status-coordinator",
     "harness:settings-status-coordinator": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-settings-status-coordinator.mts",
     "harness:studio-placement": "node scripts/harness-studio-placement.mjs",
