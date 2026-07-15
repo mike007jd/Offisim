@@ -6,6 +6,7 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY apps/platform ./apps/platform
+COPY apps/desktop/src-tauri/tauri.conf.json ./apps/desktop/src-tauri/tauri.conf.json
 COPY packages ./packages
 COPY scripts ./scripts
 
