@@ -7,6 +7,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY apps/platform ./apps/platform
 COPY packages ./packages
+COPY scripts ./scripts
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @offisim/platform... build
