@@ -587,9 +587,17 @@ pub(crate) enum TaskWorkspaceResolution {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct NativeSessionReference {
-    pub(crate) file: PathBuf,
-    pub(crate) id: String,
+pub(crate) enum NativeSessionReference {
+    FileBacked {
+        file: PathBuf,
+        id: String,
+    },
+    Opaque {
+        engine_id: String,
+        account_id: String,
+        billing_mode: String,
+        id: String,
+    },
 }
 
 impl TaskWorkspaceBinding {
@@ -1420,9 +1428,8 @@ struct ResumeRootExpectation<'a> {
 
 struct ValidatedResumeRoot {
     context: serde_json::Value,
-    session_file: PathBuf,
-    session_id: String,
-    stored_session_file: String,
+    native_session: NativeSessionReference,
+    stored_session_file: Option<String>,
 }
 
 fn context_string_matches(
@@ -1616,13 +1623,89 @@ fn validate_conversation_native_session(
     Ok((session_file, session_id))
 }
 
-async fn resolve_conversation_native_session_from_pool(
+fn validate_conversation_opaque_native_session(
+    runtime_context_json: Option<&str>,
+    stored_session_file: Option<&str>,
+    expected_engine_id: &str,
+    expected_account_id: &str,
+    expected_billing_mode: &str,
+    expected_protocol_version: u64,
+) -> Result<Option<String>, ResumePrestartFailure> {
+    let context: serde_json::Value = runtime_context_json
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            ResumePrestartFailure::new(
+                ResumePrestartFailureKind::ContextInvalid,
+                "The saved Conversation native session context is missing.",
+            )
+        })?
+        .parse()
+        .map_err(|_| {
+            ResumePrestartFailure::new(
+                ResumePrestartFailureKind::ContextInvalid,
+                "The saved Conversation native session context is invalid.",
+            )
+        })?;
+    let context_object = context.as_object().ok_or_else(|| {
+        ResumePrestartFailure::new(
+            ResumePrestartFailureKind::ContextInvalid,
+            "The saved Conversation native session context is invalid.",
+        )
+    })?;
+    let execution_target = context_object
+        .get("executionTarget")
+        .and_then(serde_json::Value::as_object);
+    let execution_value = |field: &str| {
+        execution_target
+            .and_then(|target| target.get(field))
+            .and_then(serde_json::Value::as_str)
+    };
+    if execution_value("engineId") != Some(expected_engine_id)
+        || execution_value("accountId") != Some(expected_account_id)
+        || execution_value("billingMode") != Some(expected_billing_mode)
+    {
+        // Switching engine, native account, or billing lane starts a separate
+        // native Conversation. Never revive a session from an older identity.
+        return Ok(None);
+    }
+    let compatible_runtime =
+        context_string_matches(context_object, "runtime", AGENT_RUNTIME_CONTEXT_ID)
+            && context_object
+                .get("nativeProtocolVersion")
+                .and_then(serde_json::Value::as_u64)
+                == Some(expected_protocol_version);
+    if !compatible_runtime {
+        return Err(ResumePrestartFailure::new(
+            ResumePrestartFailureKind::RuntimeIncompatible,
+            "The saved Conversation session belongs to an incompatible native Agent runtime.",
+        ));
+    }
+    if stored_session_file.is_some() {
+        return Err(ResumePrestartFailure::new(
+            ResumePrestartFailureKind::SessionInvalid,
+            "The saved native session must use an opaque identity without a session file.",
+        ));
+    }
+    let session_id = context_object
+        .get("nativeSessionId")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            ResumePrestartFailure::new(
+                ResumePrestartFailureKind::SessionMissing,
+                "The saved Conversation has no opaque native session identity.",
+            )
+        })?;
+    Ok(Some(session_id.to_string()))
+}
+
+async fn read_conversation_native_session_row(
     pool: &sqlx::SqlitePool,
-    expected_session_dir: &Path,
     company_id: &str,
     thread_id: &str,
     current_root_run_id: &str,
-) -> Result<Option<(PathBuf, String)>, HostError> {
+) -> Result<Option<(Option<String>, Option<String>)>, HostError> {
     let interrupted_root: Option<String> = sqlx::query_scalar(
         r#"
         SELECT run_id
@@ -1710,6 +1793,22 @@ async fn resolve_conversation_native_session_from_pool(
     {
         return Ok(None);
     }
+    Ok(Some((runtime_context_json, session_file)))
+}
+
+async fn resolve_conversation_native_session_from_pool(
+    pool: &sqlx::SqlitePool,
+    expected_session_dir: &Path,
+    company_id: &str,
+    thread_id: &str,
+    current_root_run_id: &str,
+) -> Result<Option<(PathBuf, String)>, HostError> {
+    let Some((runtime_context_json, session_file)) =
+        read_conversation_native_session_row(pool, company_id, thread_id, current_root_run_id)
+            .await?
+    else {
+        return Ok(None);
+    };
     validate_conversation_native_session(
         runtime_context_json.as_deref(),
         session_file.as_deref(),
@@ -1736,6 +1835,39 @@ pub(crate) async fn resolve_conversation_native_session_for_execute<R: tauri::Ru
         current_root_run_id,
     )
     .await
+}
+
+pub(crate) struct OpaqueNativeSessionExpectation<'a> {
+    pub engine_id: &'a str,
+    pub account_id: &'a str,
+    pub billing_mode: &'a str,
+    pub protocol_version: u64,
+}
+
+pub(crate) async fn resolve_conversation_opaque_native_session_for_execute<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    company_id: &str,
+    thread_id: &str,
+    current_root_run_id: &str,
+    expectation: OpaqueNativeSessionExpectation<'_>,
+) -> Result<Option<String>, HostError> {
+    let pool = crate::local_db::get_offisim_pool(app)
+        .map_err(|error| HostError::HostUnavailable(format!("Open offisim.db: {error}")))?;
+    let Some((runtime_context_json, session_file)) =
+        read_conversation_native_session_row(&pool, company_id, thread_id, current_root_run_id)
+            .await?
+    else {
+        return Ok(None);
+    };
+    validate_conversation_opaque_native_session(
+        runtime_context_json.as_deref(),
+        session_file.as_deref(),
+        expectation.engine_id,
+        expectation.account_id,
+        expectation.billing_mode,
+        expectation.protocol_version,
+    )
+    .map_err(ResumePrestartFailure::into_native_session_host_error)
 }
 
 pub(crate) async fn persist_conversation_native_session_reset<R: tauri::Runtime>(
@@ -2021,12 +2153,29 @@ fn validate_resume_root_prestart(
             "The interrupted task's durable runtime context is invalid. Start a new task instead.",
         )
     })?;
+    let execution_target = context_object
+        .get("executionTarget")
+        .and_then(serde_json::Value::as_object);
+    let engine_id = execution_target
+        .and_then(|target| target.get("engineId"))
+        .and_then(serde_json::Value::as_str);
     let compatible_runtime =
         context_string_matches(context_object, "runtime", AGENT_RUNTIME_CONTEXT_ID)
-            && context_object
-                .get("wireProtocolVersion")
-                .and_then(serde_json::Value::as_u64)
-                == Some(u64::from(crate::pi_agent_host::PI_HOST_PROTOCOL_VERSION));
+            && match engine_id {
+                Some("codex") => {
+                    context_object
+                        .get("nativeProtocolVersion")
+                        .and_then(serde_json::Value::as_u64)
+                        == Some(crate::codex_agent_host::CODEX_HOST_PROTOCOL_VERSION)
+                }
+                None | Some("api") => {
+                    context_object
+                        .get("wireProtocolVersion")
+                        .and_then(serde_json::Value::as_u64)
+                        == Some(u64::from(crate::pi_agent_host::PI_HOST_PROTOCOL_VERSION))
+                }
+                Some(_) => false,
+            };
     if !compatible_runtime {
         return Err(ResumePrestartFailure::new(
             ResumePrestartFailureKind::RuntimeIncompatible,
@@ -2068,18 +2217,77 @@ fn validate_resume_root_prestart(
             "The interrupted task's durable workspace projection no longer matches its saved run. Start a new task instead.",
         ));
     }
-    let (session_file, stored_session_file, session_id) =
-        validate_exact_native_session_file(expected_session_dir, stored_session_file)?;
-    if !context_string_matches(context_object, "nativeSessionId", &session_id) {
-        return Err(ResumePrestartFailure::new(
-            ResumePrestartFailureKind::SessionInvalid,
-            "The interrupted task's durable native Pi session identity no longer matches its saved session. Start a new task instead.",
-        ));
-    }
+    let (native_session, stored_session_file) = if engine_id == Some("codex") {
+        if stored_session_file.is_some() {
+            return Err(ResumePrestartFailure::new(
+                ResumePrestartFailureKind::SessionInvalid,
+                "The interrupted Codex task must use an opaque native session identity without a session file. Start a new task instead.",
+            ));
+        }
+        let session_id = context_object
+            .get("nativeSessionId")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                ResumePrestartFailure::new(
+                    ResumePrestartFailureKind::SessionMissing,
+                    "The interrupted Codex task has no saved opaque native session identity. Start a new task instead.",
+                )
+            })?
+            .to_string();
+        let account_id = execution_target
+            .and_then(|target| target.get("accountId"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                ResumePrestartFailure::new(
+                    ResumePrestartFailureKind::ContextInvalid,
+                    "The interrupted Codex task has no saved native account identity. Start a new task instead.",
+                )
+            })?
+            .to_string();
+        let billing_mode = execution_target
+            .and_then(|target| target.get("billingMode"))
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| *value == "subscription")
+            .ok_or_else(|| {
+                ResumePrestartFailure::new(
+                    ResumePrestartFailureKind::ContextInvalid,
+                    "The interrupted Codex task is not bound to a subscription account. Start a new task instead.",
+                )
+            })?
+            .to_string();
+        (
+            NativeSessionReference::Opaque {
+                engine_id: "codex".into(),
+                account_id,
+                billing_mode,
+                id: session_id,
+            },
+            None,
+        )
+    } else {
+        let (session_file, stored_session_file, session_id) =
+            validate_exact_native_session_file(expected_session_dir, stored_session_file)?;
+        if !context_string_matches(context_object, "nativeSessionId", &session_id) {
+            return Err(ResumePrestartFailure::new(
+                ResumePrestartFailureKind::SessionInvalid,
+                "The interrupted task's durable native Pi session identity no longer matches its saved session. Start a new task instead.",
+            ));
+        }
+        (
+            NativeSessionReference::FileBacked {
+                file: session_file,
+                id: session_id,
+            },
+            Some(stored_session_file),
+        )
+    };
     Ok(ValidatedResumeRoot {
         context,
-        session_file,
-        session_id,
+        native_session,
         stored_session_file,
     })
 }
@@ -2772,7 +2980,7 @@ async fn claim_resumed_root_before_start(
             format!("Encode the resumed root context: {error}"),
         )
     })?;
-    let changed = sqlx::query(
+    let update_sql = if validated.stored_session_file.is_some() {
         r#"
         UPDATE agent_runs
         SET status = 'running', runtime_context_json = ?,
@@ -2781,22 +2989,38 @@ async fn claim_resumed_root_before_start(
           AND company_id = ? AND project_id = ? AND thread_id = ?
           AND status = 'interrupted'
           AND runtime_context_json = ? AND session_file = ?
-        "#,
-    )
-    .bind(&resumed_context_json)
-    .bind(&binding.turn_id)
-    .bind(&binding.turn_id)
-    .bind(&binding.company_id)
-    .bind(&binding.project_id)
-    .bind(&binding.thread_id)
-    .bind(runtime_context_json.as_deref())
-    .bind(&validated.stored_session_file)
-    .execute(&mut **tx)
-    .await
-    .map_err(|error| {
-        classify_resume_database_failure(error, "Persist the resumed root before sidecar start")
-    })?
-    .rows_affected();
+        "#
+    } else {
+        r#"
+        UPDATE agent_runs
+        SET status = 'running', runtime_context_json = ?,
+            finished_at = NULL, failure_kind = NULL
+        WHERE run_id = ? AND root_run_id = ? AND parent_run_id IS NULL
+          AND company_id = ? AND project_id = ? AND thread_id = ?
+          AND status = 'interrupted'
+          AND runtime_context_json = ? AND session_file IS NULL
+        "#
+    };
+    let update = sqlx::query(update_sql)
+        .bind(&resumed_context_json)
+        .bind(&binding.turn_id)
+        .bind(&binding.turn_id)
+        .bind(&binding.company_id)
+        .bind(&binding.project_id)
+        .bind(&binding.thread_id)
+        .bind(runtime_context_json.as_deref());
+    let update = if let Some(stored_session_file) = validated.stored_session_file.as_deref() {
+        update.bind(stored_session_file)
+    } else {
+        update
+    };
+    let changed = update
+        .execute(&mut **tx)
+        .await
+        .map_err(|error| {
+            classify_resume_database_failure(error, "Persist the resumed root before sidecar start")
+        })?
+        .rows_affected();
     if changed != 1 {
         return Err(ResumePrestartFailure::new(
             ResumePrestartFailureKind::Conflict,
@@ -2852,17 +3076,14 @@ async fn claim_resumed_root_before_start(
         })?;
     if readback_status != "running"
         || readback_context.as_deref() != Some(resumed_context_json.as_str())
-        || readback_session_file.as_deref() != Some(validated.stored_session_file.as_str())
+        || readback_session_file.as_deref() != validated.stored_session_file.as_deref()
     {
         return Err(ResumePrestartFailure::new(
             ResumePrestartFailureKind::Persistence,
             "The resumed root durable readback did not match the committed Resume authority.",
         ));
     }
-    Ok(NativeSessionReference {
-        file: validated.session_file,
-        id: validated.session_id,
-    })
+    Ok(validated.native_session)
 }
 
 async fn record_task_workspace_binding_from_pool(
@@ -4334,6 +4555,125 @@ mod tests {
     use super::*;
     use sqlx::sqlite::SqlitePoolOptions;
 
+    fn opaque_conversation_context(
+        engine_id: &str,
+        account_id: &str,
+        billing_mode: &str,
+        protocol_version: u64,
+        session_id: &str,
+    ) -> String {
+        serde_json::json!({
+            "runtime": AGENT_RUNTIME_CONTEXT_ID,
+            "nativeProtocolVersion": protocol_version,
+            "executionTarget": {
+                "engineId": engine_id,
+                "accountId": account_id,
+                "billingMode": billing_mode,
+            },
+            "nativeSessionId": session_id,
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn opaque_conversation_session_is_engine_and_protocol_scoped() {
+        let context = opaque_conversation_context(
+            "codex",
+            "codex-subscription-account",
+            "subscription",
+            2,
+            "opaque-codex-thread",
+        );
+        assert_eq!(
+            validate_conversation_opaque_native_session(
+                Some(&context),
+                None,
+                "codex",
+                "codex-subscription-account",
+                "subscription",
+                2,
+            )
+            .expect("validate same-account opaque session"),
+            Some("opaque-codex-thread".into())
+        );
+        assert_eq!(
+            validate_conversation_opaque_native_session(
+                Some(&context),
+                None,
+                "claude",
+                "codex-subscription-account",
+                "subscription",
+                2,
+            )
+            .expect("switching engine starts a new native session"),
+            None
+        );
+        assert_eq!(
+            validate_conversation_opaque_native_session(
+                Some(&context),
+                None,
+                "codex",
+                "another-account",
+                "subscription",
+                2,
+            )
+            .expect("switching native account starts a new native session"),
+            None
+        );
+        let incompatible = validate_conversation_opaque_native_session(
+            Some(&context),
+            None,
+            "codex",
+            "codex-subscription-account",
+            "subscription",
+            3,
+        )
+        .expect_err("protocol drift must fail closed");
+        assert_eq!(
+            incompatible.kind,
+            ResumePrestartFailureKind::RuntimeIncompatible
+        );
+    }
+
+    #[test]
+    fn opaque_conversation_session_rejects_file_or_missing_identity() {
+        let context = opaque_conversation_context(
+            "codex",
+            "codex-subscription-account",
+            "subscription",
+            2,
+            "opaque-codex-thread",
+        );
+        let file_backed = validate_conversation_opaque_native_session(
+            Some(&context),
+            Some("/tmp/forbidden.jsonl"),
+            "codex",
+            "codex-subscription-account",
+            "subscription",
+            2,
+        )
+        .expect_err("opaque engine must reject a session file");
+        assert_eq!(file_backed.kind, ResumePrestartFailureKind::SessionInvalid);
+
+        let missing = opaque_conversation_context(
+            "codex",
+            "codex-subscription-account",
+            "subscription",
+            2,
+            "   ",
+        );
+        let missing = validate_conversation_opaque_native_session(
+            Some(&missing),
+            None,
+            "codex",
+            "codex-subscription-account",
+            "subscription",
+            2,
+        )
+        .expect_err("opaque engine must require a nonempty identity");
+        assert_eq!(missing.kind, ResumePrestartFailureKind::SessionMissing);
+    }
+
     #[test]
     fn resettable_native_session_codes_round_trip_through_typed_policy() {
         for value in [
@@ -4554,6 +4894,45 @@ mod tests {
         .await
         .expect("insert interrupted Agent run");
         pool
+    }
+
+    async fn configure_codex_resume_identity(
+        pool: &sqlx::SqlitePool,
+        native_session_id: serde_json::Value,
+        session_file: Option<&str>,
+    ) {
+        let runtime_context_json: String = sqlx::query_scalar(
+            "SELECT runtime_context_json FROM agent_runs WHERE run_id = 'turn-1'",
+        )
+        .fetch_one(pool)
+        .await
+        .expect("read Codex resume runtime context");
+        let mut runtime_context: serde_json::Value = serde_json::from_str(&runtime_context_json)
+            .expect("decode Codex resume runtime context");
+        runtime_context["executionTarget"] = serde_json::json!({
+            "engineId": "codex",
+            "accountId": "codex-subscription-fixture",
+            "billingMode": "subscription",
+            "modelId": "codex-model-fixture",
+            "modelSource": "native",
+        });
+        runtime_context["nativeSessionId"] = native_session_id;
+        runtime_context["nativeRuntimeVersion"] = serde_json::json!("0.144.4");
+        runtime_context["nativeProtocolVersion"] =
+            serde_json::json!(crate::codex_agent_host::CODEX_HOST_PROTOCOL_VERSION);
+        let context = runtime_context
+            .as_object_mut()
+            .expect("Codex resume context object");
+        context.remove("piSdkVersion");
+        context.remove("wireProtocolVersion");
+        sqlx::query(
+            "UPDATE agent_runs SET runtime_context_json = ?, session_file = ? WHERE run_id = 'turn-1'",
+        )
+        .bind(runtime_context.to_string())
+        .bind(session_file)
+        .execute(pool)
+        .await
+        .expect("persist opaque Codex resume identity");
     }
 
     async fn deletion_preflight_pool() -> sqlx::SqlitePool {
@@ -5558,6 +5937,236 @@ mod tests {
             Some("running")
         ));
         assert!(!resume_history_is_recoverable("app_restart", None));
+    }
+
+    #[tokio::test]
+    async fn codex_resume_claim_accepts_opaque_native_session_without_file_access() {
+        let root = std::env::temp_dir().join(format!("offisim-binding-{}", random_id()));
+        std::fs::create_dir_all(&root).expect("create Codex resume fixture root");
+        let root = root.canonicalize().expect("canonical Codex resume root");
+        let pool = resume_race_pool("app_restart", "interrupted", &root).await;
+        configure_codex_resume_identity(&pool, serde_json::json!("codex-thread-opaque"), None)
+            .await;
+
+        let mut resumed_binding = fixture_binding(&root, TaskWorkspaceAccess::Write);
+        resumed_binding.binding_id = "codex-resumed-binding".into();
+        resumed_binding.request_id = "codex-resumed-request".into();
+        resumed_binding.source = WorkspaceRecoverySource::ResumeHistory;
+        resumed_binding.reason_code = WorkspaceRecoveryReason::ResumeHistoryIdentityMatch;
+        let root_text = canonical_root_text(&root).expect("Codex resume root text");
+        let identity_json = serde_json::to_string(&resumed_binding.root_identity)
+            .expect("encode Codex resume root identity");
+        let expectation = ResumeBindingExpectation {
+            history_id: "history-1".into(),
+            session_dir: root.join("nonexistent-pi-session-dir"),
+        };
+
+        let recorded = record_task_workspace_binding_from_pool(
+            &pool,
+            &resumed_binding,
+            &root_text,
+            &identity_json,
+            2_000,
+            Some(&expectation),
+        )
+        .await
+        .expect("claim Codex interrupted root using only its opaque native identity");
+        assert_eq!(recorded.rows, 1);
+        assert_eq!(
+            recorded.resume_session,
+            Some(NativeSessionReference::Opaque {
+                engine_id: "codex".into(),
+                account_id: "codex-subscription-fixture".into(),
+                billing_mode: "subscription".into(),
+                id: "codex-thread-opaque".into(),
+            })
+        );
+
+        let row = sqlx::query(
+            "SELECT status, runtime_context_json, session_file FROM agent_runs WHERE run_id = 'turn-1'",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("read claimed Codex interrupted root");
+        let status: String = row.try_get("status").expect("decode Codex resume status");
+        let session_file: Option<String> = row
+            .try_get("session_file")
+            .expect("decode Codex resume session file");
+        let resumed_context_json: String = row
+            .try_get("runtime_context_json")
+            .expect("decode resumed Codex context");
+        let resumed_context: serde_json::Value =
+            serde_json::from_str(&resumed_context_json).expect("parse resumed Codex context");
+        assert_eq!(status, "running");
+        assert_eq!(session_file, None);
+        assert_eq!(resumed_context["executionTarget"]["engineId"], "codex");
+        assert_eq!(resumed_context["nativeSessionId"], "codex-thread-opaque");
+        assert_eq!(resumed_context["requestId"], "codex-resumed-request");
+        assert_eq!(
+            resumed_context["workspaceBinding"]["historyId"],
+            "codex-resumed-binding"
+        );
+
+        std::fs::remove_dir_all(root).expect("remove Codex resume fixture root");
+    }
+
+    #[tokio::test]
+    async fn codex_resume_claim_rejects_any_persisted_session_file() {
+        let root = std::env::temp_dir().join(format!("offisim-binding-{}", random_id()));
+        std::fs::create_dir_all(&root).expect("create invalid Codex resume fixture root");
+        let root = root
+            .canonicalize()
+            .expect("canonical invalid Codex resume root");
+        let pool = resume_race_pool("app_restart", "interrupted", &root).await;
+        let forbidden_session_file = root.join("must-not-be-a-codex-session.jsonl");
+        let forbidden_session_file = forbidden_session_file.to_string_lossy().to_string();
+        configure_codex_resume_identity(
+            &pool,
+            serde_json::json!("codex-thread-opaque"),
+            Some(&forbidden_session_file),
+        )
+        .await;
+
+        let mut resumed_binding = fixture_binding(&root, TaskWorkspaceAccess::Write);
+        resumed_binding.binding_id = "codex-file-backed-rejected".into();
+        resumed_binding.request_id = "codex-file-backed-request".into();
+        resumed_binding.source = WorkspaceRecoverySource::ResumeHistory;
+        resumed_binding.reason_code = WorkspaceRecoveryReason::ResumeHistoryIdentityMatch;
+        let error = record_task_workspace_binding_from_pool(
+            &pool,
+            &resumed_binding,
+            &canonical_root_text(&root).expect("invalid Codex resume root text"),
+            &serde_json::to_string(&resumed_binding.root_identity)
+                .expect("encode invalid Codex resume root identity"),
+            2_000,
+            Some(&ResumeBindingExpectation {
+                history_id: "history-1".into(),
+                session_dir: root.join("must-not-be-read"),
+            }),
+        )
+        .await
+        .expect_err("Codex resume must reject every non-NULL session_file");
+        assert!(matches!(
+            error,
+            HostError::ResumePrestart {
+                code: "resume-prestart-session-invalid",
+                ..
+            }
+        ));
+        let status: String =
+            sqlx::query_scalar("SELECT status FROM agent_runs WHERE run_id = 'turn-1'")
+                .fetch_one(&pool)
+                .await
+                .expect("read rejected Codex resume status");
+        let replacement_rows: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM task_workspace_binding_history WHERE binding_id = 'codex-file-backed-rejected'",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("count rejected Codex replacement history");
+        assert_eq!(status, "interrupted");
+        assert_eq!(replacement_rows, 0);
+
+        std::fs::remove_dir_all(root).expect("remove invalid Codex resume fixture root");
+    }
+
+    #[tokio::test]
+    async fn codex_resume_compatibility_requires_nonempty_opaque_session_id() {
+        let root = std::env::temp_dir().join(format!("offisim-binding-{}", random_id()));
+        std::fs::create_dir_all(&root).expect("create missing Codex session fixture root");
+        let root = root
+            .canonicalize()
+            .expect("canonical missing Codex session root");
+        for invalid_session_id in [serde_json::Value::Null, serde_json::json!("   ")] {
+            let pool = resume_race_pool("app_restart", "interrupted", &root).await;
+            configure_codex_resume_identity(&pool, invalid_session_id, None).await;
+            let compatibility = task_workspace_resume_compatibility_from_pool(
+                &pool,
+                &root.join("nonexistent-pi-session-dir"),
+                "history-1",
+                "company-1",
+                "project-1",
+                "thread-1",
+                "turn-1",
+                TaskWorkspaceAccess::Write,
+            )
+            .await
+            .expect("preflight missing Codex opaque session identity");
+            let projection = serde_json::to_value(compatibility)
+                .expect("serialize missing Codex session compatibility");
+            assert_eq!(projection["status"], "changed");
+            assert_eq!(projection["reason"], "session_missing");
+        }
+
+        std::fs::remove_dir_all(root).expect("remove missing Codex session fixture root");
+    }
+
+    #[tokio::test]
+    async fn codex_resume_rejects_every_durable_workspace_scope_mismatch() {
+        let root = std::env::temp_dir().join(format!("offisim-binding-{}", random_id()));
+        std::fs::create_dir_all(&root).expect("create Codex scope fixture root");
+        let root = root.canonicalize().expect("canonical Codex scope root");
+        let mismatches = [
+            (None, "requestId"),
+            (None, "projectId"),
+            (Some("workspaceBinding"), "historyId"),
+            (Some("workspaceBinding"), "companyId"),
+            (Some("workspaceBinding"), "projectId"),
+            (Some("workspaceBinding"), "threadId"),
+            (Some("workspaceBinding"), "turnId"),
+            (Some("workspaceBinding"), "requestId"),
+            (Some("workspaceBinding"), "access"),
+            (Some("workspaceBinding"), "source"),
+            (Some("workspaceBinding"), "reasonCode"),
+        ];
+        for (parent, field) in mismatches {
+            let pool = resume_race_pool("app_restart", "interrupted", &root).await;
+            configure_codex_resume_identity(&pool, serde_json::json!("codex-thread-opaque"), None)
+                .await;
+            let runtime_context_json: String = sqlx::query_scalar(
+                "SELECT runtime_context_json FROM agent_runs WHERE run_id = 'turn-1'",
+            )
+            .fetch_one(&pool)
+            .await
+            .expect("read Codex scope context");
+            let mut runtime_context: serde_json::Value =
+                serde_json::from_str(&runtime_context_json).expect("decode Codex scope context");
+            if let Some(parent) = parent {
+                runtime_context[parent][field] = serde_json::json!("tampered");
+            } else {
+                runtime_context[field] = serde_json::json!("tampered");
+            }
+            sqlx::query("UPDATE agent_runs SET runtime_context_json = ? WHERE run_id = 'turn-1'")
+                .bind(runtime_context.to_string())
+                .execute(&pool)
+                .await
+                .expect("persist tampered Codex scope context");
+
+            let compatibility = task_workspace_resume_compatibility_from_pool(
+                &pool,
+                &root.join("nonexistent-pi-session-dir"),
+                "history-1",
+                "company-1",
+                "project-1",
+                "thread-1",
+                "turn-1",
+                TaskWorkspaceAccess::Write,
+            )
+            .await
+            .expect("preflight tampered Codex workspace scope");
+            let projection = serde_json::to_value(compatibility)
+                .expect("serialize tampered Codex compatibility");
+            assert_eq!(
+                projection["status"], "changed",
+                "{parent:?}.{field} must fail closed"
+            );
+            assert_eq!(
+                projection["reason"], "resume_context_invalid",
+                "{parent:?}.{field} must report context drift"
+            );
+        }
+
+        std::fs::remove_dir_all(root).expect("remove Codex scope fixture root");
     }
 
     #[tokio::test]

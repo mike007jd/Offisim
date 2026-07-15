@@ -131,6 +131,13 @@ assert.match(
   /id=\{workspaceRootId\}[\s\S]*?value=\{workspaceRoot\}[\s\S]*?readOnly/u,
   'Project folder display must not accept typed paths',
 );
+assert.match(
+  projectDialog,
+  /const canSave = Boolean\(name\.trim\(\) && workspaceRoot\.trim\(\)\) && !saving;/u,
+  'Project Save must stay disabled until both the name and folder are present',
+);
+assert.match(projectDialog, /Required\. Every Project keeps its files in one folder\./u);
+assert.match(projectDialog, /className="off-project-save"[\s\S]*?disabled=\{!canSave\}/u);
 assert.match(projectDialog, /workspaceSelectionRef: workspaceSelection\.selectionRef/u);
 assert.match(projectDialog, /workspaceSelectionRef: workspaceSelection\?\.selectionRef \?\? null/u);
 assert.match(projectDialog, /const verifyEnabled = cleanVerifyCommand !== null;/u);

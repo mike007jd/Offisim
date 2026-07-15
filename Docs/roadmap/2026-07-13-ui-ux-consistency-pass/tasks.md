@@ -268,18 +268,29 @@
 
 ### Acceptance
 
-- [ ] 自动发现本机 Codex 登录状态；未登录时给原生登录指引。
-- [ ] 模型来自官方当前接口，保存 exact id、source、checkedAt。
-- [ ] 完整执行 stream/tool/approval/Stop/recovery 与文件 workspace。
-- [ ] Usage 使用官方 available 字段：used/remaining/reset/credits；缺失即 unavailable。
-- [ ] 不读取、复制、展示或持久化 raw OAuth/token。
-- [ ] Codex 不可用时不静默切 API、Claude 或 Pi。
-- [ ] release `.app` 有真实 Codex task 证据。
+- [x] 自动发现本机 Codex 登录状态；未登录时给原生登录指引。
+- [x] 模型来自官方当前接口，保存 exact id、source、checkedAt。
+- [x] 完整执行 stream/tool/approval/Stop/recovery 与文件 workspace。
+- [x] Usage 使用官方 available 字段：used/remaining/reset/credits；缺失即 unavailable。
+- [x] 不读取、复制、展示或持久化 raw OAuth/token。
+- [x] Codex 不可用时不静默切 API、Claude 或 Pi。
+- [x] release `.app` 有真实 Codex task 证据。
 
 ### Oracles
 
 - 固化 execution-date 官方协议 contract fixture。
 - live Codex task + secret scan + runtime conformance。
+
+### T06 Evidence（2026-07-16 NZST）
+
+- `DesktopAgentRuntimeGateway` 已注册互斥的 Codex subscription adapter；执行、恢复、标题任务与 UI interaction 都冻结同一 engine/account/model provenance，不可用时 fail closed，不静默换 lane。
+- 官方 `codex-app-server` 0.144.4 以固定 archive/binary size 与 SHA-256 打包；bundle check 验证 arm64、macOS 11、OpenAI Team `2DC432GLL2`、hardened runtime 与 JIT entitlements。Offisim 主二进制 SHA-256 为 `84335a48cc544dbefee570fa6f09226b0a5b75cdced82bc318506703c1b8e250`，sidecar SHA-256 为 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
+- Native `account/read` / `model/list` 提供账户状态与 exact leaf model；真实 release 选择 `GPT-5.6-Sol` 完成 task。订阅只展示 provider-native Usage；当前 native session 没提供窗口时明确显示 `Usage unavailable / No API usage`，不推算 API cost。
+- Fresh state 创建 `T06 Fresh Round One` 与 `T06 Fresh Round Two`：Company 可暂时没有 Project；Project 必须选择唯一文件夹，未选文件夹时 Save 禁用并显示原因，绑定后 Files / Git / New conversation 才开放。
+- Plan 模式真实渲染 `request_user_input` 两个选项、Other、Skip 与 Answer；自然语言规划空目录后保持只读且未写文件。Ask 模式按官方 Codex policy 显示 approval card；未预批准 `/bin/sh` 的 Reject 不执行、Approve 才执行。
+- tracked native session 缺失/不兼容时只给显式 fresh-session recovery；不会自动重放 prompt。退出重启后 cancelled run 不复活，同一 Conversation 可继续得到 `CONTINUE_OK`。
+- Stop 真实中断 `/bin/sh -c 'sleep 30'`，durable run 为 `cancelled`；修复后约 2.5 秒内移除 `bash running…`，无需重启即可继续并得到 `STOP_RECOVERED`。
+- 原始 Codex auth、Bearer、Agent Home 路径与 chunk-boundary secret 均在 host 边界过滤；renderer / DB / logs 只保留安全账户摘要、opaque native ref 与 provenance。
 
 ---
 

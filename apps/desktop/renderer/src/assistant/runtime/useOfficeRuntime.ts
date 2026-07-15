@@ -91,6 +91,13 @@ export function useOfficeRuntime({
   const queryClient = useQueryClient();
   const run = useConversationRun(threadId);
   useEffect(() => {
+    if (!run.attemptId || isConversationRunActive(run.phase)) return;
+    // The controller keeps only the current Turn in `liveMessages`. Refresh the
+    // durable projection as soon as that Turn reaches a terminal phase so the
+    // next submit cannot make the previous prompt/answer disappear from view.
+    void queryClient.invalidateQueries({ queryKey: ['messages', threadId] });
+  }, [queryClient, run.attemptId, run.phase, threadId]);
+  useEffect(() => {
     if (!companyId || !threadId) return;
     void conversationRunController.hydrateFreshSessionAction(companyId, threadId).catch((error) => {
       console.warn('[useOfficeRuntime] Fresh-session hydration failed', {

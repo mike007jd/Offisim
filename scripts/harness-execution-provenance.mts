@@ -215,7 +215,7 @@ check('root runs persist their exact target before execution and retain host pro
   assert.match(desktopRuntimeSource, /runtimeContext\.model = resolvedModel/u);
   assert.match(
     desktopRuntimeSource,
-    /assertDurableExecutionTarget\(runScope\.runId, executionTarget, requestId\)/u,
+    /assertDurableExecutionTarget\(\s*runScope\.runId,\s*executionTarget,\s*commandName === 'agent_runtime_execute' \? requestId : undefined,\s*\)/u,
   );
   assert.match(desktopRuntimeSource, /runtimeContext\.provenance = provenance/u);
   assert.match(desktopRuntimeSource, /requirePreparedExecutionIdentity/u);
@@ -332,7 +332,7 @@ check('one API-key reference cannot merge different resolved paid accounts', () 
 
 check('terminal host streams remain eligible for renderer replay and DB reconciliation', () => {
   const reattachStart = desktopRuntimeSource.indexOf('async reattachLiveRuns(');
-  const reattachEnd = desktopRuntimeSource.indexOf('private async runPiTurn', reattachStart);
+  const reattachEnd = desktopRuntimeSource.indexOf('private async runNativeTurn', reattachStart);
   assert.ok(reattachStart >= 0 && reattachEnd > reattachStart);
   const reattachBody = desktopRuntimeSource.slice(reattachStart, reattachEnd);
   assert.match(
@@ -340,7 +340,7 @@ check('terminal host streams remain eligible for renderer replay and DB reconcil
     /if \(!snapshot\) \{[\s\S]*?confirmedMissingRootRunIds\.add\(row\.run_id\);[\s\S]*?continue;/u,
   );
   assert.doesNotMatch(reattachBody, /if \(!snapshot\?\.running\) continue/u);
-  assert.match(reattachBody, /agent_runtime_reattach/u);
+  assert.match(reattachBody, /this\.invokeReattach/u);
   assert.match(reattachBody, /event\.kind === 'result'/u);
   assert.match(
     reattachBody,
@@ -428,6 +428,26 @@ check('empty reload terminals retain the last durable assistant checkpoint', () 
     /terminal\.reasoning\?\.trim\(\) \|\| existing\?\.reasoning\?\.trim\(\)/u,
   );
   assert.match(projectionBody, /terminal\.status === 'failed'[\s\S]*?'failed'/u);
+});
+
+check('native Stop coalesces duplicate abort paths for one request', () => {
+  assert.match(
+    desktopRuntimeSource,
+    /private readonly abortInFlight = new Map<string, Promise<void>>\(\);/u,
+  );
+  assert.equal(
+    desktopRuntimeSource.match(/this\.invokeAbort\(requestId\)/gu)?.length,
+    1,
+    'only the coalescer may call the raw native abort transport',
+  );
+  assert.ok(
+    (desktopRuntimeSource.match(/this\.invokeAbortOnce\(requestId\)/gu)?.length ?? 0) >= 5,
+    'signal, explicit Stop, and rejected-binding paths must share the same abort',
+  );
+  assert.match(
+    desktopRuntimeSource,
+    /if \(this\.abortInFlight\.get\(requestId\) === pending\) \{\s*this\.abortInFlight\.delete\(requestId\);/u,
+  );
 });
 
 console.log(`execution-provenance gate passed (${checks} checks)`);

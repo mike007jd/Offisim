@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { loadAiAccountUsageFromDatabase } from '../apps/desktop/renderer/src/data/ai-account-usage.js';
 
+// The fixture's month-boundary rows and `now` are intentionally AEST. Pin the
+// isolated harness process so a developer in another local timezone cannot
+// move the June 30 boundary into July and manufacture an extra usage row.
+process.env.TZ = 'Australia/Sydney';
+
 const db = new Database(':memory:');
 db.exec(`
   CREATE TABLE agent_runs (

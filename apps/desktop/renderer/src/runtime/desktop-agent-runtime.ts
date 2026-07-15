@@ -7,6 +7,7 @@ import {
 import { buildDelegationContext, buildMcpScope } from '@/data/employee-persona.js';
 import type { ChatMessage } from '@/data/types.js';
 import {
+  type CommandArgs,
   type TaskWorkspaceBindingClaim,
   type TaskWorkspaceBindingProjection,
   invokeCommand,
@@ -46,6 +47,10 @@ import {
   MISSION_EVALUATION_SUBMITTED_EVENT,
   type MissionEvaluationSubmittedPayload,
 } from './mission/mission-events.js';
+import {
+  type NativeAgentCommandTransport,
+  createNativeAgentCommandTransport,
+} from './native-agent-command-transport.js';
 import type {
   PiAgentHostEvent,
   PiAgentHostResponse,
@@ -58,6 +63,12 @@ import {
   resolveAgentRunProjectId,
 } from './recovery/reconcile-interrupted-runs.js';
 import { aggregateSubtreeUsage } from './recovery/usage-aggregation.js';
+import {
+  type DurableThreadExecutionAuthority,
+  assertThreadExecutionLane,
+  planThreadExecutionSelection,
+  resolveAuthoritativeThreadExecutionAuthority,
+} from './thread-execution-authority.js';
 import {
   type WorkspaceBindingStreamGate,
   type WorkspaceStreamConsumptionPolicy,
@@ -187,6 +198,8 @@ export interface LiveRunReattachResult {
   protectedRootRunIds: ReadonlySet<string>;
   /** Runs whose host stream was successfully replayed/subscribed or terminally reconciled. */
   handledRootRunIds: ReadonlySet<string>;
+  /** Roots whose native host is still running and therefore remain stoppable after reload. */
+  liveRootRunIds?: ReadonlySet<string>;
   /** Roots from the probed startup snapshot for which the native host is gone. */
   confirmedMissingRootRunIds: ReadonlySet<string>;
   /** False when at least one host probe failed transiently and bootstrap must retry. */
@@ -230,6 +243,8 @@ export interface DesktopAgentRunInput {
   engineId?: string;
   /** Exact account/model target frozen before the host may perform paid work. */
   executionTarget?: AiExecutionTarget;
+  /** Exact native catalog/preset selector paired with `executionTarget`. */
+  runtimeModelRef?: string;
   /**
    * Frozen capability enum (PR-03). Absent / `'work'` = the existing work execute
    * path, unchanged. `'collaboration'` is NOT served through this `execute()` —
@@ -353,6 +368,8 @@ export interface IsolatedTextJobInput {
   text: string;
   systemPrompt: string;
   sourceProvenance: TurnExecutionProvenance;
+  /** Exact selector used by the source Turn; never re-derived from a leaf id. */
+  runtimeModelRef: string;
   thinkingLevel?: string;
   signal?: AbortSignal;
 }
@@ -368,10 +385,14 @@ export interface IsolatedTextJobResult {
  *  answers select / input / editor, `cancelled` dismisses any of them. Generic so
  *  the UI never names a backend — each runtime maps it to its own transport. */
 export interface AgentUiAnswer {
+  /** Durable root run used by the gateway to route the answer to one engine. */
+  runId: string;
   requestId: string;
   id: string;
   confirmed?: boolean;
   value?: string;
+  /** Structured request-user-input answers keyed by backend-issued question id. */
+  answers?: Readonly<Record<string, { readonly answers: readonly string[] }>>;
   cancelled?: boolean;
 }
 
@@ -394,6 +415,33 @@ export interface DesktopAgentRuntime {
 interface RuntimeEngineAdapter extends DesktopAgentRuntime {
   readonly engineId: string;
 }
+
+interface NativeEngineRuntimeConfig {
+  readonly engineId: 'api' | 'codex';
+  readonly billingMode: 'api' | 'subscription';
+  readonly runtimeVersion: string;
+  readonly protocolVersion: number;
+  readonly requestPrefix: string;
+  readonly supportsOffisimDelegation: boolean;
+}
+
+const API_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
+  engineId: 'api',
+  billingMode: 'api',
+  runtimeVersion: PI_SDK_VERSION,
+  protocolVersion: PI_HOST_PROTOCOL_VERSION,
+  requestPrefix: 'pi-agent',
+  supportsOffisimDelegation: true,
+};
+
+const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
+  engineId: 'codex',
+  billingMode: 'subscription',
+  runtimeVersion: '0.144.4',
+  protocolVersion: 2,
+  requestPrefix: 'codex-agent',
+  supportsOffisimDelegation: false,
+};
 
 type ExecutionPreparedEvent = Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>;
 
@@ -439,6 +487,7 @@ function newRequestId(prefix: string): string {
  *  can't drift on a typo. Backend-neutral on purpose: any agent that pauses to
  *  prompt the user (Pi today via `ctx.ui`, others later) routes through this. */
 export const AGENT_UI_REQUEST_EVENT = 'agent.ui.request';
+export const AGENT_UI_REQUEST_RESOLVED_EVENT = 'agent.ui.request.resolved';
 
 /** Payload shape for the `agent.ui.request` renderer event. An agent paused
  *  mid-run and asked the user something (confirm / select / input / editor). The
@@ -446,6 +495,7 @@ export const AGENT_UI_REQUEST_EVENT = 'agent.ui.request';
  *  to match the specific prompt. Mirrors a Pi extension-UI request, but the shape
  *  is generic so it isn't tied to any one backend. */
 export interface AgentUiRequestPayload {
+  engineId: string;
   requestId: string;
   runId: string;
   id: string;
@@ -455,6 +505,15 @@ export interface AgentUiRequestPayload {
   options?: string[];
   placeholder?: string;
   prefill?: string;
+  params?: unknown;
+}
+
+export interface AgentUiRequestResolvedPayload {
+  engineId: string;
+  requestId: string;
+  runId: string;
+  id: string;
+  resolution: 'answered' | 'cancelled' | 'timeout' | 'native';
 }
 
 /** Build an `agent.ui.request` RuntimeEvent inline (no core event factory — this
@@ -467,6 +526,22 @@ function agentUiRequestEvent(
 ): RuntimeEvent<AgentUiRequestPayload> {
   return {
     type: AGENT_UI_REQUEST_EVENT,
+    entityId: payload.id,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
+function agentUiRequestResolvedEvent(
+  companyId: string,
+  threadId: string,
+  payload: AgentUiRequestResolvedPayload,
+): RuntimeEvent<AgentUiRequestResolvedPayload> {
+  return {
+    type: AGENT_UI_REQUEST_RESOLVED_EVENT,
     entityId: payload.id,
     entityType: 'runtime',
     companyId,
@@ -514,6 +589,7 @@ function toolStatus(status: PiAgentHostEvent & { kind: 'tool' }) {
 }
 
 function createWorkspaceStatusEmitter({
+  engineId,
   companyId,
   threadId,
   employeeId,
@@ -521,6 +597,7 @@ function createWorkspaceStatusEmitter({
   rootRun,
   emitRootBus,
 }: {
+  engineId: string;
   companyId: string;
   threadId: string;
   employeeId: string | null;
@@ -542,7 +619,7 @@ function createWorkspaceStatusEmitter({
           toolType: 'builtin',
           evidenceClass: 'offisim-gateway',
           threadId,
-          nodeName: 'agent_runtime',
+          nodeName: engineId,
           employeeId: employeeId ?? undefined,
           startedAt,
           ...(status === 'completed' ? { completedAt: startedAt, durationMs: 0 } : {}),
@@ -566,6 +643,9 @@ function createWorkspaceStatusEmitter({
 function hostModelRef(
   model: Extract<PiAgentHostEvent, { kind: 'started' }>['model'],
 ): string | null {
+  if (model?.api === 'codex-app-server' && model.catalogId?.trim()) {
+    return `codex:${model.catalogId.trim()}`;
+  }
   if (!model?.id) return null;
   return model.provider ? `${model.provider}/${model.id}` : model.id;
 }
@@ -574,6 +654,8 @@ export interface ResolvedApiExecutionSelection {
   readonly target: AiExecutionTarget;
   readonly runtimeModelRef: string;
 }
+
+export type ResolvedRuntimeExecutionSelection = ResolvedApiExecutionSelection;
 
 export function isSameExecutionTarget(
   expected: AiExecutionTarget | null | undefined,
@@ -610,6 +692,95 @@ function availableApiModel(status: AiRuntimeStatus, model: AiModelCatalogEntry):
       account.capabilities.execute.status === 'available' &&
       account.capabilities.models.status === 'available',
   );
+}
+
+function availableRuntimeModel(status: AiRuntimeStatus, model: AiModelCatalogEntry): boolean {
+  const account = status.accounts.find(
+    (candidate) => candidate.engineId === model.engineId && candidate.accountId === model.accountId,
+  );
+  return Boolean(
+    model.engineId.trim() &&
+      model.runtimeModelRef.trim() &&
+      model.modelId.trim() &&
+      (model.availability === 'available' ||
+        (model.availability === 'expiring' &&
+          model.expiresAt &&
+          Date.parse(model.expiresAt) > Date.now())) &&
+      account?.engineId === model.engineId &&
+      account.billingMode === model.billingMode &&
+      account.status === 'available' &&
+      account.capabilities.execute.status === 'available' &&
+      account.capabilities.models.status === 'available',
+  );
+}
+
+/** Resolve one globally unique model/account/engine before the gateway crosses
+ * into an adapter. Exact model ids are accepted only when they identify one
+ * catalog row; adapter-private runtime refs remain the unambiguous selector. */
+export function resolveRuntimeExecutionSelection(
+  statusValue: unknown,
+  requestedModel: string | undefined,
+  frozenTarget: AiExecutionTarget | undefined,
+  frozenRuntimeModelRef?: string,
+): ResolvedRuntimeExecutionSelection {
+  const status = statusValue as Partial<AiRuntimeStatus>;
+  if (!Array.isArray(status.accounts) || !Array.isArray(status.models)) {
+    throw new Error('AI Accounts status is unavailable. Check the selected account.');
+  }
+  const runtimeStatus: AiRuntimeStatus = {
+    accounts: status.accounts,
+    models: status.models,
+    checkedAt: typeof status.checkedAt === 'string' ? status.checkedAt : '',
+  };
+  const candidates = runtimeStatus.models.filter((model) =>
+    availableRuntimeModel(runtimeStatus, model),
+  );
+  const requested = requestedModel?.trim();
+  let selected: AiModelCatalogEntry | undefined;
+  if (frozenTarget) {
+    const validTarget = validateExecutionTarget(frozenTarget);
+    if (!validTarget) throw new Error('This task does not have a valid execution target.');
+    const frozenSelector = frozenRuntimeModelRef?.trim();
+    const matches = candidates.filter(
+      (model) =>
+        model.engineId === validTarget.engineId &&
+        model.accountId === validTarget.accountId &&
+        model.billingMode === validTarget.billingMode &&
+        model.modelId === validTarget.modelId &&
+        (!frozenSelector || model.runtimeModelRef === frozenSelector) &&
+        (!requested || requested === model.runtimeModelRef || requested === model.modelId),
+    );
+    if (matches.length !== 1) {
+      throw new Error("The task's saved AI account or exact model is no longer available.");
+    }
+    selected = matches[0];
+    if (!selected) throw new Error("The task's saved AI model selector is unavailable.");
+    return { target: validTarget, runtimeModelRef: selected.runtimeModelRef };
+  }
+  if (requested) {
+    const runtimeRefMatch = candidates.find((model) => model.runtimeModelRef === requested);
+    if (runtimeRefMatch) {
+      selected = runtimeRefMatch;
+    } else {
+      const modelIdMatches = candidates.filter((model) => model.modelId === requested);
+      if (modelIdMatches.length !== 1) {
+        throw new Error(`The selected exact AI model is unavailable or ambiguous: ${requested}.`);
+      }
+      [selected] = modelIdMatches;
+    }
+  } else {
+    selected = candidates.find((model) => model.availability === 'available');
+  }
+  if (!selected) throw new Error('No verified, available AI model was reported by an account.');
+  const target = validateExecutionTarget({
+    engineId: selected.engineId,
+    accountId: selected.accountId,
+    billingMode: selected.billingMode,
+    modelId: selected.modelId,
+    modelSource: selected.source,
+  });
+  if (!target) throw new Error('The selected model catalog entry has invalid provenance.');
+  return { target, runtimeModelRef: selected.runtimeModelRef };
 }
 
 export function resolveApiExecutionSelection(
@@ -685,8 +856,10 @@ interface PersistedRunContext {
   workspaceProvenance?: WorkspaceProvenance;
   runtime: 'agent-runtime';
   executionTarget: AiExecutionTarget | null;
-  piSdkVersion: string;
-  wireProtocolVersion: number;
+  piSdkVersion?: string;
+  wireProtocolVersion?: number;
+  nativeRuntimeVersion?: string;
+  nativeProtocolVersion?: number;
   model: string | null;
   nativeSessionId?: string;
   nativeSessionPrestartErrorCode?: string;
@@ -852,6 +1025,10 @@ function parseRunContext(raw: string | null | undefined): Partial<PersistedRunCo
       piSdkVersion: typeof parsed.piSdkVersion === 'string' ? parsed.piSdkVersion : undefined,
       wireProtocolVersion:
         typeof parsed.wireProtocolVersion === 'number' ? parsed.wireProtocolVersion : undefined,
+      nativeRuntimeVersion:
+        typeof parsed.nativeRuntimeVersion === 'string' ? parsed.nativeRuntimeVersion : undefined,
+      nativeProtocolVersion:
+        typeof parsed.nativeProtocolVersion === 'number' ? parsed.nativeProtocolVersion : undefined,
       model: typeof parsed.model === 'string' ? parsed.model : null,
       nativeSessionId:
         typeof parsed.nativeSessionId === 'string' && parsed.nativeSessionId.trim()
@@ -1029,20 +1206,29 @@ async function persistRunContextPatchWithRepositories(
   }
 }
 
-/** Production Started checkpoint. The exact native file/id pair and any actual
- * model change become one transaction with committed readback. */
+/** Production Started checkpoint. File-backed engines persist an exact native
+ * file/id pair; opaque engines persist only the native id. Native home paths
+ * never cross this product boundary. */
 export async function persistStartedNativeSessionIdentity(input: {
   repos: RuntimeRepositories;
   runId: string;
   runtimeContext: Partial<PersistedRunContext>;
   event: Extract<PiAgentHostEvent, { kind: 'started' }>;
+  engineId?: string;
 }): Promise<void> {
+  const engineId = input.engineId ?? 'api';
   const sessionId = input.event.sessionId?.trim();
   const sessionFile = input.event.sessionFile?.trim();
-  if (!sessionId || !sessionFile) {
+  if (!sessionId || (engineId === 'api' && !sessionFile)) {
     throw new AgentHostCommandError(
       'protocol',
-      'Agent runtime Started event did not include an exact native session file and id.',
+      'Agent runtime Started event did not include its required native session identity.',
+    );
+  }
+  if (engineId !== 'api' && sessionFile) {
+    throw new AgentHostCommandError(
+      'protocol',
+      'Opaque native runtime exposed a session file outside its Agent Home boundary.',
     );
   }
   const actualModel = hostModelRef(input.event.model);
@@ -1051,11 +1237,14 @@ export async function persistStartedNativeSessionIdentity(input: {
     nativeSessionId: sessionId,
     ...(actualModel ? { model: actualModel } : {}),
   };
-  await persistRunContextPatchWithRepositories(input.repos, input.runId, nextContext, {
-    sessionFile,
-  });
+  await persistRunContextPatchWithRepositories(
+    input.repos,
+    input.runId,
+    nextContext,
+    sessionFile ? { sessionFile } : {},
+  );
   // The object is shared with cursor and terminal checkpoints. Do not expose a
-  // native identity until its exact id/file pair passed transaction + readback.
+  // native identity until its engine-specific checkpoint passed durable readback.
   input.runtimeContext.nativeSessionId = sessionId;
   if (actualModel) input.runtimeContext.model = actualModel;
 }
@@ -1071,14 +1260,18 @@ function throwIfRunAborted(signal?: AbortSignal): void {
   throw error;
 }
 
-class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
-  readonly engineId = 'api';
+class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
+  readonly engineId: string;
   readonly ownsConversationProjectionPersistence = true;
   private readonly inFlightByThread = new Map<string, string>();
   // Request ids the user aborted. A Rust-side abort kills the host and resolves
   // the invoke with empty text (not an error), so execute() consults this to
   // classify the root run's terminal as cancelled rather than completed/failed.
   private readonly abortedRequests = new Set<string>();
+  // Stop reaches this adapter through both the controller-owned AbortSignal and
+  // the runtime abort method. Coalesce those paths so one native request cannot
+  // race itself through the host's interrupt and cleanup gates.
+  private readonly abortInFlight = new Map<string, Promise<void>>();
   // Serializes agent-run persistence in event order, catches failures at each
   // task boundary, and coalesces high-frequency stream cursors per run.
   private readonly persistQueue = new AgentRunPersistenceQueue();
@@ -1086,15 +1279,59 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
   constructor(
     private readonly companyId: string,
     private readonly repos: RuntimeRepositories,
-  ) {}
+    private readonly config: NativeEngineRuntimeConfig,
+    private readonly commands: NativeAgentCommandTransport = createNativeAgentCommandTransport(),
+  ) {
+    this.engineId = config.engineId;
+  }
 
-  private async resolveExecutionSelection(
-    requestedModel: string | undefined,
-    frozenTarget: AiExecutionTarget | undefined,
-    statusValue?: unknown,
-  ): Promise<ResolvedApiExecutionSelection> {
-    const status = statusValue ?? (await invokeCommand('agent_runtime_status'));
-    return resolveApiExecutionSelection(status, requestedModel, frozenTarget);
+  private invokeEnhance(args: CommandArgs<'agent_runtime_enhance'>) {
+    return this.engineId === 'codex'
+      ? this.commands.enhanceCodex(args)
+      : this.commands.enhanceApi(args);
+  }
+
+  private invokeAbort(requestId: string): Promise<void> {
+    return this.commands.abort(this.config.engineId, { requestId });
+  }
+
+  private invokeAbortOnce(requestId: string): Promise<void> {
+    const existing = this.abortInFlight.get(requestId);
+    if (existing) return existing;
+    const pending = this.invokeAbort(requestId);
+    this.abortInFlight.set(requestId, pending);
+    void pending
+      .finally(() => {
+        if (this.abortInFlight.get(requestId) === pending) {
+          this.abortInFlight.delete(requestId);
+        }
+      })
+      .catch(() => undefined);
+    return pending;
+  }
+
+  private invokeAnswer(answer: AgentUiAnswer): Promise<void> {
+    const args = {
+      requestId: answer.requestId,
+      id: answer.id,
+      confirmed: answer.confirmed,
+      value: answer.answers ? JSON.stringify({ answers: answer.answers }) : answer.value,
+      cancelled: answer.cancelled,
+    };
+    return this.commands.answer(this.config.engineId, args);
+  }
+
+  private invokeStreamSnapshot(requestId: string) {
+    return this.commands.streamSnapshot(this.config.engineId, { requestId });
+  }
+
+  private invokeReattach(
+    requestId: string,
+    afterCursor: number | null,
+    onEvent: Channel<PiAgentHostEvent>,
+  ) {
+    const args = { requestId, afterCursor, onEvent };
+    return this.commands.reattach(this.config.engineId, args);
   }
 
   private async assertTaskExecutionAccount(
@@ -1127,6 +1364,30 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
         );
       }
     }
+  }
+
+  private async previousNativeSessionId(
+    threadId: string,
+    currentRunId: string,
+    target: AiExecutionTarget,
+  ): Promise<string | undefined> {
+    const rows = await this.repos.agentRuns.findByThread(threadId);
+    return rows
+      .filter(
+        (row) =>
+          row.run_id !== currentRunId &&
+          row.parent_run_id === null &&
+          row.company_id === this.companyId,
+      )
+      .sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at))
+      .map((row) => parseRunContext(row.runtime_context_json))
+      .find(
+        (context) =>
+          context?.nativeSessionId &&
+          context.executionTarget?.engineId === target.engineId &&
+          context.executionTarget.accountId === target.accountId &&
+          context.executionTarget.billingMode === target.billingMode,
+      )?.nativeSessionId;
   }
 
   private async assertDurableExecutionTarget(
@@ -1196,6 +1457,10 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
       }
     }
     await this.assertDurableExecutionTarget(durableRunId, target, durableRequestId);
+    // Codex validates the exact native account/model and the durable renderer
+    // target inside execute/resume before it starts a turn. Pi retains its
+    // separate provider ACK because its paid boundary occurs later.
+    if (this.engineId === 'codex') return;
     await invokeCommand('agent_runtime_confirm_execution', {
       requestId,
       prepareId: event.prepareId,
@@ -1323,7 +1588,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
         llmStreamChunk(
           this.companyId,
           expectedWorkspace.threadId,
-          'pi_agent',
+          this.engineId,
           event.delta,
           channel,
           runScope,
@@ -1347,7 +1612,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
           toolType: 'builtin',
           evidenceClass: 'sdk-native',
           threadId: expectedWorkspace.threadId,
-          nodeName: 'pi_agent',
+          nodeName: this.engineId,
           employeeId: employeeId ?? undefined,
           startedAt,
           completedAt,
@@ -1355,7 +1620,10 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
             event.durationMs ?? (completedAt ? Math.max(0, completedAt - startedAt) : undefined),
           status: toolStatus(event),
           detail: event.detail,
-          errorType: event.status === 'failed' ? (event.detail ?? 'pi_tool_failed') : undefined,
+          errorType:
+            event.status === 'failed'
+              ? (event.detail ?? `${this.engineId}_tool_failed`)
+              : undefined,
           chatConversationKey: runScope.conversationKey,
           chatRunId: runScope.runId,
         }),
@@ -1384,6 +1652,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
     if (event.kind === 'uiRequest') {
       runtimeEventBus.emit(
         agentUiRequestEvent(this.companyId, expectedWorkspace.threadId, {
+          engineId: this.engineId,
           requestId: expectedWorkspace.requestId,
           runId: expectedWorkspace.turnId,
           id: event.id,
@@ -1393,6 +1662,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
           options: event.options,
           placeholder: event.placeholder,
           prefill: event.prefill,
+          params: event.params,
         }),
       );
       if (event.method === 'confirm') {
@@ -1404,6 +1674,18 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
           }),
         );
       }
+      return true;
+    }
+    if (event.kind === 'uiRequestResolved') {
+      runtimeEventBus.emit(
+        agentUiRequestResolvedEvent(this.companyId, expectedWorkspace.threadId, {
+          engineId: this.engineId,
+          requestId: expectedWorkspace.requestId,
+          runId: expectedWorkspace.turnId,
+          id: event.id,
+          resolution: event.resolution,
+        }),
+      );
       return true;
     }
     if (event.kind === 'agentRun') {
@@ -1586,15 +1868,15 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
 
   async execute(input: DesktopAgentRunInput, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
     if (input.engineId && input.engineId !== this.engineId) {
-      throw new Error(`API adapter cannot execute engine ${input.engineId}.`);
+      throw new Error(`${this.engineId} adapter cannot execute engine ${input.engineId}.`);
     }
-    return this.runPiTurn(input, 'agent_runtime_execute', undefined, signal);
+    return this.runNativeTurn(input, 'agent_runtime_execute', undefined, signal);
   }
 
   async generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult> {
     if (input.sourceProvenance.engineId !== this.engineId) {
       throw new Error(
-        `API adapter cannot run an isolated job for engine ${input.sourceProvenance.engineId}.`,
+        `${this.engineId} adapter cannot run an isolated job for engine ${input.sourceProvenance.engineId}.`,
       );
     }
     const requestId = input.jobId.trim();
@@ -1602,10 +1884,12 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
       throw new Error('Isolated text job requires jobId, text, and systemPrompt.');
     }
     throwIfRunAborted(input.signal);
-    const selection = await this.resolveExecutionSelection(
-      input.sourceProvenance.modelId,
-      input.sourceProvenance,
-    );
+    const runtimeModelRef = input.runtimeModelRef.trim();
+    const target = validateExecutionTarget(input.sourceProvenance);
+    if (!runtimeModelRef || !target) {
+      throw new Error("Isolated text job requires the source Turn's exact model selector.");
+    }
+    const selection = { target, runtimeModelRef };
     const onEvent = new Channel<PiAgentHostEvent>();
     let preparation: Promise<void> | null = null;
     let preparedIdentity: TurnExecutionProvenance | null = null;
@@ -1638,14 +1922,14 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
       });
     };
     const onAbort = () => {
-      void invokeCommand('agent_runtime_abort', { requestId }).catch(() => undefined);
+      void this.invokeAbortOnce(requestId).catch(() => undefined);
     };
     if (input.signal) {
       if (input.signal.aborted) onAbort();
       else input.signal.addEventListener('abort', onAbort, { once: true });
     }
     try {
-      const response = (await invokeCommand('agent_runtime_enhance', {
+      const response = (await this.invokeEnhance({
         req: {
           requestId,
           text: input.text,
@@ -1666,7 +1950,10 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
       if (!preparedIdentity) {
         throw new Error('Agent runtime did not retain its prepared adapter identity.');
       }
-      const provenance = requireTurnExecutionProvenance(response.provenance, requestId);
+      const provenance = {
+        ...requireTurnExecutionProvenance(response.provenance, requestId),
+        runtimeModelRef: selection.runtimeModelRef,
+      };
       assertSameExecutionAccount(input.sourceProvenance, provenance);
       assertSameExecutionAccount(preparedIdentity, provenance);
       return {
@@ -1733,7 +2020,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
         `Cannot resume Agent runtime run: ${describeWorkspaceResumeCompatibility(compatibility) ?? 'The original Project folder no longer matches this run.'}`,
       );
     }
-    return this.runPiTurn(
+    return this.runNativeTurn(
       {
         text: `Continue the interrupted task from its saved agent session.\n\nOriginal objective:\n${
           row.objective || 'Untitled run'
@@ -1750,6 +2037,10 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
             ? 'plan'
             : undefined,
         model:
+          typeof context?.model === 'string' && context.model.trim()
+            ? context.model.trim()
+            : undefined,
+        runtimeModelRef:
           typeof context?.model === 'string' && context.model.trim()
             ? context.model.trim()
             : undefined,
@@ -1772,6 +2063,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
     const rows = await repo.findByStatus(this.companyId, ['running']);
     const protectedRootRunIds = new Set<string>();
     const handledRootRunIds = new Set<string>();
+    const liveRootRunIds = new Set<string>();
     const confirmedMissingRootRunIds = new Set<string>();
     let complete = true;
     for (const row of rows) {
@@ -1780,6 +2072,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
       const context = parseRunContext(row.runtime_context_json);
       const runtimeContext: Partial<PersistedRunContext> = context ?? {};
       const executionTarget = context?.executionTarget ?? null;
+      if (executionTarget?.engineId !== this.engineId) continue;
       const requestId =
         typeof context?.requestId === 'string' && context.requestId.trim()
           ? context.requestId.trim()
@@ -1794,7 +2087,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
         terminal?: { status: string; message?: string };
       } | null;
       try {
-        snapshot = await invokeCommand('agent_runtime_stream_snapshot', { requestId });
+        snapshot = await this.invokeStreamSnapshot(requestId);
       } catch (err) {
         protectedRootRunIds.add(row.run_id);
         complete = false;
@@ -1888,6 +2181,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
         runtimeEventBus.emit(agentRunEvent(this.companyId, evt));
       };
       const emitWorkspaceStatusActivity = createWorkspaceStatusEmitter({
+        engineId: this.engineId,
         companyId: this.companyId,
         threadId: row.thread_id,
         employeeId: row.employee_id,
@@ -1958,14 +2252,12 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
       };
       const abortRejectedBinding = (): Promise<void> => {
         if (!bindingAbortPromise) {
-          bindingAbortPromise = invokeCommand('agent_runtime_abort', { requestId }).catch(
-            (err: unknown) => {
-              console.warn('[desktop-agent-runtime] rejected reattach abort failed', {
-                requestId,
-                err,
-              });
-            },
-          );
+          bindingAbortPromise = this.invokeAbortOnce(requestId).catch((err: unknown) => {
+            console.warn('[desktop-agent-runtime] rejected reattach abort failed', {
+              requestId,
+              err,
+            });
+          });
         }
         return bindingAbortPromise;
       };
@@ -2100,6 +2392,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
                   runId: row.run_id,
                   runtimeContext,
                   event: startedEvent,
+                  engineId: this.engineId,
                 }),
             );
             terminalCheckpointPromises.push(checkpoint);
@@ -2311,17 +2604,17 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
 
       this.inFlightByThread.set(row.thread_id, requestId);
       try {
-        const reattachSnapshot = await invokeCommand('agent_runtime_reattach', {
+        const reattachSnapshot = await this.invokeReattach(
           requestId,
-          afterCursor:
-            !snapshot.running &&
+          !snapshot.running &&
             snapshot.cursor > 0 &&
             normalizeStreamCursor(runtimeContext.streamCursor) >= snapshot.cursor
-              ? snapshot.cursor - 1
-              : normalizeStreamCursor(runtimeContext.streamCursor),
+            ? snapshot.cursor - 1
+            : normalizeStreamCursor(runtimeContext.streamCursor),
           onEvent,
-        });
+        );
         executionAckAllowed = reattachSnapshot.running;
+        if (reattachSnapshot.running) liveRootRunIds.add(row.run_id);
         if (bindingFailurePersisted) {
           if (bindingAbortPromise) await bindingAbortPromise;
           bufferedEvents.length = 0;
@@ -2393,7 +2686,8 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
         if (this.inFlightByThread.get(row.thread_id) === requestId) {
           this.inFlightByThread.delete(row.thread_id);
         }
-        console.warn('[desktop-agent-runtime] reattach live Pi stream failed', {
+        console.warn('[desktop-agent-runtime] reattach live native stream failed', {
+          engineId: this.engineId,
           requestId,
           runId: row.run_id,
           err,
@@ -2403,18 +2697,30 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
     return {
       protectedRootRunIds,
       handledRootRunIds,
+      liveRootRunIds,
       confirmedMissingRootRunIds,
       complete,
     };
   }
 
-  private async runPiTurn(
+  private async runNativeTurn(
     input: DesktopAgentRunInput,
     commandName: 'agent_runtime_execute' | 'agent_runtime_resume',
     resumeWorkspaceBinding?: TaskWorkspaceBindingProjection,
     signal?: AbortSignal,
   ): Promise<DesktopAgentRunResult> {
     throwIfRunAborted(signal);
+    if (
+      !this.config.supportsOffisimDelegation &&
+      (input.missionId ||
+        input.missionContextJson ||
+        input.directDelegation ||
+        input.delegationLimits)
+    ) {
+      throw new Error(
+        `${this.engineId} cannot execute Offisim Mission or delegation semantics yet. Choose an API account for this task.`,
+      );
+    }
     if (commandName === 'agent_runtime_resume' && !resumeWorkspaceBinding?.historyId.trim()) {
       throw new Error(
         'Cannot resume Agent runtime run: saved workspace authority history is missing.',
@@ -2427,7 +2733,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
     );
     throwIfRunAborted(signal);
     const runScope = piRunScope(projectId, input.threadId, input.employeeId, input.runId);
-    const requestId = newRequestId('pi-agent');
+    const requestId = newRequestId(this.config.requestPrefix);
     const workspaceRequirement = resolveWorkspaceRequirement(input, commandName);
     const startedAtByTool = new Map<string, number>();
     let finalText = '';
@@ -2458,8 +2764,15 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
       workspaceAvailability: commandName === 'agent_runtime_resume' ? 'bound' : 'pending',
       runtime: 'agent-runtime',
       executionTarget: input.executionTarget ?? null,
-      piSdkVersion: PI_SDK_VERSION,
-      wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+      ...(this.engineId === 'api'
+        ? {
+            piSdkVersion: this.config.runtimeVersion,
+            wireProtocolVersion: this.config.protocolVersion,
+          }
+        : {
+            nativeRuntimeVersion: this.config.runtimeVersion,
+            nativeProtocolVersion: this.config.protocolVersion,
+          }),
       model: resolvedModel ?? null,
       provenance: null,
       permissionMode,
@@ -2489,6 +2802,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
       runtimeEventBus.emit(agentRunEvent(this.companyId, evt));
     };
     const emitWorkspaceStatusActivity = createWorkspaceStatusEmitter({
+      engineId: this.engineId,
       companyId: this.companyId,
       threadId: input.threadId,
       employeeId: input.employeeId,
@@ -2534,14 +2848,12 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
     let bindingAbortPromise: Promise<void> | null = null;
     const abortRejectedBinding = (): Promise<void> => {
       if (!bindingAbortPromise) {
-        bindingAbortPromise = invokeCommand('agent_runtime_abort', { requestId }).catch(
-          (err: unknown) => {
-            console.warn('[desktop-agent-runtime] rejected workspace binding abort failed', {
-              requestId,
-              err,
-            });
-          },
-        );
+        bindingAbortPromise = this.invokeAbortOnce(requestId).catch((err: unknown) => {
+          console.warn('[desktop-agent-runtime] rejected workspace binding abort failed', {
+            requestId,
+            err,
+          });
+        });
       }
       return bindingAbortPromise;
     };
@@ -2648,6 +2960,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
                 runId: runScope.runId,
                 runtimeContext,
                 event: startedEvent,
+                engineId: this.engineId,
               }),
           );
           startedIdentityCheckpoints.push(checkpoint);
@@ -2704,7 +3017,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
     this.inFlightByThread.set(input.threadId, requestId);
     const abortFromSignal = (): void => {
       this.abortedRequests.add(requestId);
-      void invokeCommand('agent_runtime_abort', { requestId }).catch((err: unknown) => {
+      void this.invokeAbortOnce(requestId).catch((err: unknown) => {
         console.warn('[desktop-agent-runtime] resume abort failed', {
           threadId: input.threadId,
           err,
@@ -2723,59 +3036,94 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
           thinkingLevel: resolvedThinkingLevel,
         });
       throwIfRunAborted(signal);
-      // A resume stays on its persisted Pi session selection. A new employee-owned
-      // run resolves the latest employee binding at send time, so Personnel and
-      // TeamDock changes apply without restarting the desktop app.
+      // The gateway already froze the task's engine/account/model before entering
+      // this adapter. Employee settings may still supply a thinking level, but
+      // must never replace that exact model with a binding from another engine.
       if (commandName === 'agent_runtime_execute' && input.employeeId) {
-        resolvedModel = runtimeSelection.model;
         resolvedThinkingLevel = runtimeSelection.thinkingLevel;
-        runtimeContext.model = resolvedModel ?? null;
         runtimeContext.thinkingLevel = resolvedThinkingLevel ?? null;
         this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
       }
-      const runtimeStatus = await invokeCommand('agent_runtime_status');
-      const executionSelection = await this.resolveExecutionSelection(
-        resolvedModel,
-        input.executionTarget,
-        runtimeStatus,
-      );
-      executionTarget = executionSelection.target;
-      resolvedModel = executionSelection.runtimeModelRef;
-      const boundRoster = roster.map((entry) => {
-        const employeeModel = entry.model?.trim();
-        if (!employeeModel) return entry;
-        const childSelection = resolveApiExecutionSelection(
-          runtimeStatus,
-          employeeModel,
-          undefined,
-        );
-        if (
-          childSelection.target.engineId !== executionTarget?.engineId ||
-          childSelection.target.accountId !== executionTarget.accountId ||
-          childSelection.target.billingMode !== executionTarget.billingMode
-        ) {
-          throw new Error(`Employee ${entry.name} is bound to another AI account or billing lane.`);
-        }
-        return {
-          ...entry,
-          model: childSelection.runtimeModelRef,
-          runtimeModelRef: childSelection.runtimeModelRef,
-          executionTarget: childSelection.target,
-        };
-      });
+      const exactTarget = validateExecutionTarget(input.executionTarget);
+      const exactRuntimeModelRef = input.runtimeModelRef?.trim();
+      if (!exactTarget || !exactRuntimeModelRef) {
+        throw new Error('The engine adapter requires an exact gateway-frozen execution binding.');
+      }
+      if (
+        exactTarget.engineId !== this.engineId ||
+        exactTarget.billingMode !== this.config.billingMode
+      ) {
+        throw new Error('The gateway-frozen execution binding belongs to another engine.');
+      }
+      executionTarget = exactTarget;
+      resolvedModel = exactRuntimeModelRef;
+      const rosterModels = this.config.supportsOffisimDelegation
+        ? roster.map((entry) => entry.model?.trim()).filter(Boolean)
+        : [];
+      const runtimeStatus = rosterModels.length
+        ? await invokeCommand('agent_runtime_status', { includeUsage: false })
+        : undefined;
+      const boundRoster = this.config.supportsOffisimDelegation
+        ? roster.map((entry) => {
+            const employeeModel = entry.model?.trim();
+            if (!employeeModel) return entry;
+            if (!runtimeStatus) throw new Error('The employee model catalog is unavailable.');
+            const childSelection = resolveApiExecutionSelection(
+              runtimeStatus,
+              employeeModel,
+              undefined,
+            );
+            if (
+              childSelection.target.engineId !== executionTarget?.engineId ||
+              childSelection.target.accountId !== executionTarget.accountId ||
+              childSelection.target.billingMode !== executionTarget.billingMode
+            ) {
+              throw new Error(
+                `Employee ${entry.name} is bound to another AI account or billing lane.`,
+              );
+            }
+            return {
+              ...entry,
+              model: childSelection.runtimeModelRef,
+              runtimeModelRef: childSelection.runtimeModelRef,
+              executionTarget: childSelection.target,
+            };
+          })
+        : [];
       runtimeContext.executionTarget = executionTarget;
       runtimeContext.model = resolvedModel;
       await this.assertTaskExecutionAccount(input.threadId, runScope.runId, executionTarget);
-      this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
-      const mcpTools = await buildMcpScope(
-        this.repos,
-        this.companyId,
-        input.employeeId,
-        projectId,
-      ).catch(() => []);
+      const nativeSessionMode = input.nativeSessionMode === 'fresh' ? 'fresh' : 'tracked';
+      if (nativeSessionMode === 'tracked') {
+        runtimeContext.nativeSessionId ??= await this.previousNativeSessionId(
+          input.threadId,
+          runScope.runId,
+          executionTarget,
+        );
+      } else {
+        // Fresh recovery is an explicit new native Conversation. Never let the
+        // broken tracked opaque ref cross the host boundary or its durable row.
+        runtimeContext.nativeSessionId = undefined;
+      }
+      // Resume must leave the interrupted witness untouched until Rust has
+      // validated its original request/workspace/session and atomically claimed
+      // the replacement binding. Prewriting this new request id makes that
+      // validation reject the renderer's own mutation as resume_context_invalid.
+      if (commandName === 'agent_runtime_execute') {
+        this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
+      }
+      const mcpTools = this.config.supportsOffisimDelegation
+        ? await buildMcpScope(this.repos, this.companyId, input.employeeId, projectId).catch(
+            () => [],
+          )
+        : [];
       throwIfRunAborted(signal);
 
-      await this.assertDurableExecutionTarget(runScope.runId, executionTarget, requestId);
+      await this.assertDurableExecutionTarget(
+        runScope.runId,
+        executionTarget,
+        commandName === 'agent_runtime_execute' ? requestId : undefined,
+      );
       if (commandName === 'agent_runtime_execute') {
         // Opening the root is a paid/side-effect boundary, not best-effort
         // telemetry. The host must not start until the exact run authority is
@@ -2801,50 +3149,83 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
 
       throwIfRunAborted(signal);
       hostCommandStarted = true;
-      const commandResponse = (await invokeCommand(commandName, {
-        req: {
-          requestId,
-          text: input.text,
-          companyId: this.companyId,
-          threadId: input.threadId,
-          projectId,
-          workspaceRequirement,
-          employeeId: input.employeeId,
-          model: resolvedModel,
-          expectedTarget: executionTarget,
-          runtimeModelRef: resolvedModel,
-          permissionMode,
-          // Like `model`: forward only an explicit override, else `undefined` so
-          // the host omits it and Pi resolves its own default/session level
-          // rather than Offisim pinning every run to `medium`.
-          thinkingLevel: resolvedThinkingLevel,
-          systemPromptAppend: systemPromptAppend ?? undefined,
-          skillPaths,
-          // Delegation scope: the root run id lets the host stamp child agentRun
-          // events; the roster tells it who can be delegated to. Empty roster →
-          // the host registers no delegate tool.
-          rootRunId: runScope.runId,
-          nativeSessionMode: input.nativeSessionMode ?? 'tracked',
-          ...(input.nativeSessionMode === 'fresh'
-            ? { nativeSessionResetSourceRunId: input.nativeSessionResetSourceRunId }
-            : {}),
-          ...(commandName === 'agent_runtime_resume'
-            ? { workspaceBindingHistoryId: resumeWorkspaceBinding?.historyId }
-            : {}),
-          roster: boundRoster,
-          // Mission scope (MS-005): present only on a mission attempt. When set,
-          // the host registers the mission-bridge tools; the bridge's events ride
-          // this run's rootRunId so the MissionRunController correlates them to the
-          // attempt. Undefined on a plain chat — host registers no mission bridge.
-          missionContextJson: input.missionContextJson?.trim() || undefined,
-          mcpTools,
-          directDelegation: input.directDelegation,
-          ...(input.delegationLimits !== undefined
-            ? { delegationLimits: input.delegationLimits }
-            : {}),
-        },
-        onEvent,
-      })) as PiAgentHostResponse;
+      let commandResponse: PiAgentHostResponse;
+      if (this.engineId === 'codex') {
+        const commandArgs: CommandArgs<'codex_agent_execute'> = {
+          req: {
+            requestId,
+            text: input.text,
+            expectedTarget: executionTarget,
+            companyId: this.companyId,
+            threadId: input.threadId,
+            projectId,
+            employeeId: input.employeeId,
+            rootRunId: runScope.runId,
+            workspaceRequirement,
+            nativeSessionMode,
+            model: resolvedModel,
+            runtimeModelRef: resolvedModel,
+            permissionMode,
+            thinkingLevel: resolvedThinkingLevel,
+            systemPromptAppend: systemPromptAppend ?? undefined,
+            clientUserMessageId: input.conversationProjection?.userMessageId,
+            ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
+              ? { nativeSessionId: runtimeContext.nativeSessionId }
+              : {}),
+            ...(nativeSessionMode === 'fresh'
+              ? { nativeSessionResetSourceRunId: input.nativeSessionResetSourceRunId }
+              : {}),
+            ...(commandName === 'agent_runtime_resume'
+              ? { workspaceBindingHistoryId: resumeWorkspaceBinding?.historyId }
+              : {}),
+          },
+          onEvent,
+        };
+        commandResponse = await (commandName === 'agent_runtime_resume'
+          ? this.commands.resumeCodex(commandArgs)
+          : this.commands.executeCodex(commandArgs));
+      } else {
+        const commandArgs: CommandArgs<'agent_runtime_execute'> = {
+          req: {
+            requestId,
+            text: input.text,
+            companyId: this.companyId,
+            threadId: input.threadId,
+            projectId,
+            workspaceRequirement,
+            employeeId: input.employeeId,
+            model: resolvedModel,
+            expectedTarget: executionTarget,
+            runtimeModelRef: resolvedModel,
+            permissionMode,
+            thinkingLevel: resolvedThinkingLevel,
+            systemPromptAppend: systemPromptAppend ?? undefined,
+            skillPaths,
+            rootRunId: runScope.runId,
+            nativeSessionMode,
+            ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
+              ? { nativeSessionId: runtimeContext.nativeSessionId }
+              : {}),
+            ...(nativeSessionMode === 'fresh'
+              ? { nativeSessionResetSourceRunId: input.nativeSessionResetSourceRunId }
+              : {}),
+            ...(commandName === 'agent_runtime_resume'
+              ? { workspaceBindingHistoryId: resumeWorkspaceBinding?.historyId }
+              : {}),
+            roster: boundRoster,
+            missionContextJson: input.missionContextJson?.trim() || undefined,
+            mcpTools,
+            directDelegation: input.directDelegation,
+            ...(input.delegationLimits !== undefined
+              ? { delegationLimits: input.delegationLimits }
+              : {}),
+          },
+          onEvent,
+        };
+        commandResponse = await (commandName === 'agent_runtime_resume'
+          ? this.commands.resumeApi(commandArgs)
+          : this.commands.executeApi(commandArgs));
+      }
       if (executionPreparations.size === 0) {
         throw new Error('Agent runtime did not prepare the exact execution target.');
       }
@@ -2865,7 +3246,10 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
       // come from their own rows). Only in scope in this try-branch; the catch
       // branch's invoke threw before returning.
       const rootUsage = commandResponse.usage;
-      const provenance = requireTurnExecutionProvenance(commandResponse.provenance, runScope.runId);
+      const provenance = {
+        ...requireTurnExecutionProvenance(commandResponse.provenance, runScope.runId),
+        runtimeModelRef: resolvedModel,
+      };
       if (!executionTarget) {
         throw new Error('Agent runtime completed without an execution target.');
       }
@@ -2884,7 +3268,7 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
           llmStreamChunk(
             this.companyId,
             input.threadId,
-            'pi_agent',
+            this.engineId,
             commandResponse.reasoning,
             'reasoning',
             runScope,
@@ -3429,27 +3813,28 @@ class DesktopPiAgentRuntime implements RuntimeEngineAdapter {
     // text, and the flag is how execute() knows to classify the terminal as
     // cancelled rather than completed.
     this.abortedRequests.add(requestId);
-    void invokeCommand('agent_runtime_abort', { requestId }).catch((err: unknown) => {
-      console.warn('[desktop-agent-runtime] Pi abort failed', { threadId, err });
+    void this.invokeAbortOnce(requestId).catch((err: unknown) => {
+      console.warn('[desktop-agent-runtime] native abort failed', {
+        engineId: this.engineId,
+        threadId,
+        err,
+      });
     });
   }
 
   abortChild(threadId: string, runId: string): void {
     const requestId = this.inFlightByThread.get(threadId);
     if (!requestId) return;
-    void invokeCommand('agent_runtime_control', { requestId, action: 'stopChild', runId }).catch(
-      (err: unknown) => console.warn('[desktop-agent-runtime] child stop failed', { runId, err }),
-    );
+    if (!this.config.supportsOffisimDelegation) return;
+    void this.commands
+      .stopChild({ requestId, action: 'stopChild', runId })
+      .catch((err: unknown) =>
+        console.warn('[desktop-agent-runtime] child stop failed', { runId, err }),
+      );
   }
 
   async answerUiRequest(answer: AgentUiAnswer): Promise<void> {
-    await invokeCommand('agent_runtime_answer', {
-      requestId: answer.requestId,
-      id: answer.id,
-      confirmed: answer.confirmed,
-      value: answer.value,
-      cancelled: answer.cancelled,
-    });
+    await this.invokeAnswer(answer);
   }
 
   async dispose(): Promise<void> {
@@ -3465,6 +3850,7 @@ const runtimeCache = new Map<string, Promise<DesktopAgentRuntime>>();
 class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
   readonly ownsConversationProjectionPersistence = true;
   private readonly adapters: ReadonlyMap<string, RuntimeEngineAdapter>;
+  private readonly activeEngineByThread = new Map<string, string>();
 
   constructor(
     private readonly companyId: string,
@@ -3482,9 +3868,62 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
     return adapter;
   }
 
-  execute(input: DesktopAgentRunInput, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
-    const engineId = input.executionTarget?.engineId ?? input.engineId ?? 'api';
-    return this.adapter(engineId).execute({ ...input, engineId }, signal);
+  async execute(input: DesktopAgentRunInput, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
+    const durableAuthority = resolveAuthoritativeThreadExecutionAuthority(
+      await this.repos.agentRuns.findByThread(input.threadId),
+      this.companyId,
+    );
+    let requestedModel = input.model?.trim() || undefined;
+    if (!requestedModel && !durableAuthority && input.employeeId && !input.executionTarget) {
+      const context = await buildDelegationContext(this.repos, this.companyId, input.employeeId, {
+        model: undefined,
+        thinkingLevel: input.thinkingLevel,
+      });
+      requestedModel = context.runtimeSelection.model?.trim() || undefined;
+    }
+    const initialSelector = input.runtimeModelRef?.trim() || input.model?.trim() || undefined;
+    const initialAuthority: DurableThreadExecutionAuthority | undefined =
+      input.executionTarget && initialSelector
+        ? { target: input.executionTarget, runtimeModelRef: initialSelector }
+        : undefined;
+    const selectionPlan = planThreadExecutionSelection(
+      durableAuthority,
+      requestedModel,
+      initialAuthority,
+    );
+    const selection = selectionPlan.requiresCatalog
+      ? resolveRuntimeExecutionSelection(
+          await invokeCommand('agent_runtime_status', { includeUsage: false }),
+          selectionPlan.requestedModel,
+          selectionPlan.frozenAuthority?.target ?? input.executionTarget,
+          selectionPlan.frozenAuthority?.runtimeModelRef ?? input.runtimeModelRef,
+        )
+      : selectionPlan.frozenAuthority;
+    if (!selection) throw new Error('This task does not have an executable AI binding.');
+    if (selectionPlan.authoritativeAuthority) {
+      assertThreadExecutionLane(selectionPlan.authoritativeAuthority.target, selection.target);
+    }
+    if (input.engineId && input.engineId !== selection.target.engineId) {
+      throw new Error('The selected model belongs to another AI engine.');
+    }
+    const engineId = selection.target.engineId;
+    this.activeEngineByThread.set(input.threadId, engineId);
+    try {
+      return await this.adapter(engineId).execute(
+        {
+          ...input,
+          engineId,
+          model: selection.runtimeModelRef,
+          runtimeModelRef: selection.runtimeModelRef,
+          executionTarget: selection.target,
+        },
+        signal,
+      );
+    } finally {
+      if (this.activeEngineByThread.get(input.threadId) === engineId) {
+        this.activeEngineByThread.delete(input.threadId);
+      }
+    }
   }
 
   generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult> {
@@ -3501,45 +3940,110 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
     if (!engineId) {
       throw new Error('Cannot resume Agent runtime run: execution target is missing.');
     }
-    return this.adapter(engineId).resume(runId, signal);
+    this.activeEngineByThread.set(row.thread_id, engineId);
+    try {
+      return await this.adapter(engineId).resume(runId, signal);
+    } finally {
+      if (this.activeEngineByThread.get(row.thread_id) === engineId) {
+        this.activeEngineByThread.delete(row.thread_id);
+      }
+    }
   }
 
   abort(threadId: string): void {
-    for (const adapter of this.adapters.values()) adapter.abort(threadId);
+    const engineId = this.activeEngineByThread.get(threadId);
+    if (engineId) this.adapter(engineId).abort(threadId);
   }
 
   abortChild(threadId: string, runId: string): void {
-    for (const adapter of this.adapters.values()) adapter.abortChild(threadId, runId);
+    const engineId = this.activeEngineByThread.get(threadId);
+    if (engineId) this.adapter(engineId).abortChild(threadId, runId);
   }
 
   async answerUiRequest(answer: AgentUiAnswer): Promise<void> {
-    const adapters = [...this.adapters.values()];
-    const adapter = adapters[0];
-    if (adapters.length !== 1 || !adapter) {
-      throw new Error('Cannot route an interaction without an exact engine binding.');
+    const row = await this.repos.agentRuns.findById(answer.runId);
+    if (!row || row.company_id !== this.companyId || row.parent_run_id !== null) {
+      throw new Error('Cannot route an interaction without its durable root run.');
     }
-    await adapter.answerUiRequest(answer);
+    const engineId = parseRunContext(row.runtime_context_json)?.executionTarget?.engineId;
+    if (!engineId) throw new Error('Cannot route an interaction without an exact engine binding.');
+    await this.adapter(engineId).answerUiRequest(answer);
   }
 
   async reattachLiveRuns(rootRunIds?: ReadonlySet<string>): Promise<LiveRunReattachResult> {
+    const idsByEngine = new Map<string, Set<string>>();
+    const routingByRunId = new Map<string, { threadId: string; engineId: string }>();
+    const gatewayConfirmedMissingRootRunIds = new Set<string>();
+    const candidateRows = rootRunIds
+      ? (
+          await Promise.all([...rootRunIds].map((runId) => this.repos.agentRuns.findById(runId)))
+        ).filter((row): row is AgentRunRow => Boolean(row))
+      : await this.repos.agentRuns.findByStatus(this.companyId, ['running']);
+    for (const row of candidateRows) {
+      if (row.company_id !== this.companyId || row.parent_run_id !== null) continue;
+      const engineId = parseRunContext(row.runtime_context_json)?.executionTarget?.engineId;
+      if (!engineId || !this.adapters.has(engineId)) {
+        gatewayConfirmedMissingRootRunIds.add(row.run_id);
+        continue;
+      }
+      const ids = idsByEngine.get(engineId) ?? new Set<string>();
+      ids.add(row.run_id);
+      idsByEngine.set(engineId, ids);
+      routingByRunId.set(row.run_id, { threadId: row.thread_id, engineId });
+    }
     const results = await Promise.all(
       [...this.adapters.values()].map((adapter) =>
         adapter.reattachLiveRuns
-          ? adapter.reattachLiveRuns(rootRunIds)
-          : Promise.resolve({
-              protectedRootRunIds: new Set<string>(),
-              handledRootRunIds: new Set<string>(),
-              confirmedMissingRootRunIds: new Set<string>(),
-              complete: true,
-            }),
+          ? rootRunIds
+            ? idsByEngine.has(adapter.engineId)
+              ? adapter.reattachLiveRuns(idsByEngine.get(adapter.engineId))
+              : Promise.resolve({
+                  protectedRootRunIds: new Set<string>(),
+                  handledRootRunIds: new Set<string>(),
+                  liveRootRunIds: new Set<string>(),
+                  confirmedMissingRootRunIds: new Set<string>(),
+                  complete: true,
+                })
+            : adapter.reattachLiveRuns()
+          : (() => {
+              for (const runId of idsByEngine.get(adapter.engineId) ?? []) {
+                gatewayConfirmedMissingRootRunIds.add(runId);
+              }
+              return Promise.resolve({
+                protectedRootRunIds: new Set<string>(),
+                handledRootRunIds: new Set<string>(),
+                liveRootRunIds: new Set<string>(),
+                confirmedMissingRootRunIds: new Set<string>(),
+                complete: true,
+              });
+            })(),
       ),
     );
+    const liveRootRunIds = new Set(results.flatMap((result) => [...(result.liveRootRunIds ?? [])]));
+    for (const runId of liveRootRunIds) {
+      const route = routingByRunId.get(runId);
+      if (route) this.activeEngineByThread.set(route.threadId, route.engineId);
+    }
+    const confirmedMissingRootRunIds = new Set([
+      ...gatewayConfirmedMissingRootRunIds,
+      ...results.flatMap((result) => [...result.confirmedMissingRootRunIds]),
+    ]);
+    const settledRootRunIds = new Set([
+      ...confirmedMissingRootRunIds,
+      ...results.flatMap((result) => [...result.handledRootRunIds]),
+    ]);
+    for (const runId of settledRootRunIds) {
+      if (liveRootRunIds.has(runId)) continue;
+      const route = routingByRunId.get(runId);
+      if (route && this.activeEngineByThread.get(route.threadId) === route.engineId) {
+        this.activeEngineByThread.delete(route.threadId);
+      }
+    }
     return {
       protectedRootRunIds: new Set(results.flatMap((result) => [...result.protectedRootRunIds])),
       handledRootRunIds: new Set(results.flatMap((result) => [...result.handledRootRunIds])),
-      confirmedMissingRootRunIds: new Set(
-        results.flatMap((result) => [...result.confirmedMissingRootRunIds]),
-      ),
+      liveRootRunIds,
+      confirmedMissingRootRunIds,
       complete: results.every((result) => result.complete),
     };
   }
@@ -3556,8 +4060,9 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
       throw new Error(`Cannot start Agent runtime: repos.${required} is unavailable.`);
     }
   }
-  const apiAdapter = new DesktopPiAgentRuntime(companyId, repos);
-  return new DesktopAgentRuntimeGateway(companyId, repos, [apiAdapter]);
+  const apiAdapter = new DesktopNativeAgentRuntime(companyId, repos, API_ENGINE_RUNTIME);
+  const codexAdapter = new DesktopNativeAgentRuntime(companyId, repos, CODEX_ENGINE_RUNTIME);
+  return new DesktopAgentRuntimeGateway(companyId, repos, [apiAdapter, codexAdapter]);
 }
 
 export function getDesktopAgentRuntime(companyId: string): Promise<DesktopAgentRuntime> {

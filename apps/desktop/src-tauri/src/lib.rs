@@ -2,6 +2,7 @@ mod agent_host_runtime;
 mod attachment_store;
 mod browser_session;
 mod builtin_tools;
+mod codex_agent_host;
 mod codex_pets;
 mod computer_driver;
 mod deep_link;
@@ -235,6 +236,15 @@ pub fn run() {
             browser_session::browser_session_close,
             codex_pets::codex_pets_list,
             codex_pets::codex_pet_load,
+            codex_agent_host::commands::codex_agent_execute,
+            codex_agent_host::commands::codex_agent_resume,
+            codex_agent_host::commands::codex_agent_enhance,
+            codex_agent_host::commands::codex_agent_abort,
+            codex_agent_host::commands::codex_agent_answer,
+            codex_agent_host::commands::codex_agent_stream_snapshot,
+            codex_agent_host::commands::codex_agent_release_stream,
+            codex_agent_host::commands::codex_agent_reattach,
+            codex_agent_host::commands::codex_agent_status,
             pi_agent_host::pi_agent_status,
             pi_agent_host::agent_runtime_execute,
             pi_agent_host::agent_runtime_enhance,
@@ -305,6 +315,7 @@ pub fn run() {
         .manage(browser_session::BrowserSessionRegistry::default())
         .manage(task_workspace_binding::ProjectWorkspaceSelectionRegistry::default())
         .manage(task_workspace_binding::TaskWorkspaceBindingRegistry::default())
+        .manage(codex_agent_host::CodexAgentHostState::default())
         .on_webview_event(|webview, event| {
             if !is_main_renderer_label(webview.label()) {
                 return;

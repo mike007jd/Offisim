@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-07-15T00:52:56+10:00",
+  "freshnessWindowDays": 30,
+  "officialSources": {
+    "protocol": "https://developers.openai.com/codex/app-server/",
+    "release": "https://github.com/openai/codex/releases/tag/rust-v0.144.4"
+  },
+  "artifact": {
+    "component": "codex-app-server",
+    "version": "0.144.4",
+    "releaseTag": "rust-v0.144.4",
+    "targetTriple": "aarch64-apple-darwin",
+    "archive": {
+      "fileName": "codex-app-server-aarch64-apple-darwin.tar.gz",
+      "url": "https://github.com/openai/codex/releases/download/rust-v0.144.4/codex-app-server-aarch64-apple-darwin.tar.gz",
+      "byteLength": 83208298,
+      "sha256": "e58ca932f0a429622894943ec52d83bd861858f0de404ad52c02008d8d6f2899"
+    },
+    "binary": {
+      "externalBin": "binaries/codex-app-server",
+      "outputFileName": "codex-app-server-aarch64-apple-darwin",
+      "byteLength": 217169632,
+      "sha256": "27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe",
+      "architecture": "arm64",
+      "minimumMacOSVersion": "11.0"
+    }
+  },
+  "transport": {
+    "kind": "stdio-jsonl",
+    "requestEnvelope": ["method", "id", "params"],
+    "notificationEnvelope": ["method", "params"],
+    "forbiddenEnvelopeFields": ["jsonrpc"],
+    "handshake": ["initialize", "initialized"]
+  },
+  "initializeCapabilities": {
+    "experimentalApi": true,
+    "requestAttestation": false,
+    "mcpServerOpenaiFormElicitation": false
+  },
+  "clientMethods": [
+    "initialize",
+    "initialized",
+    "account/read",
+    "account/rateLimits/read",
+    "account/usage/read",
+    "model/list",
+    "thread/start",
+    "thread/resume",
+    "turn/start",
+    "turn/interrupt"
+  ],
+  "serverRequestMethods": [
+    "item/commandExecution/requestApproval",
+    "item/fileChange/requestApproval",
+    "item/permissions/requestApproval",
+    "item/tool/requestUserInput",
+    "mcpServer/elicitation/request",
+    "currentTime/read"
+  ],
+  "approvals": {
+    "commandAndFileDecisions": ["accept", "decline", "cancel"],
+    "forbiddenPersistentDecisions": [
+      "acceptForSession",
+      "acceptWithExecpolicyAmendment",
+      "applyNetworkPolicyAmendment"
+    ],
+    "permissionResponseFields": ["permissions", "scope"],
+    "permissionScope": "turn",
+    "forbiddenPermissionScope": "session"
+  },
+  "nativeShapes": {
+    "accountRead": {
+      "requiredFields": ["requiresOpenaiAuth", "account"],
+      "safeAccountProjectionFields": [
+        "engineId",
+        "accountId",
+        "displayName",
+        "billingMode",
+        "status",
+        "statusReason",
+        "capabilities",
+        "usage"
+      ]
+    },
+    "modelList": {
+      "responseFields": ["data", "nextCursor"],
+      "modelFields": [
+        "id",
+        "model",
+        "displayName",
+        "description",
+        "hidden",
+        "defaultReasoningEffort",
+        "supportedReasoningEfforts",
+        "isDefault"
+      ],
+      "stableSelectorField": "id",
+      "exactLeafField": "model",
+      "nonAuthoritativeFields": ["displayName"],
+      "runtimeModelRefPrefix": "codex:",
+      "requestSelector": {
+        "threadStartField": "model",
+        "turnStartField": "model",
+        "valueSource": "id"
+      },
+      "startedCheckpoint": {
+        "summaryLeafField": "id",
+        "summarySelectorField": "catalogId",
+        "summaryApi": "codex-app-server",
+        "persistedRuntimeModelRef": "codex:<catalogId>"
+      },
+      "splitIdentityFixture": {
+        "id": "stable-picker-selector-fixture",
+        "model": "gpt-5.6-sol",
+        "displayName": "GPT-5.6 Sol"
+      },
+      "verifiedRuntimeLeaf": {
+        "selectorId": "gpt-5.6-sol",
+        "modelId": "gpt-5.6-sol",
+        "sourceMethod": "model/list",
+        "sourceUrl": "https://developers.openai.com/codex/app-server/",
+        "checkedAt": "2026-07-15T00:52:56+10:00"
+      }
+    },
+    "rateLimits": {
+      "requiredFields": ["rateLimits"],
+      "nativeUsageFields": [
+        "usedPercent",
+        "resetsAt",
+        "credits",
+        "rateLimitsByLimitId",
+        "rateLimitResetCredits"
+      ]
+    },
+    "accountUsage": {
+      "requiredFields": ["summary"],
+      "activityFields": [
+        "lifetimeTokens",
+        "peakDailyTokens",
+        "longestRunningTurnSec",
+        "currentStreakDays",
+        "longestStreakDays",
+        "dailyUsageBuckets"
+      ],
+      "semantics": "native-token-activity-not-cost"
+    }
+  },
+  "productProjection": {
+    "engineId": "codex",
+    "billingMode": "subscription",
+    "accountId": {
+      "prefix": "codex-subscription-",
+      "digestLength": 24,
+      "identityInputs": ["codexHomeFingerprint", "normalizedChatgptEmail"],
+      "rawIdentityProjected": false,
+      "missingChatgptEmailStatus": "unavailable"
+    },
+    "modelSourceKind": "native",
+    "session": {
+      "kind": "opaque",
+      "allowedFields": ["protocol", "threadId", "sessionId"],
+      "forbiddenFields": ["path", "sessionFile", "codexHome"]
+    },
+    "subscriptionUsage": {
+      "source": "native",
+      "rateLimitSelection": "all-rateLimitsByLimitId-buckets-or-top-level-only-when-map-absent",
+      "allowedFields": [
+        "kind",
+        "source",
+        "label",
+        "used",
+        "remaining",
+        "remainingIsDerived",
+        "resetAt",
+        "credits",
+        "resetCredits",
+        "updatedAt"
+      ],
+      "creditsSource": "selectedRateLimit.credits",
+      "resetCreditsSource": "rateLimitResetCredits.availableCount",
+      "resetCreditsAreNotBalance": true,
+      "costCapability": "unavailable",
+      "forbiddenCostFields": [
+        "amountUsd",
+        "actualCost",
+        "estimatedCost",
+        "pricePerToken",
+        "tokenCost"
+      ]
+    },
+    "forbiddenSecretOrNativeHomeFields": [
+      "email",
+      "apiKey",
+      "accessToken",
+      "refreshToken",
+      "idToken",
+      "credentialSource",
+      "auth.json",
+      "codexHome",
+      "thread.path"
+    ]
+  },
+  "runLifecycle": {
+    "stopMethod": "turn/interrupt",
+    "stopTerminalStatus": "interrupted",
+    "nativeInterruptedTerminalIsAuthoritative": true,
+    "localInterruptedTerminalOnlyAfterInterruptTimeout": true,
+    "terminalCommit": "atomic-before-terminal-event-delivery",
+    "lateEventsAfterTerminalAllowed": false,
+    "subscriberDelivery": {
+      "order": "buffer-commit-order",
+      "serialization": "shared-normal-and-terminal-barrier",
+      "eventsOrCursorsAfterTerminal": false,
+      "terminalCursorDelivery": "before-terminal-event",
+      "requiredConcurrencyTests": [
+        "late_native_output_is_rejected_after_user_stop",
+        "publish_delivery_cannot_arrive_after_terminal_delivery"
+      ]
+    },
+    "frozenExecutionSelection": {
+      "modelSource": "gateway-runtimeModelRef",
+      "employeeBindingMayOverride": ["thinkingLevel"],
+      "employeeBindingMayNotOverride": ["model", "executionTarget"]
+    },
+    "nativePlan": {
+      "permissionMode": "plan",
+      "planCollaborationMode": "plan",
+      "nonPlanCollaborationMode": "default",
+      "defaultReasoningEffort": "medium",
+      "settingsFieldCase": "snake_case",
+      "authoritativeItemType": "plan",
+      "streamChannel": "plan",
+      "workspaceMutationAllowed": false
+    }
+  },
+  "reasoningProjection": {
+    "allowedSummaryNotification": "item/reasoning/summaryTextDelta",
+    "ignoredRawNotification": "item/reasoning/textDelta",
+    "productChannel": "reasoning",
+    "rawReasoningAllowed": false
+  },
+  "commands": [
+    "codex_agent_execute",
+    "codex_agent_resume",
+    "codex_agent_enhance",
+    "codex_agent_abort",
+    "codex_agent_answer",
+    "codex_agent_stream_snapshot",
+    "codex_agent_release_stream",
+    "codex_agent_reattach",
+    "codex_agent_status"
+  ],
+  "security": {
+    "binaryResolution": "tauri-external-bin-only",
+    "forbiddenPathFallbacks": ["codex", "codex app-server", "which codex"],
+    "nativeSessionPersistence": "opaque-id-only",
+    "rawAuthReadAllowed": false,
+    "rawNativePathPersistenceAllowed": false,
+    "subscriptionTokenCostInferenceAllowed": false
+  }
+}

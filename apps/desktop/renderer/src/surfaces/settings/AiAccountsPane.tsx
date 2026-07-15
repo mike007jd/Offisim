@@ -13,22 +13,14 @@ import type {
   AiAccountDescriptor,
   AiModelCatalogEntry,
   AiRuntimeStatus,
+  AiSubscriptionUsageSnapshot,
 } from '@offisim/shared-types';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bot, Info, RefreshCw, TriangleAlert } from 'lucide-react';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 
-interface SubscriptionUsageSnapshot {
-  readonly kind: 'subscription';
-  readonly label?: string;
-  readonly remaining?: number | string;
-  readonly resetAt?: string;
-  readonly credits?: number | string;
-  readonly updatedAt?: string;
-}
-
-interface AccountView extends AiAccountDescriptor {
-  readonly usage?: ApiUsageSnapshot | SubscriptionUsageSnapshot;
+interface AccountView extends Omit<AiAccountDescriptor, 'usage'> {
+  readonly usage?: ApiUsageSnapshot | AiSubscriptionUsageSnapshot;
   readonly cost?: AccountCostSnapshot;
   readonly accountingStatus?: 'loading' | 'error';
 }
@@ -48,7 +40,7 @@ function isRuntimeStatus(value: unknown): value is RuntimeStatusView {
 }
 
 async function loadRuntimeStatus(): Promise<RuntimeStatusView> {
-  const status: unknown = await invokeCommand('agent_runtime_status');
+  const status: unknown = await invokeCommand('agent_runtime_status', { includeUsage: true });
   if (!isRuntimeStatus(status)) {
     throw new Error('The desktop runtime returned an invalid account catalog.');
   }
@@ -76,6 +68,16 @@ function formatLimit(value: number | undefined): string {
   return value === undefined ? 'Not published' : compactNumber(value);
 }
 
+function subscriptionValue(value: number | string | undefined): string {
+  if (value === undefined) return '—';
+  return typeof value === 'number' ? compactNumber(value) : value;
+}
+
+function subscriptionWindowLabel(kind: 'primary' | 'secondary' | 'spendControl'): string {
+  if (kind === 'spendControl') return 'Spend control';
+  return kind === 'primary' ? 'Primary window' : 'Secondary window';
+}
+
 function usageHeadline(account: AccountView): string {
   if (account.accountingStatus === 'loading') return 'Loading';
   if (account.accountingStatus === 'error') return 'Unavailable';
@@ -92,8 +94,14 @@ function usageHeadline(account: AccountView): string {
     return `${account.usage.runCount} usage ${account.usage.runCount === 1 ? 'record' : 'records'} · partial`;
   }
   if (account.usage?.kind === 'subscription') {
-    if (account.usage.remaining !== undefined) return `${account.usage.remaining} remaining`;
-    return account.usage.label ?? 'Native usage';
+    const firstWindow = account.usage.limits.flatMap((limit) => limit.windows)[0];
+    if (firstWindow) return `${subscriptionValue(firstWindow.remaining)} remaining`;
+    const firstCredit = account.usage.limits.find((limit) => limit.credits !== undefined)?.credits;
+    if (firstCredit !== undefined) return `${subscriptionValue(firstCredit)} credits`;
+    if (account.usage.resetCredits !== undefined) {
+      return `${subscriptionValue(account.usage.resetCredits)} reset credits`;
+    }
+    return account.usage.activity ? 'Native activity' : 'Native usage';
   }
   return account.capabilities.usage.status === 'available' ? 'No recorded usage' : 'Unavailable';
 }
@@ -120,26 +128,97 @@ function modelAvailabilityTone(model: AiModelCatalogEntry) {
   return 'muted' as const;
 }
 
+function modelAvailabilityDetail(model: AiModelCatalogEntry): string | null {
+  const parts: string[] = [];
+  if (model.availabilityReason?.trim()) parts.push(model.availabilityReason.trim());
+  if (model.expiresAt) parts.push(`Expires ${checkedAtLabel(model.expiresAt)}`);
+  else if (model.availability === 'expiring') parts.push('Expiration date not reported');
+  else if (model.availability === 'unavailable' && parts.length === 0) {
+    parts.push('No availability reason reported');
+  }
+  return parts.length ? parts.join(' · ') : null;
+}
+
 function AccountUsage({ account }: { account: AccountView }) {
   if (account.billingMode === 'subscription') {
     const usage = account.usage?.kind === 'subscription' ? account.usage : undefined;
+    if (!usage) {
+      return (
+        <div className="off-set-callout is-muted">Native subscription usage is unavailable.</div>
+      );
+    }
+    const activity = usage.activity;
     return (
       <div className="off-set-account-usage-grid">
+        {usage.limits.flatMap((limit) =>
+          limit.windows.map((window) => {
+            const duration = window.windowDurationMins ? ` · ${window.windowDurationMins} min` : '';
+            const plan = limit.planType ? ` · ${limit.planType}` : '';
+            const reached = limit.reachedType ? ` · ${limit.reachedType}` : '';
+            const reset = window.resetAt ? ` · resets ${checkedAtLabel(window.resetAt)}` : '';
+            const limitLabel =
+              limit.label === limit.limitId ? limit.label : `${limit.label} (${limit.limitId})`;
+            const value =
+              window.kind === 'spendControl'
+                ? `${subscriptionValue(window.used)} of ${subscriptionValue(window.limit)} · ${subscriptionValue(window.remaining)} remaining`
+                : `${subscriptionValue(window.used)} used · ${subscriptionValue(window.remaining)} remaining${
+                    window.remainingIsDerived ? ' (derived)' : ''
+                  }`;
+            return (
+              <div key={`${limit.limitId}:${window.kind}`}>
+                <span>
+                  {limitLabel} · {subscriptionWindowLabel(window.kind)}
+                  {duration}
+                  {plan}
+                  {reached}
+                  {reset}
+                </span>
+                <strong>{value}</strong>
+              </div>
+            );
+          }),
+        )}
+        {usage.limits
+          .filter((limit) => limit.credits !== undefined)
+          .map((limit) => (
+            <div key={`${limit.limitId}:credits`}>
+              <span>{limit.label} · Credits</span>
+              <strong>{subscriptionValue(limit.credits)}</strong>
+            </div>
+          ))}
+        {usage.resetCredits !== undefined ? (
+          <div>
+            <span>Rate-limit reset credits</span>
+            <strong>{subscriptionValue(usage.resetCredits)}</strong>
+          </div>
+        ) : null}
+        {activity ? (
+          <>
+            <div>
+              <span>Lifetime activity</span>
+              <strong>{subscriptionValue(activity.lifetimeTokens)} tokens</strong>
+            </div>
+            <div>
+              <span>Peak day</span>
+              <strong>{subscriptionValue(activity.peakDailyTokens)} tokens</strong>
+            </div>
+            <div>
+              <span>Longest running turn</span>
+              <strong>{subscriptionValue(activity.longestRunningTurnSec)} sec</strong>
+            </div>
+            <div>
+              <span>Current streak</span>
+              <strong>{subscriptionValue(activity.currentStreakDays)} days</strong>
+            </div>
+            <div>
+              <span>Longest streak</span>
+              <strong>{subscriptionValue(activity.longestStreakDays)} days</strong>
+            </div>
+          </>
+        ) : null}
         <div>
-          <span>Native usage</span>
-          <strong>{usage?.label ?? 'Unavailable'}</strong>
-        </div>
-        <div>
-          <span>Remaining</span>
-          <strong>{usage?.remaining ?? '—'}</strong>
-        </div>
-        <div>
-          <span>Reset</span>
-          <strong>{usage?.resetAt ? checkedAtLabel(usage.resetAt) : '—'}</strong>
-        </div>
-        <div>
-          <span>Credits</span>
-          <strong>{usage?.credits ?? '—'}</strong>
+          <span>Native usage updated</span>
+          <strong>{checkedAtLabel(usage.updatedAt)}</strong>
         </div>
       </div>
     );
@@ -233,6 +312,7 @@ function AccountCost({ account }: { account: AccountView }) {
 
 export function AiAccountsPane() {
   const desktopAvailable = isTauriRuntime();
+  const queryClient = useQueryClient();
   const statusQuery = useQuery({
     queryKey: ['settings', 'agent-runtime-status'],
     queryFn: loadRuntimeStatus,
@@ -252,6 +332,7 @@ export function AiAccountsPane() {
       (accountingQuery.data ?? []).map((snapshot) => [snapshot.accountId, snapshot] as const),
     );
     return (statusQuery.data?.accounts ?? []).map((account) => {
+      if (account.billingMode === 'subscription') return account;
       const snapshot = accounting.get(account.accountId);
       return {
         ...account,
@@ -286,6 +367,19 @@ export function AiAccountsPane() {
     [selectedAccount?.accountId, statusQuery.data?.models],
   );
   const availableAccountCount = accounts.filter((account) => account.status === 'available').length;
+  const refreshAccounts = async () => {
+    await Promise.all([statusQuery.refetch(), accountingQuery.refetch()]);
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ['agent-runtime', 'models'],
+        refetchType: 'active',
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['agent-runtime', 'thread-authority'],
+        refetchType: 'active',
+      }),
+    ]);
+  };
 
   return (
     <div className="off-set-pane">
@@ -331,7 +425,7 @@ export function AiAccountsPane() {
           variant="outline"
           size="md"
           disabled={!desktopAvailable || statusQuery.isFetching || accountingQuery.isFetching}
-          onClick={() => void Promise.all([statusQuery.refetch(), accountingQuery.refetch()])}
+          onClick={() => void refreshAccounts()}
         >
           <Icon icon={RefreshCw} size="sm" />
           {statusQuery.isFetching || accountingQuery.isFetching ? 'Refreshing' : 'Refresh'}
@@ -446,25 +540,33 @@ export function AiAccountsPane() {
                   <span>{models.length}</span>
                 </div>
                 <div className="off-set-account-models">
-                  {models.map((model) => (
-                    <div className="off-set-account-model" key={model.modelId}>
-                      <div className="off-set-account-model-copy">
-                        <strong>{model.displayName}</strong>
-                        <code>{model.modelId}</code>
+                  {models.map((model) => {
+                    const availabilityDetail = modelAvailabilityDetail(model);
+                    return (
+                      <div className="off-set-account-model" key={model.runtimeModelRef}>
+                        <div className="off-set-account-model-copy">
+                          <strong>{model.displayName}</strong>
+                          <code>{model.modelId}</code>
+                          {availabilityDetail ? (
+                            <span className="off-set-account-model-availability">
+                              {availabilityDetail}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="off-set-account-model-limits">
+                          <span>Context {formatLimit(model.contextWindow)}</span>
+                          <span>Output {formatLimit(model.maxOutputTokens)}</span>
+                        </div>
+                        <StatusPill tone={modelAvailabilityTone(model)}>
+                          {model.availability === 'expiring'
+                            ? 'Expiring'
+                            : model.availability === 'available'
+                              ? 'Available'
+                              : 'Unavailable'}
+                        </StatusPill>
                       </div>
-                      <div className="off-set-account-model-limits">
-                        <span>Context {formatLimit(model.contextWindow)}</span>
-                        <span>Output {formatLimit(model.maxOutputTokens)}</span>
-                      </div>
-                      <StatusPill tone={modelAvailabilityTone(model)}>
-                        {model.availability === 'expiring'
-                          ? 'Expires soon'
-                          : model.availability === 'available'
-                            ? 'Available'
-                            : 'Unavailable'}
-                      </StatusPill>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {models.length === 0 ? (
                     <div className="off-set-provider-empty">No verified exact models.</div>
                   ) : null}

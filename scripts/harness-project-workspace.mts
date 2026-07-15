@@ -1173,7 +1173,7 @@ function verifyWireAndRuntimeContracts(): void {
   );
   assert.ok(
     runtime.indexOf("if (event.kind === 'workspaceBound')") <
-      runtime.indexOf("invokeCommand('agent_runtime_reattach'"),
+      runtime.indexOf('this.invokeReattach('),
     'reattach must install the workspaceBound handler before requesting replay',
   );
 
@@ -1314,17 +1314,17 @@ function verifyWireAndRuntimeContracts(): void {
     "commandName === 'agent_runtime_resume' && !rootRunOpened",
     'resume TOCTOU failure preserves interrupted recovery state',
   );
-  const runPiTurn = sliceBetween(
+  const runNativeTurn = sliceBetween(
     runtime,
-    'private async runPiTurn(',
+    'private async runNativeTurn(',
     '/** Mark the root run terminal',
     'desktop run persistence boundary',
   );
-  const rootReadbackIndex = runPiTurn.indexOf(
+  const rootReadbackIndex = runNativeTurn.indexOf(
     'const openedRoot = await this.repos.agentRuns.findById(runScope.runId)',
   );
-  const finalAbortCheckIndex = runPiTurn.indexOf('throwIfRunAborted(signal)', rootReadbackIndex);
-  const nativeInvokeIndex = runPiTurn.indexOf('hostCommandStarted = true', rootReadbackIndex);
+  const finalAbortCheckIndex = runNativeTurn.indexOf('throwIfRunAborted(signal)', rootReadbackIndex);
+  const nativeInvokeIndex = runNativeTurn.indexOf('hostCommandStarted = true', rootReadbackIndex);
   assert.ok(
     rootReadbackIndex >= 0 &&
       finalAbortCheckIndex > rootReadbackIndex &&
@@ -1332,7 +1332,7 @@ function verifyWireAndRuntimeContracts(): void {
     'root authority readback and final Stop check must both precede native execution',
   );
   const preflightTerminal = sliceBetween(
-    runPiTurn,
+    runNativeTurn,
     'if (!hostCommandStarted)',
     '} else {',
     'pre-native terminal convergence',
@@ -1909,7 +1909,7 @@ function verifyWorkspaceBindingStreamGate(): void {
   const reattachRuntime = sliceBetween(
     source(paths.runtime),
     'async reattachLiveRuns(rootRunIds?: ReadonlySet<string>)',
-    'private async runPiTurn(',
+    'private async runNativeTurn(',
     'reattach snapshot gate',
   );
   assertContains(
@@ -1924,9 +1924,14 @@ function verifyWorkspaceBindingStreamGate(): void {
   );
   const runtime = source(paths.runtime);
   assertContains(runtime, 'claim.access === expected.access', 'workspace binding access gate');
+  assert.equal(
+    runtime.split('this.invokeAbort(requestId)').length - 1,
+    1,
+    'the backend abort command must have one coalesced call site',
+  );
   assert.ok(
-    runtime.split("invokeCommand('agent_runtime_abort', { requestId })").length - 1 >= 3,
-    'execute/resume, reattach, and user stop must all reach the backend abort command',
+    runtime.split('this.invokeAbortOnce(requestId)').length - 1 >= 5,
+    'execute/resume, reattach, binding rejection, and user stop must all reach the abort coalescer',
   );
   assert.ok(
     runtime.split('if (bindingAbortPromise) await bindingAbortPromise').length - 1 >= 3,

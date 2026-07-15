@@ -1,8 +1,14 @@
 import { isTauriRuntime } from '@/data/adapters.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
-import { usePiThreadModelStore } from '@/runtime/pi-thread-model-store.js';
+import { THINKING_LEVELS, type ThinkingLevel } from '@/runtime/pi-thread-thinking-store.js';
+import { getRepos } from '@/runtime/repos.js';
+import {
+  type DurableThreadExecutionAuthority,
+  resolveAuthoritativeThreadExecutionAuthority,
+} from '@/runtime/thread-execution-authority.js';
 import type { AiModelCatalogEntry, AiRuntimeStatus } from '@offisim/shared-types';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 
 /** One runnable model projected by the engine-neutral desktop runtime. */
 export interface AgentRuntimeModelOption {
@@ -13,10 +19,15 @@ export interface AgentRuntimeModelOption {
   /** Account display name used to group choices. */
   accountName: string;
   accountId: string;
+  engineId: string;
   modelId: string;
   billingMode: 'api' | 'subscription';
   availability: 'available' | 'expiring';
+  availabilityReason?: string;
+  expiresAt?: string;
   reasoning: boolean;
+  reasoningEfforts: readonly ThinkingLevel[];
+  defaultReasoningEffort?: ThinkingLevel;
 }
 
 function isRuntimeStatus(value: unknown): value is AiRuntimeStatus {
@@ -30,47 +41,140 @@ function isRuntimeStatus(value: unknown): value is AiRuntimeStatus {
 }
 
 async function loadModels(): Promise<AgentRuntimeModelOption[]> {
-  const rawStatus: unknown = await invokeCommand('agent_runtime_status');
+  const rawStatus: unknown = await invokeCommand('agent_runtime_status', { includeUsage: false });
   if (!isRuntimeStatus(rawStatus)) {
     throw new Error('The desktop runtime returned an invalid model catalog.');
   }
 
+  return projectRunnableModelOptions(rawStatus);
+}
+
+/** Safe picker projection: catalog rows are runnable only with a live executable account. */
+export function projectRunnableModelOptions(
+  rawStatus: AiRuntimeStatus,
+  nowMs = Date.now(),
+): AgentRuntimeModelOption[] {
   const accountNames = new Map(
     rawStatus.accounts.map((account) => [account.accountId, account.displayName] as const),
   );
-  const options = rawStatus.models
+  const runnableAccounts = new Set(
+    rawStatus.accounts
+      .filter(
+        (account) =>
+          account.status === 'available' &&
+          account.capabilities.execute.status === 'available' &&
+          account.capabilities.models.status === 'available',
+      )
+      .map((account) => `${account.engineId}\0${account.accountId}`),
+  );
+  return rawStatus.models
     .filter(
       (model): model is AiModelCatalogEntry & { readonly availability: 'available' | 'expiring' } =>
-        model.availability === 'available' || model.availability === 'expiring',
+        (model.availability === 'available' ||
+          (model.availability === 'expiring' &&
+            Boolean(model.expiresAt) &&
+            Number.isFinite(Date.parse(model.expiresAt ?? '')) &&
+            Date.parse(model.expiresAt ?? '') > nowMs)) &&
+        runnableAccounts.has(`${model.engineId}\0${model.accountId}`),
     )
     .map((model) => {
       const accountName = accountNames.get(model.accountId) ?? 'AI account';
+      const exactReasoningEfforts = (model.reasoningEfforts ?? [])
+        .map((effort) => effort.id)
+        .filter((id): id is ThinkingLevel => Boolean(id && /^[a-z0-9][a-z0-9._-]{0,63}$/u.test(id)))
+        .filter((id, index, efforts) => efforts.indexOf(id) === index);
+      const reasoningEfforts =
+        exactReasoningEfforts.length > 0
+          ? exactReasoningEfforts
+          : model.engineId === 'api' && model.capabilities.reasoning
+            ? THINKING_LEVELS
+            : [];
+      const defaultReasoningEffort = reasoningEfforts.find(
+        (effort) => effort === model.defaultReasoningEffort,
+      );
       return {
         value: model.runtimeModelRef,
         name: model.displayName,
         accountName,
         accountId: model.accountId,
+        engineId: model.engineId,
         modelId: model.modelId,
         billingMode: model.billingMode,
         availability: model.availability,
+        ...(model.availabilityReason ? { availabilityReason: model.availabilityReason } : {}),
+        ...(model.expiresAt ? { expiresAt: model.expiresAt } : {}),
         reasoning: model.capabilities.reasoning,
+        reasoningEfforts,
+        ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}),
       };
     });
+}
 
-  // The runtime catalog is the only source of runnable models. Stale
-  // per-conversation picks are removed; no hidden global model override is
-  // allowed to compete with the conversation selection.
-  usePiThreadModelStore.getState().pruneInvalidModels(options.map((option) => option.value));
-  return options;
+async function loadThreadExecutionAuthority(
+  threadId: string,
+): Promise<DurableThreadExecutionAuthority | null> {
+  const repos = await getRepos();
+  const thread = await repos.chatThreads.findById(threadId);
+  if (!thread) return null;
+  const project = await repos.projects.findById(thread.project_id);
+  if (!project) return null;
+  return (
+    resolveAuthoritativeThreadExecutionAuthority(
+      await repos.agentRuns.findByThread(threadId),
+      project.company_id,
+    ) ?? null
+  );
 }
 
 /** Runnable models from the engine-neutral runtime, cached for the desktop session. */
 export function useAgentRuntimeModels() {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['agent-runtime', 'models'],
     queryFn: loadModels,
     enabled: isTauriRuntime(),
     staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const [catalogClockMs, setCatalogClockMs] = useState(() => Date.now());
+  const nextExpiryAt = useMemo(
+    () =>
+      query.data
+        ?.filter((option) => option.availability === 'expiring')
+        .map((option) => Date.parse(option.expiresAt ?? ''))
+        .filter((expiry) => Number.isFinite(expiry) && expiry > catalogClockMs)
+        .sort((left, right) => left - right)[0],
+    [query.data, catalogClockMs],
+  );
+  useEffect(() => {
+    if (nextExpiryAt === undefined) return;
+    const delay = Math.min(Math.max(nextExpiryAt - Date.now() + 1, 1), 2_147_000_000);
+    const timer = window.setTimeout(() => {
+      setCatalogClockMs(Date.now());
+      void query.refetch();
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [nextExpiryAt, query.refetch]);
+
+  const data = useMemo(
+    () =>
+      query.data?.filter(
+        (option) =>
+          option.availability === 'available' ||
+          (Boolean(option.expiresAt) && Date.parse(option.expiresAt ?? '') > catalogClockMs),
+      ),
+    [query.data, catalogClockMs],
+  );
+  return { ...query, data };
+}
+
+/** Durable engine/account/selector binding for an already-started task. */
+export function useThreadExecutionAuthority(threadId: string) {
+  return useQuery({
+    queryKey: ['agent-runtime', 'thread-authority', threadId],
+    queryFn: () => loadThreadExecutionAuthority(threadId),
+    enabled: isTauriRuntime() && Boolean(threadId),
+    staleTime: 0,
+    refetchInterval: (query) => (query.state.data ? false : 1_000),
     retry: false,
   });
 }

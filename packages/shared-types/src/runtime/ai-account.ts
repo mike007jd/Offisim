@@ -11,6 +11,46 @@ export interface AiAccountCapabilities {
   readonly cost: AiCapabilityState;
 }
 
+export interface AiSubscriptionUsageWindow {
+  readonly kind: 'primary' | 'secondary' | 'spendControl';
+  readonly windowDurationMins?: number;
+  readonly used: number | string;
+  readonly remaining: number | string;
+  readonly remainingIsDerived: boolean;
+  readonly resetAt?: string;
+  readonly limit?: number | string;
+}
+
+export interface AiSubscriptionUsageLimit {
+  readonly limitId: string;
+  readonly label: string;
+  readonly planType?: string;
+  readonly reachedType?: string;
+  readonly windows: readonly AiSubscriptionUsageWindow[];
+  readonly credits?: number | string;
+}
+
+export interface AiSubscriptionUsageActivity {
+  readonly lifetimeTokens?: number;
+  readonly peakDailyTokens?: number;
+  readonly longestRunningTurnSec?: number;
+  readonly currentStreakDays?: number;
+  readonly longestStreakDays?: number;
+}
+
+/** Provider-native subscription usage. Every native limit bucket and window
+ * stays distinct; derived remaining percentages are labelled, and subscription
+ * activity is never converted to API cost. */
+export interface AiSubscriptionUsageSnapshot {
+  readonly kind: 'subscription';
+  readonly source: 'native';
+  readonly limits: readonly AiSubscriptionUsageLimit[];
+  /** Provider-issued rate-limit reset credits, distinct from plan credit balance. */
+  readonly resetCredits?: number | string;
+  readonly activity?: AiSubscriptionUsageActivity;
+  readonly updatedAt?: string;
+}
+
 export interface AiAccountDescriptor {
   readonly engineId: string;
   readonly accountId: string;
@@ -19,6 +59,7 @@ export interface AiAccountDescriptor {
   readonly status: 'available' | 'unavailable';
   readonly statusReason?: string;
   readonly capabilities: AiAccountCapabilities;
+  readonly usage?: AiSubscriptionUsageSnapshot;
 }
 
 export interface AiModelSource {
@@ -44,6 +85,12 @@ export interface AiModelPricing {
   readonly checkedAt: string;
 }
 
+/** Native reasoning preset reported for one exact catalog selector. */
+interface AiModelReasoningEffort {
+  readonly id: string;
+  readonly description?: string;
+}
+
 export interface AiModelCatalogEntry {
   readonly engineId: string;
   readonly accountId: string;
@@ -57,6 +104,8 @@ export interface AiModelCatalogEntry {
   readonly expiresAt?: string;
   readonly contextWindow?: number;
   readonly maxOutputTokens?: number;
+  readonly defaultReasoningEffort?: string;
+  readonly reasoningEfforts?: readonly AiModelReasoningEffort[];
   readonly capabilities: AiModelCapabilities;
   readonly pricing?: AiModelPricing;
   readonly source: AiModelSource;
@@ -73,6 +122,8 @@ export interface AiExecutionTarget {
 
 export interface TurnExecutionProvenance extends AiExecutionTarget {
   readonly runId: string;
+  /** Exact native selector used for this Turn. Preserves preset identity when leaves match. */
+  readonly runtimeModelRef?: string;
   /** Diagnostic-only implementation identity; never a product/account label. */
   readonly adapter?: {
     readonly id: string;

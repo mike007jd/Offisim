@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   type ConversationRunController,
   createConversationRunController,
@@ -37,6 +38,16 @@ import {
   type RuntimeRepositories,
   createMemoryRepositories,
 } from '../packages/core/src/browser.js';
+
+const officeRuntimeSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/assistant/runtime/useOfficeRuntime.ts', import.meta.url),
+  'utf8',
+);
+assert.match(
+  officeRuntimeSource,
+  /!run\.attemptId\s*\|\|\s*isConversationRunActive\(run\.phase\)[\s\S]*?invalidateQueries\(\{\s*queryKey:\s*\['messages',\s*threadId\]/u,
+  'terminal Turns must refresh durable messages before a later Turn replaces liveMessages',
+);
 
 type ScenarioEvidence = Record<string, unknown>;
 
@@ -986,10 +997,17 @@ const p4Scenarios: Array<{
 // ---------------------------------------------------------------------------
 
 const SOURCE_PROVENANCE: TurnExecutionProvenance = {
-  engineId: 'pi-agent',
-  accountId: 'pi-agent:anthropic:0123456789abcdef',
-  billingMode: 'subscription',
-  modelId: 'anthropic/claude-sonnet-4-20250514',
+  engineId: 'api',
+  accountId: 'api:openrouter:0123456789abcdef',
+  billingMode: 'api',
+  modelId: 'openai/gpt-oss-20b:free',
+  modelSource: {
+    kind: 'official-api',
+    sourceUrl: 'https://openrouter.ai/api/v1/models/openai/gpt-oss-20b:free/endpoints',
+    checkedAt: '2026-07-14T21:56:24+10:00',
+  },
+  runtimeModelRef: 'openrouter/openai/gpt-oss-20b:free',
+  adapter: { id: 'pi-agent', version: '0.79.8' },
   runId: 'placeholder',
 };
 

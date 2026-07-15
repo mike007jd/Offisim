@@ -830,17 +830,24 @@ assert(
   'desktop build must bundle the Pi Agent host',
 );
 assert(
-  !desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host') &&
-    !desktopPackage.scripts['build:frontend'].includes('build:codex-agent-host'),
-  'desktop build must not bundle Claude/Codex sidecars',
+  desktopPackage.scripts['build:frontend'].includes('build:codex-app-server') &&
+    !desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host'),
+  'desktop build must prepare the verified Codex app-server without inventing a Claude lane',
 );
 assert(
   tauriConfig.bundle.resources.includes('resources/pi-agent-host.mjs'),
   'release bundle must include the Pi Agent host',
 );
 assert(
-  !tauriConfig.bundle.resources.some((resource) => /claude|codex/u.test(resource)),
-  'release bundle must not include Claude/Codex sidecar resources',
+  tauriConfig.bundle.externalBin.length === 1 &&
+    tauriConfig.bundle.externalBin[0] === 'binaries/codex-app-server',
+  'release bundle must include exactly the verified Codex app-server external binary',
+);
+assert(
+  tauriConfig.bundle.resources.includes('resources/third-party/codex/LICENSE') &&
+    tauriConfig.bundle.resources.includes('resources/third-party/codex/NOTICE') &&
+    !tauriConfig.bundle.resources.some((resource) => /claude/u.test(resource)),
+  'release bundle must carry Codex license notices without inventing a Claude resource lane',
 );
 assert(
   /pub struct PiAgentExecuteRequest[\s\S]*mcp_tools: Option<serde_json::Value>/.test(

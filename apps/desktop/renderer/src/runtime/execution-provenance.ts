@@ -76,7 +76,15 @@ export function validateTurnExecutionProvenance(
   if (adapter && (!adapter.id || !adapter.version)) {
     throw new Error('Agent runtime returned invalid adapter diagnostics.');
   }
-  return { ...target, runId, ...(adapter ? { adapter } : {}) };
+  const runtimeModelRef = isNonEmptyString(value.runtimeModelRef)
+    ? value.runtimeModelRef.trim()
+    : undefined;
+  return {
+    ...target,
+    runId,
+    ...(runtimeModelRef ? { runtimeModelRef } : {}),
+    ...(adapter ? { adapter } : {}),
+  };
 }
 
 export function requireTurnExecutionProvenance(

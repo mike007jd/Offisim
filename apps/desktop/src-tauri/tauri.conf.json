@@ -40,11 +40,17 @@
     "active": true,
     "targets": "all",
     "macOS": {
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "minimumSystemVersion": "11.0"
     },
+    "externalBin": [
+      "binaries/codex-app-server"
+    ],
     "resources": [
       "resources/pi-agent-host.mjs",
-      "resources/node/bin/node"
+      "resources/node/bin/node",
+      "resources/third-party/codex/LICENSE",
+      "resources/third-party/codex/NOTICE"
     ],
     "icon": [
       "icons/32x32.png",

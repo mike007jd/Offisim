@@ -882,13 +882,13 @@
 
 .off-set-account-usage-grid strong {
   min-width: 0;
-  overflow: hidden;
   color: var(--off-ink-1);
   font-family: var(--off-font-mono);
   font-size: var(--off-fs-sm);
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .off-set-account-cost {
@@ -954,6 +954,13 @@
   white-space: nowrap;
 }
 
+.off-set-account-model-availability {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .off-set-account-model-limits {
   display: grid;
   justify-items: end;
@@ -964,7 +971,23 @@
   white-space: nowrap;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1180px) {
+  .off-settings {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .off-set-scroll {
+    padding-inline: var(--off-sp-5);
+  }
+
+  .off-set-provider-console {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .off-set-provider-detail {
+    padding: var(--off-sp-5);
+  }
+
   .off-set-account-usage-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

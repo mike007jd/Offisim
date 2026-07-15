@@ -1,16 +1,14 @@
 # Engine-neutral AI Accounts and Native Session Boundaries
 
-Checked at: 2026-07-15 00:15 AEST
-Status: API engine implemented and release-verified; Codex and Claude engines pending
+Checked at: 2026-07-16 04:22 NZST
+Status: API and Codex engines implemented and release-verified; Claude engine pending
 
 ## Current implementation truth
 
-Offisim now routes production work through `DesktopAgentRuntimeGateway`. The
-gateway currently registers one complete `api` adapter; its internal
-`DesktopPiAgentRuntime` host is an implementation detail, not a product engine
-or provider lane. Codex and Claude are not shipped engine adapters yet. UI
-wording, docs, or a settings card cannot be used as evidence that an engine
-exists.
+Offisim routes production work through `DesktopAgentRuntimeGateway`. The
+gateway currently registers complete, mutually exclusive `api` and `codex`
+adapters. Claude is not a shipped engine adapter yet. UI wording, docs, or a
+settings card cannot be used as evidence that an engine exists.
 
 ## Product decision
 
@@ -91,6 +89,16 @@ The current API-engine release proof is the exact worktree binary SHA-256
 verified on 2026-07-15 AEST from fresh schema v12 through real file tools,
 Ask approval, Stop, restart recovery, and live Usage/Cost rendering.
 
+The current Codex-engine release proof is the exact worktree executable
+SHA-256 `84335a48cc544dbefee570fa6f09226b0a5b75cdced82bc318506703c1b8e250`
+with bundled official `codex-app-server` 0.144.4 SHA-256
+`27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`,
+verified on 2026-07-16 NZST. Fresh-state verification covered native account
+discovery, exact native model selection, Project-folder binding, Plan
+`request_user_input`, Ask approve/reject, file/tool execution, Stop, same-window
+continuation, restart recovery, provider-native Usage or explicit unavailable,
+and secret-safe projection.
+
 ## Current references checked
 
 - OpenRouter API overview: https://openrouter.ai/docs/api/reference/overview
@@ -100,6 +108,8 @@ Ask approval, Stop, restart recovery, and live Usage/Cost rendering.
   https://openrouter.ai/docs/cookbook/administration/usage-accounting
 - OpenAI Codex plan behavior: https://help.openai.com/en/articles/11369540/
 - OpenAI Codex rate card: https://help.openai.com/en/articles/20001106
+- OpenAI Codex source and app-server protocol:
+  https://github.com/openai/codex
 - Anthropic Claude Code subscription behavior:
   https://support.anthropic.com/en/articles/11145838-using-claude-code-with-your-max-plan
 - Cursor Team Admin API: https://docs.cursor.com/en/account/teams/admin-api

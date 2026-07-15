@@ -15,6 +15,7 @@ use crate::agent_host_runtime::HostError;
 use crate::task_workspace_binding::{test_task_workspace_binding, TaskWorkspaceBindingRegistry};
 
 use super::bridge::{confirm_execution_impl, register_execution_prepared, PiUiResponse};
+use super::merge_runtime_status;
 use super::payload::{
     collaborate_payload, enhance_payload, pi_session_dir_under, sidecar_payload,
     ExecuteWorkspacePayload, TestPiSessionDir,
@@ -31,13 +32,96 @@ use super::stream::{
     PI_RUN_STREAM_BUFFER_LIMIT, PI_RUN_STREAM_TERMINAL_TTL,
 };
 use super::types::{
-    PiAgentCollaborateRequest, PiAgentEnhanceRequest, PiAgentExecuteRequest, PiAgentHostEvent,
-    PiAgentHostResponse,
+    AiRuntimeStatusResponse, PiAgentCollaborateRequest, PiAgentEnhanceRequest,
+    PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse,
 };
 use super::wire::{
     consume_ready_handshake, decode_sidecar_line, parse_response, PiSidecarLine,
     PI_HOST_PROTOCOL_VERSION, PI_KNOWN_WIRE_KINDS,
 };
+
+#[test]
+fn runtime_status_keeps_api_catalog_when_codex_inspection_fails() {
+    let api = AiRuntimeStatusResponse {
+        accounts: vec![serde_json::json!({
+            "engineId": "api",
+            "accountId": "api-account",
+        })],
+        models: vec![serde_json::json!({
+            "engineId": "api",
+            "runtimeModelRef": "api:model",
+        })],
+        checked_at: "2026-07-15T01:00:00Z".into(),
+    };
+    let merged = merge_runtime_status(
+        Ok(api),
+        Err("secret path /Users/person/.codex/auth.json".into()),
+        "2026-07-15T02:00:00Z".into(),
+    );
+    assert_eq!(merged.accounts.len(), 2);
+    assert_eq!(merged.models.len(), 1);
+    assert_eq!(merged.checked_at, "2026-07-15T02:00:00Z");
+    let fallback = merged
+        .accounts
+        .iter()
+        .find(|account| account["engineId"] == "codex")
+        .expect("safe Codex unavailable account");
+    assert_eq!(fallback["status"], "unavailable");
+    assert!(!fallback.to_string().contains("/Users/person"));
+}
+
+#[test]
+fn runtime_status_keeps_codex_catalog_when_api_inspection_fails() {
+    let codex = crate::codex_agent_host::CodexAgentStatusResponse {
+        accounts: vec![serde_json::json!({
+            "engineId": "codex",
+            "accountId": "codex-account",
+        })],
+        models: vec![serde_json::json!({
+            "engineId": "codex",
+            "runtimeModelRef": "codex:model",
+        })],
+        checked_at: "2026-07-15T01:00:00Z".into(),
+        runtime_version: "0.144.4".into(),
+        native_usage: None,
+    };
+    let merged = merge_runtime_status(
+        Err("secret API_KEY=should-not-leak".into()),
+        Ok(codex),
+        "2026-07-15T02:00:00Z".into(),
+    );
+    assert_eq!(merged.accounts.len(), 2);
+    assert_eq!(merged.models.len(), 1);
+    let fallback = merged
+        .accounts
+        .iter()
+        .find(|account| account["accountId"] == "api-status-unavailable")
+        .expect("safe API unavailable account");
+    assert_eq!(fallback["status"], "unavailable");
+    assert!(fallback["capabilities"]["execute"]["status"] == "unavailable");
+    assert!(!fallback.to_string().contains("API_KEY"));
+}
+
+#[test]
+fn runtime_status_projects_both_generic_lanes_when_both_inspections_fail() {
+    let merged = merge_runtime_status(
+        Err("api secret".into()),
+        Err("codex secret".into()),
+        "2026-07-15T02:00:00Z".into(),
+    );
+    assert_eq!(merged.accounts.len(), 2);
+    assert!(merged.models.is_empty());
+    for account in &merged.accounts {
+        assert_eq!(account["status"], "unavailable");
+        assert!(account["capabilities"]["execute"]["status"] == "unavailable");
+        assert!(account["capabilities"]["models"]["status"] == "unavailable");
+        assert!(account["capabilities"]["usage"]["status"] == "unavailable");
+        assert!(account["capabilities"]["cost"]["status"] == "unavailable");
+    }
+    let projection = serde_json::to_string(&merged.accounts).unwrap();
+    assert!(!projection.contains("api secret"));
+    assert!(!projection.contains("codex secret"));
+}
 use super::{agent_runtime_release_stream, agent_runtime_stream_snapshot};
 
 static PI_RUN_STREAM_TEST_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));

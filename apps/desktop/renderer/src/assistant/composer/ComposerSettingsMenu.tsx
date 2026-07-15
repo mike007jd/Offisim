@@ -22,7 +22,6 @@ import {
 import { usePiThreadModelStore } from '@/runtime/pi-thread-model-store.js';
 import {
   DEFAULT_THINKING_LEVEL,
-  THINKING_LEVELS,
   type ThinkingLevel,
   usePiThreadThinkingStore,
 } from '@/runtime/pi-thread-thinking-store.js';
@@ -33,21 +32,27 @@ import {
   Eye,
   type LucideIcon,
   MessageCircleQuestion,
+  RefreshCw,
   ShieldCheck,
   SlidersHorizontal,
+  TriangleAlert,
   Zap,
 } from 'lucide-react';
-import { useMemo } from 'react';
-import { useAgentRuntimeModels } from './usePiAgentModels.js';
+import { useEffect, useMemo } from 'react';
+import {
+  type AgentRuntimeModelOption,
+  useAgentRuntimeModels,
+  useThreadExecutionAuthority,
+} from './usePiAgentModels.js';
 
 const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta: string }> = {
   plan: { label: 'Plan', icon: Eye, meta: 'Read-only — investigate, no changes' },
   ask: {
     label: 'Ask',
     icon: MessageCircleQuestion,
-    meta: 'Pauses for your approval on destructive commands',
+    meta: 'Read-only — approve changes and internet access',
   },
-  auto: { label: 'Auto', icon: ShieldCheck, meta: 'Autonomous — blocks destructive commands' },
+  auto: { label: 'Auto', icon: ShieldCheck, meta: 'Runs in the Project — asks when needed' },
   full: { label: 'Full', icon: Zap, meta: 'No restrictions' },
 };
 
@@ -56,14 +61,45 @@ const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta:
  * numbers: the provider decides the real budget per level, so a "~Nk tokens"
  * figure would be false precision.
  */
-const THINKING_META: Record<ThinkingLevel, { label: string; meta: string }> = {
+const KNOWN_THINKING_META: Record<string, { label: string; meta: string }> = {
   off: { label: 'Off', meta: 'No reasoning' },
+  none: { label: 'Off', meta: 'No reasoning' },
   minimal: { label: 'Minimal', meta: 'Very brief' },
   low: { label: 'Low', meta: 'Light' },
   medium: { label: 'Medium', meta: 'Moderate' },
   high: { label: 'High', meta: 'Deep' },
-  xhigh: { label: 'Max', meta: 'Maximum' },
+  xhigh: { label: 'Extra high', meta: 'Very deep' },
+  max: { label: 'Max', meta: 'Maximum' },
+  ultra: { label: 'Ultra', meta: 'Proactive multi-agent' },
 };
+
+function thinkingMeta(level: ThinkingLevel): { label: string; meta: string } {
+  const known = KNOWN_THINKING_META[level];
+  if (known) return known;
+  const label = level
+    .split(/[._-]+/u)
+    .filter(Boolean)
+    .map((word) => `${word[0]?.toUpperCase() ?? ''}${word.slice(1)}`)
+    .join(' ');
+  return { label: label || level, meta: 'Model-defined effort' };
+}
+
+function catalogDateLabel(value: string): string {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(timestamp);
+}
+
+function modelOptionMeta(option: AgentRuntimeModelOption): string {
+  const parts = [option.modelId];
+  if (option.availabilityReason?.trim()) parts.push(option.availabilityReason.trim());
+  if (option.expiresAt) parts.push(`Expires ${catalogDateLabel(option.expiresAt)}`);
+  else if (option.availability === 'expiring') parts.push('Expiration date not reported');
+  return parts.join(' · ');
+}
 
 /**
  * Single composer chip consolidating the per-conversation run settings —
@@ -90,16 +126,45 @@ export function ComposerSettingsMenu({
   const setSurface = useUiState((s) => s.setSurface);
   const mode = usePiThreadModeStore((s) => s.byThread[threadId] ?? DEFAULT_PERMISSION_MODE);
   const setThreadMode = usePiThreadModeStore((s) => s.setThreadMode);
-  const level = usePiThreadThinkingStore((s) => s.byThread[threadId] ?? DEFAULT_THINKING_LEVEL);
+  const thinkingOverride = usePiThreadThinkingStore((s) => s.byThread[threadId]);
   const setThreadThinking = usePiThreadThinkingStore((s) => s.setThreadThinking);
+  const clearThreadThinking = usePiThreadThinkingStore((s) => s.clearThreadThinking);
+  const threadAuthority = useThreadExecutionAuthority(threadId);
+  const catalogUnavailable = models.isError && !models.data?.length;
 
   // Derive the effective model, account-grouped list, and reasoning support
   // once per change. The composer subtree re-renders on every keystroke and
   // run-state tick, so this keeps the grouping off the hot path.
-  const { accounts, defaultModel, effectiveModel, supportsReasoning } = useMemo(() => {
-    const list = models.data ?? [];
+  const {
+    accounts,
+    defaultModel,
+    durableModel,
+    effectiveModel,
+    selectedModelUnavailable,
+    selectedFromAnotherLane,
+    reasoningLevels,
+    level,
+  } = useMemo(() => {
+    const allModels = models.data ?? [];
+    const authority = threadAuthority.data ?? null;
+    const sameLane = (option: (typeof allModels)[number]) =>
+      !authority ||
+      (option.engineId === authority.target.engineId &&
+        option.accountId === authority.target.accountId &&
+        option.billingMode === authority.target.billingMode);
+    const list = allModels.filter(sameLane);
+    const rawSelected = allModels.find((option) => option.value === perThreadModel);
     const selected = list.find((option) => option.value === perThreadModel);
-    const stableDefault = list.find((option) => option.availability === 'available');
+    const durable = authority
+      ? list.find(
+          (option) =>
+            option.value === authority.runtimeModelRef &&
+            option.modelId === authority.target.modelId,
+        )
+      : undefined;
+    const stableDefault = authority
+      ? durable
+      : list.find((option) => option.availability === 'available');
     const effective = selected ?? stableDefault;
     const groups = new Map<string, { account: string; items: typeof list }>();
     for (const option of list) {
@@ -107,17 +172,59 @@ export function ComposerSettingsMenu({
       if (existing) existing.items.push(option);
       else groups.set(option.accountId, { account: option.accountName, items: [option] });
     }
+    const exactLevels = effective?.reasoningEfforts ?? [];
+    const nativeDefault = effective?.defaultReasoningEffort ?? exactLevels[0];
+    const effectiveLevel =
+      thinkingOverride && exactLevels.includes(thinkingOverride)
+        ? thinkingOverride
+        : (nativeDefault ?? DEFAULT_THINKING_LEVEL);
     return {
       accounts: [...groups].map(([accountId, group]) => ({ accountId, ...group })),
       defaultModel: stableDefault,
+      durableModel: durable,
       effectiveModel: effective,
-      supportsReasoning: effective?.reasoning ?? false,
+      selectedModelUnavailable: Boolean(
+        perThreadModel && !selected && !models.isLoading && !catalogUnavailable,
+      ),
+      selectedFromAnotherLane: Boolean(authority && rawSelected && !sameLane(rawSelected)),
+      reasoningLevels: exactLevels,
+      level: effectiveLevel,
     };
-  }, [perThreadModel, models.data]);
+  }, [
+    perThreadModel,
+    models.data,
+    models.isLoading,
+    threadAuthority.data,
+    thinkingOverride,
+    catalogUnavailable,
+  ]);
+
+  useEffect(() => {
+    if (selectedFromAnotherLane && durableModel) {
+      setThreadModel(threadId, durableModel.value);
+    }
+  }, [durableModel, selectedFromAnotherLane, setThreadModel, threadId]);
+
+  useEffect(() => {
+    if (thinkingOverride && !reasoningLevels.includes(thinkingOverride)) {
+      clearThreadThinking(threadId);
+    }
+  }, [clearThreadThinking, reasoningLevels, thinkingOverride, threadId]);
+
+  const supportsReasoning = reasoningLevels.length > 0;
+  const lockedAuthority = threadAuthority.data ?? null;
+  const modelRadioValue = perThreadModel || durableModel?.value || '';
 
   const summary = [
-    effectiveModel?.name ?? (models.isLoading ? 'Loading model…' : 'Model unavailable'),
-    supportsReasoning ? THINKING_META[level].label : null,
+    effectiveModel?.name ??
+      (models.isLoading
+        ? 'Loading model…'
+        : catalogUnavailable
+          ? 'Model catalog unavailable'
+          : selectedModelUnavailable
+            ? 'Selected model unavailable — reselect'
+            : 'Model unavailable'),
+    supportsReasoning ? thinkingMeta(level).label : null,
     showMode ? MODE_META[mode].label : null,
   ]
     .filter(Boolean)
@@ -152,45 +259,78 @@ export function ComposerSettingsMenu({
             <span className="off-composer-menu-row">
               <span className="off-composer-menu-name">Model</span>
               <span className="off-composer-menu-meta">
-                {effectiveModel?.name ?? 'Unavailable'}
+                {effectiveModel?.name ??
+                  (catalogUnavailable
+                    ? 'Catalog unavailable'
+                    : selectedModelUnavailable
+                      ? 'Reselect model'
+                      : 'Unavailable')}
               </span>
             </span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="off-composer-menu off-composer-model-menu">
             <DropdownMenuLabel>Model for this conversation</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={perThreadModel}
-              onValueChange={(value) => setThreadModel(threadId, value)}
-            >
-              <DropdownMenuRadioItem value="" disabled={!defaultModel}>
-                {defaultModel ? `Default · ${defaultModel.name}` : 'Default model unavailable'}
-              </DropdownMenuRadioItem>
-              {accounts.length ? (
-                accounts.map((group) => (
-                  <div key={group.accountId}>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="off-composer-menu-provider">
-                      {group.account}
-                    </DropdownMenuLabel>
-                    {group.items.map((option) => (
-                      <DropdownMenuRadioItem key={option.value} value={option.value}>
-                        <span className="off-composer-menu-row">
-                          <span className="off-composer-menu-name">{option.name}</span>
-                          <span className="off-composer-menu-meta" title={option.modelId}>
-                            {option.modelId}
-                            {option.availability === 'expiring' ? ' · expires soon' : ''}
-                          </span>
-                        </span>
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </div>
-                ))
-              ) : (
+            {lockedAuthority ? (
+              <DropdownMenuLabel className="off-composer-menu-provider">
+                Locked to {durableModel?.accountName ?? 'AI account'} ·{' '}
+                {lockedAuthority.target.engineId}
+              </DropdownMenuLabel>
+            ) : null}
+            {catalogUnavailable ? (
+              <>
                 <DropdownMenuItem disabled>
-                  {models.isLoading ? 'Loading models…' : 'No available models'}
+                  <Icon icon={TriangleAlert} size="sm" />
+                  Model catalog unavailable
                 </DropdownMenuItem>
-              )}
-            </DropdownMenuRadioGroup>
+                <DropdownMenuItem onSelect={() => void models.refetch()}>
+                  <Icon icon={RefreshCw} size="sm" />
+                  Retry loading models
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <DropdownMenuRadioGroup
+                value={modelRadioValue}
+                onValueChange={(value) => setThreadModel(threadId, value)}
+              >
+                {selectedModelUnavailable ? (
+                  <DropdownMenuRadioItem value={perThreadModel} disabled>
+                    Selected model unavailable · choose another
+                  </DropdownMenuRadioItem>
+                ) : null}
+                {!lockedAuthority ? (
+                  <DropdownMenuRadioItem value="" disabled={!defaultModel}>
+                    {defaultModel ? `Default · ${defaultModel.name}` : 'Default model unavailable'}
+                  </DropdownMenuRadioItem>
+                ) : null}
+                {accounts.length ? (
+                  accounts.map((group) => (
+                    <div key={group.accountId}>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="off-composer-menu-provider">
+                        {group.account}
+                      </DropdownMenuLabel>
+                      {group.items.map((option) => {
+                        const optionMeta = modelOptionMeta(option);
+                        return (
+                          <DropdownMenuRadioItem key={option.value} value={option.value}>
+                            <span className="off-composer-menu-row">
+                              <span className="off-composer-menu-name">{option.name}</span>
+                              <span className="off-composer-menu-meta" title={optionMeta}>
+                                {optionMeta}
+                              </span>
+                            </span>
+                          </DropdownMenuRadioItem>
+                        );
+                      })}
+                    </div>
+                  ))
+                ) : (
+                  <DropdownMenuItem disabled>
+                    {models.isLoading ? 'Loading models…' : 'No available models'}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuRadioGroup>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => setSurface('settings')}>
               <Icon icon={SlidersHorizontal} size="sm" />
@@ -204,7 +344,7 @@ export function ComposerSettingsMenu({
               <Icon icon={Brain} size="sm" />
               <span className="off-composer-menu-row">
                 <span className="off-composer-menu-name">Reasoning</span>
-                <span className="off-composer-menu-meta">{THINKING_META[level].label}</span>
+                <span className="off-composer-menu-meta">{thinkingMeta(level).label}</span>
               </span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="off-composer-menu off-composer-thinking-menu">
@@ -213,11 +353,11 @@ export function ComposerSettingsMenu({
                 value={level}
                 onValueChange={(value) => setThreadThinking(threadId, value as ThinkingLevel)}
               >
-                {THINKING_LEVELS.map((value) => (
+                {reasoningLevels.map((value) => (
                   <DropdownMenuRadioItem key={value} value={value}>
                     <span className="off-composer-menu-row">
-                      <span className="off-composer-menu-name">{THINKING_META[value].label}</span>
-                      <span className="off-composer-menu-meta">{THINKING_META[value].meta}</span>
+                      <span className="off-composer-menu-name">{thinkingMeta(value).label}</span>
+                      <span className="off-composer-menu-meta">{thinkingMeta(value).meta}</span>
                     </span>
                   </DropdownMenuRadioItem>
                 ))}

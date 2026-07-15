@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/assistant/composer/ComposerSettingsMenu.tsx",
+    "src/assistant/composer/usePiAgentModels.ts",
+    "src/assistant/enhance/tauri-enhance-transport.ts",
+    "src/assistant/parts/PermissionApprovalBar.tsx",
+    "src/assistant/runtime/conversation-run-controller.ts",
+    "src/data/semantic-thread-title.ts",
+    "src/lib/tauri-commands.ts",
+    "src/runtime/desktop-agent-runtime.ts",
+    "src/runtime/execution-provenance.ts",
+    "src/runtime/pi-thread-model-store.ts",
+    "src/runtime/pi-thread-thinking-store.ts",
+    "src/runtime/pi-runtime-driver.ts",
+    "src/runtime/thread-execution-authority.ts"
+  ]
+}

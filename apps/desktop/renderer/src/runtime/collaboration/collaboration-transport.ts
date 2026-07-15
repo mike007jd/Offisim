@@ -192,12 +192,12 @@ export function createTauriCollaborationTransport(
 ): CollaborationTransport {
   return {
     async resolveExecutionSelection(input) {
-      const status = await invokeCommand('agent_runtime_status');
+      const status = await invokeCommand('agent_runtime_status', { includeUsage: false });
       return selectCollaborationExecutionTarget(status, input.model, input.frozenTarget);
     },
     async run(req, opts) {
       const verifiedSelection = selectCollaborationExecutionTarget(
-        await invokeCommand('agent_runtime_status'),
+        await invokeCommand('agent_runtime_status', { includeUsage: false }),
         req.runtimeModelRef,
         req.expectedTarget,
       );

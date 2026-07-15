@@ -58,6 +58,8 @@ apps/desktop/src-tauri/resources/claude-agent-host.mjs
 apps/desktop/src-tauri/resources/pi-agent-host.mjs
 apps/desktop/src-tauri/resources/claude-code-native/
 apps/desktop/src-tauri/resources/node/
+apps/desktop/src-tauri/binaries/codex-app-server-*
+apps/desktop/src-tauri/binaries/.codex-app-server-*
 apps/desktop/renderer/public/pdf.worker.min.mjs
 apps/desktop/renderer/public/pdfjs-standard-fonts/
 .gitnexus

@@ -306,6 +306,8 @@ interface PiAgentExecuteRequest {
    * accepted only for the explicit recovery action authorized by the failed
    * root identified below. */
   nativeSessionMode: 'tracked' | 'fresh';
+  /** Engine-owned opaque session reference. Never a native file path. */
+  nativeSessionId?: string | null;
   nativeSessionResetSourceRunId?: string | null;
   employeeId?: string | null;
   model?: string | null;
@@ -322,6 +324,30 @@ interface PiAgentExecuteRequest {
   directDelegation?: unknown;
 }
 
+/** Closed renderer mirror of Rust's `#[serde(deny_unknown_fields)]` Codex request. */
+interface CodexAgentExecuteRequest {
+  requestId: string;
+  text: string;
+  expectedTarget: AiExecutionTarget;
+  companyId: string;
+  threadId: string;
+  projectId?: string | null;
+  employeeId?: string | null;
+  rootRunId?: string | null;
+  workspaceBindingHistoryId?: string | null;
+  nativeSessionMode: 'tracked' | 'fresh';
+  nativeSessionResetSourceRunId?: string | null;
+  model?: string | null;
+  runtimeModelRef?: string | null;
+  permissionMode?: string | null;
+  thinkingLevel?: string | null;
+  serviceTier?: string | null;
+  systemPromptAppend?: string | null;
+  clientUserMessageId?: string | null;
+  workspaceRequirement: 'optional' | 'required';
+  nativeSessionId?: string | null;
+}
+
 interface PiAgentEnhanceRequest {
   requestId: string;
   text: string;
@@ -331,6 +357,18 @@ interface PiAgentEnhanceRequest {
   model?: string | null;
   thinkingLevel?: string | null;
   sourceProvenance?: PiExecutionProvenance | null;
+}
+
+/** Closed Codex Enhance mirror; intentionally independent from Pi protocol types. */
+interface CodexAgentEnhanceRequest {
+  requestId: string;
+  text: string;
+  expectedTarget: AiExecutionTarget;
+  systemPrompt: string;
+  model?: string | null;
+  runtimeModelRef?: string | null;
+  thinkingLevel?: string | null;
+  sourceProvenance?: TurnExecutionProvenance | null;
 }
 
 type PiExecutionProvenance = TurnExecutionProvenance;
@@ -354,6 +392,7 @@ interface PiAgentCollaborateRequest {
 interface PiAgentModelSummary {
   provider?: string;
   id?: string;
+  catalogId?: string;
   name?: string;
   api?: string;
   reasoning?: boolean;
@@ -418,6 +457,12 @@ type PiAgentHostEvent =
       options?: string[];
       placeholder?: string;
       prefill?: string;
+      params?: unknown;
+    }
+  | {
+      kind: 'uiRequestResolved';
+      id: string;
+      resolution: 'answered' | 'cancelled' | 'timeout' | 'native';
     }
   | {
       kind: 'agentRun';
@@ -805,7 +850,22 @@ export interface CommandMap {
     { requestId: string; afterCursor?: number | null; onEvent: Channel<PiAgentHostEvent> },
     PiRunStreamSnapshot
   >;
-  agent_runtime_status: CommandSpec<undefined, AiRuntimeStatus>;
+  codex_agent_execute: CommandSpec<AgentRuntimeArgs<CodexAgentExecuteRequest>, PiAgentHostResponse>;
+  codex_agent_enhance: CommandSpec<
+    AgentRuntimeArgs<CodexAgentEnhanceRequest>,
+    PiAgentHostResponse
+  >;
+  codex_agent_resume: CommandSpec<AgentRuntimeArgs<CodexAgentExecuteRequest>, PiAgentHostResponse>;
+  codex_agent_abort: CommandSpec<{ requestId: string }, void>;
+  codex_agent_answer: CommandSpec<AgentUiResponseArgs, void>;
+  codex_agent_stream_snapshot: CommandSpec<{ requestId: string }, PiRunStreamSnapshot | null>;
+  codex_agent_release_stream: CommandSpec<{ requestId: string }, void>;
+  codex_agent_reattach: CommandSpec<
+    { requestId: string; afterCursor?: number | null; onEvent: Channel<PiAgentHostEvent> },
+    PiRunStreamSnapshot
+  >;
+  codex_agent_status: CommandSpec<undefined, AiRuntimeStatus>;
+  agent_runtime_status: CommandSpec<{ includeUsage?: boolean }, AiRuntimeStatus>;
   computer_driver_status: CommandSpec<undefined, ComputerDriverStatus>;
   task_workspace_evaluation_lease_acquire: CommandSpec<
     {

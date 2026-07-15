@@ -41,6 +41,7 @@ export function ProjectDialog({
   const queryClient = useQueryClient();
   const nameId = useId();
   const workspaceRootId = useId();
+  const workspaceRootHintId = useId();
   const verifyCommandId = useId();
   const verifyAttemptsId = useId();
   const verifyTokenBudgetId = useId();
@@ -52,6 +53,7 @@ export function ProjectDialog({
   const [verifyMaxAttempts, setVerifyMaxAttempts] = useState('3');
   const [verifyTokenBudget, setVerifyTokenBudget] = useState('');
   const [saving, setSaving] = useState(false);
+  const canSave = Boolean(name.trim() && workspaceRoot.trim()) && !saving;
 
   useEffect(() => {
     if (!open) return;
@@ -200,6 +202,7 @@ export function ProjectDialog({
               value={workspaceRoot}
               readOnly
               placeholder="Choose a folder"
+              aria-describedby={workspaceRootHintId}
               required
             />
             <Button type="button" variant="outline" onClick={() => void chooseWorkspaceFolder()}>
@@ -207,6 +210,9 @@ export function ProjectDialog({
               {workspaceRoot ? 'Change' : 'Choose'}
             </Button>
           </div>
+          <p id={workspaceRootHintId} className="off-field-hint">
+            Required. Every Project keeps its files in one folder.
+          </p>
         </div>
         <div className="off-field">
           <label className="off-field-label" htmlFor={verifyCommandId}>
@@ -257,7 +263,7 @@ export function ProjectDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button className="off-project-save" onClick={save} disabled={saving}>
+          <Button className="off-project-save" onClick={save} disabled={!canSave}>
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogFooter>

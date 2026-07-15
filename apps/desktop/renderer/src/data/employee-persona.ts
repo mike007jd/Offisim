@@ -204,7 +204,7 @@ export async function buildDelegationContext(
     repos.skills.listByCompany(companyId),
     invokeCommand('runtime_vault_status'),
     actingEmployeeId
-      ? invokeCommand('agent_runtime_status').catch(() => null)
+      ? invokeCommand('agent_runtime_status', { includeUsage: false }).catch(() => null)
       : Promise.resolve(null),
   ]);
   const vaultRoot = vaultStatus.path;

@@ -113,8 +113,8 @@ assertIncludesAll(
 assert(
   workspaceBindingHost.match(
     /context_string_matches\(context_object, "runtime", AGENT_RUNTIME_CONTEXT_ID\)/gu,
-  )?.length === 2,
-  'Both native Conversation prestart paths must share the neutral runtime identity guard.',
+  )?.length === 3,
+  'Pi continuation, opaque Codex continuation, and interrupted-run resume must share the neutral runtime identity guard.',
 );
 
 const desktopRuntime = await source('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
