@@ -9,9 +9,10 @@ import {
   summarizeUsageTokens,
 } from './usage-token-coverage.js';
 
-// `agent_runs.usage_json` is the only run accounting source. Root rows carry a
-// task aggregate with exact per-run contributions; child rows carry their own
-// account-scoped usage. No token rate is inferred in the renderer.
+// `agent_runs.usage_json` is the only token/cost source. Root rows carry a task
+// aggregate with exact per-run contributions; child rows carry their own
+// account-scoped usage. Frozen runtime provenance may identify the lane when an
+// orchestration run reports no usage, but it never fabricates tokens or cost.
 
 type CostKind = RunCost['costKind'];
 
@@ -60,6 +61,8 @@ interface RunCostRow {
   root_run_id: string;
   thread_id: string;
   started_at: string;
+  finished_at: string | null;
+  status: string;
   employee_id: string | null;
   employee_name: string | null;
   usage_json: string;
@@ -67,6 +70,9 @@ interface RunCostRow {
 }
 
 interface SessionRunCostRow {
+  started_at: string;
+  finished_at: string | null;
+  status: string;
   usage_json: string | null;
   runtime_context_json: string | null;
 }
@@ -247,10 +253,10 @@ function emptyRunCost(): RunCost {
     sessionTokens: null,
     sessionKnownTokens: 0,
     sessionTokenCoverage: 'unavailable',
+    sessionDurationMs: 0,
     sessionAccounts: [],
     sessionCostKind: 'none',
     sessionCostLabel: 'No task usage',
-    sessionSubscriptionUsage: null,
     costKind: 'none',
     costLabel: 'No API usage',
     live: false,
@@ -302,7 +308,7 @@ export async function loadRunCostFromDatabase(
     ),
     threadId
       ? db.select<SessionRunCostRow[]>(
-          `SELECT usage_json, runtime_context_json
+          `SELECT started_at, finished_at, status, usage_json, runtime_context_json
              FROM agent_runs
             WHERE company_id = $1
               AND thread_id = $2
@@ -327,6 +333,17 @@ export async function loadRunCostFromDatabase(
     const account = runtimeAccountingAccount(row.runtime_context_json);
     return account ? [account] : [];
   });
+  const nowMs = now.getTime();
+  const sessionDurationMs = sessionRows.reduce((total, row) => {
+    const startedAt = Date.parse(row.started_at);
+    const persistedFinishedAt = row.finished_at ? Date.parse(row.finished_at) : Number.NaN;
+    const finishedAt = Number.isFinite(persistedFinishedAt)
+      ? persistedFinishedAt
+      : row.status === 'running'
+        ? nowMs
+        : startedAt;
+    return total + (Number.isFinite(startedAt) ? Math.max(0, finishedAt - startedAt) : 0);
+  }, 0);
   const sessionTokenSummary = combineUsageTokenSummaries(sessionUsages.map(tokenCount));
   const monthlyCost = summarizeCosts(roots.map((row) => row.usage.cost));
   const sessionCost = summarizeCosts(sessionUsages.map((usage) => usage.cost));
@@ -418,13 +435,13 @@ export async function loadRunCostFromDatabase(
     sessionTokens: exactUsageTokens(sessionTokenSummary),
     sessionKnownTokens: sessionTokenSummary.knownTokens,
     sessionTokenCoverage: sessionTokenSummary.coverage,
+    sessionDurationMs,
     sessionAccounts: mergeAccountingAccounts(
       accountingAccounts(sessionUsages),
       sessionRuntimeAccounts,
     ),
     sessionCostKind: sessionCost?.kind ?? 'none',
     sessionCostLabel: formatCostLabel(sessionCost),
-    sessionSubscriptionUsage: null,
     costKind,
     costLabel: formatCostLabel(monthlyCost),
     live: roots.length > 0,

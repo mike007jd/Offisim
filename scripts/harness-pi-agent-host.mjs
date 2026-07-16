@@ -835,24 +835,21 @@ assert(
   'desktop build must bundle the Pi Agent host',
 );
 assert(
-  desktopPackage.scripts['build:frontend'].includes('build:codex-app-server') &&
+  !desktopPackage.scripts['build:frontend'].includes('codex-app-server') &&
     desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host'),
-  'desktop build must prepare both shipped native subscription engines',
+  'desktop build must bundle only Offisim adapters while external orchestration CLIs stay self-managed',
 );
 assert(
   tauriConfig.bundle.resources.includes('resources/pi-agent-host.mjs'),
   'release bundle must include the Pi Agent host',
 );
 assert(
-  tauriConfig.bundle.externalBin.length === 1 &&
-    tauriConfig.bundle.externalBin[0] === 'binaries/codex-app-server',
-  'release bundle must include exactly the verified Codex app-server external binary',
-);
-assert(
-  tauriConfig.bundle.resources.includes('resources/third-party/codex/LICENSE') &&
-    tauriConfig.bundle.resources.includes('resources/third-party/codex/NOTICE') &&
-    tauriConfig.bundle.resources.includes('resources/third-party/claude-agent-sdk/NOTICE'),
-  'release bundle must carry notices for both shipped native subscription engines',
+  !('externalBin' in tauriConfig.bundle) &&
+    tauriConfig.bundle.resources.includes('resources/claude-agent-host.mjs') &&
+    !tauriConfig.bundle.resources.some((resource) =>
+      /claude-agent-sdk|claude(?:\.exe)?$/u.test(resource),
+    ),
+  'release bundle may embed its Claude adapter but never Claude CLI, SDK, or credentials',
 );
 assert(
   /pub struct PiAgentExecuteRequest[\s\S]*mcp_tools: Option<serde_json::Value>/.test(
@@ -1505,8 +1502,17 @@ try {
     'configuredProviderStatus must not be the full built-in provider catalog',
   );
   assert(
-    !('providerConfigs' in result.response) && !('providerTemplates' in result.response),
-    'Pi Agent diagnostics must not expose the removed provider-profile editor payload',
+    Array.isArray(result.response.providerConfigs) &&
+      result.response.providerConfigs.some((config) => config.provider === 'local-test') &&
+      Array.isArray(result.response.providerTemplates),
+    'Pi Agent diagnostics must expose safe provider summaries and edit templates',
+  );
+  assert(
+    !JSON.stringify({
+      providerConfigs: result.response.providerConfigs,
+      providerTemplates: result.response.providerTemplates,
+    }).includes('"apiKey"'),
+    'provider editor status must never expose raw API keys',
   );
   const invalidAgentDir = mkdtempSync(join(tmpdir(), 'offisim-pi-agent-invalid-'));
   try {

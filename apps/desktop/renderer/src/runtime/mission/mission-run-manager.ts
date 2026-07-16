@@ -5,6 +5,7 @@ import {
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
+import { persistThreadRuntimeStatus } from '@/runtime/thread-runtime-status.js';
 import {
   type ThreadRunLease,
   conversationThreadLifecycle,
@@ -182,6 +183,16 @@ class MissionRunManager {
       });
       entry.controller = controller;
       throwIfMissionStartAborted(signal);
+      await persistThreadRuntimeStatus({
+        repos,
+        eventBus: runtimeEventBus,
+        companyId,
+        threadId,
+        projectId: mission.project_id,
+        rootTaskId: missionId,
+        entryMode: 'boss_chat',
+        status: 'running',
+      });
       // Office Theater: the run is beginning → a planning beat.
       this.emitStatus(companyId, threadId, missionId, 'running');
       // Drive the loop to a terminal status off this call's stack.
@@ -282,6 +293,20 @@ class MissionRunManager {
     }
 
     const finalStatus = result?.finalMissionStatus ?? 'failed';
+    try {
+      await persistThreadRuntimeStatus({
+        repos: await getRepos(),
+        eventBus: runtimeEventBus,
+        companyId,
+        threadId,
+        projectId: null,
+        rootTaskId: missionId,
+        entryMode: 'boss_chat',
+        status: finalStatus === 'stuck' ? 'failed' : finalStatus,
+      });
+    } catch (statusError) {
+      error ??= statusError;
+    }
     // Terminal beat for the Office Theater.
     this.emitStatus(companyId, threadId, missionId, finalStatus);
 
@@ -348,6 +373,8 @@ function stopReasonHint(stopReason: string | undefined): string {
       return 'The same verification kept failing.';
     case 'runtime_incompatible':
       return 'The agent runtime could not run (check the model credentials).';
+    case 'needs_input':
+      return 'The run finished and is waiting for required review or input.';
     case 'cancelled':
       return 'The mission was cancelled.';
     default:

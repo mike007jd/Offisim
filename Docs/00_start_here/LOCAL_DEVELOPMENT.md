@@ -30,10 +30,10 @@ pnpm install
 
 `.env.local` notes:
 
-- AI provider keys are not read from `.env.local`. Configure API accounts in
-  the desktop AI Accounts surface; their secrets are sealed locally.
-  Subscription engines reuse native login state without copying OAuth/session
-  files. Selectable models come from the safe exact-id account catalog.
+- AI provider keys are not read from `.env.local`. Configure API providers in
+  the desktop AI Accounts surface; Pi writes them to its own
+  `~/.pi/agent/models.json` and returns only safe summaries. External CLI
+  orchestration reuses CLI-owned login without copying OAuth/session files.
 - Platform-backed features (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `CORS_ORIGINS`)
   are only required if you run `apps/platform`.
 
@@ -69,11 +69,11 @@ The release bundle for live verification is the exact worktree path
 
 ## AI runtime engines (desktop)
 
-AI execution goes through one neutral desktop gateway. Complete API, Codex
-subscription, and Claude subscription engines are shipped. Each Turn binds one
-backend-authorized effective workspace and one exact account/model. Native
-subscription login, sessions, compaction, and global memory remain in the
-engine's own home.
+AI execution goes through one neutral desktop gateway. The Pi API engine plus
+Codex and Claude Code CLI orchestration adapters are implemented.
+Each Turn binds one backend-authorized effective workspace and one engine lane.
+Pi additionally binds a configured API account/model; external CLI login, model
+choice, sessions, compaction, and global memory remain in the CLI's own home.
 
 ## Local SQLite
 

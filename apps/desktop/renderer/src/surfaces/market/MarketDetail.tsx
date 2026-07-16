@@ -2,6 +2,7 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Chip } from '@/design-system/grammar/Chip.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
+import { motionPresets } from '@/styles/motion-tokens.js';
 import {
   ArrowLeft,
   Check,
@@ -45,9 +46,7 @@ export function MarketDetail({ listing, installed, onClose, onInstall }: MarketD
     <motion.aside
       className="off-md"
       style={{ '--rc': tone.rc, '--rcs': tone.rcs } as CSSProperties}
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+      {...motionPresets.detailPanel}
     >
       <header className="off-md-head">
         <button type="button" className="off-md-back off-focusable" onClick={onClose}>

@@ -1,6 +1,6 @@
 # Codebase Map
 
-Checked at: 2026-07-16 NZST
+Checked at: 2026-07-17 NZST
 
 This map is for maintainers deciding where a change belongs. Keep it aligned
 with package ownership; do not use old audit or plan files as architecture
@@ -46,7 +46,7 @@ Company-channel collaboration and Loops remain isolated from project chat/runtim
 | Company-channel renderer glue | `apps/desktop/renderer/src/surfaces/office/rail/connect/collaboration-data.ts` |
 | Connect no-tools runtime + turn controller | `apps/desktop/renderer/src/runtime/collaboration` |
 | Connect domain repository | `packages/core/src/runtime/collaboration/collaboration-service.ts` |
-| Connect no-tools host capabilities | API `agent_runtime_collaborate` plus the isolated native Codex/Claude one-shot hosts |
+| Connect no-tools host capabilities | API `agent_runtime_collaborate` plus the isolated native Codex one-shot host |
 | Loops editor / library / graph | `apps/desktop/renderer/src/surfaces/mission/loops` (graph in `loops/graph`, `LoopGraphPanel.tsx`) |
 | Loops domain (service, profiles, IR adapter) | `packages/core/src/loops` (+ `packages/shared-types/src/loops/ir.ts`) |
 | Versioned Prompt Enhance | `apps/desktop/renderer/src/assistant/enhance` |
@@ -58,8 +58,7 @@ Company-channel collaboration and Loops remain isolated from project chat/runtim
 | `scripts/release-gates.mjs` | Single source of truth for release gate command list |
 | `scripts/run-clean-release.mjs` | Release evidence runner and desktop build entrypoint |
 | `scripts/build-pi-agent-host.mjs` | Bundles official Pi Agent host and Node runtime into the desktop app |
-| `scripts/prepare-codex-app-server.mjs` / `scripts/check-codex-app-server-artifact.mjs` | Prepare and verify the pinned native Codex sidecar artifact |
-| `scripts/build-claude-agent-host.mjs` / `scripts/claude-workspace-guard.mjs` | Bundle the official Claude SDK host and enforce Project-folder tool boundaries |
+| `scripts/harness-codex-app-server-contract.mjs` | Guard the user-installed Codex CLI orchestration adapter and prevent bundled-binary/account-model-usage regressions |
 | `scripts/harness-*.mjs` / `*.mts` | Targeted retained harnesses; use only current root `package.json` scripts as release evidence |
 | `scripts/check-*.mjs` | Drift/hygiene checks for UI, platform/Tauri origin coupling, migrations, attachments |
 | `scripts/harness-collaboration-repo-contract.mts`, `scripts/harness-pi-collaboration-runtime.mts`, `scripts/harness-connect-chat-flow.mts` | Connect/collaboration domain, no-tools runtime, and chat-flow harnesses |

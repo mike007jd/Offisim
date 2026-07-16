@@ -2,7 +2,7 @@
 
 Source of truth for the desktop office's toy-performance visual language. P1 owns character, palette,
 shape and indicator tokens; P4 owns state-system application; P6 owns environment, lighting and prop
-density. Do not create parallel visual constants outside these tokens. Checked at 2026-07-10.
+density. Do not create parallel visual constants outside these tokens. Checked at 2026-07-16.
 
 ## 1. North star
 
@@ -113,7 +113,7 @@ The backdrop is a closed three-stop studio gradient, so every legal orbit angle 
 beyond the main furnishing span (`46 → 118`), not over the characters. Lighting stays static and broad: warm
 key, cool fill, restrained rim. N8AO runs half-resolution with SMAA retained; bloom and vignette remain subtle
 enough that material and state ink stay readable. Full Game View keeps continuous animation and DPR
-`[1, 1.75]`; expanded PiP renders on a bounded 4fps demand loop at DPR `1`, and collapsed PiP unmounts the
+`[1, 2]`; expanded PiP renders on a bounded 4fps demand loop at DPR `1`, and collapsed PiP unmounts the
 scene until it is expanded or Game View resumes.
 
 Furniture contact metrics are one contract with the `1.62`-unit toy body. Chair top is `0.42`, desk top is
@@ -131,3 +131,25 @@ interaction anchor, and cannot become a second source for navigation or dramatur
 Environment palette remains low-saturation: warm wood/plastic for the plinth, archetype tint only on rugs,
 muted green foliage, and small warm/cool accents on dressing. Environment bevel radius stays `6–14%` of the
 shortest visible prop dimension; rugs use a broader `0.19–0.28` soft edge because they are zone-scale forms.
+
+## 7. Scene depth and prefab surface quality
+
+Office and Studio share one finite depth budget: perspective near plane `0.75`, far plane `180`, with no
+logarithmic- or reversed-depth fallback. This covers the complete legal orbit, camera-follow backdrop and fog
+while keeping the far/near ratio at `240:1`. Both production canvases must pass the shared values explicitly;
+renderer defaults are not part of the product contract.
+
+Visible surfaces have semantic ownership instead of ad-hoc millimetre offsets:
+
+- structural layers are opaque geometry with real thickness and non-intersecting volumes;
+- rugs are physically stacked slabs whose adjacent faces meet but never overlap;
+- screens, labels, panel marks and other decals use the shared decal material contract: `depthWrite=false`,
+  controlled polygon offset and stable render order;
+- glass/translucent overlays never become an invisible depth occluder;
+- floor bands and grid marks render as one deterministic overlay treatment, not several competing floor planes;
+- prefab ground details sit on the declared rug top or are removed when they duplicate the zone surface.
+
+Procedural normal and baked panel textures use linear magnification, trilinear mipmapped minification and
+bounded anisotropic sampling. Normal maps stay in non-colour data space; baked colour panels use sRGB. Tiny
+remote details must collapse into a stable material/texture read rather than remain sub-pixel geometry that
+shimmers during orbit or zoom.

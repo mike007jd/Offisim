@@ -14,16 +14,23 @@ concurrency:
 jobs:
   gates:
     name: Types / harness / security gates
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: [self-hosted, Linux, X64, deck-ci]
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - run: pnpm install --frozen-lockfile
       - name: Release gates (node lane)
-        run: node scripts/release-gates.mjs --lane=node
+        run: |
+          mkdir -p "$HOME/.cache"
+          flock --verbose --wait 1800 "$HOME/.cache/deck-ci.lock" bash -eo pipefail <<'DECK_CI'
+          pnpm install --frozen-lockfile
+          node scripts/release-gates.mjs --lane=node
+          DECK_CI
 
   rust:
     name: Desktop Rust tests

@@ -71,7 +71,11 @@ import { RestAreaMesh3D } from './r3d/prefabs/RestAreaMesh3D.js';
 import { ServerRackUnit3D } from './r3d/prefabs/ServerRackMesh3D.js';
 import { WhiteboardMesh3D } from './r3d/prefabs/WhiteboardMesh3D.js';
 import { WorkstationUnit3D } from './r3d/prefabs/WorkstationMesh3D.js';
-import { OFFICE_CAMERA_PRESET, SCENE_CONTENT_SCALE } from './r3d/scene-art-direction.js';
+import {
+  OFFICE_CAMERA_DEPTH,
+  OFFICE_CAMERA_PRESET,
+  SCENE_CONTENT_SCALE,
+} from './r3d/scene-art-direction.js';
 import {
   LIGHT_SCENE_3D,
   OFFICE_TOY_SIGNAL_COLORS,
@@ -1258,8 +1262,13 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
     <>
       <Canvas
         shadows={pip ? false : 'soft'}
-        dpr={pip ? 1 : [1, 1.75]}
-        camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
+        dpr={pip ? 1 : [1, 2]}
+        camera={{
+          position: OFFICE_CAMERA_PRESET.position,
+          fov: OFFICE_CAMERA_PRESET.fov,
+          near: OFFICE_CAMERA_DEPTH.near,
+          far: OFFICE_CAMERA_DEPTH.far,
+        }}
         frameloop={pip ? 'demand' : 'always'}
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
         className="off-scene-canvas"

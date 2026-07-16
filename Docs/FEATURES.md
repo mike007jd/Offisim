@@ -1,6 +1,6 @@
 # Feature Catalog
 
-Checked at: 2026-07-16 NZST
+Checked at: 2026-07-17 NZST
 
 This catalog documents the product features that are currently expected to be
 maintained for Offisim 1.0. Each feature entry names the user value, owner
@@ -57,16 +57,13 @@ Verification:
 
 ## AI Runtime Engines
 
-Purpose: execute real AI work through one mutually exclusive engine per Turn.
+Purpose: execute real AI work through one engine lane per Turn.
 
 Owner paths:
 
 - `scripts/tauri-pi-agent-host.entry.mjs`
 - `scripts/build-pi-agent-host.mjs`
 - `scripts/harness-pi-agent-host.mjs`
-- `scripts/tauri-claude-agent-host.entry.mjs`
-- `scripts/claude-workspace-guard.mjs`
-- `scripts/harness-claude-agent-host.mjs`
 - `apps/desktop/src-tauri/src/pi_agent_host/`
 - `apps/desktop/src-tauri/src/codex_agent_host/`
 - `apps/desktop/src-tauri/src/claude_agent_host/`
@@ -75,15 +72,17 @@ Owner paths:
 
 Data/contracts:
 
-- The production gateway ships complete API, Codex subscription, and Claude
-  subscription adapters.
+- The production gateway ships the Pi API engine plus Codex and Claude Code CLI
+  orchestration adapters.
 - Each engine owns its native auth/session/compaction/tool loop. Offisim owns
   safe account/model metadata, effective-workspace authorization, Conversation
   persistence, and neutral desktop projection.
-- API accounts show token usage plus actual or clearly estimated Cost.
-  Subscriptions show provider-native Usage/remaining/reset/credits only.
-- Every selectable model retains exact leaf id, source, checkedAt, account
-  ownership, capabilities, and availability.
+- API accounts show token usage plus actual or clearly estimated Cost. External
+  CLI orchestration records task tokens and duration as “订阅内 · 无 API 成本”;
+  it has no Offisim account-usage projection.
+- API models use the exact ids in Pi configuration. Source/checkedAt is strict
+  for Offisim-owned official entries and optional for user-configured models;
+  external CLIs own their model selection.
 
 Verification:
 
@@ -92,7 +91,6 @@ Verification:
 - `pnpm harness:claude-agent-host`
 - `pnpm harness:runtime-conformance`
 - `pnpm build:pi-agent-host`
-- `pnpm build:claude-agent-host`
 - release `.app` launch from exact worktree path
 
 ## Workspace Files, Shell, Git, and Attachments
@@ -137,10 +135,10 @@ or Mission row, and never bound to a project. UI co-location does not merge the
 two storage/runtime contracts.
 
 Company-channel replies use isolated no-tools collaboration. API accounts route
-through `agent_runtime_collaborate`; Codex and Claude accounts route through
-their native one-shot hosts with the same exact-target and isolation rules. No
-path binds a project cwd or writes `agent_runs`. Direct, mentions and roundtable
-behavior is preserved.
+through `agent_runtime_collaborate`; Codex accounts route through the native
+one-shot host with the same exact-target and isolation rules. Neither path binds
+a project cwd or writes `agent_runs`. Direct, mentions and roundtable behavior
+is preserved.
 `meeting_sessions` remains honest historical storage with no live writer; real
 rows are projected into the Board timeline and never imply scheduling.
 
@@ -154,7 +152,7 @@ Owner paths:
   controller)
 - `packages/core/src/runtime/collaboration/collaboration-service.ts` (domain
   repository over the collaboration tables)
-- API `agent_runtime_collaborate` and the isolated Codex/Claude one-shot hosts
+- API `agent_runtime_collaborate` and the isolated Codex one-shot host
 
 Data/contracts:
 
@@ -245,8 +243,9 @@ Owner paths:
 Data/contracts:
 
 - Employees shape context, roster, presentation, skills, and memory.
-- Employee bindings choose an account-owned exact model through the production
-  gateway; they never create a parallel transport lane.
+- Employee bindings choose either a Pi API account/model or an external CLI
+  orchestration engine through the production gateway; they never create a
+  parallel transport lane.
 
 Verification:
 
@@ -268,11 +267,14 @@ Owner paths:
 
 Data/contracts:
 
-- API accounts expose sealed local credential status; subscription accounts
-  expose safe native login status without copying raw auth or session files.
-- Models are friendly-name-first safe catalog records backed by exact id,
-  source, checkedAt, capabilities, account ownership, and availability.
-- API shows Cost; subscriptions show only provider-native Usage.
+- The API section edits Pi-managed provider/model/endpoint/API-key configuration
+  and returns only safe summaries. The orchestration section exposes CLI
+  install/login/version status and official guidance without copying raw auth or
+  session files.
+- API models are friendly-name-first records backed by configured exact ids;
+  official provenance is strict while user-authored source metadata is optional.
+- API runs show token usage and Cost; external CLI runs show task token count,
+  duration, and “订阅内 · 无 API 成本”.
 - MCP is a tool layer, not the main chat/runtime protocol.
 - Settings must not expose auth-file paths, OAuth tokens, SDK lane badges, or
   runtime implementation names as the product model.

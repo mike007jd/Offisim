@@ -27,16 +27,15 @@ when the list changes.
 
 | Gate | Command | Proves |
 |------|---------|--------|
-| Types | `pnpm typecheck` | all 21 workspace packages compile (`tsc --noEmit`) |
-| Validate | `pnpm validate` | types plus product, runtime, workspace, UI, security-boundary, and dead-code harnesses |
-| Product truth guards | `pnpm harness:review-fixes` | neutral gateway, exact account/model truth, docs truth, and removed partial lanes stay coherent |
-| API adapter host | `pnpm harness:pi-agent-host` | bundled API host wiring, target/provenance, tools, usage, delegation, and release resources |
-| Codex subscription host | `pnpm harness:codex-app-server-contract` | official sidecar artifact plus native protocol, stream, account/model, approval, Stop, Usage, and recovery contracts |
-| Claude subscription host | `pnpm harness:claude-agent-host` | official SDK host plus native account/model, stream, approval, Stop/recovery, workspace guard, Usage, and secret-isolation contracts |
+| Validate | `pnpm validate` | types plus product/document truth, Pi API/Codex orchestration hosts, runtime, workspace, UI, security-boundary, and dead-code harnesses |
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
-| Desktop Rust | `cargo test` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db baseline/refusal behavior |
-| Supply chain | `node scripts/audit-production-dependencies.mjs` | pnpm 11 Bulk Advisory audit reports no unresolved high/critical advisories in the prod tree (the build toolchain remains on pnpm 10; transitive highs are pinned via root `pnpm.overrides`) |
+| Supply chain | `pnpm audit:prod` | no unresolved high/critical advisories in the prod tree; the script pins `pnpm@11.13.0` for npm's current Bulk Advisory API while the build toolchain remains on pnpm 10 (transitive highs are pinned via root workspace overrides) |
+| Desktop Rust | `cargo test --locked` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db baseline/refusal behavior |
+
+`node scripts/release-gates.mjs --lane=node` runs only the first four Node gates
+and never prepares or invokes Cargo. `--lane=rust` runs only Desktop Rust;
+omitting `--lane` runs both lanes.
 
 ## Build gates (desktop release)
 
@@ -67,8 +66,7 @@ pnpm platform:auth-harness      # auth boundary harness (also run inside securit
 |------|---------|
 | Production gateway / cross-engine behavior | `pnpm harness:runtime-conformance`, `pnpm harness:renderer-engine-authority`, `pnpm harness:execution-provenance` |
 | API adapter host | `pnpm harness:pi-agent-host` |
-| Codex subscription host | `pnpm harness:codex-app-server-contract` |
-| Claude subscription host | `pnpm harness:claude-agent-host` |
+| Codex orchestration host | `pnpm harness:codex-app-server-contract` |
 | Doc-engine parsers | `pnpm harness:doc-engine` |
 | Chat attachments | `pnpm harness:chat-attachment-roundtrip` |
 

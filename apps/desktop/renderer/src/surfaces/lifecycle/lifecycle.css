@@ -31,7 +31,7 @@
   height: 10px;
   border-radius: var(--off-r-round);
   background: var(--off-accent);
-  animation: off-lc-boot-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
+  animation: off-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
 }
 
 .off-lc-boot-title {
@@ -44,18 +44,6 @@
   margin-top: 2px;
   font-size: var(--off-fs-sm);
   color: var(--off-ink-3);
-}
-
-@keyframes off-lc-boot-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.38;
-    transform: scale(0.72);
-  }
 }
 
 /* Front-door load failure — full window, centered honest error + Retry. Must
@@ -292,19 +280,7 @@
   height: 6px;
   border-radius: var(--off-r-round);
   background: currentColor;
-  animation: off-csp-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
-}
-
-@keyframes off-csp-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.85);
-  }
+  animation: off-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
 }
 
 /* --- main: preview + brief --- */
@@ -1217,13 +1193,7 @@
 
 .off-wiz-spin {
   color: var(--off-accent);
-  animation: off-wiz-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
-}
-
-@keyframes off-wiz-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  animation: off-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
 }
 
 /* ════════════ Discard-confirm toast bar ════════════ */

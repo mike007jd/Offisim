@@ -6,24 +6,20 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-// tauri-build resolves bundle resources and externalBin during cargo test even
-// though tests never launch them. Generated runtime files are git-ignored, so a
-// clean checkout needs inert placeholders. A real Tauri build always runs
-// build:frontend first, which replaces every placeholder with its verified
-// production artifact before bundling.
+// tauri-build resolves bundle resources during cargo test even though tests
+// never launch them. Generated runtime files are git-ignored, so a clean
+// checkout needs inert placeholders. Codex is deliberately not listed here:
+// the orchestration adapter launches the user's own CLI instead of bundling it.
 export function ensureDesktopCargoTestPrereqs() {
-  const executableStubs = [
-    path.join(root, 'apps/desktop/src-tauri/resources/node/bin/node'),
-    path.join(root, 'apps/desktop/src-tauri/binaries/codex-app-server-aarch64-apple-darwin'),
-  ];
+  const executableStubs = [path.join(root, 'apps/desktop/src-tauri/resources/node/bin/node')];
   const fileStubs = [
-    {
-      path: path.join(root, 'apps/desktop/src-tauri/resources/pi-agent-host.mjs'),
-      content: 'THIS IS A CARGO-TEST-ONLY STUB — run scripts/build-pi-agent-host.mjs\n',
-    },
     {
       path: path.join(root, 'apps/desktop/src-tauri/resources/claude-agent-host.mjs'),
       content: 'THIS IS A CARGO-TEST-ONLY STUB — run scripts/build-claude-agent-host.mjs\n',
+    },
+    {
+      path: path.join(root, 'apps/desktop/src-tauri/resources/pi-agent-host.mjs'),
+      content: 'THIS IS A CARGO-TEST-ONLY STUB — run scripts/build-pi-agent-host.mjs\n',
     },
   ];
 

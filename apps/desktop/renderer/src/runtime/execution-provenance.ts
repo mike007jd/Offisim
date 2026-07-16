@@ -18,37 +18,68 @@ function isNonEmptyString(value: unknown): value is string {
 function parseModelSource(value: unknown): AiModelSource | null {
   if (!isRecord(value)) return null;
   const { kind, sourceUrl, checkedAt } = value;
+  if (kind === 'native') {
+    // Rust Option fields may arrive as explicit nulls; normalize both accepted
+    // wire forms to the only renderer-owned native shape: `{ kind: 'native' }`.
+    return (sourceUrl === undefined || sourceUrl === null) &&
+      (checkedAt === undefined || checkedAt === null)
+      ? { kind: 'native' }
+      : null;
+  }
   if (
-    (kind !== 'official-api' && kind !== 'native') ||
+    kind !== 'official-api' ||
     !isNonEmptyString(sourceUrl) ||
     !isNonEmptyString(checkedAt) ||
     !Number.isFinite(Date.parse(checkedAt))
-  ) {
+  )
     return null;
-  }
   try {
     const url = new URL(sourceUrl);
     if (url.protocol !== 'https:') return null;
   } catch {
     return null;
   }
-  return { kind, sourceUrl, checkedAt };
+  return { kind: 'official-api', sourceUrl, checkedAt };
+}
+
+export function isSameModelSource(
+  left: AiModelSource | undefined,
+  right: AiModelSource | undefined,
+): boolean {
+  if (!left || !right) return left === right;
+  if (left.kind !== right.kind) return false;
+  return (
+    left.kind === 'native' ||
+    (right.kind === 'official-api' &&
+      left.sourceUrl === right.sourceUrl &&
+      left.checkedAt === right.checkedAt)
+  );
 }
 
 export function validateExecutionTarget(value: unknown): AiExecutionTarget | null {
   if (!isRecord(value)) return null;
   const { engineId, accountId, billingMode, modelId } = value;
-  const modelSource = parseModelSource(value.modelSource);
+  const modelSource =
+    value.modelSource === undefined ? undefined : (parseModelSource(value.modelSource) ?? null);
   if (
     !isNonEmptyString(engineId) ||
     !isNonEmptyString(accountId) ||
     !isNonEmptyString(modelId) ||
     (billingMode !== 'api' && billingMode !== 'subscription') ||
-    !modelSource
+    modelSource === null ||
+    (billingMode === 'api' && engineId !== 'api') ||
+    (billingMode === 'api' && modelSource?.kind === 'native') ||
+    (billingMode === 'subscription' && modelSource?.kind !== 'native')
   ) {
     return null;
   }
-  return { engineId, accountId, billingMode, modelId, modelSource };
+  return {
+    engineId,
+    accountId,
+    billingMode,
+    modelId,
+    ...(modelSource ? { modelSource } : {}),
+  };
 }
 
 export function validateTurnExecutionProvenance(
@@ -109,11 +140,7 @@ export function assertSameExecutionAccount(
       );
     }
   }
-  if (
-    source.modelSource.kind !== actual.modelSource.kind ||
-    source.modelSource.sourceUrl !== actual.modelSource.sourceUrl ||
-    source.modelSource.checkedAt !== actual.modelSource.checkedAt
-  ) {
+  if (!isSameModelSource(source.modelSource, actual.modelSource)) {
     throw new Error('Isolated text job provenance mismatch for modelSource.');
   }
   if (

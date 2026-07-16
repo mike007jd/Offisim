@@ -6,11 +6,13 @@ import { getTauriDb } from '@/lib/tauri-db.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import { RUN_COST_UPDATED_EVENT } from '@/runtime/run-cost-refresh.js';
+import {
+  GRAPH_THREAD_STATUS_CHANGED_EVENT,
+  type GraphThreadStatusChangedPayload,
+} from '@/runtime/thread-runtime-status.js';
 import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import type {
   ActivityType,
-  AiRuntimeStatus,
-  AiSubscriptionUsageSnapshot,
   PrefabDefinition,
   PrefabInstanceRow,
   SemanticCategory,
@@ -42,7 +44,6 @@ import type {
   Employee,
   FileNode,
   GitRepoState,
-  RunCost,
   Skill,
 } from './types.js';
 
@@ -427,6 +428,16 @@ export function useEmployeeMcpTools(employeeId: string | null) {
 }
 
 export function useThreads(projectId: string | null) {
+  const queryClient = useQueryClient();
+  useEffect(
+    () =>
+      runtimeEventBus.on(GRAPH_THREAD_STATUS_CHANGED_EVENT, (event) => {
+        const payload = event.payload as GraphThreadStatusChangedPayload;
+        if (payload.projectId !== projectId) return;
+        void queryClient.invalidateQueries({ queryKey: projectChatThreadRowsQueryKey(projectId) });
+      }),
+    [projectId, queryClient],
+  );
   return useQuery({
     queryKey: projectChatThreadRowsQueryKey(projectId),
     queryFn: () => loadProjectChatThreadRows(projectId),
@@ -626,30 +637,6 @@ export async function loadDeliverableBody(deliverable: Deliverable): Promise<str
   return row?.content ?? '';
 }
 
-async function loadSelectedSubscriptionUsage(
-  cost: RunCost,
-): Promise<AiSubscriptionUsageSnapshot | null> {
-  const account =
-    cost.sessionAccounts.length === 1 && cost.sessionAccounts[0]?.billingMode === 'subscription'
-      ? cost.sessionAccounts[0]
-      : null;
-  if (!account) return null;
-  try {
-    const status: AiRuntimeStatus = await invokeCommand('agent_runtime_status', {
-      includeUsage: true,
-    });
-    const matched = status.accounts.find(
-      (candidate) =>
-        candidate.engineId === account.engineId &&
-        candidate.accountId === account.accountId &&
-        candidate.billingMode === account.billingMode,
-    );
-    return matched?.usage?.kind === 'subscription' ? matched.usage : null;
-  } catch {
-    return null;
-  }
-}
-
 export function useRunCost() {
   const companyId = useUiState((state) => state.companyId) || null;
   const threadId = useUiState((state) => state.selectedThreadId);
@@ -668,10 +655,8 @@ export function useRunCost() {
         loadRunCost(companyId, threadId),
         loadTokenBudgets(companyId),
       ]);
-      const sessionSubscriptionUsage = await loadSelectedSubscriptionUsage(cost);
       return {
         ...cost,
-        sessionSubscriptionUsage,
         alerts: computeTokenBudgetAlerts({
           monthlyTokens: cost.monthlyTokens,
           monthlyKnownTokens: cost.monthlyKnownTokens,

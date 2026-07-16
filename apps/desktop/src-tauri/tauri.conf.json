@@ -43,16 +43,10 @@
       "signingIdentity": "-",
       "minimumSystemVersion": "11.0"
     },
-    "externalBin": [
-      "binaries/codex-app-server"
-    ],
     "resources": [
-      "resources/pi-agent-host.mjs",
       "resources/claude-agent-host.mjs",
-      "resources/node/bin/node",
-      "resources/third-party/codex/LICENSE",
-      "resources/third-party/codex/NOTICE",
-      "resources/third-party/claude-agent-sdk/NOTICE"
+      "resources/pi-agent-host.mjs",
+      "resources/node/bin/node"
     ],
     "icon": [
       "icons/32x32.png",

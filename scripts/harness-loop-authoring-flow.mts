@@ -281,7 +281,11 @@ await check(
     assert.equal(canSave(afterSave), false, 'a persisted clean revision cannot be duplicated');
 
     const rehydrated: LoopAuthoringModel = { ...afterSave, justSaved: false };
-    assert.equal(deriveAuthoringState(rehydrated), 'saved', 'a reopened persisted revision is saved');
+    assert.equal(
+      deriveAuthoringState(rehydrated),
+      'saved',
+      'a reopened persisted revision is saved',
+    );
     assert.equal(canSave(rehydrated), false, 'reopening does not enable a duplicate save');
     assert.equal(canUseInOffice(afterSave), true, 'a SAVED ready clean revision IS usable');
     assert.equal(useBlockedReason(afterSave), null, 'no block reason when usable');
@@ -360,7 +364,10 @@ await check('general work keeps stop/help clauses out of the action list', async
   const labels = preview.ir.nodes.map((node) => node.label);
   assert.ok(labels.includes('The draft is ready'));
   assert.ok(labels.includes('Ask me for help'));
-  assert.equal(labels.some((label) => /^and stop/i.test(label)), false);
+  assert.equal(
+    labels.some((label) => /^and stop/i.test(label)),
+    false,
+  );
   assert.equal(preview.ir.edges.find((edge) => edge.kind === 'retry')?.maxRetries, undefined);
   assert.equal(
     preview.ir.edges.find((edge) => edge.kind === 'escalate')?.label,
@@ -462,6 +469,11 @@ await check(
       ...model,
       compiled: { ...view, savedRevisionId: saved.revision.revisionId, savedRevisionNumber: 1 },
     };
+    assert.equal(
+      deriveAuthoringState(savedModel),
+      'needs_input',
+      'a selected/hydrated needs_input revision still surfaces its question state',
+    );
     assert.equal(
       canUseInOffice(savedModel),
       false,

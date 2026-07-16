@@ -30,7 +30,9 @@ import {
   type AiExecutionTarget,
   type AiModelCatalogEntry,
   type AiRuntimeStatus,
+  type OrchestrationEngineStatus,
   type RunFailureKind,
+  type RuntimeEngineCapabilityManifest,
   type RuntimeEvent,
   type WorkspaceProvenance,
   classifyRunFailure,
@@ -40,6 +42,7 @@ import { AgentRunPersistenceQueue } from './agent-run-persistence-queue.js';
 import {
   type TurnExecutionProvenance,
   assertSameExecutionAccount,
+  isSameModelSource,
   requireTurnExecutionProvenance,
   validateExecutionTarget,
 } from './execution-provenance.js';
@@ -69,6 +72,7 @@ import {
   planThreadExecutionSelection,
   resolveAuthoritativeThreadExecutionAuthority,
 } from './thread-execution-authority.js';
+import { persistThreadRuntimeStatus } from './thread-runtime-status.js';
 import {
   type WorkspaceBindingStreamGate,
   type WorkspaceStreamConsumptionPolicy,
@@ -407,6 +411,8 @@ export interface DesktopAgentRuntime {
   abortChild(threadId: string, runId: string): void;
   /** Deliver the user's answer to a mid-run `agent.ui.request` back to the host. */
   answerUiRequest(answer: AgentUiAnswer): Promise<void>;
+  /** Capability truth for controls bound to one exact engine. */
+  getEngineCapabilities(engineId: string): RuntimeEngineCapabilityManifest | undefined;
   /** Reconnect renderer-owned projections to host streams before stale-run reconciliation. */
   reattachLiveRuns?(rootRunIds?: ReadonlySet<string>): Promise<LiveRunReattachResult>;
   dispose(): Promise<void>;
@@ -414,6 +420,7 @@ export interface DesktopAgentRuntime {
 
 interface RuntimeEngineAdapter extends DesktopAgentRuntime {
   readonly engineId: string;
+  readonly capabilities: RuntimeEngineCapabilityManifest;
 }
 
 interface NativeEngineRuntimeConfig {
@@ -423,6 +430,7 @@ interface NativeEngineRuntimeConfig {
   readonly protocolVersion: number;
   readonly requestPrefix: string;
   readonly supportsOffisimDelegation: boolean;
+  readonly capabilities: RuntimeEngineCapabilityManifest;
 }
 
 const API_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
@@ -432,6 +440,14 @@ const API_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
   protocolVersion: PI_HOST_PROTOCOL_VERSION,
   requestPrefix: 'pi-agent',
   supportsOffisimDelegation: true,
+  capabilities: {
+    stop: true,
+    steer: false,
+    resume: true,
+    permissionModes: ['plan', 'ask', 'auto', 'full'],
+    interactions: { approval: true, userInput: true },
+    processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  },
 };
 
 const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
@@ -441,15 +457,31 @@ const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
   protocolVersion: 2,
   requestPrefix: 'codex-agent',
   supportsOffisimDelegation: false,
+  capabilities: {
+    stop: true,
+    steer: false,
+    resume: true,
+    permissionModes: ['plan', 'ask', 'auto', 'full'],
+    interactions: { approval: true, userInput: true },
+    processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  },
 };
 
 const CLAUDE_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
   engineId: 'claude',
   billingMode: 'subscription',
-  runtimeVersion: '0.3.211',
+  runtimeVersion: '1',
   protocolVersion: 1,
   requestPrefix: 'claude-agent',
   supportsOffisimDelegation: false,
+  capabilities: {
+    stop: true,
+    steer: false,
+    resume: true,
+    permissionModes: ['plan', 'auto', 'full'],
+    interactions: { approval: false, userInput: false },
+    processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  },
 };
 
 type ExecutionPreparedEvent = Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>;
@@ -655,9 +687,6 @@ function hostModelRef(
   if (model?.api === 'codex-app-server' && model.catalogId?.trim()) {
     return `codex:${model.catalogId.trim()}`;
   }
-  if (model?.api === 'claude-agent-sdk' && model.catalogId?.trim()) {
-    return `claude:${model.catalogId.trim()}`;
-  }
   if (!model?.id) return null;
   return model.provider ? `${model.provider}/${model.id}` : model.id;
 }
@@ -680,9 +709,7 @@ export function isSameExecutionTarget(
       expected.accountId === actual.accountId &&
       expected.billingMode === actual.billingMode &&
       expected.modelId === actual.modelId &&
-      expected.modelSource.kind === actual.modelSource.kind &&
-      expected.modelSource.sourceUrl === actual.modelSource.sourceUrl &&
-      expected.modelSource.checkedAt === actual.modelSource.checkedAt,
+      isSameModelSource(expected.modelSource, actual.modelSource),
   );
 }
 
@@ -706,24 +733,27 @@ function availableApiModel(status: AiRuntimeStatus, model: AiModelCatalogEntry):
   );
 }
 
-function availableRuntimeModel(status: AiRuntimeStatus, model: AiModelCatalogEntry): boolean {
-  const account = status.accounts.find(
-    (candidate) => candidate.engineId === model.engineId && candidate.accountId === model.accountId,
+function orchestrationExecutionTarget(engineId: string): AiExecutionTarget {
+  return {
+    engineId,
+    accountId: `${engineId}:local`,
+    billingMode: 'subscription',
+    modelId: 'engine-managed',
+    modelSource: { kind: 'native' },
+  };
+}
+
+function readyOrchestrationEngine(
+  status: AiRuntimeStatus,
+  engineId: string,
+): OrchestrationEngineStatus | undefined {
+  return status.orchestrationEngines.find(
+    (engine) => engine.engineId === engineId && engine.state === 'ready',
   );
-  return Boolean(
-    model.engineId.trim() &&
-      model.runtimeModelRef.trim() &&
-      model.modelId.trim() &&
-      (model.availability === 'available' ||
-        (model.availability === 'expiring' &&
-          model.expiresAt &&
-          Date.parse(model.expiresAt) > Date.now())) &&
-      account?.engineId === model.engineId &&
-      account.billingMode === model.billingMode &&
-      account.status === 'available' &&
-      account.capabilities.execute.status === 'available' &&
-      account.capabilities.models.status === 'available',
-  );
+}
+
+function isCanonicalOrchestrationTarget(target: AiExecutionTarget): boolean {
+  return isSameExecutionTarget(target, orchestrationExecutionTarget(target.engineId));
 }
 
 /** Resolve one globally unique model/account/engine before the gateway crosses
@@ -736,24 +766,42 @@ export function resolveRuntimeExecutionSelection(
   frozenRuntimeModelRef?: string,
 ): ResolvedRuntimeExecutionSelection {
   const status = statusValue as Partial<AiRuntimeStatus>;
-  if (!Array.isArray(status.accounts) || !Array.isArray(status.models)) {
+  if (
+    !Array.isArray(status.accounts) ||
+    !Array.isArray(status.models) ||
+    !Array.isArray(status.orchestrationEngines)
+  ) {
     throw new Error('AI Accounts status is unavailable. Check the selected account.');
   }
   const runtimeStatus: AiRuntimeStatus = {
     accounts: status.accounts,
     models: status.models,
+    orchestrationEngines: status.orchestrationEngines,
     checkedAt: typeof status.checkedAt === 'string' ? status.checkedAt : '',
   };
-  const candidates = runtimeStatus.models.filter((model) =>
-    availableRuntimeModel(runtimeStatus, model),
+  const apiCandidates = runtimeStatus.models.filter((model) =>
+    availableApiModel(runtimeStatus, model),
   );
   const requested = requestedModel?.trim();
-  let selected: AiModelCatalogEntry | undefined;
   if (frozenTarget) {
     const validTarget = validateExecutionTarget(frozenTarget);
     if (!validTarget) throw new Error('This task does not have a valid execution target.');
+    const frozenEngine = readyOrchestrationEngine(runtimeStatus, validTarget.engineId);
+    if (frozenEngine) {
+      if (
+        !isCanonicalOrchestrationTarget(validTarget) ||
+        frozenRuntimeModelRef?.trim() !== frozenEngine.engineId ||
+        (requested && requested !== frozenEngine.engineId)
+      ) {
+        throw new Error("The task's saved orchestration engine is no longer available.");
+      }
+      return {
+        target: orchestrationExecutionTarget(frozenEngine.engineId),
+        runtimeModelRef: frozenEngine.engineId,
+      };
+    }
     const frozenSelector = frozenRuntimeModelRef?.trim();
-    const matches = candidates.filter(
+    const matches = apiCandidates.filter(
       (model) =>
         model.engineId === validTarget.engineId &&
         model.accountId === validTarget.accountId &&
@@ -765,25 +813,44 @@ export function resolveRuntimeExecutionSelection(
     if (matches.length !== 1) {
       throw new Error("The task's saved AI account or exact model is no longer available.");
     }
-    selected = matches[0];
+    const selected = matches[0];
     if (!selected) throw new Error("The task's saved AI model selector is unavailable.");
     return { target: validTarget, runtimeModelRef: selected.runtimeModelRef };
   }
+  const requestedEngine = requested
+    ? readyOrchestrationEngine(runtimeStatus, requested)
+    : undefined;
+  if (requestedEngine) {
+    return {
+      target: orchestrationExecutionTarget(requestedEngine.engineId),
+      runtimeModelRef: requestedEngine.engineId,
+    };
+  }
+  let selected: AiModelCatalogEntry | undefined;
   if (requested) {
-    const runtimeRefMatch = candidates.find((model) => model.runtimeModelRef === requested);
+    const runtimeRefMatch = apiCandidates.find((model) => model.runtimeModelRef === requested);
     if (runtimeRefMatch) {
       selected = runtimeRefMatch;
     } else {
-      const modelIdMatches = candidates.filter((model) => model.modelId === requested);
+      const modelIdMatches = apiCandidates.filter((model) => model.modelId === requested);
       if (modelIdMatches.length !== 1) {
         throw new Error(`The selected exact AI model is unavailable or ambiguous: ${requested}.`);
       }
       [selected] = modelIdMatches;
     }
   } else {
-    selected = candidates.find((model) => model.availability === 'available');
+    selected = apiCandidates.find((model) => model.availability === 'available');
+    const defaultEngine = runtimeStatus.orchestrationEngines.find(
+      (engine) => engine.state === 'ready',
+    );
+    if (!selected && defaultEngine) {
+      return {
+        target: orchestrationExecutionTarget(defaultEngine.engineId),
+        runtimeModelRef: defaultEngine.engineId,
+      };
+    }
   }
-  if (!selected) throw new Error('No verified, available AI model was reported by an account.');
+  if (!selected) throw new Error('No available API model or orchestration engine was reported.');
   const target = validateExecutionTarget({
     engineId: selected.engineId,
     accountId: selected.accountId,
@@ -807,6 +874,9 @@ export function resolveApiExecutionSelection(
   const runtimeStatus: AiRuntimeStatus = {
     accounts: status.accounts,
     models: status.models,
+    orchestrationEngines: Array.isArray(status.orchestrationEngines)
+      ? status.orchestrationEngines
+      : [],
     checkedAt: typeof status.checkedAt === 'string' ? status.checkedAt : '',
   };
   const candidates = runtimeStatus.models.filter((model) =>
@@ -1274,6 +1344,7 @@ function throwIfRunAborted(signal?: AbortSignal): void {
 
 class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
   readonly engineId: string;
+  readonly capabilities: RuntimeEngineCapabilityManifest;
   readonly ownsConversationProjectionPersistence = true;
   private readonly inFlightByThread = new Map<string, string>();
   // Request ids the user aborted. A Rust-side abort kills the host and resolves
@@ -1295,11 +1366,29 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     private readonly commands: NativeAgentCommandTransport = createNativeAgentCommandTransport(),
   ) {
     this.engineId = config.engineId;
+    this.capabilities = config.capabilities;
+  }
+
+  getEngineCapabilities(engineId: string): RuntimeEngineCapabilityManifest | undefined {
+    return engineId === this.engineId ? this.capabilities : undefined;
   }
 
   private invokeEnhance(args: CommandArgs<'agent_runtime_enhance'>) {
-    if (this.engineId === 'codex') return this.commands.enhanceCodex(args);
-    if (this.engineId === 'claude') return this.commands.enhanceClaude(args);
+    if (this.engineId === 'codex' || this.engineId === 'claude') {
+      const nativeArgs = {
+        req: {
+          requestId: args.req.requestId,
+          text: args.req.text,
+          expectedTarget: args.req.expectedTarget,
+          systemPrompt: args.req.systemPrompt,
+          sourceProvenance: args.req.sourceProvenance,
+        },
+        onEvent: args.onEvent,
+      };
+      return this.engineId === 'codex'
+        ? this.commands.enhanceCodex(nativeArgs)
+        : this.commands.enhanceClaude(nativeArgs);
+    }
     return this.commands.enhanceApi(args);
   }
 
@@ -1472,7 +1561,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     // Codex validates the exact native account/model and the durable renderer
     // target inside execute/resume before it starts a turn. Pi retains its
     // separate provider ACK because its paid boundary occurs later.
-    if (this.engineId === 'codex') return;
+    if (this.engineId === 'codex' || this.engineId === 'claude') return;
     await invokeCommand('agent_runtime_confirm_execution', {
       requestId,
       prepareId: event.prepareId,
@@ -3175,10 +3264,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             rootRunId: runScope.runId,
             workspaceRequirement,
             nativeSessionMode,
-            model: resolvedModel,
-            runtimeModelRef: resolvedModel,
             permissionMode,
-            thinkingLevel: resolvedThinkingLevel,
             systemPromptAppend: systemPromptAppend ?? undefined,
             clientUserMessageId: input.conversationProjection?.userMessageId,
             ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
@@ -3209,10 +3295,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             rootRunId: runScope.runId,
             workspaceRequirement,
             nativeSessionMode,
-            model: resolvedModel,
-            runtimeModelRef: resolvedModel,
             permissionMode,
-            thinkingLevel: resolvedThinkingLevel,
             systemPromptAppend: systemPromptAppend ?? undefined,
             ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
               ? { nativeSessionId: runtimeContext.nativeSessionId }
@@ -3913,6 +3996,10 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
     return adapter;
   }
 
+  getEngineCapabilities(engineId: string): RuntimeEngineCapabilityManifest | undefined {
+    return this.adapters.get(engineId)?.capabilities;
+  }
+
   async execute(input: DesktopAgentRunInput, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
     const durableAuthority = resolveAuthoritativeThreadExecutionAuthority(
       await this.repos.agentRuns.findByThread(input.threadId),
@@ -3952,9 +4039,19 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
       throw new Error('The selected model belongs to another AI engine.');
     }
     const engineId = selection.target.engineId;
+    const threadStatusInput = {
+      repos: this.repos,
+      eventBus: runtimeEventBus,
+      companyId: this.companyId,
+      threadId: input.threadId,
+      projectId: input.projectId,
+      rootTaskId: input.runId ?? null,
+      entryMode: input.employeeId ? 'direct_chat' : 'boss_chat',
+    } as const;
+    await persistThreadRuntimeStatus({ ...threadStatusInput, status: 'running' });
     this.activeEngineByThread.set(input.threadId, engineId);
     try {
-      return await this.adapter(engineId).execute(
+      const result = await this.adapter(engineId).execute(
         {
           ...input,
           engineId,
@@ -3964,6 +4061,18 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
         },
         signal,
       );
+      if (!input.missionId) {
+        await persistThreadRuntimeStatus({ ...threadStatusInput, status: 'completed' });
+      }
+      return result;
+    } catch (error) {
+      if (!input.missionId) {
+        await persistThreadRuntimeStatus({
+          ...threadStatusInput,
+          status: signal?.aborted ? 'paused' : 'failed',
+        });
+      }
+      throw error;
     } finally {
       if (this.activeEngineByThread.get(input.threadId) === engineId) {
         this.activeEngineByThread.delete(input.threadId);
@@ -4010,7 +4119,11 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
     if (!row || row.company_id !== this.companyId || row.parent_run_id !== null) {
       throw new Error('Cannot route an interaction without its durable root run.');
     }
-    const engineId = parseRunContext(row.runtime_context_json)?.executionTarget?.engineId;
+    const context = parseRunContext(row.runtime_context_json);
+    if (context?.requestId !== answer.requestId) {
+      throw new Error('Cannot route an interaction without its durable request binding.');
+    }
+    const engineId = context.executionTarget?.engineId;
     if (!engineId) throw new Error('Cannot route an interaction without an exact engine binding.');
     await this.adapter(engineId).answerUiRequest(answer);
   }

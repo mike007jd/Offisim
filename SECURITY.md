@@ -46,20 +46,20 @@ For Offisim 1.0, the highest-priority reports are:
 Offisim desktop is the 1.0 reference runtime. The webview is not trusted to pick
 credential destinations or arbitrary local execution roots.
 
-- Each task selects one mutually exclusive engine through the production
-  gateway. Complete API, Codex subscription, and Claude subscription engines
-  are active and retain independent host/release evidence.
-- API secrets configured in Offisim are sealed through the narrow desktop
-  secret boundary. Subscription engines reuse native login state; Offisim does
-  not copy OAuth tokens, native session files, compaction state, or global
-  memory into product storage.
-- The model catalog contains only safe account-owned metadata: exact leaf id,
-  source, checkedAt, capabilities, and availability. It never contains raw
-  credentials. The renderer consumes safe status and opaque native references.
+- The production gateway hosts coexisting Pi API plus Codex and Claude Code CLI
+  orchestration adapters, with exactly one engine lane owning each run.
+- Pi provider keys cross the narrow save command and are written to Pi-owned
+  `~/.pi/agent/models.json`; the renderer receives only secret-free summaries.
+  External CLIs retain native login, model choice, session files, compaction,
+  and global memory; Offisim does not copy them into product storage.
+- The API model projection contains safe account-owned metadata and configured
+  exact ids. Official source/checkedAt metadata is strict; user-configured source
+  metadata is optional. External CLI models are not an Offisim catalog.
 - Tauri binds the backend-authorized effective task workspace and routes the
-  turn to the selected API, Codex, or Claude host. Claude file tools use a
-  `PreToolUse` workspace guard and Bash sandbox; all host output is projected
-  and credential-shaped values are filtered before they reach the webview.
+  turn to the bundled API adapter host, native Codex app-server host, or native
+  Claude Code print-mode host.
+  Host output is projected and credential-shaped values are filtered before
+  they reach the webview.
 - Local path open/save, git, and shell commands are scoped to a project
   workspace. Shell execution scrubs inherited environment variables and records
   approval/network-policy metadata. Current network policy is disclosure plus

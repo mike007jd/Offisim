@@ -93,8 +93,6 @@ pub(super) enum PiSidecarLine {
         placeholder: Option<String>,
         #[serde(default)]
         prefill: Option<String>,
-        #[serde(default)]
-        params: Option<serde_json::Value>,
     },
     AgentRun {
         thread_id: String,
@@ -275,7 +273,6 @@ pub(super) fn send_sidecar_event(
             options,
             placeholder,
             prefill,
-            params,
         } => {
             publish_host_event(
                 request_id,
@@ -288,7 +285,6 @@ pub(super) fn send_sidecar_event(
                     options,
                     placeholder,
                     prefill,
-                    params,
                 },
                 "Send Pi UI request",
             )?;

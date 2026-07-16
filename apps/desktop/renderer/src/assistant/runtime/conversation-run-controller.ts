@@ -149,7 +149,6 @@ export interface PendingUserInputQuestion {
   header: string;
   question: string;
   options: readonly PendingUserInputOption[];
-  multiSelect: boolean;
   isOther: boolean;
   isSecret: boolean;
 }
@@ -172,7 +171,7 @@ export function parseUserInputQuestions(params: unknown): {
   autoResolutionMs?: number;
 } | null {
   if (!isRecord(params) || !Array.isArray(params.questions)) return null;
-  if (params.questions.length < 1 || params.questions.length > 4) return null;
+  if (params.questions.length < 1 || params.questions.length > 3) return null;
   const ids = new Set<string>();
   const questions: PendingUserInputQuestion[] = [];
   for (const raw of params.questions) {
@@ -183,7 +182,7 @@ export function parseUserInputQuestions(params: unknown): {
     if (!id || ids.has(id) || !header || !question) return null;
     ids.add(id);
     const rawOptions = raw.options == null ? [] : raw.options;
-    if (!Array.isArray(rawOptions) || rawOptions.length > 4) return null;
+    if (!Array.isArray(rawOptions) || rawOptions.length > 3) return null;
     const options: PendingUserInputOption[] = [];
     for (const rawOption of rawOptions) {
       if (!isRecord(rawOption)) return null;
@@ -201,7 +200,6 @@ export function parseUserInputQuestions(params: unknown): {
       header,
       question,
       options,
-      multiSelect: raw.multiSelect === true,
       isOther: raw.isOther === true,
       isSecret: raw.isSecret === true,
     });
@@ -236,26 +234,12 @@ export function normalizeStructuredAnswers(
   const normalized: Record<string, { answers: readonly string[] }> = {};
   for (const question of questions) {
     const values = raw[question.id]?.answers;
-    if (
-      !Array.isArray(values) ||
-      values.length < 1 ||
-      (!question.multiSelect && values.length !== 1) ||
-      values.some((value) => typeof value !== 'string')
-    ) {
-      return null;
-    }
-    const normalizedValues = values.map((value) => (question.isSecret ? value : value.trim()));
-    if (normalizedValues.some((value) => !value.trim())) return null;
-    if (new Set(normalizedValues).size !== normalizedValues.length) return null;
+    if (!Array.isArray(values) || values.length !== 1 || typeof values[0] !== 'string') return null;
+    const value = question.isSecret ? values[0] : values[0].trim();
+    if (!value.trim()) return null;
     const optionLabels = question.options.map((option) => option.label);
-    if (
-      optionLabels.length &&
-      normalizedValues.some((value) => !optionLabels.includes(value)) &&
-      !question.isOther
-    ) {
-      return null;
-    }
-    normalized[question.id] = { answers: normalizedValues };
+    if (optionLabels.length && !optionLabels.includes(value) && !question.isOther) return null;
+    normalized[question.id] = { answers: [value] };
   }
   return normalized;
 }
@@ -1213,6 +1197,7 @@ export class ConversationRunController {
         ...(run.workspaceProvenance ? { workspaceProvenance: run.workspaceProvenance } : {}),
       };
       run.assistantMessage = assistant;
+      if (!this.isActiveRun(run) || run.stopped) return;
       if (!response.conversationTerminalCommitted) {
         await this.persistRunMessage(run, assistant);
       }
@@ -1573,7 +1558,9 @@ export class ConversationRunController {
       title: typeof payload.title === 'string' ? payload.title : 'Approval needed',
       message: typeof payload.message === 'string' ? payload.message : undefined,
       ...(parsedInput?.questions ? { questions: parsedInput.questions } : {}),
-      ...(parsedInput?.autoResolutionMs ? { autoResolutionMs: parsedInput.autoResolutionMs } : {}),
+      ...(parsedInput?.autoResolutionMs
+        ? { autoResolutionMs: parsedInput.autoResolutionMs }
+        : {}),
       state: 'live',
       createdAt: Date.parse(row.created_at) || this.deps.now(),
     };
@@ -2236,7 +2223,9 @@ export class ConversationRunController {
       title: request.title,
       message: request.message,
       ...(parsedInput?.questions ? { questions: parsedInput.questions } : {}),
-      ...(parsedInput?.autoResolutionMs ? { autoResolutionMs: parsedInput.autoResolutionMs } : {}),
+      ...(parsedInput?.autoResolutionMs
+        ? { autoResolutionMs: parsedInput.autoResolutionMs }
+        : {}),
       state: 'live',
       createdAt: this.deps.now(),
     };
@@ -2485,7 +2474,9 @@ export class ConversationRunController {
               : null
           : null,
       freeform_response:
-        approval.method === 'confirm' && typeof response.value === 'string' ? response.value : null,
+        approval.method === 'confirm' && typeof response.value === 'string'
+          ? response.value
+          : null,
       request_json: JSON.stringify(approval),
       response_json: JSON.stringify(response),
       payload_json: JSON.stringify({
