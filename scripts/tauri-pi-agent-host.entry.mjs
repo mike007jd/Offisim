@@ -1336,7 +1336,7 @@ async function runPrompt(payload) {
         : undefined,
     });
     const summary = directResult.text;
-    if (!directResult.model || !directResult.provenance) {
+    if (directResult.completed && (!directResult.model || !directResult.provenance)) {
       throw Object.assign(
         new Error('Direct delegation completed without a prepared child execution identity.'),
         { code: 'provenance-missing' },
@@ -1348,8 +1348,8 @@ async function runPrompt(payload) {
       resultLine({
         ok: true,
         text: summary,
-        model: modelSummary(directResult.model),
-        provenance: directResult.provenance,
+        ...(directResult.model ? { model: modelSummary(directResult.model) } : {}),
+        ...(directResult.provenance ? { provenance: directResult.provenance } : {}),
         ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
       }),
     );
