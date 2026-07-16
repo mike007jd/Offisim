@@ -177,8 +177,9 @@ export function MarketSurface() {
         setPendingPackageInstall(pending);
         setInstallTarget(pending.listing);
         setInstallOpen(true);
-      } catch {
+      } catch (error) {
         if (controller.signal.aborted) return;
+        console.error('[MarketSurface] Registry package preparation failed', error);
         toast.error('Download failed', {
           description: 'The item could not be prepared for installation. Try again.',
         });
