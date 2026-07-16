@@ -86,8 +86,10 @@ export function InstallDialog({ listing, open, onOpenChange, onInstall }: Instal
     try {
       await onInstall(listing, values);
       setStep('done');
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Install failed.');
+    } catch {
+      setErrorMessage(
+        'The item could not be installed. Check its access requirements and try again.',
+      );
       setStep('error');
     }
   }
@@ -116,7 +118,7 @@ export function InstallDialog({ listing, open, onOpenChange, onInstall }: Instal
         ) : step === 'installing' ? (
           <InstallingStep />
         ) : step === 'done' ? (
-          <DoneStep onClose={() => onOpenChange(false)} />
+          <DoneStep name={listing.name} onClose={() => onOpenChange(false)} />
         ) : (
           <ErrorStep
             message={errorMessage}
@@ -141,10 +143,10 @@ function ReviewStep({
 }) {
   const riskLabel =
     listing.permissions.risk === 'data'
-      ? 'Data Asset'
+      ? 'Content only'
       : listing.permissions.risk === 'logic'
-        ? 'Logic Asset'
-        : 'System Asset';
+        ? 'Runs instructions'
+        : 'Uses system access';
   const networkRequested = listing.permissions.network !== 'none';
 
   return (
@@ -157,9 +159,7 @@ function ReviewStep({
         <div className="off-mkt-rv-top">
           <div className="off-mkt-rv-id">
             <div className="off-mkt-rv-name">{listing.name}</div>
-            <div className="off-mkt-rv-slug">
-              {listing.slug} · v{listing.version}
-            </div>
+            <div className="off-mkt-rv-slug">Version {listing.version}</div>
             <div className="off-mkt-rv-by">
               by {listing.creatorName} (@{listing.handle})
             </div>
@@ -171,26 +171,26 @@ function ReviewStep({
         <div className="off-perm-box">
           <div className="off-perm-h">
             <Icon icon={Shield} size="sm" />
-            Permissions
+            Access requested
           </div>
-          <PermRow icon={HardDrive} label="Filesystem" value={listing.permissions.filesystem} />
-          <PermRow icon={Globe} label="Network" value={listing.permissions.network} />
-          <PermRow icon={KeyRound} label="Secrets" value={listing.permissions.secrets} />
-          <PermRow icon={Shield} label="Risk class" value={listing.permissions.risk} />
+          <PermRow icon={HardDrive} label="Files" value={listing.permissions.filesystem} />
+          <PermRow icon={Globe} label="Internet" value={listing.permissions.network} />
+          <PermRow icon={KeyRound} label="Saved credentials" value={listing.permissions.secrets} />
+          <PermRow icon={Shield} label="Access level" value={riskLabel} />
         </div>
 
         {listing.requirements.mcps.length > 0 ? (
           <div className="off-perm-box">
             <div className="off-perm-h">
               <Icon icon={Server} size="sm" />
-              Required MCP Servers
+              Required tools
             </div>
             {listing.requirements.mcps.map((m) => (
               <PermRow key={m} icon={Server} label={m} value="required" />
             ))}
             <div className="off-alert is-warn">
               <Icon icon={AlertTriangle} size="sm" />
-              <span>Set up these MCP servers first.</span>
+              <span>Set up these tools before installing.</span>
             </div>
           </div>
         ) : null}
@@ -202,13 +202,7 @@ function ReviewStep({
           </div>
         ) : null}
 
-        <div className="off-mkt-rv-compat">
-          <span>Runtime {listing.requirements.runtime}</span>
-          <span>·</span>
-          <span>Schema {listing.requirements.schema}</span>
-          <span>·</span>
-          <span>{listing.license}</span>
-        </div>
+        <div className="off-mkt-rv-compat">License: {listing.license}</div>
       </div>
       <DialogFooterRow>
         <Button variant="outline" size="md" onClick={onCancel}>
@@ -251,8 +245,10 @@ function ConfigureStep({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Configure Bindings</DialogTitle>
-        <DialogDescription>Assign Pi model preferences to each role.</DialogDescription>
+        <DialogTitle>Choose model preferences</DialogTitle>
+        <DialogDescription>
+          Choose how each role should run, or keep optional roles unset.
+        </DialogDescription>
       </DialogHeader>
       <form onSubmit={submit} className="off-mkt-dlg-body">
         {bindings.map((b) => {
@@ -278,7 +274,7 @@ function ConfigureStep({
               {!isSkipped ? (
                 <>
                   <CapsLabel className="off-bind-hint">{b.hint}</CapsLabel>
-                  <Input placeholder="model id or preference key" {...form.register(b.id)} />
+                  <Input placeholder="Model preference" {...form.register(b.id)} />
                   {err ? <span className="off-bind-err">{err}</span> : null}
                   {b.suggestions.length > 0 ? (
                     <div className="off-bind-sugg">
@@ -323,19 +319,19 @@ function InstallingStep() {
           <span className="off-step-si">
             <Icon icon={Loader2} size="sm" className="off-spin" />
           </span>
-          Fetching artifact and applying bindings…
+          Preparing files and applying your choices…
         </div>
       </div>
     </>
   );
 }
 
-function DoneStep({ onClose }: { onClose: () => void }) {
+function DoneStep({ name, onClose }: { name: string; onClose: () => void }) {
   return (
     <div className="off-mkt-result">
       <Icon icon={CheckCircle2} size="md" className="off-mkt-result-ok" />
-      <div className="off-mkt-result-t">Installation Complete</div>
-      <div className="off-mkt-result-d">Installed.</div>
+      <div className="off-mkt-result-t">Installed</div>
+      <div className="off-mkt-result-d">{name} is ready to use.</div>
       <Button size="md" onClick={onClose}>
         Close
       </Button>
@@ -357,7 +353,7 @@ function ErrorStep({
   return (
     <div className="off-mkt-result">
       <Icon icon={XCircle} size="md" className="off-mkt-result-err" />
-      <div className="off-mkt-result-t">Installation Failed</div>
+      <div className="off-mkt-result-t">Couldn't install</div>
       <div className="off-mkt-result-d is-err">{message || 'Install failed.'}</div>
       <div className="off-mkt-result-acts">
         <Button variant="outline" size="md" onClick={onClose}>

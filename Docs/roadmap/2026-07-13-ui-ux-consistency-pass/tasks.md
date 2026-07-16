@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，9/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
+> 状态：IN PROGRESS，10/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -18,7 +18,7 @@
 | T07 | Claude subscription 完整 engine | T05 | [ ] |
 | T08 | AI Accounts / Models 设置整合 | T02,T05,T06 | [x] |
 | T09 | Loops 自然语言主流程 | T00 | [x] |
-| T10 | Market 用户语言与空状态 | T00 | [ ] |
+| T10 | Market 用户语言与空状态 | T00 | [x] |
 | T11 | Personnel Danger Zone | T00 | [ ] |
 | T12 | Chrome、rails、nav、run pill 稳定 | T01 | [ ] |
 | T13 | Usage / Cost 单一表达 | T08 | [ ] |
@@ -387,17 +387,27 @@
 
 ### Acceptance
 
-- [ ] Browse / Installed 固定靠左，search 与右侧动作不因连接态跳位。
-- [ ] 未连接远端时仍可搜索本地已安装内容，不留透明占位。
-- [ ] 主流程不要求理解 registry/token/receipt/job id/package extension。
-- [ ] endpoint/token 仅在有明确用途的 Advanced connection 设置出现。
-- [ ] empty/loading/error/installed/update available 状态布局稳定。
-- [ ] Import / Publish / Review 使用任务语言，底层包格式下沉。
+- [x] Browse / Installed 固定靠左，search 与右侧动作不因连接态跳位。
+- [x] 未连接远端时仍可搜索本地已安装内容，不留透明占位。
+- [x] 主流程不要求理解 registry/token/receipt/job id/package extension。
+- [x] endpoint/token 仅在有明确用途的 Advanced connection 设置出现。
+- [x] empty/loading/error/installed/update available 状态布局稳定。
+- [x] Import / Publish / Review 使用任务语言，底层包格式下沉。
 
 ### Oracles
 
 - deterministic Market state fixture、UI drift/hygiene gate。
 - T16 覆盖离线空状态、本地已安装、搜索、导入、发布入口。
+
+### T10 Evidence（2026-07-16 NZST）
+
+- Browse / Installed 成为固定左侧一级模式，搜索框始终占据同一位置，All / Updates / Published 独立为第二行管理视图；离线 Browse 不再留下透明占位。
+- Installed 与 Published 搜索按显示名、版本和本地标识真实过滤；离线、空、无匹配、加载、错误、已安装和可更新状态都有稳定布局与直接恢复动作。
+- Market 主流程统一为 `Import from computer…`、`Publish for review…`、`Connection settings` 等用户任务语言；registry、token、receipt、job ID、包扩展名和 runtime/schema 细节不再暴露。
+- Endpoint 与 Access token 只保留在 Settings → Advanced connections，并支持保存 endpoint override、替换或清除安全 token；Market 只显示连接结果和任务入口。
+- `harness:market-surface` 10/10 覆盖离线本地搜索、状态文案、工具栏结构、查询透传和技术术语边界；renderer production build、typecheck、UI drift gate 均通过。
+- 两轮精确 release `.app` 盲测零发现：第一轮使用原用户状态覆盖 Browse / Installed / Updates / Published、搜索、发布审核与 Advanced connection；第二轮使用临时 HOME 从零创建公司并复测离线 Browse 与本地搜索，未触达原 `~/.offisim`。
+- release `.app` 可执行文件 SHA-256 为 `8d9d903384f1e502438c493bde5dfc6e22f93744b659595f1805b66a81f15ec4`；Codex sidecar SHA-256 为 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
 
 ---
 
