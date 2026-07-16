@@ -9,7 +9,7 @@
     "build": "turbo run build",
     "build:pi-agent-host": "node scripts/build-pi-agent-host.mjs",
     "build:runtime-deps": "node scripts/build-runtime-deps.mjs",
-    "harness:codex-app-server-contract": "node scripts/harness-codex-app-server-contract.mjs && pnpm harness:codex-runtime-conformance",
+    "harness:codex-app-server-contract": "node scripts/harness-codex-app-server-contract.mjs",
     "prepare:desktop-cargo-test": "node scripts/prepare-desktop-cargo-test.mjs",
     "harness:codex-runtime-conformance": "pnpm prepare:desktop-cargo-test && cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml codex_agent_host:: --lib",
     "check:ui-hygiene": "node scripts/check-ui-framework-hygiene.mjs && node scripts/harness-motion-tokens.mjs",
