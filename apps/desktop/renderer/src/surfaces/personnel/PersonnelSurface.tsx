@@ -21,6 +21,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/design-system/primitives/dialog.js';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/design-system/primitives/dropdown-menu.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { cn } from '@/lib/utils.js';
@@ -38,7 +45,16 @@ import {
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { RoleSlug } from '@offisim/shared-types';
 import { useQueryClient } from '@tanstack/react-query';
-import { PanelLeftClose, PanelLeftOpen, SearchX, Store, UserPlus, UsersRound } from 'lucide-react';
+import {
+  Ellipsis,
+  PanelLeftClose,
+  PanelLeftOpen,
+  SearchX,
+  Store,
+  Trash2,
+  UserPlus,
+  UsersRound,
+} from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
@@ -60,6 +76,7 @@ import {
   profileFormSchema,
   recordEmployeeVersionOnSave,
 } from './personnel-data.js';
+import { nextEmployeeIdAfterDelete } from './personnel-deletion.js';
 
 const INSPECTOR_TABS = [
   { key: 'profile', label: 'Profile' },
@@ -291,9 +308,11 @@ function RosterRail({
 function DetailHeader({
   employee,
   validModels,
+  onDeleteRequest,
 }: {
   employee: Employee;
   validModels: ReadonlySet<string> | undefined;
+  onDeleteRequest: () => void;
 }) {
   const roleLine = [displayRole(employee), employee.zoneLabel, employee.deskLabel]
     .filter(Boolean)
@@ -313,19 +332,42 @@ function DetailHeader({
         <h2 className="off-pers-name">{employee.name}</h2>
         <span className="off-pers-role">{roleLine}</span>
       </div>
-      <div className="off-pers-detail-pills">
+      <div className="off-pers-detail-actions">
+        <div className="off-pers-detail-pills">
+          {employee.kind === 'internal' ? (
+            <span className={cn('off-pers-st-pill', invalidModel && 'is-off')}>
+              {invalidModel ? 'Model unavailable · inherits' : employee.model || 'Inherits model'}
+            </span>
+          ) : null}
+          {employee.kind === 'external' ? (
+            <span className="off-pers-st-pill is-brand">{employee.brandLabel ?? 'Brand'}</span>
+          ) : (
+            <span className={cn('off-pers-st-pill', employee.disabled ? 'is-off' : 'is-on')}>
+              {employee.disabled ? 'Disabled' : 'Enabled'}
+            </span>
+          )}
+        </div>
         {employee.kind === 'internal' ? (
-          <span className={cn('off-pers-st-pill', invalidModel && 'is-off')}>
-            {invalidModel ? 'Model unavailable · inherits' : employee.model || 'Inherits model'}
-          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="iconSm"
+                aria-label={`Actions for ${employee.name}`}
+                title="Employee actions"
+              >
+                <Icon icon={Ellipsis} size="sm" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Danger Zone</DropdownMenuLabel>
+              <DropdownMenuItem className="is-danger" onSelect={onDeleteRequest}>
+                <Icon icon={Trash2} size="sm" />
+                Delete employee…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
-        {employee.kind === 'external' ? (
-          <span className="off-pers-st-pill is-brand">{employee.brandLabel ?? 'Brand'}</span>
-        ) : (
-          <span className={cn('off-pers-st-pill', employee.disabled ? 'is-off' : 'is-on')}>
-            {employee.disabled ? 'Disabled' : 'Enabled'}
-          </span>
-        )}
       </div>
     </header>
   );
@@ -361,6 +403,7 @@ function EmployeeDetail({
   tab,
   onTabChange,
   onDirtyChange,
+  onDeleted,
   guardPulse = 0,
 }: {
   employee: Employee;
@@ -370,6 +413,7 @@ function EmployeeDetail({
   tab: InspectorTab;
   onTabChange: (tab: InspectorTab) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onDeleted: () => void;
   /** Counter bumped by the roster's guarded select when a switch is blocked
    *  by unsaved edits; each bump pulses the save bar once. */
   guardPulse?: number;
@@ -395,6 +439,8 @@ function EmployeeDetail({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [guardPulsing, setGuardPulsing] = useState(false);
   // Initialize to the mount-time value so a remount (employee switch) doesn't
   // replay a pulse from a previous block.
@@ -517,23 +563,29 @@ function EmployeeDetail({
   };
 
   const onDelete = async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError(null);
     try {
       const repos = await reposOrNull();
       if (!repos) throw new Error('Employee deletion requires the desktop runtime');
       const row = await repos.employees.findById(employee.id);
       if (!row) {
-        useUiState.getState().selectEmployee(null);
+        onDeleted();
         await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
-        toast.error('Employee no longer exists');
+        toast.info(`${employee.name} was already removed`);
         return;
       }
       await repos.employees.delete(employee.id);
-      useUiState.getState().selectEmployee(null);
+      onDeleted();
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
       toast.success(`${employee.name} removed`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Employee delete failed';
+      setDeleteError(message);
       toast.error('Employee delete failed', { description: message });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -542,6 +594,10 @@ function EmployeeDetail({
       <DetailHeader
         employee={employee}
         validModels={models ? new Set(models.map((option) => option.value)) : undefined}
+        onDeleteRequest={() => {
+          setDeleteError(null);
+          setConfirmingDelete(true);
+        }}
       />
       <Tabs value={tab} onValueChange={(value) => onTabChange(value as InspectorTab)}>
         <TabsList className="off-pers-insp-tabs" aria-label="Employee inspector">
@@ -591,30 +647,6 @@ function EmployeeDetail({
               if (e.animationName === 'off-pers-guard-pulse') setGuardPulsing(false);
             }}
           >
-            <div className="off-pers-savebar-left">
-              {employee.kind === 'external' ? null : confirmingDelete ? (
-                <div className="off-pers-del-confirm">
-                  <span>Delete {employee.name}? This cannot be undone.</span>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      void onDelete();
-                      setConfirmingDelete(false);
-                    }}
-                  >
-                    Delete
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="destructive" size="sm" onClick={() => setConfirmingDelete(true)}>
-                  Delete
-                </Button>
-              )}
-            </div>
             <div className="flex items-center gap-[var(--off-sp-3)]">
               <Button variant="outline" size="sm" disabled={!isDirty || isSaving} onClick={onReset}>
                 Reset
@@ -626,6 +658,39 @@ function EmployeeDetail({
           </div>
         </>
       ) : null}
+      <Dialog
+        open={confirmingDelete}
+        onOpenChange={(open) => {
+          if (!isDeleting) {
+            setConfirmingDelete(open);
+            if (!open) setDeleteError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {employee.name}?</DialogTitle>
+            <DialogDescription>
+              This removes {employee.name} from Personnel and Office. Past work and conversations
+              stay readable, but this employee cannot be restored.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError ? <p className="off-pers-delete-error">{deleteError}</p> : null}
+          <DialogFooter>
+            <Button
+              variant="subtle"
+              onClick={() => setConfirmingDelete(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void onDelete()} disabled={isDeleting}>
+              <Icon icon={Trash2} size="sm" />
+              {isDeleting ? 'Deleting…' : `Delete ${employee.name}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -982,6 +1047,15 @@ export function PersonnelSurface() {
               onTabChange={setTab}
               onDirtyChange={(d) => {
                 dirtyRef.current = d;
+              }}
+              onDeleted={() => {
+                dirtyRef.current = false;
+                selectEmployee(
+                  nextEmployeeIdAfterDelete(
+                    roster.map((employee) => employee.id),
+                    selected.id,
+                  ),
+                );
               }}
               guardPulse={guardPulse}
             />

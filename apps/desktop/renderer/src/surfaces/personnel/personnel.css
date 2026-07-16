@@ -317,6 +317,13 @@
   gap: var(--off-sp-2);
 }
 
+.off-pers-detail-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+}
+
 .off-pers-st-pill {
   height: 18px;
   font-size: var(--off-fs-label);
@@ -676,7 +683,7 @@
   padding: var(--off-sp-2) var(--off-sp-5);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--off-sp-3);
 }
 
@@ -699,23 +706,6 @@
   }
 }
 
-.off-pers-savebar-left {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-3);
-  flex-wrap: wrap;
-}
-
-.off-pers-del-confirm {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-2);
-  flex-wrap: wrap;
-  font-size: var(--off-fs-meta);
-  color: var(--off-danger);
-}
-
 .off-pers-save-error {
   flex: none;
   padding: var(--off-sp-3) var(--off-sp-7);
@@ -723,6 +713,12 @@
   color: var(--off-danger);
   border-top: 1px solid var(--off-line-soft);
   background: var(--off-surface-1);
+}
+
+.off-pers-delete-error {
+  margin: 0;
+  color: var(--off-danger);
+  font-size: var(--off-fs-meta);
 }
 
 /* ── Skills · rows ────────────────────────────── */
