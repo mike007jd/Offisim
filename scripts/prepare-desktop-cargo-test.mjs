@@ -14,6 +14,10 @@ export function ensureDesktopCargoTestPrereqs() {
   const executableStubs = [path.join(root, 'apps/desktop/src-tauri/resources/node/bin/node')];
   const fileStubs = [
     {
+      path: path.join(root, 'apps/desktop/src-tauri/resources/claude-agent-host.mjs'),
+      content: 'THIS IS A CARGO-TEST-ONLY STUB — run scripts/build-claude-agent-host.mjs\n',
+    },
+    {
       path: path.join(root, 'apps/desktop/src-tauri/resources/pi-agent-host.mjs'),
       content: 'THIS IS A CARGO-TEST-ONLY STUB — run scripts/build-pi-agent-host.mjs\n',
     },

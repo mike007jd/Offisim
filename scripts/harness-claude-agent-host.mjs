@@ -28,6 +28,7 @@ const [
   packageJson,
   desktopPackage,
   tauriConfig,
+  cargoTestPrereqs,
 ] = await Promise.all([
   readText('scripts/tauri-claude-agent-host.entry.mjs'),
   readText('apps/desktop/src-tauri/src/claude_agent_host/mod.rs'),
@@ -38,6 +39,7 @@ const [
   readText('package.json').then(JSON.parse),
   readText('apps/desktop/package.json').then(JSON.parse),
   readText('apps/desktop/src-tauri/tauri.conf.json').then(JSON.parse),
+  readText('scripts/prepare-desktop-cargo-test.mjs'),
 ]);
 
 assert.equal(packageJson.dependencies?.['@anthropic-ai/claude-agent-sdk'], undefined);
@@ -126,6 +128,8 @@ for (const command of [
 assert.ok(desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host'));
 assert.ok(tauriConfig.bundle.resources.includes('resources/claude-agent-host.mjs'));
 assert.ok(!tauriConfig.bundle.resources.some((path) => /claude-agent-sdk/iu.test(path)));
+assert.match(cargoTestPrereqs, /resources\/claude-agent-host\.mjs/);
+assert.match(cargoTestPrereqs, /scripts\/build-claude-agent-host\.mjs/);
 
 const guardFixture = await mkdtemp(join(tmpdir(), 'offisim-claude-workspace-guard-'));
 try {
