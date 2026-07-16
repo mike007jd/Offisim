@@ -21,6 +21,7 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           dest: ${{ runner.temp }}/setup-pnpm
+          version: 11.13.1
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -37,6 +38,9 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64]
     steps:
       - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.13.1
       - uses: actions/setup-node@v5
         with:
           node-version: 24

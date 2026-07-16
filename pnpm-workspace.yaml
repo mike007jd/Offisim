@@ -3,8 +3,14 @@ packages:
   - apps/desktop/renderer
   - packages/*
 
-onlyBuiltDependencies:
-  - better-sqlite3
+allowBuilds:
+  '@biomejs/biome@1.9.4': true
+  '@google/genai@1.52.0': false
+  'better-sqlite3@12.11.1': true
+  'esbuild@0.25.12': true
+  'esbuild@0.28.1': true
+  'protobufjs@7.6.5': false
+  'sharp@0.34.5': false
 
 overrides:
   drizzle-orm: 0.45.2
