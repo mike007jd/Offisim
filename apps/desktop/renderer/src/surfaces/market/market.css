@@ -1878,3 +1878,9 @@
     animation: none;
   }
 }
+
+/* Underlay wrapper: no box of its own; exists so the covered grid/manage
+   content can be made inert while the detail overlay is open. */
+.off-mkt-underlay {
+  display: contents;
+}
