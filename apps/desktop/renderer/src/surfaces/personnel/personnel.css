@@ -715,12 +715,6 @@
   background: var(--off-surface-1);
 }
 
-.off-pers-delete-error {
-  margin: 0;
-  color: var(--off-danger);
-  font-size: var(--off-fs-meta);
-}
-
 /* ── Skills · rows ────────────────────────────── */
 .off-pers-sk-empty {
   display: flex;
