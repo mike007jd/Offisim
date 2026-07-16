@@ -588,7 +588,7 @@ function EmployeeDetail({
           <div
             className={cn('off-pers-savebar', guardPulsing && 'is-guard-pulse')}
             onAnimationEnd={(e) => {
-              if (e.animationName === 'off-pers-guard-pulse') setGuardPulsing(false);
+              if (e.animationName === 'off-pers-guard-flash') setGuardPulsing(false);
             }}
           >
             <div className="off-pers-savebar-left">
@@ -650,6 +650,8 @@ function HireEmployeeDialog({
   const [appearanceSetup, setAppearanceSetup] = useState(createHireAppearance);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const selectedRuntime = models.data?.find((option) => option.value === model);
+  const supportsReasoning = selectedRuntime?.reasoning === true;
   const canSubmit = name.trim().length > 0 && role.trim().length > 0 && !isSaving;
 
   const reset = () => {
@@ -680,7 +682,7 @@ function HireEmployeeDialog({
         persona_json: JSON.stringify(newEmployeePersona(appearanceSetup.draft)),
         config_json: '{}',
         model: model || null,
-        thinking_level: model && thinkingLevel ? thinkingLevel : null,
+        thinking_level: model && supportsReasoning && thinkingLevel ? thinkingLevel : null,
       });
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
       useUiState.getState().selectEmployee(employee_id);
@@ -723,7 +725,9 @@ function HireEmployeeDialog({
             />
           </div>
           <div className="off-pers-hire-field">
-            <label htmlFor={`${roleInputId}-model`}>Model</label>
+            <label htmlFor={`${roleInputId}-model`}>
+              {selectedRuntime?.selectionKind === 'orchestration-engine' ? 'Engine' : 'Model'}
+            </label>
             <Select
               id={`${roleInputId}-model`}
               value={model}
@@ -747,24 +751,25 @@ function HireEmployeeDialog({
               ]}
             />
           </div>
-          <div className="off-pers-hire-field">
-            <label htmlFor={`${roleInputId}-thinking`}>Thinking level</label>
-            <Select
-              id={`${roleInputId}-thinking`}
-              value={thinkingLevel}
-              onChange={(event) => setThinkingLevel(event.target.value)}
-              disabled={
-                !model || models.data?.find((option) => option.value === model)?.reasoning !== true
-              }
-              options={[
-                { value: '', label: 'Use conversation level' },
-                ...(['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).map((level) => ({
-                  value: level,
-                  label: level,
-                })),
-              ]}
-            />
-          </div>
+          {supportsReasoning ? (
+            <div className="off-pers-hire-field">
+              <label htmlFor={`${roleInputId}-thinking`}>Thinking level</label>
+              <Select
+                id={`${roleInputId}-thinking`}
+                value={thinkingLevel}
+                onChange={(event) => setThinkingLevel(event.target.value)}
+                options={[
+                  { value: '', label: 'Use conversation level' },
+                  ...(['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).map(
+                    (level) => ({
+                      value: level,
+                      label: level,
+                    }),
+                  ),
+                ]}
+              />
+            </div>
+          ) : null}
           <div className="off-pers-hire-field">
             <label htmlFor={roleInputId}>Role</label>
             <Input

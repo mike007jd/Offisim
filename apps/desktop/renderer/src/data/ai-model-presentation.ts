@@ -27,10 +27,6 @@ function compactCheckedAt(value: string): string {
 }
 
 export function aiModelSourceLabel(source: AiModelSource): string {
-  const kind = source.kind === 'official-api' ? 'Official API' : 'Native catalog';
-  return `${kind} · ${sourceHost(source.sourceUrl)} · checked ${compactCheckedAt(source.checkedAt)}`;
-}
-
-export function aiAccountKindLabel(billingMode: AiBillingMode): string {
-  return billingMode === 'subscription' ? 'Subscription' : 'API';
+  if (source.kind === 'native') return 'Native engine identity';
+  return `Official API · ${sourceHost(source.sourceUrl)} · checked ${compactCheckedAt(source.checkedAt)}`;
 }

@@ -279,8 +279,8 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
       const ch = parent.clientHeight;
       syncOfficeCanvasBackingStore(canvas, cw, ch, dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#000000';
-      ctx.strokeStyle = '#000000';
+      ctx.fillStyle = '#000000'; // raw-hex-allowed: deterministic Canvas 2D reset sentinel
+      ctx.strokeStyle = '#000000'; // raw-hex-allowed: deterministic Canvas 2D reset sentinel
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
       ctx.filter = 'none';
@@ -292,10 +292,10 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
       ctx.setLineDash([]);
       ctx.lineDashOffset = 0;
       ctx.shadowBlur = 0;
-      ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0)'; // raw-hex-allowed: transparent Canvas reset
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
-      ctx.font = '10px sans-serif';
+      ctx.font = CANVAS_FONT_TOKENS.officeSceneReset;
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
       ctx.clearRect(0, 0, cw, ch);

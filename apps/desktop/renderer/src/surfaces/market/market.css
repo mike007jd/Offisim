@@ -15,11 +15,6 @@
   overflow: hidden;
 }
 
-.off-market.is-detail-mode {
-  display: grid;
-  grid-template-rows: auto 1fr;
-}
-
 /* filled-glyph variant for the inventory star */
 .off-icon-fill {
   fill: currentColor;
@@ -68,6 +63,7 @@
 
 /* ── Grid wrap + scroll ───────────────────────────────────────────────── */
 .off-mkt-grid-wrap {
+  position: relative;
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -601,8 +597,8 @@
     var(--off-line-soft) 37%,
     var(--off-surface-sunken) 63%
   );
-  background-size: 400% 100%;
-  animation: off-mkt-shimmer var(--off-motion-loop-base) var(--off-motion-loop-soft) infinite;
+  background-size: 200% 100%;
+  animation: off-shimmer var(--off-motion-loop-base) var(--off-motion-loop-soft) infinite;
   border-radius: var(--off-r-xs);
 }
 .off-mkt-sk.is-title {
@@ -625,24 +621,6 @@
   width: 46px;
   height: 11px;
 }
-@keyframes off-mkt-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
-  }
-}
-
-.off-spin {
-  animation: off-mkt-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
-}
-@keyframes off-mkt-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* ── Hero (empty / error) ─────────────────────────────────────────────── */
 .off-mkt-hero-wrap {
   display: flex;
@@ -704,6 +682,8 @@
 .off-md {
   --rc: var(--off-ink-3);
   --rcs: var(--off-surface-sunken);
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -1897,4 +1877,10 @@
   .off-spin {
     animation: none;
   }
+}
+
+/* Underlay wrapper: no box of its own; exists so the covered grid/manage
+   content can be made inert while the detail overlay is open. */
+.off-mkt-underlay {
+  display: contents;
 }

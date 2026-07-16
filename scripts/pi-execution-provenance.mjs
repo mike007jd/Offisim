@@ -15,19 +15,29 @@ function executionError(message, code = 'execution-target-mismatch') {
   return Object.assign(new Error(message), { code });
 }
 
-function requireModelSource(value) {
-  if (
-    !isRecord(value) ||
-    (value.kind !== 'official-api' && value.kind !== 'native') ||
-    !nonEmpty(value.sourceUrl) ||
-    !nonEmpty(value.checkedAt)
-  ) {
-    throw executionError('The execution target is missing a verified model source.');
+function optionalModelSource(value) {
+  if (value === undefined || value === null) return undefined;
+  if (!isRecord(value) || value.kind !== 'official-api') {
+    throw executionError('The API execution target has an invalid model source.');
+  }
+  const sourceUrl = nonEmpty(value.sourceUrl);
+  const checkedAt = nonEmpty(value.checkedAt);
+  try {
+    if (
+      !sourceUrl ||
+      new URL(sourceUrl).protocol !== 'https:' ||
+      !checkedAt ||
+      !Number.isFinite(Date.parse(checkedAt))
+    ) {
+      throw new Error();
+    }
+  } catch {
+    throw executionError('Official API model provenance must include an HTTPS source and checkedAt.');
   }
   return {
-    kind: value.kind,
-    sourceUrl: nonEmpty(value.sourceUrl),
-    checkedAt: nonEmpty(value.checkedAt),
+    kind: 'official-api',
+    sourceUrl,
+    checkedAt,
   };
 }
 
@@ -40,6 +50,30 @@ function stableJson(value) {
       .join(',')}}`;
   }
   return JSON.stringify(value);
+}
+
+function normalizedEndpointIdentity(model, provider) {
+  const rawEndpoint = nonEmpty(model?.baseUrl);
+  if (!rawEndpoint) return `provider:${provider}`;
+  try {
+    const endpoint = new URL(rawEndpoint);
+    endpoint.username = '';
+    endpoint.password = '';
+    endpoint.search = '';
+    endpoint.hash = '';
+    endpoint.pathname = endpoint.pathname.replace(/\/+$/u, '') || '/';
+    return endpoint.toString();
+  } catch {
+    return rawEndpoint.replace(/[?#].*$/u, '').replace(/\/+$/u, '') || `provider:${provider}`;
+  }
+}
+
+function anonymousEndpointAccountId(model, provider) {
+  const endpointFingerprint = createHash('sha256')
+    .update(normalizedEndpointIdentity(model, provider))
+    .digest('hex')
+    .slice(0, 16);
+  return `credential-generation:anonymous:${endpointFingerprint}`;
 }
 
 async function providerAccountMaterial(authStorage, modelRegistry, model, provider, credential) {
@@ -58,10 +92,7 @@ async function providerAccountMaterial(authStorage, modelRegistry, model, provid
     resolvedSecret = resolved?.ok ? nonEmpty(resolved.apiKey) : undefined;
   }
   resolvedSecret ??= nonEmpty(await authStorage.getApiKey(provider, { includeFallback: true }));
-  if (!resolvedSecret) {
-    throw executionError('The execution account identity is unavailable.', 'provenance-missing');
-  }
-  return `credential-generation:${resolvedSecret}`;
+  return resolvedSecret ? `credential-generation:${resolvedSecret}` : undefined;
 }
 
 export function runtimeModelRefFor(model) {
@@ -88,13 +119,15 @@ export async function executionAccountIdentity(authStorage, modelRegistry, model
     provider,
     credential,
   );
-  const accountFingerprint = createHash('sha256')
-    .update(`${provider}\0${billingMode}\0${accountMaterial}`)
-    .digest('hex')
-    .slice(0, 16);
+  const accountId = accountMaterial
+    ? `api:${provider}:${createHash('sha256')
+        .update(`${provider}\0${billingMode}\0${accountMaterial}`)
+        .digest('hex')
+        .slice(0, 16)}`
+    : anonymousEndpointAccountId(model, provider);
   return {
     engineId: 'api',
-    accountId: `api:${provider}:${accountFingerprint}`,
+    accountId,
     billingMode,
   };
 }
@@ -106,25 +139,26 @@ export async function executionProvenance(authStorage, modelRegistry, model, run
     throw executionError('The execution provenance is incomplete.', 'provenance-missing');
   }
   const account = await executionAccountIdentity(authStorage, modelRegistry, model);
+  const source = optionalModelSource(modelSource);
   return {
     ...account,
     // Product identity is the upstream leaf id. The adapter provider only exists
     // in runtimeModelRef / diagnostics and must never leak into modelId.
     modelId,
-    modelSource: requireModelSource(modelSource),
+    ...(source ? { modelSource: source } : {}),
     runId: resolvedRunId,
     adapter: PI_EXECUTION_ADAPTER,
   };
 }
 
 export function executionTargetDigest(expectedTarget, runtimeModelRef) {
-  const source = requireModelSource(expectedTarget?.modelSource);
+  const source = optionalModelSource(expectedTarget?.modelSource);
   const canonical = {
     engineId: nonEmpty(expectedTarget?.engineId),
     accountId: nonEmpty(expectedTarget?.accountId),
     billingMode: nonEmpty(expectedTarget?.billingMode),
     modelId: nonEmpty(expectedTarget?.modelId),
-    modelSource: source,
+    ...(source ? { modelSource: source } : {}),
     runtimeModelRef: nonEmpty(runtimeModelRef),
   };
   if (
@@ -176,8 +210,9 @@ export function assertExpectedExecutionTarget({
       );
     }
   }
-  const expectedSource = requireModelSource(expectedTarget.modelSource);
-  if (stableJson(expectedSource) !== stableJson(actual.modelSource)) {
+  const expectedSource = optionalModelSource(expectedTarget.modelSource);
+  const actualSource = optionalModelSource(actual.modelSource);
+  if (stableJson(expectedSource) !== stableJson(actualSource)) {
     throw executionError('Execution target model source changed before execution.');
   }
 }
@@ -198,8 +233,8 @@ export function assertSameExecutionAccount(source, actual) {
     }
   }
   if (
-    stableJson(requireModelSource(source.modelSource)) !==
-    stableJson(requireModelSource(actual.modelSource))
+    stableJson(optionalModelSource(source.modelSource)) !==
+    stableJson(optionalModelSource(actual.modelSource))
   ) {
     throw executionError(
       'Isolated text job provenance mismatch for modelSource.',
