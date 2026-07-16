@@ -15,6 +15,7 @@ import type { TurnExecutionProvenance } from './execution-provenance.js';
 interface PiAgentModelSummary {
   provider?: string;
   id?: string;
+  catalogId?: string;
   name?: string;
   api?: string;
   reasoning?: boolean;
@@ -87,6 +88,12 @@ export type PiAgentHostEvent =
       options?: string[];
       placeholder?: string;
       prefill?: string;
+      params?: unknown;
+    }
+  | {
+      kind: 'uiRequestResolved';
+      id: string;
+      resolution: 'answered' | 'cancelled' | 'timeout' | 'native';
     }
   | {
       kind: 'agentRun';

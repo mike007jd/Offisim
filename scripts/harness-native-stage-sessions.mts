@@ -226,7 +226,7 @@ const officeScene2DSource = read(
   'apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx',
 );
 assert.equal(
-  CANVAS_FONT_TOKENS.officeSceneReset,
+  CANVAS_FONT_TOKENS.canvasReset,
   '10px sans-serif',
   'the tokenized Canvas reset preserves the browser baseline value',
 );
@@ -237,7 +237,10 @@ for (const baseline of [
   'ctx.shadowBlur = 0',
   'ctx.shadowOffsetX = 0',
   'ctx.shadowOffsetY = 0',
-  'ctx.font = CANVAS_FONT_TOKENS.officeSceneReset',
+  'ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name',
+  'ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.name',
+  'ctx.shadowColor = OFFICE_SCENE_2D_COLORS.transparent',
+  'ctx.font = CANVAS_FONT_TOKENS.canvasReset',
 ]) {
   assert.match(
     officeScene2DSource,

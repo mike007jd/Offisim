@@ -3,15 +3,32 @@ import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { ComputerSetupPanel } from '@/surfaces/office/computer/ComputerSetupPanel.js';
-import { Bot, Cpu, MonitorSmartphone, PawPrint, Plug, Users, WalletCards } from 'lucide-react';
+import {
+  Bot,
+  Cable,
+  Cpu,
+  MonitorSmartphone,
+  PawPrint,
+  Plug,
+  Users,
+  WalletCards,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AdvancedConnectionsPane } from './AdvancedConnectionsPane.js';
 import { AiAccountsPane } from './AiAccountsPane.js';
 import { CompanionPane } from './CompanionPane.js';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
 import { RuntimePane } from './RuntimePane.js';
 
-type SettingsTab = 'providers' | 'runtime' | 'mcp' | 'computer' | 'companion' | 'external';
+type SettingsTab =
+  | 'providers'
+  | 'runtime'
+  | 'mcp'
+  | 'computer'
+  | 'companion'
+  | 'external'
+  | 'advanced';
 
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
   { key: 'providers', label: 'AI Accounts', icon: WalletCards },
@@ -20,6 +37,7 @@ const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> 
   { key: 'computer', label: 'Computer Use', icon: MonitorSmartphone },
   { key: 'companion', label: 'Codex Pets', icon: PawPrint },
   { key: 'external', label: 'External Employees', icon: Users },
+  { key: 'advanced', label: 'Advanced', icon: Cable },
 ];
 
 function SettingsCompanion({ tab }: { tab: SettingsTab }) {
@@ -97,6 +115,20 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
     );
   }
 
+  if (tab === 'advanced') {
+    return (
+      <aside className="off-set-companion" aria-label="Advanced connection summary">
+        <div className="off-set-comp-card">
+          <div className="off-set-comp-main">
+            <Icon icon={Cable} size="sm" />
+            Service connections
+          </div>
+          <p className="off-set-comp-copy">Configure self-hosted endpoints and access tokens.</p>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="off-set-companion" aria-label="AI account summary">
       <div className="off-set-comp-card">
@@ -155,6 +187,7 @@ export function SettingsSurface() {
               ) : null}
               {tab === 'companion' ? <CompanionPane /> : null}
               {tab === 'external' ? <ExternalEmployeesPane /> : null}
+              {tab === 'advanced' ? <AdvancedConnectionsPane /> : null}
             </div>
             <SettingsCompanion tab={tab} />
           </div>

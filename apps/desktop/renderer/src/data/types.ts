@@ -44,6 +44,17 @@ type EmployeeKind = 'internal' | 'external';
  *  blocked on a gate, failed, or offline/asleep. */
 export type EmployeePresence = 'working' | 'idle' | 'blocked' | 'failed' | 'offline';
 
+/** Exact graph_threads.status values projected into the renderer. */
+export type ThreadRuntimeStatus =
+  | 'queued'
+  | 'running'
+  | 'blocked'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | null;
+
 export interface Employee {
   id: string;
   name: string;
@@ -51,8 +62,6 @@ export interface Employee {
   kind: EmployeeKind;
   brandLabel?: string;
   online: boolean;
-  /** Richer presence used by Office team dock, Personnel roster and Contacts. */
-  presence?: EmployeePresence;
   avatarA: string;
   avatarB: string;
   appearance?: EmployeeAppearance;
@@ -87,6 +96,8 @@ export interface ChatThread {
   employeeId: string | null;
   updatedAt: number;
   runState: RunState;
+  /** Exact graph status; keeps blocked and failed distinct for Office presence. */
+  runtimeStatus: ThreadRuntimeStatus;
 }
 
 type MessageAuthor = 'boss' | 'employee' | 'system';
@@ -246,11 +257,23 @@ export interface RunCost {
   sessionTokens: number | null;
   sessionKnownTokens: number;
   sessionTokenCoverage: 'complete' | 'partial' | 'unavailable';
+  /** Sum of persisted root-run wall-clock durations for the selected Conversation. */
+  sessionDurationMs: number;
+  /** Exact engine/account lane(s) proven by the selected Conversation's persisted root usage. */
+  sessionAccounts: RunAccountingAccount[];
+  sessionCostKind: 'actual' | 'estimate' | 'unavailable' | 'none';
+  sessionCostLabel: string;
   costKind: 'actual' | 'estimate' | 'unavailable' | 'none';
   costLabel: string;
   live: boolean;
   breakdown: RunCostBreakdown[];
   alerts: TokenBudgetAlert[];
+}
+
+export interface RunAccountingAccount {
+  engineId: string;
+  accountId: string;
+  billingMode: 'api' | 'subscription';
 }
 
 export interface RunCostBreakdown {

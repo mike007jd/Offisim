@@ -72,6 +72,7 @@ async function check(name: string, run: () => void | Promise<void>): Promise<voi
 }
 
 const PROFILE = 'software-development';
+const GENERAL_PROFILE = 'general-work';
 const COMPANY = 'co-1';
 const CTX = { companyId: COMPANY, projectId: 'proj-1', repository: { inspected: true } } as const;
 
@@ -248,18 +249,20 @@ await check(
     );
     assert.equal(canSave(beforeSave), true, 'a previewed ready revision is savable');
 
-    // Save = persist via the service with the same model.
-    const saved = await svc.saveRevision(
-      {
-        loopId: loop.loopId,
-        sourcePrompt: 'add search and keep tests green',
-        context: CTX,
-        selectIfReady: true,
-      },
-      adapterModel(READY_TRANSPORT),
-    );
+    // Save persists the exact preview; it must not run the model a second time.
+    const saved = await svc.saveCompiledRevision({
+      loopId: loop.loopId,
+      sourcePrompt: 'add search and keep tests green',
+      selectIfReady: true,
+      compiled: preview,
+    });
     assert.equal(saved.status, 'ready');
     assert.equal(saved.revision.revisionNumber, 1, 'first save is v1');
+    assert.equal(
+      saved.revision.compiledIrJson,
+      JSON.stringify(preview.ir),
+      'the stored graph is byte-identical to the reviewed preview',
+    );
     const def = await svc.getLoop(loop.loopId);
     assert.equal(
       def.currentRevisionId,
@@ -275,10 +278,117 @@ await check(
     };
     const afterSave: LoopAuthoringModel = { ...beforeSave, compiled: savedView, justSaved: true };
     assert.equal(deriveAuthoringState(afterSave), 'saved');
+    assert.equal(canSave(afterSave), false, 'a persisted clean revision cannot be duplicated');
+
+    const rehydrated: LoopAuthoringModel = { ...afterSave, justSaved: false };
+    assert.equal(
+      deriveAuthoringState(rehydrated),
+      'saved',
+      'a reopened persisted revision is saved',
+    );
+    assert.equal(canSave(rehydrated), false, 'reopening does not enable a duplicate save');
     assert.equal(canUseInOffice(afterSave), true, 'a SAVED ready clean revision IS usable');
     assert.equal(useBlockedReason(afterSave), null, 'no block reason when usable');
   },
 );
+
+await check('saving a reviewed preview performs zero model calls', async () => {
+  const { svc } = freshSystem();
+  const loop = await svc.createLoop({
+    companyId: COMPANY,
+    title: 'No second call',
+    profileId: PROFILE,
+  });
+  let modelCalls = 0;
+  const model: LoopCompileModel = async (input) => {
+    modelCalls += 1;
+    return adapterModel(READY_TRANSPORT)(input);
+  };
+  const profile = getCompilerProfile(PROFILE)!;
+  const preview = await profile.compile(
+    { sourcePrompt: 'ship the reviewed plan', context: CTX },
+    model,
+  );
+  assert.equal(modelCalls, 1, 'preview generation calls the model once');
+  const globals = globalThis as unknown as Record<string, unknown>;
+  const nodeBuffer = globals.Buffer;
+  Reflect.deleteProperty(globals, 'Buffer');
+  try {
+    await svc.saveCompiledRevision({
+      loopId: loop.loopId,
+      sourcePrompt: 'ship the reviewed plan',
+      compiled: preview,
+    });
+  } finally {
+    globals.Buffer = nodeBuffer;
+  }
+  assert.equal(modelCalls, 1, 'saving does not call the model again');
+});
+
+await check('general work preserves the user steps, exit, retry, and escalation', async () => {
+  const profile = getCompilerProfile(GENERAL_PROFILE)!;
+  const prompt =
+    'Every weekday, review changed Markdown files, update stale project documentation, run the docs checks, and stop when all checks pass; after three failed attempts, ask me for help.';
+  const preview = await profile.compile({ sourcePrompt: prompt, context: CTX }, async () => ({
+    enhancedPrompt: prompt,
+  }));
+  assert.equal(preview.status, 'ready', JSON.stringify(preview.validation));
+  assert.ok(preview.ir);
+  const labels = preview.ir.nodes.map((node) => node.label);
+  assert.ok(labels.includes('Review changed Markdown files'));
+  assert.ok(labels.includes('Update stale project documentation'));
+  assert.ok(labels.includes('Run the docs checks'));
+  assert.ok(labels.includes('All checks pass'));
+  assert.ok(labels.includes('Ask me for help'));
+  assert.equal(
+    preview.ir.edges.find((edge) => edge.kind === 'retry')?.maxRetries,
+    3,
+    'the explicit retry limit is preserved',
+  );
+  assert.equal(
+    labels.some((label) => /parallel discovery|freeze contracts|implement in waves/i.test(label)),
+    false,
+    'unrequested software-development ceremony is not invented',
+  );
+});
+
+await check('general work keeps stop/help clauses out of the action list', async () => {
+  const profile = getCompilerProfile(GENERAL_PROFILE)!;
+  const prompt =
+    'Every Friday, collect unresolved customer feedback, group similar items, draft the three highest-priority follow-ups, and stop after the draft is ready; if any source is unavailable, ask me for help.';
+  const preview = await profile.compile({ sourcePrompt: prompt, context: CTX }, async () => ({
+    enhancedPrompt: prompt,
+  }));
+  assert.equal(preview.status, 'ready', JSON.stringify(preview.validation));
+  assert.ok(preview.ir);
+  const labels = preview.ir.nodes.map((node) => node.label);
+  assert.ok(labels.includes('The draft is ready'));
+  assert.ok(labels.includes('Ask me for help'));
+  assert.equal(
+    labels.some((label) => /^and stop/i.test(label)),
+    false,
+  );
+  assert.equal(preview.ir.edges.find((edge) => edge.kind === 'retry')?.maxRetries, undefined);
+  assert.equal(
+    preview.ir.edges.find((edge) => edge.kind === 'escalate')?.label,
+    'if any source is unavailable',
+  );
+});
+
+await check('general work accepts task-language retry units', async () => {
+  const profile = getCompilerProfile(GENERAL_PROFILE)!;
+  const prompt =
+    'Every Monday, review launch risks and stop when each critical risk has a mitigation; after two failed reviews, ask me for help.';
+  const preview = await profile.compile({ sourcePrompt: prompt, context: CTX }, async () => ({
+    enhancedPrompt: prompt,
+  }));
+  assert.equal(preview.status, 'ready', JSON.stringify(preview.validation));
+  assert.equal(preview.ir?.edges.find((edge) => edge.kind === 'retry')?.maxRetries, 2);
+  assert.equal(
+    preview.ir?.edges.find((edge) => edge.kind === 'escalate')?.label,
+    'after 2 attempts',
+  );
+});
 
 await check('editing the prompt after save → DIRTY (old graph stays, Use blocked)', () => {
   const savedView: CompiledRevisionView = {
@@ -298,8 +408,9 @@ await check('editing the prompt after save → DIRTY (old graph stays, Use block
   };
   assert.equal(isDirty(dirtyModel), true);
   assert.equal(deriveAuthoringState(dirtyModel), 'dirty', 'a changed prompt marks the graph stale');
+  assert.equal(canSave(dirtyModel), false, 'a stale graph cannot be saved under a new prompt');
   assert.equal(canUseInOffice(dirtyModel), false, 'a dirty graph cannot be Used');
-  assert.match(useBlockedReason(dirtyModel)!, /recompile/i);
+  assert.match(useBlockedReason(dirtyModel)!, /update/i);
 
   // Trailing whitespace alone does NOT mark dirty.
   const ws: LoopAuthoringModel = { ...dirtyModel, prompt: 'original prompt   ' };
@@ -358,6 +469,11 @@ await check(
       ...model,
       compiled: { ...view, savedRevisionId: saved.revision.revisionId, savedRevisionNumber: 1 },
     };
+    assert.equal(
+      deriveAuthoringState(savedModel),
+      'needs_input',
+      'a selected/hydrated needs_input revision still surfaces its question state',
+    );
     assert.equal(
       canUseInOffice(savedModel),
       false,

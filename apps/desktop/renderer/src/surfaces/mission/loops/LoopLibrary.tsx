@@ -26,7 +26,7 @@ import {
   SkeletonRows,
   errorDetail,
 } from '@/surfaces/shared/SurfaceStates.js';
-import { DEFAULT_COMPILER_PROFILE_ID, listCompilerProfiles } from '@offisim/core/browser';
+import { DEFAULT_COMPILER_PROFILE_ID } from '@offisim/core/browser';
 import type { LoopDefinition, LoopScheduleIntervalMinutes } from '@offisim/shared-types';
 import {
   Copy,
@@ -50,10 +50,6 @@ import { toast } from 'sonner';
  * Office / Duplicate / Archive. Completion is a RUN concept, never a Loop status.
  */
 
-const PROFILE_LABELS: Record<string, string> = Object.fromEntries(
-  listCompilerProfiles().map((p) => [p.id, p.displayName]),
-);
-
 type StatusFilter = 'all' | 'draft' | 'ready' | 'archived';
 
 const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
@@ -62,10 +58,6 @@ const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   ready: 'Ready',
   archived: 'Archived',
 };
-
-function profileLabel(id: string): string {
-  return PROFILE_LABELS[id] ?? id;
-}
 
 function timeAgo(iso: string): string {
   const then = Date.parse(iso);
@@ -105,21 +97,17 @@ export function LoopLibrary({ onOpenLoop }: LoopLibraryProps) {
   const createLoop = useCreateLoop(companyId);
 
   const [query, setQuery] = useState('');
-  const [profileFilter, setProfileFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-
-  const profiles = useMemo(() => listCompilerProfiles(), []);
 
   const filtered = useMemo(() => {
     const rows = loops.data ?? [];
     const q = query.trim().toLowerCase();
     return rows.filter((loop) => {
-      if (profileFilter !== 'all' && loop.profileId !== profileFilter) return false;
       if (statusFilter !== 'all' && loop.status !== statusFilter) return false;
       if (q && !`${loop.title} ${loop.summary}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [loops.data, query, profileFilter, statusFilter]);
+  }, [loops.data, query, statusFilter]);
 
   function handleNewLoop() {
     if (!companyId) return;
@@ -141,10 +129,6 @@ export function LoopLibrary({ onOpenLoop }: LoopLibraryProps) {
   return (
     <div className="off-loops-library">
       <header className="off-loops-head">
-        <div className="off-loops-head-title">
-          <Icon icon={Repeat} size="sm" />
-          Loops
-        </div>
         <div className="off-loops-head-actions">
           <div className="off-loops-search">
             <Search className="off-loops-search-icon" aria-hidden="true" />
@@ -156,24 +140,6 @@ export function LoopLibrary({ onOpenLoop }: LoopLibraryProps) {
               aria-label="Search loops"
             />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="subtle" size="sm">
-                <Icon icon={Filter} size="sm" />
-                {profileFilter === 'all' ? 'All profiles' : profileLabel(profileFilter)}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuRadioGroup value={profileFilter} onValueChange={setProfileFilter}>
-                <DropdownMenuRadioItem value="all">All profiles</DropdownMenuRadioItem>
-                {profiles.map((p) => (
-                  <DropdownMenuRadioItem key={p.id} value={p.id}>
-                    {p.displayName}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="subtle" size="sm">
@@ -263,7 +229,7 @@ function LoopCard({
 
   async function handleUse() {
     if (!loop.currentRevisionId) {
-      toast.message('Compile and save this Loop before using it in Office.');
+      toast.message('Generate and save this plan before using it in Office.');
       return;
     }
     const result = await openLoopInOffice(loop.loopId, loop.currentRevisionId);
@@ -298,12 +264,8 @@ function LoopCard({
         </div>
         <p className="off-loop-card-summary">{loop.summary || 'No description yet.'}</p>
         <div className="off-loop-card-meta">
-          <span className="off-loop-card-profile">{profileLabel(loop.profileId)}</span>
-          <span className="off-loop-card-dot" aria-hidden="true">
-            ·
-          </span>
           <span className="off-loop-card-rev">
-            {loop.currentRevisionId ? 'Has current revision' : 'Not compiled'}
+            {loop.currentRevisionId ? 'Saved plan' : 'Not generated'}
           </span>
           <span className="off-loop-card-time">{timeAgo(loop.updatedAt)}</span>
         </div>
@@ -331,7 +293,7 @@ function LoopCard({
           title={
             loop.currentRevisionId
               ? 'Add this Loop to an Office draft'
-              : 'Compile + save this Loop first'
+              : 'Generate and save this plan first'
           }
         >
           <Icon icon={Send} size="sm" />
@@ -347,7 +309,7 @@ function LoopCard({
               ? 'Select a project first'
               : loop.currentRevisionId
                 ? 'Start this Loop as a new project run'
-                : 'Compile + save this Loop first'
+                : 'Generate and save this plan first'
           }
         >
           <Icon icon={SquarePlay} size="sm" />

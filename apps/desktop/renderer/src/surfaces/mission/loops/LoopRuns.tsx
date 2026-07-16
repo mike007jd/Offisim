@@ -1,8 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useMissions } from '@/data/missions.js';
-import { Icon } from '@/design-system/icons/Icon.js';
-import { cn } from '@/lib/utils.js';
-import { missionStatusView } from '@/surfaces/mission/mission-domain.js';
+import { useLoopRuns } from '@/data/loops.js';
 import {
   EmptyState,
   ErrorState,
@@ -28,45 +25,75 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+type RunStatusTone = 'is-ok' | 'is-accent' | 'is-warn' | 'is-danger';
+
+function runStatusView(status: string | null): { label: string; tone: RunStatusTone } {
+  switch (status) {
+    case 'completed':
+      return { label: 'Completed', tone: 'is-ok' };
+    case 'failed':
+      return { label: 'Failed', tone: 'is-danger' };
+    case 'cancelled':
+      return { label: 'Cancelled', tone: 'is-danger' };
+    case 'blocked':
+      return { label: 'Blocked', tone: 'is-danger' };
+    case 'awaiting_user':
+      return { label: 'Needs input', tone: 'is-warn' };
+    case 'interrupted':
+      return { label: 'Interrupted', tone: 'is-warn' };
+    case 'paused':
+      return { label: 'Paused', tone: 'is-warn' };
+    case 'repairing':
+      return { label: 'Repairing', tone: 'is-warn' };
+    case 'verifying':
+      return { label: 'Verifying', tone: 'is-accent' };
+    case 'ready_to_resume':
+      return { label: 'Ready to resume', tone: 'is-accent' };
+    case 'draft':
+    case 'ready':
+      return { label: 'Starting', tone: 'is-accent' };
+    case 'running':
+      return { label: 'Running', tone: 'is-accent' };
+    default:
+      return { label: 'Starting', tone: 'is-accent' };
+  }
+}
+
 export function LoopRuns() {
   const companyId = useUiState((s) => s.companyId) || null;
-  const missions = useMissions(companyId);
+  const runs = useLoopRuns(companyId);
 
   return (
     <div className="off-loops-runs">
-      <div className="off-loops-runs-intro">
-        <Icon icon={History} size="sm" />
-        <span>Runs — persisted execution records for this company.</span>
-      </div>
-      {missions.isError ? (
+      {runs.isError ? (
         <ErrorState
           title="Couldn't load runs"
-          detail={errorDetail(missions.error, 'The runs list failed to load.')}
-          onRetry={() => void missions.refetch()}
+          detail={errorDetail(runs.error, 'The loop runs list failed to load.')}
+          onRetry={() => void runs.refetch()}
         />
-      ) : missions.isLoading ? (
+      ) : runs.isLoading ? (
         <SkeletonRows rows={4} />
-      ) : (missions.data?.length ?? 0) === 0 ? (
+      ) : (runs.data?.length ?? 0) === 0 ? (
         <EmptyState
           icon={History}
           title="No runs"
-          description="This company has no persisted execution records yet."
+          description="Run a saved loop and its execution will appear here."
         />
       ) : (
         <ul className="off-loops-runs-list">
-          {missions.data!.map((mission) => {
-            const view = missionStatusView(mission.status);
+          {runs.data?.map((run) => {
+            const status = runStatusView(run.missionStatus);
             return (
-              <li key={mission.mission_id} className="off-loops-run">
+              <li key={run.invocation_id} className="off-loops-run">
                 <span className="off-loops-run-main">
-                  <span className="off-loops-run-title">{mission.title}</span>
-                  <span className="off-loops-run-goal">{mission.goal}</span>
+                  <span className="off-loops-run-title">{run.loopTitle}</span>
+                  <span className="off-loops-run-goal">
+                    {run.mission_id ? 'Project run' : 'Office run'}
+                  </span>
                 </span>
                 <span className="off-loops-run-side">
-                  <span className={cn('off-loops-run-status', `is-${view.tone}`)}>
-                    {view.label}
-                  </span>
-                  <span className="off-loops-run-time">{timeAgo(mission.updated_at)}</span>
+                  <span className={`off-loops-run-status ${status.tone}`}>{status.label}</span>
+                  <span className="off-loops-run-time">{timeAgo(run.created_at)}</span>
                 </span>
               </li>
             );

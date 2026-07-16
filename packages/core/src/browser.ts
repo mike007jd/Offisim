@@ -524,6 +524,8 @@ export {
   DEFAULT_COMPILER_PROFILE_ID,
   getCompilerProfile,
   listCompilerProfiles,
+  GENERAL_WORK_PROFILE_ID,
+  generalWorkProfile,
   SOFTWARE_DEVELOPMENT_PROFILE_ID,
   softwareDevelopmentProfile,
   FLEET_DEVELOPMENT_LOOP_VERSION,
@@ -549,6 +551,7 @@ export type {
   LoopServiceDeps,
   CreateLoopInput,
   SaveRevisionInput,
+  SaveCompiledRevisionInput,
   SaveRevisionResult,
   SaveLoopSkill,
 } from './loops/index.js';

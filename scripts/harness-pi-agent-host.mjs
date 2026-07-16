@@ -830,17 +830,18 @@ assert(
   'desktop build must bundle the Pi Agent host',
 );
 assert(
-  !desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host') &&
-    !desktopPackage.scripts['build:frontend'].includes('build:codex-agent-host'),
-  'desktop build must not bundle Claude/Codex sidecars',
+  !desktopPackage.scripts['build:frontend'].includes('codex-app-server') &&
+    !desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host'),
+  'desktop build must leave external orchestration CLIs self-managed',
 );
 assert(
   tauriConfig.bundle.resources.includes('resources/pi-agent-host.mjs'),
   'release bundle must include the Pi Agent host',
 );
 assert(
-  !tauriConfig.bundle.resources.some((resource) => /claude|codex/u.test(resource)),
-  'release bundle must not include Claude/Codex sidecar resources',
+  !('externalBin' in tauriConfig.bundle) &&
+    !tauriConfig.bundle.resources.some((resource) => /codex|claude/u.test(resource)),
+  'release bundle must not embed external orchestration engines or their credentials',
 );
 assert(
   /pub struct PiAgentExecuteRequest[\s\S]*mcp_tools: Option<serde_json::Value>/.test(
@@ -1493,8 +1494,17 @@ try {
     'configuredProviderStatus must not be the full built-in provider catalog',
   );
   assert(
-    !('providerConfigs' in result.response) && !('providerTemplates' in result.response),
-    'Pi Agent diagnostics must not expose the removed provider-profile editor payload',
+    Array.isArray(result.response.providerConfigs) &&
+      result.response.providerConfigs.some((config) => config.provider === 'local-test') &&
+      Array.isArray(result.response.providerTemplates),
+    'Pi Agent diagnostics must expose safe provider summaries and edit templates',
+  );
+  assert(
+    !JSON.stringify({
+      providerConfigs: result.response.providerConfigs,
+      providerTemplates: result.response.providerTemplates,
+    }).includes('"apiKey"'),
+    'provider editor status must never expose raw API keys',
   );
   const invalidAgentDir = mkdtempSync(join(tmpdir(), 'offisim-pi-agent-invalid-'));
   try {

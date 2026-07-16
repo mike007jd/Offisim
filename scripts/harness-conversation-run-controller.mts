@@ -109,6 +109,7 @@ class FakeRuntime {
     id: string;
     confirmed?: boolean;
     value?: string;
+    answers?: Readonly<Record<string, { readonly answers: readonly string[] }>>;
     cancelled?: boolean;
   }> = [];
   abortWaiters = new Map<string, Deferred<void>>();
@@ -166,6 +167,7 @@ class FakeRuntime {
     id: string;
     confirmed?: boolean;
     value?: string;
+    answers?: Readonly<Record<string, { readonly answers: readonly string[] }>>;
     cancelled?: boolean;
   }): Promise<void> {
     this.answers.push(answer);
@@ -235,7 +237,7 @@ class FakeRuntime {
     this.emitTool(input, 'completed', 'workspace-status', 'Workspace', undefined, provenance);
   }
 
-  emitUiRequest(input: DesktopAgentRunInput, method: string, id = 'ui-1'): void {
+  emitUiRequest(input: DesktopAgentRunInput, method: string, id = 'ui-1', params?: unknown): void {
     this.eventBus.emit({
       type: 'agent.ui.request',
       entityId: id,
@@ -244,12 +246,14 @@ class FakeRuntime {
       threadId: input.threadId,
       timestamp: Date.now(),
       payload: {
+        engineId: 'api',
         requestId: `host-${id}`,
         runId: input.runId ?? 'missing-run',
         id,
         method,
         title: method === 'confirm' ? 'Approve command?' : 'Choose option',
-        message: 'Pi Agent needs a decision.',
+        message: 'The agent needs a decision.',
+        params,
       },
     } satisfies RuntimeEvent<Record<string, unknown>>);
   }
@@ -1269,6 +1273,7 @@ const scenarios: Array<{
       });
       assert.deepEqual(env.runtime.answers, [
         {
+          runId: 'approval-live-root',
           requestId: 'host-approval-live',
           id: 'ui-approval-live',
           confirmed: true,
@@ -1986,10 +1991,17 @@ const scenarios: Array<{
   {
     name: 'stop is idempotent and persists interrupted partial assistant checkpoint',
     criteria:
-      'Pass when repeated Stop aborts runtime once, snapshot becomes interrupted, and the persisted assistant checkpoint is marked interrupted.',
+      'Pass when repeated Stop aborts runtime once, snapshot immediately retires running tools, and the persisted assistant checkpoint is marked interrupted.',
     run: async () => {
       const env = makeEnv();
       env.runtime.onExecute = async (input) => {
+        env.runtime.emitTool(
+          input,
+          'started',
+          'tool-stop-shell',
+          'bash',
+          JSON.stringify({ input: { command: 'sleep 30' } }),
+        );
         env.runtime.emitContent(input, 'partial before stop');
         await env.runtime.waitForAbort(input.threadId);
         throw new Error('aborted');
@@ -2005,6 +2017,10 @@ const scenarios: Array<{
         'interrupted run',
         () => env.controller.getSnapshot('thread-1').phase === 'interrupted',
       );
+      const interruptedSnapshot = env.controller.getSnapshot('thread-1');
+      const interruptedAssistant = interruptedSnapshot.liveMessages[1];
+      assert.equal(interruptedAssistant?.status, 'interrupted');
+      assert.equal(interruptedAssistant && 'toolCalls' in interruptedAssistant, false);
       assert.deepEqual(env.runtime.aborts, ['thread-1']);
       await waitFor('durable interrupted checkpoint after runtime settlement', () =>
         env.persisted.some((call) => call.message.status === 'interrupted'),
@@ -2012,6 +2028,7 @@ const scenarios: Array<{
       return {
         phase: env.controller.getSnapshot('thread-1').phase,
         aborts: env.runtime.aborts,
+        visibleRunningTools: 0,
         interruptedPersisted: env.persisted.filter((call) => call.message.status === 'interrupted')
           .length,
       };
@@ -2280,9 +2297,88 @@ const scenarios: Array<{
     },
   },
   {
-    name: 'unsupported UI request auto-cancels and records history',
+    name: 'request user input submits structured answers without persisting secrets',
     criteria:
-      'Pass when non-confirm UI primitives are cancelled automatically, written to history, and do not leave a pending approval.',
+      'Pass when up to three generic questions remain live, answers are keyed by question id, and secret answer values never reach active/history/event persistence.',
+    run: async () => {
+      const env = makeEnv();
+      const secret = 'top-secret-never-persist';
+      env.runtime.onExecute = async (input) => {
+        env.runtime.emitUiRequest(input, 'requestUserInput', 'ui-input', {
+          questions: [
+            {
+              id: 'scope',
+              header: 'Scope',
+              question: 'Which area?',
+              options: [
+                { label: 'Renderer', description: 'Desktop UI' },
+                { label: 'Runtime', description: 'Agent runtime' },
+              ],
+              isOther: true,
+              isSecret: false,
+            },
+            {
+              id: 'token',
+              header: 'Credential',
+              question: 'Temporary token',
+              options: null,
+              isOther: false,
+              isSecret: true,
+            },
+          ],
+        });
+        await waitFor('structured input answer', () => env.runtime.answers.length === 1);
+        env.runtime.emitContent(input, 'continued after input');
+        return { text: 'continued after input' };
+      };
+      await submitDefault(env.controller);
+      await waitFor(
+        'request user input pending',
+        () => env.controller.getSnapshot('thread-1').phase === 'awaiting-approval',
+      );
+      const approval = env.controller.getSnapshot('thread-1').approval;
+      assert.ok(approval);
+      assert.equal(approval.engineId, 'api');
+      assert.equal(approval.questions?.length, 2);
+      const activeBeforeAnswer = env.repos.activeRows.get('thread-1');
+      assert.ok(activeBeforeAnswer);
+      assert.doesNotMatch(JSON.stringify(activeBeforeAnswer), new RegExp(secret, 'u'));
+      await env.controller.answerApproval({
+        threadId: 'thread-1',
+        attemptId: approval.attemptId,
+        hostRequestId: approval.hostRequestId,
+        uiRequestId: approval.uiRequestId,
+        answers: {
+          scope: { answers: ['Renderer'] },
+          token: { answers: [secret] },
+        },
+      });
+      await waitFor(
+        'request user input run complete',
+        () => env.controller.getSnapshot('thread-1').phase === 'completed',
+      );
+      assert.deepEqual(env.runtime.answers[0]?.answers, {
+        scope: { answers: ['Renderer'] },
+        token: { answers: [secret] },
+      });
+      const persistedProjection = JSON.stringify({
+        events: env.appendedEvents,
+        history: env.repos.historyRows,
+        active: [...env.repos.activeRows.values()],
+      });
+      assert.doesNotMatch(persistedProjection, new RegExp(secret, 'u'));
+      assert.equal(env.repos.historyRows[0]?.freeform_response, null);
+      return {
+        questionIds: approval.questions?.map((question) => question.id),
+        runtimeAnswerKeys: Object.keys(env.runtime.answers[0]?.answers ?? {}),
+        persistedSecret: persistedProjection.includes(secret),
+      };
+    },
+  },
+  {
+    name: 'unknown UI request auto-cancels without creating a durable card',
+    criteria:
+      'Pass when an unknown UI primitive is cancelled immediately without a fake approval card or durable interaction history.',
     run: async () => {
       const env = makeEnv();
       env.runtime.onExecute = async (input) => {
@@ -2297,11 +2393,11 @@ const scenarios: Array<{
         () => env.controller.getSnapshot('thread-1').phase === 'completed',
       );
       assert.equal(env.runtime.answers[0]?.cancelled, true);
-      assert.equal(env.repos.historyRows[0]?.status, 'cancelled');
+      assert.equal(env.repos.historyRows.length, 0);
       assert.equal(env.controller.getSnapshot('thread-1').approval, null);
       return {
         answer: env.runtime.answers[0],
-        historyStatus: env.repos.historyRows[0]?.status,
+        historyCount: env.repos.historyRows.length,
         approval: env.controller.getSnapshot('thread-1').approval,
       };
     },
@@ -2698,6 +2794,7 @@ const scenarios: Array<{
           accountId: 'subscription-test',
           billingMode: 'subscription',
           modelId: 'provider/model-leaf',
+          runtimeModelRef: 'codex:preset-test',
           runId: input.runId ?? 'missing-run',
         },
       });

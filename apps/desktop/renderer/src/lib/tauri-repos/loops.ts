@@ -14,7 +14,7 @@ import type {
   NewLoopSkillBinding,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import { getTauriDb } from '../tauri-db';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
@@ -104,10 +104,14 @@ export function createLoopTauriRepos(db: TauriDrizzleDb): LoopTauriRepos {
         .orderBy(asc(schema.loopRevisions.revision_number))) as LoopRevisionRow[];
     },
     async maxRevisionNumber(loopId) {
-      const rows = (await db
-        .select({ max: sql<number | null>`max(${schema.loopRevisions.revision_number})` })
-        .from(schema.loopRevisions)
-        .where(eq(schema.loopRevisions.loop_id, loopId))) as Array<{ max: number | null }>;
+      // Keep aggregate reads on the Rust SQLite boundary. Drizzle's proxy maps
+      // aggregate results through its Node-oriented bigint codec, which reaches
+      // for `Buffer` in the Tauri WebView even though this column is an integer.
+      const rawDb = await getTauriDb();
+      const rows = await rawDb.select<Array<{ max: number | null }>>(
+        'SELECT max(revision_number) AS max FROM loop_revisions WHERE loop_id = $1',
+        [loopId],
+      );
       return rows[0]?.max ?? 0;
     },
   };
@@ -152,10 +156,14 @@ export function createLoopTauriRepos(db: TauriDrizzleDb): LoopTauriRepos {
         .orderBy(asc(schema.loopInvocations.created_at))) as LoopInvocationRow[];
     },
     async countByLoop(loopId) {
-      const rows = (await db
-        .select({ count: sql<number>`count(*)` })
-        .from(schema.loopInvocations)
-        .where(eq(schema.loopInvocations.loop_id, loopId))) as Array<{ count: number }>;
+      // Keep aggregate reads on the Rust SQLite boundary for the same reason as
+      // maxRevisionNumber above: Drizzle's proxy bigint codec reaches for Node's
+      // Buffer, which does not exist in the Tauri WebView.
+      const rawDb = await getTauriDb();
+      const rows = await rawDb.select<Array<{ count: number }>>(
+        'SELECT count(*) AS count FROM loop_invocations WHERE loop_id = $1',
+        [loopId],
+      );
       return rows[0]?.count ?? 0;
     },
     async setMissionId(invocationId, missionId) {

@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
 import { useMissionBeats } from '@/assistant/runtime/office-dramaturgy.js';
 import { useOfficeLayout, useRunCost } from '@/data/queries.js';
+import { taskAccountingPresentation } from '@/data/task-accounting-presentation.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
@@ -19,7 +20,8 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react';
-import { Suspense, useSyncExternalStore } from 'react';
+import { Suspense, useEffect, useRef, useSyncExternalStore } from 'react';
+import { toast } from 'sonner';
 import { RecoveryPanel } from './RecoveryPanel.js';
 import { WorkloadDrilldown } from './WorkloadDrilldown.js';
 import { OfficeScene2D } from './scene/OfficeScene2D.js';
@@ -84,8 +86,35 @@ export function OfficeStage() {
   const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
   const setSurface = useUiState((s) => s.setSurface);
   const companyId = useUiState((s) => s.companyId);
+  const selectedThreadId = useUiState((s) => s.selectedThreadId);
+  const openSettings = useUiState((s) => s.openSettings);
 
   const runCost = useRunCost();
+  const accounting = taskAccountingPresentation(runCost.data);
+  const lastBudgetToastRef = useRef('');
+  useEffect(() => {
+    const signature = (runCost.data?.alerts ?? [])
+      .map(
+        (item) =>
+          `${companyId}:${selectedThreadId ?? 'none'}:${item.scope}:${item.level}:${item.used}:${item.budget}`,
+      )
+      .join('|');
+    if (!signature) {
+      lastBudgetToastRef.current = '';
+      return;
+    }
+    if (signature === lastBudgetToastRef.current) return;
+    lastBudgetToastRef.current = signature;
+    for (const item of runCost.data?.alerts ?? []) {
+      const scope = item.scope === 'monthly' ? 'Monthly company' : 'Current Conversation';
+      const message = `${scope} token alert ${item.level === 'critical' ? 'threshold reached' : 'at 80%'}`;
+      const detail = `${item.lowerBound ? 'At least ' : ''}${item.used.toLocaleString()} / ${item.budget.toLocaleString()} tokens. Advisory only — this run continues.`;
+      toast.warning(message, {
+        description: detail,
+        action: { label: 'Budget settings', onClick: () => openSettings('runtime') },
+      });
+    }
+  }, [companyId, openSettings, runCost.data?.alerts, selectedThreadId]);
   const conversationRuns = useActiveConversationRuns();
   const activeMissionRuns = useSyncExternalStore(
     missionRunManager.subscribe,
@@ -112,17 +141,7 @@ export function OfficeStage() {
 
   return (
     <section className={cn('off-stage', isRunning && 'is-live')}>
-      <StageTopBar
-        isRunning={isRunning}
-        tokensLabel={
-          runCost.data?.tokenCoverage === 'complete' && runCost.data.tokens !== null
-            ? runCost.data.tokens.toLocaleString()
-            : runCost.data?.tokenCoverage === 'partial'
-              ? `≥${runCost.data.knownTokens.toLocaleString()}`
-              : '—'
-        }
-        costLabel={runCost.data?.costLabel ?? 'Cost pending'}
-      />
+      <StageTopBar isRunning={isRunning} accounting={accounting} />
       <div
         className={cn(
           'off-scene-host',

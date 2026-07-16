@@ -13,7 +13,7 @@ import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
 import type { ZoneKind } from '@/data/types.js';
 import { resolveAppearance } from '@/lib/avatar.js';
-import { CANVAS_FONT_TOKENS } from '@/styles/visual-tokens.js';
+import { CANVAS_FONT_TOKENS, CANVAS_RADIUS_TOKENS } from '@/styles/visual-tokens.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { openDeliveryHistory } from './delivery-history.js';
@@ -279,8 +279,8 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
       const ch = parent.clientHeight;
       syncOfficeCanvasBackingStore(canvas, cw, ch, dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#000000'; // raw-hex-allowed: deterministic Canvas 2D reset sentinel
-      ctx.strokeStyle = '#000000'; // raw-hex-allowed: deterministic Canvas 2D reset sentinel
+      ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
+      ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.name;
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
       ctx.filter = 'none';
@@ -292,10 +292,10 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
       ctx.setLineDash([]);
       ctx.lineDashOffset = 0;
       ctx.shadowBlur = 0;
-      ctx.shadowColor = 'rgba(0, 0, 0, 0)'; // raw-hex-allowed: transparent Canvas reset
+      ctx.shadowColor = OFFICE_SCENE_2D_COLORS.transparent;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
-      ctx.font = CANVAS_FONT_TOKENS.officeSceneReset;
+      ctx.font = CANVAS_FONT_TOKENS.canvasReset;
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
       ctx.clearRect(0, 0, cw, ch);
@@ -309,7 +309,14 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
 
       // floor
       ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
-      roundRect(ctx, wx(-floorW / 2), wy(-floorD / 2), floorW * scale, floorD * scale, 14);
+      roundRect(
+        ctx,
+        wx(-floorW / 2),
+        wy(-floorD / 2),
+        floorW * scale,
+        floorD * scale,
+        CANVAS_RADIUS_TOKENS.officeFloor,
+      );
       ctx.fill();
       ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.floorLine;
       ctx.stroke();
@@ -332,7 +339,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           wy(zone.cz - zone.d / 2),
           zone.w * scale,
           zone.d * scale,
-          10,
+          CANVAS_RADIUS_TOKENS.zone,
         );
         ctx.fill();
         if (!pip) {
@@ -471,7 +478,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           const lx = 0.25 * source.sx + 0.5 * mx + 0.25 * target.sx;
           const ly = 0.25 * source.sy + 0.5 * my + 0.25 * target.sy + slot * 17;
           ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
-          roundRect(ctx, lx - textW / 2 - 5, ly - 8, textW + 10, 15, 7);
+          roundRect(ctx, lx - textW / 2 - 5, ly - 8, textW + 10, 15, CANVAS_RADIUS_TOKENS.label);
           ctx.fill();
           ctx.fillStyle = ink.packet;
           ctx.textAlign = 'center';
@@ -504,7 +511,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
         const ax = anchor.sx;
         const ay = anchor.sy + 15;
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
-        roundRect(ctx, ax - anchorW / 2 - 4, ay - 8, anchorW + 8, 14, 7);
+        roundRect(ctx, ax - anchorW / 2 - 4, ay - 8, anchorW + 8, 14, CANVAS_RADIUS_TOKENS.label);
         ctx.fill();
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.zoneLabel;
         ctx.textAlign = 'center';
@@ -538,7 +545,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
         const y0 = y1 - shelfH;
         const attentionShelf = frame.attention?.target === 'delivery';
         ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
-        roundRect(ctx, x0, y0, shelfW, shelfH, 8);
+        roundRect(ctx, x0, y0, shelfW, shelfH, CANVAS_RADIUS_TOKENS.deliveryShelf);
         ctx.fill();
         // Attention (frame.attention → delivery): a gentle artifact-ink border.
         ctx.strokeStyle = attentionShelf
@@ -558,7 +565,14 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           ctx.globalAlpha = Math.min(1, glowLeft / 1600);
           ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.artifactPacket;
           ctx.lineWidth = 2.5;
-          roundRect(ctx, x0 - 2.5, y0 - 2.5, shelfW + 5, shelfH + 5, 10);
+          roundRect(
+            ctx,
+            x0 - 2.5,
+            y0 - 2.5,
+            shelfW + 5,
+            shelfH + 5,
+            CANVAS_RADIUS_TOKENS.deliveryShelfGlow,
+          );
           ctx.stroke();
           ctx.restore();
         }
@@ -578,7 +592,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           const cx0 = x0 + 6;
           const cw = shelfW - 12;
           ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
-          roundRect(ctx, cx0, chipY, cw, chipH, 6);
+          roundRect(ctx, cx0, chipY, cw, chipH, CANVAS_RADIUS_TOKENS.chip);
           ctx.fill();
           ctx.strokeStyle = newest
             ? OFFICE_SCENE_2D_COLORS.artifactPacket
@@ -705,7 +719,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
         // desk — below ~14px/unit it is no longer legible as furniture
         if (scale >= 14) {
           ctx.fillStyle = OFFICE_SCENE_2D_COLORS.desk;
-          roundRect(ctx, sx - r * 1.1, sy + r * 0.5, r * 2.2, r * 0.9, 4);
+          roundRect(ctx, sx - r * 1.1, sy + r * 0.5, r * 2.2, r * 0.9, CANVAS_RADIUS_TOKENS.desk);
           ctx.fill();
         }
 
@@ -764,13 +778,13 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           const markerColor = officeResourceMarkerColor(topIssue.severity);
           if (filled) {
             ctx.fillStyle = markerColor;
-            roundRect(ctx, mx - 6, my - 6, 12, 12, 4);
+            roundRect(ctx, mx - 6, my - 6, 12, 12, CANVAS_RADIUS_TOKENS.resourceMarker);
             ctx.fill();
             ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
           } else {
             ctx.strokeStyle = markerColor;
             ctx.lineWidth = 1.4;
-            roundRect(ctx, mx - 6, my - 6, 12, 12, 4);
+            roundRect(ctx, mx - 6, my - 6, 12, 12, CANVAS_RADIUS_TOKENS.resourceMarker);
             ctx.stroke();
             ctx.fillStyle = markerColor;
           }
@@ -782,7 +796,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           const mx = sx + r + 5;
           const my = sy - r - 4;
           ctx.fillStyle = OFFICE_SCENE_2D_COLORS.stateBlocked;
-          roundRect(ctx, mx - 5, my - 5, 10, 10, 3.5);
+          roundRect(ctx, mx - 5, my - 5, 10, 10, CANVAS_RADIUS_TOKENS.blockedMarker);
           ctx.fill();
         }
 
@@ -817,7 +831,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           const cyTop = cy - chipH / 2;
           for (const cell of cells) {
             ctx.fillStyle = CHIP_TONE_2D[cell.tone];
-            roundRect(ctx, cx, cyTop, cell.w, chipH, 6);
+            roundRect(ctx, cx, cyTop, cell.w, chipH, CANVAS_RADIUS_TOKENS.chip);
             ctx.fill();
             ctx.fillStyle = OFFICE_SCENE_2D_COLORS.floor;
             ctx.fillText(cell.text, cx + cell.w / 2, cy + 4);
@@ -827,7 +841,7 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           // read-only drilldown as the bubble region.
           if (wl.overflow) {
             ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelfLine;
-            roundRect(ctx, cx, cyTop, overflowW, chipH, 6);
+            roundRect(ctx, cx, cyTop, overflowW, chipH, CANVAS_RADIUS_TOKENS.chip);
             ctx.fill();
             ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
             ctx.fillText('+…', cx + overflowW / 2, cy + 4);

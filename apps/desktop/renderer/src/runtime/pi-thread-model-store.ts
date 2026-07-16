@@ -37,8 +37,6 @@ interface PiThreadModelStore {
   byThread: Record<string, string>;
   /** Set (non-empty) or clear (empty string) this thread's model override. */
   setThreadModel: (threadId: string, model: string) => void;
-  /** Drop persisted picks that are no longer in the runtime's available-model list. */
-  pruneInvalidModels: (validValues: readonly string[]) => void;
 }
 
 export const usePiThreadModelStore = create<PiThreadModelStore>((set) => ({
@@ -52,20 +50,12 @@ export const usePiThreadModelStore = create<PiThreadModelStore>((set) => ({
       saveMap(next);
       return { byThread: next };
     }),
-  pruneInvalidModels: (validValues) =>
-    set((state) => {
-      const valid = new Set(validValues);
-      const entries = Object.entries(state.byThread).filter(([, value]) => valid.has(value));
-      if (entries.length === Object.keys(state.byThread).length) return state;
-      const next = Object.fromEntries(entries);
-      saveMap(next);
-      return { byThread: next };
-    }),
 }));
 
 /**
- * Effective model selector for a thread. Empty means the engine gateway chooses
- * the first verified stable model for the bound account; adapters never choose.
+ * Explicit model selector for a thread. Empty means the engine gateway continues
+ * the durable exact leaf when one exists; only a new task uses the live default.
+ * Adapters never choose or silently replace this value.
  */
 export function resolveThreadModel(threadId: string): string {
   return usePiThreadModelStore.getState().byThread[threadId] || '';

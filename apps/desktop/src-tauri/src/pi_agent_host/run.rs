@@ -1101,20 +1101,32 @@ pub(super) async fn do_execute<R: tauri::Runtime>(
             binding,
             resume_session,
         } => {
-            let exact_session = resume_session
-                .as_ref()
-                .map(|session| ExactNativeSession {
-                    file: session.file.as_path(),
-                    id: session.id.as_str(),
-                })
-                .or_else(|| {
-                    conversation_session
-                        .as_ref()
-                        .map(|session| ExactNativeSession {
-                            file: session.0.as_path(),
-                            id: session.1.as_str(),
-                        })
-                });
+            let resumed_exact_session = match resume_session.as_ref() {
+                Some(crate::task_workspace_binding::NativeSessionReference::FileBacked {
+                    file,
+                    id,
+                }) => Some(ExactNativeSession {
+                    file: file.as_path(),
+                    id: id.as_str(),
+                }),
+                Some(crate::task_workspace_binding::NativeSessionReference::Opaque {
+                    engine_id,
+                    ..
+                }) => {
+                    return Err(HostError::Request(format!(
+                        "Cannot resume a {engine_id} native session through the API engine."
+                    )));
+                }
+                None => None,
+            };
+            let exact_session = resumed_exact_session.or_else(|| {
+                conversation_session
+                    .as_ref()
+                    .map(|session| ExactNativeSession {
+                        file: session.0.as_path(),
+                        id: session.1.as_str(),
+                    })
+            });
             execute_with_bound_workspace(app, &req, on_event, token, scope, *binding, exact_session)
                 .await?
         }

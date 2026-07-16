@@ -52,8 +52,8 @@ export function SkillsTab({ employeeId }: SkillsTabProps) {
                 >
                   <Icon icon={skill.runtimeInjected ? CheckCircle2 : TriangleAlert} size="sm" />
                   {skill.runtimeInjected
-                    ? 'Injected into Pi runtime'
-                    : 'SKILL.md missing — not injected'}
+                    ? 'Ready for AI tasks'
+                    : 'SKILL.md missing — unavailable to AI tasks'}
                 </span>
               </div>
             </div>

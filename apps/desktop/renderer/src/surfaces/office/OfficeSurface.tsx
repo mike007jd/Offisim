@@ -19,10 +19,10 @@ export function OfficeSurface() {
         stageMaximized && 'is-stage-maximized',
       )}
     >
-      <WorkspacePanel />
+      {!leftCollapsed ? <WorkspacePanel /> : null}
       <OfficeStage />
       <TeamDock />
-      <ChatRail />
+      {!rightCollapsed ? <ChatRail /> : null}
     </div>
   );
 }

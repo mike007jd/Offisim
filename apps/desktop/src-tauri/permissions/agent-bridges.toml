@@ -1,11 +1,22 @@
 [[permission]]
 identifier = "agent-bridges"
-description = "Allow Pi Agent host, runtime session, project workspace, and MCP bridge commands."
+description = "Allow AI engine hosts, runtime sessions, project workspace, and MCP bridge commands."
 commands.allow = [
   "local_db_execute",
   "local_db_select",
   "local_db_execute_transaction",
   "pi_agent_status",
+  "pi_agent_open_config_folder",
+  "pi_agent_save_provider",
+  "codex_agent_execute",
+  "codex_agent_resume",
+  "codex_agent_enhance",
+  "codex_agent_abort",
+  "codex_agent_answer",
+  "codex_agent_stream_snapshot",
+  "codex_agent_release_stream",
+  "codex_agent_reattach",
+  "codex_agent_status",
   "agent_runtime_execute",
   "agent_runtime_enhance",
   "agent_runtime_collaborate",

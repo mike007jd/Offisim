@@ -7,13 +7,6 @@ import {
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/design-system/primitives/dialog.js';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -22,8 +15,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
-import { Input } from '@/design-system/primitives/input.js';
-import { useQueryClient } from '@tanstack/react-query';
+import { cn } from '@/lib/utils.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDownNarrowWide,
@@ -31,11 +23,11 @@ import {
   Building2,
   ChevronDown,
   CloudUpload,
-  KeyRound,
   Layers,
   LayoutGrid,
   Loader2,
   Search,
+  Settings2,
   Sparkles,
   Store,
   Upload,
@@ -59,7 +51,6 @@ import {
   type PublishPackageRequest,
   canInstallListing,
   describeFileImportError,
-  marketplaceTokenConfigured,
   useCancelPackageImport,
   useConfirmPackageInstall,
   useImportPackageFile,
@@ -69,8 +60,8 @@ import {
   usePublishSources,
   usePublishedDrafts,
   useRegistryConnection,
-  writeMarketplaceToken,
 } from './market-data.js';
+import { marketSearchPlaceholder } from './market-presentation.js';
 import { type SortKey, useMarketUi } from './market-store.js';
 
 type KindFilter = 'all' | ListingKind;
@@ -111,8 +102,8 @@ const GAP = 14;
 const ROW_HEIGHT = 196;
 
 export function MarketSurface() {
-  const queryClient = useQueryClient();
   const companyId = useUiState((s) => s.companyId);
+  const openSettings = useUiState((s) => s.openSettings);
   const listings = useMarketListings(companyId);
   const sources = usePublishSources(companyId);
   const registryConnection = useRegistryConnection();
@@ -139,7 +130,6 @@ export function MarketSurface() {
     null,
   );
   const [publishOpen, setPublishOpen] = useState(false);
-  const [registryTokenOpen, setRegistryTokenOpen] = useState(false);
   const [detailListingId, setDetailListingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const registryInstallAbortRef = useRef<AbortController | null>(null);
@@ -189,8 +179,9 @@ export function MarketSurface() {
         setInstallOpen(true);
       } catch (error) {
         if (controller.signal.aborted) return;
-        toast.error('Registry install failed', {
-          description: error instanceof Error ? error.message : String(error),
+        console.error('[MarketSurface] Registry package preparation failed', error);
+        toast.error('Download failed', {
+          description: 'The item could not be prepared for installation. Try again.',
         });
       } finally {
         if (registryInstallAbortRef.current === controller) {
@@ -216,11 +207,11 @@ export function MarketSurface() {
       setPendingPackageInstall(pending);
       setInstallTarget(pending.listing);
       setInstallOpen(true);
-      toast.success('Package verified', {
-        description: `${pending.listing.name} is ready for install review.`,
+      toast.success('Ready to install', {
+        description: `Review ${pending.listing.name}, then confirm the installation.`,
       });
     } catch (error) {
-      toast.error('Package import failed', {
+      toast.error('Import failed', {
         description: describeFileImportError(error),
       });
     }
@@ -242,7 +233,7 @@ export function MarketSurface() {
 
   async function handleInstall(listing: MarketListing, values: InstallBindingValues) {
     if (!pendingPackageInstall || listing.id !== pendingPackageInstall.listing.id) {
-      throw new Error('This package does not have a prepared local install transaction.');
+      throw new Error('This item is not ready to install. Try importing it again.');
     }
     const result = await confirmPackageInstall.mutateAsync({
       pending: pendingPackageInstall,
@@ -250,45 +241,27 @@ export function MarketSurface() {
     });
     setPendingPackageInstall(null);
     if (result.installReceiptError) {
-      toast.error('Package installed locally; registry receipt failed', {
-        description: result.installReceiptError,
+      toast.error('Installed, but online sync failed', {
+        description: 'The item is available locally. Online history will sync after reconnection.',
       });
       return;
     }
-    toast.success('Package installed', {
-      description: result.installReceiptId
-        ? `${listing.name} is available and the registry receipt was recorded.`
-        : `${listing.name} is now available in this company.`,
+    toast.success('Installed', {
+      description: `${listing.name} is now available in this company.`,
     });
   }
 
   async function handlePublish(request: PublishPackageRequest) {
     const result = await publishPackage.mutateAsync(request);
-    toast.success('Package submitted', {
-      description: `Registry moderation job ${result.moderationJobId} is ${result.status}.`,
+    toast.success('Submitted for review', {
+      description:
+        result.status === 'pending_review'
+          ? `${request.title} is waiting for review.`
+          : `${request.title} is queued for review.`,
     });
     setPublishOpen(false);
     setMode('manage');
     setManageView('published');
-  }
-
-  function refreshRegistryQueries() {
-    void queryClient.invalidateQueries({ queryKey: ['market-registry-connection'] });
-    void queryClient.invalidateQueries({ queryKey: ['market-drafts'] });
-    void queryClient.invalidateQueries({ queryKey: ['market-listings'] });
-    void queryClient.invalidateQueries({ queryKey: ['market-installed'] });
-  }
-
-  async function handleRegistryTokenSave(token: string | null) {
-    // Seal the token at rest before invalidating queries so the next
-    // connection check reads the freshly stored (encrypted) value.
-    await writeMarketplaceToken(token);
-    refreshRegistryQueries();
-    toast.success(token ? 'Registry token connected' : 'Registry token cleared', {
-      description: token
-        ? 'Market publish, drafts, and install receipts will use this token.'
-        : 'Market publish and receipt calls now require a new token.',
-    });
   }
 
   // Abort any in-flight registry artifact download if the surface unmounts.
@@ -300,40 +273,26 @@ export function MarketSurface() {
     [],
   );
 
-  // Same connection check as the Browse "No marketplace connected" hero below: when no
-  // registry is configured, catalog-only controls (kind chips, sort, Contribute) are inert.
+  // Missing endpoint keeps online browsing unavailable, while local installed
+  // items and file imports stay fully usable.
   const registryNotConnected = registryConnection.data?.reason === 'registry-config-missing';
 
   return (
-    <div className="off-market">
+    <div className={cn('off-market', detailOpen && 'is-detail-mode')}>
       <div className="off-mkt-fbar">
         <div className="off-mkt-fbar-main">
-          {registryNotConnected && mode === 'explore' ? (
-            <div className="off-mkt-search off-mkt-search-placeholder" aria-hidden="true" />
-          ) : (
-            <SearchInput
-              value={query}
-              onChange={setQuery}
-              placeholder="Search employees, skills, templates…"
-              className="off-mkt-search"
-            />
-          )}
           <SegmentedControl
             options={MODE_TABS}
             value={mode}
             onChange={setMode}
             ariaLabel="Marketplace mode"
           />
-          {mode === 'manage' ? (
-            <div className="off-mkt-manage-inline">
-              <SegmentedControl
-                options={MANAGE_VIEWS}
-                value={manageView}
-                onChange={setManageView}
-                ariaLabel="Manage view"
-              />
-            </div>
-          ) : null}
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder={marketSearchPlaceholder(mode, manageView)}
+            className="off-mkt-search"
+          />
           <input
             ref={fileInputRef}
             type="file"
@@ -350,34 +309,42 @@ export function MarketSurface() {
           {/* Sort (explore only) collapses into a dropdown, pushed right. */}
           {mode === 'explore' && !registryNotConnected ? (
             <SortMenu sort={sort} onChange={setSort} className="ml-auto" />
-          ) : null}
-          {/* Import + Publish are expert/low-frequency — grouped under Contribute. */}
-          {registryNotConnected ? null : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="md" variant="outline" className={mode === 'explore' ? '' : 'ml-auto'}>
-                  <Icon icon={CloudUpload} size="sm" />
-                  Contribute
-                  <Icon icon={ChevronDown} size="sm" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onSelect={() => fileInputRef.current?.click()}
-                  disabled={importPackageFile.isPending}
-                >
-                  <Icon icon={importPackageFile.isPending ? Loader2 : Upload} size="sm" />
-                  Import package…
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setPublishOpen(true)}>
-                  <Icon icon={CloudUpload} size="sm" />
-                  Publish…
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          ) : (
+            <span className="ml-auto" />
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="md" variant="outline">
+                <Icon icon={CloudUpload} size="sm" />
+                Add or publish
+                <Icon icon={ChevronDown} size="sm" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => fileInputRef.current?.click()}
+                disabled={importPackageFile.isPending}
+              >
+                <Icon icon={importPackageFile.isPending ? Loader2 : Upload} size="sm" />
+                Import from computer…
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setPublishOpen(true)}>
+                <Icon icon={CloudUpload} size="sm" />
+                Publish for review…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        {mode === 'explore' && !registryNotConnected ? (
+        {mode === 'manage' ? (
+          <div className="off-mkt-fbar-sub">
+            <SegmentedControl
+              options={MANAGE_VIEWS}
+              value={manageView}
+              onChange={setManageView}
+              ariaLabel="Installed and publishing views"
+            />
+          </div>
+        ) : mode === 'explore' && !registryNotConnected ? (
           <div className="off-mkt-fbar-sub">
             <SegmentedControl
               options={KIND_FILTERS}
@@ -399,8 +366,10 @@ export function MarketSurface() {
               <MarketManage
                 view={manageView}
                 companyId={companyId}
+                query={query}
+                onClearSearch={() => setQuery('')}
                 onBrowseExplore={() => setMode('explore')}
-                onConnectRegistry={() => setRegistryTokenOpen(true)}
+                onOpenConnectionSettings={() => openSettings('advanced')}
                 onPublish={() => setPublishOpen(true)}
                 onOpenListing={(id) => {
                   setMode('explore');
@@ -418,7 +387,8 @@ export function MarketSurface() {
             // not-connected state with local import, not a fabricated storefront.
             <MarketNotConnected
               onImport={() => fileInputRef.current?.click()}
-              onConnectRegistry={() => setRegistryTokenOpen(true)}
+              onViewInstalled={() => setMode('manage')}
+              onOpenConnectionSettings={() => openSettings('advanced')}
               importing={importPackageFile.isPending}
             />
           ) : filtered.length === 0 ? (
@@ -459,95 +429,10 @@ export function MarketSurface() {
         drafts={publishedDrafts.data ?? []}
         draftsLoading={publishedDrafts.isLoading && registryConnection.data?.connected === true}
         publishing={publishPackage.isPending}
-        onConnectRegistry={() => setRegistryTokenOpen(true)}
+        onOpenConnectionSettings={() => openSettings('advanced')}
         onPublish={handlePublish}
       />
-      <RegistryTokenDialog
-        open={registryTokenOpen}
-        connected={registryConnection.data?.connected === true}
-        configured={marketplaceTokenConfigured()}
-        onOpenChange={setRegistryTokenOpen}
-        onSave={handleRegistryTokenSave}
-      />
     </div>
-  );
-}
-
-function RegistryTokenDialog({
-  open,
-  connected,
-  configured,
-  onOpenChange,
-  onSave,
-}: {
-  open: boolean;
-  connected: boolean;
-  configured: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (token: string | null) => void;
-}) {
-  const [token, setToken] = useState('');
-
-  useEffect(() => {
-    if (open) setToken('');
-  }, [open]);
-
-  function saveToken() {
-    const next = token.trim();
-    if (!next) {
-      toast.error('Registry token required', {
-        description: 'Paste an offisim API token or clear the current token.',
-      });
-      return;
-    }
-    onSave(next);
-    onOpenChange(false);
-  }
-
-  function clearToken() {
-    onSave(null);
-    onOpenChange(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="off-mkt-dialog">
-        <DialogHeader>
-          <DialogTitle>Registry Token</DialogTitle>
-          <DialogDescription>
-            Paste the access token from your registry administrator to browse, publish, and track
-            drafts.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="off-token-dialog">
-          <div className="off-token-status">
-            <Icon icon={KeyRound} size="sm" />
-            <span>{connected ? 'Connected' : configured ? 'Token saved' : 'No token saved'}</span>
-          </div>
-          <Input
-            type="password"
-            value={token}
-            autoComplete="off"
-            placeholder="offisim_..."
-            aria-label="Registry API token"
-            onChange={(event) => setToken(event.currentTarget.value)}
-          />
-          <div className="off-token-actions">
-            {configured ? (
-              <Button size="md" variant="outline" type="button" onClick={clearToken}>
-                Clear token
-              </Button>
-            ) : null}
-            <Button size="md" variant="outline" type="button" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button size="md" type="button" onClick={saveToken}>
-              Save token
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -693,28 +578,25 @@ function SkeletonGrid() {
   );
 }
 
-function MarketErrorState({ error, onRetry }: { error: unknown; onRetry: () => void }) {
-  const setSurface = useUiState((s) => s.setSurface);
-  const reason =
-    error instanceof Error && error.message
-      ? error.message
-      : 'No response from the marketplace data source.';
+function MarketErrorState({ error: _error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const openSettings = useUiState((s) => s.openSettings);
   return (
     <div className="off-mkt-scroll off-mkt-hero-wrap">
       <div className="off-mkt-hero">
         <span className="off-mkt-hero-i is-danger">
           <Icon icon={WifiOff} size="md" />
         </span>
-        <div className="off-mkt-hero-t">Market is unavailable</div>
-        <div className="off-mkt-hero-d">Couldn't reach the marketplace.</div>
-        <div className="off-mkt-hero-tech">{reason}</div>
+        <div className="off-mkt-hero-t">Online catalog unavailable</div>
+        <div className="off-mkt-hero-d">
+          Installed items remain available. Retry now or review the connection settings.
+        </div>
         <div className="off-mkt-hero-a">
           <Button size="md" onClick={onRetry}>
             <Icon icon={Loader2} size="sm" />
             Retry
           </Button>
-          <Button variant="outline" size="md" onClick={() => setSurface('office')}>
-            Back to Office
+          <Button variant="outline" size="md" onClick={() => openSettings('advanced')}>
+            Connection settings
           </Button>
         </div>
       </div>
@@ -729,7 +611,7 @@ function MarketEmptyState({ filtered, onReset }: { filtered: boolean; onReset: (
         <span className="off-mkt-hero-i">
           <Icon icon={filtered ? Search : Store} size="md" />
         </span>
-        <div className="off-mkt-hero-t">{filtered ? 'No packages found' : 'Market is empty'}</div>
+        <div className="off-mkt-hero-t">{filtered ? 'No items found' : 'Market is empty'}</div>
         <div className="off-mkt-hero-d">
           {filtered
             ? 'Try a different search or clear filters.'
@@ -749,11 +631,13 @@ function MarketEmptyState({ filtered, onReset }: { filtered: boolean; onReset: (
 
 function MarketNotConnected({
   onImport,
-  onConnectRegistry,
+  onViewInstalled,
+  onOpenConnectionSettings,
   importing,
 }: {
   onImport: () => void;
-  onConnectRegistry: () => void;
+  onViewInstalled: () => void;
+  onOpenConnectionSettings: () => void;
   importing: boolean;
 }) {
   return (
@@ -762,19 +646,23 @@ function MarketNotConnected({
         <span className="off-mkt-hero-i">
           <Icon icon={Store} size="md" />
         </span>
-        <div className="off-mkt-hero-t">No marketplace connected</div>
+        <div className="off-mkt-hero-t">Browse offline</div>
         <div className="off-mkt-hero-d">
-          A registry is a catalog server your team publishes packages to. Connect one to browse it,
-          or install packages right now by importing a local .offisimpkg or .zip file.
+          The online catalog is not connected. You can still search installed items or import from
+          your computer.
         </div>
         <div className="off-mkt-hero-a">
           <Button size="md" onClick={onImport} disabled={importing}>
             <Icon icon={importing ? Loader2 : Upload} size="sm" />
-            Import package…
+            Import from computer…
           </Button>
-          <Button variant="outline" size="md" onClick={onConnectRegistry}>
-            <Icon icon={KeyRound} size="sm" />
-            Connect registry…
+          <Button variant="outline" size="md" onClick={onViewInstalled}>
+            <Icon icon={Layers} size="sm" />
+            View installed
+          </Button>
+          <Button variant="ghost" size="md" onClick={onOpenConnectionSettings}>
+            <Icon icon={Settings2} size="sm" />
+            Connection settings
           </Button>
         </div>
       </div>

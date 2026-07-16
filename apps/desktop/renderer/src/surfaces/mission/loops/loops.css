@@ -56,7 +56,7 @@
   flex: none;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--off-sp-5);
   flex-wrap: wrap;
   min-height: 48px;
@@ -110,8 +110,8 @@
 /* Auto-fit card grid — no fixed left column, fills available width. */
 .off-loops-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--off-sp-5);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--off-sp-3);
 }
 
 .off-loop-card {
@@ -305,6 +305,9 @@
   flex: 1;
   min-height: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.off-loop-editor-body.is-details-open {
   grid-template-columns: minmax(0, 1fr) 300px;
 }
 .off-loop-editor-main {
@@ -341,7 +344,7 @@
   box-shadow: var(--off-elev-2);
 }
 
-/* Guided start state: description → compile → graph. */
+/* Compact start state: the composer is primary; examples only reduce blank-page friction. */
 .off-loop-start {
   flex: 1;
   min-height: 0;
@@ -349,15 +352,13 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--off-sp-6);
-  padding: var(--off-sp-7);
-  background: radial-gradient(circle at 50% 42%, var(--off-accent-surface), transparent 48%),
-    var(--off-surface-sunken);
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-6);
+  background: var(--off-surface-sunken);
 }
 .off-loop-start-intro,
-.off-loop-start-steps,
 .off-loop-start-examples {
-  width: min(680px, 100%);
+  width: min(620px, 100%);
   margin-inline: auto;
 }
 .off-loop-start-intro {
@@ -373,7 +374,7 @@
   letter-spacing: 0.06em;
 }
 .off-loop-start-intro h2 {
-  font-size: clamp(20px, 2.1vw, 28px);
+  font-size: clamp(18px, 1.8vw, 24px);
   line-height: 1.15;
   color: var(--off-ink-1);
 }
@@ -381,62 +382,6 @@
   max-width: 540px;
   font-size: var(--off-fs-sm);
   color: var(--off-ink-3);
-}
-.off-loop-start-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--off-sp-3);
-}
-.off-loop-start-steps li {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-3);
-  min-width: 0;
-  padding: var(--off-sp-4);
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-md);
-  background: var(--off-surface-1);
-}
-.off-loop-start-steps li[data-step-state="current"] {
-  border-color: var(--off-accent);
-  box-shadow: 0 0 0 1px var(--off-accent-surface), var(--off-elev-1);
-}
-.off-loop-start-steps li[data-step-state="done"] {
-  border-color: var(--off-ok);
-}
-.off-loop-start-stepnum {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  flex: none;
-  border-radius: var(--off-r-full);
-  background: var(--off-surface-sunken);
-  color: var(--off-ink-3);
-  font-size: var(--off-fs-meta);
-  font-weight: 700;
-}
-[data-step-state="current"] .off-loop-start-stepnum {
-  color: var(--off-accent-fg);
-  background: var(--off-accent);
-}
-[data-step-state="done"] .off-loop-start-stepnum {
-  color: var(--off-ok);
-  background: var(--off-ok-surface);
-}
-.off-loop-start-steps li > span:last-child {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.off-loop-start-steps strong {
-  font-size: var(--off-fs-sm);
-  color: var(--off-ink-1);
-}
-.off-loop-start-steps small {
-  font-size: var(--off-fs-meta);
-  color: var(--off-ink-4);
 }
 .off-loop-start-examples {
   display: flex;
@@ -544,14 +489,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-3);
-  padding: var(--off-sp-4) var(--off-sp-7);
+  padding: var(--off-sp-3) var(--off-sp-5);
   border-top: 1px solid var(--off-line);
   background: var(--off-surface-2);
   box-shadow: 0 -10px 28px color-mix(in srgb, var(--off-ink-1) 5%, transparent);
 }
 .off-loop-composer-input {
   resize: none;
-  min-height: 64px;
+  min-height: 58px;
   line-height: 1.5;
 }
 .off-loop-composer-bar {

@@ -172,6 +172,7 @@ export type MissionLoopStopReason =
   | 'token_budget' // token budget exhausted
   | 'wall_clock_budget' // end-to-end wall-clock budget exhausted
   | 'cancelled' // human cancel
+  | 'needs_input' // evaluator is waiting on required human/input evidence
   | 'runtime_incompatible'; // runtimeError → blocked (infra)
 
 export interface MissionLoopResult {
@@ -657,6 +658,9 @@ class MissionLoopControllerImpl implements MissionLoopController {
 
       // Infra-only failure (no product FAIL) → BLOCKED. No repair consumed.
       if (productFails.length === 0 && infraFails.length > 0) {
+        const stopReason = infraFails.every((outcome) => outcome.verdict === 'BLOCKED')
+          ? 'needs_input'
+          : 'runtime_incompatible';
         const packet = this.buildFailurePacket(
           missionId,
           attemptId,
@@ -672,12 +676,15 @@ class MissionLoopControllerImpl implements MissionLoopController {
         );
         return {
           kind: 'stop',
-          value: this.stop('blocked', 'runtime_incompatible', {
+          value: this.stop('blocked', stopReason, {
             attemptEvidence,
             repairCounts,
             attempts: attemptNumber,
             failurePacket: packet,
-            note: 'evaluator infra failure (BLOCKED/ERROR) → blocked; no repair consumed (§19.2, §5)',
+            note:
+              stopReason === 'needs_input'
+                ? 'evaluator awaits required human/input evidence → blocked; no repair consumed (§19.2, §5)'
+                : 'evaluator infra failure (ERROR) → blocked; no repair consumed (§19.2, §5)',
           }),
         };
       }

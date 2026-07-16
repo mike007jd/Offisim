@@ -8,7 +8,7 @@ This is the source of truth for new Offisim desktop UI work. The design source r
 
 Offisim UI is a dense desktop workbench, not a SaaS dashboard or marketing surface. The canonical design language is the V3 DNA in `Docs/design/.v3-dna-brief.md`: evidence-dense game HUD, unified shell, chip grammar, caps labels, compact cards, no bell-count chrome, no Office right-rail tabs, and no generic hero surfaces.
 
-The product shell is engine-neutral: Offisim owns the GUI, assistant-ui skin, 3D work theater, account/model selection, and archive surfaces. The selected native engine owns execution, credentials, native sessions, compaction, global memory, tools, and its stream protocol. The current shipped implementation still uses Pi; Codex and Claude must not appear supported until their complete engine adapters pass release verification.
+The product shell is engine-neutral: Offisim owns the GUI, assistant-ui skin, 3D work theater, account/model selection, and archive surfaces. The selected native engine owns execution, credentials, native sessions, compaction, global memory, tools, and its stream protocol. API and Codex are release-verified complete engines; Claude must not appear supported until its complete engine adapter passes release verification.
 
 ## Ownership
 
@@ -57,7 +57,7 @@ Character assets. Office characters render from source-controlled, meshopt-compr
 - No non-approved animation framework, component suite, or CSS-in-JS layer for the desktop renderer without a new architecture decision.
 - No default shadcn visual language leaking directly into product surfaces.
 - No assistant-ui default thread skin in the product; use assistant-ui primitives/runtime with Offisim V3 rail grammar.
-- Settings uses AI Accounts, Models, Usage, and Cost language. Do not expose Pi Agent, OAuth, auth-file paths, SDK lane badges, registry internals, or runtime implementation names as the primary product model. API accounts show tokens/cost; subscriptions show only provider-native Usage. Model records require exact id/source/checkedAt, while selectors lead with friendly names.
+- Settings uses one AI Accounts shell with separate API-engine and orchestration-engine sections. The API section provides safe Pi-managed provider/model editing and token/cost summaries; user-configured model source metadata is optional. The orchestration section exposes only external CLI install/login/version status and official guidance, with no model catalog, subscription-usage projection, or API-cost estimate. Runtime implementation detail stays secondary to the employee/task engine choice.
 - No native select arrow chrome; use the V3 custom select/combobox skin.
 - No `--fs-2xl` or routine `--r-xl` equivalents outside explicitly approved dialog hero cases.
 - No `transition-all` as a motion system. Motion behavior must be named and centralized.

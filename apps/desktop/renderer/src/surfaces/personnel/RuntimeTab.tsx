@@ -74,7 +74,7 @@ export function RuntimeTab({
         </div>
         <div className="off-pers-runtime-fields">
           <label className="off-pers-runtime-field" htmlFor={modelSelectId}>
-            <span>Model</span>
+            <span>{selectedOption?.selectionKind === 'orchestration-engine' ? 'Engine' : 'Model'}</span>
             <Select
               id={modelSelectId}
               value={selectedModel}
@@ -98,19 +98,20 @@ export function RuntimeTab({
               ]}
             />
           </label>
-          <label className="off-pers-runtime-field" htmlFor={thinkingLevelSelectId}>
-            <span>Thinking level</span>
-            <Select
-              id={thinkingLevelSelectId}
-              value={model && !invalid ? thinkingLevel : ''}
-              onChange={(event) => onThinkingLevelChange(event.target.value)}
-              disabled={!model || invalid || !supportsReasoning}
-              options={[
-                { value: '', label: 'Use conversation level' },
-                ...THINKING_LEVELS.map((level) => ({ value: level, label: level })),
-              ]}
-            />
-          </label>
+          {supportsReasoning ? (
+            <label className="off-pers-runtime-field" htmlFor={thinkingLevelSelectId}>
+              <span>Thinking level</span>
+              <Select
+                id={thinkingLevelSelectId}
+                value={model && !invalid ? thinkingLevel : ''}
+                onChange={(event) => onThinkingLevelChange(event.target.value)}
+                options={[
+                  { value: '', label: 'Use conversation level' },
+                  ...THINKING_LEVELS.map((level) => ({ value: level, label: level })),
+                ]}
+              />
+            </label>
+          ) : null}
         </div>
         {invalid ? (
           <p className="off-pers-runtime-warning">

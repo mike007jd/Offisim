@@ -20,6 +20,7 @@ import type {
 } from '@offisim/shared-types';
 import { Channel } from '@tauri-apps/api/core';
 import {
+  isSameModelSource,
   requireTurnExecutionProvenance,
   validateExecutionTarget,
 } from '../execution-provenance.js';
@@ -36,9 +37,7 @@ function sameExecutionTarget(a: AiExecutionTarget, b: AiExecutionTarget): boolea
     a.accountId === b.accountId &&
     a.billingMode === b.billingMode &&
     a.modelId === b.modelId &&
-    a.modelSource.kind === b.modelSource.kind &&
-    a.modelSource.sourceUrl === b.modelSource.sourceUrl &&
-    a.modelSource.checkedAt === b.modelSource.checkedAt
+    isSameModelSource(a.modelSource, b.modelSource)
   );
 }
 
@@ -75,6 +74,9 @@ export function selectCollaborationExecutionTarget(
   const runtimeStatus: AiRuntimeStatus = {
     accounts: status.accounts,
     models: status.models,
+    orchestrationEngines: Array.isArray(status.orchestrationEngines)
+      ? status.orchestrationEngines
+      : [],
     checkedAt: typeof status.checkedAt === 'string' ? status.checkedAt : '',
   };
   const candidates = runtimeStatus.models.filter((model) =>
@@ -192,12 +194,12 @@ export function createTauriCollaborationTransport(
 ): CollaborationTransport {
   return {
     async resolveExecutionSelection(input) {
-      const status = await invokeCommand('agent_runtime_status');
+      const status = await invokeCommand('agent_runtime_status', { includeUsage: false });
       return selectCollaborationExecutionTarget(status, input.model, input.frozenTarget);
     },
     async run(req, opts) {
       const verifiedSelection = selectCollaborationExecutionTarget(
-        await invokeCommand('agent_runtime_status'),
+        await invokeCommand('agent_runtime_status', { includeUsage: false }),
         req.runtimeModelRef,
         req.expectedTarget,
       );

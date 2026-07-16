@@ -13,8 +13,9 @@ pub use stream::PiRunStreamSnapshot;
 pub use types::{
     AiRuntimeStatusResponse, PiAgentCollaborateRequest, PiAgentEnhanceRequest,
     PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse, PiAgentModelsConfig,
-    PiAgentPaths, PiAgentProviderAuthStatus, PiAgentProviderStatus, PiAgentStatusResponse,
-    PiModelSummary,
+    PiAgentPaths, PiAgentProviderAuthStatus, PiAgentProviderConfigInput,
+    PiAgentProviderConfigStatus, PiAgentProviderModelConfig, PiAgentProviderStatus,
+    PiAgentProviderTemplate, PiAgentStatusResponse, PiModelSummary,
 };
 pub(crate) use wire::PI_HOST_PROTOCOL_VERSION;
 
@@ -172,10 +173,116 @@ pub async fn pi_agent_status(app: AppHandle) -> Result<PiAgentStatusResponse, St
     status_impl(app).await
 }
 
-/// Agent-agnostic gateway status. Forwards verbatim to `status_impl`.
 #[tauri::command]
-pub async fn agent_runtime_status(app: AppHandle) -> Result<AiRuntimeStatusResponse, String> {
-    runtime_status_impl(app).await
+pub async fn pi_agent_open_config_folder(app: AppHandle) -> Result<(), String> {
+    provider::open_config_folder(app).await
+}
+
+#[tauri::command]
+pub async fn pi_agent_save_provider(
+    app: AppHandle,
+    config: PiAgentProviderConfigInput,
+) -> Result<PiAgentStatusResponse, String> {
+    provider::save_provider(app, config).await
+}
+
+/// Engine-neutral runtime status. Native lanes are inspected concurrently and
+/// merged without allowing one unavailable engine to hide the other.
+#[tauri::command]
+pub async fn agent_runtime_status(
+    app: AppHandle,
+    include_usage: Option<bool>,
+) -> Result<AiRuntimeStatusResponse, String> {
+    let (api, codex) = tokio::join!(
+        runtime_status_impl(app.clone()),
+        crate::codex_agent_host::status_impl(app, include_usage.unwrap_or(false))
+    );
+    let checked_at = crate::codex_agent_host::checked_at_now()
+        .or_else(|_| {
+            api.as_ref()
+                .map(|status| status.checked_at.clone())
+                .or_else(|_| codex.as_ref().map(|status| status.checked_at.clone()))
+        })
+        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".into());
+    Ok(merge_runtime_status(api, codex, checked_at))
+}
+
+fn merge_runtime_status(
+    api: Result<AiRuntimeStatusResponse, String>,
+    codex: Result<crate::codex_agent_host::CodexAgentStatusResponse, String>,
+    checked_at: String,
+) -> AiRuntimeStatusResponse {
+    let mut accounts = Vec::new();
+    let mut models = Vec::new();
+    let mut orchestration_engines = Vec::new();
+    match api {
+        Ok(api) => {
+            accounts.extend(api.accounts);
+            models.extend(api.models);
+            orchestration_engines.extend(api.orchestration_engines);
+        }
+        Err(_) => accounts.push(api_unavailable_account()),
+    }
+    match codex {
+        Ok(codex) => {
+            if let Ok(engine) = serde_json::to_value(codex) {
+                orchestration_engines.push(engine);
+            } else {
+                orchestration_engines.push(codex_unavailable_account());
+            }
+        }
+        Err(_) => orchestration_engines.push(codex_unavailable_account()),
+    }
+    AiRuntimeStatusResponse {
+        accounts,
+        models,
+        orchestration_engines,
+        checked_at,
+    }
+}
+
+fn api_unavailable_account() -> serde_json::Value {
+    let unavailable = |reason: &str| {
+        serde_json::json!({
+            "status": "unavailable",
+            "reason": reason,
+        })
+    };
+    serde_json::json!({
+        "engineId": "api",
+        "accountId": "api-status-unavailable",
+        "billingMode": "api",
+        "displayName": "API accounts",
+        "status": "unavailable",
+        "statusReason": "API account status is unavailable.",
+        "capabilities": {
+            "execute": unavailable("API account status is unavailable."),
+            "models": unavailable("API model status is unavailable."),
+            "usage": unavailable("API usage status is unavailable."),
+            "cost": unavailable("API cost status is unavailable."),
+        },
+        "usage": null,
+    })
+}
+
+fn codex_unavailable_account() -> serde_json::Value {
+    serde_json::json!({
+        "engineId": "codex",
+        "displayName": "Codex CLI",
+        "state": "unavailable",
+        "statusReason": "Codex CLI status is unavailable.",
+        "loginCommand": "codex login",
+        "docsUrl": "https://developers.openai.com/codex/auth",
+        "checkedAt": "1970-01-01T00:00:00Z",
+        "capabilities": {
+            "stop": true,
+            "steer": false,
+            "resume": true,
+            "permissionModes": ["plan", "ask", "auto", "full"],
+            "interactions": { "approval": true, "userInput": true },
+            "processEvents": { "reasoning": true, "toolCalls": true, "fileChanges": true },
+        }
+    })
 }
 
 #[cfg(test)]

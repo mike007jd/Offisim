@@ -47,36 +47,6 @@
   backdrop-filter: blur(var(--off-blur-sm));
 }
 
-.off-topbar-cost {
-  margin-left: auto;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--off-sp-2);
-  padding: 0 var(--off-sp-3);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-pill);
-  background: var(--off-surface-2);
-  color: var(--off-ink-3);
-  font-size: var(--off-fs-meta);
-  white-space: nowrap;
-}
-
-.off-topbar-cost svg {
-  width: 14px;
-  height: 14px;
-}
-
-.off-topbar-cost.is-warning {
-  color: var(--off-warn);
-  border-color: color-mix(in srgb, var(--off-warn) 38%, var(--off-line));
-}
-
-.off-topbar-cost.is-critical {
-  color: var(--off-danger);
-  border-color: color-mix(in srgb, var(--off-danger) 42%, var(--off-line));
-}
-
 .off-surface-host {
   position: relative;
   min-height: 0;
@@ -113,13 +83,15 @@
   height: 34px;
   display: flex;
   align-items: center;
-  max-width: 460px;
+  flex: 1 1 460px;
+  max-width: clamp(84px, calc(50vw - 350px), 460px);
   min-width: 0;
   gap: 2px;
 }
 
 .off-scope-seg {
   height: 28px;
+  max-width: 100%;
   min-width: 0;
   display: inline-flex;
   align-items: center;
@@ -197,8 +169,8 @@
   height: 28px;
   display: inline-flex;
   align-items: center;
-  gap: var(--off-sp-2);
-  padding: 0 var(--off-sp-4);
+  gap: 6px;
+  padding: 0 var(--off-sp-3);
   border: 0;
   border-radius: var(--off-r-sm);
   background: transparent;
@@ -221,18 +193,6 @@
   font-weight: 640;
 }
 
-/* Utility surfaces ride the same chip-bar as icon-only tabs, sharing the
-   `.is-active` grammar so the current surface is always visible here. */
-.off-workspace-nav button.is-icon {
-  padding: 0 var(--off-sp-3);
-}
-
-/* The active utility tab reveals its text label (icon-only when inactive),
-   so the padding widens to match the primary text tabs. */
-.off-workspace-nav button.is-icon.is-active {
-  padding: 0 var(--off-sp-4);
-}
-
 /* Divider between the primary text tabs and the utility icon tabs. */
 .off-nav-divider {
   width: 1px;
@@ -242,12 +202,24 @@
   flex: none;
 }
 
-/* The absolutely-centred nav cluster (~457px with labels) collides with the
-   left breadcrumb below ~1280px viewport width. Collapse primary tabs to
-   icons there — every button keeps its title/aria-label, and the utility
-   tabs are icon-only already, so the whole bar degrades to one grammar. */
-@media (max-width: 1280px) {
-  .off-workspace-nav .off-nav-label {
-    display: none;
+/* At laptop width the ScopeBar gives up space first. The six surface names
+   stay visible; only tab padding and gaps compress, so active state never
+   changes navigation geometry. */
+@media (max-width: 1200px) {
+  .off-workspace-nav {
+    gap: 1px;
+    padding: 2px;
+  }
+
+  .off-workspace-nav button,
+  .off-workspace-nav button.is-icon,
+  .off-workspace-nav button.is-icon.is-active {
+    gap: var(--off-sp-1);
+    padding: 0 var(--off-sp-2);
+    font-size: var(--off-fs-sm);
+  }
+
+  .off-nav-divider {
+    margin: 0 2px;
   }
 }

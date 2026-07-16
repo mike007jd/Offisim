@@ -18,19 +18,42 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const LIB_RS = resolve(ROOT, 'apps/desktop/src-tauri/src/lib.rs');
 const PERMISSION_FILE = resolve(ROOT, 'apps/desktop/src-tauri/permissions/agent-bridges.toml');
-const REQUIRED_COMMANDS = [
-  'agent_runtime_execute',
-  'agent_runtime_enhance',
-  'agent_runtime_collaborate',
-  'agent_runtime_resume',
-  'agent_runtime_abort',
-  'agent_runtime_confirm_execution',
-  'agent_runtime_answer',
-  'agent_runtime_stream_snapshot',
-  'agent_runtime_release_stream',
-  'agent_runtime_reattach',
-  'agent_runtime_status',
-];
+const REQUIRED_COMMANDS_BY_MODULE = {
+  pi_agent_host: {
+    handlerPath: 'pi_agent_host',
+    commands: [
+      'agent_runtime_execute',
+      'agent_runtime_enhance',
+      'agent_runtime_collaborate',
+      'agent_runtime_resume',
+      'agent_runtime_abort',
+      'agent_runtime_control',
+      'agent_runtime_confirm_execution',
+      'agent_runtime_answer',
+      'agent_runtime_stream_snapshot',
+      'agent_runtime_release_stream',
+      'agent_runtime_reattach',
+      'agent_runtime_status',
+    ],
+  },
+  codex_agent_host: {
+    handlerPath: 'codex_agent_host::commands',
+    commands: [
+      'codex_agent_execute',
+      'codex_agent_enhance',
+      'codex_agent_resume',
+      'codex_agent_abort',
+      'codex_agent_answer',
+      'codex_agent_stream_snapshot',
+      'codex_agent_release_stream',
+      'codex_agent_reattach',
+      'codex_agent_status',
+    ],
+  },
+};
+const REQUIRED_COMMANDS = Object.values(REQUIRED_COMMANDS_BY_MODULE).flatMap(
+  ({ commands }) => commands,
+);
 
 function fail(msg) {
   console.error(`[check-agent-runtime-capabilities] ${msg}`);
@@ -45,15 +68,17 @@ if (!existsSync(PERMISSION_FILE)) {
 }
 
 const libRs = readFileSync(LIB_RS, 'utf8');
-// The command must be registered as `pi_agent_host::<command>` inside the
-// generate_handler! block. Match the fully-qualified path so a stray comment
-// mention elsewhere can't satisfy the gate.
-const missingFromHandler = REQUIRED_COMMANDS.filter(
-  (cmd) => !libRs.includes(`pi_agent_host::${cmd}`),
+// Match each command's concrete engine module so a stray comment or a second
+// transport lane cannot satisfy the production registration gate.
+const missingFromHandler = Object.entries(REQUIRED_COMMANDS_BY_MODULE).flatMap(
+  ([moduleName, { handlerPath, commands }]) =>
+    commands
+      .filter((command) => !libRs.includes(`${handlerPath}::${command}`))
+      .map((command) => `${moduleName}::${command}`),
 );
 if (missingFromHandler.length > 0) {
   fail(
-    `lib.rs generate_handler! is missing commands: ${missingFromHandler.join(', ')} (add pi_agent_host::<command> to the invoke_handler list)`,
+    `lib.rs generate_handler! is missing commands: ${missingFromHandler.join(', ')} (register each command under its declared engine handler path)`,
   );
 }
 

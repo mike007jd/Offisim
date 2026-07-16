@@ -9,6 +9,7 @@ import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
 import { workbenchOf } from '@/data/git-workbench.js';
 import { useDeliverables, useGitWorkbench } from '@/data/queries.js';
+import type { TaskAccountingPresentation } from '@/data/task-accounting-presentation.js';
 import type { Deliverable, GitFileChange } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -45,12 +46,15 @@ import {
   FileCode2,
   FileText,
   Focus,
+  Gauge,
   GitCompareArrows,
   Globe,
   Globe2,
   Maximize2,
   Minimize2,
   MonitorSmartphone,
+  PanelLeftClose,
+  PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   PawPrint,
@@ -74,8 +78,7 @@ interface StageMenuItem {
 
 interface StageTopBarProps {
   isRunning: boolean;
-  tokensLabel: string;
-  costLabel: string;
+  accounting: TaskAccountingPresentation;
 }
 
 const PRIMARY_TABS = [
@@ -111,7 +114,7 @@ function htmlDeliverable(deliverables: readonly Deliverable[]) {
   return deliverables.find((d) => d.format?.toUpperCase() === 'HTML') ?? null;
 }
 
-export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarProps) {
+export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
   const stageOpenTabs = useUiState((s) => s.stageOpenTabs);
@@ -122,6 +125,10 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
   const toggleStageSplitTab = useUiState((s) => s.toggleStageSplitTab);
   const stageMaximized = useUiState((s) => s.officeStageMaximized);
   const setStageMaximized = useUiState((s) => s.setOfficeStageMaximized);
+  const leftRailCollapsed = useUiState((s) => s.officeLeftRailCollapsed);
+  const setLeftRailCollapsed = useUiState((s) => s.setOfficeLeftRailCollapsed);
+  const rightRailCollapsed = useUiState((s) => s.officeRightRailCollapsed);
+  const setRightRailCollapsed = useUiState((s) => s.setOfficeRightRailCollapsed);
   const projectId = useUiState((s) => s.projectId);
   const leaseReviews = useProjectWorkspaceLeaseReviews(projectId || null);
   const pendingReviewCount = new Set(
@@ -138,6 +145,17 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
 
   return (
     <div className="off-stage-topbar">
+      <button
+        type="button"
+        className="off-stage-rail-toggle off-focusable"
+        data-rail="workspace"
+        onClick={() => setLeftRailCollapsed(!leftRailCollapsed)}
+        aria-label={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
+        aria-expanded={!leftRailCollapsed}
+        title={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
+      >
+        <Icon icon={leftRailCollapsed ? PanelLeftOpen : PanelLeftClose} size="sm" />
+      </button>
       <nav className="off-stage-tabs" aria-label="Stage views">
         <button
           type="button"
@@ -239,13 +257,25 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
 
       <div className="off-stage-topbar-right">
         <RunPipelinePill />
-        <output className={cn('off-stage-readout', isRunning && 'is-live')} aria-label="Run cost">
+        <output
+          className={cn(
+            'off-stage-readout',
+            isRunning && 'is-live',
+            accounting.tone !== 'neutral' && `is-${accounting.tone}`,
+          )}
+          aria-label={accounting.ariaLabel}
+          title={accounting.title}
+        >
           <span className="off-stage-readout-part">
-            <Icon icon={Coins} size="sm" />
-            <b>{tokensLabel}</b> tok
+            <Icon icon={accounting.kind === 'subscription' ? Gauge : Coins} size="sm" />
+            <b>{accounting.primary}</b>
           </span>
-          <span className="off-stage-readout-div" />
-          <b>{costLabel}</b>
+          {accounting.secondary ? (
+            <>
+              <span className="off-stage-readout-div" />
+              <b>{accounting.secondary}</b>
+            </>
+          ) : null}
         </output>
         <button
           type="button"
@@ -254,6 +284,17 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
           title={stageMaximized ? 'Restore stage' : 'Maximize stage'}
         >
           <Icon icon={stageMaximized ? Minimize2 : Maximize2} size="sm" />
+        </button>
+        <button
+          type="button"
+          className="off-stage-rail-toggle off-focusable"
+          data-rail="conversations"
+          onClick={() => setRightRailCollapsed(!rightRailCollapsed)}
+          aria-label={rightRailCollapsed ? 'Expand conversations' : 'Collapse conversations'}
+          aria-expanded={!rightRailCollapsed}
+          title={rightRailCollapsed ? 'Expand conversations' : 'Collapse conversations'}
+        >
+          <Icon icon={rightRailCollapsed ? PanelRightOpen : PanelRightClose} size="sm" />
         </button>
       </div>
     </div>

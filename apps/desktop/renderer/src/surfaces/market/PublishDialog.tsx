@@ -24,6 +24,7 @@ import type {
   PublishedDraft,
   RegistryConnectionState,
 } from './market-data.js';
+import { marketConnectionCopy } from './market-presentation.js';
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
@@ -44,9 +45,9 @@ const LICENSES = [
   { value: 'proprietary', label: 'Proprietary' },
 ];
 const RISK_CLASSES = [
-  { value: 'data', label: 'Data asset' },
-  { value: 'logic', label: 'Logic asset' },
-  { value: 'system', label: 'System asset' },
+  { value: 'data', label: 'Content only' },
+  { value: 'logic', label: 'Runs instructions' },
+  { value: 'system', label: 'Uses system access' },
 ];
 
 function ControlledSelectField({
@@ -85,7 +86,7 @@ interface PublishDialogProps {
   drafts: PublishedDraft[];
   draftsLoading: boolean;
   publishing: boolean;
-  onConnectRegistry: () => void;
+  onOpenConnectionSettings: () => void;
   onPublish: (request: PublishPackageRequest) => Promise<void>;
 }
 
@@ -97,7 +98,7 @@ export function PublishDialog({
   drafts,
   draftsLoading,
   publishing,
-  onConnectRegistry,
+  onOpenConnectionSettings,
   onPublish,
 }: PublishDialogProps) {
   const employees = useMemo(() => sources.filter((s) => s.kind === 'employee'), [sources]);
@@ -139,14 +140,14 @@ export function PublishDialog({
   const onSubmit = form.handleSubmit(async (values) => {
     if (!activeSource) return;
     if (!registry?.connected) {
-      toast.error('Registry is not connected', {
-        description: registry ? registryStatusCopy(registry) : 'Checking registry state.',
+      toast.error('Connect the online catalog first', {
+        description: marketConnectionCopy(registry).description,
       });
       return;
     }
     if (!activeSource.publishable) {
-      toast.error('Source cannot be published', {
-        description: activeSource.unavailableReason ?? 'This source is not export-ready.',
+      toast.error("This item isn't ready to publish", {
+        description: activeSource.unavailableReason ?? 'Finish preparing it, then try again.',
       });
       return;
     }
@@ -162,8 +163,9 @@ export function PublishDialog({
         tags,
       });
     } catch (error) {
-      toast.error('Publish failed', {
-        description: error instanceof Error ? error.message : String(error),
+      console.error('[PublishDialog] Package submission failed', error);
+      toast.error('Submission failed', {
+        description: 'The item was not submitted. Check the connection and try again.',
       });
     }
   });
@@ -204,18 +206,15 @@ export function PublishDialog({
     !registry?.connected ||
     publishing ||
     !hasSourceOptions;
-  const registryCopy = registry ? registryStatusCopy(registry) : 'Checking registry state.';
-  const canConnect =
-    registry?.reason !== 'registry-config-missing' &&
-    registry?.reason !== 'desktop-runtime-unavailable';
+  const connectionCopy = marketConnectionCopy(registry);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="off-mkt-dialog off-mkt-dialog-large">
         <DialogHeader>
-          <DialogTitle>Publish To Market</DialogTitle>
+          <DialogTitle>Publish for review</DialogTitle>
           <DialogDescription>
-            Package an employee or skill and submit it for review.
+            Prepare an employee or skill, then send it for review before it appears in Market.
           </DialogDescription>
         </DialogHeader>
 
@@ -224,19 +223,20 @@ export function PublishDialog({
         <form onSubmit={onSubmit} className="off-pub-form">
           <div className="off-pub-grid">
             <div className="off-pub-main">
-              {/* Account connection is a prerequisite shown as an inline banner only
-                when not connected — it no longer leads the form as a token field. */}
               {!registry?.connected ? (
                 <div className="off-pub-connect">
                   <span className="off-alert is-warn">
                     <Icon icon={KeyRound} size="sm" />
-                    {canConnect ? 'Connect your account to publish.' : registryCopy}
+                    {connectionCopy.title}. {connectionCopy.description}
                   </span>
-                  {canConnect ? (
-                    <Button size="sm" variant="outline" type="button" onClick={onConnectRegistry}>
-                      Connect
-                    </Button>
-                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    onClick={onOpenConnectionSettings}
+                  >
+                    Connection settings
+                  </Button>
                 </div>
               ) : null}
 
@@ -349,7 +349,7 @@ export function PublishDialog({
                     />
                   )}
                 </FieldRow>
-                <FieldRow label="Risk class">
+                <FieldRow label="Review category">
                   {({ id }) => (
                     <ControlledSelectField
                       id={id}
@@ -361,11 +361,11 @@ export function PublishDialog({
                 </FieldRow>
               </div>
 
-              <FieldRow label="Description / README">
+              <FieldRow label="Details">
                 {({ id }) => (
                   <Textarea
                     id={id}
-                    placeholder="What this package includes, who it is for, and setup notes."
+                    placeholder="What this item includes, who it is for, and any setup notes."
                     {...form.register('readme')}
                   />
                 )}
@@ -390,7 +390,7 @@ export function PublishDialog({
               </span>
             )}
             <Button className="off-pub-submit" size="md" type="submit" disabled={publishBlocked}>
-              {publishing ? 'Publishing…' : 'Submit'}
+              {publishing ? 'Submitting…' : 'Submit for review'}
             </Button>
           </div>
         </form>
@@ -412,8 +412,8 @@ function DraftHistory({
     return (
       <ul className="off-pub-recent">
         <li className="is-info">
-          <p>Checking registry drafts</p>
-          <p className="is-mono">registry query pending</p>
+          <p>Checking recent submissions</p>
+          <p>One moment…</p>
         </li>
       </ul>
     );
@@ -425,8 +425,8 @@ function DraftHistory({
     return (
       <ul className="off-pub-recent">
         <li className="is-info">
-          <p>Draft history unavailable</p>
-          <p className="is-mono">connect to view submissions</p>
+          <p>Recent submissions unavailable</p>
+          <p>Connect the online catalog to view them.</p>
         </li>
       </ul>
     );
@@ -436,8 +436,8 @@ function DraftHistory({
     return (
       <ul className="off-pub-recent">
         <li className="is-info">
-          <p>No registry drafts</p>
-          <p className="is-mono">new submissions appear here</p>
+          <p>No recent submissions</p>
+          <p>New review requests appear here.</p>
         </li>
       </ul>
     );
@@ -455,23 +455,4 @@ function DraftHistory({
       ))}
     </ul>
   );
-}
-
-function registryStatusCopy(state: RegistryConnectionState): string {
-  switch (state.reason) {
-    case 'connected':
-      return state.baseUrl ? `Connected · ${state.baseUrl}` : 'Connected';
-    case 'registry-config-missing':
-      return 'Registry endpoint not configured';
-    case 'auth-not-configured':
-      return 'Registry token not connected';
-    case 'creator-missing':
-      return 'Marketplace creator profile missing';
-    case 'platform-unreachable':
-      return 'Registry connection unavailable';
-    case 'desktop-runtime-unavailable':
-      return 'Desktop runtime unavailable';
-    default:
-      return 'Registry unavailable';
-  }
 }

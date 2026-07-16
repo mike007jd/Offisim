@@ -15,6 +15,7 @@ use crate::agent_host_runtime::HostError;
 use crate::task_workspace_binding::{test_task_workspace_binding, TaskWorkspaceBindingRegistry};
 
 use super::bridge::{confirm_execution_impl, register_execution_prepared, PiUiResponse};
+use super::merge_runtime_status;
 use super::payload::{
     collaborate_payload, enhance_payload, pi_session_dir_under, sidecar_payload,
     ExecuteWorkspacePayload, TestPiSessionDir,
@@ -31,13 +32,100 @@ use super::stream::{
     PI_RUN_STREAM_BUFFER_LIMIT, PI_RUN_STREAM_TERMINAL_TTL,
 };
 use super::types::{
-    PiAgentCollaborateRequest, PiAgentEnhanceRequest, PiAgentExecuteRequest, PiAgentHostEvent,
-    PiAgentHostResponse,
+    AiRuntimeStatusResponse, PiAgentCollaborateRequest, PiAgentEnhanceRequest,
+    PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse, PiExecutionTarget,
 };
 use super::wire::{
     consume_ready_handshake, decode_sidecar_line, parse_response, PiSidecarLine,
     PI_HOST_PROTOCOL_VERSION, PI_KNOWN_WIRE_KINDS,
 };
+
+#[test]
+fn runtime_status_keeps_api_catalog_when_codex_inspection_fails() {
+    let api = AiRuntimeStatusResponse {
+        accounts: vec![serde_json::json!({
+            "engineId": "api",
+            "accountId": "api-account",
+        })],
+        models: vec![serde_json::json!({
+            "engineId": "api",
+            "runtimeModelRef": "api:model",
+        })],
+        orchestration_engines: vec![],
+        checked_at: "2026-07-15T01:00:00Z".into(),
+    };
+    let merged = merge_runtime_status(
+        Ok(api),
+        Err("secret path /Users/person/.codex/auth.json".into()),
+        "2026-07-15T02:00:00Z".into(),
+    );
+    assert_eq!(merged.accounts.len(), 1);
+    assert_eq!(merged.models.len(), 1);
+    assert_eq!(merged.orchestration_engines.len(), 1);
+    assert_eq!(merged.checked_at, "2026-07-15T02:00:00Z");
+    let fallback = merged
+        .orchestration_engines
+        .iter()
+        .find(|account| account["engineId"] == "codex")
+        .expect("safe Codex unavailable engine");
+    assert_eq!(fallback["state"], "unavailable");
+    assert!(!fallback.to_string().contains("/Users/person"));
+}
+
+#[test]
+fn runtime_status_keeps_codex_catalog_when_api_inspection_fails() {
+    let codex = crate::codex_agent_host::CodexAgentStatusResponse {
+        engine_id: "codex".into(),
+        display_name: "Codex CLI".into(),
+        state: "ready".into(),
+        version: Some("codex-cli 0.144.4".into()),
+        status_reason: None,
+        login_command: "codex login".into(),
+        docs_url: "https://developers.openai.com/codex/auth".into(),
+        checked_at: "2026-07-15T01:00:00Z".into(),
+        capabilities: serde_json::json!({"stop": true}),
+    };
+    let merged = merge_runtime_status(
+        Err("secret API_KEY=should-not-leak".into()),
+        Ok(codex),
+        "2026-07-15T02:00:00Z".into(),
+    );
+    assert_eq!(merged.accounts.len(), 1);
+    assert!(merged.models.is_empty());
+    assert_eq!(merged.orchestration_engines.len(), 1);
+    assert_eq!(merged.orchestration_engines[0]["state"], "ready");
+    let fallback = merged
+        .accounts
+        .iter()
+        .find(|account| account["accountId"] == "api-status-unavailable")
+        .expect("safe API unavailable account");
+    assert_eq!(fallback["status"], "unavailable");
+    assert!(fallback["capabilities"]["execute"]["status"] == "unavailable");
+    assert!(!fallback.to_string().contains("API_KEY"));
+}
+
+#[test]
+fn runtime_status_projects_both_generic_lanes_when_both_inspections_fail() {
+    let merged = merge_runtime_status(
+        Err("api secret".into()),
+        Err("codex secret".into()),
+        "2026-07-15T02:00:00Z".into(),
+    );
+    assert_eq!(merged.accounts.len(), 1);
+    assert_eq!(merged.orchestration_engines.len(), 1);
+    assert!(merged.models.is_empty());
+    for account in &merged.accounts {
+        assert_eq!(account["status"], "unavailable");
+        assert!(account["capabilities"]["execute"]["status"] == "unavailable");
+        assert!(account["capabilities"]["models"]["status"] == "unavailable");
+        assert!(account["capabilities"]["usage"]["status"] == "unavailable");
+        assert!(account["capabilities"]["cost"]["status"] == "unavailable");
+    }
+    assert_eq!(merged.orchestration_engines[0]["state"], "unavailable");
+    let projection = serde_json::to_string(&merged).unwrap();
+    assert!(!projection.contains("api secret"));
+    assert!(!projection.contains("codex secret"));
+}
 use super::{agent_runtime_release_stream, agent_runtime_stream_snapshot};
 
 static PI_RUN_STREAM_TEST_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
@@ -82,6 +170,74 @@ fn execution_target_fixture() -> serde_json::Value {
             "checkedAt": "2026-07-14T00:00:00Z"
         }
     })
+}
+
+#[test]
+fn user_configured_api_execution_target_may_omit_model_source() {
+    let target: PiExecutionTarget = serde_json::from_value(serde_json::json!({
+        "engineId": "api",
+        "accountId": "api:custom:0123456789abcdef",
+        "billingMode": "api",
+        "modelId": "local-model"
+    }))
+    .expect("custom Pi target without official provenance");
+    assert!(target.model_source.is_none());
+    let projection = serde_json::to_value(target).expect("serialize target");
+    assert!(projection.get("modelSource").is_none());
+}
+
+#[test]
+fn supplied_api_model_source_requires_official_https_rfc3339_provenance() {
+    let target: PiExecutionTarget =
+        serde_json::from_value(execution_target_fixture()).expect("verified official source");
+    assert_eq!(
+        target
+            .model_source
+            .as_ref()
+            .map(|source| source.kind.as_str()),
+        Some("official-api")
+    );
+
+    for (label, source) in [
+        (
+            "native kind",
+            serde_json::json!({
+                "kind": "native",
+                "sourceUrl": "https://fixture.example/models/fixture-model",
+                "checkedAt": "2026-07-14T00:00:00Z"
+            }),
+        ),
+        (
+            "insecure URL",
+            serde_json::json!({
+                "kind": "official-api",
+                "sourceUrl": "http://fixture.example/models/fixture-model",
+                "checkedAt": "2026-07-14T00:00:00Z"
+            }),
+        ),
+        (
+            "invalid timestamp",
+            serde_json::json!({
+                "kind": "official-api",
+                "sourceUrl": "https://fixture.example/models/fixture-model",
+                "checkedAt": "not-a-date"
+            }),
+        ),
+    ] {
+        let mut invalid = execution_target_fixture();
+        invalid["modelSource"] = source;
+        assert!(
+            serde_json::from_value::<PiExecutionTarget>(invalid).is_err(),
+            "{label} must be rejected at Rust ingress"
+        );
+    }
+
+    let mut subscription = execution_target_fixture();
+    subscription["billingMode"] = serde_json::json!("subscription");
+    assert!(
+        serde_json::from_value::<PiExecutionTarget>(subscription).is_err(),
+        "Pi provider execution must not impersonate an orchestration subscription lane"
+    );
 }
 
 fn unique_suffix() -> String {

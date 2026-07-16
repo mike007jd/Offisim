@@ -427,9 +427,12 @@ function bindingValuesToConfirmations(
 }
 
 export function describeFileImportError(error: unknown): string {
-  if (error instanceof FileImportError) return error.message;
-  if (error instanceof Error) return error.message;
-  return String(error);
+  if (error instanceof FileImportError) {
+    if (error.code === 'file_too_large') return 'This file is larger than the 50 MB import limit.';
+    if (error.code === 'invalid_extension') return 'Choose a Market export or ZIP archive.';
+    return 'The selected file could not be read. Choose it again and retry.';
+  }
+  return 'The selected item could not be imported. Check the file and try again.';
 }
 
 function listingPackageIds(listing: MarketListing): Set<string> {
@@ -588,6 +591,7 @@ async function installedPackagesToVm(
  * Registry client
  * ------------------------------------------------------------------------- */
 
+const MARKETPLACE_BASE_URL_STORAGE_KEY = 'offisim.marketplace.baseUrl';
 const MARKETPLACE_TOKEN_STORAGE_KEY = 'offisim.marketplace.apiToken';
 
 interface RegistryConfig {
@@ -599,11 +603,51 @@ function trimEnv(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim().replace(/\/$/u, '') : null;
 }
 
-function configuredRegistryBaseUrl(): string | null {
+function storedMarketplaceBaseUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return trimEnv(window.localStorage.getItem(MARKETPLACE_BASE_URL_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function buildRegistryBaseUrl(): string | null {
   return (
     trimEnv(import.meta.env.VITE_OFFISIM_REGISTRY_BASE_URL) ??
     trimEnv(import.meta.env.VITE_OFFISIM_PLATFORM_BASE_URL)
   );
+}
+
+function configuredRegistryBaseUrl(): string | null {
+  return storedMarketplaceBaseUrl() ?? buildRegistryBaseUrl();
+}
+
+export interface MarketplaceConnectionSettings {
+  baseUrl: string;
+  source: 'custom' | 'build' | 'none';
+  tokenConfigured: boolean;
+}
+
+export function marketplaceConnectionSettings(): MarketplaceConnectionSettings {
+  const stored = storedMarketplaceBaseUrl();
+  const build = buildRegistryBaseUrl();
+  return {
+    baseUrl: stored ?? build ?? '',
+    source: stored ? 'custom' : build ? 'build' : 'none',
+    tokenConfigured: marketplaceTokenConfigured(),
+  };
+}
+
+export function writeMarketplaceBaseUrl(baseUrl: string | null): void {
+  if (typeof window === 'undefined') return;
+  const normalized = trimEnv(baseUrl);
+  try {
+    if (normalized) window.localStorage.setItem(MARKETPLACE_BASE_URL_STORAGE_KEY, normalized);
+    else window.localStorage.removeItem(MARKETPLACE_BASE_URL_STORAGE_KEY);
+  } catch {
+    // The following connection refresh surfaces storage failures as unchanged state.
+  }
 }
 
 /** Raw localStorage value (still sealed). Empty/absent → undefined. */
@@ -634,7 +678,7 @@ async function storedMarketplaceToken(): Promise<string | undefined> {
  * sealed envelope or legacy plaintext, its existence means a token is set. Stays
  * synchronous so render-path callers don't have to await.
  */
-export function marketplaceTokenConfigured(): boolean {
+function marketplaceTokenConfigured(): boolean {
   return rawStoredMarketplaceToken() !== undefined;
 }
 

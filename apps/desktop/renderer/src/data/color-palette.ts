@@ -119,6 +119,7 @@ export const PREVIEW_TINTS = {
 } as const;
 
 export const OFFICE_SCENE_2D_COLORS = {
+  transparent: 'rgba(0,0,0,0)',
   zoneWorkspace: '#dfe8ff',
   zoneMeeting: '#efe6fb',
   zoneLounge: '#e1f3ea',

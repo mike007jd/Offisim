@@ -224,6 +224,28 @@
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-sm);
 }
+.off-loopgraph-canvas .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-1);
+}
+.off-loopgraph-canvas .react-flow__controls-button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-bottom: 1px solid var(--off-line-soft);
+  background: var(--off-surface-1);
+  color: var(--off-ink-2);
+}
+.off-loopgraph-canvas .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+.off-loopgraph-canvas .react-flow__controls-button:hover {
+  background: var(--off-surface-2);
+  color: var(--off-accent);
+}
 
 /* Screen-reader-only live region. */
 .off-loopgraph-sr {

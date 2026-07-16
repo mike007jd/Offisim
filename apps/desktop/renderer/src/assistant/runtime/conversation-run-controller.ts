@@ -10,8 +10,10 @@ import { appendThreadMessageEvent } from '@/data/thread-message-events.js';
 import type { ChatMessage, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
 import {
   AGENT_UI_REQUEST_EVENT,
+  AGENT_UI_REQUEST_RESOLVED_EVENT,
   AgentTerminalCheckpointError,
   type AgentUiRequestPayload,
+  type AgentUiRequestResolvedPayload,
   type DesktopAgentRuntime,
   type DirectDelegationInput,
   LIVE_CONVERSATION_TERMINAL_EVENT,
@@ -119,6 +121,7 @@ interface RunDelegation {
 }
 
 export interface PendingApproval {
+  engineId: string;
   threadId: string;
   attemptId: string;
   hostRequestId: string;
@@ -126,18 +129,120 @@ export interface PendingApproval {
   method: string;
   title: string;
   message?: string;
+  questions?: readonly PendingUserInputQuestion[];
+  autoResolutionMs?: number;
   // 'live' — the host is awaiting this answer now. 'stale' — restored after a
   // restart (host gone; re-presented, not directly answerable). 'expired' — a
   // restored request older than STALE_APPROVAL_EXPIRY_MS (too old to act on,
-  // dismiss only). 'unsupported' — a Pi UI primitive Offisim can't render.
-  state: 'live' | 'stale' | 'expired' | 'unsupported';
+  // dismiss only).
+  state: 'live' | 'stale' | 'expired';
   createdAt: number;
 }
+
+interface PendingUserInputOption {
+  label: string;
+  description?: string;
+}
+
+export interface PendingUserInputQuestion {
+  id: string;
+  header: string;
+  question: string;
+  options: readonly PendingUserInputOption[];
+  isOther: boolean;
+  isSecret: boolean;
+}
+
+export type StructuredUserInputAnswers = Readonly<
+  Record<string, { readonly answers: readonly string[] }>
+>;
 
 /** A restored UI request older than this is `expired` (dismiss-only), not just
  *  `stale`. The host that would consume the answer is long gone; after a day the
  *  request is surfaced as expired so the user discards rather than waits on it. */
 const STALE_APPROVAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function parseUserInputQuestions(params: unknown): {
+  questions: readonly PendingUserInputQuestion[];
+  autoResolutionMs?: number;
+} | null {
+  if (!isRecord(params) || !Array.isArray(params.questions)) return null;
+  if (params.questions.length < 1 || params.questions.length > 3) return null;
+  const ids = new Set<string>();
+  const questions: PendingUserInputQuestion[] = [];
+  for (const raw of params.questions) {
+    if (!isRecord(raw)) return null;
+    const id = typeof raw.id === 'string' ? raw.id.trim() : '';
+    const header = typeof raw.header === 'string' ? raw.header.trim() : '';
+    const question = typeof raw.question === 'string' ? raw.question.trim() : '';
+    if (!id || ids.has(id) || !header || !question) return null;
+    ids.add(id);
+    const rawOptions = raw.options == null ? [] : raw.options;
+    if (!Array.isArray(rawOptions) || rawOptions.length > 3) return null;
+    const options: PendingUserInputOption[] = [];
+    for (const rawOption of rawOptions) {
+      if (!isRecord(rawOption)) return null;
+      const label = typeof rawOption.label === 'string' ? rawOption.label.trim() : '';
+      if (!label) return null;
+      options.push({
+        label,
+        ...(typeof rawOption.description === 'string' && rawOption.description.trim()
+          ? { description: rawOption.description.trim() }
+          : {}),
+      });
+    }
+    questions.push({
+      id,
+      header,
+      question,
+      options,
+      isOther: raw.isOther === true,
+      isSecret: raw.isSecret === true,
+    });
+  }
+  const autoResolutionMs =
+    typeof params.autoResolutionMs === 'number' &&
+    Number.isFinite(params.autoResolutionMs) &&
+    params.autoResolutionMs >= 60_000 &&
+    params.autoResolutionMs <= 240_000
+      ? params.autoResolutionMs
+      : undefined;
+  return { questions, ...(autoResolutionMs ? { autoResolutionMs } : {}) };
+}
+
+function interactionEngineId(payload: { source?: string; engineId?: unknown }): string | null {
+  if (payload.source === 'pi-ui-request') return 'api';
+  if (payload.source !== 'agent-ui-request') return null;
+  return typeof payload.engineId === 'string' && payload.engineId.trim()
+    ? payload.engineId.trim()
+    : null;
+}
+
+function isSupportedUiRequest(method: string, questions?: readonly PendingUserInputQuestion[]) {
+  return method === 'confirm' || (method === 'requestUserInput' && Boolean(questions?.length));
+}
+
+export function normalizeStructuredAnswers(
+  questions: readonly PendingUserInputQuestion[],
+  raw: StructuredUserInputAnswers | undefined,
+): StructuredUserInputAnswers | null {
+  if (!raw || Object.keys(raw).length !== questions.length) return null;
+  const normalized: Record<string, { answers: readonly string[] }> = {};
+  for (const question of questions) {
+    const values = raw[question.id]?.answers;
+    if (!Array.isArray(values) || values.length !== 1 || typeof values[0] !== 'string') return null;
+    const value = question.isSecret ? values[0] : values[0].trim();
+    if (!value.trim()) return null;
+    const optionLabels = question.options.map((option) => option.label);
+    if (optionLabels.length && !optionLabels.includes(value) && !question.isOther) return null;
+    normalized[question.id] = { answers: [value] };
+  }
+  return normalized;
+}
 
 export interface ConversationRunSnapshot {
   threadId: string;
@@ -210,6 +315,7 @@ export interface AnswerApprovalInput {
   uiRequestId: string;
   confirmed?: boolean;
   value?: string;
+  answers?: StructuredUserInputAnswers;
   cancelled?: boolean;
 }
 
@@ -772,6 +878,16 @@ export class ConversationRunController {
     if (!run) return;
     if (run.stopped) return;
     run.stopped = true;
+    // Stop is already the user's terminal intent. Retain the partial prose but
+    // retire every live tool projection immediately; native cleanup may finish
+    // a moment later and must not leave the visible Conversation claiming that
+    // a command is still running in the meantime.
+    if (run.assistantMessage) {
+      run.assistantMessage = {
+        ...stripToolCalls(run.assistantMessage),
+        status: 'interrupted',
+      };
+    }
     run.executionAbortController?.abort();
     if (!run.reattached) this.unsubscribeRun(run);
     run.runtime?.abort(threadId);
@@ -806,20 +922,30 @@ export class ConversationRunController {
       approval.hostRequestId !== input.hostRequestId ||
       approval.uiRequestId !== input.uiRequestId
     ) {
-      console.warn('[conversation-run] ignored stale approval answer', input);
+      // Never log the input object: request-user-input may contain secret answers.
+      console.warn('[conversation-run] ignored stale interaction answer');
       return;
     }
 
-    if (approval.method !== 'confirm') {
-      console.warn('[conversation-run] ignored non-confirm approval answer', input);
+    if (!isSupportedUiRequest(approval.method, approval.questions)) {
+      console.warn('[conversation-run] ignored unsupported interaction answer');
       return;
     }
     if (!run.runtime) throw new Error('Cannot answer approval before runtime is attached.');
+    const answers =
+      approval.method === 'requestUserInput' && !input.cancelled
+        ? normalizeStructuredAnswers(approval.questions ?? [], input.answers)
+        : undefined;
+    if (approval.method === 'requestUserInput' && !input.cancelled && !answers) {
+      throw new Error('Every requested answer must be completed before submitting.');
+    }
     await run.runtime.answerUiRequest({
+      runId: input.attemptId,
       requestId: input.hostRequestId,
       id: input.uiRequestId,
       confirmed: input.confirmed,
       value: input.value,
+      ...(answers ? { answers } : {}),
       cancelled: input.cancelled,
     });
     // The host has already received the answer, so this approval can never be
@@ -831,11 +957,17 @@ export class ConversationRunController {
         run,
         approval,
         input.cancelled ? 'cancelled' : 'resolved',
-        {
-          confirmed: input.confirmed,
-          value: input.value,
-          cancelled: input.cancelled,
-        },
+        approval.method === 'requestUserInput'
+          ? {
+              submitted: !input.cancelled,
+              cancelled: input.cancelled === true,
+              questionIds: approval.questions?.map((question) => question.id) ?? [],
+            }
+          : {
+              confirmed: input.confirmed,
+              value: input.value,
+              cancelled: input.cancelled,
+            },
       );
     } finally {
       this.setSnapshot(input.threadId, {
@@ -882,18 +1014,33 @@ export class ConversationRunController {
         } catch {
           payload = {};
         }
-        if (payload.source !== 'pi-ui-request') continue;
+        const engineId = interactionEngineId(payload);
+        if (!engineId) continue;
+        const parsedInput =
+          payload.method === 'requestUserInput'
+            ? parseUserInputQuestions({
+                questions: payload.questions,
+                autoResolutionMs: payload.autoResolutionMs,
+              })
+            : null;
+        const method = String(payload.method ?? 'confirm');
+        if (!isSupportedUiRequest(method, parsedInput?.questions)) continue;
         const createdAt = Date.parse(row.created_at) || this.deps.now();
         // A restored request past the expiry window can no longer be acted on.
         const expired = this.deps.now() - createdAt > STALE_APPROVAL_EXPIRY_MS;
         const approval: PendingApproval = {
+          engineId,
           threadId: row.thread_id,
           attemptId: String(payload.attemptId ?? row.interaction_id),
           hostRequestId: String(payload.hostRequestId ?? ''),
           uiRequestId: String(payload.uiRequestId ?? row.interaction_id),
-          method: String(payload.method ?? 'confirm'),
+          method,
           title: String(payload.title ?? 'Approval needed'),
           message: typeof payload.message === 'string' ? payload.message : undefined,
+          ...(parsedInput?.questions ? { questions: parsedInput.questions } : {}),
+          ...(parsedInput?.autoResolutionMs
+            ? { autoResolutionMs: parsedInput.autoResolutionMs }
+            : {}),
           state: expired ? 'expired' : 'stale',
           createdAt,
         };
@@ -1381,8 +1528,18 @@ export class ConversationRunController {
     } catch {
       return;
     }
+    const engineId = interactionEngineId(payload);
+    const parsedInput =
+      payload.method === 'requestUserInput'
+        ? parseUserInputQuestions({
+            questions: payload.questions,
+            autoResolutionMs: payload.autoResolutionMs,
+          })
+        : null;
+    const method = typeof payload.method === 'string' ? payload.method : 'confirm';
     if (
-      payload.source !== 'pi-ui-request' ||
+      !engineId ||
+      !isSupportedUiRequest(method, parsedInput?.questions) ||
       payload.attemptId !== run.attemptId ||
       typeof payload.hostRequestId !== 'string' ||
       !payload.hostRequestId.trim() ||
@@ -1392,18 +1549,23 @@ export class ConversationRunController {
       return;
     }
     const approval: PendingApproval = {
+      engineId,
       threadId: run.threadId,
       attemptId: run.attemptId,
       hostRequestId: payload.hostRequestId,
       uiRequestId: payload.uiRequestId,
-      method: typeof payload.method === 'string' ? payload.method : 'confirm',
+      method,
       title: typeof payload.title === 'string' ? payload.title : 'Approval needed',
       message: typeof payload.message === 'string' ? payload.message : undefined,
-      state: payload.method === 'confirm' ? 'live' : 'unsupported',
+      ...(parsedInput?.questions ? { questions: parsedInput.questions } : {}),
+      ...(parsedInput?.autoResolutionMs
+        ? { autoResolutionMs: parsedInput.autoResolutionMs }
+        : {}),
+      state: 'live',
       createdAt: Date.parse(row.created_at) || this.deps.now(),
     };
     this.patchSnapshot(run.threadId, {
-      phase: approval.state === 'live' ? 'awaiting-approval' : 'running',
+      phase: 'awaiting-approval',
       approval,
     });
   }
@@ -1742,6 +1904,19 @@ export class ConversationRunController {
       });
     });
 
+    const offUiResolved = this.deps.eventBus.on(AGENT_UI_REQUEST_RESOLVED_EVENT, (event) => {
+      if (run.stopped) return;
+      const payload = event.payload as AgentUiRequestResolvedPayload;
+      if (!payload?.requestId || !payload.id || payload.runId !== run.attemptId) return;
+      if (event.threadId !== run.threadId) return;
+      void this.handleUiRequestResolved(run, payload).catch((err: unknown) => {
+        console.warn('[conversation-run] interaction resolution cleanup failed', {
+          threadId: run.threadId,
+          err,
+        });
+      });
+    });
+
     const offLiveTerminal = this.deps.eventBus.on(LIVE_CONVERSATION_TERMINAL_EVENT, (event) => {
       const payload = event.payload as LiveConversationTerminalPayload;
       if (!run.reattached || payload?.runId !== run.attemptId || event.threadId !== run.threadId) {
@@ -1764,7 +1939,7 @@ export class ConversationRunController {
       this.noteDelegation(run, payload);
     });
 
-    return [offStream, offTool, offUi, offLiveTerminal, offAgentRun];
+    return [offStream, offTool, offUi, offUiResolved, offLiveTerminal, offAgentRun];
   }
 
   private finalizeReattachedRun(run: ActiveRun, terminal: LiveConversationTerminalPayload): void {
@@ -2006,8 +2181,40 @@ export class ConversationRunController {
     });
   }
 
+  private async handleUiRequestResolved(
+    run: ActiveRun,
+    resolution: AgentUiRequestResolvedPayload,
+  ): Promise<void> {
+    const approval = this.currentSnapshot(run.threadId).approval;
+    if (
+      !approval ||
+      approval.attemptId !== run.attemptId ||
+      approval.hostRequestId !== resolution.requestId ||
+      approval.uiRequestId !== resolution.id
+    ) {
+      return;
+    }
+    const repos = await this.deps.reposFactory();
+    await repos.activeInteractions?.deleteByThread(run.threadId);
+    const snapshot = this.currentSnapshot(run.threadId);
+    if (snapshot.approval?.uiRequestId !== resolution.id) return;
+    this.setSnapshot(run.threadId, { ...snapshot, phase: 'running', approval: null });
+  }
+
   private async handleUiRequest(run: ActiveRun, request: AgentUiRequestPayload): Promise<void> {
+    const parsedInput =
+      request.method === 'requestUserInput' ? parseUserInputQuestions(request.params) : null;
+    if (!isSupportedUiRequest(request.method, parsedInput?.questions)) {
+      await run.runtime?.answerUiRequest({
+        runId: run.attemptId,
+        requestId: request.requestId,
+        id: request.id,
+        cancelled: true,
+      });
+      return;
+    }
     const approval: PendingApproval = {
+      engineId: request.engineId,
       threadId: run.threadId,
       attemptId: run.attemptId,
       hostRequestId: request.requestId,
@@ -2015,7 +2222,11 @@ export class ConversationRunController {
       method: request.method,
       title: request.title,
       message: request.message,
-      state: request.method === 'confirm' ? 'live' : 'unsupported',
+      ...(parsedInput?.questions ? { questions: parsedInput.questions } : {}),
+      ...(parsedInput?.autoResolutionMs
+        ? { autoResolutionMs: parsedInput.autoResolutionMs }
+        : {}),
+      state: 'live',
       createdAt: this.deps.now(),
     };
     this.patchSnapshot(run.threadId, { phase: 'awaiting-approval', approval });
@@ -2030,18 +2241,6 @@ export class ConversationRunController {
     }
     if (run.assistantMessage && !run.runtime?.ownsConversationProjectionPersistence)
       await this.persistRunMessage(run, stripToolCalls(run.assistantMessage));
-    if (request.method !== 'confirm' && run.runtime) {
-      await run.runtime.answerUiRequest({
-        requestId: request.requestId,
-        id: request.id,
-        cancelled: true,
-      });
-      await this.resolveActiveInteraction(run, approval, 'cancelled', {
-        cancelled: true,
-        unsupported: true,
-      });
-      this.patchSnapshot(run.threadId, { phase: 'running', approval: null });
-    }
   }
 
   private async failRun(run: ActiveRun, error: unknown): Promise<void> {
@@ -2190,7 +2389,7 @@ export class ConversationRunController {
       threadId: run.threadId,
       companyId: run.input.companyId,
       projectId: run.input.projectId,
-      agentName: 'pi-agent',
+      agentName: payload.nodeName?.trim() || 'agent-runtime',
       createdAt: new Date(this.deps.now()),
       payload: {
         attemptId: run.attemptId,
@@ -2221,21 +2420,28 @@ export class ConversationRunController {
         severity: 'normal',
         title: approval.title,
         prompt: approval.message ?? approval.title,
-        options: [
-          { id: 'reject', label: 'Reject' },
-          { id: 'approve', label: 'Approve', recommended: true },
-        ],
-        allowFreeformResponse: false,
+        options:
+          approval.method === 'confirm'
+            ? [
+                { id: 'reject', label: 'Reject' },
+                { id: 'approve', label: 'Approve', recommended: true },
+              ]
+            : [],
+        questions: approval.questions,
+        allowFreeformResponse: approval.method === 'requestUserInput',
         createdAt: approval.createdAt,
       }),
       payload_json: JSON.stringify({
-        source: 'pi-ui-request',
+        source: 'agent-ui-request',
+        engineId: approval.engineId,
         attemptId: approval.attemptId,
         hostRequestId: approval.hostRequestId,
         uiRequestId: approval.uiRequestId,
         method: approval.method,
         title: approval.title,
         message: approval.message,
+        questions: approval.questions,
+        autoResolutionMs: approval.autoResolutionMs,
         state: approval.state,
       }),
       created_at: new Date(approval.createdAt).toISOString(),
@@ -2260,11 +2466,24 @@ export class ConversationRunController {
       interaction_mode: 'human_in_loop',
       status,
       selected_option_id:
-        response.confirmed === true ? 'approve' : response.confirmed === false ? 'reject' : null,
-      freeform_response: typeof response.value === 'string' ? response.value : null,
+        approval.method === 'confirm'
+          ? response.confirmed === true
+            ? 'approve'
+            : response.confirmed === false
+              ? 'reject'
+              : null
+          : null,
+      freeform_response:
+        approval.method === 'confirm' && typeof response.value === 'string'
+          ? response.value
+          : null,
       request_json: JSON.stringify(approval),
       response_json: JSON.stringify(response),
-      payload_json: JSON.stringify({ source: 'pi-ui-request', attemptId: run.attemptId }),
+      payload_json: JSON.stringify({
+        source: 'agent-ui-request',
+        engineId: approval.engineId,
+        attemptId: run.attemptId,
+      }),
       created_at: new Date(approval.createdAt).toISOString(),
       resolved_at: now,
     });

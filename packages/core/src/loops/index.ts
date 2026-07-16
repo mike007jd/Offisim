@@ -27,6 +27,8 @@ export {
   DEFAULT_COMPILER_PROFILE_ID,
   getCompilerProfile,
   listCompilerProfiles,
+  GENERAL_WORK_PROFILE_ID,
+  generalWorkProfile,
   SOFTWARE_DEVELOPMENT_PROFILE_ID,
   softwareDevelopmentProfile,
 } from './compiler-profiles/index.js';
@@ -49,6 +51,7 @@ export type {
   LoopServiceDeps,
   CreateLoopInput,
   SaveRevisionInput,
+  SaveCompiledRevisionInput,
   SaveRevisionResult,
   SaveLoopSkill,
 } from './loop-service.js';

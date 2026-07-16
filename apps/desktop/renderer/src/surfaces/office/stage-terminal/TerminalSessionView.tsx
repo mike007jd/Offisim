@@ -14,6 +14,7 @@ import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef, useState } from 'react';
 import './terminal-session.css';
 import { bytesToBase64, terminalReplayStep } from './terminal-replay.js';
+import { terminalVisualOptionsFromCss } from './terminal-theme.js';
 
 type TerminalTarget = Extract<StageViewTarget, { kind: 'terminal-session' }>;
 
@@ -62,32 +63,8 @@ export function TerminalSessionView({ target }: { target: TerminalTarget }) {
       convertEol: false,
       cursorBlink: true,
       cursorStyle: 'block',
-      fontFamily: '"SFMono-Regular", "SF Mono", Menlo, Consolas, monospace',
-      fontSize: 12,
-      lineHeight: 1.25,
+      ...terminalVisualOptionsFromCss(getComputedStyle(host)),
       scrollback: 8_000,
-      theme: {
-        background: '#090d12', // raw-hex-allowed: xterm Theme API palette
-        foreground: '#d7e2ef', // raw-hex-allowed: xterm Theme API palette
-        cursor: '#8be9fd', // raw-hex-allowed: xterm Theme API palette
-        selectionBackground: '#24435a', // raw-hex-allowed: xterm Theme API palette
-        black: '#0b1016', // raw-hex-allowed: xterm ANSI palette
-        brightBlack: '#5f6b7a', // raw-hex-allowed: xterm ANSI palette
-        red: '#ff6b7a', // raw-hex-allowed: xterm ANSI palette
-        brightRed: '#ff8793', // raw-hex-allowed: xterm ANSI palette
-        green: '#7ee787', // raw-hex-allowed: xterm ANSI palette
-        brightGreen: '#9be9a8', // raw-hex-allowed: xterm ANSI palette
-        yellow: '#e3b341', // raw-hex-allowed: xterm ANSI palette
-        brightYellow: '#f2cc60', // raw-hex-allowed: xterm ANSI palette
-        blue: '#58a6ff', // raw-hex-allowed: xterm ANSI palette
-        brightBlue: '#79c0ff', // raw-hex-allowed: xterm ANSI palette
-        magenta: '#bc8cff', // raw-hex-allowed: xterm ANSI palette
-        brightMagenta: '#d2a8ff', // raw-hex-allowed: xterm ANSI palette
-        cyan: '#56d4dd', // raw-hex-allowed: xterm ANSI palette
-        brightCyan: '#8be9fd', // raw-hex-allowed: xterm ANSI palette
-        white: '#b1bac4', // raw-hex-allowed: xterm ANSI palette
-        brightWhite: '#f0f6fc', // raw-hex-allowed: xterm ANSI palette
-      },
     });
     const fit = new FitAddon();
     terminal.loadAddon(fit);

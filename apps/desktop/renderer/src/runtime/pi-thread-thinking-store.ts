@@ -10,13 +10,12 @@ import { create } from 'zustand';
  * of Offisim manufacturing one. The chip shows `DEFAULT_THINKING_LEVEL` as the
  * resting label only.
  *
- * Pi owns the real vocabulary: the host forwards this string into
- * `createAgentSession({ thinkingLevel })`, which clamps it to the current model's
- * capabilities (a non-reasoning model collapses every level to `off`; an
- * unsupported level snaps to the nearest supported one). This store only stores
- * and forwards the user's intent.
+ * The selected native model owns the real vocabulary. Codex may publish
+ * `none`, `max`, `ultra`, or a future non-empty effort id; API models may still
+ * use Pi's `off` vocabulary. The picker only writes ids advertised by the
+ * selected model, and each host validates the value again before execution.
  */
-export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+export type ThinkingLevel = string;
 
 export const THINKING_LEVELS: readonly ThinkingLevel[] = [
   'off',
@@ -31,9 +30,10 @@ export const THINKING_LEVELS: readonly ThinkingLevel[] = [
 export const DEFAULT_THINKING_LEVEL: ThinkingLevel = 'medium';
 
 const STORAGE_KEY = 'offisim:pi-agent:thread-thinking';
+const THINKING_LEVEL_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
 
 function isThinkingLevel(value: unknown): value is ThinkingLevel {
-  return typeof value === 'string' && (THINKING_LEVELS as readonly string[]).includes(value);
+  return typeof value === 'string' && THINKING_LEVEL_PATTERN.test(value);
 }
 
 function loadMap(): Record<string, ThinkingLevel> {
@@ -64,6 +64,8 @@ interface PiThreadThinkingStore {
   byThread: Record<string, ThinkingLevel>;
   /** Set this thread's thinking level (always one of the closed enum values). */
   setThreadThinking: (threadId: string, level: ThinkingLevel) => void;
+  /** Remove an override so the selected native preset applies its own default. */
+  clearThreadThinking: (threadId: string) => void;
 }
 
 export const usePiThreadThinkingStore = create<PiThreadThinkingStore>((set) => ({
@@ -71,6 +73,14 @@ export const usePiThreadThinkingStore = create<PiThreadThinkingStore>((set) => (
   setThreadThinking: (threadId, level) =>
     set((state) => {
       const next = { ...state.byThread, [threadId]: level };
+      saveMap(next);
+      return { byThread: next };
+    }),
+  clearThreadThinking: (threadId) =>
+    set((state) => {
+      if (!(threadId in state.byThread)) return state;
+      const next = { ...state.byThread };
+      delete next[threadId];
       saveMap(next);
       return { byThread: next };
     }),

@@ -1,8 +1,8 @@
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
-import { cn, titleizeSlug } from '@/lib/utils.js';
-import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import { ExternalLink, KeyRound, Loader2, Store, UploadCloud } from 'lucide-react';
+import { cn } from '@/lib/utils.js';
+import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
+import { ExternalLink, Loader2, Settings2, Store, UploadCloud } from 'lucide-react';
 import {
   type DraftStatus,
   type InstalledPackage,
@@ -12,19 +12,20 @@ import {
   usePublishedDrafts,
   useRegistryConnection,
 } from './market-data.js';
-
-/** "com.acme.note-reader" → "Note Reader" — readable card title; the raw id
- *  stays visible on a secondary mono line. */
-function humanizePackageId(packageId: string): string {
-  const tail = packageId.split('.').pop() ?? packageId;
-  return titleizeSlug(tail) || packageId;
-}
+import {
+  filterInstalledPackages,
+  filterPublishedDrafts,
+  installedDisplayName,
+  marketConnectionCopy,
+} from './market-presentation.js';
 
 interface MarketManageProps {
   view: ManageView;
   companyId: string | null;
+  query: string;
+  onClearSearch: () => void;
   onBrowseExplore: () => void;
-  onConnectRegistry: () => void;
+  onOpenConnectionSettings: () => void;
   onPublish: () => void;
   /** Open the package's origin listing in Browse (review / update). */
   onOpenListing: (listingId: string) => void;
@@ -33,18 +34,29 @@ interface MarketManageProps {
 export function MarketManage({
   view,
   companyId,
+  query,
+  onClearSearch,
   onBrowseExplore,
-  onConnectRegistry,
+  onOpenConnectionSettings,
   onPublish,
   onOpenListing,
 }: MarketManageProps) {
   if (view === 'published') {
-    return <PublishedList onConnectRegistry={onConnectRegistry} onPublish={onPublish} />;
+    return (
+      <PublishedList
+        query={query}
+        onClearSearch={onClearSearch}
+        onOpenConnectionSettings={onOpenConnectionSettings}
+        onPublish={onPublish}
+      />
+    );
   }
   return (
     <InstalledList
       view={view}
       companyId={companyId}
+      query={query}
+      onClearSearch={onClearSearch}
       onBrowseExplore={onBrowseExplore}
       onOpenListing={onOpenListing}
     />
@@ -54,24 +66,33 @@ export function MarketManage({
 function InstalledList({
   view,
   companyId,
+  query,
+  onClearSearch,
   onBrowseExplore,
   onOpenListing,
 }: {
   view: ManageView;
   companyId: string | null;
+  query: string;
+  onClearSearch: () => void;
   onBrowseExplore: () => void;
   onOpenListing: (listingId: string) => void;
 }) {
   const installed = useInstalledPackages(companyId);
   const rows = installed.data ?? [];
-  const visible = view === 'updates' ? rows.filter((r) => r.latestVersion) : rows;
+  const visible = filterInstalledPackages(rows, query, view === 'updates');
 
   if (installed.isLoading) {
+    return <MarketManageSkeleton label="Loading installed items…" />;
+  }
+
+  if (installed.isError) {
     return (
-      <div className="off-mng-loading">
-        <Icon icon={Loader2} size="sm" className="off-spin" />
-        Loading installed packages…
-      </div>
+      <ErrorState
+        title="Couldn't load installed items"
+        detail={errorDetail(installed.error, 'The local installed-items list could not be read.')}
+        onRetry={() => void installed.refetch()}
+      />
     );
   }
 
@@ -79,19 +100,28 @@ function InstalledList({
     return (
       <EmptyState
         icon={Store}
-        title={view === 'updates' ? 'No updates available' : 'No installed packages'}
-        description={
-          view === 'updates' ? 'Everything is up to date.' : 'Packages you install appear here.'
+        title={
+          query.trim()
+            ? 'No installed items match your search'
+            : view === 'updates'
+              ? 'No updates available'
+              : 'No installed items'
         }
+        description={
+          query.trim()
+            ? 'Try another name or clear the search.'
+            : view === 'updates'
+              ? 'Everything is up to date.'
+              : 'Items you install or import appear here.'
+        }
+        action={query.trim() ? { label: 'Clear search', onClick: onClearSearch } : undefined}
       />
     );
   }
 
   return (
     <div className="off-mkt-scroll">
-      {view === 'updates' ? (
-        <div className="off-mng-note">Packages with available updates</div>
-      ) : null}
+      {view === 'updates' ? <div className="off-mng-note">Updates ready to review</div> : null}
       <div className={cn('off-mng-wrap', view === 'updates' && 'is-rows')}>
         {visible.map((pkg) => (
           <InstalledItem key={pkg.id} pkg={pkg} onOpenListing={onOpenListing} />
@@ -103,7 +133,7 @@ function InstalledList({
             onClick={onBrowseExplore}
           >
             <Icon icon={Store} size="sm" />
-            Browse marketplace
+            Browse Market
           </button>
         ) : null}
       </div>
@@ -127,16 +157,19 @@ function InstalledItem({
     <div className="off-mng-item">
       <div className="off-mng-top">
         <div className="off-mng-id-wrap">
-          <div className="off-mng-name">{humanizePackageId(pkg.packageId)}</div>
-          <div className="off-mng-id">{pkg.packageId}</div>
+          <div className="off-mng-name">{installedDisplayName(pkg.packageId)}</div>
           <div className="off-mng-ver">
             v{pkg.version} · {pkg.installedLabel}
           </div>
         </div>
         <span className={cn('off-mng-badge', statusTone)}>{status}</span>
       </div>
-      {hasUpdate ? <div className="off-mng-latest">→ latest {pkg.latestVersion}</div> : null}
-      {pkg.checkState === 'error' ? <div className="off-mng-err">Update check failed</div> : null}
+      {hasUpdate ? (
+        <div className="off-mng-latest">Version {pkg.latestVersion} is available</div>
+      ) : null}
+      {pkg.checkState === 'error' ? (
+        <div className="off-mng-err">Couldn't check for updates</div>
+      ) : null}
       {/* Always render the action slot so equal-height grid cards keep their
           bottom row aligned; sideloaded packages state why there is no action. */}
       <div className="off-mng-acts">
@@ -150,7 +183,7 @@ function InstalledItem({
             {hasUpdate ? 'Update' : 'Open listing'}
           </Button>
         ) : (
-          <span className="off-mng-action-state">Local package</span>
+          <span className="off-mng-action-state">Imported from computer</span>
         )}
       </div>
     </div>
@@ -166,83 +199,69 @@ const STATUS_TONE: Record<DraftStatus, { cls: string; label: string }> = {
 };
 
 function PublishedList({
-  onConnectRegistry,
+  query,
+  onClearSearch,
+  onOpenConnectionSettings,
   onPublish,
 }: {
-  onConnectRegistry: () => void;
+  query: string;
+  onClearSearch: () => void;
+  onOpenConnectionSettings: () => void;
   onPublish: () => void;
 }) {
   const registry = useRegistryConnection();
   const drafts = usePublishedDrafts(registry.data?.connected === true);
-  const unavailableTitle =
-    registry.data?.reason === 'registry-config-missing'
-      ? 'Registry endpoint not configured'
-      : registry.data?.reason === 'creator-missing'
-        ? 'Creator profile not registered'
-        : registry.data?.reason === 'platform-unreachable'
-          ? 'Registry service unreachable'
-          : 'Sign in to view your drafts';
-  const unavailableDescription =
-    registry.data?.reason === 'registry-config-missing'
-      ? 'Set the desktop registry base URL before using marketplace publish history.'
-      : registry.data?.reason === 'creator-missing'
-        ? 'This registry token is valid, but the account does not have a creator profile yet.'
-        : registry.data?.reason === 'platform-unreachable'
-          ? 'The configured marketplace endpoint did not respond to the desktop app.'
-          : 'Publishing requires a marketplace account. Once you connect one, your drafts and published packages will appear here.';
+  const unavailable = marketConnectionCopy(registry.data);
 
   if (registry.isLoading) {
-    return (
-      <div className="off-mng-loading">
-        <Icon icon={Loader2} size="sm" className="off-spin" />
-        Checking registry connection…
-      </div>
-    );
+    return <MarketManageSkeleton label="Checking publishing access…" />;
   }
 
   if (!registry.data?.connected) {
-    const canManageToken =
-      registry.data?.reason !== 'registry-config-missing' &&
-      registry.data?.reason !== 'desktop-runtime-unavailable';
     return (
       <div className="off-mng-unauth">
         <span className="off-mng-unauth-i">
-          <Icon icon={KeyRound} size="md" />
+          <Icon icon={Settings2} size="md" />
         </span>
-        <div className="off-mng-unauth-t">{unavailableTitle}</div>
-        <div className="off-mng-unauth-d">{unavailableDescription}</div>
-        <span className="off-mng-action-state">
-          {registry.data?.reason === 'auth-not-configured'
-            ? 'Registry auth unavailable'
-            : 'Registry connection unavailable'}
-        </span>
-        {canManageToken ? (
-          <Button size="sm" variant="outline" onClick={onConnectRegistry}>
-            {registry.data?.reason === 'auth-not-configured' ? 'Connect registry' : 'Manage token'}
-          </Button>
-        ) : null}
+        <div className="off-mng-unauth-t">{unavailable.title}</div>
+        <div className="off-mng-unauth-d">{unavailable.description}</div>
+        <Button size="sm" variant="outline" onClick={onOpenConnectionSettings}>
+          Connection settings
+        </Button>
       </div>
     );
   }
 
   if (drafts.isLoading) {
+    return <MarketManageSkeleton label="Loading submissions…" />;
+  }
+
+  if (drafts.isError) {
     return (
-      <div className="off-pub-wrap">
-        <div className="off-mkt-sk off-mng-sk" />
-        <div className="off-mkt-sk off-mng-sk" />
-        <div className="off-mkt-sk off-mng-sk" />
-      </div>
+      <ErrorState
+        title="Couldn't load submissions"
+        detail={errorDetail(drafts.error, 'Publishing history could not be loaded.')}
+        onRetry={() => void drafts.refetch()}
+      />
     );
   }
 
-  const rows = drafts.data ?? [];
+  const rows = filterPublishedDrafts(drafts.data ?? [], query);
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={UploadCloud}
-        title="No published packages yet"
-        description="Publish an employee or skill to get started."
-        action={{ label: 'Publish', onClick: onPublish }}
+        title={query.trim() ? 'No submissions match your search' : 'Nothing submitted yet'}
+        description={
+          query.trim()
+            ? 'Try another title or clear the search.'
+            : 'Publish an employee or skill when it is ready for review.'
+        }
+        action={
+          query.trim()
+            ? { label: 'Clear search', onClick: onClearSearch }
+            : { label: 'Publish for review', onClick: onPublish }
+        }
       />
     );
   }
@@ -253,6 +272,22 @@ function PublishedList({
         {rows.map((draft) => (
           <DraftItem key={draft.id} draft={draft} />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function MarketManageSkeleton({ label }: { label: string }) {
+  return (
+    <div className="off-mng-loading" aria-label={label}>
+      <span>
+        <Icon icon={Loader2} size="sm" className="off-spin" />
+        {label}
+      </span>
+      <div className="off-pub-wrap" aria-hidden="true">
+        <div className="off-mkt-sk off-mng-sk" />
+        <div className="off-mkt-sk off-mng-sk" />
+        <div className="off-mkt-sk off-mng-sk" />
       </div>
     </div>
   );

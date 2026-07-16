@@ -12,7 +12,7 @@ export type PermissionMode = 'plan' | 'ask' | 'auto' | 'full';
 
 export const PERMISSION_MODES: readonly PermissionMode[] = ['plan', 'ask', 'auto', 'full'];
 
-/** Autonomous with a catastrophe guard — the sane leave-it-on default. */
+/** Project-scoped autonomy with engine-native risk controls and approvals. */
 export const DEFAULT_PERMISSION_MODE: PermissionMode = 'auto';
 
 const STORAGE_KEY = 'offisim:pi-agent:thread-modes';

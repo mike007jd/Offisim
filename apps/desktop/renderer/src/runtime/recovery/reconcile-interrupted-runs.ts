@@ -10,7 +10,7 @@
  * usage onto the root, and returns a {@link InterruptedRunCard} per parked root.
  *
  * This runs over `agent_runs` (the live source of truth) + the native agent's
- * saved session pointer (`session_file`), NOT the orphan mission tables — wiring the
+ * saved engine-specific native session reference, NOT the orphan mission tables — wiring the
  * mission store into the live path is exactly the "parallel recovery store"
  * anti-pattern the roadmap avoids. The M4 mission recovery library stays a pure
  * logic lib; this is its agent_runs-shaped sibling, reusing only the generic
@@ -72,6 +72,9 @@ interface RunContextSnapshot {
   runtime?: unknown;
   piSdkVersion?: unknown;
   wireProtocolVersion?: unknown;
+  nativeProtocolVersion?: unknown;
+  nativeSessionId?: unknown;
+  executionTarget?: unknown;
   model?: unknown;
   permissionMode?: unknown;
   thinkingLevel?: unknown;
@@ -84,6 +87,7 @@ interface InterruptedRunCardOptions {
 }
 
 export const PI_HOST_PROTOCOL_VERSION = 10;
+export const CODEX_APP_SERVER_PROTOCOL_VERSION = 2;
 
 const RESUME_COMPATIBILITY_COPY: Readonly<Record<string, string>> = {
   workspace_history_missing: 'The saved workspace record is unavailable.',
@@ -311,8 +315,17 @@ export function buildInterruptedRunCard(
   const workspaceAvailability = stringOrNull(context?.workspaceAvailability);
   const workspaceProvenance = parseWorkspaceProvenance(context?.workspaceProvenance);
   const workspaceBindingMatchesRun = resolveAgentRunResumeCompatibilityArgs(root) !== null;
+  const executionTarget =
+    context?.executionTarget && typeof context.executionTarget === 'object'
+      ? (context.executionTarget as Record<string, unknown>)
+      : null;
+  const engineId = stringOrNull(executionTarget?.engineId);
+  const supportedEngine = engineId === 'api' || engineId === 'codex';
+  const nativeSessionId = stringOrNull(context?.nativeSessionId);
   const wireProtocolVersion =
     typeof context?.wireProtocolVersion === 'number' ? context.wireProtocolVersion : null;
+  const nativeProtocolVersion =
+    typeof context?.nativeProtocolVersion === 'number' ? context.nativeProtocolVersion : null;
   const currentWireProtocolVersion = options.currentWireProtocolVersion ?? PI_HOST_PROTOCOL_VERSION;
   const classificationReasons: string[] = [];
   if (!projectId) {
@@ -334,11 +347,22 @@ export function buildInterruptedRunCard(
     const reason = describeWorkspaceResumeCompatibility(options.resumeCompatibility);
     if (reason) classificationReasons.push(reason);
   }
-  if (!sessionFile) {
+  if (!engineId) {
+    classificationReasons.push('This task has no saved AI engine binding.');
+  } else if (!supportedEngine) {
+    classificationReasons.push('The saved AI engine is not available in this Offisim build.');
+  }
+  const hasNativeSession =
+    engineId === 'codex' ? nativeSessionId !== null : engineId === 'api' && sessionFile !== null;
+  if (!hasNativeSession) {
     classificationReasons.push('This task stopped before it could save its place.');
   }
   const protocolMismatch =
-    wireProtocolVersion !== null && wireProtocolVersion !== currentWireProtocolVersion;
+    engineId === 'codex'
+      ? nativeProtocolVersion !== CODEX_APP_SERVER_PROTOCOL_VERSION
+      : engineId === 'api' &&
+        wireProtocolVersion !== null &&
+        wireProtocolVersion !== currentWireProtocolVersion;
   if (protocolMismatch) {
     classificationReasons.push(
       "This task was created by an older Offisim version and can't safely continue.",
@@ -349,7 +373,9 @@ export function buildInterruptedRunCard(
     !workspaceBindingMatchesRun ||
     (options.resumeCompatibility !== undefined && options.resumeCompatibility.status !== 'same');
   const classification: RecoveryClassification =
-    protocolMismatch || workspaceBlocked || !sessionFile ? 'incompatible' : 'resumable';
+    !supportedEngine || protocolMismatch || workspaceBlocked || !hasNativeSession
+      ? 'incompatible'
+      : 'resumable';
   const workspaceName = workspaceBinding?.displayPath || 'the original Project folder';
   const whatResumeWillDo =
     classification === 'resumable'

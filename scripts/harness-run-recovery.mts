@@ -32,6 +32,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { persistRunStartIfAbsent } from '../apps/desktop/renderer/src/runtime/recovery/persist-run-idempotency.js';
 import {
   PI_HOST_PROTOCOL_VERSION,
@@ -49,7 +50,7 @@ import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 32;
+const TOTAL = 34;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -195,6 +196,7 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
       session_file: '/sessions/root2.jsonl',
       runtime_context_json: JSON.stringify({
         runtime: 'pi-agent',
+        executionTarget: { engineId: 'api' },
         projectId: 'proj-2',
         workspaceBinding: workspaceBinding('proj-2', 't2', 'root2', '/tmp/offisim/proj-2'),
         wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
@@ -252,6 +254,45 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
 }
 
 async function main(): Promise<void> {
+  await check(
+    '(resume) renderer leaves the interrupted witness untouched until backend claim',
+    async () => {
+      const runtimeSource = await readFile(
+        new URL('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts', import.meta.url),
+        'utf8',
+      );
+      const nativeSessionPreparation = runtimeSource.indexOf(
+        "const nativeSessionMode = input.nativeSessionMode === 'fresh' ? 'fresh' : 'tracked';",
+      );
+      const hostStart = runtimeSource.indexOf(
+        'await this.assertDurableExecutionTarget(',
+        nativeSessionPreparation,
+      );
+      assert.ok(nativeSessionPreparation >= 0 && hostStart > nativeSessionPreparation);
+      const prestartPersistence = runtimeSource.slice(nativeSessionPreparation, hostStart);
+      assert.match(
+        prestartPersistence,
+        /if \(commandName === 'agent_runtime_execute'\) \{\s*this\.enqueuePersist\(\(\) => this\.persistRunContextPatch\(runScope\.runId, runtimeContext\)\);\s*\}/u,
+        'Resume must not replace the original request/workspace/session witness before Rust claims it atomically',
+      );
+    },
+  );
+
+  await check(
+    '(resume) renderer does not require the new request id before backend claim',
+    async () => {
+      const runtimeSource = await readFile(
+        new URL('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts', import.meta.url),
+        'utf8',
+      );
+      assert.match(
+        runtimeSource,
+        /await this\.assertDurableExecutionTarget\(\s*runScope\.runId,\s*executionTarget,\s*commandName === 'agent_runtime_execute' \? requestId : undefined,\s*\);/u,
+        "Resume must validate the old durable target without requiring Rust's not-yet-committed request id",
+      );
+    },
+  );
+
   console.log('harness:run-recovery — DR-003 startup interrupted-run reconciliation\n');
 
   // One shared reconcile pass over co-A; assert each effect.
@@ -892,6 +933,7 @@ async function main(): Promise<void> {
       session_file: '/sessions/r-protocol.jsonl',
       runtime_context_json: JSON.stringify({
         runtime: 'pi-agent',
+        executionTarget: { engineId: 'api' },
         projectId: 'proj-protocol',
         workspaceBinding: workspaceBinding(
           'proj-protocol',
@@ -914,6 +956,29 @@ async function main(): Promise<void> {
     });
     assert.equal(card.classification, 'incompatible');
     assert.match(card.classificationReasons.join(' '), /older Offisim version/);
+    assert.doesNotMatch(card.classificationReasons.join(' '), /no saved AI engine binding/);
+
+    const unknownEngineCard = buildInterruptedRunCard(
+      {
+        ...row!,
+        run_id: 'r-unknown-engine',
+        runtime_context_json: JSON.stringify({
+          ...JSON.parse(row!.runtime_context_json!),
+          executionTarget: { engineId: 'retired-engine' },
+          wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+        }),
+      },
+      [],
+      null,
+      {
+        resumeCompatibility: { status: 'same', reason: 'workspace_identity_match' },
+      },
+    );
+    assert.equal(unknownEngineCard.classification, 'incompatible');
+    assert.match(
+      unknownEngineCard.classificationReasons.join(' '),
+      /saved AI engine is not available in this Offisim build/,
+    );
   });
 
   // --- A3: insert-if-absent run.started persistence (resume-replay idempotency) ---

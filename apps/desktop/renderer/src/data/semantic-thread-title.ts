@@ -67,9 +67,19 @@ export async function generateSemanticThreadTitle(input: {
   firstAssistantText: string;
 }): Promise<string | null> {
   try {
+    const runtimeModelRef = input.job.sourceProvenance.runtimeModelRef?.trim();
+    if (!runtimeModelRef) {
+      await input.repos.chatThreads.failSemanticTitleJob({
+        threadId: input.job.threadId,
+        jobId: input.job.jobId,
+        errorCode: 'missing-runtime-model-ref',
+      });
+      return null;
+    }
     const result = await input.runtime.generateText({
       jobId: input.job.jobId,
       sourceProvenance: input.job.sourceProvenance,
+      runtimeModelRef,
       systemPrompt: [
         'Create one short, specific conversation title in the same language as the user.',
         'Capture the concrete task or decision, not the act of chatting.',

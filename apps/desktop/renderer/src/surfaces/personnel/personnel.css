@@ -317,6 +317,13 @@
   gap: var(--off-sp-2);
 }
 
+.off-pers-detail-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+}
+
 .off-pers-st-pill {
   height: 18px;
   font-size: var(--off-fs-label);
@@ -676,7 +683,7 @@
   padding: var(--off-sp-2) var(--off-sp-5);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--off-sp-3);
 }
 
@@ -697,23 +704,6 @@
   100% {
     box-shadow: 0 0 0 0 transparent;
   }
-}
-
-.off-pers-savebar-left {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-3);
-  flex-wrap: wrap;
-}
-
-.off-pers-del-confirm {
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-2);
-  flex-wrap: wrap;
-  font-size: var(--off-fs-meta);
-  color: var(--off-danger);
 }
 
 .off-pers-save-error {

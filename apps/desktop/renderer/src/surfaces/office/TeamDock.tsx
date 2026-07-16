@@ -15,7 +15,7 @@ import {
   useThreads,
   useUpdateEmployeeEnabled,
 } from '@/data/queries.js';
-import type { ChatThread, Employee, EmployeePresence, RunState } from '@/data/types.js';
+import type { ChatThread, Employee, EmployeePresence } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Select } from '@/design-system/grammar/Select.js';
@@ -33,6 +33,7 @@ import {
 } from '@/design-system/primitives/dropdown-menu.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
+import { presenceFor } from '@/surfaces/office/employee-presence.js';
 import {
   recordEmployeeVersionOnSave,
   useEmployeeMemories,
@@ -55,8 +56,8 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 const PRESENCE_CLS: Record<EmployeePresence, string> = {
-  working: 'is-running',
-  idle: '',
+  working: 'is-working',
+  idle: 'is-idle',
   blocked: 'is-blocked',
   failed: 'is-failed',
   offline: 'is-offline',
@@ -78,14 +79,6 @@ const PRESENCE_SORT_ORDER: Record<EmployeePresence, number> = {
   failed: 2,
   idle: 3,
   offline: 4,
-};
-
-const RUN_STATE_TEXT: Record<RunState, string> = {
-  idle: 'Idle',
-  running: 'Running',
-  paused: 'Paused',
-  error: 'Blocked',
-  done: 'Done',
 };
 
 interface TeamZoneOption {
@@ -133,11 +126,6 @@ function companyModelSummary(
     .slice(0, 3)
     .map(([label, count]) => `${count} ${label.toLowerCase()}`)
     .join(' · ');
-}
-
-function presenceFor(employee: Employee, running: boolean): EmployeePresence {
-  if (running) return 'working';
-  return employee.presence ?? (employee.online ? 'idle' : 'offline');
 }
 
 function EmployeeDockPopover({
@@ -202,7 +190,7 @@ function EmployeeDockPopover({
   const focusTitle =
     thread?.title ?? (presence === 'working' ? 'Active assignment' : 'Ready for assignment');
   const focusMeta = thread
-    ? `${RUN_STATE_TEXT[thread.runState]} · ${thread.subtitle}`
+    ? `${PRESENCE_TEXT[presence]} · ${thread.subtitle}`
     : PRESENCE_TEXT[presence];
 
   return (
@@ -445,15 +433,6 @@ export function TeamDock() {
   const [showWorkingOnly, setShowWorkingOnly] = useState(false);
   const [sortMode, setSortMode] = useState<TeamSortMode>('seat');
 
-  const runningEmployeeIds = useMemo(
-    () =>
-      new Set(
-        (threads.data ?? [])
-          .filter((thread) => thread.runState === 'running' && thread.employeeId)
-          .map((thread) => thread.employeeId as string),
-      ),
-    [threads.data],
-  );
   const threadByEmployee = useMemo(() => {
     const map = new Map<string, ChatThread>();
     for (const thread of threads.data ?? []) {
@@ -471,20 +450,20 @@ export function TeamDock() {
         employee.discipline.toLowerCase().includes(q);
       if (!matchesQuery) return false;
       if (!showWorkingOnly) return true;
-      return presenceFor(employee, runningEmployeeIds.has(employee.id)) === 'working';
+      return presenceFor(employee, threadByEmployee.get(employee.id)) === 'working';
     });
     if (sortMode === 'name') {
       return [...list].sort((a, b) => a.name.localeCompare(b.name));
     }
     if (sortMode === 'presence') {
       return [...list].sort((a, b) => {
-        const presenceA = presenceFor(a, runningEmployeeIds.has(a.id));
-        const presenceB = presenceFor(b, runningEmployeeIds.has(b.id));
+        const presenceA = presenceFor(a, threadByEmployee.get(a.id));
+        const presenceB = presenceFor(b, threadByEmployee.get(b.id));
         return PRESENCE_SORT_ORDER[presenceA] - PRESENCE_SORT_ORDER[presenceB];
       });
     }
     return list;
-  }, [employees.data, query, runningEmployeeIds, showWorkingOnly, sortMode]);
+  }, [employees.data, query, showWorkingOnly, sortMode, threadByEmployee]);
   const zones = useMemo<TeamZoneOption[]>(
     () =>
       (layout.data?.zones ?? []).map((zone) => ({
@@ -512,9 +491,8 @@ export function TeamDock() {
       <div className="off-dock-strip">
         {roster.map((employee) => {
           const thread = threadByEmployee.get(employee.id);
-          const running = thread?.runState === 'running';
           const active = Boolean(thread && thread.id === selectedThreadId);
-          const presence = presenceFor(employee, running);
+          const presence = presenceFor(employee, thread);
           const modelState = employeeModelState(employee, models.data);
           const currentZone = zones.find((zone) => zone.id === employee.workstationId) ?? null;
           return (
@@ -538,7 +516,7 @@ export function TeamDock() {
                       <span className="off-team-role min-w-0">{employee.role}</span>
                       <span
                         className={cn(
-                          'max-w-24 shrink-0 truncate rounded-full border border-[var(--off-line-soft)] bg-[var(--off-surface-sunken)] px-1.5 py-px font-mono text-xs leading-none text-[var(--off-ink-3)]',
+                          'max-w-24 shrink-0 truncate rounded-[var(--off-radius-status)] border border-[var(--off-line-soft)] bg-[var(--off-surface-sunken)] px-1.5 py-px font-mono text-xs leading-none text-[var(--off-ink-3)]',
                           modelState.invalid && 'text-[var(--off-warn)]',
                         )}
                         title={
@@ -610,7 +588,7 @@ export function TeamDock() {
         </button>
       </div>
 
-      <div className="off-dock-tools items-start pt-3 pr-12">
+      <div className="off-dock-tools items-start pt-3">
         {showListControls ? (
           <>
             {showSearch ? (
@@ -666,7 +644,6 @@ export function TeamDock() {
           icon={collapsed ? ChevronUp : ChevronDown}
           label={collapsed ? 'Expand dock' : 'Collapse dock'}
           size="iconSm"
-          className="absolute top-3 right-3"
           onClick={() => setCollapsed((v) => !v)}
         />
       </div>

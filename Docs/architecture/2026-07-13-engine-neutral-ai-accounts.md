@@ -1,16 +1,17 @@
 # Engine-neutral AI Accounts and Native Session Boundaries
 
-Checked at: 2026-07-15 00:15 AEST
-Status: API engine implemented and release-verified; Codex and Claude engines pending
+Checked at: 2026-07-17 NZST
+Status: API engine and Codex orchestration adapter implemented; the corrected Codex lane still requires the later unified release-app live-verification batch; Claude is pending
 
 ## Current implementation truth
 
-Offisim now routes production work through `DesktopAgentRuntimeGateway`. The
-gateway currently registers one complete `api` adapter; its internal
-`DesktopPiAgentRuntime` host is an implementation detail, not a product engine
-or provider lane. Codex and Claude are not shipped engine adapters yet. UI
-wording, docs, or a settings card cannot be used as evidence that an engine
-exists.
+Offisim routes production work through `DesktopAgentRuntimeGateway`. The gateway
+registers mutually exclusive `api` and `codex` adapters. `api` executes through
+Pi-managed providers. `codex` is an external CLI orchestration adapter: it
+detects the user's Codex installation/login/version, starts `codex app-server
+--stdio`, binds the task workspace, and projects process events. Claude is not a
+shipped engine adapter yet. UI wording, docs, or a settings card cannot be used
+as evidence that an engine exists.
 
 ## Product decision
 
@@ -26,36 +27,39 @@ conformance.
 
 ## Account and billing contract
 
-Runtime capabilities (sessions, resume, tools, approval, workspace) and account
-capabilities (execute, models, usage, cost) are separate contracts.
+Each adapter publishes a capability manifest. Controls for steer, resume,
+permission modes, approvals, user input, and process events are rendered only
+when the selected engine declares support.
 
 | Account | Execution | Primary usage display |
 |---|---|---|
-| API | Complete API engine adapter | input/output/cache/reasoning tokens plus actual or clearly estimated cost |
-| Codex subscription | Native Codex app-server/session | provider-native Usage, remaining/reset/credits when supplied |
-| Claude subscription | Native Claude Code session | provider-native plan Usage when supplied; otherwise neutral unavailable |
-| Other subscription | Only an official, verifiable execution or Usage interface | provider-native Usage only |
+| API | Complete Pi/provider engine adapter | input/output/cache/reasoning tokens plus actual or clearly estimated cost |
+| Codex CLI orchestration | User-installed Codex CLI/app-server session | task token counts and duration, labelled “subscription-included · no API cost” |
+| Future external CLI | Engine-owned CLI/session through its own adapter | task process metrics only; no Offisim subscription accounting |
 
-Subscription cost is never inferred from local token counts. Third-party Claude
-harness extra usage is not Claude plan Usage. Cursor Team Admin usage does not
-prove an individual Cursor subscription interface.
+External CLI subscription cost is never inferred from local token counts.
+Offisim does not rebuild provider usage windows, remaining/reset/credits, model
+catalog validation, or account-health accounting for orchestration engines.
 
-Each root run and AI title job records provenance: runtime id, account id,
-billing mode, exact model id, usage source/window/capturedAt, and
-actual-vs-estimate. Subscription account windows and API per-run aggregation are
-not mixed.
+API runs retain provider/model provenance and API cost metadata. Orchestration
+runs retain engine identity, opaque native session reference, reported token
+counts, duration, and a no-API-cost marker. The model actually reported by the
+CLI may be diagnostic metadata, but it is not an Offisim selection contract.
 
 ## Model catalog contract
 
-Every selectable model retains an exact leaf model/artifact id, official or
-native source, checkedAt, account ownership, capabilities, and availability.
-Family names are grouping labels, not callable ids. Normal selectors lead with
-friendly names; exact ids remain accessible as secondary detail and are the only
-values sent to the runtime.
+Pi's `~/.pi/agent/models.json` is the dynamic truth for API providers and models.
+User-configured entries are valid without an Offisim closed-world allowlist.
+Exact ids remain the execution value; source URL and checked-at metadata are
+required for Offisim-owned official catalog entries but optional for user-owned
+configuration. External CLI orchestration engines own their model choice and do
+not expose an Offisim model selector.
 
 ## Credentials and native state
 
-Native engines retain raw credentials and Agent Home data. Offisim consumes
+Native engines retain raw credentials and Agent Home data. Codex authentication
+is performed by `codex login`; Offisim neither accepts nor persists those
+credentials. Offisim consumes
 safe status/protocols and stores only opaque references plus the projection
 required by its product shell.
 
@@ -82,7 +86,7 @@ path escape are rejected. The Projects catalog is not silently rewritten.
 ## Release rule
 
 An engine is supported only after real task execution, stream/tool/approval/stop
-and recovery behavior, credential isolation, model provenance, Usage contract,
+and recovery behavior, credential isolation, applicable provenance/metrics contracts,
 and the exact current-worktree release `.app` have all been verified. Dev UI or
 localhost evidence is insufficient.
 
@@ -91,6 +95,24 @@ The current API-engine release proof is the exact worktree binary SHA-256
 verified on 2026-07-15 AEST from fresh schema v12 through real file tools,
 Ask approval, Stop, restart recovery, and live Usage/Cost rendering.
 
+The earlier 2026-07-16 Codex subscription-engine proof is superseded by the lane
+correction in `Docs/roadmap/2026-07-16-engine-lane-correction.md`; it must not be
+reused as evidence for the orchestration adapter. The corrected adapter requires
+the later unified release-app live-verification batch before it can be reported
+as release verified.
+
+The corrected AI Accounts implementation restores Pi-owned provider editing in
+the API-engine section and keeps external CLI status in the orchestration-engine
+section. Provider templates, custom endpoints, exact model ids, and API keys are
+written through the Pi host to `~/.pi/agent/models.json`; renderer/runtime status
+receives only safe summaries and SHA-256-derived account identity. Any configured
+Pi provider/model is eligible without an Offisim allowlist. User-authored models
+may omit source provenance; supplied official provenance remains HTTPS + RFC3339
+checked at renderer, Rust ingress, and SQLite boundaries. The old OpenRouter-only
+configuration command has been removed. This corrected settings implementation
+still requires the later unified release-app live-verification batch and is not
+reported as release verified here.
+
 ## Current references checked
 
 - OpenRouter API overview: https://openrouter.ai/docs/api/reference/overview
@@ -98,8 +120,9 @@ Ask approval, Stop, restart recovery, and live Usage/Cost rendering.
   https://openrouter.ai/docs/api/api-reference/generations/get-generation
 - OpenRouter Usage accounting:
   https://openrouter.ai/docs/cookbook/administration/usage-accounting
-- OpenAI Codex plan behavior: https://help.openai.com/en/articles/11369540/
-- OpenAI Codex rate card: https://help.openai.com/en/articles/20001106
+- OpenAI Codex authentication: https://developers.openai.com/codex/auth
+- OpenAI Codex app-server protocol: https://developers.openai.com/codex/app-server
+- OpenAI Codex source: https://github.com/openai/codex
 - Anthropic Claude Code subscription behavior:
   https://support.anthropic.com/en/articles/11145838-using-claude-code-with-your-max-plan
 - Cursor Team Admin API: https://docs.cursor.com/en/account/teams/admin-api

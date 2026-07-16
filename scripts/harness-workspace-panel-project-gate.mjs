@@ -44,8 +44,13 @@ assert.match(
 );
 assert.equal(
   (workspacePanel.match(/disabled=\{!project\}/gu) ?? []).length,
-  2,
-  'collapsed Files and Git actions must stay disabled without an active Project',
+  0,
+  'collapsed workspace actions must not remain mounted after the rail is removed',
+);
+assert.doesNotMatch(
+  workspacePanel,
+  /officeLeftRailCollapsed|off-rail-icon-tab|Collapse workspace|Expand workspace/u,
+  'WorkspacePanel must not retain a collapsed mini-rail or its interaction state',
 );
 
 const noProjectStart = workspacePanel.indexOf(') : !project ? (');
@@ -131,6 +136,13 @@ assert.match(
   /id=\{workspaceRootId\}[\s\S]*?value=\{workspaceRoot\}[\s\S]*?readOnly/u,
   'Project folder display must not accept typed paths',
 );
+assert.match(
+  projectDialog,
+  /const canSave = Boolean\(name\.trim\(\) && workspaceRoot\.trim\(\)\) && !saving;/u,
+  'Project Save must stay disabled until both the name and folder are present',
+);
+assert.match(projectDialog, /Required\. Every Project keeps its files in one folder\./u);
+assert.match(projectDialog, /className="off-project-save"[\s\S]*?disabled=\{!canSave\}/u);
 assert.match(projectDialog, /workspaceSelectionRef: workspaceSelection\.selectionRef/u);
 assert.match(projectDialog, /workspaceSelectionRef: workspaceSelection\?\.selectionRef \?\? null/u);
 assert.match(projectDialog, /const verifyEnabled = cleanVerifyCommand !== null;/u);

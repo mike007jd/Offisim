@@ -31,16 +31,12 @@ function changed(
 
 console.log('execution-provenance gate');
 
-const subscriptionTurn: TurnExecutionProvenance = {
+const orchestrationTurn: TurnExecutionProvenance = {
   engineId: 'codex',
-  accountId: 'subscription:openai:0123456789abcdef',
+  accountId: 'codex:local',
   billingMode: 'subscription',
-  modelId: 'gpt-5.2-codex',
-  modelSource: {
-    kind: 'native',
-    sourceUrl: 'https://developers.openai.com/codex/models',
-    checkedAt: '2026-07-14T00:00:00Z',
-  },
+  modelId: 'engine-managed',
+  modelSource: { kind: 'native' },
   runId: 'turn-1',
   adapter: { id: 'codex-app-server', version: '2026-07-14' },
 };
@@ -59,10 +55,13 @@ const apiTurn: TurnExecutionProvenance = {
   adapter: { id: 'pi-agent', version: '0.79.8' },
 };
 
-check('subscription provenance validates with its exact Turn id', () => {
-  assert.deepEqual(validateTurnExecutionProvenance(subscriptionTurn, 'turn-1'), subscriptionTurn);
+check('orchestration provenance validates with its exact Turn id', () => {
+  assert.deepEqual(
+    validateTurnExecutionProvenance(orchestrationTurn, 'turn-1'),
+    orchestrationTurn,
+  );
 });
-check('API provenance validates independently of subscription billing', () => {
+check('API provenance validates independently of orchestration billing', () => {
   assert.deepEqual(validateTurnExecutionProvenance(apiTurn, 'turn-2'), apiTurn);
 });
 check('an absent optional provenance packet remains absent', () => {
@@ -73,26 +72,41 @@ check('a successful runtime boundary rejects absent provenance', () => {
 });
 check('incomplete provenance is rejected', () => {
   assert.throws(
-    () => validateTurnExecutionProvenance({ ...subscriptionTurn, accountId: '' }),
+    () => validateTurnExecutionProvenance({ ...orchestrationTurn, accountId: '' }),
     /incomplete execution provenance/u,
   );
 });
 check('unknown billing modes are rejected', () => {
   assert.throws(
-    () => validateTurnExecutionProvenance({ ...subscriptionTurn, billingMode: 'credits' }),
+    () => validateTurnExecutionProvenance({ ...orchestrationTurn, billingMode: 'credits' }),
     /incomplete execution provenance/u,
   );
 });
 check('a host result cannot be attributed to another Turn', () => {
   assert.throws(
-    () => validateTurnExecutionProvenance(subscriptionTurn, 'turn-other'),
+    () => validateTurnExecutionProvenance(orchestrationTurn, 'turn-other'),
     /provenance run mismatch/u,
   );
 });
 
-const isolatedJob = { ...subscriptionTurn, runId: 'title-job-1' };
+check('native orchestration provenance rejects fabricated catalog fields', () => {
+  assert.throws(
+    () =>
+      validateTurnExecutionProvenance({
+        ...orchestrationTurn,
+        modelSource: {
+          kind: 'native',
+          sourceUrl: 'https://example.invalid/fabricated',
+          checkedAt: '2026-07-17T00:00:00Z',
+        },
+      }),
+    /incomplete execution provenance/u,
+  );
+});
+
+const isolatedJob = { ...orchestrationTurn, runId: 'title-job-1' };
 check('an isolated text job may have its own run id', () => {
-  assert.doesNotThrow(() => assertSameExecutionAccount(subscriptionTurn, isolatedJob));
+  assert.doesNotThrow(() => assertSameExecutionAccount(orchestrationTurn, isolatedJob));
 });
 for (const [key, value] of [
   ['engineId', 'other-engine'],
@@ -102,7 +116,7 @@ for (const [key, value] of [
 ] as const) {
   check(`isolated text job rejects ${key} drift`, () => {
     assert.throws(
-      () => assertSameExecutionAccount(subscriptionTurn, changed(isolatedJob, key, value)),
+      () => assertSameExecutionAccount(orchestrationTurn, changed(isolatedJob, key, value)),
       new RegExp(`provenance mismatch for ${key}`, 'u'),
     );
   });
@@ -110,7 +124,7 @@ for (const [key, value] of [
 check('a prepared adapter cannot change before the result', () => {
   assert.throws(
     () =>
-      assertSameExecutionAccount(subscriptionTurn, {
+      assertSameExecutionAccount(orchestrationTurn, {
         ...isolatedJob,
         adapter: { id: 'other-adapter', version: '9.9.9' },
       }),
@@ -215,7 +229,7 @@ check('root runs persist their exact target before execution and retain host pro
   assert.match(desktopRuntimeSource, /runtimeContext\.model = resolvedModel/u);
   assert.match(
     desktopRuntimeSource,
-    /assertDurableExecutionTarget\(runScope\.runId, executionTarget, requestId\)/u,
+    /assertDurableExecutionTarget\(\s*runScope\.runId,\s*executionTarget,\s*commandName === 'agent_runtime_execute' \? requestId : undefined,\s*\)/u,
   );
   assert.match(desktopRuntimeSource, /runtimeContext\.provenance = provenance/u);
   assert.match(desktopRuntimeSource, /requirePreparedExecutionIdentity/u);
@@ -237,7 +251,7 @@ check('direct delegated roots report the child session actual model', () => {
 const oauthRegistry = { isUsingOAuth: () => true };
 const apiRegistry = { isUsingOAuth: () => false };
 const nativeModelSource = {
-  kind: 'native',
+  kind: 'official-api',
   sourceUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview',
   checkedAt: '2026-07-14T00:00:00Z',
 } as const;
@@ -370,7 +384,7 @@ check('credential-free local endpoints receive an explicit anonymous account fin
 
 check('terminal host streams remain eligible for renderer replay and DB reconciliation', () => {
   const reattachStart = desktopRuntimeSource.indexOf('async reattachLiveRuns(');
-  const reattachEnd = desktopRuntimeSource.indexOf('private async runPiTurn', reattachStart);
+  const reattachEnd = desktopRuntimeSource.indexOf('private async runNativeTurn', reattachStart);
   assert.ok(reattachStart >= 0 && reattachEnd > reattachStart);
   const reattachBody = desktopRuntimeSource.slice(reattachStart, reattachEnd);
   assert.match(
@@ -378,7 +392,7 @@ check('terminal host streams remain eligible for renderer replay and DB reconcil
     /if \(!snapshot\) \{[\s\S]*?confirmedMissingRootRunIds\.add\(row\.run_id\);[\s\S]*?continue;/u,
   );
   assert.doesNotMatch(reattachBody, /if \(!snapshot\?\.running\) continue/u);
-  assert.match(reattachBody, /agent_runtime_reattach/u);
+  assert.match(reattachBody, /this\.invokeReattach/u);
   assert.match(reattachBody, /event\.kind === 'result'/u);
   assert.match(
     reattachBody,
@@ -466,6 +480,26 @@ check('empty reload terminals retain the last durable assistant checkpoint', () 
     /terminal\.reasoning\?\.trim\(\) \|\| existing\?\.reasoning\?\.trim\(\)/u,
   );
   assert.match(projectionBody, /terminal\.status === 'failed'[\s\S]*?'failed'/u);
+});
+
+check('native Stop coalesces duplicate abort paths for one request', () => {
+  assert.match(
+    desktopRuntimeSource,
+    /private readonly abortInFlight = new Map<string, Promise<void>>\(\);/u,
+  );
+  assert.equal(
+    desktopRuntimeSource.match(/this\.invokeAbort\(requestId\)/gu)?.length,
+    1,
+    'only the coalescer may call the raw native abort transport',
+  );
+  assert.ok(
+    (desktopRuntimeSource.match(/this\.invokeAbortOnce\(requestId\)/gu)?.length ?? 0) >= 5,
+    'signal, explicit Stop, and rejected-binding paths must share the same abort',
+  );
+  assert.match(
+    desktopRuntimeSource,
+    /if \(this\.abortInFlight\.get\(requestId\) === pending\) \{\s*this\.abortInFlight\.delete\(requestId\);/u,
+  );
 });
 
 console.log(`execution-provenance gate passed (${checks} checks)`);

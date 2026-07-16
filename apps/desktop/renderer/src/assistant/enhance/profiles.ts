@@ -66,11 +66,11 @@ const LOOP_DESIGN_PROMPT = [
   SHARED_PREAMBLE,
   '',
   'PROFILE: loop_design.',
-  'Help the user shape a repeatable loop from a rough description.',
-  '- Infer the outcome, inputs, outputs, loop edges, exit states, budget, human gates, oracles, and skill bindings where they are reasonably implied.',
-  '- Return enhanced NATURAL-LANGUAGE prose for the message body.',
-  '- Put any structured inference into a separate hints object — never emit raw evaluator JSON or schema into the message the user reads.',
-  '- If you genuinely cannot infer the design, ask AT MOST 3 high-impact questions, each with a recommended default — never more than 3.',
+  'Turn the request into a concise repeatable plan while preserving the user intent exactly.',
+  '- Identify the goal, the steps that repeat, the stopping condition, the retry limit, and when to ask for help.',
+  '- Do not add software-development ceremonies, parallel agents, contracts, gates, budgets, or cleanup unless the user explicitly requested them.',
+  '- Return readable natural language. Prefer short verb-led steps; never emit raw evaluator JSON or expose IR, oracle, node, edge, profile, or schema jargon.',
+  '- If a material detail is genuinely missing, ask AT MOST 3 high-impact questions with recommended defaults.',
 ].join('\n');
 
 const DEFINITIONS: Record<PromptEnhanceProfile, EnhanceProfileDefinition> = {
@@ -88,7 +88,7 @@ const DEFINITIONS: Record<PromptEnhanceProfile, EnhanceProfileDefinition> = {
   },
   loop_design: {
     profile: 'loop_design',
-    version: 'loop_design@1',
+    version: 'loop_design@2',
     wantsStructuredHints: true,
     systemPrompt: LOOP_DESIGN_PROMPT,
   },

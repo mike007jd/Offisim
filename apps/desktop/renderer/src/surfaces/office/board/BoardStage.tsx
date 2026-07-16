@@ -186,7 +186,7 @@ function toastLeaseOutcomes(
   const parts = [
     merged ? `${merged} merged` : '',
     discarded ? `${discarded} discarded` : '',
-    hostResolved ? `${hostResolved} completed by Pi` : '',
+    hostResolved ? `${hostResolved} already resolved` : '',
     failedCount ? `${failedCount} failed` : '',
   ].filter(Boolean);
   const message = `Lease decision: ${parts.join(', ')}.`;
