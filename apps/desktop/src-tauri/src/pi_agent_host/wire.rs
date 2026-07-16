@@ -93,6 +93,8 @@ pub(super) enum PiSidecarLine {
         placeholder: Option<String>,
         #[serde(default)]
         prefill: Option<String>,
+        #[serde(default)]
+        params: Option<serde_json::Value>,
     },
     AgentRun {
         thread_id: String,
@@ -160,7 +162,7 @@ impl PiSidecarLine {
     }
 }
 
-pub(super) fn parse_response(value: serde_json::Value) -> Result<PiAgentHostResponse, HostError> {
+pub(crate) fn parse_response(value: serde_json::Value) -> Result<PiAgentHostResponse, HostError> {
     serde_json::from_value(value)
         .map_err(|err| HostError::Protocol(format!("Decode Pi Agent response: {err}")))
 }
@@ -273,6 +275,7 @@ pub(super) fn send_sidecar_event(
             options,
             placeholder,
             prefill,
+            params,
         } => {
             publish_host_event(
                 request_id,
@@ -285,6 +288,7 @@ pub(super) fn send_sidecar_event(
                     options,
                     placeholder,
                     prefill,
+                    params,
                 },
                 "Send Pi UI request",
             )?;

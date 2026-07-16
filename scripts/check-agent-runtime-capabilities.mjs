@@ -50,6 +50,20 @@ const REQUIRED_COMMANDS_BY_MODULE = {
       'codex_agent_status',
     ],
   },
+  claude_agent_host: {
+    handlerPath: 'claude_agent_host::commands',
+    commands: [
+      'claude_agent_execute',
+      'claude_agent_enhance',
+      'claude_agent_resume',
+      'claude_agent_abort',
+      'claude_agent_answer',
+      'claude_agent_stream_snapshot',
+      'claude_agent_release_stream',
+      'claude_agent_reattach',
+      'claude_agent_status',
+    ],
+  },
 };
 const REQUIRED_COMMANDS = Object.values(REQUIRED_COMMANDS_BY_MODULE).flatMap(
   ({ commands }) => commands,

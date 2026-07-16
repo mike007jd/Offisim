@@ -831,8 +831,8 @@ assert(
 );
 assert(
   desktopPackage.scripts['build:frontend'].includes('build:codex-app-server') &&
-    !desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host'),
-  'desktop build must prepare the verified Codex app-server without inventing a Claude lane',
+    desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host'),
+  'desktop build must prepare both shipped native subscription engines',
 );
 assert(
   tauriConfig.bundle.resources.includes('resources/pi-agent-host.mjs'),
@@ -846,8 +846,8 @@ assert(
 assert(
   tauriConfig.bundle.resources.includes('resources/third-party/codex/LICENSE') &&
     tauriConfig.bundle.resources.includes('resources/third-party/codex/NOTICE') &&
-    !tauriConfig.bundle.resources.some((resource) => /claude/u.test(resource)),
-  'release bundle must carry Codex license notices without inventing a Claude resource lane',
+    tauriConfig.bundle.resources.includes('resources/third-party/claude-agent-sdk/NOTICE'),
+  'release bundle must carry notices for both shipped native subscription engines',
 );
 assert(
   /pub struct PiAgentExecuteRequest[\s\S]*mcp_tools: Option<serde_json::Value>/.test(

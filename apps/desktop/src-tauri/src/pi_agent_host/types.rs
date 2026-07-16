@@ -225,33 +225,39 @@ pub struct PiModelSummary {
     pub(super) max_tokens: Option<u64>,
     #[serde(default)]
     pub(super) input: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) catalog_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PiAgentHostResponse {
-    pub(super) text: String,
+    pub(crate) text: String,
     #[serde(default)]
-    pub(super) reasoning: Option<String>,
+    pub(crate) reasoning: Option<String>,
     #[serde(default)]
-    pub(super) session_id: Option<String>,
+    pub(crate) session_id: Option<String>,
     #[serde(default)]
-    pub(super) session_file: Option<String>,
+    pub(crate) session_file: Option<String>,
     #[serde(default)]
-    pub(super) model: Option<PiModelSummary>,
+    pub(crate) model: Option<PiModelSummary>,
     #[serde(default)]
-    pub(super) provenance: Option<PiExecutionProvenance>,
+    pub(crate) provenance: Option<PiExecutionProvenance>,
     // Root-session token/cost usage (the Node host's `rootUsage` on the result
     // line). Carried through as an opaque JSON object so the renderer can record
     // it on the root agent_runs row — without this field serde silently drops it
     // at the IPC boundary and solo-run usage_json stays null (the VM-003 path).
     #[serde(default)]
-    pub(super) usage: Option<serde_json::Value>,
+    pub(crate) usage: Option<serde_json::Value>,
     // Root + delegated-tree usage for Mission budget enforcement only. Kept
     // separate from root `usage` so renderer persistence never double-counts
     // child rows when it reconciles the run tree.
     #[serde(default)]
-    pub(super) budget_usage: Option<serde_json::Value>,
+    pub(crate) budget_usage: Option<serde_json::Value>,
+    /// Safe provider-native subscription window captured during this run.
+    /// The Claude lane caches it for Settings; it is never API cost telemetry.
+    #[serde(default)]
+    pub(crate) subscription_usage: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -372,6 +378,8 @@ pub enum PiAgentHostEvent {
         placeholder: Option<String>,
         #[serde(default)]
         prefill: Option<String>,
+        #[serde(default)]
+        params: Option<serde_json::Value>,
     },
     AgentRun {
         thread_id: String,
@@ -422,10 +430,10 @@ pub struct PiAgentProviderStatus {
 #[serde(rename_all = "camelCase")]
 pub struct AiRuntimeStatusResponse {
     #[serde(default)]
-    pub(super) accounts: Vec<serde_json::Value>,
+    pub(crate) accounts: Vec<serde_json::Value>,
     #[serde(default)]
-    pub(super) models: Vec<serde_json::Value>,
-    pub(super) checked_at: String,
+    pub(crate) models: Vec<serde_json::Value>,
+    pub(crate) checked_at: String,
 }
 
 #[derive(Debug, Deserialize)]

@@ -20,10 +20,11 @@ one complete adapter:
 - **Codex subscription** — shipped. The adapter uses
   `apps/desktop/src-tauri/src/codex_agent_host/` and the bundled official native
   `codex-app-server` sidecar.
-- **Claude subscription** — pending. No Settings card, label, or compatibility
-  shim counts as support before its full adapter and release proof exist.
+- **Claude subscription** — shipped. The adapter uses
+  `apps/desktop/src-tauri/src/claude_agent_host/` and the bundled official
+  `@anthropic-ai/claude-agent-sdk` host.
 
-Both shipped adapters enter through the neutral `agent_runtime_*` Tauri
+All three shipped adapters enter through the neutral `agent_runtime_*` Tauri
 commands and project neutral message, tool, approval, usage, and terminal events
 to assistant-ui, activity telemetry, and Office dramaturgy. A run never mixes
 engine lanes.
@@ -54,6 +55,9 @@ The retained runtime gates are responsibility-based:
   usage, tools, delegation, and release resources.
 - `pnpm harness:codex-app-server-contract` — native Codex artifact, protocol,
   account/model/Usage projection, stream, approval, Stop, and recovery contract.
+- `pnpm harness:claude-agent-host` — native Claude account/model projection,
+  stream, approval, Stop/recovery, workspace guard, secret isolation, and Usage
+  contract.
 - `pnpm harness:renderer-engine-authority` and
   `pnpm harness:execution-provenance` — one authoritative engine/account/model
   identity per Turn.

@@ -85,8 +85,8 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
 2. **Execution lives in the user's local runtime.**
    The marketplace is a registry and distribution surface, not the user's execution plane.
 3. **One engine owns each task.**
-   The production gateway currently ships complete API and Codex subscription
-   engines; Claude remains pending. A task selects one engine/account/model and
+   The production gateway currently ships complete API, Codex subscription,
+   and Claude subscription engines. A task selects one engine/account/model and
    never mixes provider or subscription lanes inside a run.
 4. **Packages are declarative and auditable.**
    1.0 does not allow install hooks, postinstall scripts, embedded secrets, or hidden shell bootstrap behavior.

@@ -1,6 +1,6 @@
 // Collaboration runtime transport — the ONLY place the collaboration controller
-// touches an engine host (PR-03). It routes API and Codex through their dedicated
-// isolated one-shot commands (never a work execute command), so a collaboration
+// touches an engine host (PR-03). It routes every shipped engine through its
+// dedicated isolated one-shot command (never a work execute command), so a collaboration
 // reply cannot bind a project, persist an agent run/mission, or project Office
 // dramaturgy. Each host enforces zero tools and a neutral workspace.
 //
@@ -38,10 +38,10 @@ function sameExecutionTarget(a: AiExecutionTarget, b: AiExecutionTarget): boolea
   );
 }
 
-type CollaborationEngineId = 'api' | 'codex';
+type CollaborationEngineId = 'api' | 'codex' | 'claude';
 
 function requireCollaborationEngine(engineId: string): CollaborationEngineId {
-  if (engineId === 'api' || engineId === 'codex') return engineId;
+  if (engineId === 'api' || engineId === 'codex' || engineId === 'claude') return engineId;
   throw new Error(`AI engine ${engineId} does not support company chat.`);
 }
 
@@ -57,9 +57,13 @@ export function selectCollaborationExecutionTarget(
   }
   const runtimeStatus: AiRuntimeStatus = {
     accounts: status.accounts.filter(
-      (account) => account.engineId === 'api' || account.engineId === 'codex',
+      (account) =>
+        account.engineId === 'api' || account.engineId === 'codex' || account.engineId === 'claude',
     ),
-    models: status.models.filter((model) => model.engineId === 'api' || model.engineId === 'codex'),
+    models: status.models.filter(
+      (model) =>
+        model.engineId === 'api' || model.engineId === 'codex' || model.engineId === 'claude',
+    ),
     checkedAt: typeof status.checkedAt === 'string' ? status.checkedAt : '',
   };
   const selection = resolveRuntimeExecutionSelection(runtimeStatus, requestedModel, frozenTarget);
@@ -149,7 +153,9 @@ export function createTauriCollaborationTransport(
         void (
           engineId === 'codex'
             ? invokeCommand('codex_agent_abort', { requestId: req.requestId })
-            : invokeCommand('agent_runtime_abort', { requestId: req.requestId })
+            : engineId === 'claude'
+              ? invokeCommand('claude_agent_abort', { requestId: req.requestId })
+              : invokeCommand('agent_runtime_abort', { requestId: req.requestId })
         ).catch(() => undefined);
       };
       const onEvent = new Channel<PiAgentHostEvent>();
@@ -233,8 +239,10 @@ export function createTauriCollaborationTransport(
       }
 
       try {
-        if (engineId === 'codex' && req.collaborationProfile === 'collaboration_read') {
-          throw new Error('Codex company chat does not support the read-only tool profile.');
+        if (engineId !== 'api' && req.collaborationProfile === 'collaboration_read') {
+          throw new Error(
+            'This subscription engine does not support the read-only company chat tool profile.',
+          );
         }
         const response = (await (engineId === 'codex'
           ? invokeCommand('codex_agent_enhance', {
@@ -251,26 +259,41 @@ export function createTauriCollaborationTransport(
               },
               onEvent,
             })
-          : invokeCommand('agent_runtime_collaborate', {
-              req: {
-                requestId: req.requestId,
-                // The frozen capability enum the API host routes on. Always
-                // collaboration; this path never invokes the work command.
-                capabilityProfile: 'collaboration',
-                text: req.text,
-                companyId: req.companyId,
-                collaborationThreadId: req.collaborationThreadId,
-                employeeId: req.employeeId,
-                model: req.runtimeModelRef,
-                expectedTarget: req.expectedTarget,
-                runtimeModelRef: req.runtimeModelRef,
-                thinkingLevel: req.thinkingLevel?.trim() || undefined,
-                collaborationProfile: req.collaborationProfile,
-                mcpTools: req.mcpTools,
-                systemPromptAppend: req.systemPromptAppend?.trim() || undefined,
-              },
-              onEvent,
-            }))) as PiAgentHostResponse;
+          : engineId === 'claude'
+            ? invokeCommand('claude_agent_enhance', {
+                req: {
+                  requestId: req.requestId,
+                  text: req.text,
+                  expectedTarget: req.expectedTarget,
+                  systemPrompt:
+                    req.systemPromptAppend?.trim() ||
+                    'Reply as the assigned employee in this company chat. Do not use tools or access files.',
+                  model: req.runtimeModelRef,
+                  runtimeModelRef: req.runtimeModelRef,
+                  thinkingLevel: req.thinkingLevel?.trim() || undefined,
+                },
+                onEvent,
+              })
+            : invokeCommand('agent_runtime_collaborate', {
+                req: {
+                  requestId: req.requestId,
+                  // The frozen capability enum the API host routes on. Always
+                  // collaboration; this path never invokes the work command.
+                  capabilityProfile: 'collaboration',
+                  text: req.text,
+                  companyId: req.companyId,
+                  collaborationThreadId: req.collaborationThreadId,
+                  employeeId: req.employeeId,
+                  model: req.runtimeModelRef,
+                  expectedTarget: req.expectedTarget,
+                  runtimeModelRef: req.runtimeModelRef,
+                  thinkingLevel: req.thinkingLevel?.trim() || undefined,
+                  collaborationProfile: req.collaborationProfile,
+                  mcpTools: req.mcpTools,
+                  systemPromptAppend: req.systemPromptAppend?.trim() || undefined,
+                },
+                onEvent,
+              }))) as PiAgentHostResponse;
         if (!preparation) {
           onAbort();
           throw new Error('Agent runtime did not prepare the collaboration execution target.');

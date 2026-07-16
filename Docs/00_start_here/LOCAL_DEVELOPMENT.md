@@ -69,8 +69,8 @@ The release bundle for live verification is the exact worktree path
 
 ## AI runtime engines (desktop)
 
-AI execution goes through one neutral desktop gateway. Complete API and Codex
-subscription engines are shipped; Claude remains pending. Each Turn binds one
+AI execution goes through one neutral desktop gateway. Complete API, Codex
+subscription, and Claude subscription engines are shipped. Each Turn binds one
 backend-authorized effective workspace and one exact account/model. Native
 subscription login, sessions, compaction, and global memory remain in the
 engine's own home.

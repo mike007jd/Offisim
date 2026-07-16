@@ -318,6 +318,63 @@ assert.deepEqual(
   'secret values stay opaque while ordinary answers are normalized',
 );
 
+const fourQuestionsWithMultiSelect = parseUserInputQuestions({
+  questions: [
+    {
+      id: 'areas',
+      header: 'Areas',
+      question: 'Which areas should change?',
+      options: [
+        { label: 'UI', description: 'Interface polish' },
+        { label: 'Runtime', description: 'Agent behavior' },
+      ],
+      multiSelect: true,
+      isOther: true,
+      isSecret: false,
+    },
+    ...['priority', 'timing', 'owner'].map((id) => ({
+      id,
+      header: id,
+      question: `Choose ${id}.`,
+      options: [{ label: 'A' }, { label: 'B' }],
+      multiSelect: false,
+      isOther: false,
+      isSecret: false,
+    })),
+  ],
+});
+assert.ok(fourQuestionsWithMultiSelect, 'the official four-question maximum must be accepted');
+assert.deepEqual(
+  normalizeStructuredAnswers(fourQuestionsWithMultiSelect.questions, {
+    areas: { answers: ['UI', 'Runtime'] },
+    priority: { answers: ['A'] },
+    timing: { answers: ['B'] },
+    owner: { answers: ['A'] },
+  })?.areas,
+  { answers: ['UI', 'Runtime'] },
+  'multi-select questions must preserve every selected answer',
+);
+assert.equal(
+  normalizeStructuredAnswers(fourQuestionsWithMultiSelect.questions, {
+    areas: { answers: ['UI'] },
+    priority: { answers: ['A', 'B'] },
+    timing: { answers: ['B'] },
+    owner: { answers: ['A'] },
+  }),
+  null,
+  'single-select questions must reject multiple answers',
+);
+assert.equal(
+  parseUserInputQuestions({
+    questions: [
+      ...fourQuestionsWithMultiSelect.questions,
+      fourQuestionsWithMultiSelect.questions[0],
+    ],
+  }),
+  null,
+  'more than four questions must be rejected',
+);
+
 const nativeCalls: Array<{ command: string; args: unknown }> = [];
 const streamedEvents: unknown[] = [];
 const fakeNativeInvoke = (async (command: string, args: unknown) => {
@@ -572,8 +629,8 @@ assert.match(approvalBarSource, /isUserInput\s*\? 'Question'/u);
 assert.match(approvalBarSource, /aria-live=\{isUserInput \? 'polite' : 'assertive'\}/u);
 assert.match(approvalBarSource, /!isLeaseReview && !isUserInput/u);
 assert.match(approvalBarSource, /approval\.message && !messageRepeatsQuestion/u);
-assert.match(approvalBarSource, /role="radiogroup"/u);
-assert.match(approvalBarSource, /type="radio"/u);
+assert.match(approvalBarSource, /question\.multiSelect \? 'group' : 'radiogroup'/u);
+assert.match(approvalBarSource, /question\.multiSelect \? 'checkbox' : 'radio'/u);
 assert.match(approvalBarSource, /aria-checked=/u);
 assert.match(approvalBarSource, /option\.description \? <small>/u);
 assert.match(approvalBarSource, /continues automatically after/u);

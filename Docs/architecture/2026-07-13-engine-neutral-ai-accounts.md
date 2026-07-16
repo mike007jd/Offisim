@@ -1,14 +1,14 @@
 # Engine-neutral AI Accounts and Native Session Boundaries
 
-Checked at: 2026-07-16 04:22 NZST
-Status: API and Codex engines implemented and release-verified; Claude engine pending
+Checked at: 2026-07-16 21:12 NZST
+Status: API, Codex, and Claude engines implemented and release-verified
 
 ## Current implementation truth
 
 Offisim routes production work through `DesktopAgentRuntimeGateway`. The
-gateway currently registers complete, mutually exclusive `api` and `codex`
-adapters. Claude is not a shipped engine adapter yet. UI wording, docs, or a
-settings card cannot be used as evidence that an engine exists.
+gateway currently registers complete, mutually exclusive `api`, `codex`, and
+`claude` adapters. UI wording, docs, or a settings card cannot be used as
+evidence that an engine exists.
 
 ## Product decision
 
@@ -99,6 +99,18 @@ discovery, exact native model selection, Project-folder binding, Plan
 continuation, restart recovery, provider-native Usage or explicit unavailable,
 and secret-safe projection.
 
+The current Claude-engine release proof is the exact worktree executable
+SHA-256 `dd322ca3b5979febe4456f9c2e81f6365b645c78c6a65e74aa95c9acf196d668`
+with bundled official Agent SDK host SHA-256
+`15d559c2f91f04ee759e0c88bca08854d128f6b8c0472c6811e7bdd8b7c40a74`,
+verified on 2026-07-16 NZST. Fresh-state verification covered native first-party
+subscription discovery, five exact native model rows, multi-select
+`AskUserQuestion`, Stop, same-session continuation, restart recovery, a real
+Project-folder Write, explicit rejection of an out-of-workspace Write, and
+provider-native Usage with honest unavailable fields. The host strips API/bearer
+env inputs, stores only opaque session refs, keeps diagnostic run tokens separate
+from subscription Usage, and never infers subscription Cost.
+
 The integrated AI Accounts / Models release proof is the exact worktree
 executable SHA-256
 `29ff89a5dffcbf33934dd10c1d67b577ab6e26b4eb6e30d329053f041fe1955f`,
@@ -108,8 +120,8 @@ account, and rendered five exact leaf models with official source and checkedAt.
 API accounts expose Models / Usage / Cost; subscription accounts expose only
 provider-native Models / Usage. An unavailable Codex account stayed neutral,
 offered the native `codex login` instruction, and did not display inferred cost.
-Claude remains absent until T07 can satisfy the independent official-engine
-release contract; its absence does not block the engine-neutral settings shell.
+Claude later entered the same settings shell only after its independent T07
+engine and release proof passed.
 
 ## Current references checked
 
@@ -122,6 +134,12 @@ release contract; its absence does not block the engine-neutral settings shell.
 - OpenAI Codex rate card: https://help.openai.com/en/articles/20001106
 - OpenAI Codex source and app-server protocol:
   https://github.com/openai/codex
-- Anthropic Claude Code subscription behavior:
-  https://support.anthropic.com/en/articles/11145838-using-claude-code-with-your-max-plan
+- Anthropic Agent SDK TypeScript reference:
+  https://code.claude.com/docs/en/agent-sdk/typescript
+- Anthropic Agent SDK permissions and hooks:
+  https://code.claude.com/docs/en/agent-sdk/permissions
+  https://code.claude.com/docs/en/agent-sdk/hooks
+- Anthropic Claude Code subscription behavior and limits:
+  https://support.claude.com/en/articles/11145838-use-claude-code-with-your-pro-or-max-plan
+  https://support.claude.com/en/articles/14552983-models-usage-and-limits-in-claude-code
 - Cursor Team Admin API: https://docs.cursor.com/en/account/teams/admin-api

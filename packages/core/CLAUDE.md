@@ -2,8 +2,8 @@
 
 Core holds shared services, repositories, data contracts, tools, vault, and
 legacy helpers. It is not the product AI runtime owner. Desktop AI execution
-enters through `DesktopAgentRuntimeGateway`; complete API and Codex adapters
-live at the desktop boundary, while Claude remains pending.
+enters through `DesktopAgentRuntimeGateway`; complete API, Codex, and Claude
+adapters live at the desktop boundary.
 
 ## Gotchas
 

@@ -369,7 +369,16 @@ export function toolLine({ status, toolCallId, toolName, detail, durationMs } = 
 // (confirm / select / input / editor). This forwards that request to the client;
 // the client answers with a `uiResponse` line written back to the host's stdin.
 // Mirrors Pi RPC's `extension_ui_request` so a future move to RPC mode is a rename.
-export function uiRequestLine({ id, method, title, message, options, placeholder, prefill } = {}) {
+export function uiRequestLine({
+  id,
+  method,
+  title,
+  message,
+  options,
+  placeholder,
+  prefill,
+  params,
+} = {}) {
   return withoutUndefined({
     kind: 'uiRequest',
     id,
@@ -379,6 +388,7 @@ export function uiRequestLine({ id, method, title, message, options, placeholder
     options,
     placeholder,
     prefill,
+    params,
   });
 }
 

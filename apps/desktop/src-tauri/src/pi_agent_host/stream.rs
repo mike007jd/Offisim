@@ -151,13 +151,13 @@ pub(super) fn cleanup_terminal_run_streams(now: Instant) {
     cleanup_terminal_run_streams_locked(&mut streams, now);
 }
 
-pub(super) fn begin_run_stream(request_id: &str) {
+pub(crate) fn begin_run_stream(request_id: &str) {
     let mut streams = pi_run_streams_guard();
     cleanup_terminal_run_streams_locked(&mut streams, Instant::now());
     streams.insert(request_id.to_string(), PiRunStreamState::new());
 }
 
-pub(super) fn finish_run_stream(request_id: &str, status: &str, message: Option<String>) {
+pub(crate) fn finish_run_stream(request_id: &str, status: &str, message: Option<String>) {
     finish_run_stream_at(request_id, status, message, Instant::now());
 }
 
@@ -179,7 +179,7 @@ pub(super) fn finish_run_stream_at(
     }
 }
 
-pub(super) fn publish_host_event(
+pub(crate) fn publish_host_event(
     request_id: Option<&str>,
     on_event: Option<&Channel<PiAgentHostEvent>>,
     event: PiAgentHostEvent,
@@ -271,14 +271,14 @@ pub(super) fn publish_host_event(
     Ok(())
 }
 
-pub(super) fn stream_snapshot(request_id: String) -> Result<Option<PiRunStreamSnapshot>, String> {
+pub(crate) fn stream_snapshot(request_id: String) -> Result<Option<PiRunStreamSnapshot>, String> {
     cleanup_terminal_run_streams(Instant::now());
     Ok(pi_run_streams_guard()
         .get(&request_id)
         .map(|state| state.snapshot(&request_id)))
 }
 
-pub(super) fn release_stream(request_id: String) -> Result<(), String> {
+pub(crate) fn release_stream(request_id: String) -> Result<(), String> {
     let mut streams = pi_run_streams_guard();
     if streams
         .get(&request_id)
@@ -378,7 +378,7 @@ fn next_replay_event(
     Ok(Some(entry))
 }
 
-pub(super) fn reattach_stream(
+pub(crate) fn reattach_stream(
     request_id: String,
     after_cursor: Option<u64>,
     on_event: Channel<PiAgentHostEvent>,

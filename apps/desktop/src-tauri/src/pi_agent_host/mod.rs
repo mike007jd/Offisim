@@ -1,8 +1,8 @@
-mod bridge;
+pub(crate) mod bridge;
 mod payload;
 mod provider;
-mod run;
-mod stream;
+pub(crate) mod run;
+pub(crate) mod stream;
 mod types;
 mod wire;
 mod workspace_files;
@@ -16,6 +16,7 @@ pub use types::{
     PiAgentModelsConfig, PiAgentPaths, PiAgentProviderAuthStatus, PiAgentProviderStatus,
     PiAgentStatusResponse, PiModelSummary,
 };
+pub(crate) use wire::parse_response;
 pub(crate) use wire::PI_HOST_PROTOCOL_VERSION;
 
 use bridge::{confirm_execution_impl, ui_response_impl};
@@ -179,18 +180,20 @@ pub async fn agent_runtime_status(
     app: AppHandle,
     include_usage: Option<bool>,
 ) -> Result<AiRuntimeStatusResponse, String> {
-    let (api, codex) = tokio::join!(
+    let (api, codex, claude) = tokio::join!(
         runtime_status_impl(app.clone()),
-        crate::codex_agent_host::status_impl(app, include_usage.unwrap_or(false))
+        crate::codex_agent_host::status_impl(app.clone(), include_usage.unwrap_or(false)),
+        crate::claude_agent_host::status_impl(app, include_usage.unwrap_or(false))
     );
     let checked_at = crate::codex_agent_host::checked_at_now()
         .or_else(|_| {
             api.as_ref()
                 .map(|status| status.checked_at.clone())
                 .or_else(|_| codex.as_ref().map(|status| status.checked_at.clone()))
+                .or_else(|_| claude.as_ref().map(|status| status.checked_at.clone()))
         })
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".into());
-    Ok(merge_runtime_status(api, codex, checked_at))
+    Ok(merge_runtime_status(api, codex, claude, checked_at))
 }
 
 /// Store or replace one API credential inside the selected runtime's native
@@ -206,6 +209,7 @@ pub async fn agent_runtime_configure_api_account(
 fn merge_runtime_status(
     api: Result<AiRuntimeStatusResponse, String>,
     codex: Result<crate::codex_agent_host::CodexAgentStatusResponse, String>,
+    claude: Result<crate::claude_agent_host::ClaudeAgentStatusResponse, String>,
     checked_at: String,
 ) -> AiRuntimeStatusResponse {
     let mut accounts = Vec::new();
@@ -223,6 +227,13 @@ fn merge_runtime_status(
             models.extend(codex.models);
         }
         Err(_) => accounts.push(codex_unavailable_account()),
+    }
+    match claude {
+        Ok(claude) => {
+            accounts.extend(claude.accounts);
+            models.extend(claude.models);
+        }
+        Err(_) => accounts.push(claude_unavailable_account()),
     }
     AiRuntimeStatusResponse {
         accounts,
@@ -273,6 +284,30 @@ fn codex_unavailable_account() -> serde_json::Value {
             "execute": unavailable("Codex subscription status is unavailable."),
             "models": unavailable("Codex model status is unavailable."),
             "usage": unavailable("Codex native usage is unavailable."),
+            "cost": unavailable("Subscription usage is not converted into API cost."),
+        },
+        "usage": null,
+    })
+}
+
+fn claude_unavailable_account() -> serde_json::Value {
+    let unavailable = |reason: &str| {
+        serde_json::json!({
+            "status": "unavailable",
+            "reason": reason,
+        })
+    };
+    serde_json::json!({
+        "engineId": "claude",
+        "accountId": "claude-subscription-unavailable",
+        "billingMode": "subscription",
+        "displayName": "Claude subscription",
+        "status": "unavailable",
+        "statusReason": "Claude subscription status is unavailable.",
+        "capabilities": {
+            "execute": unavailable("Claude subscription status is unavailable."),
+            "models": unavailable("Claude model status is unavailable."),
+            "usage": unavailable("Claude native usage is unavailable."),
             "cost": unavailable("Subscription usage is not converted into API cost."),
         },
         "usage": null,

@@ -47,8 +47,8 @@ Offisim desktop is the 1.0 reference runtime. The webview is not trusted to pick
 credential destinations or arbitrary local execution roots.
 
 - Each task selects one mutually exclusive engine through the production
-  gateway. Complete API and Codex subscription engines are active; Claude is
-  not shipped until its own adapter and release evidence exist.
+  gateway. Complete API, Codex subscription, and Claude subscription engines
+  are active and retain independent host/release evidence.
 - API secrets configured in Offisim are sealed through the narrow desktop
   secret boundary. Subscription engines reuse native login state; Offisim does
   not copy OAuth tokens, native session files, compaction state, or global
@@ -57,9 +57,9 @@ credential destinations or arbitrary local execution roots.
   source, checkedAt, capabilities, and availability. It never contains raw
   credentials. The renderer consumes safe status and opaque native references.
 - Tauri binds the backend-authorized effective task workspace and routes the
-  turn to either the bundled API adapter host or native Codex app-server host.
-  Host output is projected and credential-shaped values are filtered before
-  they reach the webview.
+  turn to the selected API, Codex, or Claude host. Claude file tools use a
+  `PreToolUse` workspace guard and Bash sandbox; all host output is projected
+  and credential-shaped values are filtered before they reach the webview.
 - Local path open/save, git, and shell commands are scoped to a project
   workspace. Shell execution scrubs inherited environment variables and records
   approval/network-policy metadata. Current network policy is disclosure plus

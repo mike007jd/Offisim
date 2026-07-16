@@ -695,12 +695,17 @@ assert.match(
 );
 assert.match(
   taskBindingSource,
-  /NativeSessionReference::Opaque\s*\{\s*engine_id:\s*"codex"\.into\(\),\s*account_id,\s*billing_mode,\s*id:\s*session_id,?/su,
-  'Codex resume must produce an opaque thread id bound to the persisted subscription account',
+  /matches!\(engine_id,\s*Some\("codex"\s*\|\s*"claude"\)\)[\s\S]*NativeSessionReference::Opaque\s*\{\s*engine_id:\s*opaque_engine\.into\(\),\s*account_id,\s*billing_mode,\s*id:\s*session_id,?/su,
+  'native subscription resume must preserve the persisted engine, account, billing lane, and opaque thread id',
 );
 assert.match(
   taskBindingSource,
-  /interrupted Codex task must use an opaque native session identity without a session file/u,
+  /opaque_engine\s*==\s*"codex"[\s\S]*"Codex"[\s\S]*"Claude"/su,
+  'resume diagnostics must retain distinct Codex and Claude engine identities',
+);
+assert.match(
+  taskBindingSource,
+  /interrupted \{display_engine\} task must use an opaque native session identity without a session file/u,
 );
 assert.match(taskBindingSource, /session_file IS NULL/u);
 assert.match(
@@ -997,7 +1002,12 @@ assert.match(
 assert.equal(
   packageJson.scripts?.['harness:codex-app-server-contract'],
   'node scripts/harness-codex-app-server-contract.mjs && pnpm harness:codex-runtime-conformance',
-  'the Codex contract gate must include executable Rust runtime conformance',
+  'the Codex contract gate must include executable Codex runtime conformance',
+);
+assert.match(
+  packageJson.scripts?.validate ?? '',
+  /pnpm harness:codex-app-server-contract && pnpm harness:claude-agent-host/u,
+  'the full validation gate must run the independent Codex and Claude subscription-engine harnesses',
 );
 assert.equal(
   packageJson.scripts?.['prepare:desktop-cargo-test'],

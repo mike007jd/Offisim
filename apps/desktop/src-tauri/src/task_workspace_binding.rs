@@ -2168,6 +2168,12 @@ fn validate_resume_root_prestart(
                         .and_then(serde_json::Value::as_u64)
                         == Some(crate::codex_agent_host::CODEX_HOST_PROTOCOL_VERSION)
                 }
+                Some("claude") => {
+                    context_object
+                        .get("nativeProtocolVersion")
+                        .and_then(serde_json::Value::as_u64)
+                        == Some(crate::claude_agent_host::CLAUDE_HOST_PROTOCOL_VERSION)
+                }
                 None | Some("api") => {
                     context_object
                         .get("wireProtocolVersion")
@@ -2217,11 +2223,17 @@ fn validate_resume_root_prestart(
             "The interrupted task's durable workspace projection no longer matches its saved run. Start a new task instead.",
         ));
     }
-    let (native_session, stored_session_file) = if engine_id == Some("codex") {
+    let (native_session, stored_session_file) = if matches!(engine_id, Some("codex" | "claude")) {
+        let opaque_engine = engine_id.expect("opaque engine was matched");
+        let display_engine = if opaque_engine == "codex" {
+            "Codex"
+        } else {
+            "Claude"
+        };
         if stored_session_file.is_some() {
             return Err(ResumePrestartFailure::new(
                 ResumePrestartFailureKind::SessionInvalid,
-                "The interrupted Codex task must use an opaque native session identity without a session file. Start a new task instead.",
+                format!("The interrupted {display_engine} task must use an opaque native session identity without a session file. Start a new task instead."),
             ));
         }
         let session_id = context_object
@@ -2232,7 +2244,7 @@ fn validate_resume_root_prestart(
             .ok_or_else(|| {
                 ResumePrestartFailure::new(
                     ResumePrestartFailureKind::SessionMissing,
-                    "The interrupted Codex task has no saved opaque native session identity. Start a new task instead.",
+                    format!("The interrupted {display_engine} task has no saved opaque native session identity. Start a new task instead."),
                 )
             })?
             .to_string();
@@ -2244,7 +2256,7 @@ fn validate_resume_root_prestart(
             .ok_or_else(|| {
                 ResumePrestartFailure::new(
                     ResumePrestartFailureKind::ContextInvalid,
-                    "The interrupted Codex task has no saved native account identity. Start a new task instead.",
+                    format!("The interrupted {display_engine} task has no saved native account identity. Start a new task instead."),
                 )
             })?
             .to_string();
@@ -2255,13 +2267,13 @@ fn validate_resume_root_prestart(
             .ok_or_else(|| {
                 ResumePrestartFailure::new(
                     ResumePrestartFailureKind::ContextInvalid,
-                    "The interrupted Codex task is not bound to a subscription account. Start a new task instead.",
+                    format!("The interrupted {display_engine} task is not bound to a subscription account. Start a new task instead."),
                 )
             })?
             .to_string();
         (
             NativeSessionReference::Opaque {
-                engine_id: "codex".into(),
+                engine_id: opaque_engine.into(),
                 account_id,
                 billing_mode,
                 id: session_id,

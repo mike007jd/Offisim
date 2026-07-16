@@ -7,7 +7,7 @@
 - 不允许在“部分实现 / 大部分 task 勾选 / 编译通过 / harness 通过 / 找到 blocker 但未闭环”时声称完成。
 - 如果遇到凭证、外部服务、设备不可达、破坏性风险或产品决策无法合理推断等真实阻塞，必须明确标成“未完整交付”，保留未勾 task / tag gate / archive gate，不得用 known limitation 或口头解释替代验收。
 - 发现额外真实 blocker 时，先修能修的部分并记录证据；不能修的要直接 surface 根因和下一步所需条件，不要缩小 scope 后交付。
-- 当前实现事实：生产 live chat 通过 `DesktopAgentRuntimeGateway` 互斥装配完整 API 与 Codex subscription adapter；Claude 尚未交付，不能提前写成已支持。内部 Pi host 只是 API adapter 的实现，不是产品身份。
+- 当前实现事实：生产 live chat 通过 `DesktopAgentRuntimeGateway` 互斥装配完整 API、Codex subscription 与 Claude subscription adapter。内部 Pi host 只是 API adapter 的实现，不是产品身份。
 - 目标产品定义：Offisim 是 engine-neutral 的桌面 AI 工作台。`DesktopAgentRuntime` 是唯一 production engine gateway；每个 task 互斥选择一个完整 runtime engine。Pi/API、Codex subscription、Claude subscription 必须分别通过 gateway 和 conformance，不能在同一 run 混 lane，也不能把 Codex/Claude 伪装成 Pi provider。
 - Settings 以 `AI Accounts / Models / Usage / Cost` 表达真实能力：API account 显示 token 与 actual/estimated cost；subscription account 只显示供应商原生 Usage、remaining/reset/credits，不用 token 反算订阅 cost。Pi Agent、OAuth、`auth.json`、`models.json` 只允许出现在必要诊断中，不是产品身份。
 - 模型 catalog 是产品所需能力，但每项必须有 exact leaf model id、官方或原生 source、`checkedAt`、account ownership、capabilities 与 availability；普通 selector 以友好名称为主，禁止用系列名或猜测型号冒充可调用模型。

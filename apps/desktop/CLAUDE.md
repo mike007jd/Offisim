@@ -42,10 +42,11 @@ Release/live validation is release `.app` only: rebuild `@offisim/desktop-render
 AI execution enters through the neutral `agent_runtime_*` command gateway. The
 API adapter uses `src-tauri/src/pi_agent_host/` plus the bundled
 `resources/pi-agent-host.mjs`; the Codex subscription adapter uses
-`src-tauri/src/codex_agent_host/` plus the bundled native app-server. Both
-consume the same backend-authorized task workspace and safe account/model
-projection. Claude remains absent until a complete independent adapter passes
-release verification; never mix engine lanes inside one run.
+`src-tauri/src/codex_agent_host/` plus the bundled native app-server; the Claude
+subscription adapter uses `src-tauri/src/claude_agent_host/` plus the bundled
+official Agent SDK host. All three consume the same backend-authorized task
+workspace and safe account/model projection; never mix engine lanes inside one
+run.
 
 ## Local SQLite
 
@@ -68,6 +69,7 @@ Tauri release `.app` CSP `connect-src` 与 `apps/platform/src/startup.ts` `DEV_D
 | `builtin_tools.rs` | `read_file` / `write_file` / `bash` / 文件预览 sandbox |
 | `pi_agent_host/` | neutral command gateway plus current API-adapter host bridge and event projection |
 | `codex_agent_host/` | native Codex subscription app-server lifecycle, protocol, stream, and recovery |
+| `claude_agent_host/` | native Claude subscription SDK lifecycle, protocol, stream, Usage, and recovery |
 | `local_db.rs` | SQLite bootstrap + connection pool |
 | `local_paths.rs` | workspace_root resolution + 路径校验 helper |
 | `mcp_bridge/` | desktop 专属 MCP bridge（web 没有） |

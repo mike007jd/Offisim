@@ -1,8 +1,8 @@
 # Offisim Codex 对齐盲测收敛计划
 
-> 状态：IN PROGRESS（14/17 implemented；T07、T11、T16 尚未闭环）
+> 状态：IN PROGRESS（15/17 implemented；T11、T16 尚未闭环）
 > 最近核对：2026-07-16 NZST（+12:00）
-> 当前堆叠基线：`2680de58`
+> 当前堆叠基线：`5de62751`
 > 执行清单：[tasks.md](./tasks.md)
 > 架构真源：[Engine-neutral AI Accounts](../../architecture/2026-07-13-engine-neutral-ai-accounts.md)
 
@@ -40,15 +40,15 @@
 
 | 结论 | 当前事实 | 计划含义 |
 |---|---|---|
-| 当前生产 runtime | `DesktopAgentRuntimeGateway` 是唯一生产入口，已注册互斥的完整 API 与 Codex subscription adapter；内部 Pi host 只是 API adapter 的实现 | T05/T06 已交付；Claude 仍等待 T07，禁止冒充已支持 |
+| 当前生产 runtime | `DesktopAgentRuntimeGateway` 是唯一生产入口，已注册互斥的完整 API、Codex subscription 与 Claude subscription adapter；内部 Pi host 只是 API adapter 的实现 | T05/T06/T07 已交付并分别通过 engine host 与 release 证据 |
 | Conversation 标题 | 已有首条消息 fallback 与 `title_set_by_user` 锁 | T02 复用现有合同，补首次成功回复后的语义标题 |
 | stale approval | 旧投影可制造 active run | T01 从控制器真源修复，不在按钮层 no-op |
 | Project workspace | T03 已交付后端签发、scope 防伪、内存 capability 与安全历史投影 | T04 只负责 Project folder 缺失后的高置信恢复与明确披露 |
-| Settings | `AI Accounts / Models / Usage / Cost` 已整合真实 API 与 Codex account；Claude account 不存在 | T08 已交付已验证能力；T07 完成前不预放 Claude 空壳 |
+| Settings | `AI Accounts / Models / Usage / Cost` 已整合真实 API、Codex 与 Claude account | T08 壳保持 engine-neutral；T07 只在完整 engine 验证后接入 Claude |
 | UI finding | 原始 15 张截图涵盖 radius、rails、cost、run pill、nav、Market、presence、error 等 | T12-T14 统一收敛并加入 deterministic gates |
 | 最终验收 | 仓库明确只认 release `.app` + Computer Use | dev server、localhost、dev webview 仅用于排查 |
 
-T05 API account 的模型、费率与 Usage 来源已按 2026-07-14 官方资料固化；T06/T08 已于 2026-07-15 至 2026-07-16 重新核对 Codex stable release、app-server protocol、认证、模型与 Usage 来源。T07 实施时仍须刷新 Claude 官方资料。
+T05 API account 的模型、费率与 Usage 来源已按 2026-07-14 官方资料固化；T06/T08 已于 2026-07-15 至 2026-07-16 重新核对 Codex stable release、app-server protocol、认证、模型与 Usage 来源；T07 于 2026-07-16 核对 Claude Agent SDK、subscription、模型、permission、hook、session 与 Usage 官方资料。
 
 ## 5. 执行 Waves
 
@@ -92,7 +92,7 @@ T05 API account 的模型、费率与 Usage 来源已按 2026-07-14 官方资料
 - T02 依赖 T05a，禁止在 provenance 不可证明时用全局默认模型伪装“同一 Turn engine/account”。
 - T04 依赖 T03；T06、T07 依赖 T05；T08 依赖 T02、T05、T06，并只整合已交付 engine；T07 以后按相同账户合同扩展；T13 依赖 T08。
 - T12 依赖 T01，避免 UI 再消费幽灵 live run。
-- T15 只把已经 release-verified 的能力写成 shipped state；T07、T11 等未闭环项必须显式保持 pending，不能靠文档提前完成。
+- T15 建立“只写 release-verified 能力”的规则；后续 T07 已用真实 release 证据推进 current docs，T11 仍保持未闭环。
 - T16 是唯一 package 完成门；任何未闭环 finding 都回到所属 task。
 
 ## 7. 反过度工程边界

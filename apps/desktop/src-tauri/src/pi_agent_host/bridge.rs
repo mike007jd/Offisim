@@ -1034,7 +1034,7 @@ pub(super) struct PiUiResponse {
 /// response to its stdin. `request_id` locates the run; `id` matches the host's
 /// `uiRequest`. A missing request id means the run already ended (the answer is
 /// moot) — not an error. `agent_runtime_answer` calls this verbatim.
-pub(super) async fn ui_response_impl(
+pub(crate) async fn ui_response_impl(
     request_id: String,
     id: String,
     confirmed: Option<bool>,

@@ -32,6 +32,7 @@ when the list changes.
 | Product truth guards | `pnpm harness:review-fixes` | neutral gateway, exact account/model truth, docs truth, and removed partial lanes stay coherent |
 | API adapter host | `pnpm harness:pi-agent-host` | bundled API host wiring, target/provenance, tools, usage, delegation, and release resources |
 | Codex subscription host | `pnpm harness:codex-app-server-contract` | official sidecar artifact plus native protocol, stream, account/model, approval, Stop, Usage, and recovery contracts |
+| Claude subscription host | `pnpm harness:claude-agent-host` | official SDK host plus native account/model, stream, approval, Stop/recovery, workspace guard, Usage, and secret-isolation contracts |
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
 | Desktop Rust | `cargo test` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db baseline/refusal behavior |
@@ -67,6 +68,7 @@ pnpm platform:auth-harness      # auth boundary harness (also run inside securit
 | Production gateway / cross-engine behavior | `pnpm harness:runtime-conformance`, `pnpm harness:renderer-engine-authority`, `pnpm harness:execution-provenance` |
 | API adapter host | `pnpm harness:pi-agent-host` |
 | Codex subscription host | `pnpm harness:codex-app-server-contract` |
+| Claude subscription host | `pnpm harness:claude-agent-host` |
 | Doc-engine parsers | `pnpm harness:doc-engine` |
 | Chat attachments | `pnpm harness:chat-attachment-roundtrip` |
 

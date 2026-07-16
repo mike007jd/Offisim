@@ -88,6 +88,7 @@ interface InterruptedRunCardOptions {
 
 export const PI_HOST_PROTOCOL_VERSION = 10;
 export const CODEX_APP_SERVER_PROTOCOL_VERSION = 2;
+export const CLAUDE_AGENT_HOST_PROTOCOL_VERSION = 1;
 
 const RESUME_COMPATIBILITY_COPY: Readonly<Record<string, string>> = {
   workspace_history_missing: 'The saved workspace record is unavailable.',
@@ -320,7 +321,7 @@ export function buildInterruptedRunCard(
       ? (context.executionTarget as Record<string, unknown>)
       : null;
   const engineId = stringOrNull(executionTarget?.engineId);
-  const supportedEngine = engineId === 'api' || engineId === 'codex';
+  const supportedEngine = engineId === 'api' || engineId === 'codex' || engineId === 'claude';
   const nativeSessionId = stringOrNull(context?.nativeSessionId);
   const wireProtocolVersion =
     typeof context?.wireProtocolVersion === 'number' ? context.wireProtocolVersion : null;
@@ -353,13 +354,18 @@ export function buildInterruptedRunCard(
     classificationReasons.push('The saved AI engine is not available in this Offisim build.');
   }
   const hasNativeSession =
-    engineId === 'codex' ? nativeSessionId !== null : engineId === 'api' && sessionFile !== null;
+    engineId === 'codex' || engineId === 'claude'
+      ? nativeSessionId !== null
+      : engineId === 'api' && sessionFile !== null;
   if (!hasNativeSession) {
     classificationReasons.push('This task stopped before it could save its place.');
   }
   const protocolMismatch =
-    engineId === 'codex'
-      ? nativeProtocolVersion !== CODEX_APP_SERVER_PROTOCOL_VERSION
+    engineId === 'codex' || engineId === 'claude'
+      ? nativeProtocolVersion !==
+        (engineId === 'codex'
+          ? CODEX_APP_SERVER_PROTOCOL_VERSION
+          : CLAUDE_AGENT_HOST_PROTOCOL_VERSION)
       : engineId === 'api' &&
         wireProtocolVersion !== null &&
         wireProtocolVersion !== currentWireProtocolVersion;

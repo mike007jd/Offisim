@@ -47,10 +47,9 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 ## AI Runtime Policy (hard rule)
 
 - Current implementation truth: `DesktopAgentRuntimeGateway` registers complete
-  API and Codex subscription adapters. Claude is still pending and must not be
-  presented as supported before its full engine task and release `.app` proof.
-  The internal Pi host is an API-adapter implementation detail, not the product
-  identity.
+  API, Codex subscription, and Claude subscription adapters. Each has its own
+  engine-specific host gate and release `.app` proof. The internal Pi host is an
+  API-adapter implementation detail, not the product identity.
 - Product target: `DesktopAgentRuntime` is the single production engine gateway.
   Each task selects one complete, mutually exclusive engine. Pi/API, Codex
   subscription, and Claude subscription are separate adapters, never provider

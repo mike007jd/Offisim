@@ -64,15 +64,19 @@ Owner paths:
 - `scripts/tauri-pi-agent-host.entry.mjs`
 - `scripts/build-pi-agent-host.mjs`
 - `scripts/harness-pi-agent-host.mjs`
+- `scripts/tauri-claude-agent-host.entry.mjs`
+- `scripts/claude-workspace-guard.mjs`
+- `scripts/harness-claude-agent-host.mjs`
 - `apps/desktop/src-tauri/src/pi_agent_host/`
 - `apps/desktop/src-tauri/src/codex_agent_host/`
+- `apps/desktop/src-tauri/src/claude_agent_host/`
 - `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`
 - `Docs/HARNESS_ARCHITECTURE.md`
 
 Data/contracts:
 
-- The production gateway ships complete API and Codex subscription adapters;
-  Claude remains pending.
+- The production gateway ships complete API, Codex subscription, and Claude
+  subscription adapters.
 - Each engine owns its native auth/session/compaction/tool loop. Offisim owns
   safe account/model metadata, effective-workspace authorization, Conversation
   persistence, and neutral desktop projection.
@@ -85,8 +89,10 @@ Verification:
 
 - `pnpm harness:pi-agent-host`
 - `pnpm harness:codex-app-server-contract`
+- `pnpm harness:claude-agent-host`
 - `pnpm harness:runtime-conformance`
 - `pnpm build:pi-agent-host`
+- `pnpm build:claude-agent-host`
 - release `.app` launch from exact worktree path
 
 ## Workspace Files, Shell, Git, and Attachments
@@ -131,10 +137,10 @@ or Mission row, and never bound to a project. UI co-location does not merge the
 two storage/runtime contracts.
 
 Company-channel replies use isolated no-tools collaboration. API accounts route
-through `agent_runtime_collaborate`; Codex accounts route through the native
-one-shot host with the same exact-target and isolation rules. Neither path binds
-a project cwd or writes `agent_runs`. Direct, mentions and roundtable behavior
-is preserved.
+through `agent_runtime_collaborate`; Codex and Claude accounts route through
+their native one-shot hosts with the same exact-target and isolation rules. No
+path binds a project cwd or writes `agent_runs`. Direct, mentions and roundtable
+behavior is preserved.
 `meeting_sessions` remains honest historical storage with no live writer; real
 rows are projected into the Board timeline and never imply scheduling.
 
@@ -148,7 +154,7 @@ Owner paths:
   controller)
 - `packages/core/src/runtime/collaboration/collaboration-service.ts` (domain
   repository over the collaboration tables)
-- API `agent_runtime_collaborate` and the isolated Codex one-shot host
+- API `agent_runtime_collaborate` and the isolated Codex/Claude one-shot hosts
 
 Data/contracts:
 

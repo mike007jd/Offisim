@@ -29,7 +29,7 @@ cleanup is current-file rewrites plus explicit supersession.
 | Path | Disposition | Current role / replacement |
 |---|---|---|
 | `AGENTS.md` | REWRITE | Current completion, gateway, account/model, workspace, and release rules |
-| `CLAUDE.md` | REWRITE | Current AI worker guidance; API and Codex shipped, Claude pending |
+| `CLAUDE.md` | REWRITE | Current AI worker guidance; API, Codex, and Claude shipped |
 | `README.md` | REWRITE | Public overview and source router |
 | `SECURITY.md` | REWRITE | Current credential, native-state, workspace, and host threat model |
 | `apps/desktop/CLAUDE.md` | REWRITE | Current desktop gateway/host and release guidance |
@@ -37,7 +37,7 @@ cleanup is current-file rewrites plus explicit supersession.
 | `Docs/SYSTEM_FRAMEWORK.md` | REWRITE | Maintained architecture, four-layer persistence, and flow map |
 | `Docs/FEATURES.md` | REWRITE | Maintained product catalog, including Loops NL, Market user flow, and Office dramaturgy |
 | `Docs/CODEBASE_MAP.md` | REWRITE | Maintained ownership and documentation-routing map |
-| `Docs/HARNESS_ARCHITECTURE.md` | REWRITE | Current neutral gateway plus API/Codex host gates |
+| `Docs/HARNESS_ARCHITECTURE.md` | REWRITE | Current neutral gateway plus API/Codex/Claude host gates |
 | `Docs/UI_FRAMEWORK_STACK.md` | REWRITE | Approved renderer stack and current design-source precedence |
 | `Docs/design/.v3-dna-brief.md` | REWRITE | Canonical dense-HUD grammar and semantic radius roles |
 | `Docs/design/offisim-office-layout-v3-prototype.html` | REWRITE | Canonical visual-grammar specimen only; behavior/copy examples defer to current tasks and engine ADR |
@@ -46,7 +46,7 @@ cleanup is current-file rewrites plus explicit supersession.
 | `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md` | RETAIN | Current engine/account/model/session/workspace decision |
 | `Docs/architecture/2026-07-13-native-stage-capability-lanes.md` | REWRITE | Current manual-vs-agent Stage boundary, engine-neutral wording |
 | `Docs/architecture/2026-07-02-prelaunch-vibe-debt-policy.md` | REWRITE | Current prelaunch cleanup policy and protected engine boundaries |
-| `Docs/architecture/2026-06-26-collaboration-domain-boundary.md` | REWRITE | Current isolated API/Codex no-tools collaboration contract |
+| `Docs/architecture/2026-06-26-collaboration-domain-boundary.md` | REWRITE | Current isolated API/Codex/Claude no-tools collaboration contract |
 | `Docs/architecture/2026-06-26-enhance-profile-contract.md` | REWRITE | Current isolated same-engine text-job contract |
 | `Docs/architecture/2026-06-26-loop-domain-mission-adapter.md` | REWRITE | Current Loop NL/IR/send-time contract and baseline-schema wording |
 | `Docs/architecture/2026-06-26-loop-graph-react-flow-elk.md` | RETAIN | Current read-only graph projection contract |

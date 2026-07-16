@@ -145,7 +145,7 @@ impl ExecuteFailure {
     }
 }
 
-pub(super) struct PiSidecarRun<'a> {
+pub(crate) struct PiSidecarRun<'a> {
     pub script_path: &'a Path,
     pub cwd: &'a Path,
     pub workspace_binding: Option<&'a TaskWorkspaceBinding>,
@@ -302,7 +302,7 @@ async fn read_stderr(mut stderr: tokio::process::ChildStderr) -> (Vec<u8>, bool)
         })
 }
 
-pub(super) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
+pub(crate) async fn run_pi_sidecar_jsonl<R: tauri::Runtime>(
     app: &AppHandle<R>,
     run: PiSidecarRun<'_>,
 ) -> Result<serde_json::Value, HostError> {
@@ -1237,6 +1237,7 @@ async fn execute_with_mode(
                 provenance: None,
                 usage: None,
                 budget_usage: None,
+                subscription_usage: None,
             })
         }
         Err(error) => {
@@ -1259,7 +1260,7 @@ async fn execute_with_mode(
 /// Resolve a dedicated, non-project working directory for ephemeral model jobs.
 /// Resource discovery is disabled in the host as a second boundary, but the cwd
 /// itself must never point at the repository or the user's home directory.
-fn neutral_cwd<R: tauri::Runtime>(_app: &AppHandle<R>) -> Result<PathBuf, HostError> {
+pub(crate) fn neutral_cwd<R: tauri::Runtime>(_app: &AppHandle<R>) -> Result<PathBuf, HostError> {
     let cwd = std::env::temp_dir()
         .join("offisim-agent-runtime")
         .join("isolated");
@@ -1334,6 +1335,7 @@ pub(super) async fn enhance_impl(
             provenance: None,
             usage: None,
             budget_usage: None,
+            subscription_usage: None,
         }),
         Err(error) => {
             let (code, message) = error.into_code_message(PI_LANE);
@@ -1431,6 +1433,7 @@ pub(super) async fn collaborate_impl(
             provenance: None,
             usage: None,
             budget_usage: None,
+            subscription_usage: None,
         }),
         Err(error) => {
             let (code, message) = error.into_code_message(PI_LANE);

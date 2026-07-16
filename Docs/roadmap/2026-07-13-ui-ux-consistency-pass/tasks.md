@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，14/17 implemented；T07、T11、T16 尚未闭环，整包 final release 验收统一留在 T16
+> 状态：IN PROGRESS，15/17 implemented；T11、T16 尚未闭环，整包 final release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -15,7 +15,7 @@
 | T04 | 缺失 Project 目录自主恢复 | T03 | [x] |
 | T05 | 生产 engine gateway 与 API account | T00 | [x] |
 | T06 | Codex subscription 完整 engine | T05 | [x] |
-| T07 | Claude subscription 完整 engine | T05 | [ ] |
+| T07 | Claude subscription 完整 engine | T05 | [x] |
 | T08 | AI Accounts / Models 设置整合 | T02,T05,T06 | [x] |
 | T09 | Loops 自然语言主流程 | T00 | [x] |
 | T10 | Market 用户语言与空状态 | T00 | [x] |
@@ -51,7 +51,7 @@
 
 ### Acceptance
 
-- [x] T00 baseline 当时明确只有 `DesktopPiAgentRuntime`；T05 交付 API adapter，T06 随后交付 Codex subscription adapter。当前真值是 production `DesktopAgentRuntimeGateway` + API/Codex 两条互斥完整 engine；内部 Pi host 仅是 API 实现细节，Claude 仍未写成 shipped。
+- [x] T00 baseline 当时明确只有 `DesktopPiAgentRuntime`；T05/T06/T07 随后交付 API、Codex subscription 与 Claude subscription。当前真值是 production `DesktopAgentRuntimeGateway` + 三条互斥完整 engine；内部 Pi host 仅是 API 实现细节。
 - [x] 产品目标明确为单一 production gateway + 每 task 一个互斥完整 engine。
 - [x] API 显示 Cost；subscription 显示官方 Usage。
 - [x] Project、Conversation、Native Agent Home/Session/Memory、effective workspace 四层分离。
@@ -306,18 +306,28 @@
 
 ### Acceptance
 
-- [ ] 安全发现已登录状态，未登录时给原生指引。
-- [ ] 完成 stream/tool/approval/Stop/recovery 与文件 workspace。
-- [ ] 有官方 plan Usage 时显示真实 remaining/reset；没有时显示 unavailable。
-- [ ] 第三方 harness extra usage 与 Claude subscription Usage 隔离。
-- [ ] 不读取、复制、展示或持久化原始 auth secret。
-- [ ] 不可用时不静默切换其他 engine。
-- [ ] release `.app` 有真实 Claude task 证据。
+- [x] 安全发现已登录状态，未登录时给原生指引。
+- [x] 完成 stream/tool/approval/Stop/recovery 与文件 workspace。
+- [x] 有官方 plan Usage 时显示真实 remaining/reset；没有时显示 unavailable。
+- [x] 第三方 harness extra usage 与 Claude subscription Usage 隔离。
+- [x] 不读取、复制、展示或持久化原始 auth secret。
+- [x] 不可用时不静默切换其他 engine。
+- [x] release `.app` 有真实 Claude task 证据。
 
 ### Oracles
 
 - 实施时重查 Claude Code 官方 CLI / subscription 文档。
 - live Claude task + secret scan + runtime conformance。
+
+### T07 Evidence（2026-07-16 NZST）
+
+- 按当日官方资料接入 `@anthropic-ai/claude-agent-sdk` 0.3.211 与本机 Claude Code 2.1.211；native initialization 安全发现 first-party subscription，并投影 Default / Opus / Fable / Sonnet / Haiku 五行 selector 与 exact resolved model，不读取 raw auth。
+- `DesktopAgentRuntimeGateway` 注册互斥 Claude adapter；执行、Enhance、collaboration、title、stream、approval answer、Stop、reattach/recovery 与 opaque native session 都冻结同一 engine/account/billing/model provenance，不可用时 fail closed。
+- subscription run token 仅标为 `subscription-run-diagnostic`，Cost 固定 unavailable；provider-native rate-limit event 有 reset 即展示，utilization 缺失时明确 `Not reported`，不会把第三方 token 或 API 费率伪装为 plan remaining/cost。
+- fresh release `.app` 在隔离 HOME 与空 Project folder 中完成多选 `AskUserQuestion`、Stop、同会话 `CLAUDE_RESUME_OK`、重启 `CLAUDE_RESTART_OK` 与真实 Write。首次盲测发现模型把绝对 Write 路径指向 HOME；修复以官方 `PreToolUse` hook 拒绝越界/符号链接逃逸并启用 Bash sandbox。复测外部 Write 被明确 deny、HOME 文件不存在、Project 内文件精确为 `CLAUDE_GUARD_OK\n`，随后 QA 文件与空 `.claude/.cc-writes` 已清理。
+- release 绑定精确 `.app`；修复后窗口为 `pid=67588`、`windowId=12704`、title `Offisim`、bounds `x=36 y=33 width=1440 height=877`、WebView `tauri://localhost`。全过程未用 bundle id、AppleScript、dev server 或原 `~/.offisim`。
+- 最终主二进制 SHA-256 `dd322ca3b5979febe4456f9c2e81f6365b645c78c6a65e74aa95c9acf196d668`；Claude host SHA-256 `15d559c2f91f04ee759e0c88bca08854d128f6b8c0472c6811e7bdd8b7c40a74`；Claude SDK NOTICE SHA-256 `cce56686c18fc6ffbb0a6e5c1caaa022ec8a3fd05c45e5ec3e793dc5f0d539f6`。
+- 完整 `pnpm validate` 从头通过，覆盖 UI hygiene、docs truth、独立 Codex/Claude host gates、Pi integration、所有 runtime/session/loop/MCP gates 与 Knip；release build、Claude workspace guard 真实复测和最终 diff check 均通过。
 
 ---
 
@@ -338,7 +348,7 @@
 ### Oracles
 
 - settings coordinator、runtime capabilities、catalog freshness gates。
-- T16 覆盖当前可交付的 API / Codex 账户状态和模型选择；Claude 仍由 T07 的官方能力边界独立阻塞，不阻塞本设置壳完成。
+- T08 当时只整合已交付的 API / Codex；T07 后续以同一账户合同接入 Claude，T16 统一复验三条 engine。
 
 ### T08 Evidence（2026-07-16 NZST）
 
@@ -549,7 +559,7 @@
 ### T15 Evidence（2026-07-16 NZST）
 
 - [`document-truth-ledger.md`](../../document-truth-ledger.md) 对 current、scoped contract、历史 ADR/roadmap/prototype、archive、live-verify evidence 与本地产物逐份记录 `REWRITE / RETAIN / SUPERSEDE / DELETE`；五镜头加 skeptic 复核确认没有 tracked doc 或 screenshot 满足安全删除阈值，独有合同、审计链和历史证据全部保留。
-- current docs 已统一为 API + Codex shipped、Claude pending；Pi host 只作为 API adapter 内部实现，不再是产品身份。Project folder catalog、Offisim Conversation、Native Agent Home / Session / Memory、effective task workspace 四层分离，API Cost / subscription Usage 与 exact leaf model provenance 使用同一合同。
+- T15 完成时 current docs 只写当时已 release-verified 的 API + Codex；T07 随后用独立 release 证据把 current sources 推进为 API + Codex + Claude shipped。Pi host 只作为 API adapter 内部实现，不再是产品身份。Project folder catalog、Offisim Conversation、Native Agent Home / Session / Memory、effective task workspace 四层分离，API Cost / subscription Usage 与 exact leaf model provenance 使用同一合同。
 - 25 份历史 Markdown 与 7 份非 canonical HTML prototype 均有醒目的 historical/superseded 标记和 current replacement；canonical Office prototype 明确只承载 visual grammar。所有证据截图保留；ignored 的 `.playwright-mcp/`、`.playwright-cli/`、`feedbacks/`、`output/`、`.DS_Store`、`*.log` 在本 worktree 无 tracked 残留。
 - 新增 `pnpm check:docs-truth`，覆盖 93 份 Markdown 的本地链接、22 个 current source 的持久合同/冲突断言、32 个 superseded record 的 banner/current link，并接入 `harness:review-fixes` 与 `pnpm validate`。
 - 清理前基线 `pnpm build:runtime-deps && pnpm build:pi-agent-host && pnpm build:codex-app-server && pnpm validate` 通过；清理后 `pnpm validate` 全量通过，包含 typecheck、docs truth、runtime/UI/Office/Codex/Pi/native-stage gates 与 Knip。`pnpm harness:review-fixes`、Biome、`git diff --check` 单独复核通过。

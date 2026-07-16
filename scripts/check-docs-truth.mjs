@@ -93,6 +93,7 @@ const staleCurrentClaims = [
   /Offisim does not (?:store provider API keys or )?maintain a provider\/model catalog/iu,
   /live chat still assembles[\s\S]{0,80}DesktopPiAgentRuntime/iu,
   /Claude\/Codex\/OpenAI sidecar lanes are not active/iu,
+  /Claude[\s\S]{0,100}(?:remains pending|still pending|not shipped|尚未交付|等待 T07|T07 完成前)/iu,
 ];
 
 for (const relativePath of currentDocs) {
@@ -105,10 +106,9 @@ for (const relativePath of currentDocs) {
 const currentTruth = currentDocs.map(read).join('\n');
 const durableContracts = [
   [
-    /API and Codex[\s\S]{0,100}(?:shipped|implemented|release-verified)/iu,
-    'API and Codex shipped truth',
+    /API[\s\S]{0,120}Codex[\s\S]{0,120}Claude[\s\S]{0,160}(?:shipped|implemented|release-verified|已交付)/iu,
+    'API, Codex, and Claude shipped truth',
   ],
-  [/Claude[\s\S]{0,100}(?:pending|not shipped|尚未)/iu, 'Claude pending truth'],
   [/Project[\s\S]{0,120}(?:catalog|目录)/iu, 'Project folder catalog layer'],
   [/Offisim Conversation/iu, 'Offisim Conversation layer'],
   [/Native Agent Home \/ Session \/ Memory/iu, 'native Agent Home/session/memory layer'],

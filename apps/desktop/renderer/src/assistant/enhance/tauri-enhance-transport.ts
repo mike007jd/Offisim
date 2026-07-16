@@ -40,17 +40,17 @@ function newRequestId(): string {
   return `enhance-${crypto.randomUUID()}`;
 }
 
-type EnhanceEngineId = 'api' | 'codex';
+type EnhanceEngineId = 'api' | 'codex' | 'claude';
 
 function requireEnhanceEngine(engineId: string): EnhanceEngineId {
-  if (engineId === 'api' || engineId === 'codex') return engineId;
+  if (engineId === 'api' || engineId === 'codex' || engineId === 'claude') return engineId;
   throw new Error(`AI engine ${engineId} does not support Prompt Enhance.`);
 }
 
 function abortEnhance(engineId: EnhanceEngineId, requestId: string): Promise<void> {
-  return engineId === 'codex'
-    ? invokeCommand('codex_agent_abort', { requestId })
-    : invokeCommand('agent_runtime_abort', { requestId });
+  if (engineId === 'codex') return invokeCommand('codex_agent_abort', { requestId });
+  if (engineId === 'claude') return invokeCommand('claude_agent_abort', { requestId });
+  return invokeCommand('agent_runtime_abort', { requestId });
 }
 
 async function resolveThreadEnhanceTarget(threadId: string) {
@@ -177,8 +177,8 @@ export function createTauriEnhanceTransport(opts?: {
             if (!event.prepareId.trim() || !event.targetDigest.trim()) {
               throw new Error('Enhance returned an invalid execution preparation receipt.');
             }
-            // Codex validates its native account/model before publishing this
-            // receipt. Only Pi has the later paid boundary that requires an ACK.
+            // One native engine validates and authorizes the paid boundary internally.
+            // API and the other native host hold the prompt until this durable ACK.
             if (selectedEngineId === 'codex') return;
             await invokeCommand('agent_runtime_confirm_execution', {
               requestId,
@@ -213,7 +213,9 @@ export function createTauriEnhanceTransport(opts?: {
         };
         const response = (await (selectedEngineId === 'codex'
           ? invokeCommand('codex_agent_enhance', args)
-          : invokeCommand('agent_runtime_enhance', args))) as PiAgentHostResponse;
+          : selectedEngineId === 'claude'
+            ? invokeCommand('claude_agent_enhance', args)
+            : invokeCommand('agent_runtime_enhance', args))) as PiAgentHostResponse;
         requestClaimed = false;
         throwIfAborted();
         if (preparations.size === 0) {
