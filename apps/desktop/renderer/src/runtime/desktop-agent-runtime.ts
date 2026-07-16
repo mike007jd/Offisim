@@ -4246,6 +4246,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         if (snapshot?.terminal) {
           throw new StopLostTerminalRaceError(snapshot.terminal.status);
         }
+        if (!snapshot && this.inFlightByThread.get(threadId) !== requestId) {
+          // No stream to confirm against and execute() has already settled
+          // this request (failed before host registration, or released after
+          // its natural terminal): there is nothing left for Stop to win.
+          throw new StopLostTerminalRaceError('settled');
+        }
         await new Promise<void>((resolve) => setTimeout(resolve, 250));
       }
     })();
