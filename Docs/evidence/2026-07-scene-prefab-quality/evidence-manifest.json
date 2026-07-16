@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-07-16T03:30:08+12:00",
+  "timeZone": "Pacific/Auckland",
+  "result": "pass",
+  "branch": "codex/scene-prefab-quality",
+  "verifiedBaseHead": "a142000c",
+  "releaseApp": {
+    "path": "apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "executable": "apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/MacOS/offisim-desktop",
+    "binarySha256": "a277d2a8e2d87b1619ef048cd6b71b51628190bdd60fb2bda12dd80e97b0533b",
+    "codesignVerify": "passed",
+    "pid": 81702,
+    "window": {
+      "cgWindowNumber": 8826,
+      "title": "Offisim",
+      "bounds": {
+        "x": 36,
+        "y": 33,
+        "width": 1440,
+        "height": 877
+      }
+    },
+    "rendererOrigin": "tauri://localhost",
+    "isolatedHome": "/private/tmp/offisim-scene-prefab-quality-runtime"
+  },
+  "acceptance": {
+    "office": {
+      "result": "pass",
+      "views": [
+        "default",
+        "maximum-distance",
+        "maximum-distance-low-angle",
+        "side-orbit"
+      ],
+      "observations": [
+        "no visible coplanar flicker",
+        "no rack-atlas fighting",
+        "no disappearing surface detail",
+        "stable transparent surfaces and shadows"
+      ]
+    },
+    "studio": {
+      "result": "pass",
+      "views": [
+        "default",
+        "maximum-distance",
+        "maximum-distance-low-angle"
+      ],
+      "canonicalLayoutAfterCameraGesture": {
+        "zoneCount": 7,
+        "objectCount": 33,
+        "restArea": {
+          "cx": 6.3,
+          "cz": 0.7,
+          "prefabs": {
+            "plant-large": [0.85, -2.15],
+            "sofa-set": [3.5, -0.05],
+            "water-cooler": [11.45, -2.05]
+          }
+        }
+      }
+    }
+  },
+  "gates": {
+    "pnpmValidate": "passed",
+    "pnpmBuild": "passed",
+    "officeSceneQuality": "68/68 passed",
+    "officeDioramaP6": "60/60 passed",
+    "rendererTypecheck": "passed",
+    "biome": "passed",
+    "gitDiffCheck": "passed",
+    "knip": "zero findings",
+    "coldReviews": "2/2 passed",
+    "roundedBoxAudit": "34/34 within real geometry bounds"
+  },
+  "artifacts": [
+    {
+      "file": "after-default.jpeg",
+      "sha256": "627ff6fda0e72bfe38ff83716056bb16f7b26e5ea4374fda49afaaa4e72e89da"
+    },
+    {
+      "file": "after-max-distance.jpeg",
+      "sha256": "25134c71941926200fdcb46981ea0ef5e250c68b6a15a2df3a7e83668eefc50a"
+    },
+    {
+      "file": "after-max-distance-low-angle.jpeg",
+      "sha256": "9645e0ea9a167f6f126d3266a4fb162dffbda8dc58396a684ad48d0aee917c55"
+    },
+    {
+      "file": "after-orbit.jpeg",
+      "sha256": "7e3a82c6f19eede82010a67e206014c8298553e6e08f5ca9e837cf197ba57227"
+    },
+    {
+      "file": "after-studio.jpeg",
+      "sha256": "f69aedd40019d7ff63a899b4bce54e8dddfee048c40a021509b1a9bb2f2e9889"
+    },
+    {
+      "file": "after-studio-max-distance.jpeg",
+      "sha256": "b164241992f375f0232ea1fd755b869deb20f953cf1197b4f24c3d78b3363d67"
+    },
+    {
+      "file": "after-studio-max-distance-low-angle.jpeg",
+      "sha256": "dba80a905f56b8a6d1433bb01cabc253988b6a5637775b9304f1224ab67f98a5"
+    },
+    {
+      "file": "before-default.jpeg",
+      "sha256": "bdcc2947d4c4a77e40012667375c9f3ce582cb454141068f408c8ef59881624a"
+    },
+    {
+      "file": "before-max-distance.jpeg",
+      "sha256": "30ce73640d5c17aa208bdc34b015618b5c974c300a5076c3b031cfced0a2de33"
+    },
+    {
+      "file": "before-max-distance-low-angle.jpeg",
+      "sha256": "dde0ba6c9097d567c24e2cdf35507f06ead123afb164317063f236444f9e1edd"
+    }
+  ]
+}
