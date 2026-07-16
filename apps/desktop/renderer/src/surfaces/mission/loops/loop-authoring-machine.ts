@@ -2,11 +2,11 @@
  * Loop authoring state machine (PR-08) — the PURE, deterministic logic the
  * prompt-first editor drives. Kept React- and Tauri-free so the headless harness
  * (`scripts/harness-loop-authoring-flow.mts`) exercises every transition and the
- * Use/Save guards without a DOM or a live model.
+ * Run/Save guards without a DOM or a live model.
  *
  * The editor owns ONE natural-language prompt + a compiled revision. This module
- * maps (editor inputs, compile/save outcomes) → the authoring state the UI renders
- * and the action guards (can Use? can Save?) — never the rendering itself.
+ * maps (editor inputs, generate/save outcomes) → the authoring state the UI renders
+ * and the action guards (can Run? can Save?) — never the rendering itself.
  *
  * States (spec):
  *   empty → draft → enhancing → compiling → needs_input → ready
@@ -76,11 +76,11 @@ export interface LoopAuthoringModel {
   compiling: boolean;
   /** True while a save is in flight. */
   saving: boolean;
-  /** Set when a compile/save threw (vs returned an `invalid` status). Never loses prompt. */
+  /** Set when generate/save threw (vs returned an `invalid` status). Never loses prompt. */
   errored: boolean;
   /** The latest compiled revision view, or null before the first compile. */
   compiled: CompiledRevisionView | null;
-  /** Set true once the latest compile was persisted as a new revision. */
+  /** Immediate save-success signal; persisted revisions remain saved after hydration. */
   justSaved: boolean;
 }
 
@@ -115,7 +115,7 @@ export function deriveAuthoringState(model: LoopAuthoringModel): LoopAuthoringSt
   // is stale → dirty (the old graph still renders; the UI shows a stale badge).
   if (isDirty(model)) return 'dirty';
 
-  if (model.justSaved) return 'saved';
+  if (model.justSaved || model.compiled.savedRevisionId) return 'saved';
   return compileStatusToState(model.compiled.status);
 }
 
@@ -137,7 +137,7 @@ export function canCompile(model: LoopAuthoringModel): boolean {
 }
 
 /**
- * Whether the editor may SAVE a revision: a compiled outcome must exist (any
+ * Whether the editor may SAVE a new revision: an unpersisted compiled outcome must exist (any
  * status — even needs_input/invalid is a savable immutable revision per the spec),
  * the prompt must be non-empty, and nothing is in flight. We DO allow saving a
  * needs_input/invalid revision (the history is preserved); the Use guard is the
@@ -146,7 +146,9 @@ export function canCompile(model: LoopAuthoringModel): boolean {
 export function canSave(model: LoopAuthoringModel): boolean {
   return (
     model.compiled !== null &&
+    !model.compiled.savedRevisionId &&
     model.prompt.trim().length > 0 &&
+    !isDirty(model) &&
     !model.compiling &&
     !model.enhancing &&
     !model.saving
@@ -154,10 +156,10 @@ export function canSave(model: LoopAuthoringModel): boolean {
 }
 
 /**
- * Whether the editor may USE-in-Office: ONLY a SAVED + READY revision can be used.
+ * Whether the editor may RUN: ONLY a SAVED + READY revision can be run.
  * An unsaved prompt, a dirty graph, a needs_input/invalid revision, or a compiled-
- * but-not-persisted preview all block Use — the UI prompts "Compile + Save first".
- * This mirrors `openLoopInOffice`'s own revision-ready guard (defense in depth).
+ * but-not-persisted preview all block Run. This mirrors the execution boundary's
+ * own revision-ready guard.
  */
 export function canUseInOffice(model: LoopAuthoringModel): boolean {
   const compiled = model.compiled;
@@ -168,16 +170,16 @@ export function canUseInOffice(model: LoopAuthoringModel): boolean {
   return !model.compiling && !model.enhancing && !model.saving;
 }
 
-/** A one-line reason Use is blocked, for the disabled-button tooltip / toast. */
+/** A one-line reason Run is blocked, for the disabled-button tooltip / toast. */
 export function useBlockedReason(model: LoopAuthoringModel): string | null {
   if (canUseInOffice(model)) return null;
-  if (!model.compiled) return 'Compile and save this Loop before using it.';
-  if (isDirty(model)) return 'The prompt changed — recompile and save first.';
+  if (!model.compiled) return 'Generate and save this plan before running it.';
+  if (isDirty(model)) return 'The description changed — update and save the plan first.';
   if (model.compiled.status !== 'ready') {
-    return 'This Loop is not ready yet — resolve the questions or issues, then save.';
+    return 'This plan needs more information before it can run.';
   }
-  if (!model.compiled.savedRevisionId) return 'Save this revision before using it.';
-  return 'Loop is busy — wait for the current step to finish.';
+  if (!model.compiled.savedRevisionId) return 'Save this plan before running it.';
+  return 'The plan is busy — wait for the current action to finish.';
 }
 
 /** The graph-panel state this authoring state maps to (PR-09 `LoopGraphPanelState`). */

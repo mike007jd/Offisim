@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，8/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
+> 状态：IN PROGRESS，9/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -17,7 +17,7 @@
 | T06 | Codex subscription 完整 engine | T05 | [x] |
 | T07 | Claude subscription 完整 engine | T05 | [ ] |
 | T08 | AI Accounts / Models 设置整合 | T02,T05,T06 | [x] |
-| T09 | Loops 自然语言主流程 | T00 | [ ] |
+| T09 | Loops 自然语言主流程 | T00 | [x] |
 | T10 | Market 用户语言与空状态 | T00 | [ ] |
 | T11 | Personnel Danger Zone | T00 | [ ] |
 | T12 | Chrome、rails、nav、run pill 稳定 | T01 | [ ] |
@@ -357,18 +357,27 @@
 
 ### Acceptance
 
-- [ ] 空白状态首先邀请描述目标、重复条件和退出条件。
-- [ ] 自然语言生成可读 graph；修改自然语言会更新 graph。
-- [ ] graph 能快速识别步骤、分支、循环和退出。
-- [ ] 主工具条无 Compile / IR / oracle / gate 等实现词。
-- [ ] Advanced 仍能诊断真实编译/运行问题。
-- [ ] 失败信息使用用户任务语言。
-- [ ] loop runtime、repository、projection 无回归。
+- [x] 空白状态首先邀请描述目标、重复条件和退出条件。
+- [x] 自然语言生成可读 graph；修改自然语言会更新 graph。
+- [x] graph 能快速识别步骤、分支、循环和退出。
+- [x] 主工具条无 Compile / IR / oracle / gate 等实现词。
+- [x] Advanced 仍能诊断真实编译/运行问题。
+- [x] 失败信息使用用户任务语言。
+- [x] loop runtime、repository、projection 无回归。
 
 ### Oracles
 
 - loop-authoring-flow、loop-graph-projection、loop-repository harness。
 - T16 创建、审阅、修改、运行一个真实 loop。
+
+### T09 Evidence（2026-07-16 NZST）
+
+- 主流程收敛为 `Generate plan → Save plan → Run`；空白页只要求目标、重复、停止与求助条件，Advanced 默认收起，保存严格持久化用户已经审阅的 preview，不再二次调用模型。
+- 默认 `general-work` profile 保留用户步骤、退出、反馈循环、显式重试次数与条件式求助；实测修改描述后旧 graph 标记 Stale、Save/Run 同时阻断，更新后从 7 节点 v1 正确变为含新增验证步骤的 8 节点 v2。
+- fresh-state release 盲测实际捕获并修复三类 blocker/slop：WebView `Buffer` 保存崩溃、重开已保存版本仍可重复 Save、`stop after …` 被误判为 action；同时覆盖 `failed reviews` 等任务语言重试单位。
+- 最终两轮零发现：轮次一正确生成 `failed reviews → ×2`、保存并启动；轮次二正确生成 `stop after the draft is ready` 退出条件和 `if any source is unavailable` 求助边，无伪造重试次数，保存并启动。Runs 仅展示真实 `loop_invocations`。
+- 最终 release `.app` 可执行文件 SHA-256 为 `884b92c3f6dbcc6b0030623ab65386f72631340a52e8c9204670d1d4147a98ab`；Codex sidecar SHA-256 为 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
+- `harness:loop-authoring-flow` 19/19、typecheck 21/21、强制 `@offisim/desktop` release build 与 bundle check 已通过；full `pnpm validate`、UI/dead-code gates 与 GitNexus change detection 在提交前复核。
 
 ---
 

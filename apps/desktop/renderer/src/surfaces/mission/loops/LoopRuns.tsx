@@ -1,8 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useMissions } from '@/data/missions.js';
-import { Icon } from '@/design-system/icons/Icon.js';
-import { cn } from '@/lib/utils.js';
-import { missionStatusView } from '@/surfaces/mission/mission-domain.js';
+import { useLoopRuns } from '@/data/loops.js';
 import {
   EmptyState,
   ErrorState,
@@ -30,47 +27,40 @@ function timeAgo(iso: string): string {
 
 export function LoopRuns() {
   const companyId = useUiState((s) => s.companyId) || null;
-  const missions = useMissions(companyId);
+  const runs = useLoopRuns(companyId);
 
   return (
     <div className="off-loops-runs">
-      <div className="off-loops-runs-intro">
-        <Icon icon={History} size="sm" />
-        <span>Runs — persisted execution records for this company.</span>
-      </div>
-      {missions.isError ? (
+      {runs.isError ? (
         <ErrorState
           title="Couldn't load runs"
-          detail={errorDetail(missions.error, 'The runs list failed to load.')}
-          onRetry={() => void missions.refetch()}
+          detail={errorDetail(runs.error, 'The loop runs list failed to load.')}
+          onRetry={() => void runs.refetch()}
         />
-      ) : missions.isLoading ? (
+      ) : runs.isLoading ? (
         <SkeletonRows rows={4} />
-      ) : (missions.data?.length ?? 0) === 0 ? (
+      ) : (runs.data?.length ?? 0) === 0 ? (
         <EmptyState
           icon={History}
           title="No runs"
-          description="This company has no persisted execution records yet."
+          description="Run a saved loop and its execution will appear here."
         />
       ) : (
         <ul className="off-loops-runs-list">
-          {missions.data!.map((mission) => {
-            const view = missionStatusView(mission.status);
-            return (
-              <li key={mission.mission_id} className="off-loops-run">
-                <span className="off-loops-run-main">
-                  <span className="off-loops-run-title">{mission.title}</span>
-                  <span className="off-loops-run-goal">{mission.goal}</span>
+          {runs.data?.map((run) => (
+            <li key={run.invocation_id} className="off-loops-run">
+              <span className="off-loops-run-main">
+                <span className="off-loops-run-title">{run.loopTitle}</span>
+                <span className="off-loops-run-goal">
+                  {run.mission_id ? 'Project run' : 'Office run'}
                 </span>
-                <span className="off-loops-run-side">
-                  <span className={cn('off-loops-run-status', `is-${view.tone}`)}>
-                    {view.label}
-                  </span>
-                  <span className="off-loops-run-time">{timeAgo(mission.updated_at)}</span>
-                </span>
-              </li>
-            );
-          })}
+              </span>
+              <span className="off-loops-run-side">
+                <span className="off-loops-run-status is-neutral">{run.status}</span>
+                <span className="off-loops-run-time">{timeAgo(run.created_at)}</span>
+              </span>
+            </li>
+          ))}
         </ul>
       )}
     </div>

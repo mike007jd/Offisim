@@ -8,7 +8,7 @@
 // surface never reads `useWsConversations` / `useWsThread` and never calls a
 // project-chat repo.
 //
-// Mirrors the data/missions.ts convention: `reposOrNull()` is the single repo
+// Mirrors the data/loops.ts convention: `reposOrNull()` is the single repo
 // door, browser preview (no repos) returns empty (Connect is a real-backend
 // surface — there is no fixture seam), and the service is built per call from the
 // live repos with injected `now()` / `newId()` (so the schema is identical to the

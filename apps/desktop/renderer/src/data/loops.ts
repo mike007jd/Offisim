@@ -7,11 +7,13 @@ import {
   type LoopCompileModel,
   type LoopCompileResult,
   type LoopDefinitionRow,
+  type LoopInvocationRow,
   type LoopModelOutput,
   type LoopService,
+  LoopServiceError,
   type LoopServiceRepos,
   type RuntimeRepositories,
-  type SaveRevisionInput,
+  type SaveCompiledRevisionInput,
   type SaveRevisionResult,
   createLoopService,
   generateId,
@@ -25,15 +27,11 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 /**
- * Renderer data layer over the Loop domain (PR-07 service). PR-08 (this PR) adds
- * the authoring write paths (create / save revision / select / archive /
- * duplicate) plus the REAL compile model adapter; PR-10 needs the read paths
- * (list loops for the `/loop` picker, get a revision to validate "ready" at
- * insert + Send). The single writer of loop_invocations lives in the send-time
- * materializer, not here. Mirrors missions.ts: `reposOrNull()` is the one door to
- * the SQLite-backed repos; browser preview returns empty (loops are a
- * real-backend-only surface). The LoopService model is INJECTED only on save — the
- * read paths and `getRevision` PR-10 uses never compile, so no model is needed.
+ * Renderer data layer over the Loop domain. `reposOrNull()` is the one door to
+ * the SQLite-backed repositories; browser preview returns empty because Loops is
+ * a desktop-only surface. Preview generation may call the injected enhance model,
+ * while saving persists the exact reviewed preview without another model call.
+ * The send-time materializer remains the single writer of loop_invocations.
  */
 
 function loopServiceRepos(repos: RuntimeRepositories): LoopServiceRepos | null {
@@ -77,16 +75,21 @@ const loopKeys = {
   detail: (loopId: string | null) => ['loop', loopId] as const,
   revisions: (loopId: string | null) => ['loop-revisions', loopId] as const,
   revision: (revisionId: string | null) => ['loop-revision', revisionId] as const,
+  runs: (companyId: string | null) => ['loop-runs', companyId] as const,
 };
 
+export interface LoopRunView extends LoopInvocationRow {
+  loopTitle: string;
+}
+
 // ---------------------------------------------------------------------------
-// Real compile model adapter (PR-08): runEnhance(loop_design) → LoopModelOutput
+// Real preview model adapter: runEnhance(loop_design) → LoopModelOutput
 // ---------------------------------------------------------------------------
 
 /**
- * The REAL {@link LoopCompileModel} the renderer injects into
- * `LoopService.saveRevision`. The deterministic compiler (PR-07) calls this with a
- * {@link LoopCompileInput}; the adapter runs the PR-06 `loop_design` enhance over
+ * The {@link LoopCompileModel} the renderer injects while generating a preview.
+ * The deterministic compiler calls this with a {@link LoopCompileInput}; the
+ * adapter runs the `loop_design` enhance over
  * the source prompt and maps the result to a {@link LoopModelOutput}:
  *
  *   - `enhancedPrompt` ← the enhance's `result.enhanced` (the cleaned NL prose),
@@ -95,8 +98,8 @@ const loopKeys = {
  *
  * The compiler treats every field as UNTRUSTED and deterministically repairs or
  * rejects it, so a bad enhance produces an `invalid`/`needs_input` revision, never
- * a crash. The enhance is the ONLY place a model is touched on the loop save path;
- * the compile/validate/≤3-question/packet layer stays deterministic and Pi-free.
+ * a crash. The enhance is the only model-backed step; validation, question
+ * limiting, packet construction, and persistence stay deterministic.
  *
  * `answers` (prior clarifying-question responses, supplied on a recompile) are fed
  * to the enhance as a `feedback` steer so the model can resolve what it asked.
@@ -156,6 +159,30 @@ export function useLoops(companyId: string | null) {
   });
 }
 
+/** Only executions materialized from Loops; ordinary company Missions never appear here. */
+export function useLoopRuns(companyId: string | null) {
+  return useQuery<LoopRunView[]>({
+    queryKey: loopKeys.runs(companyId),
+    queryFn: async () => {
+      if (!companyId) return [];
+      const repos = await reposOrNull();
+      if (!repos) return [];
+      const subset = loopServiceRepos(repos);
+      if (!subset) return [];
+      const loops = await buildLoopService(repos).listLoops(companyId, { limit: 200 });
+      const nested = await Promise.all(
+        loops.map(async (loop) =>
+          (await subset.loopInvocations.listByLoop(loop.loopId))
+            .filter((row) => row.company_id === companyId)
+            .map((row) => ({ ...row, loopTitle: loop.title })),
+        ),
+      );
+      return nested.flat().sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+    enabled: companyId !== null,
+  });
+}
+
 export function useConfigureLoopSchedule(companyId: string | null) {
   const qc = useQueryClient();
   return useMutation({
@@ -179,8 +206,9 @@ export async function getLoopRevision(revisionId: string): Promise<LoopRevision 
   if (!subset) return null;
   try {
     return await buildLoopService(repos).getRevision(revisionId);
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof LoopServiceError && error.code === 'revision_not_found') return null;
+    throw error;
   }
 }
 
@@ -192,8 +220,9 @@ export async function getLoopDefinition(loopId: string): Promise<LoopDefinition 
   if (!subset) return null;
   try {
     return await buildLoopService(repos).getLoop(loopId);
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof LoopServiceError && error.code === 'loop_not_found') return null;
+    throw error;
   }
 }
 
@@ -270,16 +299,20 @@ export function useCreateLoop(companyId: string | null) {
 }
 
 /**
- * Persist natural-language draft metadata before the user leaves an uncompiled Loop.
+ * Persist natural-language draft metadata before the user leaves an ungenerated Loop.
  *
  * This intentionally writes only loop_definitions.summary. It does not create a
- * revision, run the compiler, select a current revision, or touch Mission/runtime
- * tables; immutable revision history still starts at explicit Compile + Save.
+ * revision, generate a preview, select a current revision, or touch runtime
+ * tables; immutable revision history starts only when the user explicitly saves.
  */
 export function useUpdateLoopDraftSummary(companyId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { loopId: string; summary: string }): Promise<LoopDefinition> => {
+    mutationFn: async (input: {
+      loopId: string;
+      summary: string;
+      title?: string;
+    }): Promise<LoopDefinition> => {
       if (!companyId) throw new Error('Updating a Loop draft needs a selected company.');
       const repos = await reposOrNull();
       if (!repos) throw new Error('Updating a Loop draft needs the desktop app.');
@@ -292,9 +325,15 @@ export function useUpdateLoopDraftSummary(companyId: string | null) {
       const updatedAt = new Date().toISOString();
       await subset.loopDefinitions.update(input.loopId, {
         summary: input.summary,
+        ...(input.title ? { title: input.title } : {}),
         updatedAt,
       });
-      return toLoopDefinition({ ...row, summary: input.summary, updated_at: updatedAt });
+      return toLoopDefinition({
+        ...row,
+        summary: input.summary,
+        ...(input.title ? { title: input.title } : {}),
+        updated_at: updatedAt,
+      });
     },
     onSuccess: (updated) => {
       qc.setQueryData(loopKeys.detail(updated.loopId), updated);
@@ -306,21 +345,16 @@ export function useUpdateLoopDraftSummary(companyId: string | null) {
 }
 
 /**
- * Compile + persist a NEW immutable revision (never overwrites). The REAL
- * loop_design enhance model is injected here — this is the one place the model is
- * touched on save. Invalidates the loop, its revisions, and the company list.
+ * Persist the exact compile preview the user reviewed as a NEW immutable revision.
+ * Saving never calls a model and therefore cannot silently replace preview A with B.
  */
 export function useSaveLoopRevision(companyId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (
-      input: SaveRevisionInput & { threadId?: string },
-    ): Promise<SaveRevisionResult> => {
+    mutationFn: async (input: SaveCompiledRevisionInput): Promise<SaveRevisionResult> => {
       const repos = await reposOrNull();
       if (!repos) throw new Error('Saving a Loop revision needs the desktop app.');
-      const { threadId, ...saveInput } = input;
-      const model = createLoopCompileModel(threadId ? { threadId } : undefined);
-      return buildLoopService(repos).saveRevision(saveInput, model);
+      return buildLoopService(repos).saveCompiledRevision(input);
     },
     onSuccess: (_result, vars) => {
       qc.invalidateQueries({ queryKey: loopKeys.detail(vars.loopId) });

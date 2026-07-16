@@ -304,9 +304,9 @@ function LoopGraphPanelInner({
         <div className="off-loopgraph-progress">
           <Loader2 className="off-loopgraph-spin" aria-hidden="true" />
           <div>
-            <p className="off-loopgraph-state-title">Building your orchestration graph</p>
+            <p className="off-loopgraph-state-title">Generating your plan</p>
             <p className="off-loopgraph-state-text">
-              Structuring steps, gates, and completion checks…
+              Keeping your steps, retries, and stopping condition clear…
             </p>
           </div>
         </div>
@@ -323,12 +323,12 @@ function LoopGraphPanelInner({
     return (
       <div className="off-loopgraph off-loopgraph--state" role="alert">
         <TriangleAlert className="off-loopgraph-state-icon" aria-hidden="true" />
-        <p className="off-loopgraph-state-title">The Loop could not be compiled</p>
+        <p className="off-loopgraph-state-title">The plan could not be generated</p>
         <p className="off-loopgraph-state-text">
-          {errorMessage ?? 'The compiler did not return a usable result.'}
+          {errorMessage ?? 'The AI did not return a usable plan.'}
         </p>
         <p className="off-loopgraph-state-help">
-          Your description is safe. Resolve the issue and try Compile again.
+          Your description is safe. Review it and try Generate plan again.
         </p>
       </div>
     );
@@ -345,9 +345,9 @@ function LoopGraphPanelInner({
             ))}
           </ul>
         ) : (
-          <p className="off-loopgraph-state-text">The compiler could not build a valid graph.</p>
+          <p className="off-loopgraph-state-text">The AI could not build a usable plan.</p>
         )}
-        <p className="off-loopgraph-state-help">Update the description, then compile again.</p>
+        <p className="off-loopgraph-state-help">Update the description, then generate again.</p>
       </div>
     );
   }
@@ -356,7 +356,7 @@ function LoopGraphPanelInner({
       <div className="off-loopgraph off-loopgraph--state">
         <p className="off-loopgraph-state-title">Ready for a description</p>
         <p className="off-loopgraph-state-text">
-          Describe the goal below, then compile it into a graph.
+          Describe the goal below, then generate a plan you can review.
         </p>
       </div>
     );

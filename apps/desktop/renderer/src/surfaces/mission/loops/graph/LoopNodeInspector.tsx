@@ -14,13 +14,7 @@ export interface LoopNodeInspectorProps {
 
 export function LoopNodeInspector({ node }: LoopNodeInspectorProps) {
   if (!node) {
-    return (
-      <aside className="off-loopinspector off-loopinspector--empty" aria-label="Node inspector">
-        <p className="off-loopinspector-hint">
-          Select a node to inspect its instruction, ports, and gates.
-        </p>
-      </aside>
-    );
+    return null;
   }
 
   const grammar = NODE_GRAMMAR[node.kind];

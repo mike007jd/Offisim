@@ -1,9 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
-import { openLoopInOffice } from '@/assistant/composer/open-loop-in-office.js';
-import { PromptEnhanceReview } from '@/assistant/enhance/PromptEnhanceReview.js';
-import { buildEnhanceRequest } from '@/assistant/enhance/service.js';
-import { createTauriEnhanceTransport } from '@/assistant/enhance/tauri-enhance-transport.js';
-import { useEnhance } from '@/assistant/enhance/useEnhance.js';
+import { startLoopAsParallelProjectRun } from '@/assistant/runtime/loop-send-execution.js';
 import {
   compileLoopPreview,
   useLoop,
@@ -22,18 +18,19 @@ import {
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
 import { LoopGraphPanel } from '@/surfaces/mission/loops/graph/index.js';
+import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
+import type { LoopCompileResult } from '@offisim/core/browser';
 import type { LoopValidationFinding } from '@offisim/shared-types';
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   ChevronDown,
-  Hammer,
+  Eye,
   History,
   Loader2,
   Save,
-  Send,
   Sparkles,
+  SquarePlay,
   TriangleAlert,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -62,8 +59,8 @@ import { parseLoopIr } from './loop-generated-details.js';
  *   - RIGHT drawer     → selected-node inspector / findings / version + generated
  *                        details (read-only, light).
  *
- * It drives the deterministic authoring state machine and wires the REAL
- * loop_design enhance + the PR-07 compile/save service. It never shows raw
+ * It drives the deterministic authoring state machine and wires preview generation
+ * plus exact-preview persistence. It never shows raw
  * evaluator JSON / criteria forms — details are generated read-only summaries.
  */
 
@@ -96,13 +93,10 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const [compiling, setCompiling] = useState(false);
   const [compileSuccessKey, setCompileSuccessKey] = useState(0);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [enhanceOpen, setEnhanceOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [startingRun, setStartingRun] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const hydratedFor = useRef<string | null>(null);
-
-  // Enhance lifecycle (shared PR-06 flow) over a Tauri transport.
-  const enhanceTransport = useMemo(() => createTauriEnhanceTransport(), []);
-  const enhance = useEnhance(enhanceTransport);
 
   // Hydrate the prompt + compiled view from the loop's current revision once.
   useEffect(() => {
@@ -133,8 +127,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const model: LoopAuthoringModel = {
     ...EMPTY_AUTHORING_MODEL,
     prompt,
-    enhancing:
-      enhanceOpen && (enhance.state.phase === 'loading' || enhance.state.phase === 'ready'),
+    enhancing: false,
     compiling,
     saving: saveRevision.isPending,
     errored,
@@ -148,9 +141,6 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const graphState = graphStateFor(state, compiled);
   const findings: LoopValidationFinding[] = compiled?.findings ?? [];
 
-  // The latest source prompt this compiled view reflects + the answers it used, so
-  // Save persists exactly what the user just previewed.
-  const lastAnswersRef = useRef<Record<string, string> | undefined>(undefined);
   // Synchronous in-flight guard. `compiling` (React state) lags a tick behind a
   // click, so the answer path could otherwise launch a SECOND concurrent compile
   // and race the setCompiled writes. This ref blocks re-entry immediately.
@@ -164,7 +154,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       // the empty-prompt requirement, never the in-flight / busy guard.
       if (compilingRef.current) return;
       if (!answers && !canCompile(model)) return;
-      if (answers && (saveRevision.isPending || enhanceOpen)) return;
+      if (answers && saveRevision.isPending) return;
       if (!companyId) {
         toast.error('Select a company first.');
         return;
@@ -174,7 +164,6 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       setCompileError(null);
       setJustSaved(false);
       setCompiling(true);
-      lastAnswersRef.current = answers;
       try {
         const result = await compileLoopPreview({
           profileId: loop.data?.profileId ?? '',
@@ -198,12 +187,23 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
         });
         if (result.status === 'ready') {
           setCompileSuccessKey((key) => key + 1);
-          toast.success('Compiled — review the graph, then Save');
+          const semanticTitle = deriveLoopTitle(prompt);
+          if (loop.data) {
+            void updateDraftSummary.mutateAsync({
+              loopId,
+              summary: prompt.trim(),
+              ...(isUntitledLoop(loop.data.title) ? { title: semanticTitle } : {}),
+            });
+          }
+          toast.success('Plan generated — review it, then save');
         } else if (result.status === 'needs_input')
           toast.message('A few questions to finish this Loop');
         else toast.error('The Loop has issues to resolve');
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Compile failed. Your prompt is kept.';
+        const message = friendlyLoopError(
+          err,
+          'The plan could not be generated. Your description is safe.',
+        );
         setErrored(true);
         setCompileError(message);
         toast.error(message);
@@ -221,21 +221,32 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       prompt,
       compiled,
       saveRevision.isPending,
-      enhanceOpen,
+      loop.data,
+      loopId,
+      updateDraftSummary,
     ],
   );
 
   // ── Save (persist the previewed compile as a NEW immutable revision) ──
   const handleSave = useCallback(async () => {
-    if (!canSave(model) || !companyId) return;
+    if (!canSave(model) || !companyId || !compiled) return;
     try {
+      const compiledResult: LoopCompileResult = {
+        status: compiled.status,
+        ...(ir ? { ir } : {}),
+        questions: compiled.questions,
+        validation: {
+          ok: compiled.status === 'ready' && !compiled.findings.some((f) => f.severity === 'error'),
+          findings: compiled.findings,
+        },
+        ...(compiled.enhancedPrompt ? { enhancedPrompt: compiled.enhancedPrompt } : {}),
+      };
       const result = await saveRevision.mutateAsync({
         loopId,
         sourcePrompt: prompt,
         ...(compiled?.enhancedPrompt ? { enhancedPrompt: compiled.enhancedPrompt } : {}),
-        context: { companyId, ...(projectId ? { projectId } : {}) },
-        ...(lastAnswersRef.current ? { answers: lastAnswersRef.current } : {}),
         selectIfReady: true,
+        compiled: compiledResult,
       });
       setCompiled({
         status: result.status,
@@ -251,56 +262,46 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       });
       setJustSaved(true);
       hydratedFor.current = loopId; // keep our state authoritative over a refetch
-      toast.success(`Saved — revision v${result.revision.revisionNumber}`);
+      toast.success(`Plan saved — v${result.revision.revisionNumber}`);
     } catch (err) {
       setErrored(true);
-      toast.error(err instanceof Error ? err.message : 'Save failed. Your prompt is kept.');
+      toast.error(friendlyLoopError(err, 'The plan could not be saved. Your description is safe.'));
     }
   }, [
     // biome-ignore lint/correctness/useExhaustiveDependencies: model is a per-render derived object (not memoized); intentionally tracked so the save callback stays current.
     model,
     companyId,
-    projectId,
     loopId,
     prompt,
     compiled,
+    ir,
     saveRevision,
   ]);
 
-  // ── Enhance (apply → still needs a Compile) ──
-  function openEnhance() {
-    if (!prompt.trim()) {
-      toast.message('Write a description first.');
-      return;
-    }
-    setEnhanceOpen(true);
-    enhance.start(
-      buildEnhanceRequest({
-        profile: 'loop_design',
-        text: prompt,
-        protectedSpans: [],
-        context: companyId ? { companyId } : {},
-      }),
-    );
-  }
-  function applyEnhance() {
-    const enhanced = enhance.state.result?.enhanced;
-    if (enhanced) {
-      setPrompt(enhanced);
-      setJustSaved(false);
-    }
-    setEnhanceOpen(false);
-    enhance.reset();
-  }
-
-  // ── Use in Office (saved ready revision only) ──
-  async function handleUse() {
+  async function handleStartRun() {
     if (!canUseInOffice(model) || !compiled?.savedRevisionId) {
-      toast.message(useBlockedReason(model) ?? 'Compile + save first.');
+      toast.message(useBlockedReason(model) ?? 'Generate and save the plan first.');
       return;
     }
-    const result = await openLoopInOffice(loopId, compiled.savedRevisionId);
-    if (result.ok) toast.success('Loop added to Office draft');
+    if (!companyId || !projectId) {
+      toast.message('Select a project before starting this loop.');
+      return;
+    }
+    setStartingRun(true);
+    try {
+      await startLoopAsParallelProjectRun({
+        loopId,
+        revisionId: compiled.savedRevisionId,
+        title: loop.data?.title ?? deriveLoopTitle(prompt),
+        companyId,
+        projectId,
+      });
+      toast.success('Loop started');
+    } catch (error) {
+      toast.error(friendlyLoopError(error, 'The loop could not start.'));
+    } finally {
+      setStartingRun(false);
+    }
   }
 
   // ── Version actions ──
@@ -323,15 +324,17 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const handleBack = useCallback(async () => {
     const draftSummary = prompt.trim();
     const existingSummary = loop.data?.summary.trim() ?? '';
-    const shouldPersistDraft =
-      loop.data !== undefined &&
-      loop.data !== null &&
-      !loop.data.currentRevisionId &&
-      draftSummary !== existingSummary;
+    const shouldPersistDraft = loop.data != null && draftSummary !== existingSummary;
 
     if (shouldPersistDraft) {
       try {
-        await updateDraftSummary.mutateAsync({ loopId, summary: draftSummary });
+        await updateDraftSummary.mutateAsync({
+          loopId,
+          summary: draftSummary,
+          ...(isUntitledLoop(loop.data?.title ?? '')
+            ? { title: deriveLoopTitle(draftSummary) }
+            : {}),
+        });
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not save the Loop draft.');
         return;
@@ -340,6 +343,40 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
 
     onBack();
   }, [loop.data, loopId, onBack, prompt, updateDraftSummary]);
+
+  if (loop.isLoading || revisions.isLoading) {
+    return (
+      <div className="off-loop-editor off-loop-editor-loading">
+        <SkeletonRows rows={6} />
+      </div>
+    );
+  }
+  if (loop.isError || revisions.isError) {
+    const error = loop.error ?? revisions.error;
+    return (
+      <div className="off-loop-editor off-loop-editor-error">
+        <ErrorState
+          title="Couldn't open this loop"
+          detail={errorDetail(error, 'The saved plan could not be loaded.')}
+          onRetry={() => {
+            void loop.refetch();
+            void revisions.refetch();
+          }}
+        />
+      </div>
+    );
+  }
+  if (!loop.data) {
+    return (
+      <div className="off-loop-editor off-loop-editor-error">
+        <ErrorState
+          title="Loop not found"
+          detail="This loop may have been removed. Return to the library and choose another one."
+          onRetry={onBack}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="off-loop-editor">
@@ -360,6 +397,14 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
           </span>
         </div>
         <div className="off-loop-editor-head-actions">
+          <Button
+            variant={detailsOpen ? 'subtle' : 'ghost'}
+            size="sm"
+            onClick={() => setDetailsOpen((open) => !open)}
+          >
+            <Icon icon={Eye} size="sm" />
+            Advanced
+          </Button>
           <DropdownMenu open={versionsOpen} onOpenChange={setVersionsOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="subtle" size="sm">
@@ -384,19 +429,20 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
         </div>
       </header>
 
-      <div className="off-loop-editor-body">
+      <div
+        className={detailsOpen ? 'off-loop-editor-body is-details-open' : 'off-loop-editor-body'}
+      >
         <div className="off-loop-editor-main">
           {dirty ? (
             // biome-ignore lint/a11y/useSemanticElements: intentional ARIA live region (role=status)
             <div className="off-loop-stale" role="status">
               <Icon icon={TriangleAlert} size="sm" />
-              Prompt changed — this graph is stale. Compile to update it.
+              Description changed — generate an updated plan before saving or running.
             </div>
           ) : null}
 
           {state === 'empty' || state === 'draft' ? (
             <LoopStartGuide
-              promptReady={state === 'draft'}
               onExampleSelect={(example) => {
                 setPrompt(example);
                 setJustSaved(false);
@@ -426,25 +472,27 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
           )}
         </div>
 
-        <aside className="off-loop-editor-drawer">
-          <LoopAdvancedDrawer
-            ir={ir}
-            status={compiled?.status ?? null}
-            findings={findings}
-            profileId={loop.data?.profileId ?? null}
-            revisionNumber={compiled?.savedRevisionNumber ?? null}
-            busy={compiling}
-            errorMessage={compileError}
-            expandKey={compileSuccessKey}
-          />
-        </aside>
+        {detailsOpen ? (
+          <aside className="off-loop-editor-drawer">
+            <LoopAdvancedDrawer
+              ir={ir}
+              status={compiled?.status ?? null}
+              findings={findings}
+              profileId={loop.data?.profileId ?? null}
+              revisionNumber={compiled?.savedRevisionNumber ?? null}
+              busy={compiling}
+              errorMessage={compileError}
+              expandKey={compileSuccessKey}
+            />
+          </aside>
+        ) : null}
       </div>
 
       {/* Bottom-fixed natural-language composer (chat-product feel). */}
       <div className="off-loop-composer">
         <textarea
           className="off-input off-loop-composer-input"
-          placeholder="Describe what this loop should do, in your own words…"
+          placeholder="Describe the goal, what repeats, and when this loop should stop…"
           value={prompt}
           onChange={(e) => {
             setPrompt(e.target.value);
@@ -458,14 +506,10 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
             <span className="off-loop-composer-hint">{blockedReason}</span>
           ) : (
             <span className="off-loop-composer-hint">
-              Natural language is the only required input.
+              Describe it naturally. The graph is for review, not configuration.
             </span>
           )}
           <div className="off-loop-composer-actions">
-            <Button variant="ghost" size="sm" onClick={openEnhance} disabled={!prompt.trim()}>
-              <Icon icon={Sparkles} size="sm" />
-              Enhance
-            </Button>
             <Button
               size="sm"
               onClick={() => void handleCompile()}
@@ -474,17 +518,11 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
               className="off-loop-compile-action"
             >
               <Icon
-                icon={compiling ? Loader2 : Hammer}
+                icon={compiling ? Loader2 : Sparkles}
                 size="sm"
                 className={compiling ? 'off-spin' : undefined}
               />
-              {compiling
-                ? 'Compiling…'
-                : dirty
-                  ? 'Update graph'
-                  : compiled
-                    ? 'Recompile'
-                    : 'Compile'}
+              {compiling ? 'Generating…' : dirty || compiled ? 'Update plan' : 'Generate plan'}
             </Button>
             <Button
               variant="outline"
@@ -494,7 +532,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
                 !canSave(model) || (compiled?.savedRevisionId !== undefined && !dirty && justSaved)
               }
               title={
-                compiled ? 'Save this compile as a new immutable revision' : 'Compile before saving'
+                compiled ? 'Save exactly the plan shown above' : 'Generate a plan before saving'
               }
             >
               <Icon
@@ -502,78 +540,41 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
                 size="sm"
                 className={saveRevision.isPending ? 'off-spin' : undefined}
               />
-              Save
+              Save plan
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={handleUse}
-              disabled={!canUseInOffice(model)}
-              title={blockedReason ?? 'Add this Loop to an Office draft'}
+              onClick={() => void handleStartRun()}
+              disabled={!canUseInOffice(model) || !projectId || startingRun}
+              title={!projectId ? 'Select a project first' : (blockedReason ?? 'Start this loop')}
             >
-              <Icon icon={Send} size="sm" />
-              Use in Office
+              <Icon
+                icon={startingRun ? Loader2 : SquarePlay}
+                size="sm"
+                className={startingRun ? 'off-spin' : undefined}
+              />
+              Run
             </Button>
           </div>
         </div>
       </div>
-
-      <PromptEnhanceReview
-        open={enhanceOpen}
-        state={enhance.state}
-        onApply={applyEnhance}
-        onKeepOriginal={() => {
-          setEnhanceOpen(false);
-          enhance.reset();
-        }}
-        onRegenerate={() => enhance.regenerate()}
-        onCancel={enhance.cancel}
-        onClose={() => {
-          setEnhanceOpen(false);
-          enhance.reset();
-        }}
-      />
     </div>
   );
 }
 
 interface LoopStartGuideProps {
-  promptReady: boolean;
   onExampleSelect: (example: string) => void;
 }
 
-function LoopStartGuide({ promptReady, onExampleSelect }: LoopStartGuideProps) {
+function LoopStartGuide({ onExampleSelect }: LoopStartGuideProps) {
   return (
-    <div className="off-loop-start" aria-label="How to build a loop">
+    <div className="off-loop-start" aria-label="Describe a loop">
       <div className="off-loop-start-intro">
-        <span className="off-loop-start-kicker">Build from one clear goal</span>
-        <h2>{promptReady ? 'Your description is ready to compile' : 'Describe the work once'}</h2>
-        <p>Offisim turns it into a reviewable orchestration graph and generated details.</p>
+        <span className="off-loop-start-kicker">Natural-language loops</span>
+        <h2>What should happen repeatedly?</h2>
+        <p>Include the goal, what repeats, when to stop, and when you want help.</p>
       </div>
-
-      <ol className="off-loop-start-steps">
-        <li data-step-state={promptReady ? 'done' : 'current'}>
-          <span className="off-loop-start-stepnum">{promptReady ? <Check size={14} /> : '1'}</span>
-          <span>
-            <strong>Describe the goal</strong>
-            <small>Use the field below</small>
-          </span>
-        </li>
-        <li data-step-state={promptReady ? 'current' : 'next'}>
-          <span className="off-loop-start-stepnum">2</span>
-          <span>
-            <strong>Compile</strong>
-            <small>Generate the workflow</small>
-          </span>
-        </li>
-        <li data-step-state="next">
-          <span className="off-loop-start-stepnum">3</span>
-          <span>
-            <strong>Review the graph</strong>
-            <small>Inspect details, then save</small>
-          </span>
-        </li>
-      </ol>
 
       <div className="off-loop-start-examples">
         <span>Start with an example</span>
@@ -598,8 +599,8 @@ function LoopStartGuide({ promptReady, onExampleSelect }: LoopStartGuideProps) {
 const STATE_LABEL: Record<ReturnType<typeof deriveAuthoringState>, string> = {
   empty: 'New',
   draft: 'Draft',
-  enhancing: 'Enhancing',
-  compiling: 'Compiling',
+  enhancing: 'Generating',
+  compiling: 'Generating',
   needs_input: 'Needs input',
   ready: 'Ready',
   dirty: 'Stale',
@@ -608,6 +609,27 @@ const STATE_LABEL: Record<ReturnType<typeof deriveAuthoringState>, string> = {
   saving: 'Saving',
   saved: 'Saved',
 };
+
+function isUntitledLoop(title: string): boolean {
+  return /^Untitled loop(?: \d+)?$/i.test(title.trim());
+}
+
+function deriveLoopTitle(description: string): string {
+  const first = description
+    .trim()
+    .split(/[\n.;]/)[0]
+    ?.replace(/^(?:every|each|on|when|whenever)\b[^,]*,\s*/i, '')
+    .trim();
+  if (!first) return 'New loop';
+  const title = `${first[0]?.toUpperCase()}${first.slice(1)}`;
+  return title.length > 56 ? `${title.slice(0, 53)}…` : title;
+}
+
+function friendlyLoopError(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : '';
+  if (/model|compiler|ir|oracle|evaluator|profile|node|edge/i.test(message)) return fallback;
+  return message.trim() || fallback;
+}
 
 function safeParse<T>(json: string, fallback: T): T {
   try {

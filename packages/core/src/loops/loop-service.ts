@@ -1,6 +1,6 @@
 /**
- * Loop service (PR-07). The application-facing API PR-08/09/10 consume: create a
- * Loop, compile + save an immutable revision, select a revision, archive vs delete.
+ * Application-facing Loop service: create a Loop, generate a preview, save an
+ * immutable revision, select a revision, and archive or delete the definition.
  *
  * INVARIANTS this service owns:
  *   - SAVING a Loop writes ONLY loop_definitions / loop_revisions /
@@ -10,9 +10,9 @@
  *   - Deleting a definition DEFAULTS to archive; a physical delete is refused when
  *     the loop has invocation history.
  *
- * The compiler's `model` is INJECTED at the call site (the renderer wires the real
- * loop_design enhance; the harness scripts a fake), so this service is renderer-
- * and Pi-free.
+ * The preview compiler's `model` is injected at the call site (the renderer wires
+ * the real loop_design enhance; the harness scripts a fake), so this service is
+ * renderer- and runtime-free. Saving an existing preview is deterministic.
  */
 
 import type {
@@ -34,7 +34,13 @@ import type {
 } from '../runtime/repositories.js';
 import { getCompilerProfile } from './compiler-profiles/index.js';
 import { LOOP_COMPILER_VERSION, LOOP_LIMITS } from './types.js';
-import type { LoopCompileInput, LoopCompileModel } from './types.js';
+import type { LoopCompileInput, LoopCompileModel, LoopCompileResult } from './types.js';
+
+const UTF8_ENCODER = new TextEncoder();
+
+function byteLength(value: string): number {
+  return UTF8_ENCODER.encode(value).byteLength;
+}
 
 export class LoopServiceError extends Error {
   constructor(
@@ -69,7 +75,7 @@ export interface CreateLoopInput {
   companyId: string;
   title: string;
   summary?: string;
-  /** Compiler profile id; defaults to software-development if omitted. */
+  /** Compiler profile id, normally `general-work` for new Loops. */
   profileId: string;
 }
 
@@ -90,6 +96,15 @@ export interface SaveRevisionInput {
   skills?: SaveLoopSkill[];
   /** When the saved revision is `ready`, also select it as the current revision. */
   selectIfReady?: boolean;
+}
+
+/** Persist the exact compile result the user already reviewed. No model call occurs. */
+export interface SaveCompiledRevisionInput
+  extends Pick<
+    SaveRevisionInput,
+    'loopId' | 'sourcePrompt' | 'enhancedPrompt' | 'skills' | 'selectIfReady'
+  > {
+  compiled: LoopCompileResult;
 }
 
 /** The result of a save: the persisted revision row + its decoded status payload. */
@@ -146,6 +161,8 @@ export interface LoopService {
   listLoops(companyId: string, opts?: { limit?: number }): Promise<LoopDefinition[]>;
   /** Compile + persist an immutable revision. Writes ONLY loop tables. */
   saveRevision(input: SaveRevisionInput, model: LoopCompileModel): Promise<SaveRevisionResult>;
+  /** Persist a previously compiled preview byte-for-byte. Never calls a model. */
+  saveCompiledRevision(input: SaveCompiledRevisionInput): Promise<SaveRevisionResult>;
   listRevisions(loopId: string): Promise<LoopRevision[]>;
   getRevision(revisionId: string): Promise<LoopRevision>;
   listSkillBindings(revisionId: string): Promise<LoopSkillBinding[]>;
@@ -180,6 +197,89 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
     const row = await repos.loopDefinitions.findById(loopId);
     if (!row) throw new LoopServiceError(`loop ${loopId} not found`, 'loop_not_found');
     return row;
+  }
+
+  async function persistCompiledRevision(
+    input: SaveCompiledRevisionInput,
+  ): Promise<SaveRevisionResult> {
+    const loop = await requireLoop(input.loopId);
+    const profile = getCompilerProfile(loop.profile_id);
+    if (!profile) {
+      throw new LoopServiceError(
+        `compiler profile ${loop.profile_id} not found`,
+        'profile_not_found',
+      );
+    }
+
+    const result = input.compiled;
+    const irJson = result.ir ? JSON.stringify(result.ir) : '{}';
+    if (byteLength(irJson) > LOOP_LIMITS.maxCompiledIrBytes) {
+      throw new LoopServiceError('compiled IR exceeds the size limit', 'ir_too_large');
+    }
+    const questionsJson = JSON.stringify(result.questions);
+    if (byteLength(questionsJson) > LOOP_LIMITS.maxQuestionsBytes) {
+      throw new LoopServiceError('compiled questions exceed the size limit', 'ir_too_large');
+    }
+    const validationJson = JSON.stringify(result.validation);
+    if (byteLength(validationJson) > LOOP_LIMITS.maxValidationBytes) {
+      throw new LoopServiceError('compiled validation exceeds the size limit', 'ir_too_large');
+    }
+
+    const ts = deps.now();
+    const nextNumber = (await repos.loopRevisions.maxRevisionNumber(input.loopId)) + 1;
+    const revisionId = deps.newId();
+    const revisionRow: LoopRevisionRow = {
+      revision_id: revisionId,
+      loop_id: input.loopId,
+      revision_number: nextNumber,
+      source_prompt: input.sourcePrompt,
+      enhanced_prompt: result.enhancedPrompt ?? input.enhancedPrompt ?? null,
+      compiled_ir_json: irJson,
+      compiler_profile_id: profile.id,
+      compiler_profile_version: profile.version,
+      compiler_version: LOOP_COMPILER_VERSION,
+      compile_status: result.status,
+      questions_json: questionsJson,
+      validation_json: validationJson,
+      created_at: ts,
+    };
+    try {
+      await repos.loopRevisions.insert(revisionRow);
+    } catch (error) {
+      throw new LoopServiceError(
+        `concurrent save lost the revision-number race: ${error instanceof Error ? error.message : String(error)}`,
+        'concurrent_save',
+      );
+    }
+
+    for (const [index, skill] of (input.skills ?? []).entries()) {
+      await repos.loopSkillBindings.insert({
+        binding_id: deps.newId(),
+        revision_id: revisionId,
+        skill_id: skill.skillId,
+        skill_version: skill.skillVersion,
+        order_index: index,
+        config_json: JSON.stringify(skill.config ?? {}),
+      });
+    }
+
+    if (result.status === 'ready' && input.selectIfReady !== false) {
+      await repos.loopDefinitions.update(input.loopId, {
+        currentRevisionId: revisionId,
+        status: 'ready',
+        updatedAt: ts,
+      });
+    } else {
+      await repos.loopDefinitions.update(input.loopId, { updatedAt: ts });
+    }
+
+    return {
+      revision: toRevision(revisionRow),
+      status: result.status,
+      questions: result.questions,
+      validation: result.validation,
+      ...(result.ir ? { ir: result.ir } : {}),
+    };
   }
 
   return {
@@ -239,90 +339,18 @@ export function createLoopService(repos: LoopServiceRepos, deps: LoopServiceDeps
       };
       const result = await profile.compile(compileInput, model);
 
-      // Serialize the IR (or an empty placeholder for needs_input/invalid). Guard
-      // the IR size so a runaway model output cannot bloat a revision row.
-      const irJson = result.ir ? JSON.stringify(result.ir) : '{}';
-      if (Buffer.byteLength(irJson, 'utf8') > LOOP_LIMITS.maxCompiledIrBytes) {
-        throw new LoopServiceError('compiled IR exceeds the size limit', 'ir_too_large');
-      }
+      return persistCompiledRevision({
+        loopId: input.loopId,
+        sourcePrompt: input.sourcePrompt,
+        ...(input.enhancedPrompt ? { enhancedPrompt: input.enhancedPrompt } : {}),
+        ...(input.skills ? { skills: input.skills } : {}),
+        ...(input.selectIfReady !== undefined ? { selectIfReady: input.selectIfReady } : {}),
+        compiled: result,
+      });
+    },
 
-      // The side JSON columns are bounded too: questions are capped at ≤3 but a
-      // pathological validation (hundreds of findings) could still bloat the row.
-      // Reject an oversized serialization rather than persisting unbounded blobs.
-      const questionsJson = JSON.stringify(result.questions);
-      if (Buffer.byteLength(questionsJson, 'utf8') > LOOP_LIMITS.maxQuestionsBytes) {
-        throw new LoopServiceError('compiled questions exceed the size limit', 'ir_too_large');
-      }
-      const validationJson = JSON.stringify(result.validation);
-      if (Buffer.byteLength(validationJson, 'utf8') > LOOP_LIMITS.maxValidationBytes) {
-        throw new LoopServiceError('compiled validation exceeds the size limit', 'ir_too_large');
-      }
-
-      const ts = deps.now();
-      // Monotonic numbering: next = max + 1. The UNIQUE index is the real authority
-      // under concurrency; a clash surfaces as the repo insert throwing, which we
-      // translate to `concurrent_save` so the caller can retry.
-      const nextNumber = (await repos.loopRevisions.maxRevisionNumber(input.loopId)) + 1;
-      const revisionId = deps.newId();
-      const revisionRow: LoopRevisionRow = {
-        revision_id: revisionId,
-        loop_id: input.loopId,
-        revision_number: nextNumber,
-        source_prompt: input.sourcePrompt,
-        enhanced_prompt: result.enhancedPrompt ?? input.enhancedPrompt ?? null,
-        compiled_ir_json: irJson,
-        compiler_profile_id: profile.id,
-        compiler_profile_version: profile.version,
-        compiler_version: LOOP_COMPILER_VERSION,
-        compile_status: result.status,
-        questions_json: questionsJson,
-        validation_json: validationJson,
-        created_at: ts,
-      };
-      try {
-        await repos.loopRevisions.insert(revisionRow);
-      } catch (error) {
-        throw new LoopServiceError(
-          `concurrent save lost the revision-number race: ${error instanceof Error ? error.message : String(error)}`,
-          'concurrent_save',
-        );
-      }
-
-      // Bind skills to THIS revision (immutable with it). Order as supplied.
-      if (input.skills && input.skills.length > 0) {
-        for (let i = 0; i < input.skills.length; i += 1) {
-          const s = input.skills[i]!;
-          await repos.loopSkillBindings.insert({
-            binding_id: deps.newId(),
-            revision_id: revisionId,
-            skill_id: s.skillId,
-            skill_version: s.skillVersion,
-            order_index: i,
-            config_json: JSON.stringify(s.config ?? {}),
-          });
-        }
-      }
-
-      // Select + flip the definition to `ready` when the revision is ready. This is
-      // a loop_definitions UPDATE only — still NO mission/thread write.
-      const selectIfReady = input.selectIfReady !== false;
-      if (result.status === 'ready' && selectIfReady) {
-        await repos.loopDefinitions.update(input.loopId, {
-          currentRevisionId: revisionId,
-          status: 'ready',
-          updatedAt: ts,
-        });
-      } else {
-        await repos.loopDefinitions.update(input.loopId, { updatedAt: ts });
-      }
-
-      return {
-        revision: toRevision(revisionRow),
-        status: result.status,
-        questions: result.questions,
-        validation: result.validation,
-        ...(result.ir ? { ir: result.ir } : {}),
-      };
+    async saveCompiledRevision(input) {
+      return persistCompiledRevision(input);
     },
 
     async listRevisions(loopId) {
