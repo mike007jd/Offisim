@@ -830,18 +830,6 @@
   height: 16px;
 }
 
-@keyframes off-pulse {
-  0%,
-  100% {
-    opacity: 0.45;
-    transform: scale(0.86);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
 
 /* --- Segmented control --- */
 .off-seg {

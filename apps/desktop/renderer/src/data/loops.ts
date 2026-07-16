@@ -80,6 +80,7 @@ const loopKeys = {
 
 export interface LoopRunView extends LoopInvocationRow {
   loopTitle: string;
+  missionStatus: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +178,25 @@ export function useLoopRuns(companyId: string | null) {
             .map((row) => ({ ...row, loopTitle: loop.title })),
         ),
       );
-      return nested.flat().sort((a, b) => b.created_at.localeCompare(a.created_at));
+      const invocations = nested.flat();
+      const missionIds = [
+        ...new Set(invocations.flatMap((row) => (row.mission_id ? [row.mission_id] : []))),
+      ];
+      const missionRepo = repos.missions;
+      const missions = missionRepo
+        ? await Promise.all(missionIds.map((missionId) => missionRepo.findById(missionId)))
+        : [];
+      const missionStatusById = new Map(
+        missions.flatMap((mission) =>
+          mission ? [[mission.mission_id, mission.status] as const] : [],
+        ),
+      );
+      return invocations
+        .map((row) => ({
+          ...row,
+          missionStatus: row.mission_id ? (missionStatusById.get(row.mission_id) ?? null) : null,
+        }))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
     },
     enabled: companyId !== null,
   });
@@ -400,8 +419,9 @@ export function useArchiveLoop(companyId: string | null) {
 
 /**
  * Duplicate a loop: create a fresh definition (same profile, "(copy)" title) and
- * carry its CURRENT revision's source/enhanced prompt into a first revision so the
- * copy compiles to the same shape. Returns the new loop id.
+ * carry its CURRENT revision's exact compiled result into a first revision so the
+ * copy is byte-for-byte equivalent and never makes another model call. Returns
+ * the new loop definition.
  */
 export function useDuplicateLoop(companyId: string | null) {
   const qc = useQueryClient();
@@ -423,16 +443,21 @@ export function useDuplicateLoop(companyId: string | null) {
       if (loop.currentRevisionId) {
         const src = await service.getRevision(loop.currentRevisionId).catch(() => null);
         if (src) {
-          const model = createLoopCompileModel();
-          await service.saveRevision(
-            {
-              loopId: copy.loopId,
-              sourcePrompt: src.sourcePrompt,
-              ...(src.enhancedPrompt ? { enhancedPrompt: src.enhancedPrompt } : {}),
-              context: { companyId },
-            },
-            model,
-          );
+          const compiled: LoopCompileResult = {
+            status: src.compileStatus,
+            ...(src.compileStatus === 'ready'
+              ? { ir: JSON.parse(src.compiledIrJson) as NonNullable<LoopCompileResult['ir']> }
+              : {}),
+            questions: JSON.parse(src.questionsJson) as LoopCompileResult['questions'],
+            validation: JSON.parse(src.validationJson) as LoopCompileResult['validation'],
+            ...(src.enhancedPrompt ? { enhancedPrompt: src.enhancedPrompt } : {}),
+          };
+          await service.saveCompiledRevision({
+            loopId: copy.loopId,
+            sourcePrompt: src.sourcePrompt,
+            ...(src.enhancedPrompt ? { enhancedPrompt: src.enhancedPrompt } : {}),
+            compiled,
+          });
         }
       }
       return copy;

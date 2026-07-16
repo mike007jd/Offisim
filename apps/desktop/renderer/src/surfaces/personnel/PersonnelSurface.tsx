@@ -199,6 +199,7 @@ function RosterRail({
   canHire,
   hireDisabledReason,
   onSelectEmployee,
+  onVisibleEmployeeIdsChange,
 }: {
   employees: Employee[];
   validModels: ReadonlySet<string> | undefined;
@@ -208,6 +209,7 @@ function RosterRail({
   canHire: boolean;
   hireDisabledReason: string | undefined;
   onSelectEmployee: (id: string) => void;
+  onVisibleEmployeeIdsChange: (ids: string[]) => void;
 }) {
   const selectedEmployeeId = useUiState((s) => s.selectedEmployeeId);
   const [query, setQuery] = useState('');
@@ -226,6 +228,10 @@ function RosterRail({
       (e) => (role === 'all' || e.role === role) && (!q || e.name.toLowerCase().includes(q)),
     );
   }, [employees, query, role]);
+
+  useEffect(() => {
+    onVisibleEmployeeIdsChange(filtered.map((employee) => employee.id));
+  }, [filtered, onVisibleEmployeeIdsChange]);
 
   const hasFilters = query.trim().length > 0 || role !== 'all';
   const resetFilters = () => {
@@ -440,7 +446,6 @@ function EmployeeDetail({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [guardPulsing, setGuardPulsing] = useState(false);
   // Initialize to the mount-time value so a remount (employee switch) doesn't
   // replay a pulse from a previous block.
@@ -565,7 +570,6 @@ function EmployeeDetail({
   const onDelete = async () => {
     if (isDeleting) return;
     setIsDeleting(true);
-    setDeleteError(null);
     try {
       const repos = await reposOrNull();
       if (!repos) throw new Error('Employee deletion requires the desktop runtime');
@@ -582,7 +586,6 @@ function EmployeeDetail({
       toast.success(`${employee.name} removed`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Employee delete failed';
-      setDeleteError(message);
       toast.error('Employee delete failed', { description: message });
     } finally {
       setIsDeleting(false);
@@ -594,10 +597,7 @@ function EmployeeDetail({
       <DetailHeader
         employee={employee}
         validModels={models ? new Set(models.map((option) => option.value)) : undefined}
-        onDeleteRequest={() => {
-          setDeleteError(null);
-          setConfirmingDelete(true);
-        }}
+        onDeleteRequest={() => setConfirmingDelete(true)}
       />
       <Tabs value={tab} onValueChange={(value) => onTabChange(value as InspectorTab)}>
         <TabsList className="off-pers-insp-tabs" aria-label="Employee inspector">
@@ -644,7 +644,7 @@ function EmployeeDetail({
           <div
             className={cn('off-pers-savebar', guardPulsing && 'is-guard-pulse')}
             onAnimationEnd={(e) => {
-              if (e.animationName === 'off-pers-guard-pulse') setGuardPulsing(false);
+              if (e.animationName === 'off-pers-guard-flash') setGuardPulsing(false);
             }}
           >
             <div className="flex items-center gap-[var(--off-sp-3)]">
@@ -661,10 +661,7 @@ function EmployeeDetail({
       <Dialog
         open={confirmingDelete}
         onOpenChange={(open) => {
-          if (!isDeleting) {
-            setConfirmingDelete(open);
-            if (!open) setDeleteError(null);
-          }
+          if (!isDeleting) setConfirmingDelete(open);
         }}
       >
         <DialogContent>
@@ -675,7 +672,6 @@ function EmployeeDetail({
               stay readable, but this employee cannot be restored.
             </DialogDescription>
           </DialogHeader>
-          {deleteError ? <p className="off-pers-delete-error">{deleteError}</p> : null}
           <DialogFooter>
             <Button
               variant="subtle"
@@ -715,6 +711,8 @@ function HireEmployeeDialog({
   const [appearanceSetup, setAppearanceSetup] = useState(createHireAppearance);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const selectedRuntime = models.data?.find((option) => option.value === model);
+  const supportsReasoning = selectedRuntime?.reasoning === true;
   const canSubmit = name.trim().length > 0 && role.trim().length > 0 && !isSaving;
 
   const reset = () => {
@@ -745,7 +743,7 @@ function HireEmployeeDialog({
         persona_json: JSON.stringify(newEmployeePersona(appearanceSetup.draft)),
         config_json: '{}',
         model: model || null,
-        thinking_level: model && thinkingLevel ? thinkingLevel : null,
+        thinking_level: model && supportsReasoning && thinkingLevel ? thinkingLevel : null,
       });
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
       useUiState.getState().selectEmployee(employee_id);
@@ -788,7 +786,9 @@ function HireEmployeeDialog({
             />
           </div>
           <div className="off-pers-hire-field">
-            <label htmlFor={`${roleInputId}-model`}>Model</label>
+            <label htmlFor={`${roleInputId}-model`}>
+              {selectedRuntime?.selectionKind === 'orchestration-engine' ? 'Engine' : 'Model'}
+            </label>
             <Select
               id={`${roleInputId}-model`}
               value={model}
@@ -812,24 +812,25 @@ function HireEmployeeDialog({
               ]}
             />
           </div>
-          <div className="off-pers-hire-field">
-            <label htmlFor={`${roleInputId}-thinking`}>Thinking level</label>
-            <Select
-              id={`${roleInputId}-thinking`}
-              value={thinkingLevel}
-              onChange={(event) => setThinkingLevel(event.target.value)}
-              disabled={
-                !model || models.data?.find((option) => option.value === model)?.reasoning !== true
-              }
-              options={[
-                { value: '', label: 'Use conversation level' },
-                ...(['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).map((level) => ({
-                  value: level,
-                  label: level,
-                })),
-              ]}
-            />
-          </div>
+          {supportsReasoning ? (
+            <div className="off-pers-hire-field">
+              <label htmlFor={`${roleInputId}-thinking`}>Thinking level</label>
+              <Select
+                id={`${roleInputId}-thinking`}
+                value={thinkingLevel}
+                onChange={(event) => setThinkingLevel(event.target.value)}
+                options={[
+                  { value: '', label: 'Use conversation level' },
+                  ...(['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).map(
+                    (level) => ({
+                      value: level,
+                      label: level,
+                    }),
+                  ),
+                ]}
+              />
+            </div>
+          ) : null}
           <div className="off-pers-hire-field">
             <label htmlFor={roleInputId}>Role</label>
             <Input
@@ -881,6 +882,7 @@ export function PersonnelSurface() {
   // Tracks whether the open EmployeeDetail has unsaved edits, so switching the
   // selected employee can guard against silent data loss (PERS-03).
   const dirtyRef = useRef(false);
+  const visibleEmployeeIdsRef = useRef<string[]>([]);
 
   const roster = employees.data ?? [];
   const validModels = models.data ? new Set(models.data.map((option) => option.value)) : undefined;
@@ -904,6 +906,9 @@ export function PersonnelSurface() {
     },
     [selectedEmployeeId, selectEmployee],
   );
+  const trackVisibleEmployeeIds = useCallback((ids: string[]) => {
+    visibleEmployeeIdsRef.current = ids;
+  }, []);
 
   // Reset to Profile when the selected employee changes (tab is local). Also
   // clear any lingering discard bar and the dirty flag — the freshly-mounted
@@ -1030,6 +1035,7 @@ export function PersonnelSurface() {
             canHire={canHire}
             hireDisabledReason={hireDisabledReason}
             onSelectEmployee={guardedSelect}
+            onVisibleEmployeeIdsChange={trackVisibleEmployeeIds}
           />
         </Panel>
 
@@ -1051,10 +1057,7 @@ export function PersonnelSurface() {
               onDeleted={() => {
                 dirtyRef.current = false;
                 selectEmployee(
-                  nextEmployeeIdAfterDelete(
-                    roster.map((employee) => employee.id),
-                    selected.id,
-                  ),
+                  nextEmployeeIdAfterDelete(visibleEmployeeIdsRef.current, selected.id),
                 );
               }}
               guardPulse={guardPulse}

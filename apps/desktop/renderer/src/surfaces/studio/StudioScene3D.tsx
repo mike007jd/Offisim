@@ -6,6 +6,7 @@ import { ScenePostFx } from '@/surfaces/office/scene/r3d/ScenePostFx.js';
 import { ZoneCeilingLight, ZoneRug } from '@/surfaces/office/scene/r3d/ZoneDressing.js';
 import { Prefab3D } from '@/surfaces/office/scene/r3d/prefabs/Prefab3D.js';
 import {
+  OFFICE_CAMERA_DEPTH,
   OFFICE_CAMERA_PRESET,
   SCENE_CONTENT_SCALE,
 } from '@/surfaces/office/scene/r3d/scene-art-direction.js';
@@ -525,8 +526,13 @@ export function StudioScene3D({
   return (
     <Canvas
       shadows="soft"
-      dpr={[1, 1.75]}
-      camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
+      dpr={[1, 2]}
+      camera={{
+        position: OFFICE_CAMERA_PRESET.position,
+        fov: OFFICE_CAMERA_PRESET.fov,
+        near: OFFICE_CAMERA_DEPTH.near,
+        far: OFFICE_CAMERA_DEPTH.far,
+      }}
       gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
       className="off-scene-canvas"
     >

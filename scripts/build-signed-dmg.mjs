@@ -13,10 +13,6 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  defaultArchivePath,
-  loadManifest,
-} from './check-codex-app-server-artifact.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,12 +30,6 @@ const dmgDir = path.join(
   'apps/desktop/src-tauri/target',
   targetTriple,
   'release/bundle/dmg',
-);
-const finalizeBundleScript = path.join(__dirname, 'finalize-codex-app-server-bundle.mjs');
-const checkBundleScript = path.join(__dirname, 'check-codex-app-server-bundle.mjs');
-const pinnedCodexManifestPath = path.join(
-  rootDir,
-  'apps/desktop/src-tauri/binaries/codex-app-server.manifest.json',
 );
 
 function parseEnvFile(filePath) {
@@ -292,8 +282,6 @@ async function main() {
 
   const configuration = loadReleaseConfiguration();
   const credentialFreeEnv = withoutAppleCredentials(configuration.env);
-  const { manifest: pinnedCodexManifest } = await loadManifest(pinnedCodexManifestPath);
-  const pinnedCodexArchivePath = defaultArchivePath(pinnedCodexManifest);
   assertSigningIdentityAvailable(configuration.identity, credentialFreeEnv);
 
   console.log('[release:dmg] building arm64 Offisim.app');
@@ -316,20 +304,18 @@ async function main() {
   );
   assertDirectory(appPath, 'built Offisim.app');
 
-  console.log('[release:dmg] finalizing nested Codex signing and outer app signature');
+  console.log('[release:dmg] signing Offisim.app');
   runChecked(
-    process.execPath,
+    'codesign',
     [
-      finalizeBundleScript,
-      '--app',
-      appPath,
-      '--manifest',
-      pinnedCodexManifestPath,
-      '--archive',
-      pinnedCodexArchivePath,
-      '--distribution',
-      '--identity',
+      '--force',
+      '--deep',
+      '--options',
+      'runtime',
+      '--timestamp',
+      '--sign',
       configuration.identity,
+      appPath,
     ],
     {
       env: credentialFreeEnv,
@@ -338,8 +324,8 @@ async function main() {
     },
   );
 
-  console.log('[release:dmg] verifying finalized distribution app');
-  runChecked(process.execPath, [checkBundleScript, '--app', appPath, '--distribution'], {
+  console.log('[release:dmg] verifying signed distribution app');
+  runChecked('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath], {
     env: credentialFreeEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
     forwardStdout: false,

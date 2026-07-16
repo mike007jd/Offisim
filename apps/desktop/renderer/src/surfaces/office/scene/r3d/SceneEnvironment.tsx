@@ -18,7 +18,7 @@ import { SCENE_ENV_COLORS } from './scene-colors.js';
  */
 export function SceneEnvironment() {
   return (
-    <Environment resolution={256} frames={1} background={false}>
+    <Environment resolution={512} frames={1} background={false}>
       {/* Soft overhead ceiling panel — the dominant studio key from above. */}
       <Lightformer
         form="rect"

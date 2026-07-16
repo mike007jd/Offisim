@@ -17,9 +17,12 @@ import {
 import { createRoundedSlabGeometry } from '../apps/desktop/renderer/src/surfaces/office/scene/r3d/RoundedSlab.tsx';
 import {
   FLOOR_BANDS,
+  FLOOR_RENDER_ORDER,
   OFFICE_PLINTH,
   OFFICE_ROOM,
   SCENE_CONTENT_SCALE,
+  SCENE_LAYER_Y,
+  ZONE_RUG_PROFILE,
 } from '../apps/desktop/renderer/src/surfaces/office/scene/r3d/scene-art-direction.ts';
 import {
   type SeatAnchorPrefab,
@@ -100,14 +103,22 @@ check(
 );
 check('floor plane sits strictly above the plinth lip', OFFICE_PLINTH.floorY > lipTop);
 check(
-  'every floor band sits strictly above the click plane',
-  FLOOR_BANDS.every((band) => band.layerOffset > OFFICE_PLINTH.floorY),
+  'floor bands share the click plane without owning fragile height offsets',
+  SCENE_LAYER_Y.floorOverlay === OFFICE_PLINTH.floorY &&
+    FLOOR_BANDS.every((band) => !('layerOffset' in band)),
 );
 check(
-  'floor bands use distinct vertical layers',
-  new Set(FLOOR_BANDS.map((band) => band.layerOffset)).size === FLOOR_BANDS.length,
+  'floor decoration uses deterministic non-depth-writing render tiers',
+  new Set(Object.values(FLOOR_RENDER_ORDER)).size === Object.values(FLOOR_RENDER_ORDER).length &&
+    roomSource.includes('depthTest={false}') &&
+    roomSource.includes('depthWrite={false}'),
 );
-check('zone identity uses thin rounded rugs', zoneSource.includes('height={0.04}'));
+check(
+  'zone identity uses two physically stacked thin rounded rug layers',
+  zoneSource.includes('height={ZONE_RUG_PROFILE.baseHeight}') &&
+    zoneSource.includes('height={ZONE_RUG_PROFILE.insetHeight}') &&
+    Math.abs(ZONE_RUG_PROFILE.topY - OFFICE_PLINTH.floorY - 0.04) < 1e-9,
+);
 check('zone rug production path contains no glass divider', !zoneSource.includes('showGlass'));
 check(
   'Office does not mount ceiling-dependent zone lights',
@@ -357,7 +368,7 @@ check(
 check('post processing preserves SMAA', postFxSource.includes('<SMAA />'));
 check(
   'Canvas keeps the approved full-view DPR budget and pins PiP to DPR 1',
-  /dpr=\{pip \? 1 : \[1, 1\.75\]\}/.test(officeSource),
+  /dpr=\{pip \? 1 : \[1, 2\]\}/.test(officeSource),
 );
 check(
   'PiP disables shadows and post processing without unmounting the scene',
