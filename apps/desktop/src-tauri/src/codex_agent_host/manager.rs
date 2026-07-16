@@ -232,6 +232,7 @@ struct NativeThreadStart<'a> {
 struct NativeTurnStart<'a> {
     cwd: &'a Path,
     thread_id: &'a str,
+    model: &'a str,
     policy: &'a PermissionPolicy,
     client_user_message_id: &'a str,
     text: &'a str,
@@ -410,9 +411,17 @@ async fn execute_claimed(
 
     match setup {
         Ok(setup) => {
-            let model = setup.actual_model_id.as_deref().map(model_summary);
+            let Some(actual_model_id) = setup.actual_model_id.as_deref() else {
+                run.stream.finish_failed(
+                    "codex_model_missing",
+                    "Codex did not report the exact model selected for this thread.",
+                );
+                return finish_invoke(&run).await;
+            };
+            let actual_model_id = actual_model_id.to_string();
+            let model = model_summary(&actual_model_id);
             let mut provenance = provenance;
-            provenance.actual_model_id = setup.actual_model_id;
+            provenance.actual_model_id = Some(actual_model_id.clone());
             let opaque = match opaque_session_id(&setup.native_thread_ref) {
                 Ok(opaque) => opaque,
                 Err(error) => {
@@ -421,7 +430,7 @@ async fn execute_claimed(
                 }
             };
             run.stream.set_metadata(RunMetadata {
-                model: model.clone().unwrap_or_else(engine_managed_model_summary),
+                model: model.clone(),
                 provenance,
                 native_thread_ref: setup.native_thread_ref.clone(),
                 expose_session: true,
@@ -429,7 +438,7 @@ async fn execute_claimed(
             run.stream.publish(CodexAgentHostEvent::Started {
                 session_id: Some(opaque),
                 session_file: None,
-                model,
+                model: Some(model),
                 model_fallback_message: None,
             });
             if let Err(error) = start_native_turn(
@@ -437,6 +446,7 @@ async fn execute_claimed(
                 NativeTurnStart {
                     cwd: &workspace.cwd,
                     thread_id: &setup.native_thread_ref.thread_id,
+                    model: &actual_model_id,
                     policy: &policy,
                     client_user_message_id: req
                         .client_user_message_id
@@ -570,11 +580,19 @@ async fn enhance_claimed(
     .await
     {
         Ok(setup) => {
-            let model = setup.actual_model_id.as_deref().map(model_summary);
+            let Some(actual_model_id) = setup.actual_model_id.as_deref() else {
+                run.stream.finish_failed(
+                    "codex_model_missing",
+                    "Codex did not report the exact model selected for this thread.",
+                );
+                return finish_invoke(&run).await;
+            };
+            let actual_model_id = actual_model_id.to_string();
+            let model = model_summary(&actual_model_id);
             let mut provenance = provenance;
-            provenance.actual_model_id = setup.actual_model_id;
+            provenance.actual_model_id = Some(actual_model_id.clone());
             run.stream.set_metadata(RunMetadata {
-                model: model.clone().unwrap_or_else(engine_managed_model_summary),
+                model: model.clone(),
                 provenance,
                 native_thread_ref: setup.native_thread_ref.clone(),
                 expose_session: false,
@@ -582,7 +600,7 @@ async fn enhance_claimed(
             run.stream.publish(CodexAgentHostEvent::Started {
                 session_id: None,
                 session_file: None,
-                model,
+                model: Some(model),
                 model_fallback_message: None,
             });
             if let Err(error) = start_native_turn(
@@ -590,6 +608,7 @@ async fn enhance_claimed(
                 NativeTurnStart {
                     cwd: &neutral,
                     thread_id: &setup.native_thread_ref.thread_id,
+                    model: &actual_model_id,
                     policy: &policy,
                     client_user_message_id: &req.request_id,
                     text: &req.text,
@@ -768,8 +787,10 @@ async fn start_native_thread(
                 json!({
                     "threadId": native.thread_id,
                     "cwd": cwd_text,
+                    "model": null,
                     "approvalPolicy": policy.approval_policy,
                     "sandbox": policy.thread_sandbox,
+                    "serviceTier": null,
                     "developerInstructions": developer_instructions,
                 }),
             )
@@ -780,8 +801,10 @@ async fn start_native_thread(
                 "thread/start",
                 json!({
                     "cwd": cwd_text,
+                    "model": null,
                     "approvalPolicy": policy.approval_policy,
                     "sandbox": policy.thread_sandbox,
+                    "serviceTier": null,
                     "developerInstructions": developer_instructions,
                     "serviceName": "offisim",
                     "ephemeral": ephemeral,
@@ -811,6 +834,7 @@ async fn start_native_turn(
     let NativeTurnStart {
         cwd,
         thread_id,
+        model,
         policy,
         client_user_message_id,
         text,
@@ -821,7 +845,7 @@ async fn start_native_turn(
     // Codex collaboration mode is sticky on a native thread. Send an explicit
     // mode on every Turn so Auto -> Plan, Plan -> Auto, and resumed tasks all
     // preserve the Offisim composer selection instead of inheriting old state.
-    let collaboration_mode = turn_collaboration_mode(policy);
+    let collaboration_mode = turn_collaboration_mode(policy, model);
 
     let turn_result = connection
         .request(
@@ -831,6 +855,9 @@ async fn start_native_turn(
                 "input": [{"type": "text", "text": text}],
                 "cwd": cwd_text,
                 "clientUserMessageId": client_user_message_id,
+                "model": null,
+                "effort": null,
+                "serviceTier": null,
                 "approvalPolicy": policy.approval_policy,
                 "sandboxPolicy": policy.turn_sandbox,
                 "collaborationMode": collaboration_mode,
@@ -849,10 +876,10 @@ async fn start_native_turn(
     Ok(turn_id)
 }
 
-fn turn_collaboration_mode(policy: &PermissionPolicy) -> Value {
+fn turn_collaboration_mode(policy: &PermissionPolicy, model: &str) -> Value {
     json!({
         "mode": policy.native_collaboration_mode,
-        "settings": {},
+        "settings": { "model": model },
     })
 }
 
@@ -1686,20 +1713,6 @@ fn model_summary(actual_model: &str) -> CodexModelSummary {
     }
 }
 
-fn engine_managed_model_summary() -> CodexModelSummary {
-    CodexModelSummary {
-        provider: None,
-        id: Some(MODEL_ID.into()),
-        name: Some("Engine managed".into()),
-        api: Some(NATIVE_THREAD_PROTOCOL.into()),
-        reasoning: None,
-        context_window: None,
-        max_tokens: None,
-        input: Vec::new(),
-        catalog_id: None,
-    }
-}
-
 fn adapter_identity() -> CodexAdapterIdentity {
     CodexAdapterIdentity {
         id: CODEX_ADAPTER_ID.into(),
@@ -2113,8 +2126,8 @@ assert notification["method"] == "initialized" and "id" not in notification
 
 request = read_message()
 assert request["method"] == "thread/start"
-assert "model" not in request["params"]
-assert "serviceTier" not in request["params"]
+assert request["params"]["model"] is None
+assert request["params"]["serviceTier"] is None
 cwd = request["params"]["cwd"]
 respond(request, {"thread": {"id": "thread-1", "sessionId": "session-1"}, "cwd": cwd, "model": "gpt-5.4-high"})
 
@@ -2122,10 +2135,10 @@ request = read_message()
 assert request["method"] == "turn/start"
 assert request["params"]["approvalPolicy"] == "never"
 assert request["params"]["sandboxPolicy"] == {"type": "readOnly", "networkAccess": False}
-assert request["params"]["collaborationMode"] == {"mode": "plan", "settings": {}}
-assert "model" not in request["params"]
-assert "effort" not in request["params"]
-assert "serviceTier" not in request["params"]
+assert request["params"]["collaborationMode"] == {"mode": "plan", "settings": {"model": "gpt-5.4-high"}}
+assert request["params"]["model"] is None
+assert request["params"]["effort"] is None
+assert request["params"]["serviceTier"] is None
 respond(request, {"turn": {"id": "turn-1", "status": "inProgress"}})
 
 send({"method": "attestation/read", "id": "unsupported-1", "params": None})
@@ -2193,7 +2206,8 @@ request = read_message()
 assert request["method"] == "thread/start"
 assert request["params"]["approvalPolicy"] == "on-request"
 assert request["params"]["sandbox"] == "read-only"
-assert "model" not in request["params"]
+assert request["params"]["model"] is None
+assert request["params"]["serviceTier"] is None
 cwd = request["params"]["cwd"]
 respond(request, {"thread": {"id": "thread-ask", "sessionId": "session-ask"}, "cwd": cwd, "model": "gpt-5.4-high"})
 
@@ -2201,9 +2215,9 @@ request = read_message()
 assert request["method"] == "turn/start"
 assert request["params"]["approvalPolicy"] == "on-request"
 assert request["params"]["sandboxPolicy"] == {"type": "readOnly", "networkAccess": False}
-assert "model" not in request["params"]
-assert "effort" not in request["params"]
-assert "serviceTier" not in request["params"]
+assert request["params"]["model"] is None
+assert request["params"]["effort"] is None
+assert request["params"]["serviceTier"] is None
 respond(request, {"turn": {"id": "turn-ask", "status": "inProgress"}})
 time.sleep(30)
 "#;
@@ -2351,11 +2365,7 @@ time.sleep(30)
         .await
         .unwrap();
         stream.set_metadata(RunMetadata {
-            model: setup
-                .actual_model_id
-                .as_deref()
-                .map(model_summary)
-                .unwrap_or_else(engine_managed_model_summary),
+            model: model_summary(setup.actual_model_id.as_deref().unwrap()),
             provenance: execution_provenance(&target, "conformance-run"),
             native_thread_ref: setup.native_thread_ref.clone(),
             expose_session: true,
@@ -2365,6 +2375,7 @@ time.sleep(30)
             NativeTurnStart {
                 cwd: &root,
                 thread_id: &setup.native_thread_ref.thread_id,
+                model: setup.actual_model_id.as_deref().unwrap(),
                 policy: &policy,
                 client_user_message_id: "user-message-1",
                 text: "Run the conformance fixture",
@@ -2520,6 +2531,7 @@ time.sleep(30)
             NativeTurnStart {
                 cwd: &root,
                 thread_id: &setup.native_thread_ref.thread_id,
+                model: setup.actual_model_id.as_deref().unwrap(),
                 policy: &policy,
                 client_user_message_id: "ask-user-message",
                 text: "Attempt a write only after approval",
@@ -2597,15 +2609,21 @@ time.sleep(30)
         ] {
             let policy = permission_policy(Some(mode), root, true).unwrap();
             assert_eq!(policy.native_collaboration_mode, expected_native_mode);
-            let collaboration = turn_collaboration_mode(&policy);
+            let collaboration = turn_collaboration_mode(&policy, "gpt-test");
             assert_eq!(collaboration["mode"], expected_native_mode);
-            assert_eq!(collaboration["settings"], json!({}));
+            assert_eq!(collaboration["settings"], json!({ "model": "gpt-test" }));
         }
 
         let plan = permission_policy(Some("plan"), root, true).unwrap();
-        assert_eq!(turn_collaboration_mode(&plan)["settings"], json!({}));
+        assert_eq!(
+            turn_collaboration_mode(&plan, "gpt-test")["settings"],
+            json!({ "model": "gpt-test" })
+        );
         let auto = permission_policy(Some("auto"), root, true).unwrap();
-        assert_eq!(turn_collaboration_mode(&auto)["settings"], json!({}));
+        assert_eq!(
+            turn_collaboration_mode(&auto, "gpt-test")["settings"],
+            json!({ "model": "gpt-test" })
+        );
 
         let ask = permission_policy(Some("ask"), root, true).unwrap();
         assert_eq!(ask.thread_sandbox, "read-only");

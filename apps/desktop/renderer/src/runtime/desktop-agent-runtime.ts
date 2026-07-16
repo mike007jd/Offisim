@@ -72,6 +72,7 @@ import {
   planThreadExecutionSelection,
   resolveAuthoritativeThreadExecutionAuthority,
 } from './thread-execution-authority.js';
+import { persistThreadRuntimeStatus } from './thread-runtime-status.js';
 import {
   type WorkspaceBindingStreamGate,
   type WorkspaceStreamConsumptionPolicy,
@@ -3233,10 +3234,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             rootRunId: runScope.runId,
             workspaceRequirement,
             nativeSessionMode,
-            model: resolvedModel,
-            runtimeModelRef: resolvedModel,
             permissionMode,
-            thinkingLevel: resolvedThinkingLevel,
             systemPromptAppend: systemPromptAppend ?? undefined,
             clientUserMessageId: input.conversationProjection?.userMessageId,
             ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
@@ -3981,9 +3979,19 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
       throw new Error('The selected model belongs to another AI engine.');
     }
     const engineId = selection.target.engineId;
+    const threadStatusInput = {
+      repos: this.repos,
+      eventBus: runtimeEventBus,
+      companyId: this.companyId,
+      threadId: input.threadId,
+      projectId: input.projectId,
+      rootTaskId: input.runId ?? null,
+      entryMode: input.employeeId ? 'direct_chat' : 'boss_chat',
+    } as const;
+    await persistThreadRuntimeStatus({ ...threadStatusInput, status: 'running' });
     this.activeEngineByThread.set(input.threadId, engineId);
     try {
-      return await this.adapter(engineId).execute(
+      const result = await this.adapter(engineId).execute(
         {
           ...input,
           engineId,
@@ -3993,6 +4001,18 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
         },
         signal,
       );
+      if (!input.missionId) {
+        await persistThreadRuntimeStatus({ ...threadStatusInput, status: 'completed' });
+      }
+      return result;
+    } catch (error) {
+      if (!input.missionId) {
+        await persistThreadRuntimeStatus({
+          ...threadStatusInput,
+          status: signal?.aborted ? 'paused' : 'failed',
+        });
+      }
+      throw error;
     } finally {
       if (this.activeEngineByThread.get(input.threadId) === engineId) {
         this.activeEngineByThread.delete(input.threadId);

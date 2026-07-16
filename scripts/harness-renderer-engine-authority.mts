@@ -95,6 +95,54 @@ assert.deepEqual(
   resolveRuntimeExecutionSelection(runtimeStatus, undefined, codexTarget, 'codex'),
   codexAuthority,
 );
+const openRouterTarget: AiExecutionTarget = {
+  engineId: 'api',
+  accountId: 'api:openrouter-free:0123456789abcdef',
+  billingMode: 'api',
+  modelId: 'cohere/north-mini-code:free',
+  modelSource: {
+    kind: 'official-api',
+    sourceUrl: 'https://openrouter.ai/models/cohere/north-mini-code:free',
+    checkedAt: '2026-07-17T00:00:00Z',
+  },
+};
+const openRouterSelection = resolveRuntimeExecutionSelection(
+  {
+    checkedAt: '2026-07-17T00:00:00Z',
+    orchestrationEngines: [],
+    accounts: [
+      {
+        engineId: 'api',
+        accountId: openRouterTarget.accountId,
+        billingMode: 'api',
+        displayName: 'OpenRouter Free',
+        status: 'available',
+        capabilities: {
+          execute: { status: 'available' },
+          models: { status: 'available' },
+          usage: { status: 'available' },
+          cost: { status: 'available' },
+        },
+      },
+    ],
+    models: [
+      {
+        ...openRouterTarget,
+        displayName: 'North Mini Code Free',
+        runtimeModelRef: 'openrouter-free/cohere/north-mini-code:free',
+        availability: 'available',
+        capabilities: { textInput: true, imageInput: false, tools: true, reasoning: false },
+        source: openRouterTarget.modelSource,
+      },
+    ],
+  } satisfies AiRuntimeStatus,
+  undefined,
+  undefined,
+);
+assert.deepEqual(openRouterSelection, {
+  target: openRouterTarget,
+  runtimeModelRef: 'openrouter-free/cohere/north-mini-code:free',
+});
 assert.throws(
   () =>
     resolveRuntimeExecutionSelection(
@@ -164,8 +212,6 @@ const request = {
   workspaceRequirement: 'required' as const,
   nativeSessionMode: 'tracked' as const,
   nativeSessionId: 'opaque-session',
-  model: 'codex',
-  runtimeModelRef: 'codex',
 };
 await transport.executeCodex({ req: request, onEvent: { onmessage: () => undefined } as never });
 await transport.resumeCodex({
@@ -180,11 +226,43 @@ assert.deepEqual(
 );
 for (const call of calls.slice(0, 2)) {
   const payload = (call.args as { req: Record<string, unknown> }).req;
-  assert.equal(payload.runtimeModelRef, 'codex');
+  for (const engineManaged of ['model', 'runtimeModelRef', 'thinkingLevel', 'serviceTier']) {
+    assert.equal(
+      payload[engineManaged],
+      undefined,
+      `${call.command} leaked engine-managed field ${engineManaged}`,
+    );
+  }
   for (const piOnly of ['skillPaths', 'roster', 'missionContextJson', 'mcpTools', 'directDelegation']) {
     assert.equal(payload[piOnly], undefined, `${call.command} leaked ${piOnly}`);
   }
 }
+
+const rendererCommandContract = source('../apps/desktop/renderer/src/lib/tauri-commands.ts');
+const rustCommandContract = source(
+  '../apps/desktop/src-tauri/src/codex_agent_host/types.rs',
+);
+const rendererFields = rendererCommandContract
+  .match(/interface CodexAgentExecuteRequest \{(?<body>[\s\S]*?)\n\}/u)
+  ?.groups?.body.match(/^\s{2}[a-zA-Z][a-zA-Z0-9]*\??:/gmu)
+  ?.map((field) => field.trim().replace(/[?:].*$/u, ''))
+  .sort();
+const rustFields = rustCommandContract
+  .match(/pub struct CodexAgentExecuteRequest \{(?<body>[\s\S]*?)\n\}/u)
+  ?.groups?.body.match(/^\s{4}pub [a-z_]+:/gmu)
+  ?.map((field) =>
+    field
+      .trim()
+      .slice(4, -1)
+      .replace(/_([a-z])/gu, (_match, letter: string) => letter.toUpperCase()),
+  )
+  .sort();
+assert.ok(rendererFields && rustFields, 'Codex execute request contracts must be parseable');
+assert.deepEqual(
+  rendererFields,
+  rustFields,
+  'renderer and Rust Codex execute request fields must stay in lockstep',
+);
 
 const runtimeSource = source('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 assert.match(runtimeSource, /readonly capabilities: RuntimeEngineCapabilityManifest/u);

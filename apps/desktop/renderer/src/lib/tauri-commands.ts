@@ -337,11 +337,7 @@ interface CodexAgentExecuteRequest {
   workspaceBindingHistoryId?: string | null;
   nativeSessionMode: 'tracked' | 'fresh';
   nativeSessionResetSourceRunId?: string | null;
-  model?: string | null;
-  runtimeModelRef?: string | null;
   permissionMode?: string | null;
-  thinkingLevel?: string | null;
-  serviceTier?: string | null;
   systemPromptAppend?: string | null;
   clientUserMessageId?: string | null;
   workspaceRequirement: 'optional' | 'required';

@@ -6,6 +6,10 @@ import { getTauriDb } from '@/lib/tauri-db.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import { RUN_COST_UPDATED_EVENT } from '@/runtime/run-cost-refresh.js';
+import {
+  GRAPH_THREAD_STATUS_CHANGED_EVENT,
+  type GraphThreadStatusChangedPayload,
+} from '@/runtime/thread-runtime-status.js';
 import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import type {
   ActivityType,
@@ -424,6 +428,16 @@ export function useEmployeeMcpTools(employeeId: string | null) {
 }
 
 export function useThreads(projectId: string | null) {
+  const queryClient = useQueryClient();
+  useEffect(
+    () =>
+      runtimeEventBus.on(GRAPH_THREAD_STATUS_CHANGED_EVENT, (event) => {
+        const payload = event.payload as GraphThreadStatusChangedPayload;
+        if (payload.projectId !== projectId) return;
+        void queryClient.invalidateQueries({ queryKey: projectChatThreadRowsQueryKey(projectId) });
+      }),
+    [projectId, queryClient],
+  );
   return useQuery({
     queryKey: projectChatThreadRowsQueryKey(projectId),
     queryFn: () => loadProjectChatThreadRows(projectId),

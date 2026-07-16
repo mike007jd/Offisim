@@ -9,6 +9,7 @@ import type {
 } from '../apps/desktop/renderer/src/data/types.js';
 import { presenceFor } from '../apps/desktop/renderer/src/surfaces/office/employee-presence.js';
 import { terminalVisualOptionsFromCss } from '../apps/desktop/renderer/src/surfaces/office/stage-terminal/terminal-theme.js';
+import { persistThreadRuntimeStatus } from '../apps/desktop/renderer/src/runtime/thread-runtime-status.js';
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
 const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
@@ -76,6 +77,73 @@ const projectedFailure = threadToVm({
 assert.equal(projectedFailure.runtimeStatus, 'failed');
 assert.equal(projectedFailure.runState, 'error');
 assert.equal(presenceFor(employee, projectedFailure), 'failed');
+
+const desktopRuntimeSource = read(
+  'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
+);
+const missionManagerSource = read(
+  'apps/desktop/renderer/src/runtime/mission/mission-run-manager.ts',
+);
+const queriesSource = read('apps/desktop/renderer/src/data/queries.ts');
+assert.match(
+  desktopRuntimeSource,
+  /persistThreadRuntimeStatus\([\s\S]*?status: 'running'/u,
+  'direct runtime must durably project Working to graph_threads',
+);
+assert.match(
+  desktopRuntimeSource,
+  /status:\s*signal\?\.aborted\s*\?\s*'paused'\s*:\s*'failed'/u,
+  'direct runtime must durably project Failed to graph_threads',
+);
+assert.match(
+  missionManagerSource,
+  /persistThreadRuntimeStatus\([\s\S]*?finalStatus/u,
+  'Mission terminal status must be written to graph_threads',
+);
+assert.match(
+  queriesSource,
+  /runtimeEventBus\.on\(GRAPH_THREAD_STATUS_CHANGED_EVENT/u,
+  'TeamDock thread query must refresh after the durable status projection',
+);
+
+const graphRows = new Map<string, Record<string, unknown>>();
+const statusEvents: unknown[] = [];
+const threads = {
+  async create(row: Record<string, unknown>) {
+    const persisted = {
+      ...row,
+      project_id: row.project_id ?? null,
+      interaction_mode: 'boss_proxy',
+      synopsis_json: null,
+      compact_baseline_json: null,
+      created_at: '2026-07-17T00:00:00.000Z',
+      updated_at: '2026-07-17T00:00:00.000Z',
+    };
+    graphRows.set(String(row.thread_id), persisted);
+    return persisted;
+  },
+  async findById(threadId: string) {
+    return graphRows.get(threadId) ?? null;
+  },
+  async updateStatus(threadId: string, status: string) {
+    const row = graphRows.get(threadId);
+    if (row) graphRows.set(threadId, { ...row, status });
+  },
+};
+const statusInput = {
+  repos: { threads } as never,
+  eventBus: { emit: (event: unknown) => statusEvents.push(event) } as never,
+  companyId: 'company-1',
+  threadId: 'thread-presence',
+  projectId: 'project-1',
+  rootTaskId: 'run-1',
+  entryMode: 'direct_chat' as const,
+};
+await persistThreadRuntimeStatus({ ...statusInput, status: 'running' });
+assert.equal(graphRows.get('thread-presence')?.status, 'running');
+await persistThreadRuntimeStatus({ ...statusInput, status: 'failed' });
+assert.equal(graphRows.get('thread-presence')?.status, 'failed');
+assert.equal(statusEvents.length, 2, 'presentation refresh fires only after each durable write');
 
 const tokens = read('apps/desktop/renderer/src/styles/tokens.css');
 const semanticRadiusRoles = [

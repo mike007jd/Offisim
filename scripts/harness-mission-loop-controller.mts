@@ -726,17 +726,17 @@ await check(
 
 // ---------------------------------------------------------------------------
 // 10. Evaluator BLOCKED/ERROR (NOT a runtimeError) with no product FAIL →
-//     mission blocked (infra), repair counter untouched. Distinct from check 6
+//     mission blocked, repair counter untouched. Distinct from check 6
 //     (which is a runtimeError before evaluation): here an evaluator runs and
 //     returns a non-product verdict.
 // ---------------------------------------------------------------------------
 
 await check(
-  'evaluator BLOCKED (no product FAIL) → blocked (infra); repair counter untouched',
+  'evaluator BLOCKED (no product FAIL) → needs input; repair counter untouched',
   async () => {
     const { svc, deps } = freshService();
     // manual_approval with no recorded approval → BLOCKED (a real evaluator run,
-    // not a runtimeError). No product FAIL anywhere → infra-only → blocked.
+    // not a runtimeError). No product FAIL anywhere → input wait → blocked.
     const missionId = await readyMission(svc, {
       criteria: [
         {
@@ -768,7 +768,7 @@ await check(
 
     const result = await controller.run(missionId);
     assert.equal(result.status, 'blocked', 'evaluator BLOCKED with no product FAIL → blocked');
-    assert.equal(result.stopReason, 'runtime_incompatible', 'infra stop reason');
+    assert.equal(result.stopReason, 'needs_input', 'human approval is input, not runtime failure');
     assert.equal(result.attempts, 1, 'a single attempt — blocked is not repaired');
     assert.deepEqual(
       result.evidence.repairCountsByCriterion,
