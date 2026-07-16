@@ -1,7 +1,7 @@
 {
   "name": "offisim",
   "private": true,
-  "packageManager": "pnpm@10.15.1",
+  "packageManager": "pnpm@11.13.1",
   "engines": {
     "node": ">=22.19.0"
   },
@@ -33,7 +33,7 @@
     "harness:conversation-deletion": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-conversation-deletion.mts",
     "harness:thread-lifecycle-guard": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-thread-lifecycle-guard.mts",
     "harness:workspace-chat-presentation": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-workspace-chat-presentation.mts",
-    "harness:chat-persistence": "NODE_OPTIONS=\"--import $PWD/scripts/harness-chat-persistence.loader-register.mjs\" pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-chat-persistence.mts && pnpm harness:semantic-title-repository",
+    "harness:chat-persistence": "pnpm --filter @offisim/platform exec env NODE_OPTIONS=\"--import $PWD/scripts/harness-chat-persistence.loader-register.mjs\" tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-chat-persistence.mts && pnpm harness:semantic-title-repository",
     "harness:semantic-title-repository": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-semantic-title-repository.mts",
     "harness:activity-data": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-activity-data.mts",
     "harness:pi-permission": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-pi-permission-modes.mts",
@@ -44,7 +44,7 @@
     "harness:eval-suite": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-eval-suite.mts",
     "eval:live-ledger": "pnpm --filter @offisim/platform exec tsx ../../scripts/eval-suite-live-ledger.mts",
     "security:harness": "pnpm platform:auth-harness && pnpm platform:moderation-harness && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-platform-body-limit-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-doc-engine-csv-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-doc-engine-xlsx-limits.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-git-source-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-registry-client-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-web-fetch-security.mts && pnpm --filter @offisim/platform exec tsx ../../scripts/harness-web-search-security.mts && pnpm harness:pi-permission && pnpm harness:install-core-integrity",
-    "audit:prod": "npx --yes pnpm@11.13.0 --config.pm-on-fail=ignore audit --prod --audit-level high",
+    "audit:prod": "pnpm --config.pm-on-fail=ignore audit --prod --audit-level high",
     "harness:review-fixes": "node scripts/harness-review-fixes.mjs && pnpm check:docs-truth && pnpm harness:ai-account-catalog && pnpm harness:ai-account-configuration && pnpm harness:settings-status-coordinator && pnpm harness:ai-account-usage && pnpm harness:market-surface && pnpm harness:personnel-danger-zone && pnpm harness:chrome-stability && pnpm harness:visual-semantics",
     "harness:settings-status-coordinator": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-settings-status-coordinator.mts",
     "harness:ai-account-usage": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-ai-account-usage.mts",

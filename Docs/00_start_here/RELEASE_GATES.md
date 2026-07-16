@@ -30,7 +30,7 @@ when the list changes.
 | Validate | `pnpm validate` | types plus product/document truth, Pi API/Codex orchestration hosts, runtime, workspace, UI, security-boundary, and dead-code harnesses |
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
-| Supply chain | `pnpm audit:prod` | no unresolved high/critical advisories in the prod tree; the script pins `pnpm@11.13.0` for npm's current Bulk Advisory API while the build toolchain remains on pnpm 10 (transitive highs are pinned via root workspace overrides) |
+| Supply chain | `pnpm audit:prod` | no unresolved high/critical advisories in the prod tree; the repository-native pnpm 11 client calls the current audit endpoint (transitive highs are pinned via root workspace overrides) |
 | Desktop Rust | `cargo test --locked` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db baseline/refusal behavior |
 
 `node scripts/release-gates.mjs --lane=node` runs only the first four Node gates

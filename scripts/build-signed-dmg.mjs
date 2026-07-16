@@ -286,10 +286,8 @@ async function main() {
 
   console.log('[release:dmg] building arm64 Offisim.app');
   runChecked(
-    'npx',
+    'pnpm',
     [
-      '--yes',
-      'pnpm@10.15.1',
       '--filter',
       '@offisim/desktop',
       'exec',

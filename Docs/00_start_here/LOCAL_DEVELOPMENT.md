@@ -9,14 +9,14 @@ Hono platform/registry backend.
 | Tool | Version | Needed for |
 |------|---------|-----------|
 | Node.js | `>=22.19.0` (release bundle uses 24.x) | everything; enable `corepack` |
-| pnpm | `10.15.1` (pinned in `packageManager`) | install/build/scripts |
+| pnpm | [`11.13.1`](https://www.npmjs.com/package/pnpm/v/11.13.1) (pinned in `packageManager`; official npm registry checked 2026-07-17) | install/build/scripts |
 | Rust + Cargo | stable (dev uses 1.93.x) | the desktop app (`apps/desktop`) |
 | Tauri system deps | per OS ([tauri.app prerequisites](https://tauri.app/start/prerequisites/)) | desktop build (WebKit, Xcode CLT on macOS, etc.) |
 | PostgreSQL | 16 | only if you run the platform API |
 
 ```bash
 corepack enable
-corepack prepare pnpm@10.15.1 --activate
+corepack prepare pnpm@11.13.1 --activate
 ```
 
 ## First-time setup
