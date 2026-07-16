@@ -103,7 +103,14 @@ function safeJsonRecord(value: string | null | undefined): Record<string, unknow
 
 function roleSlug(role: string): RoleSlug {
   const normalized = role.toLowerCase();
-  if (normalized.includes('qa') || normalized.includes('test')) return 'qa';
+  if (
+    normalized.includes('qa') ||
+    normalized.includes('test') ||
+    normalized.includes('audit') ||
+    normalized.includes('quality')
+  ) {
+    return 'qa';
+  }
   if (normalized.includes('frontend')) return 'frontend';
   if (normalized.includes('backend')) return 'backend';
   if (normalized.includes('fullstack')) return 'fullstack';
