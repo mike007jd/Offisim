@@ -14,6 +14,7 @@ import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef, useState } from 'react';
 import './terminal-session.css';
 import { bytesToBase64, terminalReplayStep } from './terminal-replay.js';
+import { terminalVisualOptionsFromCss } from './terminal-theme.js';
 
 type TerminalTarget = Extract<StageViewTarget, { kind: 'terminal-session' }>;
 
@@ -62,32 +63,8 @@ export function TerminalSessionView({ target }: { target: TerminalTarget }) {
       convertEol: false,
       cursorBlink: true,
       cursorStyle: 'block',
-      fontFamily: '"SFMono-Regular", "SF Mono", Menlo, Consolas, monospace',
-      fontSize: 12,
-      lineHeight: 1.25,
+      ...terminalVisualOptionsFromCss(getComputedStyle(host)),
       scrollback: 8_000,
-      theme: {
-        background: '#090d12',
-        foreground: '#d7e2ef',
-        cursor: '#8be9fd',
-        selectionBackground: '#24435a',
-        black: '#0b1016',
-        brightBlack: '#5f6b7a',
-        red: '#ff6b7a',
-        brightRed: '#ff8793',
-        green: '#7ee787',
-        brightGreen: '#9be9a8',
-        yellow: '#e3b341',
-        brightYellow: '#f2cc60',
-        blue: '#58a6ff',
-        brightBlue: '#79c0ff',
-        magenta: '#bc8cff',
-        brightMagenta: '#d2a8ff',
-        cyan: '#56d4dd',
-        brightCyan: '#8be9fd',
-        white: '#b1bac4',
-        brightWhite: '#f0f6fc',
-      },
     });
     const fit = new FitAddon();
     terminal.loadAddon(fit);

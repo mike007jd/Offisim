@@ -45,6 +45,17 @@ type EmployeeKind = 'internal' | 'external';
  *  blocked on a gate, failed, or offline/asleep. */
 export type EmployeePresence = 'working' | 'idle' | 'blocked' | 'failed' | 'offline';
 
+/** Exact graph_threads.status values projected into the renderer. */
+export type ThreadRuntimeStatus =
+  | 'queued'
+  | 'running'
+  | 'blocked'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | null;
+
 export interface Employee {
   id: string;
   name: string;
@@ -52,8 +63,6 @@ export interface Employee {
   kind: EmployeeKind;
   brandLabel?: string;
   online: boolean;
-  /** Richer presence used by Office team dock, Personnel roster and Contacts. */
-  presence?: EmployeePresence;
   avatarA: string;
   avatarB: string;
   appearance?: EmployeeAppearance;
@@ -88,6 +97,8 @@ export interface ChatThread {
   employeeId: string | null;
   updatedAt: number;
   runState: RunState;
+  /** Exact graph status; keeps blocked and failed distinct for Office presence. */
+  runtimeStatus: ThreadRuntimeStatus;
 }
 
 type MessageAuthor = 'boss' | 'employee' | 'system';

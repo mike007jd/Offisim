@@ -7,7 +7,7 @@
 
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from '@xyflow/react';
 import type { ProjectedEdge } from './loop-graph-adapter.js';
-import { EDGE_GRAMMAR } from './loop-graph-grammar.js';
+import { EDGE_GRAMMAR, LOOP_GRAPH_GEOMETRY } from './loop-graph-grammar.js';
 
 interface LoopGraphEdgeData extends Record<string, unknown> {
   projected: ProjectedEdge;
@@ -33,7 +33,7 @@ export function LoopGraphEdge({
     targetY,
     sourcePosition,
     targetPosition,
-    borderRadius: 8,
+    borderRadius: LOOP_GRAPH_GEOMETRY.edgeCornerRadius,
   });
 
   const dash = grammar.line === 'dashed' ? '6 4' : undefined;

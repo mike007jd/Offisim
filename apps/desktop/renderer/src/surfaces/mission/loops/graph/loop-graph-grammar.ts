@@ -50,6 +50,10 @@ export interface EdgeGrammar {
   severity?: 'warn';
 }
 
+export const LOOP_GRAPH_GEOMETRY = {
+  edgeCornerRadius: 8,
+} as const;
+
 export const EDGE_GRAMMAR: Record<LoopEdgeKind, EdgeGrammar> = {
   next: { line: 'solid', emphasized: false },
   feedback: { icon: RotateCcw, line: 'loopback', emphasized: true, defaultLabel: 'feedback' },

@@ -3,7 +3,14 @@ import { initialsOf } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import { ACCENT_PAIRS } from './color-palette.js';
-import type { ChatThread, Company, Employee, Project, RunState } from './types.js';
+import type {
+  ChatThread,
+  Company,
+  Employee,
+  Project,
+  RunState,
+  ThreadRuntimeStatus,
+} from './types.js';
 
 /**
  * Real-backend adapters: map SQLite repo rows → renderer view-model types so the
@@ -180,15 +187,31 @@ export function displayThreadTitle(title: string | null | undefined): string {
   return !trimmed || trimmed === 'New thread' ? 'New conversation' : trimmed;
 }
 
-function runStateFromGraphStatus(status: string | null | undefined): RunState {
+function normalizeThreadRuntimeStatus(status: string | null | undefined): ThreadRuntimeStatus {
+  switch (status) {
+    case 'queued':
+    case 'running':
+    case 'blocked':
+    case 'paused':
+    case 'completed':
+    case 'failed':
+    case 'cancelled':
+      return status;
+    default:
+      return null;
+  }
+}
+
+function runStateFromGraphStatus(status: ThreadRuntimeStatus): RunState {
   if (status === 'queued' || status === 'running') return 'running';
   if (status === 'paused') return 'paused';
-  if (status === 'blocked' || status === 'failed' || status === 'error') return 'error';
+  if (status === 'blocked' || status === 'failed') return 'error';
   if (status === 'completed') return 'done';
   return 'idle';
 }
 
 export function threadToVm(row: ChatThreadRowLike): ChatThread {
+  const runtimeStatus = normalizeThreadRuntimeStatus(row.run_status);
   return {
     id: row.thread_id,
     projectId: row.project_id,
@@ -197,7 +220,8 @@ export function threadToVm(row: ChatThreadRowLike): ChatThread {
     scope: row.employee_id ? 'direct' : 'team',
     employeeId: row.employee_id ?? null,
     updatedAt: Date.parse(row.updated_at) || Date.now(),
-    runState: runStateFromGraphStatus(row.run_status),
+    runState: runStateFromGraphStatus(runtimeStatus),
+    runtimeStatus,
   };
 }
 

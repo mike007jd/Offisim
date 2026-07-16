@@ -41,6 +41,10 @@ assert(
   'The architecture guard must verify the exact model catalog.',
 );
 assert(
+  rootPackage.scripts['harness:review-fixes'].includes('harness:visual-semantics'),
+  'The review gate must verify radius, presence, and error semantics.',
+);
+assert(
   rootPackage.scripts.validate.includes('harness:pi-agent-host') &&
     rootPackage.scripts.validate.includes('harness:runtime-conformance'),
   'Validate must cover the production API adapter and neutral runtime conformance.',

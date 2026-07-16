@@ -1856,7 +1856,6 @@
 }
 
 .off-preview-line mark {
-  border-radius: 2px;
   background: color-mix(in srgb, var(--off-accent) 26%, transparent);
   color: var(--off-ink-1);
 }
@@ -3601,7 +3600,11 @@
 .off-team-status {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--off-sp-1);
+  padding: 1px var(--off-sp-1);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-radius-status);
+  background: var(--off-surface-sunken);
   font-size: var(--off-fs-label);
   font-weight: 700;
   letter-spacing: 0;
@@ -3610,18 +3613,66 @@
 }
 
 .off-team-status .off-team-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: var(--off-r-round);
-  background: var(--off-ink-4);
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border: 1px solid currentColor;
+  border-radius: var(--off-radius-round);
+  background: transparent;
 }
 
-.off-team-status.is-running {
+.off-team-status.is-working {
   color: var(--off-accent);
+  border-color: var(--off-accent-line-soft);
+  background: var(--off-accent-surface);
 }
-.off-team-status.is-running .off-team-dot {
+.off-team-status.is-working .off-team-dot {
+  border-color: transparent;
   background: var(--off-accent);
   animation: off-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
+}
+
+.off-team-status.is-idle {
+  color: var(--off-ink-3);
+}
+
+.off-team-status.is-blocked {
+  color: var(--off-warn);
+  border-color: var(--off-warn-line-subtle);
+  background: var(--off-warn-surface);
+}
+.off-team-status.is-blocked .off-team-dot {
+  width: 5px;
+  height: 5px;
+  border: 0;
+  border-radius: 0;
+  background: var(--off-warn);
+  transform: rotate(45deg);
+}
+
+.off-team-status.is-failed {
+  color: var(--off-danger);
+  border-color: var(--off-danger-line-soft);
+  background: var(--off-danger-surface);
+}
+.off-team-status.is-failed .off-team-dot {
+  width: 5px;
+  height: 5px;
+  border: 0;
+  border-radius: 0;
+  background: var(--off-danger);
+}
+
+.off-team-status.is-offline {
+  color: var(--off-ink-4);
+  background: var(--off-surface-2);
+}
+.off-team-status.is-offline .off-team-dot {
+  width: 7px;
+  height: 2px;
+  border: 0;
+  border-radius: 0;
+  background: var(--off-line-strong);
 }
 
 /* --- Chat rail (single axis: list <-> thread, no tab bar) --- */
@@ -3816,7 +3867,7 @@
    flow block so the error banner / confirm bar scroll with the conversation
    instead of being trapped under a nested inner scrollbar. */
 .off-messages {
-  padding: var(--off-sp-6) var(--off-sp-6) var(--off-sp-3);
+  padding: var(--off-sp-6) var(--off-chat-column-inset) var(--off-sp-3);
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-6);
@@ -5682,9 +5733,9 @@
 
 /* === Chat error banner ==================================================== */
 .off-errbanner {
-  margin: var(--off-sp-3) 0;
+  margin: var(--off-sp-3) var(--off-chat-column-inset);
   border: 1px solid var(--off-danger);
-  border-radius: var(--off-r-md);
+  border-radius: var(--off-radius-container);
   background: var(--off-danger-surface);
   overflow: hidden;
 }
@@ -5707,7 +5758,7 @@
 .off-errbanner-x {
   display: inline-flex;
   color: var(--off-ink-3);
-  border-radius: var(--off-r-xs);
+  border-radius: var(--off-radius-control);
 }
 .off-errbanner-x:hover {
   color: var(--off-ink-1);
@@ -5725,7 +5776,7 @@
   height: 28px;
   padding: 0 var(--off-sp-3);
   border: 1px solid var(--off-line);
-  border-radius: var(--off-r-sm);
+  border-radius: var(--off-radius-control);
   background: var(--off-surface-1);
   color: var(--off-ink-2);
   font-size: var(--off-fs-micro);
@@ -6599,16 +6650,6 @@
   color: var(--off-ink-1);
   font-size: var(--off-fs-sm);
 }
-.off-team-status.is-blocked .off-team-dot {
-  background: var(--off-warn);
-}
-.off-team-status.is-failed .off-team-dot {
-  background: var(--off-danger);
-}
-.off-team-status.is-offline .off-team-dot {
-  background: var(--off-line-strong);
-}
-
 /* === Deliverable cards (expandable, with actions) ========================= */
 .off-dlv {
   flex-direction: column;

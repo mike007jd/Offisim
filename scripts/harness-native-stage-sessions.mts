@@ -231,7 +231,10 @@ for (const baseline of [
   'ctx.shadowBlur = 0',
   'ctx.shadowOffsetX = 0',
   'ctx.shadowOffsetY = 0',
-  "ctx.font = '10px sans-serif'",
+  'ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name',
+  'ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.name',
+  'ctx.shadowColor = OFFICE_SCENE_2D_COLORS.transparent',
+  'ctx.font = CANVAS_FONT_TOKENS.canvasReset',
 ]) {
   assert.match(
     officeScene2DSource,

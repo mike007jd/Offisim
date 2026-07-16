@@ -31,14 +31,21 @@
   --off-violet: #7c4ddb;
   --off-violet-surface: #f1ebfd;
 
-  --off-r-2xs: 4px;
-  --off-r-xs: 5px;
-  --off-r-sm: 7px;
-  --off-r-md: 9px;
-  --off-r-lg: 13px;
-  --off-r-pill: 999px;
-  --off-r-round: 50%;
-  --off-r-full: var(--off-r-pill);
+  /* Radius roles are the source of truth. Size-named aliases remain only for
+     existing surfaces and all resolve to one of these five roles. */
+  --off-radius-control: 7px;
+  --off-radius-container: 9px;
+  --off-radius-overlay: 13px;
+  --off-radius-status: 999px;
+  --off-radius-round: 50%;
+  --off-r-2xs: var(--off-radius-control);
+  --off-r-xs: var(--off-radius-control);
+  --off-r-sm: var(--off-radius-control);
+  --off-r-md: var(--off-radius-container);
+  --off-r-lg: var(--off-radius-overlay);
+  --off-r-pill: var(--off-radius-status);
+  --off-r-round: var(--off-radius-round);
+  --off-r-full: var(--off-radius-status);
 
   --off-elev-1: 0 1px 2px rgba(20, 32, 56, 0.06), 0 1px 1px rgba(20, 32, 56, 0.04);
   --off-elev-2: 0 4px 14px rgba(20, 32, 56, 0.1), 0 1px 3px rgba(20, 32, 56, 0.06);
@@ -46,7 +53,7 @@
 
   /* Office diorama overlay material: one enamel-like, softly bevelled surface
      shared by workload trays, markers, delivery cards and flow labels. */
-  --off-scene-toy-radius: var(--off-r-xs);
+  --off-scene-toy-radius: 5px;
   --off-scene-toy-surface: rgba(247, 244, 236, 0.94);
   --off-scene-toy-surface-muted: rgba(232, 229, 220, 0.9);
   --off-scene-toy-edge: rgba(89, 101, 111, 0.24);
@@ -114,6 +121,7 @@
   --off-form-col-max: 720px;
   --off-content-col: 760px;
   --off-content-col-wide: 960px;
+  --off-chat-column-inset: var(--off-sp-6);
   /* Office stage breathing lane above/below the scene canvas; lane-resident
      controls centre against it instead of straddling the canvas edge. */
   --off-stage-lane: 38px;
@@ -190,6 +198,32 @@
   --off-danger-line-soft: rgba(214, 69, 61, 0.32);
   --off-danger-ring-soft: rgba(214, 69, 61, 0.18);
   --off-violet-line-soft: rgba(124, 77, 219, 0.22);
+
+  /* Native terminal palette: CSS is the only literal source; xterm reads the
+     resolved variables so its canvas and surrounding chrome cannot drift. */
+  --off-terminal-background: #090d12;
+  --off-terminal-foreground: #d7e2ef;
+  --off-terminal-cursor: #8be9fd;
+  --off-terminal-selection: #24435a;
+  --off-terminal-black: #0b1016;
+  --off-terminal-bright-black: #5f6b7a;
+  --off-terminal-red: #ff6b7a;
+  --off-terminal-bright-red: #ff8793;
+  --off-terminal-green: #7ee787;
+  --off-terminal-bright-green: #9be9a8;
+  --off-terminal-yellow: #e3b341;
+  --off-terminal-bright-yellow: #f2cc60;
+  --off-terminal-blue: #58a6ff;
+  --off-terminal-bright-blue: #79c0ff;
+  --off-terminal-magenta: #bc8cff;
+  --off-terminal-bright-magenta: #d2a8ff;
+  --off-terminal-cyan: #56d4dd;
+  --off-terminal-bright-cyan: #8be9fd;
+  --off-terminal-white: #b1bac4;
+  --off-terminal-bright-white: #f0f6fc;
+  --off-terminal-font-family: "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
+  --off-terminal-font-size: 12px;
+  --off-terminal-line-height: 1.25;
 
   --off-font-sans: "General Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;

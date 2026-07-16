@@ -22,7 +22,7 @@
 | T11 | Personnel Danger Zone | T00 | [ ] |
 | T12 | Chrome、rails、nav、run pill 稳定 | T01 | [x] |
 | T13 | Usage / Cost 单一表达 | T08 | [x] |
-| T14 | Radius、presence、error 视觉语义 | T00 | [ ] |
+| T14 | Radius、presence、error 视觉语义 | T00 | [x] |
 | T15 | Dead docs 与 gates 收敛 | T01-T14 | [ ] |
 | T16 | Release `.app` 盲测闭环 | T15 | [ ] |
 
@@ -500,18 +500,29 @@
 
 ### Acceptance
 
-- [ ] radius roles 唯一映射：control、container、overlay、status、round。
-- [ ] 已知 `2px/6px/7px/999px` 裸 radius 全部分类或移除。
-- [ ] hygiene gate 能阻止任意新增非零裸 radius，不靠宽泛 allowlist。
-- [ ] working/idle/offline/blocked/failed 在 reduced motion 下仍可辨。
-- [ ] 状态至少由文字 + 色调/形状/表面中的一项共同表达。
-- [ ] error banner 与 message column 共用水平 inset。
-- [ ] Office dense HUD 与 dramaturgy 不被扁平化。
+- [x] radius roles 唯一映射：control、container、overlay、status、round。
+- [x] 已知 `2px/6px/7px/999px` 裸 radius 全部分类或移除。
+- [x] hygiene gate 能阻止任意新增非零裸 radius，不靠宽泛 allowlist。
+- [x] working/idle/offline/blocked/failed 在 reduced motion 下仍可辨。
+- [x] 状态至少由文字 + 色调/形状/表面中的一项共同表达。
+- [x] error banner 与 message column 共用水平 inset。
+- [x] Office dense HUD 与 dramaturgy 不被扁平化。
 
 ### Oracles
 
 - UI hygiene、UI drift、office visual language gates。
 - T16 覆盖 radius toolbar、五态 presence、error、reduced motion。
+
+### T14 Evidence（2026-07-16 NZST）
+
+- radius 真源收敛为 `control=7px`、`container=9px`、`overlay=13px`、`status=999px`、`round=50%` 五个语义角色；旧尺寸 alias 只解析到这些角色。CSS 中已知 `2px/6px/7px/999px` 和 TSX `borderRadius` 裸值已移除或转入命名 geometry/token，Canvas `roundRect` 半径统一进入 `CANVAS_RADIUS_TOKENS`。
+- `check:ui-hygiene` 现在扫描所有非 token-source CSS 的任意非零裸 radius（包含 `calc(...)`）、TS/TSX 裸 `borderRadius` 与 Canvas `roundRect` 数值末参，不依赖宽泛 allowlist。Terminal 主题改从已解析 CSS token 读取，Browser、OfficeScene2D 与 Loop edge 的裸视觉值同步清除。
+- Conversation 投影保留 exact runtime status；Team dock 只从 `queued/running/blocked/paused/failed/completed/cancelled/null` 与员工 online/enabled 真值推导 presence。offline 优先级高于 queued/running，五态分别使用实心脉冲圆、空心圆、琥珀菱形、红色方形与横线，并始终带文字和表面语义；reduced motion 只冻结动画，不删除形状、文字或表面。
+- error banner 与 message list 共用 `--off-chat-column-inset`。Office dense HUD、3D dramaturgy、workspace/conversation rail 折叠和 Stage 尺寸保持原结构，没有用扁平化换取一致性。
+- `harness:visual-semantics` 覆盖五态、offline precedence、真实 `threadToVm` failed 投影、radius 唯一映射、裸 radius 扫描与 error inset；`pnpm validate` 全量通过，包含 typecheck、UI hygiene/drift、Office visual language/diorama、Codex Rust 51/51、Pi host、native stage、deadcode。`pnpm --filter @offisim/desktop build` 与 bundle sidecar 校验通过。
+- 精确 release `.app` 使用隔离 HOME `/private/tmp/offisim-t14-five-state.WfC8Ya`，预置 WORKING / IDLE / BLOCKED / FAILED / OFFLINE 五态并在同一屏完成 Computer Use 验收；disabled + queued fixture 正确显示 OFFLINE。无认证环境发送 `Local visual verification` 只产生本地 `Agent runtime run failed`，未发生外部模型调用；error banner 与消息列内缩视觉一致。
+- 操作前匹配精确 app path、`pid=11207`、`windowId=11783`、title `Offisim`、bounds `x=36 y=33 width=1440 height=879`、WebView URL `tauri://localhost`；全程未使用 bundle id、LaunchServices、AppleScript、dev server 或原 `~/.offisim`，窗口由 Computer Use 关闭。
+- release 主二进制 SHA-256 `08573b4f6149448cad03a8e5030457435ef1586c8ccc6ad68a75856285a5ee19`；Codex sidecar SHA-256 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
 
 ---
 

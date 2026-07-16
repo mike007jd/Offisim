@@ -362,7 +362,7 @@ const checks = [
     label: 'raw active CSS micro typography/radius/motion',
     dirs: ['apps/desktop/renderer/src'],
     pattern:
-      /font-size:\s*(?:7\.5|8\.5|9|9\.5|10|10\.5|12|19)px|font-size:\s*0\.9em|border-radius:\s*(?:4px|50%|999px|26%)|z-index:\s*(?:[1-9]\d*)|transition:\s*[^;]*(?:0\.14s|60ms|\sease(?:[;,]|\s))|animation:\s*[^;]*(?:0\.8s|0\.9s|1\.2s|1\.4s|1\.6s|3s|ease-in-out|\sease(?:\s|;)|\slinear(?:\s|;))/,
+      /font-size:\s*(?:7\.5|8\.5|9|9\.5|10|10\.5|12|19)px|font-size:\s*0\.9em|z-index:\s*(?:[1-9]\d*)|transition:\s*[^;]*(?:0\.14s|60ms|\sease(?:[;,]|\s))|animation:\s*[^;]*(?:0\.8s|0\.9s|1\.2s|1\.4s|1\.6s|3s|ease-in-out|\sease(?:\s|;)|\slinear(?:\s|;))/,
     excludeFiles: [
       'apps/desktop/renderer/src/styles/tokens.css',
       'apps/desktop/renderer/src/styles/motion.css',
@@ -727,6 +727,59 @@ for (const file of rawHexFiles) {
 }
 
 const cssFiles = collectFiles('apps/desktop/renderer/src').filter((file) => file.endsWith('.css'));
+
+// Radius literals are allowed only in the token source. Every active CSS
+// declaration must consume a role/component token; zero stays valid for square
+// edges. This catches arbitrary future values, including literals inside calc().
+const rawRadiusDeclaration = /\bborder(?:-[a-z]+){0,3}-radius\s*:\s*([^;}]+)/g;
+const rawRadiusLength = /(-?(?:\d+\.?\d*|\.\d+))(px|%|rem|em|vh|vw|vmin|vmax|ch|ex|cap|lh|rlh)\b/g;
+for (const file of cssFiles) {
+  const relFile = relative(ROOT, file);
+  if (relFile === 'apps/desktop/renderer/src/styles/tokens.css') continue;
+  const text = readFileSync(file, 'utf8');
+  for (const declaration of text.matchAll(rawRadiusDeclaration)) {
+    for (const length of declaration[1].matchAll(rawRadiusLength)) {
+      if (Number(length[1]) === 0) continue;
+      failures.push({
+        check: 'raw nonzero CSS radius outside token source',
+        file: relFile,
+        line: lineNumber(text, (declaration.index ?? 0) + (length.index ?? 0)),
+        match: length[0],
+      });
+    }
+  }
+}
+
+const rendererCodeFiles = collectFiles('apps/desktop/renderer/src').filter((file) =>
+  ['.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx'].includes(extensionOf(file)),
+);
+const rawBorderRadiusProperty =
+  /\bborderRadius\s*:\s*['"`]?\s*(-?(?:\d+\.?\d*|\.\d+))(?:px|%|rem|em)?\b/g;
+const rawCanvasRoundRect = /\b(?:ctx\.)?roundRect\(([\s\S]*?)\);/g;
+for (const file of rendererCodeFiles) {
+  const relFile = relative(ROOT, file);
+  const text = readFileSync(file, 'utf8');
+  for (const property of text.matchAll(rawBorderRadiusProperty)) {
+    if (Number(property[1]) === 0) continue;
+    failures.push({
+      check: 'raw nonzero TS borderRadius',
+      file: relFile,
+      line: lineNumber(text, property.index ?? 0),
+      match: property[0].slice(0, 120),
+    });
+  }
+  for (const call of text.matchAll(rawCanvasRoundRect)) {
+    const literalTail = call[1].match(/,\s*(-?(?:\d+\.?\d*|\.\d+))\s*$/);
+    if (!literalTail || Number(literalTail[1]) === 0) continue;
+    failures.push({
+      check: 'raw Canvas roundRect radius',
+      file: relFile,
+      line: lineNumber(text, call.index ?? 0),
+      match: literalTail[1],
+    });
+  }
+}
+
 const definedCssVars = new Set();
 const usedCssVars = [];
 for (const file of cssFiles) {

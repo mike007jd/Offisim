@@ -123,6 +123,7 @@ export function ChatRail() {
           subtitle: draftEmployee ? (draftEmployee.role ?? 'Direct message') : 'Team conversation',
           scope: draftEmployee ? 'direct' : 'team',
           runState: 'idle' as const,
+          runtimeStatus: null,
           employeeId: draftThread?.employeeId ?? null,
           updatedAt: Date.now(),
         }
