@@ -51,7 +51,7 @@
 }
 
 .off-browser-nav button.is-loading svg {
-  animation: off-browser-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
+  animation: off-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
 }
 
 .off-browser-address {
@@ -139,12 +139,6 @@
 
 .off-browser-status output {
   color: inherit;
-}
-
-@keyframes off-browser-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @keyframes off-browser-progress {

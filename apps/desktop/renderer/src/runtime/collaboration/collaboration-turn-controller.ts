@@ -34,6 +34,7 @@ import type {
   TurnExecutionProvenance,
 } from '@offisim/shared-types';
 import {
+  isSameModelSource,
   validateExecutionTarget,
   validateTurnExecutionProvenance,
 } from '../execution-provenance.js';
@@ -54,9 +55,7 @@ function sameExecutionTarget(a: AiExecutionTarget, b: AiExecutionTarget): boolea
     a.accountId === b.accountId &&
     a.billingMode === b.billingMode &&
     a.modelId === b.modelId &&
-    a.modelSource.kind === b.modelSource.kind &&
-    a.modelSource.sourceUrl === b.modelSource.sourceUrl &&
-    a.modelSource.checkedAt === b.modelSource.checkedAt
+    isSameModelSource(a.modelSource, b.modelSource)
   );
 }
 

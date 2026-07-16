@@ -16,6 +16,7 @@ use tokio::sync::{oneshot, Mutex as AsyncMutex, Notify};
 use crate::sidecar_stderr::{read_capped_line, MAX_SIDECAR_OUTPUT_BYTES};
 use crate::task_workspace_binding::AuthorizedProcessCwd;
 
+use super::manager::rfc3339_now;
 use super::stream::{
     native_request_key, PendingInteraction, PendingInteractionKind, PendingUserInputQuestion,
     RunStream,
@@ -151,7 +152,6 @@ impl StreamTokenRedactor {
 
 pub(super) const CODEX_APP_SERVER_VERSION: &str = "0.144.4";
 pub(super) const CODEX_ADAPTER_ID: &str = "codex-app-server";
-pub(super) const CODEX_MODEL_SOURCE_URL: &str = "https://developers.openai.com/codex/app-server";
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const NATIVE_THREAD_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
@@ -198,9 +198,9 @@ impl StartupCancellation {
 
 #[derive(Debug, thiserror::Error)]
 pub(super) enum CodexHostError {
-    #[error("The bundled Codex runtime is unavailable.")]
+    #[error("Codex CLI is unavailable.")]
     Unavailable,
-    #[error("The bundled Codex runtime could not start.")]
+    #[error("Codex CLI app-server could not start.")]
     Spawn,
     #[error("The Codex runtime protocol is incompatible with this Offisim build.")]
     Protocol,
@@ -221,7 +221,6 @@ pub(super) struct CodexConnection {
     process_group_id: Option<u32>,
     stream: Option<Arc<RunStream>>,
     workspace_root: Option<PathBuf>,
-    codex_home_fingerprint: Mutex<Option<String>>,
     codex_home_for_redaction: Mutex<Option<String>>,
     stream_projections: Mutex<HashMap<String, PendingStreamProjection>>,
 }
@@ -241,6 +240,7 @@ impl CodexConnection {
         }
         validate_binary(binary)?;
         let mut command = Command::new(binary);
+        command.args(["app-server", "--stdio"]);
         configure_codex_process_env(&mut command, std::env::vars_os())?;
         command
             .stdin(Stdio::piped())
@@ -271,7 +271,6 @@ impl CodexConnection {
             process_group_id,
             stream,
             workspace_root,
-            codex_home_fingerprint: Mutex::new(None),
             codex_home_for_redaction: Mutex::new(None),
             stream_projections: Mutex::new(HashMap::new()),
         });
@@ -304,13 +303,6 @@ impl CodexConnection {
 
     pub(super) fn is_alive(&self) -> bool {
         self.alive.load(Ordering::Acquire)
-    }
-
-    pub(super) fn codex_home_fingerprint(&self) -> Option<String> {
-        self.codex_home_fingerprint
-            .lock()
-            .unwrap_or_else(|_| panic!("codex home fingerprint mutex poisoned"))
-            .clone()
     }
 
     fn codex_home_for_redaction(&self) -> Option<String> {
@@ -425,19 +417,10 @@ impl CodexConnection {
             )
             .await?;
         let object = result.as_object().ok_or(CodexHostError::Protocol)?;
-        let user_agent = required_string(object, "userAgent")?;
+        required_string(object, "userAgent")?;
         let codex_home = required_string(object, "codexHome")?;
         required_string(object, "platformFamily")?;
         required_string(object, "platformOs")?;
-        if !user_agent.contains(CODEX_APP_SERVER_VERSION) {
-            return Err(CodexHostError::Protocol);
-        }
-        let fingerprint = sha256_hex(format!("codex-home\0{codex_home}").as_bytes());
-        *self
-            .codex_home_fingerprint
-            .lock()
-            .unwrap_or_else(|_| panic!("codex home fingerprint mutex poisoned")) =
-            Some(fingerprint);
         *self
             .codex_home_for_redaction
             .lock()
@@ -453,14 +436,6 @@ impl CodexConnection {
     ) -> Result<Value, CodexHostError> {
         self.request_with_timeout(method, Some(params), request_timeout(method))
             .await
-    }
-
-    pub(super) async fn request_no_params_with_timeout(
-        &self,
-        method: &str,
-        timeout: Duration,
-    ) -> Result<Value, CodexHostError> {
-        self.request_with_timeout(method, None, timeout).await
     }
 
     async fn request_with_timeout(
@@ -1037,27 +1012,14 @@ impl CodexConnection {
                         return Err(CodexHostError::Protocol);
                     }
                 }
-                let usage = params
-                    .get("tokenUsage")
-                    .cloned()
-                    .ok_or(CodexHostError::Protocol)?;
-                validate_token_usage(&usage)?;
+                let native_usage = params.get("tokenUsage").ok_or(CodexHostError::Protocol)?;
+                let usage = project_token_usage(native_usage)?;
                 stream.set_usage(usage);
             }
             "model/rerouted" => {
                 required_scope(params, stream)?;
                 required_string(params, "fromModel")?;
-                let to_model = required_string(params, "toModel")?;
-                if !stream
-                    .reroute_matches_frozen_model(to_model)
-                    .map_err(CodexHostError::Request)?
-                {
-                    stream.finish_failed(
-                        "codex_model_mismatch",
-                        "Codex changed away from the selected model, so Offisim stopped the turn.",
-                    );
-                    return Err(CodexHostError::Protocol);
-                }
+                required_string(params, "toModel")?;
             }
             "serverRequest/resolved" => {
                 let thread_id = required_string(params, "threadId")?;
@@ -1293,8 +1255,8 @@ fn codex_env_key_is_allowed(key: &OsStr) -> bool {
 }
 
 fn validate_binary(binary: &Path) -> Result<(), CodexHostError> {
-    let metadata = std::fs::symlink_metadata(binary).map_err(|_| CodexHostError::Unavailable)?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
+    let metadata = std::fs::metadata(binary).map_err(|_| CodexHostError::Unavailable)?;
+    if !metadata.is_file() {
         return Err(CodexHostError::Unavailable);
     }
     #[cfg(unix)]
@@ -1991,13 +1953,57 @@ fn validate_token_usage(value: &Value) -> Result<(), CodexHostError> {
             "reasoningOutputTokens",
             "totalTokens",
         ] {
-            usage
+            let count = usage
                 .get(field)
                 .and_then(Value::as_i64)
                 .ok_or(CodexHostError::Protocol)?;
+            if count < 0 {
+                return Err(CodexHostError::Protocol);
+            }
         }
     }
     Ok(())
+}
+
+fn project_token_usage(value: &Value) -> Result<Value, CodexHostError> {
+    validate_token_usage(value)?;
+    let last = value
+        .get("last")
+        .and_then(Value::as_object)
+        .ok_or(CodexHostError::Protocol)?;
+    let count = |field: &str| {
+        last.get(field)
+            .and_then(Value::as_i64)
+            .ok_or(CodexHostError::Protocol)
+    };
+    let input = count("inputTokens")?;
+    let cache_read = count("cachedInputTokens")?;
+    let output = count("outputTokens")?;
+    let reasoning = count("reasoningOutputTokens")?;
+    let captured_at = rfc3339_now().map_err(|_| CodexHostError::Protocol)?;
+    Ok(json!({
+        "scope": {
+            "kind": "subscription-run-diagnostic",
+            "engineId": "codex",
+            "accountId": "codex:local",
+            "modelId": "engine-managed",
+        },
+        "input": input.saturating_sub(cache_read),
+        "output": output,
+        "cacheRead": cache_read,
+        "reasoning": reasoning,
+        "inputAccounting": "excludes-cache",
+        "outputAccounting": "includes-reasoning",
+        "usageSource": {
+            "kind": "adapter",
+            "capturedAt": captured_at,
+            "reference": "codex app-server thread/tokenUsage/updated",
+        },
+        "cost": {
+            "kind": "unavailable",
+            "reason": "Subscription-included orchestration task; no API cost.",
+        },
+    }))
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -2010,8 +2016,6 @@ mod tests {
 
     #[test]
     fn native_thread_requests_allow_real_codex_cold_start_time() {
-        assert_eq!(request_timeout("account/read"), Duration::from_secs(30));
-        assert_eq!(request_timeout("model/list"), Duration::from_secs(30));
         assert_eq!(request_timeout("turn/start"), Duration::from_secs(30));
         assert_eq!(request_timeout("thread/start"), Duration::from_secs(120));
         assert_eq!(request_timeout("thread/resume"), Duration::from_secs(120));
@@ -2089,7 +2093,20 @@ mod tests {
             "total": {"inputTokens":4,"cachedInputTokens":1,"outputTokens":5,"reasoningOutputTokens":2,"totalTokens":9}
         });
         assert!(validate_token_usage(&valid).is_ok());
+        let projected = project_token_usage(&valid).unwrap();
+        assert_eq!(projected["scope"]["kind"], "subscription-run-diagnostic");
+        assert_eq!(projected["scope"]["modelId"], "engine-managed");
+        assert_eq!(projected["input"], 1);
+        assert_eq!(projected["output"], 2);
+        assert_eq!(projected["cacheRead"], 0);
+        assert_eq!(projected["reasoning"], 1);
+        assert_eq!(projected["usageSource"]["kind"], "adapter");
+        assert_eq!(projected["cost"]["kind"], "unavailable");
         assert!(validate_token_usage(&json!({"last": {}, "total": {}})).is_err());
+        assert!(validate_token_usage(&json!({
+            "last": {"inputTokens":-1,"cachedInputTokens":0,"outputTokens":2,"reasoningOutputTokens":1,"totalTokens":1},
+            "total": {"inputTokens":4,"cachedInputTokens":1,"outputTokens":5,"reasoningOutputTokens":2,"totalTokens":9}
+        })).is_err());
     }
 
     #[test]

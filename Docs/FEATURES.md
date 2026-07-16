@@ -1,6 +1,6 @@
 # Feature Catalog
 
-Checked at: 2026-07-16 NZST
+Checked at: 2026-07-17 NZST
 
 This catalog documents the product features that are currently expected to be
 maintained for Offisim 1.0. Each feature entry names the user value, owner
@@ -57,7 +57,7 @@ Verification:
 
 ## AI Runtime Engines
 
-Purpose: execute real AI work through one mutually exclusive engine per Turn.
+Purpose: execute real AI work through one engine lane per Turn.
 
 Owner paths:
 
@@ -71,15 +71,17 @@ Owner paths:
 
 Data/contracts:
 
-- The production gateway ships complete API and Codex subscription adapters;
-  Claude remains pending.
+- The production gateway ships the Pi API engine and Codex CLI orchestration
+  adapter; Claude Code orchestration remains pending.
 - Each engine owns its native auth/session/compaction/tool loop. Offisim owns
   safe account/model metadata, effective-workspace authorization, Conversation
   persistence, and neutral desktop projection.
-- API accounts show token usage plus actual or clearly estimated Cost.
-  Subscriptions show provider-native Usage/remaining/reset/credits only.
-- Every selectable model retains exact leaf id, source, checkedAt, account
-  ownership, capabilities, and availability.
+- API accounts show token usage plus actual or clearly estimated Cost. Codex
+  orchestration records task tokens and duration as “订阅内 · 无 API 成本”; it
+  has no Offisim account-usage projection.
+- API models use the exact ids in Pi configuration. Source/checkedAt is strict
+  for Offisim-owned official entries and optional for user-configured models;
+  external CLIs own their model selection.
 
 Verification:
 
@@ -239,8 +241,9 @@ Owner paths:
 Data/contracts:
 
 - Employees shape context, roster, presentation, skills, and memory.
-- Employee bindings choose an account-owned exact model through the production
-  gateway; they never create a parallel transport lane.
+- Employee bindings choose either a Pi API account/model or an external CLI
+  orchestration engine through the production gateway; they never create a
+  parallel transport lane.
 
 Verification:
 
@@ -262,11 +265,14 @@ Owner paths:
 
 Data/contracts:
 
-- API accounts expose sealed local credential status; subscription accounts
-  expose safe native login status without copying raw auth or session files.
-- Models are friendly-name-first safe catalog records backed by exact id,
-  source, checkedAt, capabilities, account ownership, and availability.
-- API shows Cost; subscriptions show only provider-native Usage.
+- The API section edits Pi-managed provider/model/endpoint/API-key configuration
+  and returns only safe summaries. The orchestration section exposes CLI
+  install/login/version status and official guidance without copying raw auth or
+  session files.
+- API models are friendly-name-first records backed by configured exact ids;
+  official provenance is strict while user-authored source metadata is optional.
+- API runs show token usage and Cost; external CLI runs show task token count,
+  duration, and “订阅内 · 无 API 成本”.
 - MCP is a tool layer, not the main chat/runtime protocol.
 - Settings must not expose auth-file paths, OAuth tokens, SDK lane badges, or
   runtime implementation names as the product model.

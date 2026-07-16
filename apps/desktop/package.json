@@ -5,12 +5,11 @@
   "type": "module",
   "scripts": {
     "tauri": "tauri",
-    "predev": "pnpm -C ../.. build:codex-app-server",
     "dev": "tauri dev",
     "prebuild": "node ../../scripts/check-platform-tauri-origin-sync.mjs && node ../../scripts/check-attachment-capabilities.mjs",
-    "build": "tauri build --bundles app --target aarch64-apple-darwin && pnpm -C ../.. finalize:codex-app-server-bundle:local && pnpm -C ../.. check:codex-app-server-bundle",
-    "build:devtools": "pnpm prebuild && tauri build --bundles app --target aarch64-apple-darwin -- --features devtools && pnpm -C ../.. finalize:codex-app-server-bundle:local && pnpm -C ../.. check:codex-app-server-bundle",
-    "build:frontend": "pnpm -C ../.. build:codex-app-server && pnpm -C ../.. build:runtime-deps && pnpm -C ../.. build:pi-agent-host && pnpm -C ../.. --filter @offisim/desktop-renderer... build",
+    "build": "tauri build --bundles app --target aarch64-apple-darwin",
+    "build:devtools": "pnpm prebuild && tauri build --bundles app --target aarch64-apple-darwin -- --features devtools",
+    "build:frontend": "pnpm -C ../.. build:runtime-deps && pnpm -C ../.. build:pi-agent-host && pnpm -C ../.. --filter @offisim/desktop-renderer... build",
     "dev:renderer": "pnpm -C ../.. --filter @offisim/desktop-renderer dev",
     "typecheck": "echo 'no TS in desktop — Rust only'"
   },

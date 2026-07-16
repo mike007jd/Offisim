@@ -584,11 +584,11 @@
 }
 
 .off-ws-thinking-dots i:nth-child(2) {
-  animation-delay: 0.15s;
+  animation-delay: var(--off-motion-quick);
 }
 
 .off-ws-thinking-dots i:nth-child(3) {
-  animation-delay: 0.3s;
+  animation-delay: calc(var(--off-motion-quick) * 2);
 }
 
 @keyframes off-ws-thinking-bounce {

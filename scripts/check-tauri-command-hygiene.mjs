@@ -11,7 +11,6 @@ const CORE_MODULE = '@tauri-apps/api/core';
 const failures = [];
 const GH_PERMISSION = 'apps/desktop/src-tauri/permissions/github.toml';
 const GH_CAPABILITY = 'apps/desktop/src-tauri/capabilities/github.json';
-const AGENT_BRIDGES_PERMISSION = 'apps/desktop/src-tauri/permissions/agent-bridges.toml';
 
 function collectTypeScriptFiles(directory) {
   const files = [];
@@ -335,14 +334,6 @@ if (
     file: GH_PERMISSION,
     line: 1,
     message: 'github permission must exclusively expose the gh_exec command',
-  });
-}
-const agentBridgesPermissionText = readFileSync(join(ROOT, AGENT_BRIDGES_PERMISSION), 'utf8');
-if (!agentBridgesPermissionText.includes('"agent_runtime_configure_api_account"')) {
-  failures.push({
-    file: AGENT_BRIDGES_PERMISSION,
-    line: 1,
-    message: 'API account configuration must be authorized for the main agent bridge',
   });
 }
 const ghCapability = JSON.parse(readFileSync(join(ROOT, GH_CAPABILITY), 'utf8'));

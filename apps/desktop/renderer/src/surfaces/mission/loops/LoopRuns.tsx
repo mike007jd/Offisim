@@ -25,6 +25,40 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+type RunStatusTone = 'is-ok' | 'is-accent' | 'is-warn' | 'is-danger';
+
+function runStatusView(status: string | null): { label: string; tone: RunStatusTone } {
+  switch (status) {
+    case 'completed':
+      return { label: 'Completed', tone: 'is-ok' };
+    case 'failed':
+      return { label: 'Failed', tone: 'is-danger' };
+    case 'cancelled':
+      return { label: 'Cancelled', tone: 'is-danger' };
+    case 'blocked':
+      return { label: 'Blocked', tone: 'is-danger' };
+    case 'awaiting_user':
+      return { label: 'Needs input', tone: 'is-warn' };
+    case 'interrupted':
+      return { label: 'Interrupted', tone: 'is-warn' };
+    case 'paused':
+      return { label: 'Paused', tone: 'is-warn' };
+    case 'repairing':
+      return { label: 'Repairing', tone: 'is-warn' };
+    case 'verifying':
+      return { label: 'Verifying', tone: 'is-accent' };
+    case 'ready_to_resume':
+      return { label: 'Ready to resume', tone: 'is-accent' };
+    case 'draft':
+    case 'ready':
+      return { label: 'Starting', tone: 'is-accent' };
+    case 'running':
+      return { label: 'Running', tone: 'is-accent' };
+    default:
+      return { label: 'Starting', tone: 'is-accent' };
+  }
+}
+
 export function LoopRuns() {
   const companyId = useUiState((s) => s.companyId) || null;
   const runs = useLoopRuns(companyId);
@@ -47,20 +81,23 @@ export function LoopRuns() {
         />
       ) : (
         <ul className="off-loops-runs-list">
-          {runs.data?.map((run) => (
-            <li key={run.invocation_id} className="off-loops-run">
-              <span className="off-loops-run-main">
-                <span className="off-loops-run-title">{run.loopTitle}</span>
-                <span className="off-loops-run-goal">
-                  {run.mission_id ? 'Project run' : 'Office run'}
+          {runs.data?.map((run) => {
+            const status = runStatusView(run.missionStatus);
+            return (
+              <li key={run.invocation_id} className="off-loops-run">
+                <span className="off-loops-run-main">
+                  <span className="off-loops-run-title">{run.loopTitle}</span>
+                  <span className="off-loops-run-goal">
+                    {run.mission_id ? 'Project run' : 'Office run'}
+                  </span>
                 </span>
-              </span>
-              <span className="off-loops-run-side">
-                <span className="off-loops-run-status is-neutral">{run.status}</span>
-                <span className="off-loops-run-time">{timeAgo(run.created_at)}</span>
-              </span>
-            </li>
-          ))}
+                <span className="off-loops-run-side">
+                  <span className={`off-loops-run-status ${status.tone}`}>{status.label}</span>
+                  <span className="off-loops-run-time">{timeAgo(run.created_at)}</span>
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

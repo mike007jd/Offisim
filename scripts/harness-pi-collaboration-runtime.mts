@@ -378,14 +378,16 @@ async function seedThread(
     ],
     checkedAt: MODEL_SOURCE.checkedAt,
   };
-  const codexSelected = selectCollaborationExecutionTarget(codexCatalogStatus);
+  let codexSubscriptionRejected = false;
+  try {
+    selectCollaborationExecutionTarget(codexCatalogStatus);
+  } catch (error) {
+    codexSubscriptionRejected =
+      error instanceof Error && error.message.includes('No verified stable API model');
+  }
   check(
-    'safe runtime catalog selects a configured Codex subscription model',
-    codexSelected.runtimeModelRef === 'gpt-fixture' &&
-      codexSelected.target.engineId === 'codex' &&
-      codexSelected.target.billingMode === 'subscription' &&
-      codexSelected.target.accountId === 'codex:chatgpt:fixture',
-    JSON.stringify(codexSelected),
+    'collaboration rejects a subscription-only catalog',
+    codexSubscriptionRejected,
   );
   let unavailableRejected = false;
   try {
@@ -1072,9 +1074,9 @@ await (async () => {
       !transportSrc.includes("invokeCommand('agent_runtime_execute'"),
   );
   check(
-    '(4) collaboration transport routes Codex through its isolated one-shot host',
-    transportSrc.includes("invokeCommand('codex_agent_enhance'") &&
-      transportSrc.includes("invokeCommand('codex_agent_abort'"),
+    '(4) collaboration transport has no subscription one-shot side lane',
+    !transportSrc.includes("invokeCommand('codex_agent_enhance'") &&
+      !transportSrc.includes("invokeCommand('codex_agent_abort'"),
   );
   check(
     '(4) collaboration transport never touches agent_runs / mission / chat_threads',

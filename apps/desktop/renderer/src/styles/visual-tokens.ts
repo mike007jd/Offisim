@@ -6,6 +6,7 @@ export const PANEL_SIZE_TOKENS = {
 } as const;
 
 export const CANVAS_FONT_TOKENS = {
+  /** Deterministic Canvas 2D reset before scene-specific typography is applied. */
   canvasReset: '10px sans-serif',
   officeSceneLabel: '600 11px "General Sans", system-ui, sans-serif',
   /** Single-character glyph inside the 2D resource-marker disc (six-kind scheme). */

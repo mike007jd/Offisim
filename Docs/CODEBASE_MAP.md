@@ -1,6 +1,6 @@
 # Codebase Map
 
-Checked at: 2026-07-16 NZST
+Checked at: 2026-07-17 NZST
 
 This map is for maintainers deciding where a change belongs. Keep it aligned
 with package ownership; do not use old audit or plan files as architecture
@@ -58,7 +58,7 @@ Company-channel collaboration and Loops remain isolated from project chat/runtim
 | `scripts/release-gates.mjs` | Single source of truth for release gate command list |
 | `scripts/run-clean-release.mjs` | Release evidence runner and desktop build entrypoint |
 | `scripts/build-pi-agent-host.mjs` | Bundles official Pi Agent host and Node runtime into the desktop app |
-| `scripts/prepare-codex-app-server.mjs` / `scripts/check-codex-app-server-artifact.mjs` | Prepare and verify the pinned native Codex sidecar artifact |
+| `scripts/harness-codex-app-server-contract.mjs` | Guard the user-installed Codex CLI orchestration adapter and prevent bundled-binary/account-model-usage regressions |
 | `scripts/harness-*.mjs` / `*.mts` | Targeted retained harnesses; use only current root `package.json` scripts as release evidence |
 | `scripts/check-*.mjs` | Drift/hygiene checks for UI, platform/Tauri origin coupling, migrations, attachments |
 | `scripts/harness-collaboration-repo-contract.mts`, `scripts/harness-pi-collaboration-runtime.mts`, `scripts/harness-connect-chat-flow.mts` | Connect/collaboration domain, no-tools runtime, and chat-flow harnesses |

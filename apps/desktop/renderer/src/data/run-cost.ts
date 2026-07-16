@@ -60,6 +60,8 @@ interface RunCostRow {
   root_run_id: string;
   thread_id: string;
   started_at: string;
+  finished_at: string | null;
+  status: string;
   employee_id: string | null;
   employee_name: string | null;
   usage_json: string;
@@ -194,10 +196,10 @@ function emptyRunCost(): RunCost {
     sessionTokens: null,
     sessionKnownTokens: 0,
     sessionTokenCoverage: 'unavailable',
+    sessionDurationMs: 0,
     sessionAccounts: [],
     sessionCostKind: 'none',
     sessionCostLabel: 'No task usage',
-    sessionSubscriptionUsage: null,
     costKind: 'none',
     costLabel: 'No API usage',
     live: false,
@@ -248,8 +250,9 @@ export async function loadRunCostFromDatabase(
       [companyId, monthStartIso, nextMonthStartIso],
     ),
     threadId
-      ? db.select<Array<{ usage_json: string }>>(
-          `SELECT usage_json
+      ? db.select<RunCostRow[]>(
+          `SELECT run_id, root_run_id, thread_id, started_at, finished_at, status,
+                  employee_id, NULL AS employee_name, usage_json, runtime_context_json
              FROM agent_runs
             WHERE company_id = $1
               AND thread_id = $2
@@ -272,6 +275,17 @@ export async function loadRunCostFromDatabase(
     const usage = parseUsage(row.usage_json);
     return usage ? [usage] : [];
   });
+  const nowMs = now.getTime();
+  const sessionDurationMs = sessionRows.reduce((total, row) => {
+    const startedAt = Date.parse(row.started_at);
+    const persistedFinishedAt = row.finished_at ? Date.parse(row.finished_at) : Number.NaN;
+    const finishedAt = Number.isFinite(persistedFinishedAt)
+      ? persistedFinishedAt
+      : row.status === 'running'
+        ? nowMs
+        : startedAt;
+    return total + (Number.isFinite(startedAt) ? Math.max(0, finishedAt - startedAt) : 0);
+  }, 0);
   const sessionTokenSummary = combineUsageTokenSummaries(sessionUsages.map(tokenCount));
   const monthlyCost = summarizeCosts(roots.map((row) => row.usage.cost));
   const sessionCost = summarizeCosts(sessionUsages.map((usage) => usage.cost));
@@ -363,10 +377,10 @@ export async function loadRunCostFromDatabase(
     sessionTokens: exactUsageTokens(sessionTokenSummary),
     sessionKnownTokens: sessionTokenSummary.knownTokens,
     sessionTokenCoverage: sessionTokenSummary.coverage,
+    sessionDurationMs,
     sessionAccounts: accountingAccounts(sessionUsages),
     sessionCostKind: sessionCost?.kind ?? 'none',
     sessionCostLabel: formatCostLabel(sessionCost),
-    sessionSubscriptionUsage: null,
     costKind,
     costLabel: formatCostLabel(monthlyCost),
     live: roots.length > 0,

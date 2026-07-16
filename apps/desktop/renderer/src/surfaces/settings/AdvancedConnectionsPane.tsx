@@ -58,6 +58,12 @@ export function AdvancedConnectionsPane() {
       }
       await refreshConnection();
       toast.success('Connection settings saved');
+    } catch (error) {
+      console.error('[AdvancedConnectionsPane] Connection settings save failed', error);
+      toast.error('Connection settings not saved', {
+        description:
+          error instanceof Error ? error.message : 'Check the connection details and try again.',
+      });
     } finally {
       setSaving(false);
     }

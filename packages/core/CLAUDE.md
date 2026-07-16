@@ -2,8 +2,8 @@
 
 Core holds shared services, repositories, data contracts, tools, vault, and
 legacy helpers. It is not the product AI runtime owner. Desktop AI execution
-enters through `DesktopAgentRuntimeGateway`; complete API and Codex adapters
-live at the desktop boundary, while Claude remains pending.
+enters through `DesktopAgentRuntimeGateway`; the Pi API engine and Codex CLI
+orchestration adapter live at the desktop boundary, while Claude Code remains pending.
 
 ## Gotchas
 
@@ -13,7 +13,7 @@ live at the desktop boundary, while Claude remains pending.
 - `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 两半独立查询独立截断, 不要加独立 middleware
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
-- 不要在 core 里另建 engine lane、credential store、session owner 或 model transport factory。账户 catalog 只承载 safe exact-id/source/checkedAt 元数据；raw auth 与 native session/tool loop 归选中的 desktop engine。
+- 不要在 core 里另建 engine lane、credential store、session owner 或 model transport factory。API catalog 只承载 Pi 已配置的 safe exact-id 元数据（用户 source 可选，官方 source/checkedAt 严格）；外部 CLI 不进 Offisim model catalog。raw auth 与 native session/tool loop 归选中的 desktop engine。
 - `read_attachment` 是唯一允许 AI 读 chat attachment 的 builtin：只在 gateway lane 进入 tool pool，执行时必须拿到当前 `companyId + RunScope.threadId`，并且 `vaultRef` 里的 company/thread 必须完全匹配；缺 scope、跨 company、跨 thread 都返回 `attachment-forbidden`，不要 fallback 到全局 store 或 graph thread。
 - API adapter 主门禁是 `scripts/harness-pi-agent-host.mjs`，跨 engine 走 runtime conformance 与各自 host harness。旧 `pi-bridge` / vendored fork 已删除，不可重新接回桌面主路径。
 - Roster/context 由 Offisim 组织；model、native session lifecycle、tool loop、stream protocol 与 compaction 由本 Turn 选中的 engine 决定。Core 不得凭实现细节重建第二套真相。
@@ -66,4 +66,4 @@ live at the desktop boundary, while Claude remains pending.
 - `renderMemoryMd` 按 4 类别 (`experience` / `decision` / `knowledge` / `preference`) 分段, 每类内按 `last_reinforced_at` 倒序 + `importance` tie-break
 - `employeeSlug(id)` 生成 FS-safe 目录名 (`employee-{id前12字符}`), **纯 employee_id 派生** (不含 name): 同名员工不碰撞 + 改名不动目录 (employee-scope skill `vault_path` 安装时固化, 目录必须 rename-stable, 否则孤儿/分裂). 展示名在 `employee.md` 内
 - `VaultSyncError` 经 `onError` callback 和 EventBus `vault.sync.failed` 事件双通道 surface, runtime 不崩; UI 层订阅 `vault.` 前缀转 Toast (runtime/app 接入在 Phase 1c, core 层完成)
-- `VaultSyncFailedPayload.target` 四值 `'write' | 'import' | 'delete' | 'activate'`。前三条是 per-employee 失败 (`employeeId` 有效); `'activate'` 是 company-level 激活失败 (由 `apps/desktop/renderer/src/lib/vault-tauri-activation.ts` 的 `emitActivationFailure` 发出, `employeeId: ''` sentinel)。App.tsx toast handler 必须覆盖全 4 个分支
+- `VaultSyncFailedPayload.target` 类型仍含 `'write' | 'import' | 'delete' | 'activate'`；当前 live emitter 只在 `packages/core/src/vault/sync-service.ts` 发出前三类 per-employee 失败。`'activate'` 目前没有 source emitter，不得引用已删除的 renderer activation helper 或宣称 UI 已覆盖该路径。

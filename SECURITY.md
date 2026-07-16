@@ -46,16 +46,16 @@ For Offisim 1.0, the highest-priority reports are:
 Offisim desktop is the 1.0 reference runtime. The webview is not trusted to pick
 credential destinations or arbitrary local execution roots.
 
-- Each task selects one mutually exclusive engine through the production
-  gateway. Complete API and Codex subscription engines are active; Claude is
-  not shipped until its own adapter and release evidence exist.
-- API secrets configured in Offisim are sealed through the narrow desktop
-  secret boundary. Subscription engines reuse native login state; Offisim does
-  not copy OAuth tokens, native session files, compaction state, or global
-  memory into product storage.
-- The model catalog contains only safe account-owned metadata: exact leaf id,
-  source, checkedAt, capabilities, and availability. It never contains raw
-  credentials. The renderer consumes safe status and opaque native references.
+- The production gateway hosts coexisting Pi API and Codex CLI orchestration
+  adapters, with exactly one engine lane owning each run. Claude Code is not
+  shipped until its own orchestration adapter and release evidence exist.
+- Pi provider keys cross the narrow save command and are written to Pi-owned
+  `~/.pi/agent/models.json`; the renderer receives only secret-free summaries.
+  External CLIs retain native login, model choice, session files, compaction,
+  and global memory; Offisim does not copy them into product storage.
+- The API model projection contains safe account-owned metadata and configured
+  exact ids. Official source/checkedAt metadata is strict; user-configured source
+  metadata is optional. External CLI models are not an Offisim catalog.
 - Tauri binds the backend-authorized effective task workspace and routes the
   turn to either the bundled API adapter host or native Codex app-server host.
   Host output is projected and credential-shaped values are filtered before
