@@ -5,8 +5,14 @@
  * a full server-room–scale representation.
  */
 
+import { RoundedBox } from '@react-three/drei';
+import { PREFAB_LOCAL_GROUND_Y } from '../scene-art-direction.js';
 import { SceneMaterial } from '../scene-materials.js';
+import { EmissiveDecalMaterial, SceneDecalMaterial } from '../scene-surface-materials.js';
 import { useSceneColors } from '../use-scene-colors.js';
+
+const CABLE_TRAY_HEIGHT = 0.035;
+const CABLE_RUN_HEIGHT = 0.018;
 
 export interface InfrastructureMesh3DProps {
   position?: [number, number, number];
@@ -34,13 +40,13 @@ function NetworkSwitchMesh3D({
       {/* Front panel */}
       <mesh position={[0, 0.06, 0.21]}>
         <planeGeometry args={[1.1, 0.06]} />
-        <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
+        <SceneDecalMaterial materialClass="plastic" color={sc.furnitureDark} />
       </mesh>
       {/* Port indicators */}
       {[-0.4, -0.2, 0, 0.2, 0.4].map((x, i) => (
         <mesh key={`port-${x}`} position={[x, 0.06, 0.215]}>
           <circleGeometry args={[0.015, 6]} />
-          <meshBasicMaterial color={i % 2 === 0 ? sc.leafPrimary : sc.ledCyan} />
+          <EmissiveDecalMaterial color={i % 2 === 0 ? sc.leafPrimary : sc.ledCyan} tier="led" />
         </mesh>
       ))}
     </group>
@@ -58,15 +64,27 @@ function CableTrayMesh3D({
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>
-      <mesh position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.34, 3.4]} />
-        <meshBasicMaterial color={sc.cableChannel} transparent opacity={0.82} />
-      </mesh>
+      <RoundedBox
+        args={[0.34, CABLE_TRAY_HEIGHT, 3.4]}
+        position={[0, PREFAB_LOCAL_GROUND_Y + CABLE_TRAY_HEIGHT / 2, 0]}
+        radius={0.012}
+        smoothness={3}
+        castShadow
+        receiveShadow
+      >
+        <SceneMaterial materialClass="rubber" color={sc.cableChannel} />
+      </RoundedBox>
       {[-0.08, 0.08].map((x) => (
-        <mesh key={`cable-run-${x}`} position={[x, 0.055, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.045, 3.2]} />
-          <meshBasicMaterial color={sc.cableAccent} transparent opacity={0.56} />
-        </mesh>
+        <RoundedBox
+          key={`cable-run-${x}`}
+          args={[0.045, CABLE_RUN_HEIGHT, 3.2]}
+          position={[x, PREFAB_LOCAL_GROUND_Y + CABLE_TRAY_HEIGHT + CABLE_RUN_HEIGHT / 2, 0]}
+          radius={0.008}
+          smoothness={3}
+          castShadow
+        >
+          <SceneMaterial materialClass="rubber" color={sc.cableAccent} />
+        </RoundedBox>
       ))}
     </group>
   );
@@ -88,7 +106,7 @@ function PatchPanelMesh3D({
       </mesh>
       <mesh position={[0, 0.68, 0.17]}>
         <planeGeometry args={[1.28, 0.92]} />
-        <SceneMaterial materialClass="metal" color={sc.furniture} />
+        <SceneDecalMaterial materialClass="metal" color={sc.furniture} />
       </mesh>
       {[-0.45, -0.15, 0.15, 0.45].map((x) =>
         [0.44, 0.68, 0.92].map((y) => (

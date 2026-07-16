@@ -61,6 +61,9 @@ Character assets. Office characters render from source-controlled, meshopt-compr
 - No native select arrow chrome; use the V3 custom select/combobox skin.
 - No `--fs-2xl` or routine `--r-xl` equivalents outside explicitly approved dialog hero cases.
 - No `transition-all` as a motion system. Motion behavior must be named and centralized.
+- Motion vocabulary: `styles/motion.css` is the CSS source of truth;
+  `styles/motion-tokens.ts` is its TS mirror, locked by the harness; see the V3 DNA brief §14.
+  Enforcement runs through `pnpm check:ui-hygiene`.
 - Long lists must virtualize before they can be treated as production-ready.
 - Forms must be schema-backed before they can be treated as production-ready.
 - Any future drag/drop must first add an approved dependency decision plus keyboard path and visible state feedback before it can be treated as production-ready.

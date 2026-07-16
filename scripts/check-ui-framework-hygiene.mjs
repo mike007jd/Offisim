@@ -359,6 +359,24 @@ const checks = [
       /from ['"](?:framer-motion|@react-spring\/[^'"]+|gsap|animejs)['"]|require\(['"](?:framer-motion|@react-spring\/[^'"]+|gsap|animejs)['"]\)/,
   },
   {
+    label: 'broad transition-all motion',
+    dirs: ['apps/desktop/renderer/src'],
+    pattern: /transition\s*:\s*all\b|\btransition-all\b/,
+  },
+  {
+    label: 'surface-local generic loop keyframe',
+    dirs: ['apps/desktop/renderer/src'],
+    pattern: /@keyframes\s+[a-z0-9-]*(?:spin|pulse|shimmer)/i,
+    excludeFiles: ['apps/desktop/renderer/src/styles/motion.css'],
+  },
+  {
+    label: 'raw CSS motion duration',
+    dirs: ['apps/desktop/renderer/src'],
+    pattern:
+      /(?:animation|transition)(?:-duration|-delay)?\s*:[^;\n]*(?:[1-9]\d*(?:\.\d+)?|0*\.\d*[1-9]\d*)(?:ms|s)\b/,
+    excludeFiles: ['apps/desktop/renderer/src/styles/motion.css'],
+  },
+  {
     label: 'raw active CSS micro typography/radius/motion',
     dirs: ['apps/desktop/renderer/src'],
     pattern:
@@ -621,6 +639,11 @@ const requiredChecks = [
     patterns: [/process\.env\.PORT \?\? '4100'/],
   },
   {
+    label: 'Motion token mirror and semantic presets',
+    file: 'apps/desktop/renderer/src/styles/motion-tokens.ts',
+    patterns: [/MOTION_DURATION/, /MOTION_EASE/, /motionPresets/],
+  },
+  {
     label: 'chat thread employee metadata schema',
     file: 'packages/shared-types/src/project.ts',
     patterns: [/employee_id: string \| null/, /employee_id\?: string \| null/],
@@ -724,6 +747,33 @@ for (const file of rawHexFiles) {
       match: line.trim().slice(0, 120),
     });
   });
+}
+
+const motionReactFiles = collectFiles('apps/desktop/renderer/src').filter((file) =>
+  ['.ts', '.tsx'].includes(extensionOf(file)),
+);
+const motionReactExcludedFiles = new Set(['apps/desktop/renderer/src/styles/motion-tokens.ts']);
+const inlineMotionPatterns = [
+  { label: 'inline Motion transition object', pattern: /transition\s*=\s*\{\{/g },
+  { label: 'inline Motion duration literal', pattern: /duration:\s*[\d.]/g },
+  { label: 'inline Motion easing array', pattern: /ease:\s*\[/g },
+  { label: 'inline Motion state object', pattern: /(?:initial|animate|exit)\s*=\s*\{\{/g },
+];
+for (const file of motionReactFiles) {
+  const relFile = relative(ROOT, file);
+  if (motionReactExcludedFiles.has(relFile)) continue;
+  const text = readFileSync(file, 'utf8');
+  if (!/from\s+['"]motion\/react['"]/.test(text)) continue;
+  for (const inlineCheck of inlineMotionPatterns) {
+    for (const match of text.matchAll(inlineCheck.pattern)) {
+      failures.push({
+        check: inlineCheck.label,
+        file: relFile,
+        line: lineNumber(text, match.index ?? 0),
+        match: match[0],
+      });
+    }
+  }
 }
 
 const cssFiles = collectFiles('apps/desktop/renderer/src').filter((file) => file.endsWith('.css'));

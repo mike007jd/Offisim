@@ -49,7 +49,7 @@ const SCENARIOS = [
     id: 'S9',
     tier: 'headless',
     shell:
-      'pnpm check:deadcode && pnpm check:ui-hygiene && pnpm audit --prod --audit-level high && pnpm harness:chat-attachment-roundtrip && pnpm harness:doc-engine',
+      'pnpm check:deadcode && pnpm check:ui-hygiene && pnpm audit:prod && pnpm harness:chat-attachment-roundtrip && pnpm harness:doc-engine',
   },
   {
     id: 'S10',
