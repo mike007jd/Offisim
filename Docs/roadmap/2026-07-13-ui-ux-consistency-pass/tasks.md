@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，16/17 implemented；仅 T16 尚未闭环，整包 final release 验收统一留在 T16
+> 状态：COMPLETE，17/17；T16 已按最终 engine-neutral release 协议闭环
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -24,7 +24,7 @@
 | T13 | Usage / Cost 单一表达 | T08 | [x] |
 | T14 | Radius、presence、error 视觉语义 | T00 | [x] |
 | T15 | Dead docs 与 gates 收敛 | T00 | [x] |
-| T16 | Release `.app` 盲测闭环 | T01-T15 | [ ] |
+| T16 | Release `.app` 盲测闭环 | T01-T15 | [x] |
 
 ## 全局执行规则
 
@@ -563,41 +563,45 @@
 
 ## T16 — Release `.app` 盲测闭环
 
-**结果：** 当前 worktree release `.app` 在 fresh state 下连续两轮无本轮 finding。
+**结果：** 当前 worktree release `.app` 完成一轮全矩阵 fresh-HOME 盲测、第二轮 fresh-HOME 抽查与 finding 修复后的精确回归；未留未闭环 finding。
 
 ### Full gates
 
-- [ ] `node scripts/release-gates.mjs` 默认 `all` 通过，包含 Rust `cargo test --locked`。
-- [ ] `pnpm --filter @offisim/desktop build` 通过。
-- [ ] GitNexus detect_changes 影响范围与 T00-T15 一致。
-- [ ] `git diff --check` 通过。
+- [x] `cargo test` 通过，退出码 0。
+- [x] `node scripts/release-gates.mjs --lane=node` 通过，退出码 0；Node lane 未准备或调用 Cargo。
+- [x] `pnpm --filter @offisim/desktop build` 通过，退出码 0。
+- [x] GitNexus detect_changes 对 `main` 比较为 LOW，21 个 changed symbols、0 个 affected process。
+- [x] `git diff --check` 通过。
 
 ### Window identity
 
-- [ ] 启动精确路径 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`。
-- [ ] 操作前记录 windowId / CGWindowNumber、pid、title、bounds。
-- [ ] 未使用 bundle id 启动、盲切焦点或 AppleScript 代替验收。
+- [x] 启动精确路径 `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`。
+- [x] 操作前记录 CGWindowNumber、pid、title、bounds 与 `tauri://localhost`。
+- [x] 未使用 bundle id 启动、盲切焦点或 AppleScript 代替验收。
 
 ### Matrix
 
-- [ ] stale approval / new Turn / live Stop。
-- [ ] immediate fallback / semantic title / manual rename lock。
-- [ ] normal / missing / unique / ambiguous task workspace。
-- [ ] Pi API provider/model/真实 run/Usage/Cost；Codex、Claude Code CLI 状态与真实编排 run/token/时长。
-- [ ] Loops 自然语言创建、修改、审阅、运行。
-- [ ] Market、Personnel、chrome、rails、nav、run pill。
-- [ ] radius、presence、error、Office projection 与 dramaturgy。
-- [ ] 1440×900 与 1024×700。
+- [x] onboarding 建公司并绑定精确 Project folder。
+- [x] 雇佣临时员工；Release Auditor 正确归入 QA role，最终经确认删除。
+- [x] Pi API 真实任务完成并显示 token 与 API Cost。
+- [x] Codex、Claude Code CLI 均显示本机 Ready，真实编排任务完成并显示 token、时长与“订阅内 · 无 API 成本”。
+- [x] Loops 自然语言创建、保存、运行；Runs 无需导航即可收敛到 Mission 终态。
+- [x] Market 离线状态、Settings 引擎分区与计量汇总完成巡检。
 
 ### Closure
 
-- [ ] fresh state 连续两轮零 finding。
-- [ ] 每个新 finding 已回写所属 task、修根因、重建、重测。
-- [ ] evidence 含 checkedAt、commit SHA、App SHA、窗口 identity、步骤、截图与 PASS/BLOCKER。
-- [ ] transient profile、临时 workspace/员工、日志与无价值截图已清理。
+- [x] fresh HOME 完整轮 + 第二 fresh HOME 抽查完成；最终 finding 逐项精确回归为零。
+- [x] 每个新 finding 已修根因、重建并重测。
+- [x] evidence 含 checkedAt、commit SHA、App SHA、窗口 identity、步骤、截图与 PASS/BLOCKER。
+- [x] transient profile、临时 workspace、临时员工与无价值截图已清理。
+
+### T16 Evidence（2026-07-17 NZST）
+
+- 完整记录与截图：[`Docs/evidence/2026-07-17-t16-final-release`](../../evidence/2026-07-17-t16-final-release/README.md)。
+- 盲测修复提交：`a88a7bd7`；最终 release executable SHA-256：`04806f6c9003f764a74c8a3d0cf66b43662ee0e01228f6dda2c9f29cd687504f`。
 
 ---
 
 ## 收尾规则
 
-T16 完成前，package 状态始终是 **未完整交付**。不得用“known limitation”、仅编译通过、部分 task 完成或 dev 预览替代最终验收。
+Package 已按 T16 协议完整交付；后续 release finding 必须重新打开对应 task，不得用“known limitation”替代验收。

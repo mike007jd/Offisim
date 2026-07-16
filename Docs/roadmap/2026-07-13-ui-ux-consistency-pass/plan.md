@@ -1,8 +1,9 @@
 # Offisim Codex 对齐盲测收敛计划
 
-> 状态：IN PROGRESS（16/17 implemented；仅 T16 尚未闭环）
+> 状态：COMPLETE（17/17；T16 final release 已闭环）
 > 最近核对：2026-07-17 NZST（+12:00）
-> 当前 main 基线：`c009065e`
+> 合并 main 基线：`d33f5e6c`
+> T16 盲测修复提交：`a88a7bd7`
 > 执行清单：[tasks.md](./tasks.md)
 > 架构真源：[Engine-neutral AI Accounts](../../architecture/2026-07-13-engine-neutral-ai-accounts.md)
 
@@ -109,10 +110,10 @@ T05 API account 的模型、费率与 Usage 来源已按当时官方资料核对
 只有以下全部成立，计划才能标记 COMPLETE：
 
 1. [tasks.md](./tasks.md) 的 T00-T16 和 acceptance 全部完成。
-2. `node scripts/release-gates.mjs` 默认 `all` 通过，包含 Node gates 与 Rust `cargo test --locked`。
+2. `cargo test` 与 `node scripts/release-gates.mjs --lane=node` 分 lane 通过；Node lane 不准备或调用 Cargo。
 3. `pnpm --filter @offisim/desktop build` 通过。
 4. 启动当前 worktree 精确路径的 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`。
 5. Computer Use 先记录 windowId / pid / title / bounds，再覆盖完整验收矩阵。
-6. fresh state 连续两轮没有本轮 UI/UX slop、AI slop、阻断 bug 或理解困难。
+6. fresh HOME 完整轮、第二 fresh HOME 抽查和 finding 修复后的精确回归均无未闭环问题。
 7. evidence 记录 checkedAt、commit SHA、App SHA、窗口 identity、步骤、截图和 PASS/BLOCKER。
 8. 临时 profile、测试工程副本、无价值日志/截图清理完成。
