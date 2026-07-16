@@ -7,7 +7,7 @@ import {
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   type ComposerAttachmentScope,
@@ -90,6 +90,16 @@ export function useOfficeRuntime({
 }) {
   const queryClient = useQueryClient();
   const run = useConversationRun(threadId);
+  useEffect(() => {
+    if (!companyId || !threadId) return;
+    void conversationRunController.hydrateFreshSessionAction(companyId, threadId).catch((error) => {
+      console.warn('[useOfficeRuntime] Fresh-session hydration failed', {
+        companyId,
+        threadId,
+        error,
+      });
+    });
+  }, [companyId, threadId]);
   const attachmentScope = useMemo<ComposerAttachmentScope>(
     () => ({ companyId, projectId, threadId }),
     [companyId, projectId, threadId],
@@ -168,6 +178,12 @@ export function useOfficeRuntime({
           source: 'office',
           persistMessage,
           onMessagePersisted: () => consumeStaged(attachmentScope, stagedIdsForTurn),
+          onThreadTitleUpdated: () => {
+            void Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),
+              queryClient.invalidateQueries({ queryKey: ['unfinished-threads'] }),
+            ]);
+          },
           ...(loopExecution ? { loopExecution } : {}),
         });
         // Clear the chip only after a successful submit — a failed build/submit keeps

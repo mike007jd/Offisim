@@ -24,6 +24,7 @@ const REQUIRED_COMMANDS = [
   'agent_runtime_collaborate',
   'agent_runtime_resume',
   'agent_runtime_abort',
+  'agent_runtime_confirm_execution',
   'agent_runtime_answer',
   'agent_runtime_stream_snapshot',
   'agent_runtime_release_stream',

@@ -21,6 +21,9 @@ export type {
   NewAgentRun,
   AgentRunRepository,
   AgentRunStatusUpdateOptions,
+  FreshSessionContext,
+  FreshSessionConversationProjection,
+  ResettableNativeSessionPrestartCode,
   GraphThreadRow,
   ToolCallRow,
   HandoffEventRow,
@@ -158,6 +161,8 @@ export type {
   NewCollaborationMessage,
   CollaborationReadStateRepository,
   CollaborationReadStateRow,
+  CollaborationExecutionLane,
+  CollaborationExecutionLaneRow,
   CollaborationTurnRepository,
   CollaborationTurnRow,
   CollaborationTurnPatch,
@@ -312,7 +317,12 @@ export {
   mapPayloadToRow as mapDeliverablePayloadToRow,
 } from './services/deliverable-persistence-service.js';
 export type { DeliverablePersistenceServiceOptions } from './services/deliverable-persistence-service.js';
-export { coerceDeliverableKind } from './runtime/repositories.js';
+export {
+  coerceDeliverableKind,
+  decodeFreshSessionContext,
+  isResettableNativeSessionPrestartCode,
+  RESETTABLE_NATIVE_SESSION_PRESTART_CODES,
+} from './runtime/repositories.js';
 export { byteLength, clampUtf8 } from './utils/byte-length.js';
 export { canonicalJson } from './utils/canonical-json.js';
 export { sha256Text } from './utils/hash.js';

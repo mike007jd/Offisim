@@ -5,23 +5,34 @@ const guard = new ThreadLifecycleGuard();
 
 const releaseMutation = guard.acquireMutation('thread-a');
 assert.ok(releaseMutation, 'an idle thread can be mutated');
-assert.equal(guard.beginRun('thread-a'), null, 'a mutation blocks a late Mission start');
+assert.equal(guard.beginRun('thread-a'), null, 'a mutation blocks a late run start');
 releaseMutation();
 
-const releaseFirstRun = guard.beginRun('thread-a');
-const releaseSecondRun = guard.beginRun('thread-a');
-assert.ok(releaseFirstRun && releaseSecondRun, 'multiple Missions may share one thread');
+const firstRun = guard.beginRun('thread-a');
+assert.ok(firstRun, 'an idle thread accepts one root run');
+assert.equal(guard.beginRun('thread-a'), null, 'a second root on the same thread is rejected');
 assert.equal(guard.isRunActive('thread-a'), true);
-assert.equal(guard.acquireMutation('thread-a'), null, 'active Missions block archive/delete');
+assert.equal(guard.acquireMutation('thread-a'), null, 'an active run blocks archive/delete');
 
-releaseFirstRun();
-releaseFirstRun();
-assert.equal(guard.acquireMutation('thread-a'), null, 'idempotent release preserves other runs');
-releaseSecondRun();
+const otherThread = guard.beginRun('thread-b');
+assert.ok(otherThread, 'a different thread may run in parallel');
+
+const transferredRun = firstRun.transfer();
+assert.ok(transferredRun, 'Conversation can atomically hand its lease to a Mission');
+firstRun.release();
+assert.equal(
+  guard.beginRun('thread-a'),
+  null,
+  'cleanup from the old lane cannot release a transferred lease',
+);
+transferredRun.release();
+transferredRun.release();
 assert.equal(guard.isRunActive('thread-a'), false);
+assert.equal(guard.isRunActive('thread-b'), true);
+otherThread.release();
 
 const afterRuns = guard.acquireMutation('thread-a');
-assert.ok(afterRuns, 'mutation becomes available after every Mission stops');
+assert.ok(afterRuns, 'mutation becomes available after the exclusive run stops');
 afterRuns();
 
-console.log('thread lifecycle guard harness: 6/6 passed');
+console.log('thread lifecycle guard harness: 10/10 passed');

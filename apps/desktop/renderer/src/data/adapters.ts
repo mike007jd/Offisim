@@ -145,7 +145,7 @@ interface ProjectRowLike {
   project_id: string;
   company_id: string;
   name: string;
-  workspace_root: string | null;
+  workspace_root: string;
   verify_command: string | null;
   verify_max_attempts: number;
   verify_token_budget: number | null;

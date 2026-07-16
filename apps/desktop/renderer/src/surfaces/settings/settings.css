@@ -846,6 +846,138 @@
   font-weight: 660;
 }
 
+.off-set-account-section {
+  display: grid;
+  gap: var(--off-sp-3);
+  padding-top: var(--off-sp-5);
+  border-top: 1px solid var(--off-line-soft);
+}
+
+.off-set-account-section + .off-set-account-section {
+  margin-top: var(--off-sp-5);
+}
+
+.off-set-account-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--off-sp-3);
+}
+
+.off-set-account-usage-grid > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: var(--off-sp-4);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+}
+
+.off-set-account-usage-grid span {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+  font-weight: 670;
+  text-transform: uppercase;
+}
+
+.off-set-account-usage-grid strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--off-ink-1);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-sm);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-set-account-cost {
+  display: grid;
+  gap: 3px;
+  padding: var(--off-sp-4);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+}
+
+.off-set-account-cost strong {
+  color: var(--off-ink-1);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-base);
+  font-weight: 680;
+}
+
+.off-set-account-cost span {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 520;
+}
+
+.off-set-account-models {
+  display: grid;
+  gap: var(--off-sp-2);
+}
+
+.off-set-account-model {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-3) var(--off-sp-4);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+}
+
+.off-set-account-model-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.off-set-account-model-copy strong {
+  overflow: hidden;
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-set-account-model-copy code {
+  overflow: hidden;
+  color: var(--off-ink-4);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-set-account-model-limits {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 540;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .off-set-account-usage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .off-set-account-model {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .off-set-account-model-limits {
+    display: none;
+  }
+}
+
 .off-set-provider-form {
   max-width: 820px;
   min-height: 0;

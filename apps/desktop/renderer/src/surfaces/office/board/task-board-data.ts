@@ -1,8 +1,14 @@
 import type { ConversationRunPhase } from '@/assistant/runtime/conversation-run-controller.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
+import { type WorkspaceLeaseLifecycleRow, invokeCommand } from '@/lib/tauri-commands.js';
 import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
+import { createTauriGitWorktreeOps } from '@/runtime/mission/workspace/git-worktree-ops.js';
 import { getRepos } from '@/runtime/repos.js';
-import type { AgentEventRow, AgentRunRow } from '@offisim/core/browser';
+import {
+  type AgentEventRow,
+  type AgentRunRow,
+  createWorkspaceLeaseManager,
+} from '@offisim/core/browser';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useSyncExternalStore } from 'react';
 
@@ -69,6 +75,7 @@ export interface TaskBoardVisibleRow {
 
 export const WORKSPACE_LEASE_SNAPSHOT_EVENT = 'workspace.lease.snapshot';
 export const WORKSPACE_LEASE_ACTION_EVENT = 'workspace.lease.action';
+const WORKSPACE_LEASE_EVENT_WINDOW = 500;
 
 export interface WorkspaceLeaseReviewRow {
   leaseId: string;
@@ -415,35 +422,6 @@ function asDiffFiles(value: unknown): Array<{ path: string; diff: string }> {
   });
 }
 
-function leaseReviewStatus(
-  payload: Record<string, unknown>,
-  current?: WorkspaceLeaseReviewRow,
-): WorkspaceLeaseReviewRow['status'] {
-  const phase = asString(payload.phase);
-  const action = asString(payload.action);
-  const status = asString(payload.status);
-  if (phase === 'released_after_merge' || phase === 'integrated' || action === 'merge_completed') {
-    return 'merged';
-  }
-  if (
-    phase === 'released_after_discard' ||
-    action === 'discard_completed' ||
-    status === 'discarded'
-  ) {
-    return 'discarded';
-  }
-  if (status === 'conflicted' || action?.endsWith('_failed')) return 'failed';
-  // A verification-terminated loop (stuck / attempt cap / budget) is a FAILED
-  // run whose worktree is retained for inspection — leaving the lease 'active'
-  // would keep painting the child as Running with a live Stop control.
-  if (phase === 'verification_terminated') return 'failed';
-  if (phase === 'planned' || phase === 'pending_review' || status === 'pending_review') {
-    return 'pending_review';
-  }
-  if (status === 'active') return 'active';
-  return current?.status ?? 'active';
-}
-
 function parsePayload(row: AgentEventRow): Record<string, unknown> | null {
   try {
     return asRecord(JSON.parse(row.payload_json));
@@ -452,17 +430,195 @@ function parsePayload(row: AgentEventRow): Record<string, unknown> | null {
   }
 }
 
+export function workspaceLeaseStatusFromLifecycle(
+  row: WorkspaceLeaseLifecycleRow,
+): WorkspaceLeaseReviewRow['status'] {
+  if (row.status === 'released') return 'merged';
+  if (row.status === 'discarded') return 'discarded';
+  if (row.status === 'invalid') return 'failed';
+  return row.ownerBindingStatus === 'active' ? 'active' : 'pending_review';
+}
+
+function rowFromLifecycle(row: WorkspaceLeaseLifecycleRow): WorkspaceLeaseReviewRow {
+  const rootRunId = row.activeRootRunId ?? row.createdRootRunId;
+  return {
+    leaseId: row.leaseId,
+    threadId: row.threadId ?? '',
+    rootRunId,
+    runId: row.registeredRunId,
+    relatedRunIds: [row.registeredRunId],
+    relatedRootRunIds: [...new Set([row.createdRootRunId, rootRunId])],
+    projectId: row.projectId,
+    workspaceRoot: row.workspaceRoot,
+    access: 'write',
+    cwd: row.cwd,
+    branch: row.branch,
+    isolated: true,
+    status: workspaceLeaseStatusFromLifecycle(row),
+    phase: null,
+    reason: null,
+    changedPaths: [],
+    files: [],
+    conflicts: [],
+    loopAttempt: null,
+    loopMaxAttempts: null,
+    verificationSummary: null,
+    verificationPassed: null,
+    terminationReason: null,
+    updatedAt: row.updatedAt,
+    createdAt: row.createdAt,
+    lastAction: null,
+    lastActionError: null,
+  };
+}
+
 export function buildWorkspaceLeaseReviewRows(
+  lifecycleRows: readonly WorkspaceLeaseLifecycleRow[],
   events: readonly AgentEventRow[],
   rootRunId: string,
 ): WorkspaceLeaseReviewRow[] {
-  return buildWorkspaceLeaseRows(events, rootRunId);
+  return buildWorkspaceLeaseRows(lifecycleRows, events, rootRunId);
 }
 
 export function buildProjectWorkspaceLeaseReviewRows(
+  lifecycleRows: readonly WorkspaceLeaseLifecycleRow[],
   events: readonly AgentEventRow[],
 ): WorkspaceLeaseReviewRow[] {
-  return buildWorkspaceLeaseRows(events, null);
+  return buildWorkspaceLeaseRows(lifecycleRows, events, null);
+}
+
+interface WorkspaceLeaseDiffProjection {
+  changedPaths: string[];
+  files: Array<{ path: string; diff: string }>;
+}
+
+interface WorkspaceLeaseDiffCacheEntry {
+  identity: string;
+  pending: Promise<WorkspaceLeaseDiffProjection>;
+  expiresAtUnixMs: number;
+}
+
+export interface WorkspaceLeaseDiffCache {
+  delete(key: string): void;
+  getOrCollect(
+    key: string,
+    identity: string,
+    collect: () => Promise<WorkspaceLeaseDiffProjection>,
+  ): Promise<WorkspaceLeaseDiffProjection>;
+}
+
+const WORKSPACE_LEASE_DIFF_CACHE_TTL_MS = 5_000;
+
+export function createWorkspaceLeaseDiffCache(
+  now: () => number = Date.now,
+): WorkspaceLeaseDiffCache {
+  const entries = new Map<string, WorkspaceLeaseDiffCacheEntry>();
+  return {
+    delete(key) {
+      entries.delete(key);
+    },
+    getOrCollect(key, identity, collect) {
+      const cached = entries.get(key);
+      const currentTime = now();
+      if (cached?.identity === identity && currentTime < cached.expiresAtUnixMs) {
+        return cached.pending;
+      }
+      const pending = collect();
+      const entry = { identity, pending, expiresAtUnixMs: Number.POSITIVE_INFINITY };
+      entries.set(key, entry);
+      void pending.then(
+        () => {
+          if (entries.get(key) === entry)
+            entry.expiresAtUnixMs = now() + WORKSPACE_LEASE_DIFF_CACHE_TTL_MS;
+        },
+        () => {
+          if (entries.get(key) === entry) entries.delete(key);
+        },
+      );
+      return pending;
+    },
+  };
+}
+
+const workspaceLeaseDiffCache = createWorkspaceLeaseDiffCache();
+
+function workspaceLeaseDiffCacheKey(row: WorkspaceLeaseReviewRow): string {
+  return JSON.stringify([row.projectId, row.leaseId]);
+}
+
+function workspaceLeaseDiffIdentity(row: WorkspaceLeaseReviewRow): string {
+  return JSON.stringify([
+    row.updatedAt,
+    row.runId,
+    row.workspaceRoot,
+    row.cwd,
+    row.branch,
+    row.status,
+  ]);
+}
+
+async function collectWorkspaceLeaseDiff(
+  row: WorkspaceLeaseReviewRow,
+): Promise<WorkspaceLeaseDiffProjection> {
+  if (!row.projectId || !row.workspaceRoot || !row.cwd || !row.branch) {
+    throw new Error(`Workspace lease ${row.leaseId} has incomplete durable Git identity.`);
+  }
+  const manager = createWorkspaceLeaseManager({
+    gitOps: createTauriGitWorktreeOps({ projectId: row.projectId }),
+    now: () => new Date().toISOString(),
+    newId: () => crypto.randomUUID(),
+  });
+  const lease = manager.adoptLease({
+    leaseId: row.leaseId,
+    runId: row.runId,
+    workspaceRoot: row.workspaceRoot,
+    access: 'write',
+    cwd: row.cwd,
+    branch: row.branch,
+    isolated: true,
+    status: row.status === 'active' ? 'active' : 'pending_review',
+    reason: row.reason ?? undefined,
+    createdAt: row.createdAt,
+  });
+  return manager.collectDiff(lease);
+}
+
+export async function hydrateEventlessWorkspaceLeaseDiffs(
+  rows: readonly WorkspaceLeaseReviewRow[],
+  lifecycleRows: readonly WorkspaceLeaseLifecycleRow[],
+  events: readonly AgentEventRow[],
+  collectDiff: (
+    row: WorkspaceLeaseReviewRow,
+  ) => Promise<WorkspaceLeaseDiffProjection> = collectWorkspaceLeaseDiff,
+  cache: WorkspaceLeaseDiffCache = workspaceLeaseDiffCache,
+): Promise<WorkspaceLeaseReviewRow[]> {
+  const lifecycleByLease = new Map(lifecycleRows.map((row) => [row.leaseId, row]));
+  const leasesWithSnapshots = new Set<string>();
+  for (const event of events) {
+    if (event.event_type !== WORKSPACE_LEASE_SNAPSHOT_EVENT) continue;
+    const payload = parsePayload(event);
+    const leaseId = payload ? asString(payload.leaseId) : null;
+    const lifecycle = leaseId ? lifecycleByLease.get(leaseId) : null;
+    if (leaseId && lifecycle?.projectId === event.project_id) leasesWithSnapshots.add(leaseId);
+  }
+  for (const row of rows) {
+    const lifecycle = lifecycleByLease.get(row.leaseId);
+    if (lifecycle?.status !== 'active' || leasesWithSnapshots.has(row.leaseId)) {
+      cache.delete(workspaceLeaseDiffCacheKey(row));
+    }
+  }
+  return Promise.all(
+    rows.map(async (row) => {
+      const lifecycle = lifecycleByLease.get(row.leaseId);
+      if (lifecycle?.status !== 'active' || leasesWithSnapshots.has(row.leaseId)) return row;
+      const diff = await cache.getOrCollect(
+        workspaceLeaseDiffCacheKey(row),
+        workspaceLeaseDiffIdentity(row),
+        () => collectDiff(row),
+      );
+      return { ...row, changedPaths: diff.changedPaths, files: diff.files };
+    }),
+  );
 }
 
 /** One cache/query contract for both project and company Board views. A company
@@ -476,15 +632,23 @@ export function workspaceLeaseReviewsQueryOptions(projectIds: readonly string[])
       const repos = await getRepos();
       const perProject = await Promise.all(
         scopeProjectIds.map(async (projectId) => {
-          const [snapshots, actions] = await Promise.all([
+          const [lifecycleRows, snapshots, actions] = await Promise.all([
+            invokeCommand('workspace_lease_list', { projectId }),
             repos.agentEvents.findByProject(projectId, {
               eventType: WORKSPACE_LEASE_SNAPSHOT_EVENT,
+              limit: WORKSPACE_LEASE_EVENT_WINDOW,
             }),
             repos.agentEvents.findByProject(projectId, {
               eventType: WORKSPACE_LEASE_ACTION_EVENT,
+              limit: WORKSPACE_LEASE_EVENT_WINDOW,
             }),
           ]);
-          return buildProjectWorkspaceLeaseReviewRows([...snapshots, ...actions]);
+          const events = [...snapshots, ...actions];
+          return hydrateEventlessWorkspaceLeaseDiffs(
+            buildProjectWorkspaceLeaseReviewRows(lifecycleRows, events),
+            lifecycleRows,
+            events,
+          );
         }),
       );
       return perProject.flat().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -495,82 +659,129 @@ export function workspaceLeaseReviewsQueryOptions(projectIds: readonly string[])
 }
 
 function buildWorkspaceLeaseRows(
+  lifecycleRows: readonly WorkspaceLeaseLifecycleRow[],
   events: readonly AgentEventRow[],
   rootRunId: string | null,
 ): WorkspaceLeaseReviewRow[] {
-  const byLease = new Map<string, WorkspaceLeaseReviewRow>();
+  const lifecycleByLease = new Map(
+    lifecycleRows.map((lifecycle) => [lifecycle.leaseId, lifecycle]),
+  );
+  const byLease = new Map(
+    lifecycleRows.map((lifecycle) => [lifecycle.leaseId, rowFromLifecycle(lifecycle)]),
+  );
   const ordered = [...events].sort((a, b) => a.created_at.localeCompare(b.created_at));
   for (const event of ordered) {
     const payload = parsePayload(event);
     const eventRootRunId = payload ? asString(payload.rootRunId) : null;
-    if (!payload || !eventRootRunId || (rootRunId && eventRootRunId !== rootRunId)) continue;
+    if (!payload) continue;
     const leaseId = asString(payload.leaseId);
     if (!leaseId) continue;
+    const current = byLease.get(leaseId);
+    if (!current || current.projectId !== event.project_id) continue;
+    const lifecycle = lifecycleByLease.get(leaseId);
+    if (!lifecycle) continue;
+    const lifecycleStatus = workspaceLeaseStatusFromLifecycle(lifecycle);
+    const eventRunId = asString(payload.runId);
+    const originRunId = asString(payload.originRunId);
+    const reworkRootRunId = asString(payload.reworkRootRunId);
+    const relatedRunIds = [
+      ...new Set([
+        ...current.relatedRunIds,
+        ...(eventRunId ? [eventRunId] : []),
+        ...(originRunId ? [originRunId] : []),
+      ]),
+    ];
+    const relatedRootRunIds = [
+      ...new Set([
+        ...current.relatedRootRunIds,
+        ...(eventRootRunId ? [eventRootRunId] : []),
+        ...(reworkRootRunId ? [reworkRootRunId] : []),
+      ]),
+    ];
     if (event.event_type === WORKSPACE_LEASE_SNAPSHOT_EVENT) {
-      const current = byLease.get(leaseId);
       const changedPaths = asStringArray(payload.changedPaths);
       const files = asDiffFiles(payload.files);
-      const runId = asString(payload.runId) ?? current?.runId ?? '';
-      const originRunId = asString(payload.originRunId);
       byLease.set(leaseId, {
-        leaseId,
-        threadId: event.thread_id,
-        rootRunId: eventRootRunId,
-        runId,
-        relatedRunIds: [
-          ...new Set([
-            ...(current?.relatedRunIds ?? []),
-            ...(runId ? [runId] : []),
-            ...(originRunId ? [originRunId] : []),
-          ]),
-        ],
-        relatedRootRunIds: [...new Set([...(current?.relatedRootRunIds ?? []), eventRootRunId])],
-        projectId: asString(payload.projectId) ?? current?.projectId ?? null,
-        workspaceRoot: asString(payload.workspaceRoot) ?? current?.workspaceRoot ?? null,
-        access: asString(payload.access) ?? current?.access ?? null,
-        cwd: asString(payload.cwd) ?? current?.cwd ?? null,
-        branch: asString(payload.branch) ?? current?.branch ?? null,
-        isolated:
-          typeof payload.isolated === 'boolean' ? payload.isolated : (current?.isolated ?? false),
-        status: leaseReviewStatus(payload, current),
-        phase: asString(payload.phase) ?? current?.phase ?? null,
-        reason: asString(payload.reason) ?? current?.reason ?? null,
-        changedPaths: changedPaths.length > 0 ? changedPaths : (current?.changedPaths ?? []),
-        files: files.length > 0 ? files : (current?.files ?? []),
-        conflicts: asStringArray(payload.conflicts),
-        loopAttempt: asNumber(payload.loopAttempt) ?? current?.loopAttempt ?? null,
-        loopMaxAttempts: asNumber(payload.loopMaxAttempts) ?? current?.loopMaxAttempts ?? null,
-        verificationSummary:
-          asString(payload.verificationSummary) ?? current?.verificationSummary ?? null,
+        ...current,
+        runId: eventRunId ?? current.runId,
+        relatedRunIds,
+        relatedRootRunIds,
+        status: workspaceLeaseStatusFromEvent(
+          lifecycleStatus,
+          current.status,
+          payload,
+          event.event_type,
+        ),
+        phase: asString(payload.phase) ?? current.phase,
+        reason: asString(payload.reason) ?? current.reason,
+        changedPaths: changedPaths.length > 0 ? changedPaths : current.changedPaths,
+        files: files.length > 0 ? files : current.files,
+        conflicts:
+          asStringArray(payload.conflicts).length > 0
+            ? asStringArray(payload.conflicts)
+            : current.conflicts,
+        loopAttempt: asNumber(payload.loopAttempt) ?? current.loopAttempt,
+        loopMaxAttempts: asNumber(payload.loopMaxAttempts) ?? current.loopMaxAttempts,
+        verificationSummary: asString(payload.verificationSummary) ?? current.verificationSummary,
         verificationPassed:
           typeof payload.verificationPassed === 'boolean'
             ? payload.verificationPassed
-            : (current?.verificationPassed ?? null),
-        terminationReason:
-          asString(payload.terminationReason) ?? current?.terminationReason ?? null,
-        updatedAt: asString(payload.capturedAt) ?? event.created_at,
-        createdAt: asString(payload.createdAt) ?? current?.createdAt ?? event.created_at,
-        lastAction: current?.lastAction ?? null,
-        lastActionError: current?.lastActionError ?? null,
+            : current.verificationPassed,
+        terminationReason: asString(payload.terminationReason) ?? current.terminationReason,
       });
       continue;
     }
     if (event.event_type === WORKSPACE_LEASE_ACTION_EVENT) {
-      const current = byLease.get(leaseId);
-      if (!current) continue;
       const action = asString(payload.action);
       byLease.set(leaseId, {
         ...current,
-        status: leaseReviewStatus(payload, current),
+        relatedRunIds,
+        relatedRootRunIds,
+        status: workspaceLeaseStatusFromEvent(
+          lifecycleStatus,
+          current.status,
+          payload,
+          event.event_type,
+        ),
         phase: action ?? current.phase,
         reason: asString(payload.reason) ?? current.reason,
-        updatedAt: asString(payload.createdAt) ?? event.created_at,
         lastAction: action,
         lastActionError: asString(payload.error),
       });
     }
   }
-  return [...byLease.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return [...byLease.values()]
+    .filter((row) => !rootRunId || row.relatedRootRunIds.includes(rootRunId))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+function workspaceLeaseStatusFromEvent(
+  lifecycleStatus: WorkspaceLeaseReviewRow['status'],
+  currentStatus: WorkspaceLeaseReviewRow['status'],
+  payload: Record<string, unknown>,
+  eventType: string,
+): WorkspaceLeaseReviewRow['status'] {
+  if (
+    lifecycleStatus === 'merged' ||
+    lifecycleStatus === 'discarded' ||
+    lifecycleStatus === 'failed'
+  ) {
+    return lifecycleStatus;
+  }
+  const action = eventType === WORKSPACE_LEASE_ACTION_EVENT ? asString(payload.action) : null;
+  const phase = asString(payload.phase);
+  const eventStatus = asString(payload.status);
+  if (action?.endsWith('_failed') || eventStatus === 'failed') return 'failed';
+  if (phase === 'pending_review' || phase === 'verification_terminated') return 'pending_review';
+  if (
+    eventStatus === 'active' ||
+    eventStatus === 'pending_review' ||
+    eventStatus === 'merged' ||
+    eventStatus === 'discarded'
+  ) {
+    return eventStatus;
+  }
+  return currentStatus;
 }
 
 export function useProjectWorkspaceLeaseReviews(projectId: string | null): {

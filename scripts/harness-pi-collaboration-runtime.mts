@@ -33,6 +33,7 @@ import type {
   CollaborationTurnRequest,
   CollaborationTurnResult,
 } from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-transport.js';
+import { selectCollaborationExecutionTarget } from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-transport.js';
 import {
   type CollaborationThreadContext,
   createCollaborationTurnController,
@@ -40,6 +41,10 @@ import {
 } from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-turn-controller.js';
 import { createCollaborationService } from '../packages/core/src/runtime/collaboration/collaboration-service.js';
 import { createCollaborationMemoryRepos } from '../packages/core/src/runtime/repos/collaboration/memory.js';
+import type {
+  AiExecutionTarget,
+  TurnExecutionProvenance,
+} from '../packages/shared-types/src/index.js';
 
 // Strip `//` line comments and `/* */` block comments so a NEGATIVE source scan
 // (asserting a forbidden token is ABSENT) checks the executable code, not the
@@ -48,6 +53,21 @@ import { createCollaborationMemoryRepos } from '../packages/core/src/runtime/rep
 // the raw source; negative scans use this.
 function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+function extractNamedAsyncFunction(source: string, name: string): string {
+  const start = source.indexOf(`async function ${name}(`);
+  if (start < 0) return '';
+  const open = source.indexOf('{', start);
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  return '';
 }
 
 let failures = 0;
@@ -86,12 +106,54 @@ const PARTICIPANTS: CollaborationParticipant[] = [
   { employeeId: 'e-sophie', name: 'Sophie', role: 'PM', personaSummary: null },
 ];
 
+const MODEL_SOURCE = {
+  kind: 'official-api' as const,
+  sourceUrl: 'https://provider.example/models/fixture-stable',
+  checkedAt: '2026-07-14T00:00:00.000Z',
+};
+
+function fakeSelection(model?: string, frozenTarget?: AiExecutionTarget) {
+  if (frozenTarget) {
+    return {
+      target: frozenTarget,
+      runtimeModelRef: `${frozenTarget.accountId.includes(':other:') ? 'other' : 'fixture'}/${frozenTarget.modelId}`,
+    };
+  }
+  const runtimeModelRef = model?.trim() || 'fixture/fixture-stable';
+  const separator = runtimeModelRef.indexOf('/');
+  const provider = separator > 0 ? runtimeModelRef.slice(0, separator) : 'fixture';
+  const modelId = separator > 0 ? runtimeModelRef.slice(separator + 1) : runtimeModelRef;
+  return {
+    target: {
+      engineId: 'api',
+      accountId:
+        provider === 'other' ? 'api:other:0123456789abcdef' : 'api:fixture:0123456789abcdef',
+      billingMode: 'api' as const,
+      modelId,
+      modelSource: { ...MODEL_SOURCE, sourceUrl: `https://provider.example/models/${modelId}` },
+    },
+    runtimeModelRef,
+  };
+}
+
+function fakeProvenance(req: CollaborationTurnRequest): TurnExecutionProvenance {
+  return {
+    ...req.expectedTarget,
+    runId: req.requestId,
+    adapter: { id: 'fixture-adapter', version: '1.0.0' },
+  };
+}
+
 // A fake transport: records every request, streams two deltas, returns canned text
 // + usage. `behavior` lets a scenario force a throw or a slow run for stop tests.
 interface FakeTransport extends CollaborationTransport {
   requests: CollaborationTurnRequest[];
   packets: string[];
-  behavior: (req: CollaborationTurnRequest) => Promise<CollaborationTurnResult>;
+  behavior: (
+    req: CollaborationTurnRequest,
+  ) => Promise<
+    Omit<CollaborationTurnResult, 'provenance'> & { provenance?: TurnExecutionProvenance }
+  >;
 }
 function makeFakeTransport(): FakeTransport {
   const t: FakeTransport = {
@@ -101,13 +163,19 @@ function makeFakeTransport(): FakeTransport {
       text: `reply from ${req.employeeId}`,
       usage: { input: 3, output: 5 },
     }),
+    async resolveExecutionSelection(input) {
+      return fakeSelection(input.model, input.frozenTarget);
+    },
     async run(req, opts) {
       t.requests.push(req);
       t.packets.push(req.systemPromptAppend ?? '');
+      const provenance = fakeProvenance(req);
+      await opts.verifyDurableTarget(provenance);
       // Stream two deltas so the live preview path is exercised.
       opts?.onDelta?.('partial ');
       opts?.onDelta?.('reply');
-      return t.behavior(req);
+      const result = await t.behavior(req);
+      return { ...result, provenance: result.provenance ?? provenance };
     },
   };
   return t;
@@ -206,8 +274,8 @@ async function seedThread(
 {
   const inherited = { model: 'fixture/orchestrator', thinkingLevel: 'medium' };
   const availableModels = [
-    { provider: 'fixture', id: 'orchestrator' },
-    { provider: 'fixture', id: 'employee' },
+    { runtimeModelRef: 'fixture/orchestrator' },
+    { runtimeModelRef: 'fixture/employee' },
   ];
   const bound = resolveEmployeeRuntimeSelection(
     { model: 'fixture/employee', thinking_level: 'high' },
@@ -239,6 +307,53 @@ async function seedThread(
     stale.model === inherited.model && stale.thinkingLevel === inherited.thinkingLevel,
     JSON.stringify(stale),
   );
+
+  const safeCatalogStatus = {
+    accounts: [
+      {
+        engineId: 'api',
+        accountId: 'api:fixture:0123456789abcdef',
+        billingMode: 'api',
+        displayName: 'Fixture API',
+        status: 'available',
+        capabilities: {
+          execute: { status: 'available' },
+          models: { status: 'available' },
+          usage: { status: 'available' },
+          cost: { status: 'available' },
+        },
+      },
+    ],
+    models: [
+      {
+        engineId: 'api',
+        accountId: 'api:fixture:0123456789abcdef',
+        billingMode: 'api',
+        modelId: 'fixture-stable',
+        displayName: 'Fixture Stable',
+        runtimeModelRef: 'fixture/fixture-stable',
+        availability: 'available',
+        capabilities: { textInput: true, imageInput: false, tools: true, reasoning: true },
+        source: MODEL_SOURCE,
+      },
+    ],
+    checkedAt: MODEL_SOURCE.checkedAt,
+  };
+  const selected = selectCollaborationExecutionTarget(safeCatalogStatus);
+  check(
+    'safe runtime catalog selects only a configured stable exact API model',
+    selected.runtimeModelRef === 'fixture/fixture-stable' &&
+      selected.target.accountId === 'api:fixture:0123456789abcdef' &&
+      selected.target.modelId === 'fixture-stable',
+    JSON.stringify(selected),
+  );
+  let unavailableRejected = false;
+  try {
+    selectCollaborationExecutionTarget({ ...safeCatalogStatus, accounts: [] });
+  } catch {
+    unavailableRejected = true;
+  }
+  check('safe runtime catalog rejects a model without an available account', unavailableRejected);
 
   // (6) mentions_only parsing.
   const m = parseMentions('hey @Kai and @Sophie can you look', PARTICIPANTS);
@@ -414,6 +529,106 @@ await (async () => {
   check(
     '(4) ledger row carries usage + runtime_request_id',
     !!turns[0].usage_json && !!turns[0].runtime_request_id,
+  );
+  const durableTarget = turns[0] ? JSON.parse(turns[0].execution_target_json) : null;
+  const durableProvenance = turns[0]?.result_provenance_json
+    ? JSON.parse(turns[0].result_provenance_json)
+    : null;
+  check(
+    '(4) exact target is durable before invoke and final provenance matches it',
+    durableTarget?.accountId === 'api:fixture:0123456789abcdef' &&
+      durableTarget?.modelId === 'model-connect' &&
+      durableProvenance?.runId === turns[0]?.runtime_request_id &&
+      durableProvenance?.accountId === durableTarget?.accountId &&
+      durableProvenance?.modelId === durableTarget?.modelId &&
+      durableProvenance?.adapter?.id === 'fixture-adapter',
+    JSON.stringify({ durableTarget, durableProvenance }),
+  );
+})();
+
+// ── A thread freezes engine/account/billing while allowing exact model changes ─
+await (async () => {
+  const ctx = directCtx();
+  ctx.runtimeByEmployeeId = new Map([['e-alex', { model: 'fixture/model-one' }]]);
+  const transport = makeFakeTransport();
+  const { controller, repos, service } = makeController(ctx, transport);
+  await seedThread(service, ctx);
+  await controller.sendBossMessage(ctx.threadId, 'first account lane');
+  ctx.runtimeByEmployeeId = new Map([['e-alex', { model: 'fixture/model-two' }]]);
+  await controller.sendBossMessage(ctx.threadId, 'same account, different exact model');
+  const sameLaneTurns = await repos.collaborationTurns.listByThread(ctx.threadId);
+  check(
+    'same thread permits exact model changes inside one API account lane',
+    sameLaneTurns.length === 2 && transport.requests.length === 2,
+  );
+
+  ctx.runtimeByEmployeeId = new Map([['e-alex', { model: 'other/model-three' }]]);
+  let laneSwitchRejected = false;
+  try {
+    await controller.sendBossMessage(ctx.threadId, 'try a different account');
+  } catch (error) {
+    laneSwitchRejected = String(error).includes(
+      'cannot switch AI engine, account, or billing lane',
+    );
+  }
+  check('same thread rejects an account-lane switch before host invocation', laneSwitchRejected);
+  check('rejected lane switch crosses no model boundary', transport.requests.length === 2);
+})();
+
+// ── Concurrent first turns cannot race two account lanes past the bind ──────
+await (async () => {
+  const ctx = directCtx();
+  ctx.threadId = 't-concurrent-lane';
+  ctx.runtimeByEmployeeId = new Map([['e-alex', { model: 'fixture/model-one' }]]);
+  const transport = makeFakeTransport();
+  let markFirstAtBoundary!: () => void;
+  const firstAtBoundary = new Promise<void>((resolve) => {
+    markFirstAtBoundary = resolve;
+  });
+  let releaseFirst!: () => void;
+  const firstCanPrepare = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  transport.run = async (req, opts) => {
+    transport.requests.push(req);
+    const provenance = fakeProvenance(req);
+    if (transport.requests.length === 1) {
+      markFirstAtBoundary();
+      await firstCanPrepare;
+    }
+    await opts.verifyDurableTarget(provenance);
+    return { text: `reply from ${req.employeeId}`, provenance };
+  };
+  const { controller, repos, service } = makeController(ctx, transport);
+  await seedThread(service, ctx);
+
+  const first = controller.sendBossMessage(ctx.threadId, 'first lane claimant');
+  await firstAtBoundary;
+  ctx.runtimeByEmployeeId = new Map([['e-alex', { model: 'other/model-two' }]]);
+  let secondError = '';
+  try {
+    await controller.sendBossMessage(ctx.threadId, 'racing different account lane');
+  } catch (error) {
+    secondError = String(error);
+  } finally {
+    releaseFirst();
+  }
+  await first;
+
+  const turns = await repos.collaborationTurns.listByThread(ctx.threadId);
+  check(
+    'concurrent first turns reject the losing account lane before host invocation',
+    secondError.includes('cannot switch AI engine, account, or billing lane'),
+    secondError,
+  );
+  check(
+    'concurrent lane rejection invokes exactly one model boundary',
+    transport.requests.length === 1,
+  );
+  check(
+    'concurrent lane rejection persists only the winning turn',
+    turns.length === 1 && turns[0]?.status === 'complete',
+    JSON.stringify(turns),
   );
 })();
 
@@ -591,6 +806,10 @@ await (async () => {
     (t) => t.employee_id === 'e-kai',
   );
   check('(9) failed turn ledger carries an error summary', !!failedTurnRow?.error_summary);
+  check(
+    '(9) failed turn retains the prepared execution identity',
+    !!failedTurnRow?.result_provenance_json,
+  );
 
   // retry: retrying the failed turn re-runs the same speaker into the same message id.
   transport.behavior = async (req) => ({ text: `retried ${req.employeeId}` });
@@ -613,13 +832,15 @@ await (async () => {
   });
   stopTransport.run = async (req, opts) => {
     stopTransport.requests.push(req);
+    const provenance = fakeProvenance(req);
+    await opts.verifyDurableTarget(provenance);
     opts?.onDelta?.('half ');
     stopSignal = opts?.signal;
     markStopStarted();
     return new Promise<CollaborationTurnResult>((resolve) => {
       opts?.signal?.addEventListener(
         'abort',
-        () => resolve({ text: 'late completion that must be ignored' }),
+        () => resolve({ text: 'late completion that must be ignored', provenance }),
         { once: true },
       );
     });
@@ -646,6 +867,10 @@ await (async () => {
   check(
     '(9) stop marks the live turn and durable ledger interrupted',
     stoppedTurn?.phase === 'interrupted' && stoppedLedger?.status === 'interrupted',
+  );
+  check(
+    '(9) stopped turn retains exact execution provenance when the host settled',
+    !!stoppedLedger?.result_provenance_json,
   );
   check(
     '(9) a late transport completion cannot overwrite the stopped message',
@@ -681,14 +906,12 @@ await (async () => {
   const end = entry.indexOf('// The host is line-delimited on stdin');
   check('(2) runCollaboration boundary found in host source', start >= 0, String(start));
   check('(2) end boundary found after runCollaboration', end > start, `${start}..${end}`);
-  const fn = entry.slice(start, end);
-  // Sanity-bound the slice: if the end sentinel ever moves, `end` could land far
-  // away (or -1) and the isolation assertions below would scan the wrong/whole
-  // file and pass vacuously. The real runCollaboration body is ~6 KB; the whole
-  // host file is tens of KB, so an 8 KB ceiling catches a runaway slice.
+  const fn = extractNamedAsyncFunction(entry, 'runCollaboration');
+  // Exact brace extraction prevents a moved end-comment sentinel from making
+  // negative isolation scans accidentally inspect the rest of the host.
   check(
-    '(2) runCollaboration slice is bounded (not the whole file)',
-    fn.length < 8000,
+    '(2) runCollaboration function extraction is bounded',
+    fn.length > 0 && fn.length < 12_000,
     String(fn.length),
   );
   const fnCode = stripComments(fn);
@@ -719,13 +942,13 @@ await (async () => {
   );
   check(
     '(1) host collaborate never binds a project workspace',
-    !fnCode.includes('ensureProjectBoundForRun') &&
+    !fnCode.includes('requireProjectWorkspaceForRun') &&
       !fnCode.includes('project_read_file') &&
       !/project_workspace_root/.test(fnCode),
   );
   check(
     '(2) host collaborate creates an ephemeral session (no session dir persistence)',
-    /SessionManager\.create\(cwd\)/.test(fn) && !/sessionDir/.test(fnCode),
+    /SessionManager\.inMemory\(cwd\)/.test(fn) && !/sessionDir/.test(fnCode),
   );
   check(
     '(4) host collaborate never writes agent_runs / chat_threads / mission tables',
@@ -742,7 +965,8 @@ await (async () => {
     /messageDeltaLine\(\{\s*channel:\s*'content'/.test(fn),
   );
 
-  // Rust host: a neutral cwd, no project bind, register_stdin None.
+  // Rust host: a neutral cwd, no project bind, stdin reserved for the mandatory
+  // execution-target ACK (and MCP results only in collaboration_read).
   const rsPattern = fileURLToPath(
     new URL('../apps/desktop/src-tauri/src/pi_agent_host/*.rs', import.meta.url),
   );
@@ -762,9 +986,8 @@ await (async () => {
       !/resolved_request_cwd/.test(rfnCode),
   );
   check(
-    '(2) Rust collaborate keeps stdin only for collaboration_read',
-    /collaboration_profile\.as_deref\(\)\s*==\s*Some\("collaboration_read"\)/.test(rfnCode) &&
-      /Some\(req\.request_id\.as_str\(\)\)/.test(rfnCode),
+    '(2) Rust collaborate keeps stdin for the mandatory execution-target ACK',
+    /register_stdin\s*=\s*Some\(req\.request_id\.as_str\(\)\)/.test(rfnCode),
   );
   check(
     '(2) Rust collaborate carries no roster / missionContextJson field',
@@ -810,9 +1033,37 @@ await (async () => {
   );
   check(
     '(4) collaboration transport never touches agent_runs / mission / chat_threads',
-    !/agent_runs|mission|chat_thread|persistAgentRun|ensureProjectBoundForRun/.test(
+    !/agent_runs|mission|chat_thread|persistAgentRun|requireProjectWorkspaceForRun/.test(
       stripComments(transportSrc),
     ),
+  );
+  const transportCode = stripComments(transportSrc);
+  check(
+    '(4) collaboration transport resolves only the safe runtime account/model projection',
+    transportCode.includes("invokeCommand('agent_runtime_status'") &&
+      transportCode.includes('selectCollaborationExecutionTarget'),
+  );
+  check(
+    '(4) collaboration transport sends the exact target + adapter model reference',
+    transportCode.includes('expectedTarget: req.expectedTarget') &&
+      transportCode.includes('runtimeModelRef: req.runtimeModelRef'),
+  );
+  check(
+    '(4) executionPrepared requires durable readback before renderer ACK',
+    transportCode.includes("event.kind === 'executionPrepared'") &&
+      transportCode.includes('await opts.verifyDurableTarget(identity)') &&
+      transportCode.includes("invokeCommand('agent_runtime_confirm_execution'"),
+  );
+  check(
+    '(4) missing/duplicate preparation and identity mismatch abort instead of prompting',
+    transportCode.includes('did not prepare the collaboration execution target') &&
+      transportCode.includes('prepared the same collaboration request twice') &&
+      transportCode.includes("invokeCommand('agent_runtime_abort'") &&
+      transportCode.includes('requireTurnExecutionProvenance'),
+  );
+  check(
+    '(4) collaboration has no adapter-global model override fallback',
+    !transportCode.includes('readPiModelOverride'),
   );
 }
 

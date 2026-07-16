@@ -1,7 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import {
-  type PiAgentModelOption,
-  usePiAgentModels,
+  type AgentRuntimeModelOption,
+  useAgentRuntimeModels,
 } from '@/assistant/composer/usePiAgentModels.js';
 import { reposOrNull } from '@/data/adapters.js';
 import {
@@ -105,7 +105,7 @@ function shortModelName(value: string): string {
 
 function employeeModelState(
   employee: Employee,
-  models: readonly PiAgentModelOption[] | undefined,
+  models: readonly AgentRuntimeModelOption[] | undefined,
 ): EmployeeModelState {
   if (employee.kind === 'external') return { label: 'External', value: '', invalid: false };
   const value = employee.model?.trim() ?? '';
@@ -120,7 +120,7 @@ function employeeModelState(
 
 function companyModelSummary(
   employees: readonly Employee[],
-  models: readonly PiAgentModelOption[] | undefined,
+  models: readonly AgentRuntimeModelOption[] | undefined,
 ): string {
   const counts = new Map<string, number>();
   for (const employee of employees) {
@@ -169,7 +169,7 @@ function EmployeeDockPopover({
   onViewProfile: () => void;
   onAssignZone: (zoneId: string) => void;
   onToggleEnabled: () => void;
-  models: readonly PiAgentModelOption[] | undefined;
+  models: readonly AgentRuntimeModelOption[] | undefined;
   modelsLoading: boolean;
   onModelChange: (model: string) => void;
   messaging: boolean;
@@ -260,7 +260,7 @@ function EmployeeDockPopover({
                 : []),
               ...(models ?? []).map((option) => ({
                 value: option.value,
-                label: `${option.provider} · ${option.name}`,
+                label: `${option.accountName} · ${option.name}`,
               })),
             ]}
           />
@@ -362,7 +362,7 @@ export function TeamDock() {
   const selectEmployee = useUiState((s) => s.selectEmployee);
   const queryClient = useQueryClient();
   const employees = useEmployees();
-  const models = usePiAgentModels();
+  const models = useAgentRuntimeModels();
   const threads = useThreads(projectId);
   const layout = useOfficeLayout(companyId);
   const assignZone = useReassignEmployee();

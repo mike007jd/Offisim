@@ -9,8 +9,7 @@
 // hidden system prompt and any non-participant private memory are FORBIDDEN from
 // the context packet (see collaboration-context.ts).
 
-import { buildMcpScope, resolveEmployeeRuntimeSelection } from '@/data/employee-persona.js';
-import { invokeCommand } from '@/lib/tauri-commands.js';
+import { buildMcpScope } from '@/data/employee-persona.js';
 import { titleizeSlug } from '@/lib/utils.js';
 import { createCollaborationService } from '@offisim/core/browser';
 import type { EmployeeRow, RuntimeRepositories } from '@offisim/core/browser';
@@ -131,11 +130,10 @@ async function assembleController(): Promise<CollaborationTurnController> {
     if (!thread) throw new Error(`collaboration thread not found: ${threadId}`);
     const capabilityProfile =
       thread.capability_profile === 'collaboration_read' ? 'collaboration_read' : 'strict';
-    const [company, members, allEmployees, piStatus] = await Promise.all([
+    const [company, members, allEmployees] = await Promise.all([
       repos.companies.findById(thread.company_id).catch(() => null),
       repos.collaborationMembers.listActiveByThread(threadId),
       repos.employees.findByCompany(thread.company_id),
-      invokeCommand('pi_agent_status').catch(() => null),
     ]);
     const byId = new Map(allEmployees.map((e) => [e.employee_id, e]));
     // Participants are the thread's ACTIVE employee members, in their join order
@@ -150,14 +148,17 @@ async function assembleController(): Promise<CollaborationTurnController> {
       thinkingLevel: resolveThreadThinkingOverride(threadId),
     };
     const runtimeByEmployeeId = new Map(
-      allEmployees.map((employee) => [
-        employee.employee_id,
-        resolveEmployeeRuntimeSelection(
-          employee,
-          piStatus?.availableModels ?? [],
-          inheritedRuntime,
-        ),
-      ]),
+      allEmployees.map((employee) => {
+        const model = employee.model?.trim() || inheritedRuntime.model;
+        const thinkingLevel = employee.thinking_level?.trim() || inheritedRuntime.thinkingLevel;
+        return [
+          employee.employee_id,
+          {
+            ...(model ? { model } : {}),
+            ...(thinkingLevel ? { thinkingLevel } : {}),
+          },
+        ] as const;
+      }),
     );
     const mcpToolsByEmployeeId =
       capabilityProfile === 'collaboration_read'

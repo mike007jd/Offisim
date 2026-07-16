@@ -1,4 +1,5 @@
 import { AssistantMessageParts } from '@/assistant/parts/AssistantMessageParts.js';
+import { MessageWorkspaceDisclosure } from '@/assistant/parts/WorkspaceDisclosure.js';
 import { isReasoningStreaming } from '@/assistant/parts/assistant-message-parts.js';
 import type { ChatMessage, Employee, RunRecord } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
@@ -137,6 +138,7 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
         <div className="off-msg-body">
           <AssistantMessageParts reasoningStreaming={reasoningStreaming} />
         </div>
+        <MessageWorkspaceDisclosure message={message} />
         {loopRevisionIds.map((revisionId) => (
           <div key={revisionId} className="off-msg-loop-ref">
             <Icon icon={Repeat} size="sm" />

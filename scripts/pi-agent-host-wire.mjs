@@ -11,10 +11,11 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 7;
+export const PI_HOST_PROTOCOL_VERSION = 10;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',
+  'executionPrepared',
   'started',
   'messageDelta',
   'messageEnd',
@@ -44,9 +45,16 @@ export const PI_REQUEST_SPEC = Object.freeze({
   execute: requestSpec(
     [
       'mode',
+      'requestId',
       'text',
       'cwd',
+      'workspaceRequirement',
+      'nativeSessionMode',
+      'workspaceAvailability',
+      'workspaceUnavailableReasonCode',
       'sessionDir',
+      'exactSessionFile',
+      'exactSessionId',
       'agentDir',
       'model',
       'permissionMode',
@@ -63,9 +71,14 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'roster',
       'missionContextJson',
       'mcpTools',
+      'expectedTarget',
+      'runtimeModelRef',
     ],
     [
       'agentDir',
+      'workspaceUnavailableReasonCode',
+      'exactSessionFile',
+      'exactSessionId',
       'model',
       'permissionMode',
       'thinkingLevel',
@@ -84,8 +97,20 @@ export const PI_REQUEST_SPEC = Object.freeze({
     ['directDelegation', 'delegationLimits'],
   ),
   enhance: requestSpec(
-    ['mode', 'text', 'systemPrompt', 'cwd', 'agentDir', 'model', 'thinkingLevel'],
+    [
+      'mode',
+      'requestId',
+      'text',
+      'systemPrompt',
+      'cwd',
+      'agentDir',
+      'model',
+      'thinkingLevel',
+      'expectedTarget',
+      'runtimeModelRef',
+    ],
     ['agentDir', 'model', 'thinkingLevel'],
+    ['sourceProvenance'],
   ),
   collaborate: requestSpec(
     [
@@ -101,6 +126,8 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'model',
       'thinkingLevel',
       'systemPromptAppend',
+      'expectedTarget',
+      'runtimeModelRef',
     ],
     [
       'collaborationProfile',
@@ -117,9 +144,16 @@ export const PI_REQUEST_SPEC = Object.freeze({
 const PI_REQUEST_NORMALIZERS = Object.freeze({
   execute: (payload) => ({
     mode: payload.mode,
+    requestId: payload.requestId,
     text: payload.text,
     cwd: payload.cwd,
+    workspaceRequirement: payload.workspaceRequirement,
+    nativeSessionMode: payload.nativeSessionMode,
+    workspaceAvailability: payload.workspaceAvailability,
+    workspaceUnavailableReasonCode: payload.workspaceUnavailableReasonCode,
     sessionDir: payload.sessionDir,
+    exactSessionFile: payload.exactSessionFile,
+    exactSessionId: payload.exactSessionId,
     agentDir: payload.agentDir,
     model: payload.model,
     permissionMode: payload.permissionMode,
@@ -136,6 +170,8 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
     roster: payload.roster,
     missionContextJson: payload.missionContextJson,
     mcpTools: payload.mcpTools,
+    expectedTarget: payload.expectedTarget,
+    runtimeModelRef: payload.runtimeModelRef,
     ...(payload.directDelegation !== undefined
       ? { directDelegation: payload.directDelegation }
       : {}),
@@ -145,12 +181,18 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
   }),
   enhance: (payload) => ({
     mode: payload.mode,
+    requestId: payload.requestId,
     text: payload.text,
     systemPrompt: payload.systemPrompt,
     cwd: payload.cwd,
     agentDir: payload.agentDir,
     model: payload.model,
     thinkingLevel: payload.thinkingLevel,
+    expectedTarget: payload.expectedTarget,
+    runtimeModelRef: payload.runtimeModelRef,
+    ...(payload.sourceProvenance !== undefined
+      ? { sourceProvenance: payload.sourceProvenance }
+      : {}),
   }),
   collaborate: (payload) => ({
     mode: payload.mode,
@@ -165,6 +207,8 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
     model: payload.model,
     thinkingLevel: payload.thinkingLevel,
     systemPromptAppend: payload.systemPromptAppend,
+    expectedTarget: payload.expectedTarget,
+    runtimeModelRef: payload.runtimeModelRef,
   }),
 });
 
@@ -279,6 +323,17 @@ function withoutUndefined(line) {
 
 export function readyLine() {
   return { kind: 'ready', protocolVersion: PI_HOST_PROTOCOL_VERSION };
+}
+
+export function executionPreparedLine({ prepareId, runId, identity, targetDigest, adapter } = {}) {
+  return withoutUndefined({
+    kind: 'executionPrepared',
+    prepareId,
+    runId,
+    identity,
+    targetDigest,
+    adapter,
+  });
 }
 
 export function startedLine({ sessionId, sessionFile, model, modelFallbackMessage } = {}) {
@@ -406,6 +461,7 @@ export function errorLine({ code, message } = {}) {
 // reproducible from the same builders the production host uses.
 export const PI_WIRE_BUILDERS = Object.freeze({
   ready: () => readyLine(),
+  executionPrepared: executionPreparedLine,
   started: startedLine,
   messageDelta: messageDeltaLine,
   messageEnd: messageEndLine,

@@ -1,23 +1,77 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum TaskWorkspaceRequirement {
+    #[default]
+    Required,
+    Optional,
+}
+
+impl TaskWorkspaceRequirement {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Required => "required",
+            Self::Optional => "optional",
+        }
+    }
+
+    pub(super) fn is_optional(self) -> bool {
+        self == Self::Optional
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum NativeSessionMode {
+    #[default]
+    Tracked,
+    Fresh,
+}
+
+impl NativeSessionMode {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Tracked => "tracked",
+            Self::Fresh => "fresh",
+        }
+    }
+
+    pub(super) fn is_fresh(self) -> bool {
+        self == Self::Fresh
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PiAgentExecuteRequest {
     pub(super) request_id: String,
     pub(super) text: String,
+    /// Product-authoritative target frozen before the request can cross the API
+    /// side-effect boundary. The Node host must prove the created session matches.
+    pub(super) expected_target: PiExecutionTarget,
+    /// Adapter-private model selector (for example `openrouter-free/openai/...`).
+    /// Never presented as product model identity.
+    pub(super) runtime_model_ref: String,
     pub(super) company_id: String,
     pub(super) thread_id: String,
+    /// Whether a turn may continue from Conversation/native session context when
+    /// no Project folder can be recovered. Missions, direct delegation, and
+    /// durable resume are always validated as `required` by the backend.
     #[serde(default)]
-    pub(super) cwd: Option<String>,
+    pub(super) workspace_requirement: TaskWorkspaceRequirement,
+    /// Explicit one-shot recovery from a tracked terminal native session that
+    /// the backend proved missing/invalid. `fresh` is never a silent fallback:
+    /// the normal resolver rejects it unless an existing durable mapping is bad.
+    #[serde(default)]
+    pub(super) native_session_mode: NativeSessionMode,
+    /// Failed normal-Turn root whose durable prestart error authorized the
+    /// explicit fresh-session action. Required only for `fresh`; never forwarded
+    /// to the native host as authority.
+    #[serde(default)]
+    pub(super) native_session_reset_source_run_id: Option<String>,
     #[serde(default)]
     pub(super) project_id: Option<String>,
-    /// Project-owned delegated-write verification policy, forwarded verbatim.
-    #[serde(default)]
-    pub(super) project_verify_command: Option<String>,
-    #[serde(default)]
-    pub(super) project_verify_max_attempts: Option<u32>,
-    #[serde(default)]
-    pub(super) project_verify_token_budget: Option<u64>,
     #[serde(default)]
     pub(super) employee_id: Option<String>,
     #[serde(default)]
@@ -47,6 +101,11 @@ pub struct PiAgentExecuteRequest {
     /// renderer can graft children under the root. Absent → no delegation scope.
     #[serde(default)]
     pub(super) root_run_id: Option<String>,
+    /// Required only by the durable resume gateway. This is the persisted,
+    /// non-secret history id whose backend root identity must still match the
+    /// Project folder before a replacement capability can be issued.
+    #[serde(default)]
+    pub(super) workspace_binding_history_id: Option<String>,
     /// Company roster (opaque, forwarded verbatim): each employee the root agent
     /// may delegate to, with persona / model / access / tools. Built renderer-side
     /// from `employees.findByCompany`; Rust does not interpret it.
@@ -85,6 +144,8 @@ pub struct PiAgentExecuteRequest {
 pub struct PiAgentEnhanceRequest {
     pub(super) request_id: String,
     pub(super) text: String,
+    pub(super) expected_target: PiExecutionTarget,
+    pub(super) runtime_model_ref: String,
     /// The selected enhance profile's versioned system instruction. Built
     /// renderer-side from the frozen profile constants; opaque to Rust.
     pub(super) system_prompt: String,
@@ -92,6 +153,11 @@ pub struct PiAgentEnhanceRequest {
     pub(super) model: Option<String>,
     #[serde(default)]
     pub(super) thinking_level: Option<String>,
+    /// Optional source Turn provenance. Present for background isolated text
+    /// jobs, absent for the user-invoked Prompt Enhance surface. Rust forwards
+    /// this opaque packet; the host validates engine/account/model equality.
+    #[serde(default)]
+    pub(super) source_provenance: Option<serde_json::Value>,
 }
 
 /// Collaboration request (PR-03). The HOST-ENFORCED `collaboration` capability
@@ -110,6 +176,8 @@ pub struct PiAgentEnhanceRequest {
 pub struct PiAgentCollaborateRequest {
     pub(super) request_id: String,
     pub(super) text: String,
+    pub(super) expected_target: PiExecutionTarget,
+    pub(super) runtime_model_ref: String,
     /// Frozen capability enum. The renderer always sends `'collaboration'` here;
     /// shaped so future profiles only ADD a branch. Opaque to Rust beyond routing.
     #[serde(default)]
@@ -171,6 +239,8 @@ pub struct PiAgentHostResponse {
     pub(super) session_file: Option<String>,
     #[serde(default)]
     pub(super) model: Option<PiModelSummary>,
+    #[serde(default)]
+    pub(super) provenance: Option<PiExecutionProvenance>,
     // Root-session token/cost usage (the Node host's `rootUsage` on the result
     // line). Carried through as an opaque JSON object so the renderer can record
     // it on the root agent_runs row — without this field serde silently drops it
@@ -184,6 +254,43 @@ pub struct PiAgentHostResponse {
     pub(super) budget_usage: Option<serde_json::Value>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PiExecutionProvenance {
+    pub(super) engine_id: String,
+    pub(super) account_id: String,
+    pub(super) billing_mode: String,
+    pub(super) model_id: String,
+    pub(super) model_source: PiModelSource,
+    pub(super) run_id: String,
+    pub(super) adapter: PiAdapterIdentity,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PiExecutionTarget {
+    pub(super) engine_id: String,
+    pub(super) account_id: String,
+    pub(super) billing_mode: String,
+    pub(super) model_id: String,
+    pub(super) model_source: PiModelSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PiModelSource {
+    pub(super) kind: String,
+    pub(super) source_url: String,
+    pub(super) checked_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAdapterIdentity {
+    pub(super) id: String,
+    pub(super) version: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(
     tag = "kind",
@@ -191,6 +298,30 @@ pub struct PiAgentHostResponse {
     rename_all_fields = "camelCase"
 )]
 pub enum PiAgentHostEvent {
+    WorkspaceBound {
+        workspace_ref: String,
+        history_id: String,
+        company_id: String,
+        project_id: String,
+        thread_id: String,
+        turn_id: String,
+        request_id: String,
+        access: String,
+        source: String,
+        confidence: f64,
+        reason_code: String,
+        issued_at_unix_ms: i64,
+        expires_at_unix_ms: i64,
+        display_path: String,
+    },
+    WorkspaceUnavailable {
+        project_id: String,
+        thread_id: String,
+        turn_id: String,
+        request_id: String,
+        source: String,
+        reason_code: String,
+    },
     Started {
         #[serde(default)]
         session_id: Option<String>,
@@ -200,6 +331,13 @@ pub enum PiAgentHostEvent {
         model: Option<PiModelSummary>,
         #[serde(default)]
         model_fallback_message: Option<String>,
+    },
+    ExecutionPrepared {
+        prepare_id: String,
+        run_id: String,
+        identity: PiExecutionProvenance,
+        target_digest: String,
+        adapter: PiAdapterIdentity,
     },
     MessageDelta {
         delta: String,
@@ -251,7 +389,7 @@ pub enum PiAgentHostEvent {
         payload: serde_json::Value,
     },
     Result {
-        response: PiAgentHostResponse,
+        response: Box<PiAgentHostResponse>,
     },
     Error {
         code: String,
@@ -282,50 +420,12 @@ pub struct PiAgentProviderStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PiAgentProviderModelConfig {
-    pub(super) id: String,
+pub struct AiRuntimeStatusResponse {
     #[serde(default)]
-    pub(super) name: Option<String>,
+    pub(super) accounts: Vec<serde_json::Value>,
     #[serde(default)]
-    pub(super) api: Option<String>,
-    #[serde(default)]
-    pub(super) context_window: Option<u64>,
-    #[serde(default)]
-    pub(super) max_tokens: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PiAgentProviderConfigStatus {
-    pub(super) provider: String,
-    pub(super) display_name: String,
-    #[serde(default)]
-    pub(super) name: Option<String>,
-    #[serde(default)]
-    pub(super) base_url: Option<String>,
-    #[serde(default)]
-    pub(super) api: Option<String>,
-    #[serde(default)]
-    pub(super) has_api_key: bool,
-    #[serde(default)]
-    pub(super) auth_source: Option<String>,
-    #[serde(default)]
-    pub(super) models: Vec<PiAgentProviderModelConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PiAgentProviderTemplate {
-    pub(super) provider: String,
-    pub(super) display_name: String,
-    #[serde(default)]
-    pub(super) base_url: Option<String>,
-    #[serde(default)]
-    pub(super) api: Option<String>,
-    #[serde(default)]
-    pub(super) configured: bool,
-    #[serde(default)]
-    pub(super) models: Vec<PiAgentProviderModelConfig>,
+    pub(super) models: Vec<serde_json::Value>,
+    pub(super) checked_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -333,15 +433,13 @@ pub struct PiAgentProviderTemplate {
 pub struct PiAgentStatusResponse {
     pub(super) ok: bool,
     #[serde(default)]
+    pub(super) runtime_status: Option<AiRuntimeStatusResponse>,
+    #[serde(default)]
     pub(super) auth_providers: Vec<String>,
     #[serde(default)]
     pub(super) provider_status: Vec<PiAgentProviderStatus>,
     #[serde(default)]
     pub(super) configured_provider_status: Vec<PiAgentProviderStatus>,
-    #[serde(default)]
-    pub(super) provider_configs: Vec<PiAgentProviderConfigStatus>,
-    #[serde(default)]
-    pub(super) provider_templates: Vec<PiAgentProviderTemplate>,
     #[serde(default)]
     pub(super) available_models: Vec<PiModelSummary>,
     #[serde(default)]
@@ -381,20 +479,4 @@ pub struct PiAgentModelsConfig {
     pub(super) providers: Vec<String>,
     #[serde(default)]
     pub(super) parse_error: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PiAgentProviderConfigInput {
-    pub(super) provider_id: String,
-    #[serde(default)]
-    pub(super) display_name: Option<String>,
-    pub(super) base_url: String,
-    pub(super) api: String,
-    #[serde(default)]
-    pub(super) api_key: Option<String>,
-    #[serde(default)]
-    pub(super) keep_existing_api_key: bool,
-    #[serde(default)]
-    pub(super) models: Vec<PiAgentProviderModelConfig>,
 }

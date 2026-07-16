@@ -1,4 +1,4 @@
-import { usePiAgentModels } from '@/assistant/composer/usePiAgentModels.js';
+import { useAgentRuntimeModels } from '@/assistant/composer/usePiAgentModels.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useCompanyTemplates } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
@@ -7,9 +7,8 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { cn } from '@/lib/utils.js';
-import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
 import { motionPresets } from '@/styles/motion-tokens.js';
-import { ChevronDown, ChevronLeft, ChevronUp, FolderOpen, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronUp, FolderOpen, Loader2, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type CSSProperties, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { clearDiscardConfirm, showDiscardConfirm } from './DiscardConfirmToast.js';
@@ -45,6 +44,7 @@ export interface CreateCompanyRequest {
   template: { id: string; name: string };
   employeeModels: Record<string, string | null>;
   workspaceRoot: string | null;
+  workspaceSelectionRef: string | null;
   openStudio: boolean;
 }
 
@@ -143,7 +143,7 @@ export function CompanyCreationWizard({
   dismissible = true,
 }: CompanyCreationWizardProps) {
   const templatesQuery = useCompanyTemplates();
-  const modelsQuery = usePiAgentModels();
+  const modelsQuery = useAgentRuntimeModels();
 
   const templates = useMemo<WizardTemplate[]>(
     () => [...(templatesQuery.data ?? []), CREATE_YOUR_OWN_TEMPLATE],
@@ -154,6 +154,7 @@ export function CompanyCreationWizard({
   const [companyName, setCompanyName] = useState('');
   const [description, setDescription] = useState('');
   const [workspaceRoot, setWorkspaceRoot] = useState('');
+  const [workspaceSelectionRef, setWorkspaceSelectionRef] = useState<string | null>(null);
   const [employeeModels, setEmployeeModels] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -168,7 +169,7 @@ export function CompanyCreationWizard({
       { value: '', label: 'Inherit conversation model' },
       ...availableModels.map((model) => ({
         value: model.value,
-        label: `${model.name} · ${model.provider}`,
+        label: `${model.name} · ${model.accountName}`,
       })),
     ],
     [availableModels],
@@ -216,11 +217,10 @@ export function CompanyCreationWizard({
     setBusy(true);
     const name = companyName.trim();
     try {
-      const cleanWorkspaceRoot = workspaceRoot.trim() || null;
-      const overbroad = cleanWorkspaceRoot
-        ? await overbroadWorkspaceReason(cleanWorkspaceRoot)
-        : null;
-      if (overbroad) throw new Error(overbroad);
+      const requestedWorkspaceRoot = workspaceRoot.trim();
+      if (requestedWorkspaceRoot && !workspaceSelectionRef) {
+        throw new Error('Choose the Project folder again before creating the company');
+      }
       await onComplete({
         name,
         description: description.trim() || null,
@@ -231,7 +231,8 @@ export function CompanyCreationWizard({
             employeeModels[employee.key] || null,
           ]),
         ),
-        workspaceRoot: cleanWorkspaceRoot,
+        workspaceRoot: requestedWorkspaceRoot || null,
+        workspaceSelectionRef: requestedWorkspaceRoot ? workspaceSelectionRef : null,
         openStudio: isCustom,
       });
       clearDiscardConfirm();
@@ -244,11 +245,10 @@ export function CompanyCreationWizard({
   async function chooseWorkspaceFolder() {
     setCreateError(null);
     try {
-      const folder = await pickWorkspaceFolder('Select project workspace folder');
+      const folder = await pickWorkspaceFolder('Choose Project folder');
       if (!folder) return;
-      const overbroad = await overbroadWorkspaceReason(folder);
-      if (overbroad) throw new Error(overbroad);
-      setWorkspaceRoot(folder);
+      setWorkspaceRoot(folder.displayPath);
+      setWorkspaceSelectionRef(folder.selectionRef);
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'Folder picker failed');
     }
@@ -337,9 +337,8 @@ export function CompanyCreationWizard({
             <>
               {showModelLayeringHint ? (
                 <div className="off-wiz-model-notice" role="note">
-                  Add more models in Pi <code>models.json</code> to give planners and builders
-                  distinct model tiers. Check its status in Settings; you can still create this
-                  company now.
+                  Add another verified model in AI Accounts to give planners and builders distinct
+                  model tiers. You can still create this company now.
                 </div>
               ) : null}
               <details className="off-wiz-team" open>
@@ -419,16 +418,31 @@ export function CompanyCreationWizard({
               </div>
               <div className="off-wiz-workspace">
                 <label htmlFor="off-wiz-workspace">
-                  Project folder <span className="off-wiz-opt">optional</span>
+                  Project folder{' '}
+                  <span className="off-wiz-opt">optional — skip to create a Project later</span>
                 </label>
                 <div className="off-wiz-workspace-control">
                   <input
                     id="off-wiz-workspace"
-                    placeholder="Auto workspace"
+                    placeholder="Choose a folder or create a Project later"
                     value={workspaceRoot}
                     disabled={busy}
-                    onChange={(event) => setWorkspaceRoot(event.target.value)}
+                    readOnly
                   />
+                  {workspaceRoot ? (
+                    <button
+                      type="button"
+                      className="off-wiz-folder off-focusable"
+                      aria-label="Clear project folder"
+                      disabled={busy}
+                      onClick={() => {
+                        setWorkspaceRoot('');
+                        setWorkspaceSelectionRef(null);
+                      }}
+                    >
+                      <Icon icon={X} size="sm" />
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="off-wiz-folder off-focusable"

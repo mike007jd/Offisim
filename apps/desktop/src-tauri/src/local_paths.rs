@@ -1,6 +1,4 @@
-use sqlx::Row;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
@@ -191,31 +189,6 @@ pub async fn reveal_local_path<R: Runtime>(
     ensure_inside(&target, &root)?;
 
     reveal_path_in_file_manager(&target).await
-}
-
-/// Provision (and return the canonical path of) a per-company default workspace
-/// directory under the app's local data dir. This is the capability-first
-/// fallback that guarantees the agent's file/shell tools always have a real,
-/// sandbox-jailable working directory even before the user binds a project to a
-/// real repo folder — mirroring how Codex / Claude Code default to a working
-/// directory rather than refusing to run tools. The returned path is a deep
-/// user-owned path (`~/.offisim/workspaces/<companyId>`), so it has
-/// well over two path components and is never treated as an overbroad root by
-/// the builtin-tool sandbox.
-#[tauri::command]
-pub async fn ensure_company_workspace<R: Runtime>(
-    app: tauri::AppHandle<R>,
-    company_id: String,
-) -> Result<String, String> {
-    let company_id = company_id.trim();
-    if company_id.is_empty() {
-        return Err("companyId is required".into());
-    }
-    let dir = company_workspace_dir(&app, company_id)?;
-    fs::create_dir_all(&dir).map_err(|err| format!("Failed to create company workspace: {err}"))?;
-    dir.canonicalize()
-        .map_err(|err| format!("Resolve company workspace: {err}"))
-        .map(|canonical| canonical.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -842,63 +815,16 @@ pub async fn save_deliverable_to_local<R: Runtime>(
     file_name: String,
     content: String,
 ) -> Result<String, String> {
-    let root = project_workspace_root(&app, &project_id).await?;
-    let deliverables_dir = root.join("deliverables");
-    fs::create_dir_all(&deliverables_dir)
-        .map_err(|err| format!("Failed to create deliverables directory: {err}"))?;
-    let deliverables_dir = deliverables_dir
-        .canonicalize()
-        .map_err(|err| format!("Resolve deliverables directory: {err}"))?;
-    ensure_inside(&deliverables_dir, &root)?;
-
+    let authority =
+        crate::task_workspace_binding::resolve_authorized_project_workspace(&app, &project_id)
+            .await?;
+    let root = authority.path().to_path_buf();
+    let roots = crate::builtin_tools::WorkspaceRoots::new(vec![authority]);
     let safe_name = sanitize_file_name(&file_name);
-    let destination = safe_write_under_root(&deliverables_dir, &safe_name, &content, &root)?;
-    destination
-        .strip_prefix(&root)
-        .map_err(|_| "Saved path is outside project workspace".to_string())
-        .map(|relative| relative.to_string_lossy().to_string())
-}
-
-fn safe_write_under_root(
-    parent: &Path,
-    leaf_name: &str,
-    content: &str,
-    root: &Path,
-) -> Result<PathBuf, String> {
-    let leaf = PathBuf::from(leaf_name);
-    if leaf.is_absolute()
-        || leaf
-            .components()
-            .any(|component| !matches!(component, Component::Normal(_)))
-    {
-        return Err("deliverable file name is invalid".into());
-    }
-    let canonical_parent = parent
-        .canonicalize()
-        .map_err(|err| format!("Resolve deliverables directory: {err}"))?;
-    ensure_inside(&canonical_parent, root)?;
-    let leaf_target = canonical_parent.join(&leaf);
-    let mut opts = OpenOptions::new();
-    opts.create(true).truncate(true).write(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        opts.custom_flags(libc::O_NOFOLLOW);
-    }
-    let mut file = opts
-        .open(&leaf_target)
-        .map_err(|err| format!("Failed to write deliverable file: {err}"))?;
-    file.write_all(content.as_bytes())
-        .map_err(|err| format!("Failed to write deliverable file: {err}"))?;
-    file.flush()
-        .map_err(|err| format!("Failed to flush deliverable file: {err}"))?;
-    leaf_target
-        .canonicalize()
-        .map_err(|err| format!("Resolve saved deliverable: {err}"))
-        .and_then(|canonical| {
-            ensure_inside(&canonical, root)?;
-            Ok(canonical)
-        })
+    let relative = PathBuf::from("deliverables").join(&safe_name);
+    let destination = root.join(&relative);
+    crate::builtin_tools::write_project_file_anchored(&destination, &roots, content.as_bytes())?;
+    Ok(relative.to_string_lossy().to_string())
 }
 
 async fn project_workspace_root<R: Runtime>(
@@ -930,31 +856,9 @@ pub(crate) async fn project_workspace_root_with<R: Runtime>(
     if project_id.is_empty() {
         return Err(empty_id_error.to_string());
     }
-    let pool = crate::local_db::get_offisim_pool(app).map_err(|err| {
-        eprintln!("[local_paths] {err}");
-        "open offisim.db failed".to_string()
-    })?;
-    let row = sqlx::query(
-        r#"
-        SELECT workspace_root
-        FROM projects
-        WHERE project_id = ?
-          AND workspace_root IS NOT NULL
-          AND trim(workspace_root) <> ''
-        "#,
-    )
-    .bind(project_id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|err| {
-        eprintln!("[local_paths] project workspace lookup failed: {err}");
-        "project workspace lookup failed".to_string()
-    })?
-    .ok_or_else(|| "No workspace_root is bound for this project".to_string())?;
-    let raw: String = row
-        .try_get("workspace_root")
-        .map_err(|err| format!("decode workspace_root: {err}"))?;
-    resolve_project_workspace_root_path(raw)
+    crate::task_workspace_binding::resolve_authorized_project_workspace(app, project_id)
+        .await
+        .map(crate::task_workspace_binding::AuthorizedWorkspaceRoot::into_path)
 }
 
 fn resolve_relative_target(root: &Path, relative: &str) -> Result<PathBuf, String> {

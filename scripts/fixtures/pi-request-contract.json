@@ -6,8 +6,21 @@
       "request": {
         "requestId": "request-execute-1",
         "text": "Inspect the workspace",
+        "expectedTarget": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          }
+        },
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "companyId": "company-1",
         "threadId": "thread-1",
+        "workspaceRequirement": "required",
         "cwd": "/fixture/project/requested-cwd",
         "projectId": "project-1",
         "projectVerifyCommand": "pnpm typecheck",
@@ -59,15 +72,34 @@
         ]
       },
       "context": {
-        "cwd": "/fixture/project/resolved-cwd",
+        "cwd": ".",
         "sessionDir": "/fixture/sessions/thread-1",
         "agentDir": "/fixture/home/.pi/agent"
       },
       "payload": {
         "mode": "execute",
+        "requestId": "request-execute-1",
         "text": "Inspect the workspace",
-        "cwd": "/fixture/project/resolved-cwd",
+        "expectedTarget": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          }
+        },
+        "runtimeModelRef": "fixture-provider/fixture-model",
+        "cwd": ".",
+        "workspaceRequirement": "required",
+        "nativeSessionMode": "tracked",
+        "workspaceAvailability": "bound",
+        "workspaceUnavailableReasonCode": null,
         "sessionDir": "/fixture/sessions/thread-1",
+        "exactSessionFile": null,
+        "exactSessionId": null,
         "agentDir": "/fixture/home/.pi/agent",
         "model": "fixture-provider/fixture-model",
         "permissionMode": "ask",
@@ -121,9 +153,28 @@
       },
       "normalized": {
         "mode": "execute",
+        "requestId": "request-execute-1",
         "text": "Inspect the workspace",
-        "cwd": "/fixture/project/resolved-cwd",
+        "expectedTarget": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          }
+        },
+        "runtimeModelRef": "fixture-provider/fixture-model",
+        "cwd": ".",
+        "workspaceRequirement": "required",
+        "nativeSessionMode": "tracked",
+        "workspaceAvailability": "bound",
+        "workspaceUnavailableReasonCode": null,
         "sessionDir": "/fixture/sessions/thread-1",
+        "exactSessionFile": null,
+        "exactSessionId": null,
         "agentDir": "/fixture/home/.pi/agent",
         "model": "fixture-provider/fixture-model",
         "permissionMode": "ask",
@@ -181,9 +232,34 @@
       "request": {
         "requestId": "request-enhance-1",
         "text": "make this clearer",
+        "expectedTarget": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          }
+        },
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "systemPrompt": "Rewrite clearly and preserve intent.",
         "model": "fixture-provider/fixture-model",
-        "thinkingLevel": "medium"
+        "thinkingLevel": "medium",
+        "sourceProvenance": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          },
+          "runId": "root-run-1",
+          "adapter": { "id": "pi-agent", "version": "0.79.8" }
+        }
       },
       "context": {
         "cwd": "/fixture/neutral/enhance",
@@ -191,21 +267,73 @@
       },
       "payload": {
         "mode": "enhance",
+        "requestId": "request-enhance-1",
         "text": "make this clearer",
+        "expectedTarget": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          }
+        },
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "systemPrompt": "Rewrite clearly and preserve intent.",
         "cwd": "/fixture/neutral/enhance",
         "agentDir": "/fixture/home/.pi/agent",
         "model": "fixture-provider/fixture-model",
-        "thinkingLevel": "medium"
+        "thinkingLevel": "medium",
+        "sourceProvenance": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          },
+          "runId": "root-run-1",
+          "adapter": { "id": "pi-agent", "version": "0.79.8" }
+        }
       },
       "normalized": {
         "mode": "enhance",
+        "requestId": "request-enhance-1",
         "text": "make this clearer",
+        "expectedTarget": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          }
+        },
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "systemPrompt": "Rewrite clearly and preserve intent.",
         "cwd": "/fixture/neutral/enhance",
         "agentDir": "/fixture/home/.pi/agent",
         "model": "fixture-provider/fixture-model",
-        "thinkingLevel": "medium"
+        "thinkingLevel": "medium",
+        "sourceProvenance": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          },
+          "runId": "root-run-1",
+          "adapter": { "id": "pi-agent", "version": "0.79.8" }
+        }
       }
     },
     {
@@ -213,6 +341,18 @@
       "request": {
         "requestId": "request-collaborate-1",
         "text": "Summarize today's discussion",
+        "expectedTarget": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          }
+        },
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "capabilityProfile": "collaboration",
         "collaborationProfile": "collaboration_read",
         "companyId": "company-1",
@@ -237,6 +377,18 @@
         "mode": "collaborate",
         "requestId": "request-collaborate-1",
         "text": "Summarize today's discussion",
+        "expectedTarget": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          }
+        },
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "collaborationProfile": "collaboration_read",
         "mcpTools": [
           {
@@ -257,6 +409,18 @@
         "mode": "collaborate",
         "requestId": "request-collaborate-1",
         "text": "Summarize today's discussion",
+        "expectedTarget": {
+          "engineId": "api",
+          "accountId": "api:fixture-provider:0123456789abcdef",
+          "billingMode": "api",
+          "modelId": "fixture-model",
+          "modelSource": {
+            "kind": "official-api",
+            "sourceUrl": "https://fixture.example/models/fixture-model",
+            "checkedAt": "2026-07-14T00:00:00Z"
+          }
+        },
+        "runtimeModelRef": "fixture-provider/fixture-model",
         "collaborationProfile": "collaboration_read",
         "mcpTools": [
           {

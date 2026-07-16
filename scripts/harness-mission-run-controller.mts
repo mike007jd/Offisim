@@ -35,6 +35,10 @@
 
 import assert from 'node:assert/strict';
 import type {
+  TaskWorkspaceBindingClaim,
+  TaskWorkspaceEvaluationLeaseClaim,
+} from '../apps/desktop/renderer/src/lib/tauri-commands.js';
+import type {
   DesktopAgentRunInput,
   DesktopAgentRunResult,
   DesktopAgentRuntime,
@@ -57,7 +61,7 @@ import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mis
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 6;
+const TOTAL = 11;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -79,26 +83,89 @@ async function check(name: string, run: () => void | Promise<void>): Promise<voi
  *  returns for a given command on a given attempt number (1-based). */
 type CommandScript = (command: string, attemptNumber: number) => number;
 
+function fakeWorkspaceBindingClaim(
+  input: DesktopAgentRunInput,
+  companyId: string,
+  attemptNumber: number,
+): TaskWorkspaceBindingClaim {
+  const turnId = input.runId ?? input.attemptId ?? `attempt-${attemptNumber}`;
+  return {
+    workspaceRef: `harness-workspace-ref-${attemptNumber}`,
+    historyId: `harness-binding-${attemptNumber}`,
+    companyId,
+    projectId: input.projectId ?? 'proj-1',
+    threadId: input.threadId,
+    turnId,
+    requestId: `harness-request-${attemptNumber}`,
+    access: 'write',
+    source: 'mission-harness',
+    confidence: 1,
+    reasonCode: 'harness_fixture',
+    issuedAtUnixMs: 1_700_000_000_000 + attemptNumber,
+    expiresAtUnixMs: 1_700_003_600_000 + attemptNumber,
+    displayPath: 'mission-harness-workspace',
+  };
+}
+
+function makeFakeEvaluationLeaseLifecycle(): {
+  acquired: TaskWorkspaceEvaluationLeaseClaim[];
+  released: TaskWorkspaceEvaluationLeaseClaim[];
+  deps: {
+    acquireEvaluationLease(input: {
+      bindingClaim: TaskWorkspaceBindingClaim;
+      missionId: string;
+      attemptId: string;
+    }): Promise<TaskWorkspaceEvaluationLeaseClaim>;
+    releaseEvaluationLease(input: {
+      evaluationLease: TaskWorkspaceEvaluationLeaseClaim;
+    }): Promise<void>;
+  };
+} {
+  const acquired: TaskWorkspaceEvaluationLeaseClaim[] = [];
+  const released: TaskWorkspaceEvaluationLeaseClaim[] = [];
+  return {
+    acquired,
+    released,
+    deps: {
+      async acquireEvaluationLease({ bindingClaim, missionId, attemptId }) {
+        const lease: TaskWorkspaceEvaluationLeaseClaim = {
+          evaluationLeaseRef: `harness-evaluation-lease-${attemptId}`,
+          historyId: bindingClaim.historyId,
+          companyId: bindingClaim.companyId,
+          projectId: bindingClaim.projectId,
+          threadId: bindingClaim.threadId,
+          turnId: bindingClaim.turnId,
+          requestId: bindingClaim.requestId,
+          missionId,
+          attemptId,
+          issuedAtUnixMs: 1_700_000_000_000,
+          expiresAtUnixMs: 1_700_007_200_000,
+        };
+        acquired.push(lease);
+        return lease;
+      },
+      async releaseEvaluationLease({ evaluationLease }) {
+        released.push(evaluationLease);
+      },
+    },
+  };
+}
+
 /** Build the fake repos the controller needs: the real in-memory mission repos +
  *  a real in-memory deliverables repo + a minimal projects repo (findById only).
  *  Returned untyped-but-shaped as RuntimeRepositories — the controller only
  *  touches the mission repos, deliverables, and projects.findById. */
-function makeRepos(projectWorkspaceRoot: string | null): {
+function makeRepos(_projectWorkspaceRoot: string | null): {
   repos: RuntimeRepositories;
   mission: ReturnType<typeof createMissionMemoryRepos>;
 } {
   const mission = createMissionMemoryRepos();
   const { deliverables } = createDeliverablesMemoryRepos();
   const projects = {
-    async findById(projectId: string) {
-      return {
-        project_id: projectId,
-        company_id: 'co-1',
-        name: 'Fake',
-        description: null,
-        status: 'planning',
-        workspace_root: projectWorkspaceRoot,
-      };
+    async findById() {
+      throw new Error(
+        'Mission evaluation must not re-read Project.workspace_root after the Turn binding exists',
+      );
     },
   };
   const repos = {
@@ -173,6 +240,7 @@ function makeFakeRuntime(
       }
       return {
         text: 'done',
+        workspaceBindingClaim: fakeWorkspaceBindingClaim(input, companyId, attemptNumber),
         ...(opts.usage ? { usage: opts.usage } : {}),
         ...(opts.budgetUsage ? { budgetUsage: opts.budgetUsage } : {}),
       };
@@ -212,24 +280,35 @@ function makeFakeEvaluationContextFactory(
 ): (
   input: TauriEvaluationContextInput,
 ) => import('../packages/core/src/browser.js').EvaluationContext {
-  return (input: TauriEvaluationContextInput) => ({
-    criterion: {
-      id: input.criterion.id,
-      description: input.criterion.description,
-      configJson: input.criterion.configJson,
-    },
-    workspaceReadFile: async () => null,
-    workspaceFileExists: async () => false,
-    workspaceHashFile: async () => null,
-    runCommand: async (command: string) => ({
-      exitCode: commandScript(command, attemptCell.n),
-      stdout: '',
-      stderr: '',
-    }),
-    gitChangedPaths: async () => [],
-    listArtifacts: async () => [],
-    recordedApproval: async () => null,
-  });
+  return (input: TauriEvaluationContextInput) => {
+    assert.ok(
+      input.evaluationLease,
+      'each completed attempt must acquire a bounded evaluation lease',
+    );
+    assert.equal(
+      input.evaluationLease.turnId,
+      input.attemptRunId,
+      'evaluation lease must remain tied to this exact attempt Turn',
+    );
+    return {
+      criterion: {
+        id: input.criterion.id,
+        description: input.criterion.description,
+        configJson: input.criterion.configJson,
+      },
+      workspaceReadFile: async () => null,
+      workspaceFileExists: async () => false,
+      workspaceHashFile: async () => null,
+      runCommand: async (command: string) => ({
+        exitCode: commandScript(command, attemptCell.n),
+        stdout: '',
+        stderr: '',
+      }),
+      gitChangedPaths: async () => [],
+      listArtifacts: async () => [],
+      recordedApproval: async () => null,
+    };
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -264,11 +343,13 @@ await check(
       submitSummary: () => 'tests green',
     });
     const attemptCell = { n: 0 };
+    const leases = makeFakeEvaluationLeaseLifecycle();
     const controller = createMissionRunController({
       agentRuntime: runtime,
       repos,
       evaluatorRegistry: createDefaultEvaluatorRegistry(),
       eventBus,
+      ...leases.deps,
       // Bump the attempt cell each runAttempt by hooking the factory: every
       // criterion in an attempt shares the same attempt number, and exit 0 → PASS.
       createEvaluationContext: makeFakeEvaluationContextFactory(() => 0, attemptCell),
@@ -277,6 +358,13 @@ await check(
     const result = await controller.runMission(missionId);
     assert.equal(result.status, 'completed', 'all required criteria PASS → completed');
     assert.equal(result.attempts, 1, 'completed in one attempt');
+    assert.equal(leases.acquired.length, 1, 'one bounded evaluation lease acquired');
+    assert.equal(leases.released.length, 1, 'evaluation lease released before runMission returns');
+    assert.equal(
+      leases.released[0]?.evaluationLeaseRef,
+      leases.acquired[0]?.evaluationLeaseRef,
+      'the exact acquired lease is released',
+    );
     assert.equal(
       inputs[0]?.delegationLimits,
       undefined,
@@ -335,6 +423,7 @@ await check(
       repos,
       evaluatorRegistry: createDefaultEvaluatorRegistry(),
       eventBus,
+      ...makeFakeEvaluationLeaseLifecycle().deps,
       createEvaluationContext: makeFakeEvaluationContextFactory(
         (_command, attemptNumber) => (attemptNumber === 1 ? 1 : 0),
         attemptCell,
@@ -414,6 +503,7 @@ await check(
       repos,
       evaluatorRegistry: createDefaultEvaluatorRegistry(),
       eventBus,
+      ...makeFakeEvaluationLeaseLifecycle().deps,
       createEvaluationContext: makeFakeEvaluationContextFactory(() => 1, attemptCell),
       // Bound the loop so the always-FAIL doesn't run the full 6 attempts.
     });
@@ -478,6 +568,7 @@ await check('runtime transport throw → blocked (infra), not a product FAIL', a
     repos,
     evaluatorRegistry: createDefaultEvaluatorRegistry(),
     eventBus,
+    ...makeFakeEvaluationLeaseLifecycle().deps,
     createEvaluationContext: makeFakeEvaluationContextFactory(() => 0, attemptCell),
   });
 
@@ -485,6 +576,177 @@ await check('runtime transport throw → blocked (infra), not a product FAIL', a
   assert.equal(result.status, 'blocked', 'a transport throw is infra → blocked');
   assert.equal(result.stopReason, 'runtime_incompatible', 'stop reason is runtime_incompatible');
   assert.equal(result.attempts, 1, 'blocked after the single failed attempt');
+});
+
+await check(
+  'attempt root identity persistence fails before runtime or lease acquisition',
+  async () => {
+    const eventBus = new InMemoryEventBus();
+    const { repos } = makeRepos('/tmp/fake-ws');
+    const { missionId } = await createDevMission(repos, {
+      companyId: 'co-1',
+      threadId: 'thr-root-persist-failure',
+      projectId: 'proj-1',
+      goal: 'Do not start without durable attempt identity',
+      criteria: [
+        {
+          description: 'tests pass',
+          evaluatorId: 'command_exit_zero',
+          evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+          required: true,
+        },
+      ],
+    });
+    repos.missionAttempts.setRootRunId = async () => {
+      throw new Error('scripted attempt identity persistence failure');
+    };
+    const fake = makeFakeRuntime(eventBus, 'co-1', {
+      submitCriterionIds: [],
+      submitSummary: () => '',
+    });
+    const leases = makeFakeEvaluationLeaseLifecycle();
+    const controller = createMissionRunController({
+      agentRuntime: fake.runtime,
+      repos,
+      evaluatorRegistry: createDefaultEvaluatorRegistry(),
+      eventBus,
+      ...leases.deps,
+      createEvaluationContext: () => {
+        throw new Error('evaluation must not start without durable attempt identity');
+      },
+    });
+
+    const result = await controller.runMission(missionId);
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.stopReason, 'runtime_incompatible');
+    assert.equal(fake.attempts, 0, 'paid/writing runtime never starts');
+    assert.equal(leases.acquired.length, 0, 'no evaluation lease is minted');
+  },
+);
+
+await check(
+  'completed runtime result without a Turn claim → blocked before evaluation',
+  async () => {
+    const eventBus = new InMemoryEventBus();
+    const { repos } = makeRepos('/tmp/catalog-root-that-must-not-be-read');
+    const { missionId } = await createDevMission(repos, {
+      companyId: 'co-1',
+      threadId: 'thr-missing-claim',
+      projectId: 'proj-1',
+      goal: 'Never verify against a reconstructed workspace',
+      criteria: [
+        {
+          description: 'tests pass',
+          evaluatorId: 'command_exit_zero',
+          evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+          required: true,
+        },
+      ],
+    });
+    const runtime = {
+      ...makeFakeRuntime(eventBus, 'co-1', {
+        submitCriterionIds: [],
+        submitSummary: () => '',
+      }).runtime,
+      async execute(): Promise<DesktopAgentRunResult> {
+        return { text: 'invalid success' } as unknown as DesktopAgentRunResult;
+      },
+    } satisfies DesktopAgentRuntime;
+    const controller = createMissionRunController({
+      agentRuntime: runtime,
+      repos,
+      evaluatorRegistry: createDefaultEvaluatorRegistry(),
+      eventBus,
+      ...makeFakeEvaluationLeaseLifecycle().deps,
+      createEvaluationContext: () => {
+        throw new Error('evaluator must not run without the exact Turn claim');
+      },
+    });
+
+    const result = await controller.runMission(missionId);
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.stopReason, 'runtime_incompatible');
+  },
+);
+
+await check('evaluator throw still releases the exact evaluation lease', async () => {
+  const eventBus = new InMemoryEventBus();
+  const { repos } = makeRepos('/tmp/catalog-root-that-must-not-be-read');
+  const { missionId } = await createDevMission(repos, {
+    companyId: 'co-1',
+    threadId: 'thr-evaluator-throw',
+    projectId: 'proj-1',
+    goal: 'Release authority even when verification crashes',
+    criteria: [
+      {
+        description: 'tests pass',
+        evaluatorId: 'command_exit_zero',
+        evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+        required: true,
+      },
+    ],
+  });
+  const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
+    submitCriterionIds: [],
+    submitSummary: () => '',
+  });
+  const leases = makeFakeEvaluationLeaseLifecycle();
+  const controller = createMissionRunController({
+    agentRuntime: runtime,
+    repos,
+    evaluatorRegistry: createDefaultEvaluatorRegistry(),
+    eventBus,
+    ...leases.deps,
+    createEvaluationContext: () => {
+      throw new Error('scripted evaluator context failure');
+    },
+  });
+
+  await assert.rejects(controller.runMission(missionId), /scripted evaluator context failure/u);
+  assert.equal(leases.acquired.length, 1);
+  assert.equal(leases.released.length, 1);
+  assert.equal(leases.released[0]?.evaluationLeaseRef, leases.acquired[0]?.evaluationLeaseRef);
+});
+
+await check('lease cleanup failure cannot rewrite a completed Mission result', async () => {
+  const eventBus = new InMemoryEventBus();
+  const { repos } = makeRepos('/tmp/catalog-root-that-must-not-be-read');
+  const { missionId } = await createDevMission(repos, {
+    companyId: 'co-1',
+    threadId: 'thr-cleanup-failure',
+    projectId: 'proj-1',
+    goal: 'Keep business truth stable when cleanup transport fails',
+    criteria: [
+      {
+        description: 'tests pass',
+        evaluatorId: 'command_exit_zero',
+        evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+        required: true,
+      },
+    ],
+  });
+  const { runtime } = makeFakeRuntime(eventBus, 'co-1', {
+    submitCriterionIds: [],
+    submitSummary: () => '',
+  });
+  const leases = makeFakeEvaluationLeaseLifecycle();
+  let cleanupAttempts = 0;
+  const controller = createMissionRunController({
+    agentRuntime: runtime,
+    repos,
+    evaluatorRegistry: createDefaultEvaluatorRegistry(),
+    eventBus,
+    acquireEvaluationLease: leases.deps.acquireEvaluationLease,
+    releaseEvaluationLease: async () => {
+      cleanupAttempts += 1;
+      throw new Error('scripted release transport failure');
+    },
+    createEvaluationContext: makeFakeEvaluationContextFactory(() => 0, { n: 1 }),
+  });
+
+  const result = await controller.runMission(missionId);
+  assert.equal(result.status, 'completed');
+  assert.equal(cleanupAttempts, 1, 'cleanup was attempted exactly once');
 });
 
 // ---------------------------------------------------------------------------
@@ -536,6 +798,7 @@ await check(
       budgetUsage: { input: 1_005, output: 5 }, // root 10 + delegated children 1,000
     });
     const attemptCell = { n: 0 };
+    const leases = makeFakeEvaluationLeaseLifecycle();
     // The command FAILs every attempt, so completion never short-circuits the
     // budget check — the loop wants to repair but the budget is already spent.
     const controller = createMissionRunController({
@@ -543,11 +806,13 @@ await check(
       repos,
       evaluatorRegistry: createDefaultEvaluatorRegistry(),
       eventBus,
+      ...leases.deps,
       createEvaluationContext: makeFakeEvaluationContextFactory(() => 1, attemptCell),
     });
 
     const result = await controller.runMission(missionId);
     assert.equal(result.stopReason, 'token_budget', 'the exhausted token budget stops the loop');
+    assert.equal(leases.released.length, 1, 'token-budget early return releases its lease');
     assert.deepEqual(
       inputs[0]?.delegationLimits,
       {
@@ -577,7 +842,71 @@ await check(
 );
 
 await check(
-  '(e) wall-clock timer aborts a never-resolving Pi run → wall_clock_budget, not runtime_incompatible',
+  '(e) user cancel aborts Mission execute preflight before native work starts',
+  async () => {
+    const eventBus = new InMemoryEventBus();
+    const { repos } = makeRepos('/tmp/fake-ws');
+    const { missionId } = await createDevMission(repos, {
+      companyId: 'co-1',
+      threadId: 'thr-cancel-preflight',
+      projectId: 'proj-1',
+      goal: 'Cancel before native work',
+      criteria: [
+        {
+          description: 'tests pass',
+          evaluatorId: 'command_exit_zero',
+          evaluatorConfigJson: JSON.stringify({ command: 'pnpm test' }),
+          required: true,
+        },
+      ],
+    });
+    let signalSeen: AbortSignal | undefined;
+    let releasePreflight!: () => void;
+    const preflight = new Promise<void>((resolve) => {
+      releasePreflight = resolve;
+    });
+    let nativeStarts = 0;
+    const runtime: DesktopAgentRuntime = {
+      async execute(_input, signal) {
+        signalSeen = signal;
+        await preflight;
+        if (signal?.aborted) {
+          const error = new Error('Mission cancelled in preflight');
+          error.name = 'AbortError';
+          throw error;
+        }
+        nativeStarts += 1;
+        return { text: 'must not start' };
+      },
+      resume: async () => ({ text: '' }),
+      abort() {},
+      abortChild() {},
+      async answerUiRequest() {},
+      async dispose() {},
+    };
+    const controller = createMissionRunController({
+      agentRuntime: runtime,
+      repos,
+      evaluatorRegistry: createDefaultEvaluatorRegistry(),
+      eventBus,
+      ...makeFakeEvaluationLeaseLifecycle().deps,
+      createEvaluationContext: makeFakeEvaluationContextFactory(() => 0, { n: 1 }),
+    });
+
+    const resultPromise = controller.runMission(missionId);
+    while (!signalSeen) await new Promise((resolve) => setTimeout(resolve, 1));
+    controller.abortMission(missionId);
+    releasePreflight();
+    const result = await resultPromise;
+
+    assert.equal(signalSeen.aborted, true);
+    assert.equal(nativeStarts, 0);
+    assert.equal(result.status, 'blocked');
+  },
+);
+
+await check(
+  '(f) wall-clock timer aborts a never-resolving Pi run → wall_clock_budget, not runtime_incompatible',
   async () => {
     const eventBus = new InMemoryEventBus();
     const { repos } = makeRepos('/tmp/fake-ws');
@@ -602,8 +931,10 @@ await check(
       resolveStarted = resolve;
     });
     let abortCount = 0;
+    let executionSignal: AbortSignal | undefined;
     const runtime: DesktopAgentRuntime = {
-      execute: async () => {
+      execute: async (_input, signal) => {
+        executionSignal = signal;
         resolveStarted();
         return new Promise<DesktopAgentRunResult>(() => {});
       },
@@ -622,6 +953,7 @@ await check(
       repos,
       evaluatorRegistry: createDefaultEvaluatorRegistry(),
       eventBus,
+      ...makeFakeEvaluationLeaseLifecycle().deps,
       createEvaluationContext: makeFakeEvaluationContextFactory(() => 0, { n: 1 }),
       now: () => '2026-01-01T00:00:00.000Z',
       scheduleDeadline: (callback, delayMs) => {
@@ -641,6 +973,7 @@ await check(
     fireDeadline!();
     const result = await resultPromise;
 
+    assert.equal(executionSignal?.aborted, true, 'deadline aborts the preflight-safe signal');
     assert.equal(abortCount, 1, 'deadline aborts the active Pi thread exactly once');
     assert.equal(cleared, 1, 'deadline timer is cleared in finally');
     assert.equal(result.status, 'failed');

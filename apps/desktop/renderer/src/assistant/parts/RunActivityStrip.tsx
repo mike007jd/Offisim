@@ -3,6 +3,7 @@ import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { isConversationRunActive, useConversationRun } from '../runtime/conversation-run-react.js';
+import { RunActivitySummary, WorkspaceDisclosure } from './WorkspaceDisclosure.js';
 
 /**
  * A compact, in-thread strip showing the agent's tool calls as they happen
@@ -59,6 +60,11 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
   const recent = activity.slice(-6);
   const latest = recent[recent.length - 1];
   const latestError = [...recent].reverse().find((entry) => entry.state === 'error');
+  const latestSummary = latestError
+    ? `${latestError.tool} failed${latestError.detail ? `: ${latestError.detail}` : ''}`
+    : latest
+      ? `${latest.tool}${latest.detail ? ` · ${latest.detail}` : ''}`
+      : 'Preparing tools';
   // Count against the run-wide total (not the capped array) so the badge stays
   // accurate even after older entries are evicted from `activity`.
   const hidden = activityTotal - recent.length;
@@ -76,13 +82,7 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
       >
         {expanded ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
         <span className="off-run-act-lead">{latestError ? 'Review' : 'Working'}</span>
-        <span className="off-run-act-current">
-          {latestError
-            ? `${latestError.tool} failed${latestError.detail ? `: ${latestError.detail}` : ''}`
-            : latest
-              ? `${latest.tool}${latest.detail ? ` · ${latest.detail}` : ''}`
-              : 'Preparing tools'}
-        </span>
+        <RunActivitySummary summary={latestSummary} />
         {hidden > 0 ? <span className="off-run-act-more">+{hidden}</span> : null}
       </button>
       {orderedDelegations.length > 0 ? (
@@ -125,7 +125,11 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
               className={cn('off-run-act-detail-row', `is-${entry.state}`)}
             >
               <span className="off-run-act-detail-tool">{entry.tool}</span>
-              <WorkBench detail={entry.richDetail} status={entry.state} />
+              {entry.workspaceProvenance ? (
+                <WorkspaceDisclosure provenance={entry.workspaceProvenance} status={entry.state} />
+              ) : (
+                <WorkBench detail={entry.richDetail} status={entry.state} />
+              )}
             </div>
           ))}
         </div>

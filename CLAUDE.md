@@ -46,26 +46,36 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 
 ## AI Runtime Policy (hard rule)
 
-- Pi Agent is the only active runtime. Offisim must not restore a provider/model
-  catalog, runtime provider profiles, Claude/Codex sidecars, or OpenAI Agents SDK
-  lane as the main execution path.
-- Settings may only express Pi Agent account/runtime/model config state,
-  including safe summaries and entry points for Pi-owned `~/.pi/agent/auth.json`
-  and `models.json`.
-- Any future Claude/Codex return must be a mutually exclusive runtime-engine
-  replacement with independent release `.app` evidence, not a provider lane
-  inside Pi Agent.
+- Current implementation truth: live chat still assembles
+  `DesktopPiAgentRuntime` behind `DesktopAgentRuntime`. Do not claim Codex or
+  Claude support until the corresponding full engine task and release `.app`
+  evidence exist.
+- Product target: `DesktopAgentRuntime` is the single production engine gateway.
+  Each task selects one complete, mutually exclusive engine. Pi/API, Codex
+  subscription, and Claude subscription are separate adapters, never provider
+  lanes mixed inside one run.
+- Settings is an engine-neutral AI Accounts surface. API accounts show tokens
+  and actual/clearly estimated cost. Subscription accounts show only native
+  Usage/remaining/reset/credits; never infer subscription cost from local tokens.
+- A model catalog is allowed and required, but every selectable model must retain
+  an exact leaf id, official/native source, checkedAt, account ownership,
+  capabilities, and availability. Friendly names lead the normal selector;
+  exact ids remain accessible as secondary detail.
+- Product and runtime boundaries follow
+  `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. The older
+  Pi-only ADR is historical implementation context, not the current target.
 
 ## Desktop Credential Isolation
 
-- Pi Agent owns provider authentication in `~/.pi/agent/auth.json` and its model
-  configuration in `~/.pi/agent/models.json`; Offisim only exposes safe status
-  summaries and opens the Pi configuration folder.
+- Native engines own their credentials and Agent Home data. Pi keeps Pi auth and
+  models; Codex and Claude keep their own OAuth/session/global-memory stores.
+  Offisim consumes safe native status/protocols and opaque session refs; it must
+  not copy raw OAuth tokens, session files, compaction state, or global memory.
 - Offisim-owned application secrets, such as registry credentials, cross the
   narrow `secret_encrypt` / `secret_decrypt` Tauri commands and are sealed by
   `apps/desktop/src-tauri/src/local_secret.rs`. They are not AI provider auth.
-- Renderer, logs, diagnostics, and settings must never receive or persist raw Pi
-  provider credentials.
+- Renderer, logs, diagnostics, settings, and evidence must never receive or
+  persist raw engine credentials.
 
 ## Prelaunch / Vibe-Coding Debt Guard
 
@@ -96,7 +106,7 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (16584 symbols, 35039 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (18904 symbols, 42076 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

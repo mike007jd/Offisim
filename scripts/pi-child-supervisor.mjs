@@ -24,34 +24,36 @@ import {
   decideBoundedLoop,
   stableFailureSignature,
 } from '../packages/core/dist/runtime/bounded-loop.js';
+import { resolveApiRunUsage } from './agent-run-usage.mjs';
 import {
   WORK_KINDS,
   agentRunLine,
   assertRunFailureKind,
   classifyRunFailure,
 } from './pi-agent-host-wire.mjs';
-import { normalizePermissionMode, toolAllowlistForMode } from './pi-agent-permission-modes.mts';
+import {
+  WORK_TOOL_ALLOWLIST,
+  normalizePermissionMode,
+  toolAllowlistForMode,
+} from './pi-agent-permission-modes.mts';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
+import { executionTargetDigest, runtimeModelRefFor } from './pi-execution-provenance.mjs';
 
-// Capability band → child tool allowlist. `write` returns undefined so Pi enables
-// its full default tool set; the others are restrictive subsets.
+// Capability band → exact child work-tool allowlist. No band may leave `tools`
+// undefined because Pi would then auto-activate disk-loaded extension tools.
 const ACCESS_TOOLS = {
   read: ['read', 'grep', 'find', 'ls'],
   review: ['read', 'grep', 'find', 'ls', 'bash'],
-  write: undefined,
+  write: [...WORK_TOOL_ALLOWLIST],
 };
 
 /** Intersect the delegated access band with the root conversation's permission
- * mode. `undefined` preserves Pi's default tool set for write+auto/full/ask. */
+ * mode, then retain only the one controlled recursion capability. */
 export function childToolsForPermissionMode(access, permissionMode) {
   const accessTools = ACCESS_TOOLS[access];
   const permissionTools = toolAllowlistForMode(normalizePermissionMode(permissionMode));
-  const workTools = permissionTools
-    ? accessTools
-      ? permissionTools.filter((tool) => accessTools.includes(tool))
-      : [...permissionTools]
-    : accessTools;
-  return workTools ? [...new Set([...workTools, 'delegate'])] : undefined;
+  const workTools = permissionTools.filter((tool) => accessTools.includes(tool));
+  return [...new Set([...workTools, 'delegate'])];
 }
 
 // Model-visible output caps. Full transcript / tool timeline / usage stay in the
@@ -314,6 +316,83 @@ function asNonEmptyString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Resolve one delegated employee's exact execution binding before a session is
+ * created. An employee with no model override inherits the already-frozen root
+ * target. An explicit override must carry its own catalog-derived target and
+ * runtime ref; the host never guesses account ownership or model provenance.
+ */
+export function resolveChildExecutionBinding({
+  employee,
+  rootModel,
+  rootThinkingLevel,
+  rootExpectedTarget,
+  rootRuntimeModelRef,
+  resolveModel,
+}) {
+  const requestedModel = asNonEmptyString(employee?.model);
+  const requestedRuntimeModelRef = asNonEmptyString(employee?.runtimeModelRef);
+  const requestedTarget = employee?.executionTarget;
+  const hasExplicitBinding =
+    requestedModel !== undefined ||
+    requestedRuntimeModelRef !== undefined ||
+    requestedTarget !== undefined;
+
+  let model;
+  let expectedTarget;
+  let runtimeModelRef;
+  if (!hasExplicitBinding) {
+    expectedTarget = rootExpectedTarget;
+    runtimeModelRef = asNonEmptyString(rootRuntimeModelRef);
+    executionTargetDigest(expectedTarget, runtimeModelRef);
+    model = rootModel;
+    if (!model || runtimeModelRefFor(model) !== runtimeModelRef) {
+      throw new Error('The inherited root model no longer matches its frozen execution target.');
+    }
+  } else {
+    if (!isRecord(requestedTarget) || !requestedRuntimeModelRef) {
+      throw new Error(
+        'An employee model override requires an exact executionTarget and runtimeModelRef.',
+      );
+    }
+    executionTargetDigest(requestedTarget, requestedRuntimeModelRef);
+    for (const key of ['engineId', 'accountId', 'billingMode']) {
+      if (requestedTarget[key] !== rootExpectedTarget?.[key]) {
+        throw new Error(`A delegated model cannot switch ${key} from the root execution account.`);
+      }
+    }
+    if (
+      requestedModel &&
+      requestedModel !== requestedRuntimeModelRef &&
+      requestedModel !== requestedTarget.modelId
+    ) {
+      throw new Error('The employee model selector differs from its exact execution target.');
+    }
+    model = resolveModel?.(requestedRuntimeModelRef);
+    if (!model || runtimeModelRefFor(model) !== requestedRuntimeModelRef) {
+      throw new Error(`Employee runtime model was not found: ${requestedRuntimeModelRef}`);
+    }
+    expectedTarget = requestedTarget;
+    runtimeModelRef = requestedRuntimeModelRef;
+  }
+
+  const requestedThinking = asNonEmptyString(employee?.thinkingLevel);
+  if (requestedThinking && !THINKING_LEVELS.has(requestedThinking)) {
+    throw new Error(`Employee thinking level is invalid: ${requestedThinking}`);
+  }
+  return {
+    model,
+    expectedTarget,
+    runtimeModelRef,
+    thinkingLevel: requestedThinking ?? rootThinkingLevel,
+    inheritedModel: !hasExplicitBinding,
+  };
+}
+
 function verificationSummary(result, cwd) {
   const exitCode = Number.isInteger(result?.exitCode) ? result.exitCode : -1;
   const combined = [result?.stdout, result?.stderr]
@@ -425,11 +504,12 @@ async function mapWithConcurrencyLimit(items, limit, fn) {
  * @param {string} ctx.cwd
  * @param {object} [ctx.leaseManager]
  * @param {object} [ctx.rootLease]
+ * @param {(claim: object) => Promise<{cwd:string}>} [ctx.validateLeaseCwd]
  * @param {(plan: object) => Promise<boolean>} [ctx.confirmIntegration]
  * @param {object} ctx.settingsManager
  * @param {string} ctx.threadId
  * @param {string} ctx.rootRunId
- * @param {Array<{employeeId:string,name?:string,roleSlug?:string,persona?:string,model?:string,thinkingLevel?:string}>} ctx.roster
+ * @param {Array<{employeeId:string,name?:string,roleSlug?:string,persona?:string,model?:string,executionTarget?:object,runtimeModelRef?:string,thinkingLevel?:string}>} ctx.roster
  * @param {(modelId?: string) => object|undefined} ctx.resolveModel
  * @param {object|undefined} [ctx.rootModel] model explicitly selected for the parent run
  * @param {string|undefined} [ctx.rootThinkingLevel] thinking level selected for the parent run
@@ -455,19 +535,14 @@ export function createChildSupervisor(ctx) {
   const childControllers = ctx.childControllers ?? new Map();
 
   function resolveEmployeeBinding(employee) {
-    const requestedModel = asNonEmptyString(employee.model);
-    const model = requestedModel ? ctx.resolveModel(requestedModel) : ctx.rootModel;
-    if (requestedModel && !model) {
-      throw new Error(`Employee model binding was not found in Pi: ${requestedModel}`);
-    }
-    const requestedThinking = asNonEmptyString(employee.thinkingLevel);
-    if (requestedThinking && !THINKING_LEVELS.has(requestedThinking)) {
-      throw new Error(`Employee thinking level is invalid: ${requestedThinking}`);
-    }
-    const thinkingLevel = requestedThinking ?? ctx.rootThinkingLevel;
-    const modelLabel =
-      model?.provider && model?.id ? `${model.provider}/${model.id}` : requestedModel;
-    return { model, modelLabel, thinkingLevel };
+    return resolveChildExecutionBinding({
+      employee,
+      rootModel: ctx.rootModel,
+      rootThinkingLevel: ctx.rootThinkingLevel,
+      rootExpectedTarget: ctx.expectedTarget,
+      rootRuntimeModelRef: ctx.runtimeModelRef,
+      resolveModel: ctx.resolveModel,
+    });
   }
 
   async function workspaceLeaseSnapshotPayload(lease, phase, extra = {}) {
@@ -608,10 +683,12 @@ export function createChildSupervisor(ctx) {
       access,
       ...(asNonEmptyString(task.originRunId) ? { originRunId: task.originRunId } : {}),
       runtimeContextJson: JSON.stringify({
-        runtime: 'pi-agent',
-        model: binding.modelLabel ?? null,
+        runtime: 'api',
+        model: binding.expectedTarget.modelId,
+        runtimeModelRef: binding.runtimeModelRef,
+        executionTarget: binding.expectedTarget,
         thinkingLevel: binding.thinkingLevel ?? null,
-        inheritedModel: !asNonEmptyString(employee.model),
+        inheritedModel: binding.inheritedModel,
       }),
     });
     // Depth cap — a child still carries a delegate tool, but spawning past maxDepth
@@ -680,6 +757,8 @@ export function createChildSupervisor(ctx) {
         summary: childResult.summary,
         runId,
         completed: childResult.completed,
+        model: binding.actualModel ?? binding.model,
+        provenance: binding.actualProvenance,
       };
     } finally {
       signal?.removeEventListener('abort', abortFromParent);
@@ -699,20 +778,29 @@ export function createChildSupervisor(ctx) {
     }
   }
 
-  async function runSingle(task, signal) {
+  async function runSingleWithMetadata(task, signal) {
     return withParentConcurrencySuspended(signal, async () => {
       const result = await runTask(task, signal);
       const integration = result.completed
         ? await maybeIntegrateWrites([task], [result.runId])
         : '';
-      return capBytes(
-        [result.summary, integration ? `Integration:\n${integration}` : '']
-          .filter(Boolean)
-          .join('\n\n---\n\n'),
-        COMBINED_OUTPUT_CAP,
-        'combined',
-      );
+      return {
+        text: capBytes(
+          [result.summary, integration ? `Integration:\n${integration}` : '']
+            .filter(Boolean)
+            .join('\n\n---\n\n'),
+          COMBINED_OUTPUT_CAP,
+          'combined',
+        ),
+        completed: result.completed,
+        model: result.model,
+        provenance: result.provenance,
+      };
     });
+  }
+
+  async function runSingle(task, signal) {
+    return (await runSingleWithMetadata(task, signal)).text;
   }
 
   /** Start every requested task into the shared tree-wide lease queue. The
@@ -747,7 +835,7 @@ export function createChildSupervisor(ctx) {
     // The access band restricts WORK tools (read/write/bash). `delegate` is an
     // orchestration capability, not a work tool, so it must survive the allowlist
     // — otherwise a restricted-access child silently loses its delegate tool and
-    // can never recurse. `write` (undefined = all tools) already includes it.
+    // can never recurse. Every band stays explicit so Pi cannot auto-load tools.
     const permissionMode = normalizePermissionMode(ctx.permissionMode);
     const tools = childToolsForPermissionMode(access, permissionMode);
     const persona =
@@ -773,6 +861,7 @@ export function createChildSupervisor(ctx) {
     const childDelegationFactory = createDelegationExtensionFactory(childSupervisor);
     const extensionFactories = [gateFactory, childDelegationFactory].filter(Boolean);
     let lease = null;
+    let taskWorkspaceLease = null;
     let childCwd = ctx.cwd;
     if (ctx.leaseManager && ctx.rootLease) {
       try {
@@ -809,8 +898,29 @@ export function createChildSupervisor(ctx) {
           };
         }
         lease = leaseResult?.lease ?? null;
+        if (lease?.isolated) {
+          if (!ctx.validateLeaseCwd) {
+            throw new Error('Isolated workspace lease validation channel is unavailable.');
+          }
+          taskWorkspaceLease = {
+            leaseId: lease.leaseId,
+            // A rework run adopts the original registered lease under a fresh
+            // agent run. Rust must compare the durable registration owner, not
+            // the new UI run id.
+            registeredRunId: asNonEmptyString(resumeLease?.runId) ?? lease.runId,
+            workspaceRoot: lease.workspaceRoot,
+            cwd: lease.cwd,
+            branch: lease.branch,
+          };
+          const validated = await ctx.validateLeaseCwd(taskWorkspaceLease);
+          if (!validated || validated.cwd !== lease.cwd) {
+            throw new Error('Isolated workspace lease identity changed before child startup.');
+          }
+        }
         if (typeof lease?.cwd === 'string' && lease.cwd.trim()) {
-          childCwd = lease.cwd;
+          // Shared root leases inherit the sidecar's descriptor-bound `.` cwd.
+          // Only isolated worktrees need their distinct registered lease path.
+          childCwd = lease.isolated ? lease.cwd : ctx.cwd;
         }
         if (lease) {
           await emitWorkspaceLeaseSnapshot(emit, lease, 'acquired', {
@@ -818,6 +928,12 @@ export function createChildSupervisor(ctx) {
           });
         }
       } catch (error) {
+        if (lease) {
+          const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
+          if (released) {
+            await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_authority_failure');
+          }
+        }
         const message = error instanceof Error ? error.message : String(error);
         return {
           summary: blocked(emit, `Workspace lease failed: ${message}`, 'runtime'),
@@ -864,23 +980,41 @@ export function createChildSupervisor(ctx) {
           });
       await resourceLoader.reload();
       const createSession = ctx.createAgentSession ?? createAgentSession;
-      ({ session } = await createSession({
+      let modelFallbackMessage;
+      ({ session, modelFallbackMessage } = await createSession({
         cwd: childCwd,
         agentDir: ctx.agentDir,
         authStorage: ctx.authStorage,
         modelRegistry: ctx.modelRegistry,
+        settingsManager: ctx.settingsManager,
         sessionManager: ctx.createSessionManager
           ? ctx.createSessionManager(childCwd)
           : SessionManager.inMemory(childCwd),
         ...(model ? { model } : {}),
         ...(thinkingLevel ? { thinkingLevel } : {}),
-        ...(tools ? { tools } : {}),
+        tools,
+        ...(taskWorkspaceLease ? { taskWorkspaceLease } : {}),
         resourceLoader,
       }));
+      binding.actualModel = session.model ?? model;
+      if (!ctx.executionTargetGate) {
+        throw new Error('Child execution target gate is unavailable.');
+      }
+      binding.preparedExecution = await ctx.executionTargetGate.prepare({
+        authStorage: ctx.authStorage,
+        modelRegistry: ctx.modelRegistry,
+        session,
+        modelFallbackMessage,
+        expectedTarget: binding.expectedTarget,
+        runtimeModelRef: binding.runtimeModelRef,
+        runId,
+      });
+      binding.actualProvenance = binding.preparedExecution.identity;
       if (permissionMode === 'ask' && ctx.bindChildUi) {
         await ctx.bindChildUi(session);
       }
     } catch (error) {
+      session?.dispose?.();
       const message = error instanceof Error ? error.message : String(error);
       if (lease) {
         const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
@@ -891,7 +1025,15 @@ export function createChildSupervisor(ctx) {
       return { summary: `Delegation failed: ${message}`, completed: false };
     }
 
-    const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+    const budgetUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, turns: 0 };
+    const runAssistantMessages = [];
+    const usageSnapshot = () =>
+      resolveApiRunUsage({
+        messages: runAssistantMessages,
+        provenance: binding.preparedExecution.identity,
+        model: binding.actualModel ?? model,
+        modelRegistry: ctx.modelRegistry,
+      }).catch(() => undefined);
     let finalAssistant;
     const unsubscribe = session.subscribe((event) => {
       if (event.type === 'tool_execution_start') {
@@ -912,14 +1054,14 @@ export function createChildSupervisor(ctx) {
       }
       if (event.type === 'message_end' && event.message?.role === 'assistant') {
         finalAssistant = event.message;
+        runAssistantMessages.push(event.message);
         const u = event.message.usage;
         if (u) {
-          usage.input += u.input || 0;
-          usage.output += u.output || 0;
-          usage.cacheRead += u.cacheRead || 0;
-          usage.cacheWrite += u.cacheWrite || 0;
-          usage.cost += u.cost?.total || 0;
-          usage.turns += 1;
+          budgetUsage.input += u.input || 0;
+          budgetUsage.output += u.output || 0;
+          budgetUsage.cacheRead += u.cacheRead || 0;
+          budgetUsage.cacheWrite += u.cacheWrite || 0;
+          budgetUsage.turns += 1;
         }
       }
     });
@@ -957,7 +1099,7 @@ export function createChildSupervisor(ctx) {
             terminationReason: 'verification_infrastructure',
           });
         }
-        failed(emit, 'runtime', reason, usage);
+        failed(emit, 'runtime', reason, await usageSnapshot());
         return { summary: `Delegation failed: ${reason}`, completed: false };
       }
       const maxAttempts = Math.max(1, Math.min(20, verifyConfig?.maxAttempts ?? 3));
@@ -968,17 +1110,18 @@ export function createChildSupervisor(ctx) {
       for (;;) {
         attemptNumber += 1;
         finalAssistant = undefined;
+        ctx.executionTargetGate.assertPrepared(binding.preparedExecution, session);
         await session.prompt(prompt);
         const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
         if (finalAssistant?.stopReason === 'error' || assistantError) {
           const message =
             assistantError ?? 'Pi Agent model returned an error stop without a message.';
-          failed(emit, classifyRunFailure(message), message, usage);
+          failed(emit, classifyRunFailure(message), message, await usageSnapshot());
           return { summary: `Delegation failed: ${message}`, completed: false };
         }
         if (timedOut) {
           const reason = `Timed out after ${Math.round(limits.childTimeoutMs / 1000)}s`;
-          failed(emit, 'runtime', reason, usage);
+          failed(emit, 'runtime', reason, await usageSnapshot());
           return { summary: `Delegation failed: ${reason}`, completed: false };
         }
         const assistantText = (session.getLastAssistantText() || '').trim();
@@ -986,17 +1129,19 @@ export function createChildSupervisor(ctx) {
           const summary = assistantText
             ? renderChildSummary(parseChildSummary(assistantText))
             : 'Cancelled before the child produced output.';
-          emit('run.cancelled', { status: 'cancelled', summary, usage });
+          const usage = await usageSnapshot();
+          emit('run.cancelled', { status: 'cancelled', summary, ...(usage ? { usage } : {}) });
           return { summary: `Delegation cancelled: ${summary}`, completed: false };
         }
         if (!assistantText) {
           const reason = 'Child completed without assistant output.';
-          failed(emit, 'tool', reason, usage);
+          failed(emit, 'tool', reason, await usageSnapshot());
           return { summary: `Delegation failed: ${reason}`, completed: false };
         }
         const summary = renderChildSummary(parseChildSummary(assistantText));
         if (!loopEnabled) {
-          emit('run.completed', { status: 'completed', summary, usage });
+          const usage = await usageSnapshot();
+          emit('run.completed', { status: 'completed', summary, ...(usage ? { usage } : {}) });
           return { summary, completed: true };
         }
 
@@ -1022,7 +1167,7 @@ export function createChildSupervisor(ctx) {
               terminationReason: 'verification_infrastructure',
             });
           }
-          failed(emit, 'runtime', reason, usage);
+          failed(emit, 'runtime', reason, await usageSnapshot());
           return { summary: `Delegation failed: ${reason}`, completed: false };
         }
         const verifyResult = response.result;
@@ -1037,14 +1182,19 @@ export function createChildSupervisor(ctx) {
             });
           }
           const verifiedSummary = `${summary}\n\nVerification:\n- Attempt ${attemptNumber}/${maxAttempts}: passed\n- ${verifyConfig.command}`;
-          emit('run.completed', { status: 'completed', summary: verifiedSummary, usage });
+          const usage = await usageSnapshot();
+          emit('run.completed', {
+            status: 'completed',
+            summary: verifiedSummary,
+            ...(usage ? { usage } : {}),
+          });
           return { summary: verifiedSummary, completed: true };
         }
 
         const failureSignature = stableFailureSignature([
           { id: 'project.verify', verdict: 'FAIL', summary: verifySummary },
         ]);
-        const spentTokens = (usage.input || 0) + (usage.output || 0);
+        const spentTokens = (budgetUsage.input || 0) + (budgetUsage.output || 0);
         const projectRemaining =
           verifyConfig.tokenBudget === undefined
             ? undefined
@@ -1078,7 +1228,12 @@ export function createChildSupervisor(ctx) {
               terminationReason,
             });
           }
-          failed(emit, terminationReason === 'token_budget' ? 'budget' : 'tool', reason, usage);
+          failed(
+            emit,
+            terminationReason === 'token_budget' ? 'budget' : 'tool',
+            reason,
+            await usageSnapshot(),
+          );
           return {
             summary: `Delegation failed: ${reason}\n\n${verifySummary}`,
             completed: false,
@@ -1110,10 +1265,20 @@ export function createChildSupervisor(ctx) {
       // Anything else thrown from the session is host/provider machinery, not a
       // tool — classify from the message, defaulting 'runtime'.
       if (!timedOut && aborted) {
-        emit('run.cancelled', { status: 'cancelled', summary: message, usage });
+        const usage = await usageSnapshot();
+        emit('run.cancelled', {
+          status: 'cancelled',
+          summary: message,
+          ...(usage ? { usage } : {}),
+        });
         return { summary: `Delegation cancelled: ${message}`, completed: false };
       }
-      failed(emit, timedOut ? 'runtime' : classifyRunFailure(message), message, usage);
+      failed(
+        emit,
+        timedOut ? 'runtime' : classifyRunFailure(message),
+        message,
+        await usageSnapshot(),
+      );
       return { summary: `Delegation failed: ${message}`, completed: false };
     } finally {
       if (timer) clearTimeout(timer);
@@ -1126,7 +1291,7 @@ export function createChildSupervisor(ctx) {
       }
       // Fold this child's token spend into the tree budget (whatever the outcome),
       // so the next delegation round sees it.
-      limits.recordTokens(usage);
+      limits.recordTokens(budgetUsage);
     }
   }
 
@@ -1141,5 +1306,5 @@ export function createChildSupervisor(ctx) {
     });
   }
 
-  return { runSingle, runParallel, roster };
+  return { runSingle, runSingleWithMetadata, runParallel, roster };
 }

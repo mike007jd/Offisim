@@ -11,6 +11,9 @@ export interface CommandExecResult {
   stderr: string;
 }
 
+const NO_PROJECT_FOLDER = 'No authorized Project folder is selected for this Project.';
+const CHANGED_PROJECT_FOLDER_IDENTITY = 'Project folder identity changed after it was selected.';
+
 export function gitErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
@@ -21,7 +24,8 @@ export function isNonGitWorkspace(result: CommandExecResult | string): boolean {
   const message = typeof result === 'string' ? result : `${result.stderr}\n${result.stdout}`;
   return (
     message.includes('not a git repository') ||
-    message.includes('No workspace_root is bound') ||
+    message.includes(NO_PROJECT_FOLDER) ||
+    message.includes(CHANGED_PROJECT_FOLDER_IDENTITY) ||
     message.includes('Resolve project workspace')
   );
 }
@@ -32,13 +36,13 @@ export function isNonGitWorkspace(result: CommandExecResult | string): boolean {
  *  logic lives in one place. The mutating Initialize action is only offered on a
  *  positive 'not a git repository' match; every other cause (unbound folder,
  *  unresolvable/missing path, or an unrecognized message) routes to a
- *  non-mutating Rebind/Bind state, so `git init` is never offered on a folder
+ *  non-mutating Change/Choose state, so `git init` is never offered on a folder
  *  that is missing rather than merely un-initialized. */
 export function classifyNonGitWorkspace(
   result: CommandExecResult | string,
 ): Exclude<GitRepoState, { status: 'repo' }> {
   const message = typeof result === 'string' ? result : `${result.stderr}\n${result.stdout}`;
-  if (message.includes('No workspace_root is bound')) return { status: 'unbound' };
+  if (message.includes(NO_PROJECT_FOLDER)) return { status: 'unbound' };
   if (message.includes('not a git repository')) return { status: 'uninitialized' };
   return { status: 'invalid-folder' };
 }

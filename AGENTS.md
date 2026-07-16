@@ -7,10 +7,12 @@
 - 不允许在“部分实现 / 大部分 task 勾选 / 编译通过 / harness 通过 / 找到 blocker 但未闭环”时声称完成。
 - 如果遇到凭证、外部服务、设备不可达、破坏性风险或产品决策无法合理推断等真实阻塞，必须明确标成“未完整交付”，保留未勾 task / tag gate / archive gate，不得用 known limitation 或口头解释替代验收。
 - 发现额外真实 blocker 时，先修能修的部分并记录证据；不能修的要直接 surface 根因和下一步所需条件，不要缩小 scope 后交付。
-- 当前产品定义：Offisim 是 Pi Agent 的桌面 GUI + assistant-ui 聊天界面 + 3D 工作演绎层 + 公司/项目/会话/归档壳。真实 AI 工作、模型/Provider 登录、工具循环、stream/event protocol、session/compaction 归 Pi Agent。
-- 只保留一个 active runtime：Pi Agent。不得恢复 Offisim provider/model catalog、Claude Code SDK lane、Codex sidecar lane、OpenAI Agents SDK lane 或 runtime provider profile 作为主路径。
-- Settings 只能表达 `Pi Agent` account/runtime/model config 状态；必须透出 Pi 的 `~/.pi/agent/auth.json` / `models.json` 配置入口和安全摘要。模型只允许作为 Pi 的高级 override，不再做 Offisim 自维护 model catalog。
-- 未来 Claude/Codex 若回归，必须是互斥的完整 runtime engine 替换，并有独立 release `.app` 证据；不能作为 Pi 里的 provider lane。
+- 当前实现事实：生产 live chat 仍由 `DesktopAgentRuntime` 装配 `DesktopPiAgentRuntime`；在新 engine tasks 完整交付前，不得把 Codex / Claude 写成已支持，也不得用 UI 改名掩盖单一 Pi 实现。
+- 目标产品定义：Offisim 是 engine-neutral 的桌面 AI 工作台。`DesktopAgentRuntime` 是唯一 production engine gateway；每个 task 互斥选择一个完整 runtime engine。Pi/API、Codex subscription、Claude subscription 必须分别通过 gateway 和 conformance，不能在同一 run 混 lane，也不能把 Codex/Claude 伪装成 Pi provider。
+- Settings 以 `AI Accounts / Models / Usage / Cost` 表达真实能力：API account 显示 token 与 actual/estimated cost；subscription account 只显示供应商原生 Usage、remaining/reset/credits，不用 token 反算订阅 cost。Pi Agent、OAuth、`auth.json`、`models.json` 只允许出现在必要诊断中，不是产品身份。
+- 模型 catalog 是产品所需能力，但每项必须有 exact leaf model id、官方或原生 source、`checkedAt`、account ownership、capabilities 与 availability；普通 selector 以友好名称为主，禁止用系列名或猜测型号冒充可调用模型。
+- Project、Offisim Conversation、Native Agent Home/Session/Memory、effective task workspace 是四层。Codex/Claude/Pi 原生 session、compaction、global memory 仍归各自 Agent Home；Offisim 只保存 opaque ref 和安全投影。删除 Project folder 不得删除或项目化这些原生数据。
+- 当前架构目标见 `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`；旧 `2026-06-18-pi-agent-only-runtime.md` 只保留历史实现背景，不再是产品方向门禁。
 
 # 未上线 / Vibe Coding 债务护栏
 - 当前阶段：Offisim 已确认未上线；没有真实用户、生产数据或必须保护的历史兼容合同。不要为了旧本地状态新增迁移、兼容、fallback 或最小补丁。
@@ -38,7 +40,7 @@
 
 # 验证 / 测试准则
 - 不在 `packages/core/src/**/*.test.mjs` 新增或保留 runtime / graph / product 行为测试。
-- Pi runtime 新不变量必须走 `scripts/harness-pi-agent-host.mjs`（`pnpm harness:pi-agent-host`，已接入 `pnpm validate`）：验证官方 Pi SDK host、Tauri bridge、Pi event projection 和旧 lane 不回流。LangGraph / 自研 pi-loop 时代的 runtime gate 不再作为主路径验收。
+- 当前 Pi adapter 新不变量仍必须走 `scripts/harness-pi-agent-host.mjs`（`pnpm harness:pi-agent-host`，已接入 `pnpm validate`）。production gateway 与跨 engine 不变量走 runtime conformance + engine-specific harness；Codex/Claude 只有真实 task、独立 secret boundary、Usage contract 和 release `.app` 证据齐全才算支持。LangGraph / 自研 pi-loop 时代的 runtime gate 不再作为主路径验收。
 - 临时 `node --test` 只允许作为本地探索，不进 git；不要通过给 `packages/core/package.json` 加 `test` script 或 CI gate 来恢复普通 product 自动测试。
 - 如果 review 发现源内 `.test.mjs` 和 harness 重复，优先删除源内测试，把仍有价值的不变量迁到 harness。
 
@@ -56,7 +58,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (16584 symbols, 35039 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (18904 symbols, 42076 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

@@ -2,7 +2,8 @@ import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { deleteCompanyDeep } from '@/data/local-data-deletion.js';
 import { useCompanies } from '@/data/queries.js';
-import { ensureCompanyWorkspaceProjectId } from '@/runtime/ensure-default-workspace.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
+import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import { ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { CompanyTemplateService } from '@offisim/core/browser';
@@ -88,18 +89,25 @@ export function LifecycleSurface() {
         });
       }
 
-      if (request.workspaceRoot) {
+      const projectWorkspaceRoot = request.workspaceRoot?.trim() || null;
+      if (projectWorkspaceRoot) {
+        if (!request.workspaceSelectionRef) {
+          throw new Error('Project folder selection expired. Choose the folder again.');
+        }
         projectId = crypto.randomUUID();
-        await repos.projects.create({
-          project_id: projectId,
-          company_id: companyId,
-          name: 'Main Project',
-          description: request.description,
-          status: 'planning',
-          workspace_root: request.workspaceRoot,
+        await invokeCommand('project_create', {
+          input: {
+            projectId,
+            companyId,
+            name: 'Main Project',
+            description: request.description,
+            status: 'planning',
+            workspaceSelectionRef: request.workspaceSelectionRef,
+            verifyCommand: null,
+            verifyMaxAttempts: 3,
+            verifyTokenBudget: null,
+          },
         });
-      } else {
-        projectId = (await ensureCompanyWorkspaceProjectId(repos, companyId)) ?? '';
       }
     } catch (error) {
       // C3 compensation (saga): roll the whole company back with the deep delete
@@ -121,9 +129,13 @@ export function LifecycleSurface() {
     await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
     await queryClient.invalidateQueries({ queryKey: ['projects', companyId] });
 
-    setScope(companyId, projectId);
+    await activateCompanyScope({
+      companyId,
+      setScope,
+      setSurface,
+      surface: request.openStudio ? 'studio' : 'office',
+    });
     setOverride('portal');
-    setSurface(request.openStudio ? 'studio' : 'office');
 
     toast.success(`${request.name} created.`);
   }

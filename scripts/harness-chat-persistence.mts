@@ -3,6 +3,7 @@ import {
   type ConversationRunController,
   createConversationRunController,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
+import { deriveThreadTitle } from '../apps/desktop/renderer/src/data/auto-title.js';
 // `chat-message-events.js` → `thread-message-events.js` import `data/adapters.js`,
 // whose `reposOrNull` normally needs the Tauri SQL plugin. The harness registers
 // `harness-chat-persistence.loader.mjs` (via NODE_OPTIONS --import, before module
@@ -12,12 +13,23 @@ import {
 import {
   loadPersistedChatMessages,
   persistChatMessage,
+  persistConversationStreamCheckpointWithRepositories,
 } from '../apps/desktop/renderer/src/data/chat-message-events.js';
+import { normalizeSemanticThreadTitle } from '../apps/desktop/renderer/src/data/semantic-thread-title.js';
 import type { ChatMessage } from '../apps/desktop/renderer/src/data/types.js';
 import { AgentRunPersistenceQueue } from '../apps/desktop/renderer/src/runtime/agent-run-persistence-queue.js';
 import type {
   DesktopAgentRunInput,
   DesktopAgentRunResult,
+  IsolatedTextJobInput,
+  IsolatedTextJobResult,
+  TurnExecutionProvenance,
+} from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
+import {
+  nativeSessionPrestartCode,
+  nonAuthorizingAgentHostError,
+  persistStartedNativeSessionIdentity,
+  trustedNativeSessionPrestartCode,
 } from '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.js';
 import {
   InMemoryEventBus,
@@ -212,6 +224,49 @@ const p1Scenarios: Array<{
       }
     },
   },
+  {
+    name: 'empty failed terminal preserves a reloaded partial checkpoint',
+    criteria:
+      'Pass when a partial assistant checkpoint is reloaded, then projected with a failed terminal status without losing its visible content.',
+    run: async () => {
+      installFakeAgentEvents();
+      try {
+        const threadId = 'thread-empty-terminal';
+        const at = Date.parse('2026-06-24T11:00:00.000Z');
+        await persistChatMessage({
+          message: msg(
+            threadId,
+            'assistant-terminal',
+            'employee',
+            'visible partial',
+            at,
+            'streaming',
+          ),
+          companyId: 'co',
+          projectId: 'prj',
+        });
+        const checkpoint = (await loadPersistedChatMessages(threadId)).find(
+          (message) => message.id === 'assistant-terminal',
+        );
+        assert.ok(checkpoint);
+        assert.equal(checkpoint?.body, 'visible partial');
+        assert.equal(checkpoint?.status, 'interrupted');
+        await persistChatMessage({
+          message: { ...checkpoint, status: 'failed' },
+          companyId: 'co',
+          projectId: 'prj',
+        });
+        const terminal = (await loadPersistedChatMessages(threadId)).find(
+          (message) => message.id === 'assistant-terminal',
+        );
+        assert.equal(terminal?.body, 'visible partial');
+        assert.equal(terminal?.status, 'failed');
+        return { body: terminal?.body, status: terminal?.status };
+      } finally {
+        clearFakeAgentEvents();
+      }
+    },
+  },
 ];
 
 function msg(
@@ -239,8 +294,15 @@ function msg(
 
 class FakeRuntime {
   answers: Array<Record<string, unknown>> = [];
+  generateCalls: IsolatedTextJobInput[] = [];
   onExecute: (input: DesktopAgentRunInput) => Promise<DesktopAgentRunResult> = async () => ({
     text: 'ok',
+  });
+  onGenerateText: (input: IsolatedTextJobInput) => Promise<IsolatedTextJobResult> = async (
+    input,
+  ) => ({
+    text: 'Semantic title',
+    provenance: { ...input.sourceProvenance, runId: input.jobId },
   });
   constructor(
     private readonly eventBus: InMemoryEventBus,
@@ -248,6 +310,10 @@ class FakeRuntime {
   ) {}
   async execute(input: DesktopAgentRunInput): Promise<DesktopAgentRunResult> {
     return this.onExecute(input);
+  }
+  async generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult> {
+    this.generateCalls.push(input);
+    return this.onGenerateText(input);
   }
   abort(): void {}
   async answerUiRequest(answer: Record<string, unknown>): Promise<void> {
@@ -280,6 +346,18 @@ class FakeRuntime {
 async function waitFor(label: string, condition: () => boolean, timeoutMs = 1000): Promise<void> {
   const started = Date.now();
   while (!condition()) {
+    if (Date.now() - started > timeoutMs) throw new Error(`Timed out waiting for ${label}`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
+async function waitForAsync(
+  label: string,
+  condition: () => Promise<boolean>,
+  timeoutMs = 1000,
+): Promise<void> {
+  const started = Date.now();
+  while (!(await condition())) {
     if (Date.now() - started > timeoutMs) throw new Error(`Timed out waiting for ${label}`);
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
@@ -321,6 +399,11 @@ function makeFaultRepos(opts: FaultRepos): {
     });
   }
   const repos = {
+    agentRuns: {
+      findByStatus: async () => [],
+      findLatestFreshSessionCandidate: async () => null,
+      findFreshSessionSource: async () => null,
+    },
     activeInteractions: {
       upsert: async (row: Record<string, unknown>) => {
         activeRows.set(row.thread_id as string, row);
@@ -432,7 +515,7 @@ const p2p3Scenarios: Array<{
   {
     name: 'P3: stale-approval hydration retries after a transient failure',
     criteria:
-      'Pass when the first hydrate fails (transient DB read error) and leaves the company un-hydrated and retryable, and a second hydrate succeeds and surfaces the stale approval.',
+      'Pass when the first hydrate fails (transient DB read error) and leaves the company un-hydrated and retryable, and a second hydrate succeeds with a dismiss-only stale approval on an interrupted, non-live thread.',
     run: async () => {
       const { repos } = makeFaultRepos({
         failFindByCompany: 1,
@@ -459,8 +542,12 @@ const p2p3Scenarios: Array<{
       const approval = controller.getSnapshot('stale-thread').approval;
       assert.ok(approval, 'retry did not re-hydrate (company key left poisoned)');
       assert.equal(approval.state, 'stale');
-      assert.equal(controller.getSnapshot('stale-thread').phase, 'awaiting-approval');
-      return { firstThrew, hydratedState: approval.state };
+      assert.equal(controller.getSnapshot('stale-thread').phase, 'interrupted');
+      return {
+        firstThrew,
+        hydratedState: approval.state,
+        phase: controller.getSnapshot('stale-thread').phase,
+      };
     },
   },
   {
@@ -539,13 +626,670 @@ const p4Scenarios: Array<{
       return { writes };
     },
   },
+  {
+    name: 'P4: assistant checkpoint and replay cursor advance as one durable unit',
+    criteria:
+      'Pass when the production checkpoint helper rolls back cursor and assistant together if the second write fails, then commits the exact cursor/body pair so reload never appends the same delta twice.',
+    run: async () => {
+      const runId = 'run-atomic-projection';
+      const message: ChatMessage = {
+        id: 'assistant-atomic-projection',
+        threadId: 'thread-atomic-projection',
+        author: 'employee',
+        employeeId: 'employee-1',
+        body: 'durable replayed-once',
+        at: Date.parse('2026-07-14T00:00:00.000Z'),
+        replyToMessageId: 'user-atomic-projection',
+        attemptId: runId,
+        status: 'streaming',
+        workspaceProvenance: {
+          availability: 'bound',
+          source: 'known_root_recovery',
+          reasonCode: 'renamed_same_filesystem_object',
+          displayPath: '/Users/test/Projects/offisim',
+        },
+      };
+      let durableContextJson = JSON.stringify({ streamCursor: 6 });
+      let durableMessageBody = 'durable ';
+      let durableWorkspaceProvenance: ChatMessage['workspaceProvenance'] | null = null;
+      let rejectMessageWrite = true;
+      const transactionalRepos = {
+        asyncTransact: async <T,>(fn: (txRepos?: RuntimeRepositories) => Promise<T>) => {
+          let stagedContextJson = durableContextJson;
+          let stagedMessageBody = durableMessageBody;
+          let stagedWorkspaceProvenance = durableWorkspaceProvenance;
+          const txRepos = {
+            agentRuns: {
+              updateRuntimeContext: async (_runId: string, contextJson: string | null) => {
+                assert.equal(_runId, runId);
+                stagedContextJson = contextJson ?? '{}';
+              },
+            },
+            agentEvents: {
+              append: async (event: NewAgentEvent) => {
+                if (rejectMessageWrite) throw new Error('injected assistant checkpoint failure');
+                const payload = JSON.parse(event.payload_json ?? '{}') as {
+                  message?: ChatMessage;
+                };
+                stagedMessageBody = payload.message?.body ?? '';
+                stagedWorkspaceProvenance = payload.message?.workspaceProvenance ?? null;
+              },
+            },
+          } as unknown as RuntimeRepositories;
+          const result = await fn(txRepos);
+          durableContextJson = stagedContextJson;
+          durableMessageBody = stagedMessageBody;
+          durableWorkspaceProvenance = stagedWorkspaceProvenance;
+          return result;
+        },
+      } as unknown as RuntimeRepositories;
+
+      const persistAtomicCheckpoint = () =>
+        persistConversationStreamCheckpointWithRepositories({
+          runId,
+          runtimeContextJson: JSON.stringify({ streamCursor: 7 }),
+          message,
+          companyId: 'company-1',
+          projectId: 'project-1',
+          repos: transactionalRepos,
+        });
+      await assert.rejects(persistAtomicCheckpoint(), /injected assistant checkpoint failure/);
+      assert.equal(JSON.parse(durableContextJson).streamCursor, 6);
+      assert.equal(durableMessageBody, 'durable ');
+      assert.equal(durableWorkspaceProvenance, null);
+
+      rejectMessageWrite = false;
+      await persistAtomicCheckpoint();
+      const durable = {
+        cursor: Number(JSON.parse(durableContextJson).streamCursor),
+        body: durableMessageBody,
+        workspaceProvenance: durableWorkspaceProvenance,
+      };
+      assert.deepEqual(durable, {
+        cursor: 7,
+        body: 'durable replayed-once',
+        workspaceProvenance: message.workspaceProvenance,
+      });
+
+      const buffered = [
+        { cursor: 7, delta: 'replayed-once' },
+        { cursor: 8, delta: ' later' },
+      ];
+      const replay = buffered.filter((event) => event.cursor > durable.cursor);
+      const restoredBody = replay.reduce((body, event) => body + event.delta, durable.body);
+      assert.equal(restoredBody, 'durable replayed-once later');
+      assert.equal(restoredBody.match(/replayed-once/g)?.length, 1);
+      return { durable, replayedCursors: replay.map((event) => event.cursor), restoredBody };
+    },
+  },
+  {
+    name: 'P4: Started identity commits before post-commit readback and rejects forged authority',
+    criteria:
+      'Pass when the production Started helper survives a Tauri transaction with no read-your-writes, preserves the Rust Resume claim, commits exact file/id/model, never leaks a failed identity into a later cursor checkpoint, and accepts reset authority only from the final pre-Started IPC rejection.',
+    run: async () => {
+      const runId = 'run-started-identity';
+      let durable = {
+        run_id: runId,
+        thread_id: 'thread-started-identity',
+        company_id: 'co',
+        project_id: 'prj',
+        parent_run_id: null,
+        root_run_id: runId,
+        employee_id: 'emp-1',
+        relation: null,
+        work_kind: null,
+        objective: 'Resume exact work',
+        access: 'write',
+        status: 'running',
+        failure_kind: null,
+        usage_json: null,
+        result_summary_json: null,
+        session_file: null,
+        runtime_context_json: JSON.stringify({
+          requestId: 'request-started',
+          nativeSessionId: 'session-a',
+          rustResumeClaim: 'preserve-me',
+        }),
+        started_at: '2026-07-14T00:00:00.000Z',
+        finished_at: null,
+      } as const;
+      const repos = {
+        agentRuns: {
+          findById: async () => ({ ...durable }),
+        },
+        asyncTransact: async <T,>(fn: (txRepos?: RuntimeRepositories) => Promise<T>) => {
+          let staged = { ...durable } as typeof durable;
+          const txRepos = {
+            agentRuns: {
+              // Deliberately return committed state even after a queued write:
+              // this is the Tauri adapter's no-read-own-write behavior.
+              findById: async () => ({ ...durable }),
+              updateRuntimeContext: async (_runId: string, contextJson: string | null) => {
+                assert.equal(_runId, runId);
+                staged = { ...staged, runtime_context_json: contextJson } as typeof durable;
+              },
+              updateStatus: async (
+                _runId: string,
+                status: string,
+                options?: { sessionFile?: string | null },
+              ) => {
+                assert.equal(_runId, runId);
+                staged = {
+                  ...staged,
+                  status,
+                  session_file: options?.sessionFile ?? staged.session_file,
+                } as typeof durable;
+              },
+            },
+          } as unknown as RuntimeRepositories;
+          const result = await fn(txRepos);
+          durable = staged;
+          return result;
+        },
+      } as unknown as RuntimeRepositories;
+      const runtimeContext = { requestId: 'request-started', streamCursor: 3 };
+      await persistStartedNativeSessionIdentity({
+        repos,
+        runId,
+        runtimeContext,
+        event: {
+          kind: 'started',
+          sessionId: 'session-a',
+          sessionFile: '/native/session-a.jsonl',
+          model: { provider: 'openai', id: 'gpt-5.2' },
+        },
+      });
+      const context = JSON.parse(durable.runtime_context_json ?? '{}') as Record<string, unknown>;
+      assert.equal(durable.status, 'running');
+      assert.equal(durable.session_file, '/native/session-a.jsonl');
+      assert.equal(context.nativeSessionId, 'session-a');
+      assert.equal(context.model, 'openai/gpt-5.2');
+      assert.equal(context.rustResumeClaim, 'preserve-me');
+
+      const failedRunId = 'run-started-identity-failure';
+      const failedRuntimeContext = { requestId: 'request-failed', streamCursor: 3 };
+      let failedContextJson = JSON.stringify({ requestId: 'request-failed', streamCursor: 2 });
+      let failedTransactionAttempts = 0;
+      const persistenceErrors: string[] = [];
+      const failingRepos = {
+        agentRuns: {
+          findById: async () => ({
+            ...durable,
+            run_id: failedRunId,
+            session_file: null,
+            runtime_context_json: failedContextJson,
+          }),
+        },
+        asyncTransact: async <T,>(fn: (txRepos?: RuntimeRepositories) => Promise<T>) => {
+          failedTransactionAttempts += 1;
+          let stagedContextJson = failedContextJson;
+          const txRepos = {
+            agentRuns: {
+              findById: async () => ({
+                ...durable,
+                run_id: failedRunId,
+                session_file: null,
+                runtime_context_json: failedContextJson,
+              }),
+              updateRuntimeContext: async (_runId: string, contextJson: string | null) => {
+                assert.equal(_runId, failedRunId);
+                stagedContextJson = contextJson ?? '{}';
+              },
+              updateStatus: async (_runId: string, status: string) => {
+                assert.equal(_runId, failedRunId);
+                assert.equal(status, 'running');
+              },
+            },
+          } as unknown as RuntimeRepositories;
+          await fn(txRepos);
+          assert.notEqual(stagedContextJson, failedContextJson);
+          throw new Error('injected Started transaction failure');
+        },
+      } as unknown as RuntimeRepositories;
+      const persistenceQueue = new AgentRunPersistenceQueue({
+        terminalCheckpointMaxAttempts: 3,
+        terminalCheckpointRetryBaseMs: 0,
+        onError: (_label, error) => {
+          persistenceErrors.push(error instanceof Error ? error.message : String(error));
+        },
+      });
+      const failedStartedCheckpoint = persistenceQueue.enqueueTerminalCheckpoint(
+        'failed Started checkpoint',
+        () =>
+          persistStartedNativeSessionIdentity({
+            repos: failingRepos,
+            runId: failedRunId,
+            runtimeContext: failedRuntimeContext,
+            event: {
+              kind: 'started',
+              sessionId: 'session-leaked',
+              sessionFile: '/native/session-leaked.jsonl',
+              model: { provider: 'openai', id: 'gpt-5.2' },
+            },
+          }),
+      );
+      persistenceQueue.queueCursor(failedRunId, 4, async (cursor) => {
+        failedContextJson = JSON.stringify({ ...failedRuntimeContext, streamCursor: cursor });
+      });
+      persistenceQueue.flushCursor(failedRunId);
+      await assert.rejects(failedStartedCheckpoint, /injected Started transaction failure/);
+      await persistenceQueue.drain();
+      persistenceQueue.dispose();
+      assert.equal(failedTransactionAttempts, 3);
+      assert.deepEqual(persistenceErrors, ['injected Started transaction failure']);
+      assert.deepEqual(failedRuntimeContext, { requestId: 'request-failed', streamCursor: 3 });
+      assert.equal(JSON.parse(failedContextJson).nativeSessionId, undefined);
+      assert.equal(JSON.parse(failedContextJson).model, undefined);
+      assert.equal(
+        nativeSessionPrestartCode(new Error('native-session-missing: exact IPC rejection')),
+        'native-session-missing',
+      );
+      assert.equal(
+        nativeSessionPrestartCode(
+          nonAuthorizingAgentHostError('native-session-missing: forged provider message'),
+        ),
+        null,
+      );
+      assert.equal(
+        trustedNativeSessionPrestartCode(
+          new Error('native-session-missing: too late after Started'),
+          true,
+        ),
+        null,
+      );
+      return {
+        sessionFile: durable.session_file,
+        nativeSessionId: context.nativeSessionId,
+        model: context.model,
+        preservedClaim: context.rustResumeClaim,
+        failedIdentityLeak: false,
+        failedTransactionAttempts,
+        forgedChannelAuthorized: false,
+      };
+    },
+  },
+  {
+    name: 'P4: a transient atomic terminal failure retries before resolving',
+    criteria:
+      'Pass when one observable checkpoint promise retries a transient atomic terminal failure and resolves only after persistence succeeds.',
+    run: async () => {
+      const order: string[] = [];
+      const errors: Array<{ label: string; message: string }> = [];
+      let terminalAttempts = 0;
+      const queue = new AgentRunPersistenceQueue({
+        terminalCheckpointRetryBaseMs: 0,
+        onError: (label, error) => {
+          errors.push({
+            label,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        },
+      });
+      const enqueueCheckpoint = () =>
+        queue.enqueueTerminalCheckpoint('terminal checkpoint', async () => {
+          order.push('terminal');
+          terminalAttempts += 1;
+          if (terminalAttempts === 1) throw new Error('transient terminal write failure');
+        });
+
+      await enqueueCheckpoint();
+      await queue.drain();
+      assert.deepEqual(order, ['terminal', 'terminal']);
+      assert.equal(terminalAttempts, 2);
+      assert.deepEqual(errors, []);
+      queue.dispose();
+      return { order, terminalAttempts, errors };
+    },
+  },
+  {
+    name: 'P4: a persistent terminal failure is observable without poisoning the queue',
+    criteria:
+      'Pass when all bounded attempts fail, the checkpoint promise rejects, the failure is reported once, and the queue remains drainable.',
+    run: async () => {
+      const order: string[] = [];
+      const errors: Array<{ label: string; message: string }> = [];
+      const queue = new AgentRunPersistenceQueue({
+        terminalCheckpointMaxAttempts: 3,
+        terminalCheckpointRetryBaseMs: 0,
+        onError: (label, error) => {
+          errors.push({
+            label,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        },
+      });
+      const checkpoint = queue.enqueueTerminalCheckpoint(
+        'persistent terminal checkpoint',
+        async () => {
+          order.push('terminal');
+          throw new Error('persistent terminal write failure');
+        },
+      );
+
+      await assert.rejects(checkpoint, /persistent terminal write failure/);
+      await queue.drain();
+      assert.deepEqual(order, ['terminal', 'terminal', 'terminal']);
+      assert.deepEqual(errors, [
+        {
+          label: 'persistent terminal checkpoint',
+          message: 'persistent terminal write failure',
+        },
+      ]);
+      queue.dispose();
+      return { order, errors };
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// T02 — fallback + first-success semantic title + manual lock
+// ---------------------------------------------------------------------------
+
+const SOURCE_PROVENANCE: TurnExecutionProvenance = {
+  engineId: 'pi-agent',
+  accountId: 'pi-agent:anthropic:0123456789abcdef',
+  billingMode: 'subscription',
+  modelId: 'anthropic/claude-sonnet-4-20250514',
+  runId: 'placeholder',
+};
+
+async function createTitleFixture(threadId: string): Promise<{
+  repos: RuntimeRepositories;
+  controller: ConversationRunController;
+  runtime: FakeRuntime;
+}> {
+  const repos = createMemoryRepositories();
+  await repos.chatThreads.create({
+    thread_id: threadId,
+    project_id: 'prj',
+    title: deriveThreadTitle('请核实登录后的用量显示 🧪') ?? 'New thread',
+  });
+  const { controller, runtime } = makeController(repos);
+  runtime.onExecute = async (input) => ({
+    text: '已确认订阅账户应显示官方 Usage，而不是伪造 API 成本。',
+    provenance: { ...SOURCE_PROVENANCE, runId: input.runId ?? 'missing-run' },
+  });
+  return { repos, controller, runtime };
+}
+
+const titleScenarios: Array<{
+  name: string;
+  criteria: string;
+  run: () => Promise<ScenarioEvidence>;
+}> = [
+  {
+    name: 'T02: first-message fallback preserves CJK and emoji before any model result',
+    criteria:
+      'Pass when the deterministic immediate title remains readable and does not split the final emoji.',
+    run: async () => {
+      const title = deriveThreadTitle('请核实登录后的用量显示 🧪');
+      assert.equal(title, '请核实登录后的用量显示 🧪');
+      assert.equal(normalizeSemanticThreadTitle('标题：关于 订阅账户用量'), '订阅账户用量');
+      return { title, deSlopped: '订阅账户用量' };
+    },
+  },
+  {
+    name: 'T02: first successful assistant reply claims one same-account semantic-title job',
+    criteria:
+      'Pass when the first complete reply produces one Chinese title, persists source/result provenance and usage, and a later successful turn cannot bill or retitle again.',
+    run: async () => {
+      const { repos, controller, runtime } = await createTitleFixture('thread-title-success');
+      runtime.onGenerateText = async (input) => ({
+        text: '订阅账户 Usage 显示',
+        provenance: { ...input.sourceProvenance, runId: input.jobId },
+        usage: { input: 20, output: 6, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 1 },
+      });
+      await controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-success',
+        employeeId: null,
+        text: '请核实登录后的用量显示 🧪',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'successful conversation completion',
+        () => controller.getSnapshot('thread-title-success').phase === 'completed',
+      );
+      await waitForAsync('semantic title persistence', async () => {
+        const row = await repos.chatThreads.findById('thread-title-success');
+        return row?.semantic_title_status === 'completed';
+      });
+      const first = await repos.chatThreads.findById('thread-title-success');
+      assert.equal(first?.title, '订阅账户 Usage 显示');
+      assert.equal(first?.title_set_by_user, 0);
+      assert.equal(runtime.generateCalls.length, 1);
+      assert.deepEqual(JSON.parse(first?.semantic_title_source_provenance_json ?? '{}'), {
+        ...SOURCE_PROVENANCE,
+        runId: 'attempt-uuid-1',
+      });
+      assert.equal(
+        JSON.parse(first?.semantic_title_result_provenance_json ?? '{}').runId,
+        'semantic-title:thread-title-success',
+      );
+      assert.equal(JSON.parse(first?.semantic_title_usage_json ?? '{}').input, 20);
+
+      await controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-success',
+        employeeId: null,
+        text: '第二轮不应重命名',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'second conversation completion',
+        () => controller.getSnapshot('thread-title-success').phase === 'completed',
+      );
+      assert.equal(runtime.generateCalls.length, 1, 'semantic job billed more than once');
+      await repos.chatThreads.updateTitle('thread-title-success', '生成后手动锁定', {
+        byUser: true,
+      });
+      const renamed = await repos.chatThreads.findById('thread-title-success');
+      assert.equal(renamed?.title, '生成后手动锁定');
+      assert.equal(renamed?.title_set_by_user, 1);
+      return {
+        generatedTitle: first?.title,
+        finalTitle: renamed?.title,
+        jobId: first?.semantic_title_job_id,
+        generateCalls: runtime.generateCalls.length,
+      };
+    },
+  },
+  {
+    name: 'T02: manual rename before generation prevents job claim',
+    criteria:
+      'Pass when a pre-existing user title remains sticky and no isolated model job starts.',
+    run: async () => {
+      const { repos, controller, runtime } = await createTitleFixture('thread-title-before');
+      await repos.chatThreads.updateTitle('thread-title-before', '我的固定标题', { byUser: true });
+      await controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-before',
+        employeeId: null,
+        text: '这次也不要覆盖',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'manually titled conversation completion',
+        () => controller.getSnapshot('thread-title-before').phase === 'completed',
+      );
+      const row = await repos.chatThreads.findById('thread-title-before');
+      assert.equal(row?.title, '我的固定标题');
+      assert.equal(row?.title_set_by_user, 1);
+      assert.equal(runtime.generateCalls.length, 0);
+      return { title: row?.title, generateCalls: runtime.generateCalls.length };
+    },
+  },
+  {
+    name: 'T02: manual rename during generation wins the conditional write',
+    criteria:
+      'Pass when a running title job is cancelled by the user rename and its later model result cannot overwrite the manual title.',
+    run: async () => {
+      const { repos, controller, runtime } = await createTitleFixture('thread-title-during');
+      let resolveTitle: ((result: IsolatedTextJobResult) => void) | undefined;
+      runtime.onGenerateText = (input) =>
+        new Promise((resolve) => {
+          resolveTitle = (result) => resolve(result);
+          assert.equal(input.sourceProvenance.accountId, SOURCE_PROVENANCE.accountId);
+        });
+      await controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-during',
+        employeeId: null,
+        text: '生成中我会改名',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor('isolated title job start', () => runtime.generateCalls.length === 1);
+      await repos.chatThreads.updateTitle('thread-title-during', '生成中手动锁定', {
+        byUser: true,
+      });
+      const call = runtime.generateCalls[0];
+      assert.ok(call);
+      assert.ok(resolveTitle);
+      resolveTitle({
+        text: '迟到的 AI 标题',
+        provenance: { ...call.sourceProvenance, runId: call.jobId },
+      });
+      await waitForAsync('manual cancellation persistence', async () => {
+        const row = await repos.chatThreads.findById('thread-title-during');
+        return row?.semantic_title_status === 'cancelled';
+      });
+      const row = await repos.chatThreads.findById('thread-title-during');
+      assert.equal(row?.title, '生成中手动锁定');
+      assert.equal(row?.title_set_by_user, 1);
+      assert.equal(row?.semantic_title_status, 'cancelled');
+      return { title: row?.title, status: row?.semantic_title_status };
+    },
+  },
+  {
+    name: 'T02: failed and interrupted runs never start a title job',
+    criteria:
+      'Pass when neither a runtime failure nor an approval-stopped run invokes the isolated text model.',
+    run: async () => {
+      const failed = await createTitleFixture('thread-title-failed');
+      failed.runtime.onExecute = async () => {
+        throw new Error('model failed');
+      };
+      await failed.controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-failed',
+        employeeId: null,
+        text: '失败不生成标题',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'failed conversation',
+        () => failed.controller.getSnapshot('thread-title-failed').phase === 'failed',
+      );
+      assert.equal(failed.runtime.generateCalls.length, 0);
+
+      const interrupted = await createTitleFixture('thread-title-interrupted');
+      interrupted.runtime.onExecute = async (input) => {
+        interrupted.runtime.emitUiRequest(input, 'title-approval');
+        return new Promise(() => undefined);
+      };
+      await interrupted.controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-interrupted',
+        employeeId: null,
+        text: '审批阶段不生成标题',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'approval phase',
+        () =>
+          interrupted.controller.getSnapshot('thread-title-interrupted').phase ===
+          'awaiting-approval',
+      );
+      await interrupted.controller.stopAndWait('thread-title-interrupted');
+      assert.equal(interrupted.runtime.generateCalls.length, 0);
+      assert.equal(
+        interrupted.controller.getSnapshot('thread-title-interrupted').phase,
+        'interrupted',
+      );
+      return { failedCalls: 0, interruptedCalls: 0 };
+    },
+  },
+  {
+    name: 'T02: title-model failure and empty replies preserve the completed fallback',
+    criteria:
+      'Pass when an isolated title failure is recorded without failing the conversation, while an empty assistant result never claims a paid job.',
+    run: async () => {
+      const titleFailure = await createTitleFixture('thread-title-model-failure');
+      const fallback = (await titleFailure.repos.chatThreads.findById('thread-title-model-failure'))
+        ?.title;
+      titleFailure.runtime.onGenerateText = async () => {
+        throw new Error('isolated title model failed');
+      };
+      await titleFailure.controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-model-failure',
+        employeeId: null,
+        text: '标题失败也要保留正常回复',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'conversation completion despite title failure',
+        () =>
+          titleFailure.controller.getSnapshot('thread-title-model-failure').phase === 'completed',
+      );
+      await waitForAsync('failed title ledger', async () => {
+        const row = await titleFailure.repos.chatThreads.findById('thread-title-model-failure');
+        return row?.semantic_title_status === 'failed';
+      });
+      const failedRow = await titleFailure.repos.chatThreads.findById('thread-title-model-failure');
+      assert.equal(failedRow?.title, fallback);
+      assert.equal(
+        titleFailure.controller.getSnapshot('thread-title-model-failure').phase,
+        'completed',
+      );
+
+      const empty = await createTitleFixture('thread-title-empty');
+      empty.runtime.onExecute = async (input) => ({
+        text: '',
+        provenance: { ...SOURCE_PROVENANCE, runId: input.runId ?? 'missing-run' },
+      });
+      await empty.controller.submit({
+        companyId: 'co',
+        projectId: 'prj',
+        threadId: 'thread-title-empty',
+        employeeId: null,
+        text: '空回复不应生成标题',
+        stagedAttachments: [],
+        source: 'office',
+      });
+      await waitFor(
+        'empty reply completion',
+        () => empty.controller.getSnapshot('thread-title-empty').phase === 'completed',
+      );
+      assert.equal(empty.runtime.generateCalls.length, 0);
+      assert.equal(
+        (await empty.repos.chatThreads.findById('thread-title-empty'))?.semantic_title_status,
+        null,
+      );
+      return { fallback, titleFailureStatus: failedRow?.semantic_title_status, emptyCalls: 0 };
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
-const allScenarios = [...p1Scenarios, ...p2p3Scenarios, ...p4Scenarios];
+const allScenarios = [...p1Scenarios, ...p2p3Scenarios, ...p4Scenarios, ...titleScenarios];
 const results: Array<{
   name: string;
   criteria: string;

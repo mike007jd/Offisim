@@ -51,6 +51,14 @@ export function createAgentEventsDrizzleRepos(db: Db): AgentEventsDrizzleRepos {
       }
       return row;
     },
+    async findById(eventId) {
+      const rows = db
+        .select()
+        .from(schema.agentEvents)
+        .where(eq(schema.agentEvents.event_id, eventId))
+        .all() as AgentEventRow[];
+      return rows[0] ?? null;
+    },
     async findByProject(projectId, opts) {
       let query = db
         .select()

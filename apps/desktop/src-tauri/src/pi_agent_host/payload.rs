@@ -6,17 +6,30 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::ChildStdin;
 
 use crate::agent_host_runtime::{trusted_host_env, HostError};
+use crate::task_workspace_binding::TaskWorkspaceBinding;
 
 use super::types::{PiAgentCollaborateRequest, PiAgentEnhanceRequest, PiAgentExecuteRequest};
+
+pub(super) enum ExecuteWorkspacePayload<'a> {
+    Bound(&'a TaskWorkspaceBinding),
+    Unavailable { reason_code: &'a str },
+}
 
 pub(super) fn pi_env(workspace_root: Option<&PathBuf>) -> HashMap<String, String> {
     trusted_host_env(workspace_root, &[], "OFFISIM_PI_AGENT_HOST")
 }
 
-pub(super) fn app_pi_session_dir<R: tauri::Runtime>(
+#[cfg(test)]
+pub(crate) struct TestPiSessionDir(pub(crate) PathBuf);
+
+pub(crate) fn app_pi_session_dir<R: tauri::Runtime>(
     app: &AppHandle<R>,
     thread_id: &str,
 ) -> Result<PathBuf, HostError> {
+    #[cfg(test)]
+    if let Some(session_dir) = app.try_state::<TestPiSessionDir>() {
+        return Ok(session_dir.0.clone());
+    }
     let _ = app;
     let base = crate::local_paths::offisim_storage_dir("pi-agent-sessions")
         .map_err(HostError::HostUnavailable)?;
@@ -46,58 +59,88 @@ pub(super) fn app_pi_agent_dir<R: tauri::Runtime>(app: &AppHandle<R>) -> Option<
 
 pub(super) fn sidecar_payload(
     req: &PiAgentExecuteRequest,
-    cwd: &Path,
+    workspace: ExecuteWorkspacePayload<'_>,
     session_dir: &Path,
     agent_dir: Option<&Path>,
+    authorized_direct_delegation: Option<&serde_json::Value>,
+    exact_session_file: Option<&Path>,
+    exact_session_id: Option<&str>,
 ) -> serde_json::Value {
+    let (binding, workspace_availability, workspace_unavailable_reason_code) = match workspace {
+        ExecuteWorkspacePayload::Bound(binding) => (Some(binding), "bound", None),
+        ExecuteWorkspacePayload::Unavailable { reason_code } => {
+            (None, "unavailable", Some(reason_code))
+        }
+    };
+    let has_workspace = binding.is_some();
+    let project_id = binding
+        .map(|binding| binding.project_id.as_str())
+        .or(req.project_id.as_deref());
+    let skill_paths = has_workspace.then_some(req.skill_paths.as_ref()).flatten();
+    let roster = has_workspace.then_some(req.roster.as_ref()).flatten();
+    let mission_context_json = has_workspace
+        .then_some(req.mission_context_json.as_ref())
+        .flatten();
+    let mcp_tools = has_workspace.then_some(req.mcp_tools.as_ref()).flatten();
     let mut payload = serde_json::json!({
         // `mode` is the host dispatch discriminator (execute vs status); the
         // permission mode rides under a distinct key so it cannot collide.
         "mode": "execute",
+        "requestId": req.request_id,
         "text": req.text,
-        "cwd": cwd.to_string_lossy().to_string(),
+        // The Rust host fchdir(2)s the sidecar into the verified Project inode
+        // immediately before exec. Every root-session file/tool operation must
+        // stay relative to that inherited directory object; forwarding the
+        // absolute catalog path would let Node resolve a same-path replacement.
+        "cwd": ".",
+        "workspaceRequirement": req.workspace_requirement.as_str(),
+        "nativeSessionMode": req.native_session_mode.as_str(),
+        "workspaceAvailability": workspace_availability,
+        "workspaceUnavailableReasonCode": workspace_unavailable_reason_code,
         "sessionDir": session_dir.to_string_lossy().to_string(),
+        "exactSessionFile": exact_session_file.map(|path| path.to_string_lossy().to_string()),
+        "exactSessionId": exact_session_id,
         "agentDir": agent_dir.map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
         "permissionMode": req.permission_mode,
         "thinkingLevel": req.thinking_level,
         "systemPromptAppend": req.system_prompt_append,
-        "skillPaths": req.skill_paths,
+        "skillPaths": skill_paths,
         // Delegation scope (Phase 1): the root run id + thread id let the host's
         // supervisor stamp child agentRun events, and the roster tells it which
-        // employees the root agent may delegate to. All forwarded verbatim.
+        // employees the root agent may delegate to.
         "threadId": req.thread_id,
-        // The project owning this workspace + the speaking employee. The host's
-        // delegation supervisor stamps child agentRun events with `projectId`
-        // (so the renderer's task board / recovery scope children to the same
-        // project), and the publish-artifact / mission-bridge extensions stamp
-        // their events with `employeeId`. Both are optional and forwarded
-        // verbatim; a missing `projectId` previously left the host referencing an
-        // undeclared identifier and crashing every rostered run with
-        // "projectId is not defined".
-        "projectId": req.project_id,
-        "projectVerifyCommand": req.project_verify_command,
-        "projectVerifyMaxAttempts": req.project_verify_max_attempts,
-        "projectVerifyTokenBudget": req.project_verify_token_budget,
+        // Project identity and delegated-write verification policy are derived
+        // from the backend-issued binding. Renderer request fields cannot
+        // override the canonical project configuration. The speaking employee
+        // remains request-scoped so persona attribution survives delegation.
+        "projectId": project_id,
+        "projectVerifyCommand": binding.and_then(|binding| binding.project_verify_command.as_ref()),
+        "projectVerifyMaxAttempts": binding.map(|binding| binding.project_verify_max_attempts),
+        "projectVerifyTokenBudget": binding.and_then(|binding| binding.project_verify_token_budget),
         "employeeId": req.employee_id,
         "rootRunId": req.root_run_id,
-        "roster": req.roster,
+        "roster": roster,
         // Verified Missions context (MS-005): forwarded verbatim. The host
         // registers the mission-bridge extension only when this is present.
-        "missionContextJson": req.mission_context_json,
-        "mcpTools": req.mcp_tools,
+        "missionContextJson": mission_context_json,
+        "mcpTools": mcp_tools,
+        "expectedTarget": req.expected_target,
+        "runtimeModelRef": req.runtime_model_ref,
     });
-    if let Some(direct_delegation) = &req.direct_delegation {
-        payload
-            .as_object_mut()
-            .expect("execute payload is an object")
-            .insert("directDelegation".into(), direct_delegation.clone());
-    }
-    if let Some(delegation_limits) = &req.delegation_limits {
-        payload
-            .as_object_mut()
-            .expect("execute payload is an object")
-            .insert("delegationLimits".into(), delegation_limits.clone());
+    if has_workspace {
+        if let Some(direct_delegation) = authorized_direct_delegation {
+            payload
+                .as_object_mut()
+                .expect("execute payload is an object")
+                .insert("directDelegation".into(), direct_delegation.clone());
+        }
+        if let Some(delegation_limits) = &req.delegation_limits {
+            payload
+                .as_object_mut()
+                .expect("execute payload is an object")
+                .insert("delegationLimits".into(), delegation_limits.clone());
+        }
     }
     payload
 }
@@ -111,15 +154,25 @@ pub(super) fn enhance_payload(
     cwd: &Path,
     agent_dir: Option<&Path>,
 ) -> serde_json::Value {
-    serde_json::json!({
+    let mut payload = serde_json::json!({
         "mode": "enhance",
+        "requestId": req.request_id,
         "text": req.text,
         "systemPrompt": req.system_prompt,
         "cwd": cwd.to_string_lossy().to_string(),
         "agentDir": agent_dir.map(|path| path.to_string_lossy().to_string()),
         "model": req.model,
         "thinkingLevel": req.thinking_level,
-    })
+        "expectedTarget": req.expected_target,
+        "runtimeModelRef": req.runtime_model_ref,
+    });
+    if let Some(source_provenance) = &req.source_provenance {
+        payload
+            .as_object_mut()
+            .expect("enhance payload is an object")
+            .insert("sourceProvenance".into(), source_provenance.clone());
+    }
+    payload
 }
 
 /// Build the Collaboration sidecar payload (PR-03). `mode:'collaborate'` routes the
@@ -147,6 +200,8 @@ pub(super) fn collaborate_payload(
         "model": req.model,
         "thinkingLevel": req.thinking_level,
         "systemPromptAppend": req.system_prompt_append,
+        "expectedTarget": req.expected_target,
+        "runtimeModelRef": req.runtime_model_ref,
     })
 }
 

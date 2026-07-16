@@ -87,6 +87,7 @@ const ALLOWLIST = new Set([
   'scripts/harness-pi-delegation-integration.mts::../packages/core/src/runtime/mission/workspace/lease-manager.ts',
   'scripts/harness-run-recovery.mts::../packages/core/src/runtime/repositories.ts',
   'scripts/harness-run-recovery.mts::../packages/core/src/runtime/repos/agent-runs/memory.ts',
+  'scripts/harness-mission-reload.mts::../packages/core/src/runtime/repos/agent-runs/memory.ts',
   'scripts/harness-playbook-validation.mts::../packages/shared-types/src/index.ts',
   'scripts/harness-playbook-validation.mts::../packages/core/src/runtime/mission/evaluators/registry.ts',
   'scripts/harness-playbook-validation.mts::../packages/core/src/runtime/mission/playbook/validate.ts',

@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useRunCost } from '@/data/queries.js';
+import { formatUsageTokens } from '@/data/usage-token-coverage.js';
 import { AlertTriangle } from 'lucide-react';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
@@ -23,6 +24,10 @@ export function AppFrame({ children, banner }: AppFrameProps) {
   const runCost = useRunCost();
   const alert =
     runCost.data?.alerts.find((item) => item.level === 'critical') ?? runCost.data?.alerts[0];
+  const monthlyUsage = {
+    knownTokens: runCost.data?.monthlyKnownTokens ?? 0,
+    coverage: runCost.data?.monthlyTokenCoverage ?? ('unavailable' as const),
+  };
   const lastToastRef = useRef('');
   useEffect(() => {
     const signature = (runCost.data?.alerts ?? [])
@@ -37,7 +42,7 @@ export function AppFrame({ children, banner }: AppFrameProps) {
     for (const item of runCost.data?.alerts ?? []) {
       const scope = item.scope === 'monthly' ? 'Monthly company' : 'Current session';
       const message = `${scope} token alert ${item.level === 'critical' ? 'threshold reached' : 'at 80%'}`;
-      const detail = `${item.used.toLocaleString()} / ${item.budget.toLocaleString()} tokens. Advisory only — this run continues.`;
+      const detail = `${item.lowerBound ? 'At least ' : ''}${item.used.toLocaleString()} / ${item.budget.toLocaleString()} tokens. Advisory only — this run continues.`;
       toast.warning(message, {
         description: detail,
         action: { label: 'Budget settings', onClick: () => openSettings('runtime') },
@@ -62,13 +67,17 @@ export function AppFrame({ children, banner }: AppFrameProps) {
           aria-label="Token cost and budget status"
           title={
             alert
-              ? `${alert.scope} token alert: ${alert.used.toLocaleString()} / ${alert.budget.toLocaleString()} tokens; advisory only`
-              : 'No token budget alert'
+              ? `${alert.scope} token alert: ${alert.lowerBound ? 'at least ' : ''}${alert.used.toLocaleString()} / ${alert.budget.toLocaleString()} tokens; advisory only`
+              : monthlyUsage.coverage === 'partial'
+                ? 'Usage incomplete — showing the known token subtotal.'
+                : monthlyUsage.coverage === 'unavailable'
+                  ? 'Token usage unavailable'
+                  : 'No token budget alert'
           }
         >
           {alert ? <AlertTriangle aria-hidden="true" /> : null}
-          <span>{(runCost.data?.monthlyTokens ?? 0).toLocaleString()} tok</span>
-          <b>{runCost.data?.costLabel ?? '$0.00'}</b>
+          <span>{formatUsageTokens(monthlyUsage)}</span>
+          <b>{runCost.data?.costLabel ?? 'Cost pending'}</b>
         </output>
       </header>
       <div className="off-main-stack">

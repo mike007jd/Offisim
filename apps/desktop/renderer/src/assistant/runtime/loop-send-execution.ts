@@ -8,6 +8,7 @@ import { buildLoopService } from '@/data/loops.js';
 import type { ChatMessage } from '@/data/types.js';
 import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { getRepos } from '@/runtime/repos.js';
+import type { ThreadRunLease } from '@/runtime/thread-lifecycle-guard.js';
 import { createMissionService, generateId } from '@offisim/core/browser';
 import type { ComposerLoopReference } from '../composer/composer-loop-reference-store.js';
 import {
@@ -103,7 +104,8 @@ export async function buildLoopSendExecution(input: {
         messageId,
       });
       return {
-        start: () => missionRunManager.start(result.missionId, input.companyId),
+        start: (transferredThreadRun?: ThreadRunLease, signal?: AbortSignal) =>
+          missionRunManager.start(result.missionId, input.companyId, transferredThreadRun, signal),
         compensate: () => deleteMaterializedLoopSend(result.invocationId, result.missionId),
       };
     },
@@ -193,6 +195,6 @@ export async function startLoopAsParallelProjectRun(input: {
       await missionRunManager.start(result.missionId, input.companyId);
       return { missionId: result.missionId, threadId };
     },
-    compensateThread: () => deleteConversationDeep(threadId, input.companyId),
+    compensateThread: () => deleteConversationDeep(threadId, input.companyId, input.projectId),
   });
 }

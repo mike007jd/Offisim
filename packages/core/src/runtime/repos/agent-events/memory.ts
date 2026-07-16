@@ -35,6 +35,10 @@ export class MemoryAgentEventRepository implements AgentEventRepository {
     return row;
   }
 
+  async findById(eventId: string): Promise<AgentEventRow | null> {
+    return this.rows.find((row) => row.event_id === eventId) ?? null;
+  }
+
   async findByProject(
     projectId: string,
     opts?: { limit?: number; eventType?: string },

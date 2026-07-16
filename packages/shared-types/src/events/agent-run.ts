@@ -118,14 +118,64 @@ export type AgentRunEventType =
   | 'run.failed'
   | 'run.cancelled';
 
-/** Rolled-up token/cost accounting for a run (and, aggregated, its subtree). */
+export type AgentRunCost =
+  | {
+      readonly kind: 'actual';
+      readonly amountUsd: number;
+      readonly source: string;
+      readonly capturedAt: string;
+    }
+  | {
+      readonly kind: 'estimate';
+      readonly amountUsd: number;
+      readonly sourceUrl: string;
+      readonly checkedAt: string;
+    }
+  | {
+      readonly kind: 'unavailable';
+      readonly reason: string;
+      /** Proven subtotal when only part of an aggregate has a usable price. */
+      readonly knownAmountUsd?: number;
+      readonly knownContributions?: number;
+      readonly totalContributions?: number;
+    };
+
+export type AgentRunAccountingScope =
+  | {
+      readonly kind: 'api-run';
+      readonly engineId: string;
+      readonly accountId: string;
+      readonly modelId: string;
+    }
+  | {
+      /** Run telemetry only; never provider-plan Usage and never a dollar-cost source. */
+      readonly kind: 'subscription-run-diagnostic';
+      readonly engineId: string;
+      readonly accountId: string;
+      readonly modelId: string;
+    };
+
+/**
+ * Rolled-up accounting for one run (and, aggregated, its subtree).
+ * Missing numeric fields stay absent. `input` excludes cache buckets while
+ * `output` includes reasoning, so totals never count either detail twice.
+ */
 export interface AgentRunUsage {
+  readonly scope: AgentRunAccountingScope;
   readonly input?: number;
   readonly output?: number;
   readonly cacheRead?: number;
   readonly cacheWrite?: number;
-  readonly cost?: number;
+  readonly reasoning?: number;
   readonly turns?: number;
+  readonly inputAccounting: 'excludes-cache';
+  readonly outputAccounting: 'includes-reasoning';
+  readonly usageSource: {
+    readonly kind: 'provider' | 'adapter';
+    readonly capturedAt: string;
+    readonly reference?: string;
+  };
+  readonly cost: AgentRunCost;
 }
 
 /** One employee available to the Pi delegation supervisor. Model selection is

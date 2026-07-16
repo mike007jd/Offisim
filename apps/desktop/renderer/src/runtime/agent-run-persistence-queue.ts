@@ -11,10 +11,16 @@ interface PendingCursor {
 
 export interface AgentRunPersistenceQueueOptions {
   cursorThrottleMs?: number;
+  terminalCheckpointMaxAttempts?: number;
+  terminalCheckpointRetryBaseMs?: number;
   onError?: (label: string, error: unknown) => void;
 }
 
 const DEFAULT_CURSOR_THROTTLE_MS = 250;
+const DEFAULT_TERMINAL_CHECKPOINT_MAX_ATTEMPTS = 3;
+const DEFAULT_TERMINAL_CHECKPOINT_RETRY_BASE_MS = 50;
+const MAX_TERMINAL_CHECKPOINT_ATTEMPTS = 8;
+const MAX_TERMINAL_CHECKPOINT_RETRY_MS = 5_000;
 
 /**
  * Keeps agent-run persistence ordered without allowing one rejected write to
@@ -26,11 +32,25 @@ export class AgentRunPersistenceQueue {
   private tail: Promise<void> = Promise.resolve();
   private readonly cursors = new Map<string, PendingCursor>();
   private readonly cursorThrottleMs: number;
+  private readonly terminalCheckpointMaxAttempts: number;
+  private readonly terminalCheckpointRetryBaseMs: number;
   private readonly onError: (label: string, error: unknown) => void;
   private disposed = false;
 
   constructor(options: AgentRunPersistenceQueueOptions = {}) {
     this.cursorThrottleMs = Math.max(0, options.cursorThrottleMs ?? DEFAULT_CURSOR_THROTTLE_MS);
+    const configuredAttempts =
+      options.terminalCheckpointMaxAttempts ?? DEFAULT_TERMINAL_CHECKPOINT_MAX_ATTEMPTS;
+    this.terminalCheckpointMaxAttempts =
+      Number.isSafeInteger(configuredAttempts) && configuredAttempts > 0
+        ? Math.min(configuredAttempts, MAX_TERMINAL_CHECKPOINT_ATTEMPTS)
+        : DEFAULT_TERMINAL_CHECKPOINT_MAX_ATTEMPTS;
+    const configuredRetryBaseMs =
+      options.terminalCheckpointRetryBaseMs ?? DEFAULT_TERMINAL_CHECKPOINT_RETRY_BASE_MS;
+    this.terminalCheckpointRetryBaseMs =
+      Number.isFinite(configuredRetryBaseMs) && configuredRetryBaseMs >= 0
+        ? configuredRetryBaseMs
+        : DEFAULT_TERMINAL_CHECKPOINT_RETRY_BASE_MS;
     this.onError =
       options.onError ??
       ((label, error) => {
@@ -40,23 +60,48 @@ export class AgentRunPersistenceQueue {
 
   enqueue(label: string, work: PersistenceWork): void {
     if (this.disposed) return;
-    const run = async () => {
-      try {
-        await work();
-      } catch (error) {
-        try {
-          this.onError(label, error);
-        } catch (observerError) {
-          console.warn('[desktop-agent-runtime] persistence error observer failed', {
-            label,
-            error: observerError,
-          });
-        }
-      }
-    };
+    void this.schedule(label, work);
+  }
+
+  private schedule(label: string, work: PersistenceWork): Promise<void> {
+    if (this.disposed) return Promise.reject(new Error('Persistence queue is disposed.'));
+    const run = () => work();
     // The rejection handler is deliberate defensive recovery if an older tail
     // predates this class or an observer ever violates the no-throw boundary.
-    this.tail = this.tail.then(run, run);
+    const outcome = this.tail.then(run, run);
+    this.tail = outcome.catch((error) => {
+      try {
+        this.onError(label, error);
+      } catch (observerError) {
+        console.warn('[desktop-agent-runtime] persistence error observer failed', {
+          label,
+          error: observerError,
+        });
+      }
+    });
+    return outcome;
+  }
+
+  enqueueTerminalCheckpoint(label: string, persistTerminal: PersistenceWork): Promise<void> {
+    return this.schedule(label, async () => {
+      let attempt = 1;
+      for (;;) {
+        try {
+          await persistTerminal();
+          break;
+        } catch (error) {
+          if (attempt >= this.terminalCheckpointMaxAttempts) throw error;
+          const retryDelayMs = Math.min(
+            MAX_TERMINAL_CHECKPOINT_RETRY_MS,
+            this.terminalCheckpointRetryBaseMs * 2 ** (attempt - 1),
+          );
+          attempt += 1;
+          if (retryDelayMs > 0) {
+            await new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs));
+          }
+        }
+      }
+    });
   }
 
   queueCursor(runId: string, cursor: number, persist: CursorPersist): void {

@@ -2,6 +2,8 @@ import * as schema from '@offisim/db-local/dist/schema.js';
 import { and, asc, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
+  CollaborationExecutionLane,
+  CollaborationExecutionLaneRow,
   CollaborationMemberRepository,
   CollaborationMessagePatch,
   CollaborationMessageRepository,
@@ -279,6 +281,28 @@ export function createCollaborationDrizzleRepos(db: Db): CollaborationDrizzleRep
   };
 
   const collaborationTurns: CollaborationTurnRepository = {
+    async bindThreadExecutionLane(threadId: string, lane: CollaborationExecutionLane) {
+      db.insert(schema.collaborationExecutionLanes)
+        .values({
+          thread_id: threadId,
+          engine_id: lane.engineId,
+          account_id: lane.accountId,
+          billing_mode: lane.billingMode,
+        })
+        .onConflictDoNothing({ target: schema.collaborationExecutionLanes.thread_id })
+        .run();
+      const rows = db
+        .select()
+        .from(schema.collaborationExecutionLanes)
+        .where(eq(schema.collaborationExecutionLanes.thread_id, threadId))
+        .all() as CollaborationExecutionLaneRow[];
+      const bound = rows[0];
+      return (
+        bound?.engine_id === lane.engineId &&
+        bound.account_id === lane.accountId &&
+        bound.billing_mode === lane.billingMode
+      );
+    },
     async insert(row: NewCollaborationTurn) {
       db.insert(schema.collaborationTurns)
         .values(row)
@@ -305,6 +329,9 @@ export function createCollaborationDrizzleRepos(db: Db): CollaborationDrizzleRep
       const set: Partial<CollaborationTurnRow> = {};
       if (patch.status !== undefined) set.status = patch.status;
       if (patch.runtime_request_id !== undefined) set.runtime_request_id = patch.runtime_request_id;
+      if (patch.result_provenance_json !== undefined) {
+        set.result_provenance_json = patch.result_provenance_json;
+      }
       if (patch.usage_json !== undefined) set.usage_json = patch.usage_json;
       if (patch.error_summary !== undefined) set.error_summary = patch.error_summary;
       if (patch.started_at !== undefined) set.started_at = patch.started_at;

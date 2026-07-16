@@ -177,6 +177,7 @@ export type {
   ActivityKind,
   AgentRunAccess,
   AgentRunApprovalPayload,
+  AgentRunAccountingScope,
   AgentRunArtifactPayload,
   AgentRunComputerSensitivePausePayload,
   AgentRunComputerTargetPayload,
@@ -191,6 +192,7 @@ export type {
   AgentRunStatus,
   AgentRunToolPayload,
   AgentRunUsage,
+  AgentRunCost,
   DelegateExecutionMode,
   DelegationRosterEntry,
   DelegateTaskInput,
@@ -200,6 +202,19 @@ export type {
   ToolRichDetail,
   WorkKind,
 } from './events/agent-run.js';
+export type {
+  AiAccountCapabilities,
+  AiAccountDescriptor,
+  AiBillingMode,
+  AiCapabilityState,
+  AiExecutionTarget,
+  AiModelCapabilities,
+  AiModelCatalogEntry,
+  AiModelPricing,
+  AiModelSource,
+  AiRuntimeStatus,
+  TurnExecutionProvenance,
+} from './runtime/ai-account.js';
 export {
   classifyRunFailure,
   classifyToolActivity,
@@ -436,6 +451,9 @@ export { reduceEmployeePerformanceStates } from './employee-performance-state.js
 export type {
   ToolExecutionTelemetryPayload,
   VaultSyncFailedPayload,
+  WorkspaceBoundProvenance,
+  WorkspaceProvenance,
+  WorkspaceUnavailableProvenance,
 } from './events.js';
 
 export type {
@@ -544,6 +562,7 @@ export {
   ACTIVE_PROJECT_STATUSES,
   COMPLETED_PROJECT_STATUSES,
   formatWorkspaceRootHint,
+  requireProjectWorkspaceRoot,
   trimToNull,
 } from './project.js';
 

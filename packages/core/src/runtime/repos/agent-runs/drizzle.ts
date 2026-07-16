@@ -1,7 +1,16 @@
+import {
+  freshSessionSourceWhere,
+  latestFreshSessionCandidateWhere,
+} from '@offisim/db-local/dist/agent-run-queries.js';
 import * as schema from '@offisim/db-local/dist/schema.js';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import type { AgentRunRepository, AgentRunRow, NewAgentRun } from '../../repositories.js';
+import {
+  type AgentRunRepository,
+  type AgentRunRow,
+  type NewAgentRun,
+  RESETTABLE_NATIVE_SESSION_PRESTART_CODES,
+} from '../../repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 
@@ -68,6 +77,36 @@ export function createAgentRunsDrizzleRepos(db: Db): AgentRunsDrizzleRepos {
         )
         .orderBy(asc(schema.agentRuns.started_at))
         .all() as AgentRunRow[];
+    },
+    async findLatestFreshSessionCandidate(companyId, threadId) {
+      const rows = db
+        .select()
+        .from(schema.agentRuns)
+        .where(
+          latestFreshSessionCandidateWhere(
+            companyId,
+            threadId,
+            RESETTABLE_NATIVE_SESSION_PRESTART_CODES,
+          ),
+        )
+        .limit(1)
+        .all() as AgentRunRow[];
+      return rows[0] ?? null;
+    },
+    async findFreshSessionSource(companyId, threadId, sourceRunId) {
+      const rows = db
+        .select()
+        .from(schema.agentRuns)
+        .where(
+          freshSessionSourceWhere(
+            companyId,
+            threadId,
+            sourceRunId,
+            RESETTABLE_NATIVE_SESSION_PRESTART_CODES,
+          ),
+        )
+        .all() as AgentRunRow[];
+      return rows[0] ?? null;
     },
     async updateStatus(runId, status, opts) {
       const patch: Partial<AgentRunRow> = { status };

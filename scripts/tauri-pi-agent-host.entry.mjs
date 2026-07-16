@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import {
@@ -12,10 +12,14 @@ import {
   isToolCallEventType,
 } from '@earendil-works/pi-coding-agent';
 import stripJsonComments from 'strip-json-comments';
+import { Type } from 'typebox';
 import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
+import { resolveApiRunUsage } from './agent-run-usage.mjs';
+import { projectApiAccountCatalog } from './ai-account-catalog.mjs';
 import {
   decodePiRequestPayload,
   errorLine,
+  executionPreparedLine,
   messageDeltaLine,
   messageEndLine,
   readyLine,
@@ -39,12 +43,21 @@ import {
   createDelegationLimits,
 } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
+import {
+  assertSameExecutionAccount,
+  createExecutionTargetGate,
+  executionAccountIdentity,
+} from './pi-execution-provenance.mjs';
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
 import { createVerifyCallChannel } from './pi-host-verify-channel.mjs';
 import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
 import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
 import { createMissionBridgeExtensionFactory } from './pi-mission-bridge-extension.mjs';
 import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-extension.mjs';
+import {
+  createTaskBashProcessRegistry,
+  createTaskScopedAgentSessionFactory,
+} from './pi-task-bash-process-registry.mjs';
 
 /**
  * Pi thinking levels (reasoning effort), least → most. The renderer already
@@ -62,6 +75,88 @@ const DELEGATION_LIMIT_KEYS = Object.freeze([
   'maxTotalChildren',
   'maxTotalTokens',
 ]);
+const PROJECT_WORKSPACE_REQUIRED_TOOL = 'project_workspace_required';
+const ProjectWorkspaceRequiredParams = Type.Object({});
+
+function normalizeExecuteWorkspace(payload) {
+  const requirement = payload.workspaceRequirement;
+  const availability = payload.workspaceAvailability;
+  const reasonCode = payload.workspaceUnavailableReasonCode;
+  if (requirement !== 'required' && requirement !== 'optional') {
+    throw Object.assign(new Error('Pi work requests require a valid workspaceRequirement.'), {
+      code: 'invalid-request',
+    });
+  }
+  if (availability !== 'bound' && availability !== 'unavailable') {
+    throw Object.assign(new Error('Pi work requests require a valid workspaceAvailability.'), {
+      code: 'invalid-request',
+    });
+  }
+  if (availability === 'bound') {
+    if (reasonCode !== null) {
+      throw Object.assign(
+        new Error('A bound Pi work request cannot carry a workspace-unavailable reason.'),
+        { code: 'invalid-request' },
+      );
+    }
+    return { requirement, availability };
+  }
+  if (requirement !== 'optional') {
+    throw Object.assign(
+      new Error('A required Pi work request cannot run without a Project workspace.'),
+      { code: 'project-workspace-required' },
+    );
+  }
+  if (reasonCode !== 'none' && reasonCode !== 'ambiguous') {
+    throw Object.assign(
+      new Error('A workspace-unavailable Pi work request requires reason none or ambiguous.'),
+      { code: 'invalid-request' },
+    );
+  }
+  return { requirement, availability, reasonCode };
+}
+
+function workspaceUnavailableSystemPrompt(reasonCode) {
+  return [
+    'This Offisim turn has no authorized Project workspace.',
+    `Workspace recovery result: ${reasonCode}.`,
+    'You have no file, shell, Git, delegation, mission, skill, or MCP access in this turn.',
+    'Answer normally when the request can be handled from conversation context alone.',
+    `When the request truly requires any unavailable capability, call ${PROJECT_WORKSPACE_REQUIRED_TOOL} exactly once, then clearly tell the user to restore or reselect the Project folder.`,
+    'Never claim that you inspected, changed, ran, or verified project files in this state.',
+  ].join('\n');
+}
+
+function createProjectWorkspaceRequiredExtensionFactory(reasonCode) {
+  return (pi) => {
+    pi.registerTool({
+      name: PROJECT_WORKSPACE_REQUIRED_TOOL,
+      label: 'Project Workspace Required',
+      description:
+        'Use only when the user request truly requires project files, shell, Git, delegation, mission, skills, or MCP access and the Project workspace is unavailable.',
+      parameters: ProjectWorkspaceRequiredParams,
+      async execute() {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `PROJECT_WORKSPACE_REQUIRED reason=${reasonCode}. No Project folder is authorized for this turn. Ask the user to restore or reselect the Project folder; do not claim project work was completed.`,
+            },
+          ],
+        };
+      },
+    });
+  };
+}
+
+function assertWorkspaceToolAllowed(workspaceUnavailable, toolName) {
+  if (workspaceUnavailable && toolName !== PROJECT_WORKSPACE_REQUIRED_TOOL) {
+    throw Object.assign(
+      new Error(`Workspace-unavailable work must not execute tool "${toolName}".`),
+      { code: 'workspace-isolation' },
+    );
+  }
+}
 
 /**
  * Accept a delegation-limit override only when the whole packet is a known,
@@ -143,6 +238,99 @@ const mcpChannel = createMcpCallChannel(emit);
 const worktreeChannel = createWorktreeCallChannel(emit);
 const verifyChannel = createVerifyCallChannel(emit);
 const activeChildControllers = new Map();
+const taskBashRegistry = createTaskBashProcessRegistry({
+  executeBoundCommand: async ({ command, cwd, shellPath, timeoutMs, taskWorkspaceLease, signal }) =>
+    assertWorktreeOk(
+      await worktreeChannel.requestWorktreeResult(
+        'executeBash',
+        {
+          ...taskWorkspaceLease,
+          cwd,
+          command,
+          shellPath,
+          ...(timeoutMs === undefined ? {} : { timeoutMs }),
+        },
+        { signal },
+      ),
+      'executeBash',
+    ),
+  executeBoundWorkspaceOperation: async ({ op, args, taskWorkspaceLease, signal }) =>
+    assertWorktreeOk(
+      await worktreeChannel.requestWorktreeResult(
+        op,
+        {
+          ...(taskWorkspaceLease ?? {}),
+          ...args,
+        },
+        { signal },
+      ),
+      op,
+    ),
+});
+const createTaskScopedAgentSession = createTaskScopedAgentSessionFactory(
+  createAgentSession,
+  taskBashRegistry,
+);
+let activeRootSession = null;
+let activeExecutionTargetGate = null;
+let hostTerminating = false;
+
+function createWorkAgentSession(options) {
+  return createTaskScopedAgentSession(options);
+}
+
+async function shutdownActiveWork({ abort }) {
+  const pending = [];
+  if (abort) {
+    if (activeRootSession) pending.push(Promise.resolve(activeRootSession.abort()));
+    for (const controller of activeChildControllers.values()) controller.abort();
+    rejectAllUiRequests();
+    mcpChannel.rejectAllMcpCalls();
+    worktreeChannel.rejectAllWorktreeCalls();
+    verifyChannel.rejectAllVerifyCalls();
+  }
+  activeExecutionTargetGate?.close(
+    abort
+      ? 'Execution target acknowledgement was aborted.'
+      : 'Execution target acknowledgement channel closed.',
+  );
+  pending.push(taskBashRegistry.cleanup());
+  await Promise.allSettled(pending);
+}
+
+function createRequestExecutionTargetGate(payload) {
+  if (activeExecutionTargetGate) {
+    throw Object.assign(new Error('The host already owns an execution target gate.'), {
+      code: 'execution-target-gate-reused',
+    });
+  }
+  activeExecutionTargetGate = createExecutionTargetGate({
+    emit: (line) => emit(executionPreparedLine(line)),
+    requestId: payload.requestId,
+  });
+  return activeExecutionTargetGate;
+}
+
+function requireRuntimeModel(payload, modelRegistry) {
+  const runtimeModelRef = asNonEmptyString(payload.runtimeModelRef);
+  if (!runtimeModelRef) {
+    throw Object.assign(new Error('An exact runtimeModelRef is required.'), {
+      code: 'execution-target-missing',
+    });
+  }
+  if (payload.model && asNonEmptyString(payload.model) !== runtimeModelRef) {
+    throw Object.assign(new Error('The legacy model selector differs from runtimeModelRef.'), {
+      code: 'execution-target-mismatch',
+    });
+  }
+  const model = selectedModel(modelRegistry, runtimeModelRef);
+  if (!model) {
+    throw Object.assign(new Error(`Runtime model was not found: ${runtimeModelRef}`), {
+      code: 'model-not-found',
+    });
+  }
+  return { model, runtimeModelRef };
+}
 
 function resolveRuntimeControl(message) {
   if (message?.type !== 'control' || message.action !== 'stopChild') return;
@@ -152,7 +340,11 @@ function resolveRuntimeControl(message) {
 
 function assertWorktreeOk(response, label) {
   if (!response || response.ok !== true) {
-    throw new Error(`${label} failed: ${response?.error ?? 'unknown error'}`);
+    const error = new Error(`${label} failed: ${response?.error ?? 'unknown error'}`);
+    if (typeof response?.errorCode === 'string' && response.errorCode) {
+      error.code = response.errorCode;
+    }
+    throw error;
   }
   return response.result;
 }
@@ -163,8 +355,13 @@ function createHostGitWorktreeOps(requestWorktreeResult) {
     async isGitRepo(root) {
       return Boolean(await call('isGitRepo', { root }));
     },
-    async addWorktree(branch, path) {
-      await call('addWorktree', { branch, path });
+    async addWorktree(branch, path, provenance) {
+      await call('addWorktree', {
+        branch,
+        path,
+        leaseId: provenance?.leaseId,
+        runId: provenance?.runId,
+      });
     },
     async removeWorktree(path) {
       await call('removeWorktree', { path });
@@ -368,18 +565,21 @@ function emit(line) {
 
 function normalizePiErrorMessage(message) {
   if (/No API key found for the selected model/i.test(message)) {
-    return 'Pi Agent is not logged in or has no available model. Sign in through Pi Agent, then refresh status and retry.';
+    return 'The selected AI account has no usable credential for this model. Refresh AI Accounts in Settings, then retry.';
   }
   return message;
 }
 
-function fail(error) {
+async function fail(error) {
+  if (hostTerminating) return;
+  hostTerminating = true;
   const code =
     typeof error === 'object' && error && typeof error.code === 'string'
       ? error.code
       : 'pi-agent-host';
   const rawMessage = error instanceof Error ? error.message : String(error ?? 'Unknown Pi error');
   const message = normalizePiErrorMessage(rawMessage);
+  await shutdownActiveWork({ abort: true });
   emit(errorLine({ code, message }));
   process.exit(1);
 }
@@ -597,190 +797,6 @@ function readModelsJsonForWrite(modelsPath) {
   return parsed;
 }
 
-function skipJsoncTrivia(source, index) {
-  let cursor = index;
-  while (cursor < source.length) {
-    const char = source[cursor];
-    if (/\s/u.test(char)) {
-      cursor += 1;
-      continue;
-    }
-    if (char === '/' && source[cursor + 1] === '/') {
-      cursor += 2;
-      while (cursor < source.length && source[cursor] !== '\n') cursor += 1;
-      continue;
-    }
-    if (char === '/' && source[cursor + 1] === '*') {
-      cursor += 2;
-      while (cursor < source.length && !(source[cursor] === '*' && source[cursor + 1] === '/')) {
-        cursor += 1;
-      }
-      cursor = Math.min(cursor + 2, source.length);
-      continue;
-    }
-    break;
-  }
-  return cursor;
-}
-
-function parseJsonStringAt(source, index) {
-  if (source[index] !== '"') throw new Error('Expected JSON string key in models.json');
-  let cursor = index + 1;
-  while (cursor < source.length) {
-    const char = source[cursor];
-    if (char === '\\') {
-      cursor += 2;
-      continue;
-    }
-    if (char === '"') {
-      const end = cursor + 1;
-      return {
-        value: JSON.parse(source.slice(index, end)),
-        end,
-      };
-    }
-    cursor += 1;
-  }
-  throw new Error('Unterminated JSON string in models.json');
-}
-
-function findJsoncMatching(source, openIndex, openChar, closeChar) {
-  let depth = 0;
-  let cursor = openIndex;
-  while (cursor < source.length) {
-    const char = source[cursor];
-    if (char === '"') {
-      cursor = parseJsonStringAt(source, cursor).end;
-      continue;
-    }
-    if (char === '/' && (source[cursor + 1] === '/' || source[cursor + 1] === '*')) {
-      cursor = skipJsoncTrivia(source, cursor);
-      continue;
-    }
-    if (char === openChar) depth += 1;
-    if (char === closeChar) {
-      depth -= 1;
-      if (depth === 0) return cursor;
-    }
-    cursor += 1;
-  }
-  throw new Error('Unbalanced models.json object');
-}
-
-function findJsoncValueEnd(source, valueStart) {
-  const start = skipJsoncTrivia(source, valueStart);
-  const char = source[start];
-  if (char === '{') return findJsoncMatching(source, start, '{', '}') + 1;
-  if (char === '[') return findJsoncMatching(source, start, '[', ']') + 1;
-  if (char === '"') return parseJsonStringAt(source, start).end;
-  let cursor = start;
-  while (cursor < source.length && !/[,\]}]/u.test(source[cursor])) cursor += 1;
-  return cursor;
-}
-
-function lineIndentAt(source, index) {
-  const lineStart = source.lastIndexOf('\n', Math.max(0, index - 1)) + 1;
-  return source.slice(lineStart, index).match(/^\s*/u)?.[0] ?? '';
-}
-
-function previousJsoncSignificantChar(source, index) {
-  let cursor = index - 1;
-  while (cursor >= 0) {
-    if (/\s/u.test(source[cursor])) {
-      cursor -= 1;
-      continue;
-    }
-    if (source[cursor] === '/' && source[cursor - 1] === '/') {
-      cursor -= 2;
-      while (cursor >= 0 && source[cursor] !== '\n') cursor -= 1;
-      continue;
-    }
-    if (source[cursor] === '/' && source[cursor - 1] === '*') {
-      cursor -= 2;
-      while (cursor >= 0 && !(source[cursor] === '/' && source[cursor + 1] === '*')) {
-        cursor -= 1;
-      }
-      cursor -= 1;
-      continue;
-    }
-    return source[cursor];
-  }
-  return undefined;
-}
-
-function findJsoncObjectProperty(source, objectStart, propertyName) {
-  const objectEnd = findJsoncMatching(source, objectStart, '{', '}');
-  let cursor = skipJsoncTrivia(source, objectStart + 1);
-  while (cursor < objectEnd) {
-    if (source[cursor] === ',') {
-      cursor = skipJsoncTrivia(source, cursor + 1);
-      continue;
-    }
-    if (source[cursor] !== '"') break;
-    const key = parseJsonStringAt(source, cursor);
-    const colon = skipJsoncTrivia(source, key.end);
-    if (source[colon] !== ':') throw new Error('Expected colon in models.json object');
-    const valueStart = skipJsoncTrivia(source, colon + 1);
-    const valueEnd = findJsoncValueEnd(source, valueStart);
-    if (key.value === propertyName) {
-      return {
-        valueStart,
-        valueEnd,
-      };
-    }
-    cursor = skipJsoncTrivia(source, valueEnd);
-    if (source[cursor] === ',') cursor = skipJsoncTrivia(source, cursor + 1);
-  }
-  return null;
-}
-
-function formatJsoncValue(value, indent) {
-  return JSON.stringify(value, null, 2)
-    .split('\n')
-    .map((line, index) => (index === 0 ? line : `${indent}${line}`))
-    .join('\n');
-}
-
-function insertJsoncObjectProperty(source, objectStart, propertyName, value) {
-  const objectEnd = findJsoncMatching(source, objectStart, '{', '}');
-  const parentIndent = lineIndentAt(source, objectStart);
-  const firstChild = skipJsoncTrivia(source, objectStart + 1);
-  const childIndent =
-    firstChild < objectEnd ? lineIndentAt(source, firstChild) : `${parentIndent}  `;
-  const propertyText = `${JSON.stringify(propertyName)}: ${formatJsoncValue(value, childIndent)}`;
-  const hasProperties = firstChild < objectEnd;
-  const needsComma = hasProperties && previousJsoncSignificantChar(source, objectEnd) !== ',';
-  const insertion = `${needsComma ? ',' : ''}\n${childIndent}${propertyText}\n${parentIndent}`;
-  return `${source.slice(0, objectEnd)}${insertion}${source.slice(objectEnd)}`;
-}
-
-function upsertJsoncObjectProperty(source, objectStart, propertyName, value) {
-  const property = findJsoncObjectProperty(source, objectStart, propertyName);
-  if (!property) return insertJsoncObjectProperty(source, objectStart, propertyName, value);
-  const indent = lineIndentAt(source, property.valueStart);
-  return `${source.slice(0, property.valueStart)}${formatJsoncValue(value, indent)}${source.slice(
-    property.valueEnd,
-  )}`;
-}
-
-function writeModelsJsonProvider(modelsPath, providerId, provider) {
-  if (!existsSync(modelsPath)) {
-    writeFileSync(
-      modelsPath,
-      `${JSON.stringify({ providers: { [providerId]: provider } }, null, 2)}\n`,
-    );
-    return;
-  }
-  const source = readFileSync(modelsPath, 'utf8');
-  const rootStart = skipJsoncTrivia(source, 0);
-  if (source[rootStart] !== '{') throw new Error('models.json root must be an object');
-  const providersProperty = findJsoncObjectProperty(source, rootStart, 'providers');
-  const next = providersProperty
-    ? upsertJsoncObjectProperty(source, providersProperty.valueStart, providerId, provider)
-    : insertJsoncObjectProperty(source, rootStart, 'providers', { [providerId]: provider });
-  writeFileSync(modelsPath, next.endsWith('\n') ? next : `${next}\n`);
-}
-
 function positiveInteger(value) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? Math.floor(number) : undefined;
@@ -819,41 +835,6 @@ function normalizedProviderModelConfig(model, existingModel) {
   return next;
 }
 
-function normalizeProviderId(value) {
-  const providerId = asNonEmptyString(value);
-  if (!providerId) throw new Error('Provider id is required');
-  if (!/^[A-Za-z0-9._-]+$/u.test(providerId)) {
-    throw new Error('Provider id may only contain letters, numbers, dot, dash, and underscore');
-  }
-  return providerId;
-}
-
-function normalizeBaseUrl(value) {
-  const baseUrl = asNonEmptyString(value);
-  if (!baseUrl) throw new Error('Base URL is required');
-  let parsed;
-  try {
-    parsed = new URL(baseUrl);
-  } catch (error) {
-    throw new Error(`Base URL is invalid: ${error?.message ?? String(error)}`);
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error('Base URL must start with http:// or https://');
-  }
-  return baseUrl;
-}
-
-function normalizeApi(value) {
-  const api = asNonEmptyString(value);
-  if (!api) throw new Error('API format is required');
-  if (!/^[A-Za-z0-9._/-]+$/u.test(api)) {
-    throw new Error(
-      'API format may only contain letters, numbers, dot, slash, dash, and underscore',
-    );
-  }
-  return api;
-}
-
 function providerConfigsFromModelsJson(modelsPath, modelRegistry) {
   const path = asNonEmptyString(modelsPath);
   if (!path || !existsSync(path)) return [];
@@ -886,108 +867,6 @@ function providerConfigsFromModelsJson(modelsPath, modelRegistry) {
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
-function providerTemplatesFromRegistry(modelRegistry, configuredProviders) {
-  const templates = new Map();
-  for (const model of modelRegistry.getAll()) {
-    const provider = asNonEmptyString(model.provider);
-    const id = asNonEmptyString(model.id);
-    if (!provider || !id) continue;
-    const current = templates.get(provider) ?? {
-      provider,
-      displayName: modelRegistry.getProviderDisplayName(provider),
-      configured: configuredProviders.has(provider),
-      models: [],
-    };
-    if (!current.baseUrl && asNonEmptyString(model.baseUrl)) {
-      current.baseUrl = asNonEmptyString(model.baseUrl);
-    }
-    if (!current.api && asNonEmptyString(model.api)) {
-      current.api = asNonEmptyString(model.api);
-    }
-    if (current.models.length < 3) {
-      current.models.push(normalizedProviderModelConfig(model));
-    }
-    templates.set(provider, current);
-  }
-  return [...templates.values()]
-    .map((template) => ({
-      ...template,
-      models: template.models.filter(Boolean),
-    }))
-    .sort((a, b) => a.displayName.localeCompare(b.displayName));
-}
-
-function providerConfigForWrite(payload, existingProvider, authStatus) {
-  const config = isRecord(payload.config) ? payload.config : undefined;
-  if (!config) throw new Error('saveProvider requires config');
-  const providerId = normalizeProviderId(config.providerId);
-  const baseUrl = normalizeBaseUrl(config.baseUrl);
-  const api = normalizeApi(config.api);
-  const apiKey = asNonEmptyString(config.apiKey);
-  const keepExistingApiKey = config.keepExistingApiKey === true;
-  const hasExistingKey = Boolean(asNonEmptyString(existingProvider?.apiKey));
-  const canKeepExistingKey = keepExistingApiKey && (hasExistingKey || authStatus?.configured);
-  if (!apiKey && !canKeepExistingKey) throw new Error('API key is required');
-  const existingModels = new Map(
-    Array.isArray(existingProvider?.models)
-      ? existingProvider.models
-          .filter((model) => isRecord(model) && asNonEmptyString(model.id))
-          .map((model) => [asNonEmptyString(model.id), model])
-      : [],
-  );
-  const models = Array.isArray(config.models)
-    ? config.models
-        .map((model) => {
-          const id = asNonEmptyString(model?.id);
-          if (!id) return undefined;
-          const api = asNonEmptyString(model.api);
-          return normalizedProviderModelConfig(
-            {
-              ...model,
-              ...(api ? { api: normalizeApi(api) } : {}),
-            },
-            existingModels.get(id),
-          );
-        })
-        .filter(Boolean)
-    : [];
-  if (!models.length) throw new Error('Add at least one model id');
-  return {
-    providerId,
-    provider: {
-      name: asNonEmptyString(config.displayName),
-      baseUrl,
-      api,
-      ...(apiKey ? { apiKey } : {}),
-      models,
-    },
-  };
-}
-
-function piSaveProvider(payload) {
-  const agentDir = asNonEmptyString(payload.agentDir);
-  if (!agentDir) throw new Error('saveProvider requires agentDir');
-  mkdirSync(agentDir, { recursive: true });
-  const modelsPath = join(agentDir, 'models.json');
-  const root = readModelsJsonForWrite(modelsPath);
-  const { modelRegistry } = createPiRegistries(agentDir);
-  const config = isRecord(payload.config) ? payload.config : {};
-  const requestedProviderId = asNonEmptyString(config.providerId);
-  const existingProvider =
-    requestedProviderId && isRecord(root.providers[requestedProviderId])
-      ? root.providers[requestedProviderId]
-      : {};
-  const authStatus = requestedProviderId
-    ? modelRegistry.getProviderAuthStatus(requestedProviderId)
-    : undefined;
-  const { providerId, provider } = providerConfigForWrite(payload, existingProvider, authStatus);
-  writeModelsJsonProvider(modelsPath, providerId, {
-    ...existingProvider,
-    ...provider,
-  });
-  piStatus(payload);
-}
-
 function selectedModel(modelRegistry, override) {
   const raw = asNonEmptyString(override);
   if (!raw) return undefined;
@@ -1006,7 +885,38 @@ function lastAssistantMessage(session) {
   return undefined;
 }
 
-function piStatus(payload) {
+async function runtimeStatusProjection({ authStorage, modelRegistry, providerConfigs, checkedAt }) {
+  const providerAccounts = [];
+  for (const config of providerConfigs) {
+    const auth = modelRegistry.getProviderAuthStatus(config.provider);
+    if (!config.hasApiKey && !auth?.configured) continue;
+    const model = modelRegistry.getAll().find((entry) => entry.provider === config.provider);
+    if (!model) continue;
+    try {
+      const identity = await executionAccountIdentity(authStorage, modelRegistry, model);
+      if (identity.billingMode !== 'api') continue;
+      providerAccounts.push({
+        providerId: config.provider,
+        accountId: identity.accountId,
+        configured: true,
+        authMode: 'api',
+        baseUrl: config.baseUrl,
+        api: config.api,
+      });
+    } catch {
+      // A configured-looking provider without a resolvable credential is not an
+      // executable account. Product status must not invent or expose an identity.
+    }
+  }
+  return projectApiAccountCatalog({
+    providerAccounts,
+    availableModels: modelRegistry.getAvailable(),
+    checkedAt,
+    now: new Date(checkedAt),
+  });
+}
+
+async function piStatus(payload) {
   const { agentDir, authPath, modelsPath, authStorage, modelRegistry } = createPiRegistries(
     asNonEmptyString(payload.agentDir),
   );
@@ -1039,18 +949,20 @@ function piStatus(payload) {
       };
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
-  const providerTemplates = providerTemplatesFromRegistry(
+  const checkedAt = new Date().toISOString();
+  const runtimeStatus = await runtimeStatusProjection({
+    authStorage,
     modelRegistry,
-    new Set(configuredProviderStatus.map((account) => account.provider)),
-  );
+    providerConfigs,
+    checkedAt,
+  });
   emit(
     resultLine({
       ok: true,
+      runtimeStatus,
       authProviders: authStorage.list().sort(),
       providerStatus,
       configuredProviderStatus,
-      providerConfigs,
-      providerTemplates,
       availableModels: modelRegistry.getAvailable().map(modelSummary),
       allModelCount: modelRegistry.getAll().length,
       paths: {
@@ -1059,13 +971,25 @@ function piStatus(payload) {
         modelsPath,
       },
       modelsConfig: modelsConfigSummary(modelsPath, modelRegistry),
-      checkedAt: new Date().toISOString(),
+      checkedAt,
     }),
   );
 }
 
 async function runPrompt(payload) {
-  const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
+  const executionGate = createRequestExecutionTargetGate(payload);
+  const workspaceState = normalizeExecuteWorkspace(payload);
+  const workspaceUnavailable = workspaceState.availability === 'unavailable';
+  const cwd = asNonEmptyString(payload.cwd);
+  if (cwd !== '.') {
+    throw Object.assign(new Error('Pi work requests require the host-anchored cwd.'), {
+      code: 'invalid-request',
+    });
+  }
+  // Bound runs inherit Rust's descriptor-anchored Project inode. Unavailable
+  // optional runs inherit Rust's neutral directory; they retain the same `.`
+  // session identity while the host removes every workspace capability below.
+  const workspaceRoot = workspaceUnavailable ? undefined : process.cwd();
   const text = asNonEmptyString(payload.text);
   if (!text) {
     throw Object.assign(new Error('Pi Agent requests must include text.'), {
@@ -1076,17 +1000,37 @@ async function runPrompt(payload) {
   const agentDir = asNonEmptyString(payload.agentDir);
   const { authStorage, modelRegistry } = createPiRegistries(agentDir);
   const sessionDir = asNonEmptyString(payload.sessionDir);
-  if (sessionDir) mkdirSync(sessionDir, { recursive: true });
-  // Rust gives every threadId its own session directory, so continuing the most
-  // recent session here is simply "keep this conversation going". There is no
-  // separate resume mode — same thread, same Pi session.
-  const sessionManager = SessionManager.continueRecent(cwd, sessionDir);
-  const model = selectedModel(modelRegistry, payload.model);
-  if (payload.model && !model) {
-    throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
-      code: 'model-not-found',
+  const nativeSessionMode = asNonEmptyString(payload.nativeSessionMode);
+  if (nativeSessionMode !== 'tracked' && nativeSessionMode !== 'fresh') {
+    throw Object.assign(new Error('Pi work requires a valid nativeSessionMode.'), {
+      code: 'invalid-request',
     });
   }
+  const exactSessionFile = asNonEmptyString(payload.exactSessionFile);
+  const exactSessionId = asNonEmptyString(payload.exactSessionId);
+  if (Boolean(exactSessionFile) !== Boolean(exactSessionId)) {
+    throw Object.assign(
+      new Error('Pi work requires one complete exact native session reference.'),
+      {
+        code: 'native-session-invalid',
+      },
+    );
+  }
+  if (nativeSessionMode === 'fresh' && exactSessionFile) {
+    throw Object.assign(new Error('A fresh Pi session cannot carry an exact session reference.'), {
+      code: 'invalid-request',
+    });
+  }
+  if (sessionDir) mkdirSync(sessionDir, { recursive: true });
+  // Rust is the Conversation-session authority. It either supplies the one
+  // durable exact file/id pair to continue (normal Turn or Resume) or supplies
+  // no pair for the Conversation's first native session. Never scan the folder
+  // for an untracked "recent" file: Project cwd changes would silently fork
+  // memory, while unrelated files could be adopted without durable provenance.
+  const sessionManager = exactSessionFile
+    ? SessionManager.open(exactSessionFile, sessionDir, cwd)
+    : SessionManager.create(cwd, sessionDir);
+  const { model, runtimeModelRef } = requireRuntimeModel(payload, modelRegistry);
 
   // Per-conversation permission mode (plan / ask / auto / full). Plan restricts
   // the tool set to the read-only built-ins (no gate needed — bash/edit/write are
@@ -1094,13 +1038,13 @@ async function runPrompt(payload) {
   // the full tool set but blocks catastrophic commands; Full leaves the session
   // unrestricted.
   const permissionMode = normalizePermissionMode(payload.permissionMode);
-  const baseTools = toolAllowlistForMode(permissionMode);
+  const baseTools = workspaceUnavailable ? [] : toolAllowlistForMode(permissionMode);
   // Per-conversation thinking level (reasoning effort). Forwarded as a native
   // `createAgentSession` option; Pi clamps it to the model's capabilities (a
   // non-reasoning model collapses every level to `off`). Unknown → undefined so
   // Pi uses its settings/default level.
   const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
-  const gateFactory = buildPermissionGate(permissionMode);
+  const gateFactory = workspaceUnavailable ? null : buildPermissionGate(permissionMode);
   // Per-employee persona, forwarded as the session's appended system prompt
   // (Pi's official `appendSystemPrompt` resource-loader option). Build one
   // DefaultResourceLoader whenever there's a permission gate OR a persona, and
@@ -1109,9 +1053,10 @@ async function runPrompt(payload) {
   // Vault-authoritative employee skills use Pi's native discovery contract.
   // The renderer resolves the effective company + employee scope and Rust
   // forwards absolute SKILL.md paths; the loader parses and injects them.
-  const skillPaths = Array.isArray(payload.skillPaths)
-    ? payload.skillPaths.filter((path) => typeof path === 'string' && path.trim())
-    : [];
+  const skillPaths =
+    !workspaceUnavailable && Array.isArray(payload.skillPaths)
+      ? payload.skillPaths.filter((path) => typeof path === 'string' && path.trim())
+      : [];
   // Delegation: when the renderer supplies a root run id + thread id + a non-empty
   // company roster, register the `delegate` tool so the root agent can hand bounded
   // subtasks to teammates. Children are built in-process by the supervisor (see
@@ -1134,25 +1079,13 @@ async function runPrompt(payload) {
   const projectVerifyTokenBudget = Number.isFinite(payload.projectVerifyTokenBudget)
     ? Math.max(1, payload.projectVerifyTokenBudget)
     : undefined;
-  // The DB may retain a model binding Pi no longer offers. Keep persistence
-  // honest, but do not forward that phantom value: an invalid binding behaves
-  // exactly like an unbound employee and inherits this conversation's model.
-  const roster = Array.isArray(payload.roster)
-    ? payload.roster.map((entry) => {
-        if (!isRecord(entry)) return entry;
-        const requested = asNonEmptyString(entry.model);
-        if (!requested || selectedModel(modelRegistry, requested)) return entry;
-        const rest = { ...entry };
-        // biome-ignore lint/performance/noDelete: the wire must omit stale bindings, not send null/undefined keys.
-        delete rest.model;
-        // biome-ignore lint/performance/noDelete: keep the roster packet key set exact.
-        delete rest.thinkingLevel;
-        return rest;
-      })
-    : [];
-  const directDelegation = isRecord(payload.directDelegation) ? payload.directDelegation : null;
+  const roster = !workspaceUnavailable && Array.isArray(payload.roster) ? payload.roster : [];
+  const directDelegation =
+    !workspaceUnavailable && isRecord(payload.directDelegation) ? payload.directDelegation : null;
   const delegationLimitOverrides = normalizeDelegationLimitOverrides(payload.delegationLimits);
-  const delegationEnabled = Boolean(rootRunId && threadId && roster.length > 0);
+  const delegationEnabled = Boolean(
+    !workspaceUnavailable && rootRunId && threadId && roster.length > 0,
+  );
   const delegationBudgetState = delegationEnabled
     ? delegationLimitOverrides === undefined
       ? createDelegationLimits()
@@ -1164,7 +1097,8 @@ async function runPrompt(payload) {
   // publish an artifact. Excluded from `plan` mode: planning is read-only, so the
   // agent cannot have written a file to publish (a publish there would be a
   // phantom row the renderer's workspace read rejects anyway).
-  const publishArtifactEnabled = Boolean(rootRunId && threadId) && permissionMode !== 'plan';
+  const publishArtifactEnabled =
+    !workspaceUnavailable && Boolean(rootRunId && threadId) && permissionMode !== 'plan';
   // Mission bridge (MS-005): register `submit_for_evaluation` + `query_mission_state`
   // only when this run carries a mission context packet (the renderer's
   // MissionRunController injects `missionContextJson` for an attempt). A plain chat
@@ -1172,8 +1106,12 @@ async function runPrompt(payload) {
   // scope (rootRunId + threadId) to stamp its events so the renderer can correlate
   // submissions to the current attempt. Unlike publish_artifact it is allowed in
   // every mode — a mission run may legitimately submit a read-only criterion.
-  const missionContextJson = asNonEmptyString(payload.missionContextJson);
-  const missionEnabled = Boolean(rootRunId && threadId && missionContextJson);
+  const missionContextJson = workspaceUnavailable
+    ? undefined
+    : asNonEmptyString(payload.missionContextJson);
+  const missionEnabled = Boolean(
+    !workspaceUnavailable && rootRunId && threadId && missionContextJson,
+  );
   // MCP bridge (B3): the discovery meta-tools (mcp_search_tools /
   // mcp_describe_tool) are registered on EVERY run so an employee with no MCP
   // grants can still answer "what tools do I have?" — mcp_search_tools returns an
@@ -1182,7 +1120,7 @@ async function runPrompt(payload) {
   // grant-scoped catalog exists, so discovery never becomes an ungated call path:
   // the per-employee grant catalog stays the trust boundary. Plan mode keeps only
   // read-class MCP tools; write-class tools are filtered out of the catalog.
-  const mcpTools = Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
+  const mcpTools = !workspaceUnavailable && Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
   const scopedMcpTools =
     permissionMode === 'plan' ? mcpTools.filter((tool) => !isWriteMcpTool(tool)) : mcpTools;
   const mcpHasCatalog = scopedMcpTools.length > 0;
@@ -1193,18 +1131,20 @@ async function runPrompt(payload) {
   // harness/gateway path — AI Runtime Policy), the same surface the MCP path
   // already enforced. This enumeration is complete: they are the only tools any
   // Offisim-registered extension exposes (harness:pi-agent-host locks it).
-  const tools = [
-    ...(baseTools ?? ['read', 'write', 'edit', 'bash']),
-    ...(delegationEnabled ? ['delegate'] : []),
-    ...(publishArtifactEnabled ? ['publish_artifact'] : []),
-    ...(missionEnabled ? ['submit_for_evaluation', 'query_mission_state'] : []),
-    'mcp_search_tools',
-    'mcp_describe_tool',
-    ...(mcpHasCatalog ? ['mcp_call'] : []),
-  ];
+  const tools = workspaceUnavailable
+    ? [PROJECT_WORKSPACE_REQUIRED_TOOL]
+    : [
+        ...baseTools,
+        ...(delegationEnabled ? ['delegate'] : []),
+        ...(publishArtifactEnabled ? ['publish_artifact'] : []),
+        ...(missionEnabled ? ['submit_for_evaluation', 'query_mission_state'] : []),
+        'mcp_search_tools',
+        'mcp_describe_tool',
+        ...(mcpHasCatalog ? ['mcp_call'] : []),
+      ];
   // A write-class MCP tool pauses for ctx.ui.confirm, which needs the forwarding
   // UI context bound — the same bind `ask` mode already does.
-  const mcpNeedsUi = mcpHasCatalog && scopedMcpTools.some(isWriteMcpTool);
+  const mcpNeedsUi = !workspaceUnavailable && mcpHasCatalog && scopedMcpTools.some(isWriteMcpTool);
   // When the conversation does not carry an explicit override, Pi chooses the
   // real root model during createAgentSession. The delegation supervisor reads
   // this live binding later, when delegate executes, so unbound employees inherit
@@ -1214,9 +1154,10 @@ async function runPrompt(payload) {
   // can still discover tools), so a resource loader + extension list is always
   // built now — no run reaches createAgentSession without one.
   let resourceLoader;
+  let settingsManager;
   let directSupervisor = null;
   {
-    const settingsManager = SettingsManager.create(cwd, agentDir);
+    settingsManager = SettingsManager.create(cwd, agentDir);
     const extensionFactories = [];
     if (gateFactory) extensionFactories.push(gateFactory);
     if (delegationEnabled) {
@@ -1227,7 +1168,7 @@ async function runPrompt(payload) {
         now: () => new Date().toISOString(),
         newId: () => randomUUID(),
       });
-      const rootLease = await leaseManager.acquireRootLease(cwd);
+      const rootLease = await leaseManager.acquireRootLease(workspaceRoot);
       const confirmIntegration = async (plan) => {
         const mergeable = Array.isArray(plan?.mergeable) ? plan.mergeable : [];
         const reviewRows = await Promise.all(
@@ -1288,10 +1229,19 @@ async function runPrompt(payload) {
         limits: delegationBudgetState,
         leaseManager,
         rootLease,
+        validateLeaseCwd: async (leaseClaim) =>
+          assertWorktreeOk(
+            await worktreeChannel.requestWorktreeResult('validateCwd', leaseClaim),
+            'validateCwd',
+          ),
         confirmIntegration,
         depth: 0,
         parentRunId: rootRunId,
         childControllers: activeChildControllers,
+        createAgentSession: createWorkAgentSession,
+        executionTargetGate: executionGate,
+        expectedTarget: payload.expectedTarget,
+        runtimeModelRef,
       });
       directSupervisor = supervisor;
       extensionFactories.push(createDelegationExtensionFactory(supervisor));
@@ -1318,25 +1268,34 @@ async function runPrompt(payload) {
         }),
       );
     }
-    // Always register the MCP bridge so mcp_search_tools/mcp_describe_tool exist
-    // on every run; when scopedMcpTools is empty, search returns the actionable
-    // "no tools granted yet" state and mcp_call is not in the allowlist above.
-    extensionFactories.push(
-      createMcpBridgeExtensionFactory({
-        mcpTools: scopedMcpTools,
-        requestMcpResult: mcpChannel.requestMcpResult,
-        confirmMcpToolCall,
-        emit,
-        threadId,
-        rootRunId,
-        employeeId: asNonEmptyString(payload.employeeId),
-      }),
-    );
+    if (workspaceUnavailable) {
+      extensionFactories.push(
+        createProjectWorkspaceRequiredExtensionFactory(workspaceState.reasonCode),
+      );
+    } else {
+      // Bound work always gets MCP discovery, including the actionable empty
+      // catalog state. Workspace-unavailable work must not register any MCP
+      // bridge, even when a stale renderer packet carried grants.
+      extensionFactories.push(
+        createMcpBridgeExtensionFactory({
+          mcpTools: scopedMcpTools,
+          requestMcpResult: mcpChannel.requestMcpResult,
+          confirmMcpToolCall,
+          emit,
+          threadId,
+          rootRunId,
+          employeeId: asNonEmptyString(payload.employeeId),
+        }),
+      );
+    }
     // Append the employee persona and, when delegation is on, the fixed-flow
     // guidance — both are generic appended system prompts (Pi's official option).
     const appendSystemPrompt = [];
     if (systemPromptAppend) appendSystemPrompt.push(systemPromptAppend);
     if (delegationEnabled) appendSystemPrompt.push(DELEGATION_FLOW_GUIDANCE);
+    if (workspaceUnavailable) {
+      appendSystemPrompt.push(workspaceUnavailableSystemPrompt(workspaceState.reasonCode));
+    }
     resourceLoader = new DefaultResourceLoader({
       cwd,
       agentDir,
@@ -1344,6 +1303,15 @@ async function runPrompt(payload) {
       ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
       ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
       ...(skillPaths.length > 0 ? { additionalSkillPaths: skillPaths } : {}),
+      ...(workspaceUnavailable
+        ? {
+            noExtensions: true,
+            noSkills: true,
+            noPromptTemplates: true,
+            noThemes: true,
+            noContextFiles: true,
+          }
+        : {}),
     });
     await resourceLoader.reload();
   }
@@ -1355,7 +1323,7 @@ async function runPrompt(payload) {
     if (!employeeId || !objective)
       throw new Error('Direct delegation requires employeeId and objective.');
     emit(startedLine({}));
-    const summary = await directSupervisor.runSingle({
+    const directResult = await directSupervisor.runSingleWithMetadata({
       employeeId,
       objective,
       access:
@@ -1367,29 +1335,69 @@ async function runPrompt(payload) {
         ? directDelegation.resumeLease
         : undefined,
     });
+    const summary = directResult.text;
+    if (directResult.completed && (!directResult.model || !directResult.provenance)) {
+      throw Object.assign(
+        new Error('Direct delegation completed without a prepared child execution identity.'),
+        { code: 'provenance-missing' },
+      );
+    }
     emit(messageEndLine({ text: summary, stopReason: 'end_turn' }));
+    await taskBashRegistry.cleanup();
     emit(
       resultLine({
         ok: true,
         text: summary,
+        ...(directResult.model ? { model: modelSummary(directResult.model) } : {}),
+        ...(directResult.provenance ? { provenance: directResult.provenance } : {}),
         ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
       }),
     );
     return;
   }
 
-  const { session, modelFallbackMessage } = await createAgentSession({
+  const { session, modelFallbackMessage } = await createWorkAgentSession({
     cwd,
     agentDir,
     authStorage,
     modelRegistry,
     sessionManager,
+    settingsManager,
     ...(model ? { model } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
+    ...(workspaceUnavailable ? { noTools: 'builtin' } : {}),
     ...(tools ? { tools } : {}),
     ...(resourceLoader ? { resourceLoader } : {}),
   });
+  activeRootSession = session;
   effectiveRootModel = session.model ?? model;
+  if (
+    exactSessionFile &&
+    (session.sessionFile !== exactSessionFile || session.sessionId !== exactSessionId)
+  ) {
+    session.dispose();
+    activeRootSession = null;
+    throw Object.assign(
+      new Error('The exact native Pi session changed before this Turn could start.'),
+      { code: 'native-session-invalid' },
+    );
+  }
+  let preparedExecution;
+  try {
+    preparedExecution = await executionGate.prepare({
+      authStorage,
+      modelRegistry,
+      session,
+      modelFallbackMessage,
+      expectedTarget: payload.expectedTarget,
+      runtimeModelRef,
+      runId: asNonEmptyString(payload.rootRunId) ?? session.sessionId,
+    });
+  } catch (error) {
+    session.dispose();
+    activeRootSession = null;
+    throw error;
+  }
 
   // Bind a forwarding UI context so a mid-run `ctx.ui.confirm` routes through our
   // stdin channel. Needed by Ask mode (the bash gate) AND by the MCP bridge when
@@ -1403,10 +1411,9 @@ async function runPrompt(payload) {
   let activeReasoningText = '';
   let latestReasoningText = '';
   let emittedReasoning = false;
-  // Root session's own token/cost accounting, summed across assistant turns and
-  // returned on the result line. The renderer folds this into reconcileRoot — the
-  // solo (non-delegation) path otherwise records no root usage at all.
-  const rootUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+  // Only messages from this Turn are collected. Provider-native accounting is
+  // resolved after the prompt so SDK placeholder zeroes never become product truth.
+  const runAssistantMessages = [];
   const toolInputsById = new Map();
   const unsubscribe = session.subscribe((event) => {
     if (event.type === 'agent_start') {
@@ -1442,16 +1449,11 @@ async function runPrompt(payload) {
         latestReasoningText = reasoningText;
         activeReasoningText = '';
         latestText = clampText(messageText(event.message));
-        // Accumulate this turn's usage (field names mirror the child supervisor's
-        // exactly; SDK usage.cost is an object → `.total`).
+        runAssistantMessages.push(event.message);
+        // The delegation budget is an execution guard, not product accounting;
+        // adapter token counters remain sufficient for this bounded-loop check.
         const u = event.message.usage;
         if (u) {
-          rootUsage.input += u.input || 0;
-          rootUsage.output += u.output || 0;
-          rootUsage.cacheRead += u.cacheRead || 0;
-          rootUsage.cacheWrite += u.cacheWrite || 0;
-          rootUsage.cost += u.cost?.total || 0;
-          rootUsage.turns += 1;
           delegationBudgetState?.recordTokens({ ...u, turns: 1 });
         }
         emit(
@@ -1465,12 +1467,14 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'tool_call') {
+      assertWorkspaceToolAllowed(workspaceUnavailable, event.toolName);
       if (hasRecordKeys(event.input) || isNonEmptyArray(event.input)) {
         toolInputsById.set(event.toolCallId, event.input);
       }
       return;
     }
     if (event.type === 'tool_execution_start') {
+      assertWorkspaceToolAllowed(workspaceUnavailable, event.toolName);
       const input = firstPresent(
         event.input,
         event.args,
@@ -1489,6 +1493,7 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'tool_execution_update') {
+      assertWorkspaceToolAllowed(workspaceUnavailable, event.toolName);
       const input = firstPresent(
         event.input,
         event.args,
@@ -1510,6 +1515,7 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'tool_execution_end') {
+      assertWorkspaceToolAllowed(workspaceUnavailable, event.toolName);
       const input = firstPresent(
         event.input,
         event.args,
@@ -1535,12 +1541,13 @@ async function runPrompt(payload) {
   });
 
   try {
+    executionGate.assertPrepared(preparedExecution, session);
     await session.prompt(text);
     const finalAssistant = lastAssistantMessage(session);
     const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
     if (finalAssistant?.stopReason === 'error' || assistantError) {
       const message = normalizePiErrorMessage(
-        assistantError ?? 'Pi Agent model returned an error stop without a message.',
+        assistantError ?? 'The selected AI model returned an error without details.',
       );
       throw Object.assign(new Error(message), { code: 'upstream' });
     }
@@ -1553,6 +1560,15 @@ async function runPrompt(payload) {
     // final string — `??` would keep the empty string (only null/undefined are
     // nullish), surfacing a blank result line.
     const finalText = clampText(session.getLastAssistantText() || latestText);
+    // The result line is the Rust gateway's terminal. Every host-tracked Bash
+    // call must be settled before Rust accepts that line.
+    await taskBashRegistry.cleanup();
+    const rootUsage = await resolveApiRunUsage({
+      messages: runAssistantMessages,
+      provenance: preparedExecution.identity,
+      model: session.model ?? model,
+      modelRegistry,
+    }).catch(() => undefined);
     emit(
       resultLine({
         ok: true,
@@ -1561,13 +1577,15 @@ async function runPrompt(payload) {
         sessionId: session.sessionId,
         sessionFile: session.sessionFile,
         model: session.model ? modelSummary(session.model) : undefined,
-        usage: rootUsage,
+        provenance: preparedExecution.identity,
+        ...(rootUsage ? { usage: rootUsage } : {}),
         ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
       }),
     );
   } finally {
     unsubscribe();
     session.dispose();
+    if (activeRootSession === session) activeRootSession = null;
   }
 }
 
@@ -1584,10 +1602,11 @@ async function runPrompt(payload) {
 // Isolation, enforced three ways so a regression can't silently re-arm tools:
 //   1. `noTools: 'all'`  — the SDK starts with NO tools enabled.
 //   2. `tools: []`       — the explicit allowlist enables nothing on top.
-//   3. resourceLoader carries ONLY `appendSystemPrompt` (the profile prompt) and
+//   3. resourceLoader carries ONLY the supplied `systemPrompt` and
 //      ZERO `extensionFactories` — no permission gate, no delegation, no publish,
 //      no mission bridge, no `ctx.ui` binding. There is no second stdin channel.
 async function runEnhance(payload) {
+  const executionGate = createRequestExecutionTargetGate(payload);
   const text = asNonEmptyString(payload.text);
   if (!text) {
     throw Object.assign(new Error('Prompt enhance requests must include text.'), {
@@ -1607,28 +1626,37 @@ async function runEnhance(payload) {
   const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
   const agentDir = asNonEmptyString(payload.agentDir);
   const { authStorage, modelRegistry } = createPiRegistries(agentDir);
-  const model = selectedModel(modelRegistry, payload.model);
-  if (payload.model && !model) {
-    throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
-      code: 'model-not-found',
+  const sourceProvenance = isRecord(payload.sourceProvenance)
+    ? payload.sourceProvenance
+    : undefined;
+  const { model, runtimeModelRef } = requireRuntimeModel(payload, modelRegistry);
+  if (sourceProvenance && sourceProvenance.modelId !== payload.expectedTarget?.modelId) {
+    throw Object.assign(new Error('Isolated text job model does not match source provenance.'), {
+      code: 'provenance-mismatch',
     });
   }
   const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
 
   // No SessionManager persistence: a fresh, ephemeral session per enhance with no
   // session directory, so nothing is written to disk and no transcript survives.
-  const sessionManager = SessionManager.create(cwd);
+  const sessionManager = SessionManager.inMemory(cwd);
   const settingsManager = SettingsManager.create(cwd, agentDir);
-  // The profile system prompt is the ONLY appended prompt; NO extension factories.
+  // The supplied profile is the entire system prompt. No project/global resources
+  // are discoverable on this isolated path.
   const resourceLoader = new DefaultResourceLoader({
     cwd,
     agentDir,
     settingsManager,
-    appendSystemPrompt: [systemPrompt],
+    systemPrompt,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
   });
   await resourceLoader.reload();
 
-  const { session } = await createAgentSession({
+  const { session, modelFallbackMessage } = await createAgentSession({
     cwd,
     agentDir,
     authStorage,
@@ -1641,8 +1669,27 @@ async function runEnhance(payload) {
     ...(model ? { model } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
   });
+  let preparedExecution;
+  try {
+    preparedExecution = await executionGate.prepare({
+      authStorage,
+      modelRegistry,
+      session,
+      modelFallbackMessage,
+      expectedTarget: payload.expectedTarget,
+      runtimeModelRef,
+      runId: payload.requestId,
+    });
+    if (sourceProvenance) {
+      assertSameExecutionAccount(sourceProvenance, preparedExecution.identity);
+    }
+  } catch (error) {
+    session.dispose();
+    throw error;
+  }
 
   let latestText = '';
+  const runAssistantMessages = [];
   const unsubscribe = session.subscribe((event) => {
     // Stream content deltas so the renderer can show a live, cancelable preview.
     if (event.type === 'message_update') {
@@ -1654,6 +1701,7 @@ async function runEnhance(payload) {
     }
     if (event.type === 'message_end' && event.message?.role === 'assistant') {
       latestText = clampText(messageText(event.message));
+      runAssistantMessages.push(event.message);
       return;
     }
     // A tool event here would mean isolation broke. There is no tool registered,
@@ -1671,8 +1719,15 @@ async function runEnhance(payload) {
   });
 
   try {
+    executionGate.assertPrepared(preparedExecution, session);
     await session.prompt(text);
     const enhanced = clampText(session.getLastAssistantText() || latestText);
+    const usage = await resolveApiRunUsage({
+      messages: runAssistantMessages,
+      provenance: preparedExecution.identity,
+      model: session.model ?? model,
+      modelRegistry,
+    }).catch(() => undefined);
     emit(
       resultLine({
         ok: true,
@@ -1683,6 +1738,8 @@ async function runEnhance(payload) {
         text: enhanced,
         sessionId: session.sessionId,
         model: session.model ? modelSummary(session.model) : undefined,
+        provenance: preparedExecution.identity,
+        ...(usage ? { usage } : {}),
       }),
     );
   } finally {
@@ -1714,6 +1771,7 @@ async function runEnhance(payload) {
 // never a delegate roster (no `roster` is read here, and no delegate tool is
 // ever registered).
 async function runCollaboration(payload) {
+  const executionGate = createRequestExecutionTargetGate(payload);
   const text = asNonEmptyString(payload.text);
   if (!text) {
     throw Object.assign(new Error('Collaboration requests must include text.'), {
@@ -1724,12 +1782,7 @@ async function runCollaboration(payload) {
   const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
   const agentDir = asNonEmptyString(payload.agentDir);
   const { authStorage, modelRegistry } = createPiRegistries(agentDir);
-  const model = selectedModel(modelRegistry, payload.model);
-  if (payload.model && !model) {
-    throw Object.assign(new Error(`Pi model override was not found: ${payload.model}`), {
-      code: 'model-not-found',
-    });
-  }
+  const { model, runtimeModelRef } = requireRuntimeModel(payload, modelRegistry);
   const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
   const collaborationProfile = normalizeCollaborationProfile(payload.collaborationProfile);
   const collaborationRead = collaborationProfile === 'collaboration_read';
@@ -1737,7 +1790,7 @@ async function runCollaboration(payload) {
   // No SessionManager persistence: a fresh, ephemeral session with no session
   // directory, so nothing is written to disk and no transcript survives. The
   // renderer owns the persisted collaboration message / turn rows.
-  const sessionManager = SessionManager.create(cwd);
+  const sessionManager = SessionManager.inMemory(cwd);
   const settingsManager = SettingsManager.create(cwd, agentDir);
   // The persona + collaboration context packet is the ONLY appended prompt; NO
   // extension factories. `systemPromptAppend` is built renderer-side and carries
@@ -1770,6 +1823,11 @@ async function runCollaboration(payload) {
     settingsManager,
     ...(extensionFactories.length > 0 ? { extensionFactories } : {}),
     ...(appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
   });
   await resourceLoader.reload();
   const collaborationTools = collaborationToolAllowlist(collaborationProfile);
@@ -1798,12 +1856,27 @@ async function runCollaboration(payload) {
   if (collaborationRead && rawMcpTools.some(isWriteMcpTool)) {
     await session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' });
   }
+  let preparedExecution;
+  try {
+    preparedExecution = await executionGate.prepare({
+      authStorage,
+      modelRegistry,
+      session,
+      modelFallbackMessage,
+      expectedTarget: payload.expectedTarget,
+      runtimeModelRef,
+      runId: payload.requestId,
+    });
+  } catch (error) {
+    session.dispose();
+    throw error;
+  }
 
   let latestText = '';
   let activeReasoningText = '';
   let latestReasoningText = '';
   let emittedReasoning = false;
-  const rootUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+  const runAssistantMessages = [];
   const unsubscribe = session.subscribe((event) => {
     if (event.type === 'agent_start') {
       emit(
@@ -1838,15 +1911,7 @@ async function runCollaboration(payload) {
         latestReasoningText = reasoningText;
         activeReasoningText = '';
         latestText = clampText(messageText(event.message));
-        const u = event.message.usage;
-        if (u) {
-          rootUsage.input += u.input || 0;
-          rootUsage.output += u.output || 0;
-          rootUsage.cacheRead += u.cacheRead || 0;
-          rootUsage.cacheWrite += u.cacheWrite || 0;
-          rootUsage.cost += u.cost?.total || 0;
-          rootUsage.turns += 1;
-        }
+        runAssistantMessages.push(event.message);
         emit(
           messageEndLine({
             text: latestText,
@@ -1876,6 +1941,7 @@ async function runCollaboration(payload) {
   });
 
   try {
+    executionGate.assertPrepared(preparedExecution, session);
     await session.prompt(text);
     const fallbackReasoning = clampText(messageThinking(lastAssistantMessage(session)));
     const finalReasoning = clampText(latestReasoningText || fallbackReasoning);
@@ -1883,6 +1949,12 @@ async function runCollaboration(payload) {
       emit(messageDeltaLine({ channel: 'reasoning', delta: fallbackReasoning }));
     }
     const finalText = clampText(session.getLastAssistantText() || latestText);
+    const rootUsage = await resolveApiRunUsage({
+      messages: runAssistantMessages,
+      provenance: preparedExecution.identity,
+      model: session.model ?? model,
+      modelRegistry,
+    }).catch(() => undefined);
     emit(
       resultLine({
         ok: true,
@@ -1893,7 +1965,8 @@ async function runCollaboration(payload) {
         reasoning: finalReasoning || undefined,
         sessionId: session.sessionId,
         model: session.model ? modelSummary(session.model) : undefined,
-        usage: rootUsage,
+        provenance: preparedExecution.identity,
+        ...(rootUsage ? { usage: rootUsage } : {}),
       }),
     );
   } finally {
@@ -1910,13 +1983,28 @@ async function runCollaboration(payload) {
 function main() {
   const rl = createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY });
   let sawPayload = false;
+  let statusInFlight = false;
   // The run settled (status emitted or prompt resolved): readline keeps stdin
   // open as an extension UI response channel, so exit explicitly rather than
   // waiting for EOF.
-  const finishHost = () => {
+  const finishHost = async () => {
+    if (hostTerminating) return;
+    hostTerminating = true;
+    await shutdownActiveWork({ abort: false });
     rl.close();
     process.exit(0);
   };
+
+  const stopForSignal = (signal) => {
+    if (hostTerminating) return;
+    hostTerminating = true;
+    void shutdownActiveWork({ abort: true }).finally(() => {
+      rl.close();
+      process.exit(signal === 'SIGTERM' ? 143 : 129);
+    });
+  };
+  process.once('SIGTERM', () => stopForSignal('SIGTERM'));
+  process.once('SIGHUP', () => stopForSignal('SIGHUP'));
 
   rl.on('line', (raw) => {
     const trimmed = raw.trim();
@@ -1934,23 +2022,8 @@ function main() {
       // before it processes any event line.
       emit(readyLine());
       if (payload.mode === 'status') {
-        try {
-          piStatus(payload);
-        } catch (error) {
-          fail(error);
-          return;
-        }
-        finishHost();
-        return;
-      }
-      if (payload.mode === 'saveProvider') {
-        try {
-          piSaveProvider(payload);
-        } catch (error) {
-          fail(error);
-          return;
-        }
-        finishHost();
+        statusInFlight = true;
+        void piStatus(payload).then(finishHost).catch(fail);
         return;
       }
       try {
@@ -1982,6 +2055,7 @@ function main() {
     // the id is in its own pending map).
     try {
       const msg = JSON.parse(trimmed);
+      activeExecutionTargetGate?.resolveAck(msg);
       resolveUiResponse(msg);
       resolveRuntimeControl(msg);
       mcpChannel.resolveMcpResult(msg);
@@ -1995,10 +2069,15 @@ function main() {
   // Parent closed stdin (process teardown / abort) — release any parked prompts
   // and fail any parked MCP calls so the loop unwinds.
   rl.on('close', () => {
+    if (statusInFlight) return;
     rejectAllUiRequests();
     mcpChannel.rejectAllMcpCalls();
     worktreeChannel.rejectAllWorktreeCalls();
     verifyChannel.rejectAllVerifyCalls();
+    if (!hostTerminating) {
+      hostTerminating = true;
+      void shutdownActiveWork({ abort: true }).finally(() => process.exit(1));
+    }
   });
 }
 

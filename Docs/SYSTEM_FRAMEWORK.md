@@ -1,6 +1,6 @@
 # System Framework
 
-Checked at: 2026-06-18 NZST
+Checked at: 2026-07-13 AEST
 
 This is the maintained system map for Offisim. It explains what runs where,
 which layer owns each responsibility, and which files are the source of truth
@@ -11,13 +11,16 @@ when the implementation changes.
 Offisim is a local-first desktop product with an optional registry backend.
 
 - The desktop app is the product runtime.
-- Pi Agent is the bundled AI runtime engine.
+- Pi Agent is the current bundled engine implementation behind the production
+  `DesktopAgentRuntime` gateway.
 - The platform API is registry/auth/install support, not the execution plane.
 - The renderer is internal to the desktop app, not a standalone web product.
 
-Do not restore a standalone launcher, standalone web runtime, Offisim-owned
-provider/model catalog, Claude/Codex sidecar lane, OpenAI Agents lane, or
-vendored Pi fork as the main runtime path.
+Do not restore a standalone launcher, standalone web runtime, parallel provider
+execution plane, ad-hoc Claude/Codex sidecar lane, OpenAI Agents lane, or
+vendored Pi fork as the main runtime path. Engine-neutral Accounts and the exact
+model catalog belong behind the single production gateway defined by the
+current architecture target.
 
 ## Runtime Layers
 
@@ -50,7 +53,8 @@ vendored Pi fork as the main runtime path.
 Source of truth:
 
 - `Docs/HARNESS_ARCHITECTURE.md`
-- `Docs/architecture/2026-06-18-pi-agent-only-runtime.md`
+- `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md` (current target)
+- `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` (historical/current Pi implementation)
 - `apps/desktop/src-tauri/src/pi_agent_host/`
 - `scripts/tauri-pi-agent-host.entry.mjs`
 - `apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts`
@@ -111,8 +115,10 @@ Source of truth:
 
 - UI changes start from `Docs/UI_FRAMEWORK_STACK.md` and the relevant surface
   under `apps/desktop/renderer/src/surfaces`.
-- Runtime changes start from `Docs/HARNESS_ARCHITECTURE.md` and must keep Pi
-  Agent as the only active AI runtime.
+- Runtime changes start from `Docs/HARNESS_ARCHITECTURE.md` and
+  `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. The current Pi
+  adapter remains the only shipped engine until another complete adapter passes
+  conformance and release `.app` verification; no run may mix engine lanes.
 - Desktop command changes must preserve Rust-side workspace containment and run
   `cargo test --locked` in `apps/desktop/src-tauri`.
 - Platform route changes must run platform migration/auth/security gates when

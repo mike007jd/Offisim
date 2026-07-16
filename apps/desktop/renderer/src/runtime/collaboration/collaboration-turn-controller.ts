@@ -24,9 +24,19 @@ import type { EmployeeRuntimeSelection } from '@/data/employee-persona.js';
 import type {
   CollaborationMessageRepository,
   CollaborationTurnRepository,
+  CollaborationTurnRow,
 } from '@offisim/core/browser';
-import type { CollaborationMessage, CollaborationReplyPolicy } from '@offisim/shared-types';
-import type { CollaborationProfile } from '@offisim/shared-types';
+import type {
+  AiExecutionTarget,
+  CollaborationMessage,
+  CollaborationProfile,
+  CollaborationReplyPolicy,
+  TurnExecutionProvenance,
+} from '@offisim/shared-types';
+import {
+  validateExecutionTarget,
+  validateTurnExecutionProvenance,
+} from '../execution-provenance.js';
 import {
   type CollaborationParticipant,
   type PriorRoundReply,
@@ -37,6 +47,45 @@ import {
   scheduleSpeakers,
 } from './collaboration-context.js';
 import type { CollaborationTransport, CollaborationTurnResult } from './collaboration-transport.js';
+
+function sameExecutionTarget(a: AiExecutionTarget, b: AiExecutionTarget): boolean {
+  return (
+    a.engineId === b.engineId &&
+    a.accountId === b.accountId &&
+    a.billingMode === b.billingMode &&
+    a.modelId === b.modelId &&
+    a.modelSource.kind === b.modelSource.kind &&
+    a.modelSource.sourceUrl === b.modelSource.sourceUrl &&
+    a.modelSource.checkedAt === b.modelSource.checkedAt
+  );
+}
+
+function parseExecutionTarget(row: CollaborationTurnRow): AiExecutionTarget {
+  let value: unknown;
+  try {
+    value = JSON.parse(row.execution_target_json);
+  } catch {
+    throw new Error(`Collaboration turn ${row.turn_id} has invalid execution target JSON.`);
+  }
+  const target = validateExecutionTarget(value);
+  if (!target) throw new Error(`Collaboration turn ${row.turn_id} has no exact execution target.`);
+  return target;
+}
+
+function parseExecutionProvenance(row: CollaborationTurnRow): TurnExecutionProvenance | null {
+  if (!row.result_provenance_json) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(row.result_provenance_json);
+  } catch {
+    throw new Error(`Collaboration turn ${row.turn_id} has invalid execution provenance JSON.`);
+  }
+  const provenance = validateTurnExecutionProvenance(value, row.runtime_request_id);
+  if (!provenance?.adapter) {
+    throw new Error(`Collaboration turn ${row.turn_id} has incomplete execution provenance.`);
+  }
+  return provenance;
+}
 
 /** Minimal slice of CollaborationService the controller needs. */
 interface CollaborationServiceSlice {
@@ -366,6 +415,55 @@ export class CollaborationTurnController {
     );
   }
 
+  private async assertThreadExecutionLane(
+    threadId: string,
+    target: AiExecutionTarget,
+  ): Promise<void> {
+    const accepted = await this.deps.turns.bindThreadExecutionLane(threadId, {
+      engineId: target.engineId,
+      accountId: target.accountId,
+      billingMode: target.billingMode,
+    });
+    if (!accepted) {
+      throw new Error('A collaboration thread cannot switch AI engine, account, or billing lane.');
+    }
+  }
+
+  private async persistPreparedExecutionIdentity(
+    turnId: string,
+    identity: TurnExecutionProvenance,
+  ): Promise<void> {
+    await this.deps.turns.update(turnId, {
+      result_provenance_json: JSON.stringify(identity),
+    });
+    const row = await this.deps.turns.findById(turnId);
+    const persisted = row ? parseExecutionProvenance(row) : null;
+    if (
+      !persisted ||
+      !sameExecutionTarget(persisted, identity) ||
+      persisted.runId !== identity.runId ||
+      persisted.adapter?.id !== identity.adapter?.id ||
+      persisted.adapter?.version !== identity.adapter?.version
+    ) {
+      throw new Error('The prepared collaboration identity failed durable readback.');
+    }
+  }
+
+  private async assertDurableExecutionSelection(
+    turnId: string,
+    requestId: string,
+    target: AiExecutionTarget,
+  ): Promise<void> {
+    const row = await this.deps.turns.findById(turnId);
+    if (
+      !row ||
+      row.runtime_request_id !== requestId ||
+      !sameExecutionTarget(parseExecutionTarget(row), target)
+    ) {
+      throw new Error('The collaboration execution target was not durably persisted.');
+    }
+  }
+
   /** Schedule + run a batch of speakers in order. Later speakers see prior
    *  speakers' completed replies this round. A speaker failure does not block
    *  already-completed messages; we continue to the next speaker and surface the
@@ -401,7 +499,13 @@ export class CollaborationTurnController {
     triggerMessage: CollaborationMessage,
   ): Promise<CollaborationLiveTurn> {
     const turnId = this.deps.newId();
+    const requestId = `collab-${turnId}`;
     const sequenceIndex = this.nextSequence(ctx.threadId);
+    const employeeRuntime = ctx.runtimeByEmployeeId?.get(speaker.employeeId);
+    const selection = await this.deps.transport.resolveExecutionSelection({
+      model: employeeRuntime?.model ?? this.deps.model?.(ctx.threadId),
+    });
+    await this.assertThreadExecutionLane(ctx.threadId, selection.target);
     // The visible reply row, created empty + streaming under a STABLE id so the
     // controller can upsert body/status as the reply settles.
     const message = await this.deps.service.appendMessage({
@@ -420,12 +524,15 @@ export class CollaborationTurnController {
       employee_id: speaker.employeeId,
       sequence_index: sequenceIndex,
       status: 'pending',
-      runtime_request_id: null,
+      runtime_request_id: requestId,
+      execution_target_json: JSON.stringify(selection.target),
+      result_provenance_json: null,
       usage_json: null,
       error_summary: null,
       started_at: null,
       finished_at: null,
     });
+    await this.assertDurableExecutionSelection(turnId, requestId, selection.target);
     return {
       turnId,
       threadId: ctx.threadId,
@@ -457,8 +564,9 @@ export class CollaborationTurnController {
     const startedAt = this.deps.now();
     await this.deps.turns.update(turn.turnId, {
       status: 'streaming',
-      runtime_request_id: requestId,
+      error_summary: null,
       started_at: startedAt,
+      finished_at: null,
     });
     this.emit(ctx.threadId);
 
@@ -487,6 +595,19 @@ export class CollaborationTurnController {
     let result: CollaborationTurnResult | null = null;
     let failure: string | null = null;
     try {
+      const row = await this.deps.turns.findById(turn.turnId);
+      if (!row || row.runtime_request_id !== requestId) {
+        throw new Error('The collaboration request id failed durable readback.');
+      }
+      const target = parseExecutionTarget(row);
+      await this.assertThreadExecutionLane(ctx.threadId, target);
+      const selection = await this.deps.transport.resolveExecutionSelection({
+        frozenTarget: target,
+      });
+      if (!sameExecutionTarget(selection.target, target)) {
+        throw new Error('The collaboration execution target changed before invocation.');
+      }
+      await this.assertDurableExecutionSelection(turn.turnId, requestId, target);
       result = await this.deps.transport.run(
         {
           requestId,
@@ -495,7 +616,9 @@ export class CollaborationTurnController {
           employeeId: speaker.employeeId,
           text: triggerMessage.body,
           systemPromptAppend,
-          model: employeeRuntime?.model ?? this.deps.model?.(ctx.threadId),
+          model: selection.runtimeModelRef,
+          expectedTarget: target,
+          runtimeModelRef: selection.runtimeModelRef,
           thinkingLevel: employeeRuntime?.thinkingLevel ?? this.deps.thinkingLevel?.(ctx.threadId),
           collaborationProfile: ctx.capabilityProfile,
           mcpTools: scopedMcpTools,
@@ -506,6 +629,13 @@ export class CollaborationTurnController {
             this.emit(ctx.threadId);
           },
           signal: controller.signal,
+          verifyDurableTarget: async (identity: TurnExecutionProvenance) => {
+            if (!sameExecutionTarget(identity, target)) {
+              throw new Error('The prepared collaboration identity changed its durable target.');
+            }
+            await this.persistPreparedExecutionIdentity(turn.turnId, identity);
+            await this.assertDurableExecutionSelection(turn.turnId, requestId, target);
+          },
         },
       );
     } catch (err) {
@@ -522,7 +652,16 @@ export class CollaborationTurnController {
         status: 'interrupted',
         edited_at: finishedAt,
       });
-      await this.deps.turns.update(turn.turnId, { status: 'interrupted', finished_at: finishedAt });
+      await this.deps.turns.update(turn.turnId, {
+        status: 'interrupted',
+        ...(result
+          ? {
+              result_provenance_json: JSON.stringify(result.provenance),
+              usage_json: result.usage ? JSON.stringify(result.usage) : null,
+            }
+          : {}),
+        finished_at: finishedAt,
+      });
       this.emit(ctx.threadId);
       return;
     }
@@ -548,6 +687,7 @@ export class CollaborationTurnController {
     });
     await this.deps.turns.update(turn.turnId, {
       status: 'complete',
+      result_provenance_json: JSON.stringify(result.provenance),
       usage_json: result.usage ? JSON.stringify(result.usage) : null,
       finished_at: finishedAt,
     });

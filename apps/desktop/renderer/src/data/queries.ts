@@ -486,7 +486,11 @@ export function useDeleteConversation(projectId: string | null, companyId: strin
         const existing = await repos.chatThreads.findById(threadId);
         if (!existing) return { persisted: false, missing: true };
         const project = await repos.projects.findById(existing.project_id);
-        await deleteConversationDeep(threadId, project?.company_id ?? companyId);
+        const deletionCompanyId = project?.company_id ?? companyId;
+        if (!deletionCompanyId || !existing.project_id) {
+          throw new Error('Conversation deletion scope is incomplete.');
+        }
+        await deleteConversationDeep(threadId, deletionCompanyId, existing.project_id);
         return { persisted: true };
       } finally {
         release();
@@ -634,7 +638,11 @@ export function useRunCost() {
         ...cost,
         alerts: computeTokenBudgetAlerts({
           monthlyTokens: cost.monthlyTokens,
+          monthlyKnownTokens: cost.monthlyKnownTokens,
+          monthlyTokenCoverage: cost.monthlyTokenCoverage,
           sessionTokens: cost.sessionTokens,
+          sessionKnownTokens: cost.sessionKnownTokens,
+          sessionTokenCoverage: cost.sessionTokenCoverage,
           budgets,
         }),
       };

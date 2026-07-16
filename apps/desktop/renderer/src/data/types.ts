@@ -1,5 +1,10 @@
 import type { EmployeeAppearance } from '@/lib/avatar.js';
-import type { AttachmentKind, RoleSlug, VaultRef } from '@offisim/shared-types';
+import type {
+  AttachmentKind,
+  RoleSlug,
+  VaultRef,
+  WorkspaceProvenance,
+} from '@offisim/shared-types';
 import type { TokenBudgetAlert } from './token-budget-policy.js';
 
 export type { EmployeeAppearance };
@@ -26,7 +31,7 @@ export interface Project {
   id: string;
   companyId: string;
   name: string;
-  workspaceRoot: string | null;
+  workspaceRoot: string;
   branch: string | null;
   verifyCommand: string | null;
   verifyMaxAttempts: number;
@@ -163,6 +168,9 @@ export interface ChatMessage {
   status?: 'streaming' | 'complete' | 'interrupted' | 'failed';
   /** Live + in-session tool steps; not persisted (lost on reload by design). */
   toolCalls?: ChatToolCall[];
+  /** Structured Project-folder recovery provenance for this Turn. Product copy
+   * is derived at the presentation boundary and never persisted as authority. */
+  workspaceProvenance?: WorkspaceProvenance;
   at: number;
   attachments?: ChatAttachment[];
   runRecord?: RunRecord;
@@ -228,9 +236,17 @@ export type GitRepoState =
   | { status: 'unbound' };
 
 export interface RunCost {
-  tokens: number;
-  monthlyTokens: number;
-  sessionTokens: number;
+  /** Exact only when every provider contribution supplied every additive bucket. */
+  tokens: number | null;
+  knownTokens: number;
+  tokenCoverage: 'complete' | 'partial' | 'unavailable';
+  monthlyTokens: number | null;
+  monthlyKnownTokens: number;
+  monthlyTokenCoverage: 'complete' | 'partial' | 'unavailable';
+  sessionTokens: number | null;
+  sessionKnownTokens: number;
+  sessionTokenCoverage: 'complete' | 'partial' | 'unavailable';
+  costKind: 'actual' | 'estimate' | 'unavailable' | 'none';
   costLabel: string;
   live: boolean;
   breakdown: RunCostBreakdown[];
@@ -241,7 +257,10 @@ export interface RunCostBreakdown {
   employeeId: string | null;
   employeeName: string;
   model: string;
-  tokens: number;
+  tokens: number | null;
+  knownTokens: number;
+  tokenCoverage: 'complete' | 'partial' | 'unavailable';
+  costKind: 'actual' | 'estimate' | 'unavailable';
   costLabel: string;
 }
 
@@ -278,6 +297,13 @@ export interface RunError {
    * or clears the error replaces or clears the retry with it.
    */
   retry?: () => void;
+  /** A typed recovery action that is not an ordinary re-dispatch. Native
+   * session reset uses this so the UI says exactly what will happen and never
+   * disguises a fresh session as Retry. Mutually exclusive with `retry`. */
+  recoveryAction?: {
+    label: string;
+    run: () => void;
+  };
 }
 
 /* --- Chat attachment staging ------------------------------------------------*/

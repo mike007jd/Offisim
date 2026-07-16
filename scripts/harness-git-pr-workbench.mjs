@@ -45,7 +45,7 @@ for (const contract of [
   'No origin remote is configured',
   'GitHub CLI is unavailable or not logged in',
   'commandOutput(lastOutput.result)',
-  'key={projectId}',
+  'key={project.id}',
   'projectGenerationRef',
   'operation(scope.projectId)',
   'isCurrentProjectScope(scope)',

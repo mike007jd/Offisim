@@ -226,9 +226,9 @@ function freshSqlite(): Database.Database {
     .run(COMPANY, 'Company', now, now);
   sqlite
     .prepare(
-      'INSERT INTO projects (project_id, company_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO projects (project_id, company_id, name, workspace_root, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
     )
-    .run(PROJECT, COMPANY, 'Project', now, now);
+    .run(PROJECT, COMPANY, 'Project', '/tmp/offisim-fixture/project', now, now);
   return sqlite;
 }
 

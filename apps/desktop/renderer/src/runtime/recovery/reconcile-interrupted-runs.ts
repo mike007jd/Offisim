@@ -9,8 +9,8 @@
  * the still-running children whose host died with it, rolls the subtree's partial
  * usage onto the root, and returns a {@link InterruptedRunCard} per parked root.
  *
- * This runs over `agent_runs` (the live source of truth) + the run's Pi session
- * JSONL pointer (`session_file`), NOT the orphan mission tables — wiring the
+ * This runs over `agent_runs` (the live source of truth) + the native agent's
+ * saved session pointer (`session_file`), NOT the orphan mission tables — wiring the
  * mission store into the live path is exactly the "parallel recovery store"
  * anti-pattern the roadmap avoids. The M4 mission recovery library stays a pure
  * logic lib; this is its agent_runs-shaped sibling, reusing only the generic
@@ -23,12 +23,19 @@
  * Determinism: `now` is injected (no `Date.now()`).
  */
 
+import {
+  type TaskWorkspaceBindingProjection,
+  type TaskWorkspaceResumeCompatibility,
+  type TaskWorkspaceResumeCompatibilityArgs,
+  parseTaskWorkspaceBindingProjection,
+} from '@/lib/tauri-commands.js';
 import type {
   AgentRunRepository,
   AgentRunRow,
   RecoveryClassification,
 } from '@offisim/core/browser';
-import type { AgentRunUsage } from '@offisim/shared-types';
+import type { AgentRunUsage, WorkspaceUnavailableProvenance } from '@offisim/shared-types';
+import { parseWorkspaceProvenance } from '../workspace-provenance.js';
 import { aggregateSubtreeUsage } from './usage-aggregation.js';
 
 /**
@@ -41,11 +48,11 @@ export interface InterruptedRunCard {
   companyId: string;
   threadId: string;
   projectId: string | null;
-  workspaceRoot: string | null;
+  workspaceBinding: TaskWorkspaceBindingProjection | null;
   /** The run's objective (the resume target's intent), if recorded. */
   objective: string | null;
   startedAt: string;
-  /** Pi session JSONL path: present → resumable; null → resume needs confirmation. */
+  /** Saved work-session path: present may be resumable; null is incompatible. */
   sessionFile: string | null;
   /** Partial usage aggregated from the subtree at interruption (JSON), or null. */
   partialUsageJson: string | null;
@@ -58,7 +65,10 @@ export interface InterruptedRunCard {
 }
 
 interface RunContextSnapshot {
-  workspaceRoot?: unknown;
+  workspaceBinding?: unknown;
+  workspaceRequirement?: unknown;
+  workspaceAvailability?: unknown;
+  workspaceProvenance?: unknown;
   runtime?: unknown;
   piSdkVersion?: unknown;
   wireProtocolVersion?: unknown;
@@ -69,12 +79,50 @@ interface RunContextSnapshot {
 }
 
 interface InterruptedRunCardOptions {
-  workspaceExists?: boolean | null;
-  resolvedWorkspaceRoot?: string | null;
+  resumeCompatibility?: TaskWorkspaceResumeCompatibility;
   currentWireProtocolVersion?: number;
 }
 
-export const PI_HOST_PROTOCOL_VERSION = 7;
+export const PI_HOST_PROTOCOL_VERSION = 10;
+
+const RESUME_COMPATIBILITY_COPY: Readonly<Record<string, string>> = {
+  workspace_history_missing: 'The saved workspace record is unavailable.',
+  workspace_scope_changed: 'This run no longer matches its original project and conversation.',
+  project_workspace_missing: 'The original Project folder is unavailable.',
+  project_workspace_changed: 'The Project folder has changed since this run started.',
+  workspace_history_identity_invalid: 'The saved workspace record can no longer be verified.',
+  workspace_identity_changed: 'The Project folder was replaced or changed since this run started.',
+  workspace_history_not_recoverable: 'This interrupted run is no longer recoverable.',
+  workspace_history_incompatible: 'The saved workspace no longer matches this interrupted run.',
+  session_missing: "Offisim can't find where this task stopped.",
+  session_invalid: "Offisim can't safely reopen where this task stopped.",
+  runtime_incompatible: 'This task was created by an older Offisim version.',
+  resume_context_invalid: "Offisim can't safely reconstruct where this task stopped.",
+  resume_conflict: 'This task changed while Offisim was preparing to continue it.',
+  resume_persistence_unavailable: 'Offisim could not safely prepare this task to continue.',
+  workspace_compatibility_unavailable:
+    'The Project folder could not be verified, so resume remains blocked.',
+};
+
+const UNAVAILABLE_WORKSPACE_COPY: Readonly<
+  Record<WorkspaceUnavailableProvenance['reasonCode'], string>
+> = {
+  none: 'no matching Project folder was found',
+  ambiguous: 'the Project folder could not be uniquely confirmed',
+};
+
+/** Convert backend-only compatibility codes into stable product copy. */
+export function describeWorkspaceResumeCompatibility(
+  compatibility: TaskWorkspaceResumeCompatibility,
+): string | null {
+  if (compatibility.status === 'same') return null;
+  return (
+    RESUME_COMPATIBILITY_COPY[compatibility.reason] ??
+    (compatibility.status === 'missing'
+      ? 'The saved workspace record is unavailable.'
+      : 'The original Project folder no longer matches this run.')
+  );
+}
 
 function parseRuntimeContext(raw: string | null): RunContextSnapshot | null {
   if (!raw) return null;
@@ -95,9 +143,41 @@ export function resolveAgentRunProjectId(root: AgentRunRow): string | null {
   return root.project_id ?? stringOrNull(context?.projectId);
 }
 
-function resolveAgentRunWorkspaceRoot(root: AgentRunRow): string | null {
+function resolveAgentRunWorkspaceBinding(root: AgentRunRow): TaskWorkspaceBindingProjection | null {
   const context = parseRuntimeContext(root.runtime_context_json);
-  return stringOrNull(context?.workspaceRoot);
+  return parseTaskWorkspaceBindingProjection(context?.workspaceBinding);
+}
+
+export function resolveAgentRunResumeCompatibilityArgs(
+  root: AgentRunRow,
+): TaskWorkspaceResumeCompatibilityArgs | null {
+  const projectId = resolveAgentRunProjectId(root);
+  const workspaceBinding = resolveAgentRunWorkspaceBinding(root);
+  const context = parseRuntimeContext(root.runtime_context_json);
+  const permissionMode = stringOrNull(context?.permissionMode);
+  if (
+    !projectId ||
+    !workspaceBinding ||
+    !workspaceBinding.historyId.trim() ||
+    workspaceBinding.companyId !== root.company_id ||
+    workspaceBinding.projectId !== projectId ||
+    workspaceBinding.threadId !== root.thread_id ||
+    workspaceBinding.turnId !== root.root_run_id ||
+    (root.access !== 'read' && root.access !== 'write') ||
+    workspaceBinding.access !== root.access ||
+    (permissionMode !== null && (permissionMode === 'plan' ? 'read' : 'write') !== root.access) ||
+    root.run_id !== root.root_run_id
+  ) {
+    return null;
+  }
+  return {
+    historyId: workspaceBinding.historyId,
+    companyId: root.company_id,
+    projectId,
+    threadId: root.thread_id,
+    rootRunId: root.root_run_id,
+    access: root.access,
+  };
 }
 
 /** The structured result of a startup run-reconciliation pass. */
@@ -116,6 +196,10 @@ export interface RunReconciliationResult {
 export interface ReconcileInterruptedRunsInput {
   repo: AgentRunRepository;
   companyId: string;
+  /** Native-host rows already reattached or still uncertain; never park these. */
+  preserveRootRunIds?: ReadonlySet<string>;
+  /** Exact root ids observed by the startup bootstrap as stale. */
+  candidateRootRunIds?: ReadonlySet<string>;
   /** Injected clock for the `finished_at` stamp on cancelled children (determinism). */
   now: () => string;
 }
@@ -128,10 +212,14 @@ export async function reconcileInterruptedRuns(
   input: ReconcileInterruptedRunsInput,
 ): Promise<RunReconciliationResult> {
   const { repo, companyId, now } = input;
+  const preserveRootRunIds = input.preserveRootRunIds ?? new Set<string>();
+  const candidateRootRunIds = input.candidateRootRunIds;
   const running = await repo.findByStatus(companyId, ['running']);
 
   // Roots reconcile to `interrupted` (resumable); their running children cancel.
-  const roots = running.filter((r) => r.run_id === r.root_run_id);
+  const roots = running
+    .filter((r) => r.run_id === r.root_run_id && !preserveRootRunIds.has(r.root_run_id))
+    .filter((r) => candidateRootRunIds === undefined || candidateRootRunIds.has(r.root_run_id));
   const processedRootIds = new Set<string>();
   const cancelledChildIds = new Set<string>();
   const failedRootRunIds: string[] = [];
@@ -146,7 +234,7 @@ export async function reconcileInterruptedRuns(
       const { usageJson, dangling } = aggregateSubtreeUsage(
         subtree,
         root.run_id,
-        parseUsage(root.usage_json),
+        parseUsage(root.usage_json, root.run_id),
       );
       const finishedAt = now();
       // Park the root `interrupted` (NOT cancelled — it can be resumed). Do NOT set
@@ -178,6 +266,8 @@ export async function reconcileInterruptedRuns(
   const orphans = running.filter(
     (r) =>
       r.run_id !== r.root_run_id &&
+      !preserveRootRunIds.has(r.root_run_id) &&
+      (candidateRootRunIds === undefined || candidateRootRunIds.has(r.root_run_id)) &&
       !processedRootIds.has(r.root_run_id) &&
       !cancelledChildIds.has(r.run_id),
   );
@@ -189,10 +279,20 @@ export async function reconcileInterruptedRuns(
   return { cards, failedRootRunIds, autoResumed: false };
 }
 
-function parseUsage(usageJson: string | null): AgentRunUsage | undefined {
+function parseUsage(usageJson: string | null, rootRunId: string): AgentRunUsage | undefined {
   if (!usageJson) return undefined;
   try {
-    return JSON.parse(usageJson) as AgentRunUsage;
+    const parsed = JSON.parse(usageJson) as
+      | AgentRunUsage
+      | {
+          scope?: { kind?: unknown };
+          contributions?: Array<{ runId?: unknown; usage?: AgentRunUsage }>;
+        };
+    if (parsed.scope?.kind !== 'task-aggregate') return parsed as AgentRunUsage;
+    const aggregate = parsed as {
+      contributions?: Array<{ runId?: unknown; usage?: AgentRunUsage }>;
+    };
+    return aggregate.contributions?.find((entry) => entry.runId === rootRunId)?.usage;
   } catch {
     return undefined;
   }
@@ -207,59 +307,60 @@ export function buildInterruptedRunCard(
   const sessionFile = root.session_file;
   const context = parseRuntimeContext(root.runtime_context_json);
   const projectId = resolveAgentRunProjectId(root);
-  const workspaceRoot = resolveAgentRunWorkspaceRoot(root) ?? options.resolvedWorkspaceRoot ?? null;
+  const workspaceBinding = resolveAgentRunWorkspaceBinding(root);
+  const workspaceAvailability = stringOrNull(context?.workspaceAvailability);
+  const workspaceProvenance = parseWorkspaceProvenance(context?.workspaceProvenance);
+  const workspaceBindingMatchesRun = resolveAgentRunResumeCompatibilityArgs(root) !== null;
   const wireProtocolVersion =
     typeof context?.wireProtocolVersion === 'number' ? context.wireProtocolVersion : null;
   const currentWireProtocolVersion = options.currentWireProtocolVersion ?? PI_HOST_PROTOCOL_VERSION;
   const classificationReasons: string[] = [];
   if (!projectId) {
-    classificationReasons.push('original project context is missing');
+    classificationReasons.push('The original Project is no longer available.');
   }
-  if (!workspaceRoot) {
-    classificationReasons.push('original workspace folder was not recorded');
+  if (!workspaceBindingMatchesRun) {
+    classificationReasons.push('The original Project folder cannot be verified for this task.');
   }
-  if (options.workspaceExists === false) {
-    classificationReasons.push('original workspace folder is no longer accessible');
+  if (workspaceAvailability === 'unavailable') {
+    const reason =
+      workspaceProvenance?.availability === 'unavailable'
+        ? UNAVAILABLE_WORKSPACE_COPY[workspaceProvenance.reasonCode]
+        : 'the Project folder availability could not be verified';
+    classificationReasons.push(
+      `This Conversation continued without Project file access because ${reason}.`,
+    );
+  }
+  if (options.resumeCompatibility && options.resumeCompatibility.status !== 'same') {
+    const reason = describeWorkspaceResumeCompatibility(options.resumeCompatibility);
+    if (reason) classificationReasons.push(reason);
   }
   if (!sessionFile) {
-    classificationReasons.push(
-      'no Pi session file recorded; this run cannot continue from durable session context',
-    );
+    classificationReasons.push('This task stopped before it could save its place.');
   }
   const protocolMismatch =
     wireProtocolVersion !== null && wireProtocolVersion !== currentWireProtocolVersion;
   if (protocolMismatch) {
     classificationReasons.push(
-      `saved host protocol ${wireProtocolVersion} does not match current protocol ${currentWireProtocolVersion}`,
+      "This task was created by an older Offisim version and can't safely continue.",
     );
   }
-  const workspaceBlocked = !projectId || !workspaceRoot || options.workspaceExists === false;
-  const classification: RecoveryClassification = protocolMismatch
-    ? 'incompatible'
-    : workspaceBlocked
-      ? 'incompatible'
-      : sessionFile
-        ? 'resumable'
-        : 'needs_user_confirm';
-  const cancelledNote =
-    cancelledChildRunIds.length > 0
-      ? ` ${cancelledChildRunIds.length} child run(s) left running were cancelled and would be re-delegated as needed.`
-      : '';
-  const workspaceNote = workspaceRoot ? ` in ${workspaceRoot}` : '';
+  const workspaceBlocked =
+    !projectId ||
+    !workspaceBindingMatchesRun ||
+    (options.resumeCompatibility !== undefined && options.resumeCompatibility.status !== 'same');
+  const classification: RecoveryClassification =
+    protocolMismatch || workspaceBlocked || !sessionFile ? 'incompatible' : 'resumable';
+  const workspaceName = workspaceBinding?.displayPath || 'the original Project folder';
   const whatResumeWillDo =
     classification === 'resumable'
-      ? `Resume the interrupted run from its Pi session context${workspaceNote}.${cancelledNote}`
-      : classification === 'needs_user_confirm'
-        ? `No durable session was recorded; resuming restarts this run from its objective${workspaceNote}. Confirm before resuming.${cancelledNote}`
-        : classification === 'incompatible'
-          ? `Resume is blocked for this run. Start a fresh run or discard it.${cancelledNote}`
-          : `Start a fresh run or discard this interrupted run.${cancelledNote}`;
+      ? `Continue this task in ${workspaceName} from where it stopped.`
+      : "This task can't safely resume. Discard it to start again in this Conversation.";
   return {
     runId: root.run_id,
     companyId: root.company_id,
     threadId: root.thread_id,
     projectId,
-    workspaceRoot,
+    workspaceBinding,
     objective: root.objective,
     startedAt: root.started_at,
     sessionFile,

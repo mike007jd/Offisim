@@ -34,6 +34,10 @@ const RECOVERY_PATH = fileURLToPath(
 
 const SPEC = {
   ready: { required: ['protocolVersion'], allowed: ['protocolVersion'] },
+  executionPrepared: {
+    required: ['prepareId', 'runId', 'identity', 'targetDigest', 'adapter'],
+    allowed: ['prepareId', 'runId', 'identity', 'targetDigest', 'adapter'],
+  },
   started: {
     required: [],
     allowed: ['sessionId', 'sessionFile', 'model', 'modelFallbackMessage'],

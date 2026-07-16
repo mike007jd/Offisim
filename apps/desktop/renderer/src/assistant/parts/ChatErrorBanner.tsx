@@ -31,12 +31,22 @@ export function ChatErrorBanner({ threadId }: { threadId: string }) {
           <Icon icon={X} size="sm" />
         </button>
       </div>
-      {error.retry || error.technicalDetail ? (
+      {error.retry || error.recoveryAction || error.technicalDetail ? (
         <div className="off-errbanner-actions">
           {error.retry ? (
             <button type="button" className="off-errbanner-act off-focusable" onClick={error.retry}>
               <Icon icon={RotateCcw} size="sm" />
               Retry
+            </button>
+          ) : null}
+          {error.recoveryAction ? (
+            <button
+              type="button"
+              className="off-errbanner-act off-focusable"
+              onClick={error.recoveryAction.run}
+            >
+              <Icon icon={RotateCcw} size="sm" />
+              {error.recoveryAction.label}
             </button>
           ) : null}
           {error.technicalDetail ? (

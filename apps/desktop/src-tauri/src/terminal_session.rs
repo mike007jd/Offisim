@@ -806,8 +806,9 @@ async fn validate_scope_and_workspace<R: Runtime>(
         return Err("terminal project must have one canonical workspace_root".to_string());
     }
     roots
-        .into_iter()
+        .iter()
         .next()
+        .cloned()
         .ok_or_else(|| "terminal project has no workspace_root".to_string())
 }
 

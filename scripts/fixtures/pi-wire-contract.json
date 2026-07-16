@@ -1,5 +1,25 @@
 [
-  { "kind": "ready", "protocolVersion": 7 },
+  { "kind": "ready", "protocolVersion": 10 },
+  {
+    "kind": "executionPrepared",
+    "prepareId": "prepare-1",
+    "runId": "root-run-1",
+    "identity": {
+      "engineId": "api",
+      "accountId": "api:fixture-provider:0123456789abcdef",
+      "billingMode": "api",
+      "modelId": "fixture-model",
+      "modelSource": {
+        "kind": "official-api",
+        "sourceUrl": "https://fixture.example/models/fixture-model",
+        "checkedAt": "2026-07-14T00:00:00Z"
+      },
+      "runId": "root-run-1",
+      "adapter": { "id": "pi-agent", "version": "0.79.8" }
+    },
+    "targetDigest": "fixture-digest",
+    "adapter": { "id": "pi-agent", "version": "0.79.8" }
+  },
   {
     "kind": "started",
     "sessionId": "sess_1",
@@ -110,7 +130,29 @@
       "text": "Listed 3 files.",
       "reasoning": "I should inspect the workspace first.",
       "sessionId": "sess_1",
-      "sessionFile": "/tmp/offisim/sess_1.jsonl"
+      "sessionFile": "/tmp/offisim/sess_1.jsonl",
+      "model": {
+        "provider": "fixture-provider",
+        "id": "fixture-model"
+      },
+      "provenance": {
+        "engineId": "api",
+        "accountId": "api:fixture-provider:0123456789abcdef",
+        "billingMode": "api",
+        "modelId": "fixture-model",
+        "modelSource": {
+          "kind": "official-api",
+          "sourceUrl": "https://fixture.example/models/fixture-model",
+          "checkedAt": "2026-07-14T00:00:00Z"
+        },
+        "runId": "root-run-1",
+        "adapter": { "id": "pi-agent", "version": "0.79.8" }
+      },
+      "usage": {
+        "input": 10,
+        "output": 5,
+        "turns": 1
+      }
     }
   },
   { "kind": "error", "code": "upstream", "message": "Pi Agent host failed: upstream boom" }

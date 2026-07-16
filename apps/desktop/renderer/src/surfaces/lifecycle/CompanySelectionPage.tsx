@@ -127,8 +127,8 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
         surface: 'office',
       });
     } catch (error) {
-      toast.error('Project workspace unavailable', {
-        description: error instanceof Error ? error.message : 'Could not bind a project.',
+      toast.error('Could not open company', {
+        description: error instanceof Error ? error.message : 'Company recovery did not finish.',
       });
     } finally {
       setEnteringId(null);

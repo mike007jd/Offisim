@@ -13,7 +13,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
-import { readPiModelOverride } from '@/runtime/pi-agent-config.js';
 import {
   DEFAULT_PERMISSION_MODE,
   PERMISSION_MODES,
@@ -39,7 +38,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useMemo } from 'react';
-import { usePiAgentModels } from './usePiAgentModels.js';
+import { useAgentRuntimeModels } from './usePiAgentModels.js';
 
 const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta: string }> = {
   plan: { label: 'Plan', icon: Eye, meta: 'Read-only — investigate, no changes' },
@@ -66,12 +65,6 @@ const THINKING_META: Record<ThinkingLevel, { label: string; meta: string }> = {
   xhigh: { label: 'Max', meta: 'Maximum' },
 };
 
-function shortModelName(value: string): string {
-  if (!value) return 'Auto';
-  const tail = value.includes('/') ? value.slice(value.lastIndexOf('/') + 1) : value;
-  return tail || value;
-}
-
 /**
  * Single composer chip consolidating the per-conversation run settings —
  * Model, Reasoning (thinking level), and Permission mode — behind one
@@ -93,39 +86,37 @@ export function ComposerSettingsMenu({
 }) {
   const perThreadModel = usePiThreadModelStore((s) => s.byThread[threadId] ?? '');
   const setThreadModel = usePiThreadModelStore((s) => s.setThreadModel);
-  const models = usePiAgentModels();
+  const models = useAgentRuntimeModels();
   const setSurface = useUiState((s) => s.setSurface);
   const mode = usePiThreadModeStore((s) => s.byThread[threadId] ?? DEFAULT_PERMISSION_MODE);
   const setThreadMode = usePiThreadModeStore((s) => s.setThreadMode);
   const level = usePiThreadThinkingStore((s) => s.byThread[threadId] ?? DEFAULT_THINKING_LEVEL);
   const setThreadThinking = usePiThreadThinkingStore((s) => s.setThreadThinking);
 
-  // Derive the effective model, provider-grouped list, and reasoning support
+  // Derive the effective model, account-grouped list, and reasoning support
   // once per change. The composer subtree re-renders on every keystroke and
-  // run-state tick, so this keeps the grouping (and the localStorage override
-  // read) off the hot path.
-  const { providers, effective, supportsReasoning } = useMemo(() => {
+  // run-state tick, so this keeps the grouping off the hot path.
+  const { accounts, defaultModel, effectiveModel, supportsReasoning } = useMemo(() => {
     const list = models.data ?? [];
-    const persisted = perThreadModel || readPiModelOverride();
-    // Never display a model Pi no longer offers (loadModels also prunes the
-    // persisted values); an invalid pick renders as Auto (Pi default).
-    const effectiveModel =
-      models.data && !list.some((option) => option.value === persisted) ? '' : persisted;
-    const groups = new Map<string, typeof list>();
+    const selected = list.find((option) => option.value === perThreadModel);
+    const stableDefault = list.find((option) => option.availability === 'available');
+    const effective = selected ?? stableDefault;
+    const groups = new Map<string, { account: string; items: typeof list }>();
     for (const option of list) {
-      const existing = groups.get(option.provider);
-      if (existing) existing.push(option);
-      else groups.set(option.provider, [option]);
+      const existing = groups.get(option.accountId);
+      if (existing) existing.items.push(option);
+      else groups.set(option.accountId, { account: option.accountName, items: [option] });
     }
     return {
-      effective: effectiveModel,
-      providers: [...groups].map(([provider, items]) => ({ provider, items })),
-      supportsReasoning: list.find((option) => option.value === effectiveModel)?.reasoning ?? false,
+      accounts: [...groups].map(([accountId, group]) => ({ accountId, ...group })),
+      defaultModel: stableDefault,
+      effectiveModel: effective,
+      supportsReasoning: effective?.reasoning ?? false,
     };
   }, [perThreadModel, models.data]);
 
   const summary = [
-    shortModelName(effective),
+    effectiveModel?.name ?? (models.isLoading ? 'Loading model…' : 'Model unavailable'),
     supportsReasoning ? THINKING_META[level].label : null,
     showMode ? MODE_META[mode].label : null,
   ]
@@ -160,7 +151,9 @@ export function ComposerSettingsMenu({
             <Icon icon={Bot} size="sm" />
             <span className="off-composer-menu-row">
               <span className="off-composer-menu-name">Model</span>
-              <span className="off-composer-menu-meta">{shortModelName(effective)}</span>
+              <span className="off-composer-menu-meta">
+                {effectiveModel?.name ?? 'Unavailable'}
+              </span>
             </span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="off-composer-menu off-composer-model-menu">
@@ -169,21 +162,24 @@ export function ComposerSettingsMenu({
               value={perThreadModel}
               onValueChange={(value) => setThreadModel(threadId, value)}
             >
-              <DropdownMenuRadioItem value="">Auto (Pi default)</DropdownMenuRadioItem>
-              {providers.length ? (
-                providers.map((group) => (
-                  <div key={group.provider}>
+              <DropdownMenuRadioItem value="" disabled={!defaultModel}>
+                {defaultModel ? `Default · ${defaultModel.name}` : 'Default model unavailable'}
+              </DropdownMenuRadioItem>
+              {accounts.length ? (
+                accounts.map((group) => (
+                  <div key={group.accountId}>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="off-composer-menu-provider">
-                      {group.provider}
+                      {group.account}
                     </DropdownMenuLabel>
                     {group.items.map((option) => (
                       <DropdownMenuRadioItem key={option.value} value={option.value}>
                         <span className="off-composer-menu-row">
                           <span className="off-composer-menu-name">{option.name}</span>
-                          {option.reasoning ? (
-                            <span className="off-composer-menu-meta">reasoning</span>
-                          ) : null}
+                          <span className="off-composer-menu-meta" title={option.modelId}>
+                            {option.modelId}
+                            {option.availability === 'expiring' ? ' · expires soon' : ''}
+                          </span>
                         </span>
                       </DropdownMenuRadioItem>
                     ))}
@@ -191,7 +187,7 @@ export function ComposerSettingsMenu({
                 ))
               ) : (
                 <DropdownMenuItem disabled>
-                  {models.isLoading ? 'Loading models…' : 'No authenticated models'}
+                  {models.isLoading ? 'Loading models…' : 'No available models'}
                 </DropdownMenuItem>
               )}
             </DropdownMenuRadioGroup>

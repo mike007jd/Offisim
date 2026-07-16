@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import {
+  classifyNonGitWorkspace,
+  isNonGitWorkspace,
   parseNumstatZ,
   parseStatusPorcelainV1Z,
 } from '../apps/desktop/renderer/src/data/git-workbench.ts';
@@ -30,4 +32,30 @@ assert.deepEqual(parsedStats.get(' leading\t文件\n.txt'), { added: 1, removed:
 assert.deepEqual(parsedStats.get('new -> path'), { added: 5, removed: 6 });
 assert.deepEqual(parsedStats.get('binary.dat'), { added: 0, removed: 0 });
 
-console.log('git-workbench-parser: NUL-safe status and numstat parsing passed');
+const noProjectFolder = 'No authorized Project folder is selected for this Project.';
+assert.equal(isNonGitWorkspace(noProjectFolder), true);
+assert.deepEqual(classifyNonGitWorkspace(noProjectFolder), { status: 'unbound' });
+
+const missingProjectFolder = 'Resolve project workspace: No such file or directory';
+assert.equal(isNonGitWorkspace(missingProjectFolder), true);
+assert.deepEqual(classifyNonGitWorkspace(missingProjectFolder), { status: 'invalid-folder' });
+
+const replacedProjectFolder = 'Project folder identity changed after it was selected.';
+assert.equal(isNonGitWorkspace(replacedProjectFolder), true);
+assert.deepEqual(classifyNonGitWorkspace(replacedProjectFolder), { status: 'invalid-folder' });
+
+const uninitialized = 'fatal: not a git repository';
+assert.equal(isNonGitWorkspace(uninitialized), true);
+assert.deepEqual(classifyNonGitWorkspace(uninitialized), { status: 'uninitialized' });
+assert.equal(
+  isNonGitWorkspace('No workspace_root is bound'),
+  false,
+  'deleted backend wording must not remain a hidden UI protocol',
+);
+assert.equal(
+  isNonGitWorkspace('Read Project folder authority: database is locked'),
+  false,
+  'authority/database failures must stay visible as errors instead of routing to Change folder',
+);
+
+console.log('git-workbench-parser: NUL-safe parsing and Project folder states passed');

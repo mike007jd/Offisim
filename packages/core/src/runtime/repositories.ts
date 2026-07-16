@@ -257,7 +257,6 @@ export interface CompanyRepository {
       Pick<CompanyRow, 'name' | 'status' | 'template_id' | 'template_label' | 'description_json'>
     >,
   ): Promise<void>;
-  delete(companyId: string): Promise<void>;
 }
 
 export interface ThreadRepository {
@@ -296,6 +295,105 @@ export interface AgentRunStatusUpdateOptions {
   failureKind?: string | null;
 }
 
+export const RESETTABLE_NATIVE_SESSION_PRESTART_CODES = [
+  'native-session-missing',
+  'native-session-invalid',
+  'native-session-runtime-incompatible',
+  'native-session-context-invalid',
+] as const;
+
+export type ResettableNativeSessionPrestartCode =
+  (typeof RESETTABLE_NATIVE_SESSION_PRESTART_CODES)[number];
+
+export function isResettableNativeSessionPrestartCode(
+  value: unknown,
+): value is ResettableNativeSessionPrestartCode {
+  return (
+    typeof value === 'string' &&
+    (RESETTABLE_NATIVE_SESSION_PRESTART_CODES as readonly string[]).includes(value)
+  );
+}
+
+export interface FreshSessionConversationProjection {
+  userMessageId: string;
+  assistantMessageId: string;
+  source: 'office' | 'workspace';
+  model?: string;
+  permissionMode?: string;
+  thinkingLevel?: string;
+}
+
+export interface FreshSessionContext {
+  nativeSessionPrestartErrorCode: ResettableNativeSessionPrestartCode;
+  projectId: string | null;
+  projection: FreshSessionConversationProjection;
+}
+
+function trimmedString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+/**
+ * Decode the sole durable authority for a plain-Conversation Fresh action.
+ * Persistence queries may narrow candidate rows, but every backend and caller
+ * must pass this typed predicate before exposing or executing the action.
+ */
+export function decodeFreshSessionContext(row: AgentRunRow): FreshSessionContext | null {
+  if (
+    row.run_id !== row.root_run_id ||
+    row.parent_run_id !== null ||
+    row.status !== 'failed' ||
+    row.session_file !== null ||
+    !row.runtime_context_json
+  ) {
+    return null;
+  }
+
+  let context: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(row.runtime_context_json) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    context = parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  if (
+    !isResettableNativeSessionPrestartCode(context.nativeSessionPrestartErrorCode) ||
+    context.nativeSessionReset === true ||
+    context.recoveryLane !== 'conversation' ||
+    !context.conversationProjection ||
+    typeof context.conversationProjection !== 'object' ||
+    Array.isArray(context.conversationProjection)
+  ) {
+    return null;
+  }
+
+  const projection = context.conversationProjection as Record<string, unknown>;
+  const userMessageId = trimmedString(projection.userMessageId);
+  const assistantMessageId = trimmedString(projection.assistantMessageId);
+  const source = projection.source;
+  if (!userMessageId || !assistantMessageId || (source !== 'office' && source !== 'workspace')) {
+    return null;
+  }
+
+  const model = trimmedString(context.model);
+  const permissionMode = trimmedString(context.permissionMode);
+  const thinkingLevel = trimmedString(context.thinkingLevel);
+  return {
+    nativeSessionPrestartErrorCode: context.nativeSessionPrestartErrorCode,
+    projectId: trimmedString(context.projectId),
+    projection: {
+      userMessageId,
+      assistantMessageId,
+      source,
+      ...(model ? { model } : {}),
+      ...(permissionMode ? { permissionMode } : {}),
+      ...(thinkingLevel ? { thinkingLevel } : {}),
+    },
+  };
+}
+
 export interface AgentRunRepository {
   create(run: NewAgentRun): Promise<AgentRunRow>;
   findById(runId: string): Promise<AgentRunRow | null>;
@@ -306,6 +404,16 @@ export interface AgentRunRepository {
    *  durable-resume reconciliation (find `running` → mark `interrupted`) and the
    *  recovery board (list `interrupted`). Empty `statuses` yields no rows. */
   findByStatus(companyId: string, statuses: string[]): Promise<AgentRunRow[]>;
+  /** Exact current-Conversation hydration lookup: returns the latest durable
+   * root only when it remains an exact plain-Conversation Fresh candidate. */
+  findLatestFreshSessionCandidate(companyId: string, threadId: string): Promise<AgentRunRow | null>;
+  /** Exact source lookup for one Fresh action. Returns the row only while it is
+   * still the latest root in that company/thread and remains Fresh-eligible. */
+  findFreshSessionSource(
+    companyId: string,
+    threadId: string,
+    sourceRunId: string,
+  ): Promise<AgentRunRow | null>;
   updateStatus(runId: string, status: string, opts?: AgentRunStatusUpdateOptions): Promise<void>;
   /**
    * Tenant-scoped terminal/status mutation for UI actions that originate from a
@@ -1002,12 +1110,8 @@ export interface ProjectRepository {
   findByCompany(companyId: string): Promise<ProjectRow[]>;
   findActiveByCompany(companyId: string): Promise<ProjectRow[]>;
   updateStatus(projectId: string, status: ProjectStatus): Promise<void>;
-  /**
-   * Patch a project. Explicit `null` for `workspace_root` unbinds the folder.
-   * `description` accepts `string | null` for the same reason.
-   */
+  /** Patch a project. `workspace_root` is always a canonical, non-empty folder path. */
   update(projectId: string, patch: ProjectUpdatePatch): Promise<void>;
-  delete(projectId: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1048,7 +1152,28 @@ export interface ChatThreadRepository {
     threadId: string,
     title: string,
     opts: { byUser: boolean },
-  ): Promise<{ title: string; title_set_by_user: 0 | 1 }>;
+  ): Promise<{ title: string; title_set_by_user: 0 | 1; persisted: boolean }>;
+  /** Claim the thread's one semantic-title job. A manual title or an existing
+   * claim refuses the write, preventing restart/retry duplicate billing. */
+  beginSemanticTitleJob(input: {
+    threadId: string;
+    jobId: string;
+    sourceProvenanceJson: string;
+  }): Promise<boolean>;
+  /** Persist a generated title only while this job still owns an unrenamed row. */
+  completeSemanticTitleJob(input: {
+    threadId: string;
+    jobId: string;
+    title: string;
+    resultProvenanceJson: string;
+    usageJson: string | null;
+  }): Promise<boolean>;
+  /** Close a claimed job without changing its readable fallback title. */
+  failSemanticTitleJob(input: {
+    threadId: string;
+    jobId: string;
+    errorCode: string;
+  }): Promise<void>;
   /** Bumps `updated_at`. Used after activity on the thread. */
   touch(threadId: string): Promise<void>;
   /** Sets `archived_at` to now. Idempotent — no-op when already archived. */
@@ -1086,6 +1211,7 @@ export type NewAgentEvent = Omit<AgentEventRow, 'created_at'> & { created_at?: s
 
 export interface AgentEventRepository {
   append(event: NewAgentEvent): Promise<AgentEventRow>;
+  findById(eventId: string): Promise<AgentEventRow | null>;
   findByProject(
     projectId: string,
     opts?: { limit?: number; eventType?: string },
@@ -1361,7 +1487,9 @@ export interface MissionEvaluationRepository {
 export interface RuntimeSessionLinkRepository {
   insert(row: NewRuntimeSessionLink): Promise<void>;
   findById(runtimeSessionLinkId: string): Promise<RuntimeSessionLinkRow | null>;
-  listByMission(missionId: string): Promise<RuntimeSessionLinkRow[]>;
+  /** Latest append-only link for a Mission. Persistent backends must answer
+   * with a single-row query rather than loading the Mission's full history. */
+  findLatestByMission(missionId: string): Promise<RuntimeSessionLinkRow | null>;
   update(
     runtimeSessionLinkId: string,
     patch: Partial<
@@ -1600,7 +1728,11 @@ export interface CollaborationTurnRow {
   employee_id: string | null;
   sequence_index: number;
   status: string;
-  runtime_request_id: string | null;
+  runtime_request_id: string;
+  /** Exact engine/account/model selection frozen before the runtime is invoked. */
+  execution_target_json: string;
+  /** Host-observed final identity. Required for complete turns by the SQL baseline. */
+  result_provenance_json: string | null;
   usage_json: string | null;
   error_summary: string | null;
   started_at: string | null;
@@ -1609,10 +1741,26 @@ export interface CollaborationTurnRow {
 
 export type NewCollaborationTurn = CollaborationTurnRow;
 
+/** Immutable engine/account/billing lane claimed by the first turn on a thread. */
+export interface CollaborationExecutionLane {
+  engineId: string;
+  accountId: string;
+  billingMode: 'api' | 'subscription';
+}
+
+/** Storage shape for the one first-writer-wins lane row owned by a thread. */
+export interface CollaborationExecutionLaneRow {
+  thread_id: string;
+  engine_id: string;
+  account_id: string;
+  billing_mode: 'api' | 'subscription';
+}
+
 /** Patch for the mutable turn fields the controller advances over a turn's life. */
 export interface CollaborationTurnPatch {
   status?: string;
-  runtime_request_id?: string | null;
+  runtime_request_id?: string;
+  result_provenance_json?: string | null;
   usage_json?: string | null;
   error_summary?: string | null;
   started_at?: string | null;
@@ -1716,6 +1864,12 @@ export interface CollaborationReadStateRepository {
 }
 
 export interface CollaborationTurnRepository {
+  /**
+   * Atomically claim the thread's immutable execution lane, or verify that the
+   * existing claim matches. Returns false when another caller already claimed a
+   * different engine/account/billing lane.
+   */
+  bindThreadExecutionLane(threadId: string, lane: CollaborationExecutionLane): Promise<boolean>;
   /** Idempotent insert keyed on turn_id (INSERT OR IGNORE semantics). */
   insert(row: NewCollaborationTurn): Promise<void>;
   findById(turnId: string): Promise<CollaborationTurnRow | null>;

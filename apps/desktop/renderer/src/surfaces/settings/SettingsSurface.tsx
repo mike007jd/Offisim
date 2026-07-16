@@ -3,18 +3,18 @@ import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { ComputerSetupPanel } from '@/surfaces/office/computer/ComputerSetupPanel.js';
-import { Bot, Cpu, KeyRound, MonitorSmartphone, PawPrint, Plug, Users } from 'lucide-react';
+import { Bot, Cpu, MonitorSmartphone, PawPrint, Plug, Users, WalletCards } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AiAccountsPane } from './AiAccountsPane.js';
 import { CompanionPane } from './CompanionPane.js';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
-import { PiAgentPane } from './PiAgentPane.js';
 import { RuntimePane } from './RuntimePane.js';
 
 type SettingsTab = 'providers' | 'runtime' | 'mcp' | 'computer' | 'companion' | 'external';
 
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
-  { key: 'providers', label: 'Providers', icon: KeyRound },
+  { key: 'providers', label: 'AI Accounts', icon: WalletCards },
   { key: 'runtime', label: 'Runtime', icon: Cpu },
   { key: 'mcp', label: 'MCP', icon: Plug },
   { key: 'computer', label: 'Computer Use', icon: MonitorSmartphone },
@@ -98,15 +98,13 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
   }
 
   return (
-    <aside className="off-set-companion" aria-label="Provider summary">
+    <aside className="off-set-companion" aria-label="AI account summary">
       <div className="off-set-comp-card">
         <div className="off-set-comp-main">
           <Icon icon={Bot} size="sm" />
-          Agent runtime
+          Accounts &amp; models
         </div>
-        <p className="off-set-comp-copy">
-          Credentials and model configuration are read from <span className="off-mono">~/.pi</span>.
-        </p>
+        <p className="off-set-comp-copy">Review exact models, native usage, and cost reporting.</p>
       </div>
     </aside>
   );
@@ -149,7 +147,7 @@ export function SettingsSurface() {
         <div className="off-set-scroll">
           <div className="off-set-workspace">
             <div className="off-set-primary">
-              {tab === 'providers' ? <PiAgentPane /> : null}
+              {tab === 'providers' ? <AiAccountsPane /> : null}
               {tab === 'runtime' ? <RuntimePane /> : null}
               {tab === 'mcp' ? <McpServersPane /> : null}
               {tab === 'computer' ? (

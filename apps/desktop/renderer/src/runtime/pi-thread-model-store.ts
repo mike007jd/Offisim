@@ -1,15 +1,13 @@
 import { create } from 'zustand';
-import { readPiModelOverride } from './pi-agent-config.js';
 
 /**
  * Per-thread model selection. The composer model picker writes here so a model
  * chosen on thread A never leaks into thread B; the runtime reads the effective
- * model at send time. This is a thin per-thread layer over the global Settings
- * override (`pi-agent-config`): a thread with no explicit pick falls back to the
- * global override, which itself falls back to Pi's default. Pi still owns
- * credentials and the real catalog — this only forwards a registry id.
+ * model at send time. A thread with no explicit pick delegates to the runtime
+ * catalog's verified stable default; there is no competing global model master.
+ * The stored value is the adapter-private selector, never a display label.
  */
-const STORAGE_KEY = 'offisim:pi-agent:thread-models';
+const STORAGE_KEY = 'offisim:ai:thread-models';
 
 function loadMap(): Record<string, string> {
   try {
@@ -39,7 +37,7 @@ interface PiThreadModelStore {
   byThread: Record<string, string>;
   /** Set (non-empty) or clear (empty string) this thread's model override. */
   setThreadModel: (threadId: string, model: string) => void;
-  /** Drop persisted picks that are no longer in Pi's available-model list. */
+  /** Drop persisted picks that are no longer in the runtime's available-model list. */
   pruneInvalidModels: (validValues: readonly string[]) => void;
 }
 
@@ -66,10 +64,9 @@ export const usePiThreadModelStore = create<PiThreadModelStore>((set) => ({
 }));
 
 /**
- * Effective Pi model for a thread: the per-thread pick, else the global Settings
- * override, else `''` (let Pi choose its default). Read at send time so the most
- * recent selection always wins without a reactive subscription in the runtime.
+ * Effective model selector for a thread. Empty means the engine gateway chooses
+ * the first verified stable model for the bound account; adapters never choose.
  */
 export function resolveThreadModel(threadId: string): string {
-  return usePiThreadModelStore.getState().byThread[threadId] || readPiModelOverride();
+  return usePiThreadModelStore.getState().byThread[threadId] || '';
 }

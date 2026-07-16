@@ -112,7 +112,11 @@ export interface GitWorktreeOps {
   /** Whether `root` is a Git repository (decides worktree vs serial, §23.3). */
   isGitRepo(root: string): boolean | Promise<boolean>;
   /** Create a worktree at `path` on a new `branch` (WI-002). */
-  addWorktree(branch: string, path: string): void | Promise<void>;
+  addWorktree(
+    branch: string,
+    path: string,
+    provenance: { leaseId: string; runId: string },
+  ): void | Promise<void>;
   /** Remove the worktree at `path` (WI-006 cleanup). */
   removeWorktree(path: string): void | Promise<void>;
   /** Explicit reviewed discard; the boundary may force-remove this one jailed worktree. */

@@ -1,4 +1,13 @@
-import type { AgentRunUsage, AttachmentMeta, CollaborationProfile } from '@offisim/shared-types';
+import type {
+  AgentRunUsage,
+  AiExecutionTarget,
+  AiRuntimeStatus,
+  AttachmentMeta,
+  CollaborationProfile,
+  TurnExecutionProvenance,
+  WorkspaceBoundProvenance,
+  WorkspaceUnavailableProvenance,
+} from '@offisim/shared-types';
 import type { Channel } from '@tauri-apps/api/core';
 
 interface LocalDbTransactionStatement {
@@ -29,6 +38,179 @@ interface ProjectDirEntry {
   isDirectory: boolean;
   isSymlink: boolean;
   size?: number | null;
+}
+
+export interface ProjectWorkspaceSelectionClaim {
+  selectionRef: string;
+  displayPath: string;
+  expiresAtUnixMs: number;
+}
+
+interface ProjectCreateCommandInput {
+  projectId: string;
+  companyId: string;
+  name: string;
+  description: string | null;
+  status: 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+  workspaceSelectionRef: string;
+  verifyCommand: string | null;
+  verifyMaxAttempts: number;
+  verifyTokenBudget: number | null;
+}
+
+interface ProjectUpdateCommandInput {
+  projectId: string;
+  name: string;
+  description: string | null;
+  status: 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+  workspaceSelectionRef: string | null;
+  verifyCommand: string | null;
+  verifyMaxAttempts: number;
+  verifyTokenBudget: number | null;
+}
+
+type WorkspaceBindingProvenanceFields<Provenance> = Provenance extends WorkspaceBoundProvenance
+  ? Pick<Provenance, 'source' | 'reasonCode'>
+  : never;
+
+interface TaskWorkspaceBindingProjectionBase {
+  historyId: string;
+  companyId: string;
+  projectId: string;
+  threadId: string;
+  turnId: string;
+  requestId: string;
+  access: 'read' | 'write';
+  confidence: number;
+  issuedAtUnixMs: number;
+  expiresAtUnixMs: number;
+  displayPath: string;
+}
+
+/** Persistable, non-secret explanation of the backend-issued workspace binding. */
+export type TaskWorkspaceBindingProjection = TaskWorkspaceBindingProjectionBase &
+  WorkspaceBindingProvenanceFields<WorkspaceBoundProvenance>;
+
+/** Ephemeral claim used only when invoking binding-scoped backend commands. */
+export type TaskWorkspaceBindingClaim = TaskWorkspaceBindingProjection & {
+  workspaceRef: string;
+};
+
+/**
+ * Ephemeral, bounded authority for deterministic Mission evaluation. It keeps
+ * read access plus classifier-bounded verification execution on the exact Turn
+ * binding. It exposes no direct project-write API and can only derive from the
+ * Mission attempt's original Write Turn.
+ */
+export interface TaskWorkspaceEvaluationLeaseClaim {
+  evaluationLeaseRef: string;
+  historyId: string;
+  companyId: string;
+  projectId: string;
+  threadId: string;
+  turnId: string;
+  requestId: string;
+  missionId: string;
+  attemptId: string;
+  issuedAtUnixMs: number;
+  expiresAtUnixMs: number;
+}
+
+export interface TaskWorkspaceResumeCompatibilityArgs {
+  historyId: string;
+  companyId: string;
+  projectId: string;
+  threadId: string;
+  rootRunId: string;
+  access: 'read' | 'write';
+}
+
+export interface TaskWorkspaceResumeCompatibility {
+  status: 'same' | 'missing' | 'changed';
+  reason: string;
+}
+
+interface TaskWorkspaceDeletionPreflight {
+  allowed: boolean;
+  activeBindings: number;
+  activeLeases: number;
+}
+
+/** Parse the persistable projection while deliberately discarding capability refs/raw roots. */
+export function parseTaskWorkspaceBindingProjection(
+  value: unknown,
+): TaskWorkspaceBindingProjection | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const stringKeys = [
+    'historyId',
+    'companyId',
+    'projectId',
+    'threadId',
+    'turnId',
+    'requestId',
+    'access',
+    'displayPath',
+  ] as const;
+  if (stringKeys.some((key) => typeof record[key] !== 'string')) return null;
+  if (record.access !== 'read' && record.access !== 'write') return null;
+  const provenance = parseWorkspaceBoundProvenance(
+    record.source,
+    record.reasonCode,
+    record.displayPath,
+  );
+  if (!provenance) return null;
+  if (typeof record.confidence !== 'number' || !Number.isFinite(record.confidence)) return null;
+  if (typeof record.issuedAtUnixMs !== 'number' || !Number.isFinite(record.issuedAtUnixMs)) {
+    return null;
+  }
+  if (typeof record.expiresAtUnixMs !== 'number' || !Number.isFinite(record.expiresAtUnixMs)) {
+    return null;
+  }
+  const {
+    availability: _availability,
+    displayPath: _displayPath,
+    ...provenanceFields
+  } = provenance;
+  return {
+    historyId: record.historyId as string,
+    companyId: record.companyId as string,
+    projectId: record.projectId as string,
+    threadId: record.threadId as string,
+    turnId: record.turnId as string,
+    requestId: record.requestId as string,
+    access: record.access,
+    ...provenanceFields,
+    confidence: record.confidence,
+    issuedAtUnixMs: record.issuedAtUnixMs,
+    expiresAtUnixMs: record.expiresAtUnixMs,
+    displayPath: record.displayPath as string,
+  };
+}
+
+export function parseWorkspaceBoundProvenance(
+  source: unknown,
+  reasonCode: unknown,
+  displayPath: unknown,
+): WorkspaceBoundProvenance | null {
+  if (typeof displayPath !== 'string' || !displayPath.trim()) return null;
+  if (source === 'project_catalog' && reasonCode === 'current_project_folder') {
+    return { availability: 'bound', source, reasonCode, displayPath };
+  }
+  if (source === 'conversation_history' && reasonCode === 'recent_successful_workspace') {
+    return { availability: 'bound', source, reasonCode, displayPath };
+  }
+  if (
+    source === 'known_root_recovery' &&
+    (reasonCode === 'renamed_same_filesystem_object' ||
+      reasonCode === 'unique_name_repo_identity_match')
+  ) {
+    return { availability: 'bound', source, reasonCode, displayPath };
+  }
+  if (source === 'resume_history' && reasonCode === 'resume_history_identity_match') {
+    return { availability: 'bound', source, reasonCode, displayPath };
+  }
+  return null;
 }
 
 export interface CodexPetMetadata {
@@ -114,20 +296,26 @@ export interface BrowserSessionSnapshot {
 interface PiAgentExecuteRequest {
   requestId: string;
   text: string;
+  expectedTarget: AiExecutionTarget;
+  runtimeModelRef: string;
   companyId: string;
   threadId: string;
-  cwd?: string | null;
-  projectId?: string | null;
-  projectVerifyCommand?: string | null;
-  projectVerifyMaxAttempts?: number | null;
-  projectVerifyTokenBudget?: number | null;
+  projectId: string;
+  workspaceRequirement: 'optional' | 'required';
+  /** Normal Turns continue the tracked native Conversation session. `fresh` is
+   * accepted only for the explicit recovery action authorized by the failed
+   * root identified below. */
+  nativeSessionMode: 'tracked' | 'fresh';
+  nativeSessionResetSourceRunId?: string | null;
   employeeId?: string | null;
   model?: string | null;
   permissionMode?: string | null;
   thinkingLevel?: string | null;
   systemPromptAppend?: string | null;
   skillPaths?: string[] | null;
-  rootRunId?: string | null;
+  rootRunId: string;
+  /** Required only for resume; backend reissues authority from persisted history. */
+  workspaceBindingHistoryId?: string | null;
   roster?: unknown;
   missionContextJson?: string | null;
   mcpTools?: unknown;
@@ -137,14 +325,21 @@ interface PiAgentExecuteRequest {
 interface PiAgentEnhanceRequest {
   requestId: string;
   text: string;
+  expectedTarget: AiExecutionTarget;
+  runtimeModelRef: string;
   systemPrompt: string;
   model?: string | null;
   thinkingLevel?: string | null;
+  sourceProvenance?: PiExecutionProvenance | null;
 }
+
+type PiExecutionProvenance = TurnExecutionProvenance;
 
 interface PiAgentCollaborateRequest {
   requestId: string;
   text: string;
+  expectedTarget: AiExecutionTarget;
+  runtimeModelRef: string;
   capabilityProfile?: 'collaboration' | null;
   collaborationProfile?: CollaborationProfile | null;
   companyId: string;
@@ -173,17 +368,36 @@ interface PiAgentHostResponse {
   sessionId?: string;
   sessionFile?: string;
   model?: PiAgentModelSummary;
+  provenance?: PiExecutionProvenance;
   usage?: AgentRunUsage;
   budgetUsage?: AgentRunUsage;
 }
 
 type PiAgentHostEvent =
   | {
+      kind: 'executionPrepared';
+      prepareId: string;
+      runId: string;
+      identity: TurnExecutionProvenance;
+      targetDigest: string;
+      adapter: { id: string; version: string };
+    }
+  | {
       kind: 'started';
       sessionId?: string;
       sessionFile?: string;
       model?: PiAgentModelSummary;
       modelFallbackMessage?: string;
+    }
+  | ({ kind: 'workspaceBound' } & TaskWorkspaceBindingClaim)
+  | {
+      kind: 'workspaceUnavailable';
+      projectId: string;
+      threadId: string;
+      turnId: string;
+      requestId: string;
+      source: WorkspaceUnavailableProvenance['source'];
+      reasonCode: WorkspaceUnavailableProvenance['reasonCode'];
     }
   | { kind: 'messageDelta'; delta: string; channel?: 'content' | 'reasoning' }
   | { kind: 'messageEnd'; text: string; stopReason?: string; errorMessage?: string }
@@ -244,41 +458,11 @@ interface PiAgentProviderStatus {
   auth: PiAgentProviderAuthStatus;
 }
 
-interface PiAgentProviderModelConfig {
-  id: string;
-  name?: string;
-  api?: string;
-  contextWindow?: number;
-  maxTokens?: number;
-}
-
-interface PiAgentProviderConfigStatus {
-  provider: string;
-  displayName: string;
-  name?: string;
-  baseUrl?: string;
-  api?: string;
-  hasApiKey: boolean;
-  authSource?: string;
-  models: PiAgentProviderModelConfig[];
-}
-
-interface PiAgentProviderTemplate {
-  provider: string;
-  displayName: string;
-  baseUrl?: string;
-  api?: string;
-  configured: boolean;
-  models: PiAgentProviderModelConfig[];
-}
-
 interface PiAgentStatusResponse {
   ok: boolean;
   authProviders: string[];
   providerStatus: PiAgentProviderStatus[];
   configuredProviderStatus: PiAgentProviderStatus[];
-  providerConfigs: PiAgentProviderConfigStatus[];
-  providerTemplates: PiAgentProviderTemplate[];
   availableModels: PiAgentModelSummary[];
   allModelCount: number;
   paths?: {
@@ -296,24 +480,6 @@ interface PiAgentStatusResponse {
     parseError?: string;
   };
   checkedAt?: string;
-}
-
-interface PiAgentProviderModelInput {
-  id: string;
-  name?: string | null;
-  api?: string | null;
-  contextWindow?: number | null;
-  maxTokens?: number | null;
-}
-
-interface PiAgentProviderConfigInput {
-  providerId: string;
-  displayName?: string | null;
-  baseUrl: string;
-  api: string;
-  apiKey?: string | null;
-  keepExistingApiKey?: boolean;
-  models?: PiAgentProviderModelInput[];
 }
 
 interface ComputerDriverStatus {
@@ -447,6 +613,8 @@ type ProjectPathArgs = {
   path: string;
   cwd?: string | null;
   projectId?: string | null;
+  bindingClaim?: TaskWorkspaceBindingClaim | null;
+  evaluationLease?: TaskWorkspaceEvaluationLeaseClaim | null;
 };
 
 type AgentRuntimeArgs<TRequest> = {
@@ -462,6 +630,29 @@ type AgentUiResponseArgs = {
   cancelled?: boolean | null;
 };
 
+export interface WorkspaceLeaseLifecycleRow {
+  leaseId: string;
+  projectId: string;
+  threadId: string | null;
+  activeRootRunId: string | null;
+  createdRootRunId: string;
+  registeredRunId: string;
+  workspaceRoot: string | null;
+  cwd: string;
+  branch: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'active' | 'released' | 'discarded' | 'invalid';
+  ownerBindingStatus:
+    | 'active'
+    | 'completed'
+    | 'failed'
+    | 'aborted'
+    | 'expired'
+    | 'app_restart'
+    | null;
+}
+
 type CommandSpec<TArgs, TResult> = {
   args: TArgs;
   result: TResult;
@@ -471,6 +662,19 @@ export interface CommandMap {
   local_db_execute: CommandSpec<{ sql: string; params: unknown[] }, number>;
   local_db_select: CommandSpec<{ sql: string; params: unknown[] }, unknown[]>;
   local_db_execute_transaction: CommandSpec<{ statements: LocalDbTransactionStatement[] }, void>;
+  project_workspace_select: CommandSpec<
+    { title?: string | null },
+    ProjectWorkspaceSelectionClaim | null
+  >;
+  project_create: CommandSpec<{ input: ProjectCreateCommandInput }, void>;
+  project_update: CommandSpec<{ input: ProjectUpdateCommandInput }, void>;
+  project_update_status: CommandSpec<
+    {
+      projectId: string;
+      status: 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+    },
+    void
+  >;
   project_read_file: CommandSpec<ProjectPathArgs, string>;
   project_read_file_lines: CommandSpec<
     ProjectPathArgs & { offset: number; limit?: number | null },
@@ -480,12 +684,9 @@ export interface CommandMap {
     ProjectPathArgs & { maxBytes: number },
     ProjectFilePreview
   >;
-  project_preview_meta: CommandSpec<
-    { path: string; projectId?: string | null },
-    ProjectPreviewMeta
-  >;
+  project_preview_meta: CommandSpec<ProjectPathArgs, ProjectPreviewMeta>;
   project_read_file_bytes: CommandSpec<
-    { path: string; projectId?: string | null; maxBytes?: number },
+    ProjectPathArgs & { maxBytes?: number },
     ArrayBuffer | Uint8Array | number[]
   >;
   codex_pets_list: CommandSpec<undefined, CodexPetCatalog>;
@@ -498,7 +699,7 @@ export interface CommandMap {
   project_write_file: CommandSpec<ProjectPathArgs & { content: string }, void>;
   bash_execute: CommandSpec<
     {
-      cwd: string;
+      cwd?: string | null;
       cmd: string;
       timeoutMs: number;
       maxOutputBytes?: number | null;
@@ -506,6 +707,8 @@ export interface CommandMap {
       approvalId?: string | null;
       employeeId?: string | null;
       networkPolicy?: string | null;
+      evaluationLease?: TaskWorkspaceEvaluationLeaseClaim | null;
+      verificationOnly?: boolean | null;
     },
     BashExecuteResult
   >;
@@ -578,12 +781,7 @@ export interface CommandMap {
     { sessionId: string; scope: NativeStageSessionScope },
     BrowserSessionSnapshot
   >;
-  pi_agent_open_config_folder: CommandSpec<undefined, void>;
   pi_agent_status: CommandSpec<undefined, PiAgentStatusResponse>;
-  pi_agent_save_provider: CommandSpec<
-    { config: PiAgentProviderConfigInput },
-    PiAgentStatusResponse
-  >;
   agent_runtime_execute: CommandSpec<AgentRuntimeArgs<PiAgentExecuteRequest>, PiAgentHostResponse>;
   agent_runtime_enhance: CommandSpec<AgentRuntimeArgs<PiAgentEnhanceRequest>, PiAgentHostResponse>;
   agent_runtime_collaborate: CommandSpec<
@@ -596,6 +794,10 @@ export interface CommandMap {
     { requestId: string; action: 'stopChild'; runId: string },
     void
   >;
+  agent_runtime_confirm_execution: CommandSpec<
+    { requestId: string; prepareId: string; targetDigest: string },
+    void
+  >;
   agent_runtime_answer: CommandSpec<AgentUiResponseArgs, void>;
   agent_runtime_stream_snapshot: CommandSpec<{ requestId: string }, PiRunStreamSnapshot | null>;
   agent_runtime_release_stream: CommandSpec<{ requestId: string }, void>;
@@ -603,14 +805,59 @@ export interface CommandMap {
     { requestId: string; afterCursor?: number | null; onEvent: Channel<PiAgentHostEvent> },
     PiRunStreamSnapshot
   >;
-  agent_runtime_status: CommandSpec<undefined, PiAgentStatusResponse>;
+  agent_runtime_status: CommandSpec<undefined, AiRuntimeStatus>;
   computer_driver_status: CommandSpec<undefined, ComputerDriverStatus>;
-  git_exec: CommandSpec<{ args: string[]; projectId: string; cwd?: string | null }, GitExecResult>;
+  task_workspace_evaluation_lease_acquire: CommandSpec<
+    {
+      bindingClaim: TaskWorkspaceBindingClaim;
+      missionId: string;
+      attemptId: string;
+    },
+    TaskWorkspaceEvaluationLeaseClaim
+  >;
+  task_workspace_evaluation_lease_release: CommandSpec<
+    { evaluationLease: TaskWorkspaceEvaluationLeaseClaim },
+    void
+  >;
+  task_workspace_resume_compatibility: CommandSpec<
+    TaskWorkspaceResumeCompatibilityArgs,
+    TaskWorkspaceResumeCompatibility
+  >;
+  task_workspace_interrupted_run_cancel: CommandSpec<
+    Omit<TaskWorkspaceResumeCompatibilityArgs, 'access' | 'historyId'> & {
+      historyId?: string | null;
+    },
+    void
+  >;
+  task_workspace_deletion_preflight: CommandSpec<
+    {
+      scope: 'conversation' | 'project' | 'company';
+      companyId: string;
+      projectId?: string | null;
+      threadId?: string | null;
+    },
+    TaskWorkspaceDeletionPreflight
+  >;
+  git_exec: CommandSpec<
+    {
+      args: string[];
+      projectId: string;
+      cwd?: string | null;
+      bindingClaim?: TaskWorkspaceBindingClaim | null;
+      evaluationLease?: TaskWorkspaceEvaluationLeaseClaim | null;
+    },
+    GitExecResult
+  >;
   gh_exec: CommandSpec<{ args: string[]; projectId: string }, GhExecResult>;
-  workspace_lease_discard: CommandSpec<{ projectId: string; leaseId: string }, void>;
+  workspace_lease_list: CommandSpec<{ projectId: string }, WorkspaceLeaseLifecycleRow[]>;
+  workspace_lease_changed: CommandSpec<
+    { projectId: string; leaseId: string; path: string },
+    boolean
+  >;
+  workspace_lease_release: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
+  workspace_lease_discard: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
   open_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
   reveal_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
-  ensure_company_workspace: CommandSpec<{ companyId: string }, string>;
   delete_company_workspace: CommandSpec<{ companyId: string }, void>;
   runtime_vault_status: CommandSpec<undefined, RuntimeVaultStatus>;
   open_runtime_vault_folder: CommandSpec<undefined, void>;

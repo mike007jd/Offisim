@@ -44,6 +44,19 @@ export const DEFAULT_PERMISSION_MODE: PermissionMode = 'auto';
  */
 export const PLAN_TOOL_ALLOWLIST: readonly string[] = ['read', 'grep', 'find', 'ls'];
 
+/** Exact native workspace tool surface for every executable Office run. Keeping
+ * this explicit prevents Pi or disk-loaded extensions from auto-activating tools
+ * outside Offisim's Rust-authorized bridge. */
+export const WORK_TOOL_ALLOWLIST: readonly string[] = [
+  'read',
+  'write',
+  'edit',
+  'grep',
+  'find',
+  'ls',
+  'bash',
+];
+
 export function normalizePermissionMode(value: unknown): PermissionMode {
   return typeof value === 'string' && (PERMISSION_MODES as readonly string[]).includes(value)
     ? (value as PermissionMode)
@@ -51,11 +64,12 @@ export function normalizePermissionMode(value: unknown): PermissionMode {
 }
 
 /**
- * The explicit tool allowlist for a mode, or `undefined` to keep Pi's default
- * tool set. Only Plan restricts; Ask/Auto/Full run the full built-in tools.
+ * The explicit native tool allowlist for a mode. This must never return
+ * `undefined`: Pi treats an omitted allowlist as permission to activate tools
+ * registered by disk-loaded extensions.
  */
-export function toolAllowlistForMode(mode: PermissionMode): string[] | undefined {
-  return mode === 'plan' ? [...PLAN_TOOL_ALLOWLIST] : undefined;
+export function toolAllowlistForMode(mode: PermissionMode): string[] {
+  return mode === 'plan' ? [...PLAN_TOOL_ALLOWLIST] : [...WORK_TOOL_ALLOWLIST];
 }
 
 // ── Collaboration profiles (Connect) — Epic E ───────────────────────────────

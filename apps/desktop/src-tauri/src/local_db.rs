@@ -19,7 +19,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 ///
 /// Any existing local database with another version is a disposable dev artifact:
 /// delete it and let the app rebuild from the current baseline.
-const LOCAL_SCHEMA_VERSION: i64 = 6;
+const LOCAL_SCHEMA_VERSION: i64 = 12;
 
 pub struct OffisimDbState {
     pool: SqlitePool,
@@ -49,6 +49,11 @@ pub fn get_offisim_pool<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<SqliteP
     app.try_state::<OffisimDbState>()
         .map(|state| state.pool.clone())
         .ok_or_else(|| "offisim db pool is not initialized".to_string())
+}
+
+#[cfg(test)]
+pub(crate) fn install_test_offisim_pool<R: Runtime>(app: &tauri::AppHandle<R>, pool: SqlitePool) {
+    app.manage(OffisimDbState { pool });
 }
 
 #[derive(Debug, Deserialize)]
@@ -209,6 +214,47 @@ fn validate_statement_sql(sql: &str) -> Result<(), String> {
         ));
     }
 
+    const BACKEND_AUTHORITY_TABLES: &[&str] = &[
+        "project_workspace_authority",
+        "task_workspace_binding_history",
+        "task_workspace_lease_history",
+    ];
+    let identifiers = sql_identifier_tokens(sql)?;
+    for identifier in &identifiers {
+        if BACKEND_AUTHORITY_TABLES
+            .iter()
+            .any(|protected| identifier.eq_ignore_ascii_case(protected))
+        {
+            return Err(
+                "rejected SQL statement: backend workspace authority tables are not available through generic local DB commands"
+                    .into(),
+            );
+        }
+    }
+
+    // Project identity and its folder define native filesystem authority. The
+    // renderer may read/delete Project catalog rows, but every INSERT/UPDATE is
+    // routed through dedicated commands that consume a native-picker claim and
+    // atomically maintain the protected authority record. For WITH statements,
+    // reject conservatively when a mutating token and `projects` co-occur.
+    let mutates = matches!(first_word.as_str(), "INSERT" | "UPDATE")
+        || (first_word == "WITH"
+            && identifiers.iter().any(|token| {
+                token.eq_ignore_ascii_case("INSERT")
+                    || token.eq_ignore_ascii_case("UPDATE")
+                    || token.eq_ignore_ascii_case("REPLACE")
+            }));
+    if mutates
+        && identifiers
+            .iter()
+            .any(|identifier| identifier.eq_ignore_ascii_case("projects"))
+    {
+        return Err(
+            "rejected SQL statement: Project creation and updates require dedicated backend commands"
+                .into(),
+        );
+    }
+
     // Reject embedded `;` (multi-statement). sqlx prepares single statement, but
     // some compat backends parse top-level; tightening here avoids any surprise.
     let trimmed_trailing = sql.trim_end_matches(|c: char| c.is_whitespace() || c == ';');
@@ -217,6 +263,128 @@ fn validate_statement_sql(sql: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Extract SQLite identifier-like tokens while ignoring comments. SQLite's
+/// compatibility parser accepts single-quoted table names in identifier
+/// positions, so decoded single-quoted values are included conservatively too.
+/// This intentionally rejects a literal that is exactly a protected table name
+/// rather than allowing the same bytes to bypass the authority boundary.
+fn sql_identifier_tokens(sql: &str) -> Result<Vec<String>, String> {
+    let bytes = sql.as_bytes();
+    let mut tokens = Vec::new();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        match bytes[index] {
+            0 => return Err("rejected SQL statement: NUL byte not allowed".into()),
+            b'-' if bytes.get(index + 1) == Some(&b'-') => {
+                index += 2;
+                while index < bytes.len() && bytes[index] != b'\n' {
+                    index += 1;
+                }
+            }
+            b'/' if bytes.get(index + 1) == Some(&b'*') => {
+                index += 2;
+                let mut closed = false;
+                while index + 1 < bytes.len() {
+                    if bytes[index] == b'*' && bytes[index + 1] == b'/' {
+                        index += 2;
+                        closed = true;
+                        break;
+                    }
+                    index += 1;
+                }
+                if !closed {
+                    return Err("rejected SQL statement: unterminated block comment".into());
+                }
+            }
+            b'\'' => {
+                index += 1;
+                let mut token = Vec::new();
+                let mut closed = false;
+                while index < bytes.len() {
+                    if bytes[index] == b'\'' {
+                        if bytes.get(index + 1) == Some(&b'\'') {
+                            token.push(b'\'');
+                            index += 2;
+                        } else {
+                            index += 1;
+                            closed = true;
+                            break;
+                        }
+                    } else {
+                        token.push(bytes[index]);
+                        index += 1;
+                    }
+                }
+                if !closed {
+                    return Err("rejected SQL statement: unterminated string literal".into());
+                }
+                tokens.push(String::from_utf8_lossy(&token).into_owned());
+            }
+            b'"' | b'`' => {
+                let delimiter = bytes[index];
+                index += 1;
+                let mut token = Vec::new();
+                let mut closed = false;
+                while index < bytes.len() {
+                    if bytes[index] == delimiter {
+                        if bytes.get(index + 1) == Some(&delimiter) {
+                            token.push(delimiter);
+                            index += 2;
+                        } else {
+                            index += 1;
+                            closed = true;
+                            break;
+                        }
+                    } else {
+                        token.push(bytes[index]);
+                        index += 1;
+                    }
+                }
+                if !closed {
+                    return Err("rejected SQL statement: unterminated quoted identifier".into());
+                }
+                tokens.push(String::from_utf8_lossy(&token).into_owned());
+            }
+            b'[' => {
+                index += 1;
+                let mut token = Vec::new();
+                let mut closed = false;
+                while index < bytes.len() {
+                    if bytes[index] == b']' {
+                        if bytes.get(index + 1) == Some(&b']') {
+                            token.push(b']');
+                            index += 2;
+                        } else {
+                            index += 1;
+                            closed = true;
+                            break;
+                        }
+                    } else {
+                        token.push(bytes[index]);
+                        index += 1;
+                    }
+                }
+                if !closed {
+                    return Err("rejected SQL statement: unterminated bracket identifier".into());
+                }
+                tokens.push(String::from_utf8_lossy(&token).into_owned());
+            }
+            byte if byte.is_ascii_alphabetic() || byte == b'_' => {
+                let start = index;
+                index += 1;
+                while index < bytes.len()
+                    && (bytes[index].is_ascii_alphanumeric() || matches!(bytes[index], b'_' | b'$'))
+                {
+                    index += 1;
+                }
+                tokens.push(String::from_utf8_lossy(&bytes[start..index]).into_owned());
+            }
+            _ => index += 1,
+        }
+    }
+    Ok(tokens)
 }
 
 fn strip_leading_comments_and_whitespace(sql: &str) -> &str {
@@ -386,6 +554,154 @@ mod tests {
     }
 
     #[test]
+    fn generic_sql_rejects_backend_workspace_authority_tables() {
+        for sql in [
+            "SELECT * FROM task_workspace_binding_history",
+            "insert into TASK_WORKSPACE_LEASE_HISTORY (lease_id) values ('x')",
+            "UPDATE \"task_workspace_binding_history\" SET status = 'active'",
+            "DELETE FROM [task_workspace_lease_history]",
+            "WITH forged AS (SELECT * FROM `task_workspace_binding_history`) SELECT * FROM forged",
+            "WITH forged AS (SELECT 1) UPDATE /* scope */ main.task_workspace_lease_history SET status = 'active'",
+            "-- leading comment\nSELECT * FROM Main.\"TASK_WORKSPACE_BINDING_HISTORY\"",
+            "SELECT * FROM 'PrOjEcT_WoRkSpAcE_AuThOrItY'",
+            "UPDATE 'task_workspace_binding_history' SET status = 'active'",
+        ] {
+            let error = validate_statement_sql(sql)
+                .expect_err("generic SQL must not reach backend authority tables");
+            assert!(error.contains("backend workspace authority tables"), "{sql}: {error}");
+        }
+    }
+
+    #[test]
+    fn authority_table_names_inside_comments_or_literals_are_not_misparsed() {
+        for sql in [
+            "SELECT 'task_workspace_binding_history is protected' AS harmless",
+            "SELECT 1 /* task_workspace_lease_history */",
+            "SELECT 1 -- task_workspace_binding_history",
+        ] {
+            validate_statement_sql(sql)
+                .unwrap_or_else(|error| panic!("harmless token rejected for {sql:?}: {error}"));
+        }
+    }
+
+    #[test]
+    fn generic_sql_rejects_every_project_identity_mutation_shape() {
+        for sql in [
+            "INSERT INTO projects (project_id) VALUES ('forged')",
+            "uPdAtE main.\"PrOjEcTs\" SET workspace_root = '/Users/u/.ssh'",
+            "WITH source AS (SELECT '/Users/u/.ssh' AS root) UPDATE [projects] SET workspace_root = (SELECT root FROM source)",
+            "WITH source AS (SELECT 1) RePlAcE INTO main.`PrOjEcTs` (project_id) SELECT 'forged' FROM source",
+            "WITH source AS (SELECT 1) INSERT OR REPLACE INTO projects (project_id) SELECT 'forged' FROM source",
+            "uPdAtE 'PrOjEcTs' SET workspace_root = '/Users/u/.ssh'",
+            "WITH source AS (SELECT 1) UPDATE main.'PROJECTS' SET workspace_root = '/forged'",
+        ] {
+            let error = validate_statement_sql(sql)
+                .expect_err("generic SQL must not mutate Project authority catalog rows");
+            assert!(error.contains("dedicated backend commands"), "{sql}: {error}");
+        }
+        validate_statement_sql("SELECT * FROM projects").expect("Project reads remain available");
+        validate_statement_sql("DELETE FROM projects WHERE project_id = 'closed'")
+            .expect("Project deletion remains available for deep-delete transactions");
+    }
+
+    #[tokio::test]
+    async fn rejected_with_replace_cannot_change_project_catalog() {
+        let pool = memory_pool().await;
+        raw_sql("CREATE TABLE projects (project_id TEXT PRIMARY KEY, workspace_root TEXT NOT NULL); INSERT INTO projects VALUES ('project-1', '/safe/project')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let error = execute_statement(
+            &pool,
+            "WITH forged AS (SELECT '/Users/u/.ssh' AS root) RePlAcE INTO main.\"PrOjEcTs\" (project_id, workspace_root) SELECT 'project-1', root FROM forged",
+            Vec::new(),
+        )
+        .await
+        .expect_err("WITH REPLACE must be rejected before SQLite execution");
+        assert!(error.contains("dedicated backend commands"), "{error}");
+        let root: String = sqlx::query_scalar(
+            "SELECT workspace_root FROM projects WHERE project_id = 'project-1'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(root, "/safe/project");
+    }
+
+    #[tokio::test]
+    async fn single_quoted_identifier_compatibility_cannot_bypass_authority_boundary() {
+        let pool = memory_pool().await;
+        raw_sql(
+            r#"
+            CREATE TABLE projects (project_id TEXT PRIMARY KEY, workspace_root TEXT NOT NULL);
+            INSERT INTO projects VALUES ('project-1', '/safe/project');
+            CREATE TABLE project_workspace_authority (project_id TEXT PRIMARY KEY, canonical_root TEXT NOT NULL);
+            INSERT INTO project_workspace_authority VALUES ('project-1', '/safe/project');
+            CREATE TABLE task_workspace_binding_history (binding_id TEXT PRIMARY KEY, status TEXT NOT NULL);
+            INSERT INTO task_workspace_binding_history VALUES ('binding-1', 'active');
+            CREATE TABLE task_workspace_lease_history (lease_id TEXT PRIMARY KEY, status TEXT NOT NULL);
+            INSERT INTO task_workspace_lease_history VALUES ('lease-1', 'active');
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        for sql in [
+            "UPDATE 'PrOjEcTs' SET workspace_root = '/forged' WHERE project_id = 'project-1'",
+            "UPDATE 'PROJECT_WORKSPACE_AUTHORITY' SET canonical_root = '/forged' WHERE project_id = 'project-1'",
+            "DELETE FROM 'task_workspace_binding_history' WHERE binding_id = 'binding-1'",
+            "UPDATE 'TaSk_WoRkSpAcE_LeAsE_HiStOrY' SET status = 'discarded' WHERE lease_id = 'lease-1'",
+        ] {
+            let error = execute_statement(&pool, sql, Vec::new())
+                .await
+                .expect_err("single-quoted authority mutation must be rejected");
+            assert!(
+                error.contains("dedicated backend commands")
+                    || error.contains("backend workspace authority tables"),
+                "{sql}: {error}"
+            );
+        }
+        for sql in [
+            "SELECT * FROM 'project_workspace_authority'",
+            "SELECT * FROM 'TASK_WORKSPACE_BINDING_HISTORY'",
+            "SELECT * FROM 'task_workspace_lease_history'",
+        ] {
+            select_rows(&pool, sql, Vec::new())
+                .await
+                .expect_err("single-quoted protected SELECT must be rejected");
+        }
+
+        let project_root: String = sqlx::query_scalar(
+            "SELECT workspace_root FROM projects WHERE project_id = 'project-1'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        let authority_root: String = sqlx::query_scalar(
+            "SELECT canonical_root FROM project_workspace_authority WHERE project_id = 'project-1'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        let binding_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM task_workspace_binding_history")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let lease_status: String = sqlx::query_scalar(
+            "SELECT status FROM task_workspace_lease_history WHERE lease_id = 'lease-1'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(project_root, "/safe/project");
+        assert_eq!(authority_root, "/safe/project");
+        assert_eq!(binding_count, 1);
+        assert_eq!(lease_status, "active");
+    }
+
+    #[test]
     fn validate_statement_sql_rejects_multi_statement() {
         let err = validate_statement_sql("INSERT INTO x VALUES (1); DROP TABLE x").unwrap_err();
         assert!(err.contains("multi-statement"), "got {err}");
@@ -529,10 +845,13 @@ mod tests {
     #[tokio::test]
     async fn unsupported_local_database_version_is_rejected() {
         let pool = memory_pool().await;
-        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY); PRAGMA user_version = 12")
-            .execute(&pool)
-            .await
-            .unwrap();
+        let unsupported = LOCAL_SCHEMA_VERSION + 1;
+        raw_sql(&format!(
+            "CREATE TABLE companies (company_id TEXT PRIMARY KEY); PRAGMA user_version = {unsupported}"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
         let err = ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL)
             .await
             .unwrap_err();

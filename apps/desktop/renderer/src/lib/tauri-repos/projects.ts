@@ -5,7 +5,7 @@ import type {
   RuntimeRepositories,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
+import { ACTIVE_PROJECT_STATUSES, requireProjectWorkspaceRoot } from '@offisim/shared-types';
 import type {
   ChatThread,
   NewChatThread,
@@ -15,7 +15,8 @@ import type {
   ProjectRow,
   ProjectStatus,
 } from '@offisim/shared-types';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { invokeCommand } from '../tauri-commands.js';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 function now(): string {
@@ -28,6 +29,12 @@ interface ChatThreadDbRow {
   employee_id: string | null;
   title: string;
   title_set_by_user: number;
+  semantic_title_job_id: string | null;
+  semantic_title_status: ChatThread['semantic_title_status'];
+  semantic_title_source_provenance_json: string | null;
+  semantic_title_result_provenance_json: string | null;
+  semantic_title_usage_json: string | null;
+  semantic_title_error_code: string | null;
   summary: string | null;
   archived_at: string | null;
   created_at: string;
@@ -41,6 +48,12 @@ function chatThreadFromDbRow(row: ChatThreadDbRow): ChatThread {
     employee_id: row.employee_id,
     title: row.title,
     title_set_by_user: row.title_set_by_user === 1 ? 1 : 0,
+    semantic_title_job_id: row.semantic_title_job_id,
+    semantic_title_status: row.semantic_title_status,
+    semantic_title_source_provenance_json: row.semantic_title_source_provenance_json,
+    semantic_title_result_provenance_json: row.semantic_title_result_provenance_json,
+    semantic_title_usage_json: row.semantic_title_usage_json,
+    semantic_title_error_code: row.semantic_title_error_code,
     summary: row.summary,
     archived_at: row.archived_at,
     created_at: row.created_at,
@@ -57,16 +70,10 @@ export interface ProjectsTauriRepos {
 export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos {
   const projects: ProjectRepository = {
     async create(p: NewProject) {
-      const row: ProjectRow = {
-        ...p,
-        verify_command: p.verify_command ?? null,
-        verify_max_attempts: p.verify_max_attempts ?? 3,
-        verify_token_budget: p.verify_token_budget ?? null,
-        created_at: now(),
-        updated_at: now(),
-      };
-      await db.insert(schema.projects).values(row);
-      return row;
+      requireProjectWorkspaceRoot(p.workspace_root);
+      throw new Error(
+        'Project creation requires a native folder selection. Use the desktop Project creation flow.',
+      );
     },
     async findById(projectId) {
       const rows = await db
@@ -95,19 +102,31 @@ export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos
         .orderBy(desc(schema.projects.updated_at))) as ProjectRow[];
     },
     async updateStatus(projectId, status: ProjectStatus) {
-      await db
-        .update(schema.projects)
-        .set({ status, updated_at: now() })
-        .where(eq(schema.projects.project_id, projectId));
+      await invokeCommand('project_update_status', { projectId, status });
     },
     async update(projectId, patch) {
-      await db
-        .update(schema.projects)
-        .set({ ...patch, updated_at: now() })
-        .where(eq(schema.projects.project_id, projectId));
-    },
-    async delete(projectId) {
-      await db.delete(schema.projects).where(eq(schema.projects.project_id, projectId));
+      if (patch.workspace_root !== undefined) {
+        requireProjectWorkspaceRoot(patch.workspace_root);
+        throw new Error('Changing a Project folder requires a fresh native folder selection.');
+      }
+      const existing = await projects.findById(projectId);
+      if (!existing) throw new Error('Project was not found.');
+      await invokeCommand('project_update', {
+        input: {
+          projectId,
+          name: patch.name ?? existing.name,
+          description: patch.description === undefined ? existing.description : patch.description,
+          status: patch.status ?? existing.status,
+          workspaceSelectionRef: null,
+          verifyCommand:
+            patch.verify_command === undefined ? existing.verify_command : patch.verify_command,
+          verifyMaxAttempts: patch.verify_max_attempts ?? existing.verify_max_attempts,
+          verifyTokenBudget:
+            patch.verify_token_budget === undefined
+              ? existing.verify_token_budget
+              : patch.verify_token_budget,
+        },
+      });
     },
   };
 
@@ -175,6 +194,12 @@ export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos
         employee_id: input.employee_id ?? null,
         title: input.title ?? 'New thread',
         title_set_by_user: 0,
+        semantic_title_job_id: null,
+        semantic_title_status: null,
+        semantic_title_source_provenance_json: null,
+        semantic_title_result_provenance_json: null,
+        semantic_title_usage_json: null,
+        semantic_title_error_code: null,
         summary: null,
         archived_at: null,
         created_at: ts,
@@ -210,23 +235,116 @@ export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos
       return rows.map(chatThreadFromDbRow);
     },
     async updateTitle(threadId, title, opts) {
-      const existing = (await db
-        .select()
-        .from(schema.chatThreads)
-        .where(eq(schema.chatThreads.thread_id, threadId))) as ChatThreadDbRow[];
-      const head = existing[0];
-      if (!head) {
-        return { title, title_set_by_user: opts.byUser ? 1 : 0 };
-      }
-      if (!opts.byUser && head.title_set_by_user === 1) {
-        return { title: head.title, title_set_by_user: 1 };
-      }
       const nextFlag = opts.byUser ? 1 : 0;
       await db
         .update(schema.chatThreads)
-        .set({ title, title_set_by_user: nextFlag, updated_at: now() })
-        .where(eq(schema.chatThreads.thread_id, threadId));
-      return { title, title_set_by_user: nextFlag === 1 ? 1 : 0 };
+        .set({
+          title,
+          title_set_by_user: nextFlag,
+          updated_at: now(),
+          ...(opts.byUser
+            ? {
+                semantic_title_status: sql`CASE WHEN ${schema.chatThreads.semantic_title_status} = 'running' THEN 'cancelled' ELSE ${schema.chatThreads.semantic_title_status} END`,
+              }
+            : {}),
+        })
+        .where(
+          opts.byUser
+            ? eq(schema.chatThreads.thread_id, threadId)
+            : and(
+                eq(schema.chatThreads.thread_id, threadId),
+                eq(schema.chatThreads.title_set_by_user, 0),
+              ),
+        );
+      const after = (await db
+        .select()
+        .from(schema.chatThreads)
+        .where(eq(schema.chatThreads.thread_id, threadId))) as ChatThreadDbRow[];
+      const persisted = after[0];
+      return persisted
+        ? {
+            title: persisted.title,
+            title_set_by_user: persisted.title_set_by_user === 1 ? 1 : 0,
+            persisted: persisted.title === title && persisted.title_set_by_user === nextFlag,
+          }
+        : { title, title_set_by_user: nextFlag === 1 ? 1 : 0, persisted: false };
+    },
+    async beginSemanticTitleJob(input) {
+      const existing = (await db
+        .select()
+        .from(schema.chatThreads)
+        .where(eq(schema.chatThreads.thread_id, input.threadId))) as ChatThreadDbRow[];
+      const head = existing[0];
+      if (!head || head.title_set_by_user === 1 || head.semantic_title_job_id !== null)
+        return false;
+      await db
+        .update(schema.chatThreads)
+        .set({
+          semantic_title_job_id: input.jobId,
+          semantic_title_status: 'running',
+          semantic_title_source_provenance_json: input.sourceProvenanceJson,
+          semantic_title_result_provenance_json: null,
+          semantic_title_usage_json: null,
+          semantic_title_error_code: null,
+        })
+        .where(
+          and(
+            eq(schema.chatThreads.thread_id, input.threadId),
+            eq(schema.chatThreads.title_set_by_user, 0),
+            isNull(schema.chatThreads.semantic_title_job_id),
+          ),
+        );
+      const after = (await db
+        .select()
+        .from(schema.chatThreads)
+        .where(eq(schema.chatThreads.thread_id, input.threadId))) as ChatThreadDbRow[];
+      return (
+        after[0]?.semantic_title_job_id === input.jobId &&
+        after[0]?.semantic_title_status === 'running' &&
+        after[0]?.title_set_by_user === 0
+      );
+    },
+    async completeSemanticTitleJob(input) {
+      await db
+        .update(schema.chatThreads)
+        .set({
+          title: input.title,
+          semantic_title_status: 'completed',
+          semantic_title_result_provenance_json: input.resultProvenanceJson,
+          semantic_title_usage_json: input.usageJson,
+          semantic_title_error_code: null,
+          updated_at: now(),
+        })
+        .where(
+          and(
+            eq(schema.chatThreads.thread_id, input.threadId),
+            eq(schema.chatThreads.title_set_by_user, 0),
+            eq(schema.chatThreads.semantic_title_job_id, input.jobId),
+            eq(schema.chatThreads.semantic_title_status, 'running'),
+          ),
+        );
+      const after = (await db
+        .select()
+        .from(schema.chatThreads)
+        .where(eq(schema.chatThreads.thread_id, input.threadId))) as ChatThreadDbRow[];
+      return (
+        after[0]?.semantic_title_job_id === input.jobId &&
+        after[0]?.semantic_title_status === 'completed' &&
+        after[0]?.title_set_by_user === 0 &&
+        after[0]?.title === input.title
+      );
+    },
+    async failSemanticTitleJob(input) {
+      await db
+        .update(schema.chatThreads)
+        .set({ semantic_title_status: 'failed', semantic_title_error_code: input.errorCode })
+        .where(
+          and(
+            eq(schema.chatThreads.thread_id, input.threadId),
+            eq(schema.chatThreads.semantic_title_job_id, input.jobId),
+            eq(schema.chatThreads.semantic_title_status, 'running'),
+          ),
+        );
     },
     async touch(threadId) {
       await db
@@ -269,6 +387,12 @@ export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos
         employee_id: null,
         title: 'New thread',
         title_set_by_user: 0,
+        semantic_title_job_id: null,
+        semantic_title_status: null,
+        semantic_title_source_provenance_json: null,
+        semantic_title_result_provenance_json: null,
+        semantic_title_usage_json: null,
+        semantic_title_error_code: null,
         summary: null,
         archived_at: null,
         created_at: ts,

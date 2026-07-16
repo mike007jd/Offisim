@@ -1,5 +1,11 @@
-import type { AgentRunRepository, AgentRunRow, NewAgentRun } from '@offisim/core/browser';
+import {
+  type AgentRunRepository,
+  type AgentRunRow,
+  type NewAgentRun,
+  RESETTABLE_NATIVE_SESSION_PRESTART_CODES,
+} from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
+import { freshSessionSourceWhere, latestFreshSessionCandidateWhere } from '@offisim/db-local';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
@@ -62,6 +68,34 @@ export function createAgentRunsTauriRepos(db: TauriDrizzleDb): AgentRunsTauriRep
           ),
         )
         .orderBy(asc(schema.agentRuns.started_at))) as AgentRunRow[];
+    },
+    async findLatestFreshSessionCandidate(companyId, threadId) {
+      const rows = (await db
+        .select()
+        .from(schema.agentRuns)
+        .where(
+          latestFreshSessionCandidateWhere(
+            companyId,
+            threadId,
+            RESETTABLE_NATIVE_SESSION_PRESTART_CODES,
+          ),
+        )
+        .limit(1)) as AgentRunRow[];
+      return rows[0] ?? null;
+    },
+    async findFreshSessionSource(companyId, threadId, sourceRunId) {
+      const rows = (await db
+        .select()
+        .from(schema.agentRuns)
+        .where(
+          freshSessionSourceWhere(
+            companyId,
+            threadId,
+            sourceRunId,
+            RESETTABLE_NATIVE_SESSION_PRESTART_CODES,
+          ),
+        )) as AgentRunRow[];
+      return rows[0] ?? null;
     },
     async updateStatus(runId, status, opts) {
       const patch: Partial<AgentRunRow> = { status };

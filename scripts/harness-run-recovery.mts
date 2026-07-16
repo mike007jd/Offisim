@@ -9,7 +9,8 @@
  *
  * Covers:
  *   (a) a crashed `running` ROOT with no session_file → `interrupted` (NOT
- *       cancelled), finished_at stays null, card `needs_user_confirm`.
+ *       cancelled), finished_at stays null, but Resume is incompatible because
+ *       Offisim never fabricates continuity by restarting the objective.
  *   (b) a still-`running` child under that root → `cancelled` with finished_at.
  *   (c) a `completed` child under that root → untouched.
  *   (d) partial usage from terminal children is aggregated onto the root + card.
@@ -39,6 +40,7 @@ import {
 } from '../apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.js';
 import {
   RecoveryLoadGeneration,
+  discardInterruptedRunRecoveryCard,
   loadInterruptedRunRecovery,
   loadInterruptedRunRecoveryCards,
 } from '../apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.js';
@@ -47,7 +49,7 @@ import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 23;
+const TOTAL = 32;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -67,6 +69,53 @@ const now = () => FIXED_NOW;
 const CO_A = 'co-A';
 const CO_B = 'co-B';
 
+function apiUsage(
+  modelId: string,
+  input: number,
+  output: number,
+  amountUsd: number,
+  turns: number,
+) {
+  return {
+    scope: {
+      kind: 'api-run',
+      engineId: 'api',
+      accountId: 'api:test:opaque',
+      modelId,
+    },
+    input,
+    output,
+    turns,
+    inputAccounting: 'excludes-cache',
+    outputAccounting: 'includes-reasoning',
+    usageSource: { kind: 'provider', capturedAt: FIXED_NOW },
+    cost: { kind: 'actual', amountUsd, source: 'provider', capturedAt: FIXED_NOW },
+  } as const;
+}
+
+function workspaceBinding(
+  projectId: string,
+  threadId: string,
+  turnId: string,
+  displayPath: string,
+) {
+  return {
+    historyId: `binding-${turnId}`,
+    companyId: CO_A,
+    projectId,
+    threadId,
+    turnId,
+    requestId: `request-${turnId}`,
+    access: 'write',
+    source: 'project_catalog',
+    confidence: 1,
+    reasonCode: 'current_project_folder',
+    issuedAtUnixMs: 1_750_000_000_000,
+    expiresAtUnixMs: 1_750_086_400_000,
+    displayPath,
+  } as const;
+}
+
 /** Seed a repo with the standard crash scenario; returns the repo. */
 async function seedRepo(): Promise<MemoryAgentRunRepository> {
   const repo = new MemoryAgentRunRepository();
@@ -85,14 +134,14 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
       employee_id: null,
       relation: null,
       objective: 'Build feature X',
-      access: null,
+      access: 'write',
       status: 'running',
       started_at: '2026-06-27T10:00:00.000Z',
       session_file: null,
       runtime_context_json: JSON.stringify({
         runtime: 'pi-agent',
         projectId: 'proj-1',
-        workspaceRoot: '/tmp/offisim/proj-1',
+        workspaceBinding: workspaceBinding('proj-1', 't1', 'root1', '/tmp/offisim/proj-1'),
         wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
         piSdkVersion: '0.79.8',
         permissionMode: 'auto',
@@ -100,7 +149,7 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
         thinkingLevel: null,
         createdAt: FIXED_NOW,
       }),
-      usage_json: JSON.stringify({ input: 5, output: 5, cost: 0.05, turns: 1 }),
+      usage_json: JSON.stringify(apiUsage('root-model', 5, 5, 0.05, 1)),
     },
     {
       run_id: 'child1',
@@ -127,7 +176,7 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
       access: null,
       status: 'completed',
       started_at: '2026-06-27T10:02:00.000Z',
-      usage_json: JSON.stringify({ input: 10, output: 20, cost: 0.5, turns: 2 }),
+      usage_json: JSON.stringify(apiUsage('child-model', 10, 20, 0.5, 2)),
     },
     // co-A: crashed root WITH a session_file (resumable).
     {
@@ -140,14 +189,14 @@ async function seedRepo(): Promise<MemoryAgentRunRepository> {
       employee_id: null,
       relation: null,
       objective: 'Research Y',
-      access: null,
+      access: 'write',
       status: 'running',
       started_at: '2026-06-27T11:00:00.000Z',
       session_file: '/sessions/root2.jsonl',
       runtime_context_json: JSON.stringify({
         runtime: 'pi-agent',
         projectId: 'proj-2',
-        workspaceRoot: '/tmp/offisim/proj-2',
+        workspaceBinding: workspaceBinding('proj-2', 't2', 'root2', '/tmp/offisim/proj-2'),
         wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
         piSdkVersion: '0.79.8',
         permissionMode: 'auto',
@@ -236,8 +285,14 @@ async function main(): Promise<void> {
     const usage = JSON.parse(root1!.usage_json!);
     assert.equal(usage.input, 15, '10 (child2) + 5 (root own), counted once');
     assert.equal(usage.output, 25);
-    assert.equal(usage.cost, 0.55);
+    assert.equal(usage.cost.kind, 'actual');
+    assert.equal(usage.cost.amountUsd, 0.55);
     assert.equal(usage.turns, 3);
+    assert.deepEqual(
+      usage.contributions.map((entry: { runId: string }) => entry.runId),
+      ['root1', 'child2'],
+      'aggregate preserves exact per-run accounting provenance',
+    );
     const card = result.cards.find((c) => c.runId === 'root1');
     assert.ok(card?.partialUsageJson, 'card surfaces the partial usage');
     assert.equal(JSON.parse(card!.partialUsageJson!).output, 25);
@@ -253,16 +308,29 @@ async function main(): Promise<void> {
     assert.equal(card?.classification, 'resumable');
     assert.equal(card?.sessionFile, '/sessions/root2.jsonl');
     assert.equal(card?.projectId, 'proj-2');
-    assert.equal(card?.workspaceRoot, '/tmp/offisim/proj-2');
+    assert.equal(card?.workspaceBinding?.displayPath, '/tmp/offisim/proj-2');
+    assert.equal(
+      card?.whatResumeWillDo,
+      'Continue this task in /tmp/offisim/proj-2 from where it stopped.',
+    );
+    assert.doesNotMatch(card?.whatResumeWillDo ?? '', /\bPi\b/);
     const root2 = await repo.findById('root2');
     assert.equal(root2?.status, 'interrupted');
   });
 
-  await check('(a2) no-session root → needs_user_confirm card', async () => {
+  await check('(a2) no-session root → incompatible, never fake Resume', async () => {
     const card = result.cards.find((c) => c.runId === 'root1');
-    assert.equal(card?.classification, 'needs_user_confirm');
+    assert.equal(card?.classification, 'incompatible');
     assert.equal(card?.cancelledChildRunIds.length, 1, 'only the running child was cancelled');
     assert.equal(card?.cancelledChildRunIds[0], 'child1');
+    assert.match(card?.classificationReasons.join(' ') ?? '', /stopped before it could save/i);
+    assert.equal(
+      card?.whatResumeWillDo,
+      "This task can't safely resume. Discard it to start again in this Conversation.",
+    );
+    assert.match(card?.whatResumeWillDo ?? '', /Discard it to start again/);
+    assert.doesNotMatch(card?.whatResumeWillDo ?? '', /restart|confirm before resuming/i);
+    assert.doesNotMatch(card?.classificationReasons.join(' ') ?? '', /\bPi\b/);
   });
 
   await check('(g) orphan running child (terminal root) → cancelled', async () => {
@@ -299,6 +367,66 @@ async function main(): Promise<void> {
     assert.equal((await fresh.findByStatus(CO_A, [])).length, 0, 'empty statuses → []');
     const multi = await fresh.findByStatus(CO_A, ['running', 'completed']);
     assert.ok(multi.length > runningA.length, 'multi-status returns more rows');
+  });
+
+  await check('(k1) exact Fresh source is invalidated by any newer durable root', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'fresh-old',
+      thread_id: 'fresh-thread',
+      company_id: CO_A,
+      project_id: 'proj-fresh',
+      parent_run_id: null,
+      root_run_id: 'fresh-old',
+      employee_id: null,
+      relation: null,
+      objective: 'Recover this Conversation',
+      access: 'write',
+      status: 'failed',
+      failure_kind: 'runtime',
+      session_file: null,
+      runtime_context_json: JSON.stringify({
+        projectId: 'proj-fresh',
+        recoveryLane: 'conversation',
+        nativeSessionPrestartErrorCode: 'native-session-missing',
+        conversationProjection: {
+          userMessageId: 'fresh-user',
+          assistantMessageId: 'fresh-assistant',
+          source: 'office',
+        },
+      }),
+      started_at: '2026-06-27T10:00:00.000Z',
+    });
+    assert.equal(
+      (await repo2.findFreshSessionSource(CO_A, 'fresh-thread', 'fresh-old'))?.run_id,
+      'fresh-old',
+      'exact query returns the latest eligible source',
+    );
+    await repo2.create({
+      run_id: 'fresh-newer',
+      thread_id: 'fresh-thread',
+      company_id: CO_A,
+      project_id: 'proj-fresh',
+      parent_run_id: null,
+      root_run_id: 'fresh-newer',
+      employee_id: null,
+      relation: null,
+      objective: 'Newer work completed',
+      access: 'write',
+      status: 'completed',
+      session_file: '/sessions/fresh-newer.jsonl',
+      started_at: '2026-06-27T10:01:00.000Z',
+    });
+    assert.equal(
+      await repo2.findFreshSessionSource(CO_A, 'fresh-thread', 'fresh-old'),
+      null,
+      'an older source can never reappear after a newer terminal Turn',
+    );
+    assert.deepEqual(
+      await repo2.findLatestFreshSessionCandidate(CO_A, 'fresh-thread'),
+      null,
+      'current-Conversation hydration uses the same latest-root and typed eligibility rules',
+    );
   });
 
   await check('(k2) scoped status update rejects a cross-company discard', async () => {
@@ -354,6 +482,124 @@ async function main(): Promise<void> {
     assert.deepEqual(published, [CO_B], 'slow company A completion cannot overwrite company B');
   });
 
+  await check('(k3b) discard uses the atomic workspace-history CAS scope', async () => {
+    const repo2 = await seedRepo();
+    const recovery = await loadInterruptedRunRecovery({
+      repo: repo2,
+      companyId: CO_A,
+      now,
+      checkResumeCompatibility: async () => ({
+        status: 'same',
+        reason: 'workspace_identity_match',
+      }),
+    });
+    const card = recovery.cards.find((candidate) => candidate.runId === 'root1');
+    assert.ok(card);
+    let calledWith: unknown;
+    const next = await discardInterruptedRunRecoveryCard([card], CO_A, card.runId, async (args) => {
+      calledWith = args;
+    });
+    assert.deepEqual(calledWith, {
+      historyId: 'binding-root1',
+      companyId: CO_A,
+      projectId: 'proj-1',
+      threadId: 't1',
+      rootRunId: 'root1',
+    });
+    assert.deepEqual(next, [], 'card is removed only after the backend CAS succeeds');
+  });
+
+  await check('(k3c) a resume-won discard race preserves the recovery card', async () => {
+    const repo2 = await seedRepo();
+    const recovery = await loadInterruptedRunRecovery({
+      repo: repo2,
+      companyId: CO_A,
+      now,
+      checkResumeCompatibility: async () => ({
+        status: 'same',
+        reason: 'workspace_identity_match',
+      }),
+    });
+    const card = recovery.cards.find((candidate) => candidate.runId === 'root1');
+    assert.ok(card);
+    const current = [card];
+    await assert.rejects(
+      discardInterruptedRunRecoveryCard(current, CO_A, card.runId, async () => {
+        throw new Error('The interrupted run was already resumed.');
+      }),
+      /already resumed/,
+    );
+    assert.deepEqual(current, [card], 'failed CAS must not mutate/remove the stale card locally');
+  });
+
+  await check('(k3d) missing projection still reaches backend-safe interrupted CAS', async () => {
+    const repo2 = await seedRepo();
+    const recovery = await loadInterruptedRunRecovery({
+      repo: repo2,
+      companyId: CO_A,
+      now,
+      checkResumeCompatibility: async () => ({
+        status: 'same',
+        reason: 'workspace_identity_match',
+      }),
+    });
+    const card = recovery.cards.find((candidate) => candidate.runId === 'root1');
+    assert.ok(card);
+    let calledWith: unknown;
+    const incompatible = { ...card, workspaceBinding: null };
+    const next = await discardInterruptedRunRecoveryCard(
+      [incompatible],
+      CO_A,
+      incompatible.runId,
+      async (args) => {
+        calledWith = args;
+      },
+    );
+    assert.deepEqual(calledWith, {
+      historyId: null,
+      companyId: CO_A,
+      projectId: 'proj-1',
+      threadId: 't1',
+      rootRunId: 'root1',
+    });
+    assert.deepEqual(next, []);
+  });
+
+  await check('(k3e) transient compatibility failure stays retryable', async () => {
+    const repo2 = await seedRepo();
+    let checks = 0;
+    const first = await loadInterruptedRunRecovery({
+      repo: repo2,
+      companyId: CO_A,
+      now,
+      checkResumeCompatibility: async () => {
+        checks += 1;
+        throw new Error('temporary backend outage');
+      },
+    });
+    assert.equal(first.complete, false, 'temporary compatibility outage cannot hydrate the cache');
+    assert.ok(
+      first.cards.some((card) =>
+        card.classificationReasons.some((reason) => reason.includes('could not be verified')),
+      ),
+    );
+    const second = await loadInterruptedRunRecovery({
+      repo: repo2,
+      companyId: CO_A,
+      now,
+      checkResumeCompatibility: async () => {
+        checks += 1;
+        return { status: 'same', reason: 'workspace_identity_match' };
+      },
+    });
+    assert.equal(
+      second.complete,
+      true,
+      'the next load retries compatibility instead of caching it',
+    );
+    assert.ok(checks >= 2, 'backend compatibility was queried again');
+  });
+
   await check('(k4) a failed root stays retryable and its child is not stranded', async () => {
     const repo2 = await seedRepo();
     const originalUpdateStatus = repo2.updateStatus.bind(repo2);
@@ -366,7 +612,16 @@ async function main(): Promise<void> {
       await originalUpdateStatus(runId, status, opts);
     };
 
-    const first = await loadInterruptedRunRecovery({ repo: repo2, companyId: CO_A, now });
+    const compatibility = async () => ({
+      status: 'same' as const,
+      reason: 'workspace_identity_match',
+    });
+    const first = await loadInterruptedRunRecovery({
+      repo: repo2,
+      companyId: CO_A,
+      now,
+      checkResumeCompatibility: compatibility,
+    });
     assert.equal(first.complete, false, 'partial reconcile must stay unhydrated/retryable');
     assert.equal((await repo2.findById('root1'))?.status, 'running');
     assert.equal(
@@ -375,11 +630,87 @@ async function main(): Promise<void> {
       'a failed root is not pre-marked processed, so its child reaches orphan cleanup',
     );
 
-    const second = await loadInterruptedRunRecovery({ repo: repo2, companyId: CO_A, now });
+    const second = await loadInterruptedRunRecovery({
+      repo: repo2,
+      companyId: CO_A,
+      now,
+      checkResumeCompatibility: compatibility,
+    });
     assert.equal(second.complete, true, 'the next load retries and completes reconciliation');
     assert.equal((await repo2.findById('root1'))?.status, 'interrupted');
     assert.ok(second.cards.some((card) => card.runId === 'root1'));
   });
+
+  await check(
+    '(k5) a run submitted after bootstrap is never claimed by stale reconciliation',
+    async () => {
+      const repo2 = new MemoryAgentRunRepository();
+      for (const run of [
+        {
+          run_id: 'bootstrap-stale-root',
+          thread_id: 'bootstrap-stale-thread',
+          company_id: CO_A,
+          parent_run_id: null,
+          root_run_id: 'bootstrap-stale-root',
+          employee_id: null,
+          relation: null,
+          objective: 'stale before bootstrap',
+          access: 'write',
+          status: 'running' as const,
+          started_at: FIXED_NOW,
+        },
+        {
+          run_id: 'new-submit-root',
+          thread_id: 'new-submit-thread',
+          company_id: CO_A,
+          parent_run_id: null,
+          root_run_id: 'new-submit-root',
+          employee_id: 'emp-new',
+          relation: null,
+          objective: 'submitted after bootstrap snapshot',
+          access: 'write',
+          status: 'running' as const,
+          started_at: FIXED_NOW,
+        },
+        {
+          run_id: 'new-submit-child',
+          thread_id: 'new-submit-thread',
+          company_id: CO_A,
+          parent_run_id: 'new-submit-root',
+          root_run_id: 'new-submit-root',
+          employee_id: 'emp-child',
+          relation: 'delegate',
+          objective: 'new child',
+          access: 'write',
+          status: 'running' as const,
+          started_at: FIXED_NOW,
+        },
+      ] satisfies NewAgentRun[]) {
+        await repo2.create(run);
+      }
+
+      const recovery = await loadInterruptedRunRecovery({
+        repo: repo2,
+        companyId: CO_A,
+        now,
+        bootstrapLiveRuns: async () => ({
+          protectedRootRunIds: new Set(),
+          handledRootRunIds: new Set(),
+          confirmedMissingRootRunIds: new Set(['bootstrap-stale-root']),
+          complete: true,
+        }),
+        checkResumeCompatibility: async () => ({
+          status: 'same',
+          reason: 'workspace_identity_match',
+        }),
+      });
+
+      assert.equal((await repo2.findById('bootstrap-stale-root'))?.status, 'interrupted');
+      assert.equal((await repo2.findById('new-submit-root'))?.status, 'running');
+      assert.equal((await repo2.findById('new-submit-child'))?.status, 'running');
+      assert.equal(recovery.complete, true);
+    },
+  );
 
   await check('(l) missing workspace blocks resume classification', async () => {
     const repo2 = new MemoryAgentRunRepository();
@@ -400,7 +731,12 @@ async function main(): Promise<void> {
       runtime_context_json: JSON.stringify({
         runtime: 'pi-agent',
         projectId: 'proj-missing',
-        workspaceRoot: '/tmp/offisim/missing',
+        workspaceBinding: workspaceBinding(
+          'proj-missing',
+          't-missing',
+          'r-missing-workspace',
+          '/tmp/offisim/missing',
+        ),
         wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
         piSdkVersion: '0.79.8',
         permissionMode: 'auto',
@@ -410,12 +746,133 @@ async function main(): Promise<void> {
       }),
     });
     const row = await repo2.findById('r-missing-workspace');
-    const card = buildInterruptedRunCard(row!, [], null, { workspaceExists: false });
+    const card = buildInterruptedRunCard(row!, [], null, {
+      resumeCompatibility: {
+        status: 'changed',
+        reason: 'workspace_identity_changed',
+      },
+    });
     assert.equal(card.classification, 'incompatible');
-    assert.match(card.classificationReasons.join(' '), /workspace folder is no longer accessible/);
+    assert.match(
+      card.classificationReasons.join(' '),
+      /Project folder was replaced or changed since this run started/,
+    );
+    assert.doesNotMatch(card.classificationReasons.join(' '), /workspace_identity_changed/);
     assert.equal(card.projectId, 'proj-missing');
-    assert.equal(card.workspaceRoot, '/tmp/offisim/missing');
+    assert.equal(card.workspaceBinding?.displayPath, '/tmp/offisim/missing');
   });
+
+  await check('(l2) missing workspace authority history blocks resume classification', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-missing-history',
+      thread_id: 't-history',
+      company_id: CO_A,
+      project_id: 'proj-history',
+      parent_run_id: null,
+      root_run_id: 'r-missing-history',
+      employee_id: null,
+      relation: null,
+      objective: 'resume only with exact authority history',
+      access: 'write',
+      status: 'interrupted',
+      started_at: '2026-06-27T10:00:00.000Z',
+      session_file: '/sessions/r-missing-history.jsonl',
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        projectId: 'proj-history',
+        workspaceBinding: {
+          ...workspaceBinding(
+            'proj-history',
+            't-history',
+            'r-missing-history',
+            '/tmp/offisim/history',
+          ),
+          historyId: '',
+        },
+        wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+      }),
+    });
+    const row = await repo2.findById('r-missing-history');
+    const card = buildInterruptedRunCard(row!, [], null, {
+      resumeCompatibility: { status: 'same', reason: 'workspace_identity_match' },
+    });
+    assert.equal(card.classification, 'incompatible');
+    assert.match(
+      card.classificationReasons.join(' '),
+      /original Project folder cannot be verified for this task/,
+    );
+  });
+
+  await check('(l2b) restart explains a conversation-only workspace state', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-workspace-unavailable',
+      thread_id: 't-workspace-unavailable',
+      company_id: CO_A,
+      project_id: 'proj-workspace-unavailable',
+      parent_run_id: null,
+      root_run_id: 'r-workspace-unavailable',
+      employee_id: null,
+      relation: null,
+      objective: 'continue the conversation',
+      access: 'write',
+      status: 'interrupted',
+      started_at: '2026-06-27T10:00:00.000Z',
+      session_file: '/sessions/r-workspace-unavailable.jsonl',
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        projectId: 'proj-workspace-unavailable',
+        workspaceBinding: null,
+        workspaceRequirement: 'optional',
+        workspaceAvailability: 'unavailable',
+        workspaceProvenance: {
+          availability: 'unavailable',
+          source: 'workspace_recovery',
+          reasonCode: 'ambiguous',
+          requirement: 'optional',
+        },
+        wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+      }),
+    });
+    const row = await repo2.findById('r-workspace-unavailable');
+    const card = buildInterruptedRunCard(row!, [], null);
+    assert.equal(card.classification, 'incompatible');
+    assert.match(
+      card.classificationReasons.join(' '),
+      /Conversation continued without Project file access because the Project folder could not be uniquely confirmed/,
+    );
+    assert.doesNotMatch(card.classificationReasons.join(' '), /workspace_recovery|ambiguous/);
+  });
+
+  await check(
+    '(l3) loader marks an existing but replaced Project folder incompatible',
+    async () => {
+      const repo2 = await seedRepo();
+      await reconcileInterruptedRuns({ repo: repo2, companyId: CO_A, now });
+      const recovery = await loadInterruptedRunRecovery({
+        repo: repo2,
+        companyId: CO_A,
+        now,
+        skipReconcile: true,
+        checkResumeCompatibility: async (args) => ({
+          status: args.rootRunId === 'root2' ? 'changed' : 'same',
+          reason:
+            args.rootRunId === 'root2' ? 'workspace_identity_changed' : 'workspace_identity_match',
+        }),
+      });
+      const card = recovery.cards.find((candidate) => candidate.runId === 'root2');
+      assert.equal(card?.classification, 'incompatible');
+      assert.match(
+        card?.classificationReasons.join(' ') ?? '',
+        /Project folder was replaced or changed since this run started/,
+      );
+      assert.doesNotMatch(
+        card?.classificationReasons.join(' ') ?? '',
+        /workspace_identity_changed/,
+      );
+    },
+  );
 
   await check('(m) protocol mismatch marks recovery card incompatible', async () => {
     const repo2 = new MemoryAgentRunRepository();
@@ -436,7 +893,12 @@ async function main(): Promise<void> {
       runtime_context_json: JSON.stringify({
         runtime: 'pi-agent',
         projectId: 'proj-protocol',
-        workspaceRoot: '/tmp/offisim/protocol',
+        workspaceBinding: workspaceBinding(
+          'proj-protocol',
+          't-protocol',
+          'r-protocol',
+          '/tmp/offisim/protocol',
+        ),
         wireProtocolVersion: 3,
         piSdkVersion: '0.79.8',
         permissionMode: 'auto',
@@ -447,11 +909,11 @@ async function main(): Promise<void> {
     });
     const row = await repo2.findById('r-protocol');
     const card = buildInterruptedRunCard(row!, [], null, {
-      workspaceExists: true,
+      resumeCompatibility: { status: 'same', reason: 'workspace_identity_match' },
       currentWireProtocolVersion: 4,
     });
     assert.equal(card.classification, 'incompatible');
-    assert.match(card.classificationReasons.join(' '), /does not match current protocol/);
+    assert.match(card.classificationReasons.join(' '), /older Offisim version/);
   });
 
   // --- A3: insert-if-absent run.started persistence (resume-replay idempotency) ---
@@ -568,7 +1030,7 @@ async function main(): Promise<void> {
       employee_id: null,
       relation: null,
       objective: 'resume me',
-      access: null,
+      access: 'write',
       status: 'interrupted',
       started_at: '2026-06-27T10:00:00.000Z',
       project_id: 'proj-existing',
@@ -576,7 +1038,12 @@ async function main(): Promise<void> {
       runtime_context_json: JSON.stringify({
         runtime: 'pi-agent',
         projectId: 'proj-existing',
-        workspaceRoot: '/tmp/offisim/existing',
+        workspaceBinding: workspaceBinding(
+          'proj-existing',
+          't-existing',
+          'r-existing',
+          '/tmp/offisim/existing',
+        ),
         wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
         piSdkVersion: '0.79.8',
         permissionMode: 'auto',
@@ -588,7 +1055,16 @@ async function main(): Promise<void> {
     const cards = await loadInterruptedRunRecoveryCards({ repo: repo2, companyId: CO_A, now });
     assert.equal(cards.length, 1);
     assert.equal(cards[0]?.runId, 'r-existing');
-    assert.equal(cards[0]?.classification, 'resumable');
+    assert.equal(
+      cards[0]?.classification,
+      'incompatible',
+      'without a live backend Project check, recovery must fail closed',
+    );
+    assert.match(
+      cards[0]?.classificationReasons.join(' ') ?? '',
+      /Project folder could not be verified, so resume remains blocked/,
+    );
+    assert.doesNotMatch(cards[0]?.classificationReasons.join(' ') ?? '', /workspace_\w+/);
   });
 
   await check('(p) recovery loader can skip reconcile while a live run is active', async () => {

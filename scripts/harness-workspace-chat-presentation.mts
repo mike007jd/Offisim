@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { runWorkspaceDisclosureMarkupOracle } from '../apps/desktop/renderer/scripts/workspace-disclosure-markup-oracle.js';
+import { formatWorkspaceProvenance } from '../apps/desktop/renderer/src/assistant/presentation/workspace-provenance.js';
 import {
   type PresentationMessage,
   hasVisibleAssistantPayload,
@@ -78,6 +80,12 @@ const scenarios: Array<{
   run: () => ScenarioEvidence;
 }> = [
   {
+    name: 'workspace disclosure -> production display markup keeps complete provenance',
+    criteria:
+      'The production display components wired into RunActivityStrip and MessageItem expose the complete cwd + reason; expanded disclosure is selectable and never uses the generic 22-character summary.',
+    run: runWorkspaceDisclosureMarkupOracle,
+  },
+  {
     name: 'group + preparing + only user live -> exactly 1 pending (Team)',
     criteria:
       'Active group run with only the user message yields exactly one pending row and no assistant shell.',
@@ -131,7 +139,7 @@ const scenarios: Array<{
       assert.equal(r.pending, false);
       assert.equal(r.visibleAssistantCount, 1);
       assert.equal(r.assistantResponseSlots, 1);
-      assert.equal(hasVisibleAssistantPayload(merged[1]!), true);
+      assert.equal(merged[1] ? hasVisibleAssistantPayload(merged[1]) : false, true);
       return { ...r, visibleIds: r.visible.map((m) => m.id) };
     },
   },
@@ -180,6 +188,42 @@ const scenarios: Array<{
     },
   },
   {
+    name: 'completed recovered workspace -> reload keeps full cwd + reason visible',
+    criteria:
+      'A durable workspace disclosure is real assistant payload: after reload it remains one visible turn with the complete path and recovery reason, without a synthetic pending row.',
+    run: () => {
+      const workspaceProvenance = {
+        availability: 'bound' as const,
+        source: 'known_root_recovery' as const,
+        reasonCode: 'renamed_same_filesystem_object' as const,
+        displayPath: '/Users/alex/Work/renamed-client-project/game',
+      };
+      const persistedAfterReload: PresentationMessage = {
+        id: 'a-workspace',
+        author: 'employee',
+        body: '',
+        workspaceProvenance,
+        attemptId: ATTEMPT,
+      };
+      assert.equal(hasVisibleAssistantPayload(persistedAfterReload), true);
+      const r = render({ phase: 'completed', merged: [boss('u1'), persistedAfterReload] });
+      assert.equal(r.pending, false);
+      assert.equal(r.visibleAssistantCount, 1);
+      assert.equal(r.assistantResponseSlots, 1);
+      assert.deepEqual(r.visible[1]?.workspaceProvenance, workspaceProvenance);
+      const visibleProvenance = r.visible[1]?.workspaceProvenance;
+      assert.ok(visibleProvenance);
+      const disclosure = formatWorkspaceProvenance(visibleProvenance);
+      assert.match(disclosure ?? '', /renamed-client-project\/game/);
+      assert.match(disclosure ?? '', /filesystem identity still matches/);
+      return {
+        visibleIds: r.visible.map((message) => message.id),
+        workspaceProvenance: r.visible[1]?.workspaceProvenance,
+        disclosure,
+      };
+    },
+  },
+  {
     name: 'checkpoint + live draft same id -> 1 row, live draft wins',
     criteria:
       'When a persisted EMPTY checkpoint shell and a live draft share an id, the merge (base→persisted→live order) keeps the live draft, so exactly one real row renders and the empty shell never wins.',
@@ -199,7 +243,7 @@ const scenarios: Array<{
       const sharedRows = merged.filter((m) => m.id === 'a-shared');
       assert.equal(sharedRows.length, 1, 'merge must collapse the shared id to one row');
       assert.equal(
-        sharedRows[0]!.body,
+        sharedRows[0]?.body,
         'live draft text',
         'live draft must win over the empty shell',
       );
@@ -208,7 +252,7 @@ const scenarios: Array<{
       assert.equal(r.visibleAssistantCount, 1);
       assert.equal(r.pending, false);
       assert.equal(r.assistantResponseSlots, 1);
-      return { ...r, mergedBodyForSharedId: sharedRows[0]!.body };
+      return { ...r, mergedBodyForSharedId: sharedRows[0]?.body };
     },
   },
   {
