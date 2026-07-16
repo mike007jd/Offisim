@@ -1,8 +1,14 @@
 # Offisim Multi-Agent Delegation Architecture
 
-> Status: **Phases 1–4 implemented** (delegation, worktree review, and project-gated
+> **Historical API-adapter implementation record (2026-07-16):** the generic
+> delegation/run-tree constraints remain useful, but Pi version, wire version,
+> file path, and single-engine claims below are not current product truth. Use
+> [Desktop runtime architecture](./HARNESS_ARCHITECTURE.md) and current
+> delegation harnesses before changing code.
+>
+> Original status: **Phases 1–4 implemented** (delegation, worktree review, and project-gated
 > loop-until-green). This document is the architectural source of truth for the
-> delegation epic. It records the child-execution decision, the neutral wire
+> delegation epic. It records the original child-execution decision, the neutral wire
 > contract, persistence shape, host-policy limits, and the reason we stay on the
 > pinned Pi version.
 >

@@ -1,5 +1,9 @@
 # Office Toy Performance — Requirements Package
 
+> **Historical / superseded (2026-07-16):** completed delivery requirement
+> package. Use the [current Codex-alignment tasks](./2026-07-13-ui-ux-consistency-pass/tasks.md),
+> [Office art bible](../design/office-art-bible.md), and current Office harnesses.
+
 ## Current Time Baseline
 - Checked at: 2026-07-09.
 - Purpose: 把 2026-07-09 grill-me 会话拍板的 Office 表现层大改（决策记录：`plan-office-toy-performance-overhaul.md`）落成可执行需求包。

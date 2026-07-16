@@ -1,5 +1,9 @@
 # Dramaturgy Required-State Coverage Matrix (I7)
 
+> **Historical / superseded (2026-07-16):** point-in-time coverage matrix. Use
+> the [current Codex-alignment tasks](./2026-07-13-ui-ux-consistency-pass/tasks.md),
+> [feature catalog](../FEATURES.md), and current Office harnesses for acceptance.
+
 Deterministic harness evidence for every state in the PRD "Required State
 Coverage" list (`2026-07-02-production-work-dramaturgy-prd.md`). Each state is
 covered by at least one check that drives the REAL pipeline (`composeBeats` /

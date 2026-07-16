@@ -1,5 +1,10 @@
 # Offisim Real User Live Verify - 2026-06-30
 
+> **Historical evidence only (2026-07-16):** product/runtime assertions below
+> describe the 2026-06-30 build and are not current truth or release evidence.
+> Use the [current Codex-alignment tasks](./roadmap/2026-07-13-ui-ux-consistency-pass/tasks.md)
+> and [Release Gates](./00_start_here/RELEASE_GATES.md).
+
 ## Summary
 - Objective: run the real-user live verification loop against the current Offisim worktree.
 - Current time: 2026-06-30 21:08:46 NZST.

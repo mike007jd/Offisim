@@ -1,7 +1,8 @@
 # Verified Missions — 整改路线图（post-audit）
 
 Historical archive note (2026-07-01): this was a remediation snapshot and no
-longer represents the active roadmap.
+longer represents the active roadmap. See the
+[current Codex-alignment plan](../roadmap/2026-07-13-ui-ux-consistency-pass/plan.md).
 
 > 状态：**TIER A+B 已落地（确定性层正确性 + marketplace 边界已修，全 release-gates 绿）/ TIER C（live 产品接线）PENDING**
 > 日期：2026-06-26 ｜ 基线：`main@48fc545b`

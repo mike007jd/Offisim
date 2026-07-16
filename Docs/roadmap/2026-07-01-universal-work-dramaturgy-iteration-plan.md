@@ -1,5 +1,9 @@
 # Universal Work Dramaturgy Iteration Plan
 
+> **Historical / superseded (2026-07-16):** completed iteration record. Use the
+> [current Codex-alignment plan](./2026-07-13-ui-ux-consistency-pass/plan.md),
+> [feature catalog](../FEATURES.md), and [Office art bible](../design/office-art-bible.md).
+
 ## Summary
 - Objective: turn the GPT 5.5 Pro report into a deliverable Offisim iteration for a generic, fact-driven work theater.
 - Decision: implement a vertical slice that promotes flow, artifacts, resources, and workload chips to deterministic dramaturgy signals, then render them in the existing 2D/3D Office scene.

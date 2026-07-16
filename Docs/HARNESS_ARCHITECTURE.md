@@ -1,63 +1,72 @@
-# Harness Architecture — Pi Agent Host
+# Desktop AI Runtime Harness Architecture
 
-This document describes the current desktop AI execution path.
+Checked at: 2026-07-16 NZST
 
-## Current Runtime
+This document describes the current production gateway, engine hosts, and the
+gates that prove them. Product/account/session/workspace decisions live in
+[Engine-neutral AI Accounts](./architecture/2026-07-13-engine-neutral-ai-accounts.md).
 
-Offisim has one active AI runtime: Pi Agent.
+## Production route
 
-The desktop renderer uses `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`
-as a thin client. It sends user turns to the Tauri command
-`agent_runtime_execute`, receives Pi session events, and projects them into:
+`apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts` owns the single
+`DesktopAgentRuntimeGateway`. A Turn resolves one account, exact model, billing
+mode, and backend-authorized effective task workspace, then routes to exactly
+one complete adapter:
 
-- assistant-ui message state
-- run/tool telemetry
-- 3D office work-state animation
+- **API** — shipped. The adapter uses the bundled host assembled from
+  `scripts/tauri-pi-agent-host.entry.mjs` and
+  `apps/desktop/src-tauri/src/pi_agent_host/`. Pi SDK types remain an internal
+  implementation detail of this API lane.
+- **Codex subscription** — shipped. The adapter uses
+  `apps/desktop/src-tauri/src/codex_agent_host/` and the bundled official native
+  `codex-app-server` sidecar.
+- **Claude subscription** — pending. No Settings card, label, or compatibility
+  shim counts as support before its full adapter and release proof exist.
 
-The Tauri side lives in `apps/desktop/src-tauri/src/pi_agent_host/`. It starts
-the bundled Node host `apps/desktop/src-tauri/resources/pi-agent-host.mjs`, binds
-the active project workspace as the Pi session cwd, and forwards JSONL events to
-the renderer.
+Both shipped adapters enter through the neutral `agent_runtime_*` Tauri
+commands and project neutral message, tool, approval, usage, and terminal events
+to assistant-ui, activity telemetry, and Office dramaturgy. A run never mixes
+engine lanes.
 
-The Node entrypoint is `scripts/tauri-pi-agent-host.entry.mjs`. It uses the
-official `@earendil-works/pi-coding-agent` SDK:
+## Native state and credential boundary
 
-- `AuthStorage.create()`
-- `ModelRegistry.create()`
-- `SessionManager`
-- `createAgentSession`
+Offisim keeps four layers separate:
 
-SDK source check: npm registry metadata for
-`@earendil-works/pi-coding-agent` shows `0.79.8` as the local pinned
-version, with the package exporting `./dist/index.js` and CLI bin `pi`.
+1. Project folder catalog.
+2. Offisim Conversation and run projection.
+3. Native Agent Home / Session / Memory.
+4. Effective task workspace for one Turn.
 
-Pi owns provider auth, model registry, sessions, compaction, tool loop,
-streaming protocol, and retries. Offisim does not maintain a provider catalog or
-parse model-provider SDK transports.
-
-## Superseded Runtime
-
-The old `packages/core/src/pi-bridge` loop and `packages/pi-ai` /
-`packages/pi-agent` fork have been removed. They must not be recreated or
-reconnected to Settings/chat without a new architecture decision.
-
-The following paths are retired from product runtime:
-
-- Offisim provider/model catalog
-- `ProviderPane`
-- Claude Code SDK sidecar
-- Codex sidecar
-- OpenAI Agents adapter
-- Rust raw LLM transport commands
+API credentials configured in Offisim are sealed behind the desktop secret
+boundary. Subscription login, native sessions, compaction, and global memory
+stay in the engine's own home. The renderer receives safe account/model status,
+opaque native references, and provider-native Usage when available; it never
+receives raw OAuth tokens or native session files.
 
 ## Validation
 
-Active runtime validation is:
+The retained runtime gates are responsibility-based:
 
-- `pnpm harness:review-fixes` — keeps the old lanes/catalog removed
-- `pnpm harness:pi-agent-host` — checks Pi SDK host wiring and release resources
-- `pnpm validate` — combines typecheck, Pi-only guards, Studio placement, and Pi
-  Agent Host checks
+- `pnpm harness:review-fixes` — production gateway, account/model truth,
+  document truth, and product-surface guards.
+- `pnpm harness:runtime-conformance` — engine-neutral execution contract.
+- `pnpm harness:pi-agent-host` — current API-adapter host, execution target,
+  usage, tools, delegation, and release resources.
+- `pnpm harness:codex-app-server-contract` — native Codex artifact, protocol,
+  account/model/Usage projection, stream, approval, Stop, and recovery contract.
+- `pnpm harness:renderer-engine-authority` and
+  `pnpm harness:execution-provenance` — one authoritative engine/account/model
+  identity per Turn.
+- `pnpm validate` — composes those gates with the rest of the product harnesses.
 
-Release evidence still requires the current worktree release `.app` driven by
-Computer Use when desktop behavior changes.
+Release support still requires the exact current-worktree release `.app`, its
+binary/sidecar hashes, matched window identity, and Computer Use interaction.
+Dev webviews and localhost previews are not release evidence.
+
+## Historical boundary
+
+The removed `packages/core/src/pi-bridge` loop, vendored `packages/pi-ai` /
+`packages/pi-agent`, `ProviderPane`, adapter-global model override, raw LLM
+Tauri transport, and provider-profile editor must stay removed. This does not
+ban complete engines or the safe exact model catalog; it prevents a second,
+partial runtime path from bypassing the production gateway.

@@ -1,7 +1,9 @@
 # Second Runtime Pilot — candidate scorecard & go/no-go (M7 / RT2-001..006)
 
-Historical archive note (2026-07-01): this scorecard records a NO-GO decision
-and is not an active runtime roadmap. Pi Agent remains the only shipped runtime.
+Historical archive note (updated 2026-07-16): this scorecard records a past
+NO-GO decision and is not an active runtime roadmap. API and Codex are now
+shipped; Claude remains pending. See
+[Engine-neutral AI Accounts](../architecture/2026-07-13-engine-neutral-ai-accounts.md).
 
 Checked at: 2026-06-25 NZST (candidate SDK capabilities re-verified this date via
 current vendor docs + 2026 comparisons — not memory)

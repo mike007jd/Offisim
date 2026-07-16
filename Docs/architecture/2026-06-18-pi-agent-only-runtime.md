@@ -1,10 +1,9 @@
 # Offisim = Pi Agent GUI + 3D Work Theater
 
-> **Superseded product direction (2026-07-13):** this ADR remains an accurate
-> historical snapshot of the current Pi implementation, but its Pi-only/no-catalog
-> rules are no longer active product constraints. The current target is
-> `2026-07-13-engine-neutral-ai-accounts.md`. Until those adapters ship, the
-> implementation fact remains one live `DesktopPiAgentRuntime`.
+> **Superseded product direction (2026-07-16):** historical Pi-only
+> implementation snapshot. Its Pi-only/no-catalog rules and implementation
+> status are not current. API and Codex engines are shipped; Claude remains
+> pending. Use [Engine-neutral AI Accounts](./2026-07-13-engine-neutral-ai-accounts.md).
 
 Checked at: 2026-06-18 NZST
 SDK registry check: `@earendil-works/pi-coding-agent@0.79.6` was the local pinned

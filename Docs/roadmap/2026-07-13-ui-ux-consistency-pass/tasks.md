@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，12/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
+> 状态：IN PROGRESS，14/17 implemented；T07、T11、T16 尚未闭环，整包 final release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -23,8 +23,8 @@
 | T12 | Chrome、rails、nav、run pill 稳定 | T01 | [x] |
 | T13 | Usage / Cost 单一表达 | T08 | [x] |
 | T14 | Radius、presence、error 视觉语义 | T00 | [x] |
-| T15 | Dead docs 与 gates 收敛 | T01-T14 | [ ] |
-| T16 | Release `.app` 盲测闭环 | T15 | [ ] |
+| T15 | Dead docs 与 gates 收敛 | T00 | [x] |
+| T16 | Release `.app` 盲测闭环 | T01-T15 | [ ] |
 
 ## 全局执行规则
 
@@ -51,7 +51,7 @@
 
 ### Acceptance
 
-- [x] T00 baseline 当时明确只有 `DesktopPiAgentRuntime`；T05 后当前真值已更新为 production `DesktopAgentRuntimeGateway` + 完整 API adapter，内部 Pi host 仅是实现细节，Codex / Claude 仍未写成 shipped。
+- [x] T00 baseline 当时明确只有 `DesktopPiAgentRuntime`；T05 交付 API adapter，T06 随后交付 Codex subscription adapter。当前真值是 production `DesktopAgentRuntimeGateway` + API/Codex 两条互斥完整 engine；内部 Pi host 仅是 API 实现细节，Claude 仍未写成 shipped。
 - [x] 产品目标明确为单一 production gateway + 每 task 一个互斥完整 engine。
 - [x] API 显示 Cost；subscription 显示官方 Usage。
 - [x] Project、Conversation、Native Agent Home/Session/Memory、effective workspace 四层分离。
@@ -532,19 +532,28 @@
 
 ### Acceptance
 
-- [ ] 逐份记录 retain / rewrite / supersede / delete 与替代真源。
-- [ ] T00 的“目标态”按真实完成状态更新，未完成能力不提前写成 shipped。
-- [ ] current docs 统一四层边界、engine-neutral、Cost/Usage、exact model truth。
-- [ ] current docs 统一 Loops 自然语言、Market 用户语言、Office dramaturgy 保留。
-- [ ] 旧 ADR/roadmap/prototype 要么删除，要么带 superseded banner 与当前链接。
-- [ ] repo 搜索无互相冲突的现行 Pi-only/no-catalog/Settings exposes `~/.pi` 断言。
-- [ ] gates 不再锁死 stale approval、实现词或旧产品语言。
-- [ ] screenshots 作为历史证据保留，临时产物清理。
+- [x] 逐份记录 retain / rewrite / supersede / delete 与替代真源。
+- [x] T00 的“目标态”按真实完成状态更新，未完成能力不提前写成 shipped。
+- [x] current docs 统一四层边界、engine-neutral、Cost/Usage、exact model truth。
+- [x] current docs 统一 Loops 自然语言、Market 用户语言、Office dramaturgy 保留。
+- [x] 旧 ADR/roadmap/prototype 要么删除，要么带 superseded banner 与当前链接。
+- [x] repo 搜索无互相冲突的现行 Pi-only/no-catalog/Settings exposes `~/.pi` 断言。
+- [x] gates 不再锁死 stale approval、实现词或旧产品语言。
+- [x] screenshots 作为历史证据保留，临时产物清理。
 
 ### Oracles
 
 - dead-doc ledger、冲突词搜索、link checker。
 - UI hygiene、runtime capabilities、catalog freshness、`pnpm validate`。
+
+### T15 Evidence（2026-07-16 NZST）
+
+- [`document-truth-ledger.md`](../../document-truth-ledger.md) 对 current、scoped contract、历史 ADR/roadmap/prototype、archive、live-verify evidence 与本地产物逐份记录 `REWRITE / RETAIN / SUPERSEDE / DELETE`；五镜头加 skeptic 复核确认没有 tracked doc 或 screenshot 满足安全删除阈值，独有合同、审计链和历史证据全部保留。
+- current docs 已统一为 API + Codex shipped、Claude pending；Pi host 只作为 API adapter 内部实现，不再是产品身份。Project folder catalog、Offisim Conversation、Native Agent Home / Session / Memory、effective task workspace 四层分离，API Cost / subscription Usage 与 exact leaf model provenance 使用同一合同。
+- 25 份历史 Markdown 与 7 份非 canonical HTML prototype 均有醒目的 historical/superseded 标记和 current replacement；canonical Office prototype 明确只承载 visual grammar。所有证据截图保留；ignored 的 `.playwright-mcp/`、`.playwright-cli/`、`feedbacks/`、`output/`、`.DS_Store`、`*.log` 在本 worktree 无 tracked 残留。
+- 新增 `pnpm check:docs-truth`，覆盖 93 份 Markdown 的本地链接、22 个 current source 的持久合同/冲突断言、32 个 superseded record 的 banner/current link，并接入 `harness:review-fixes` 与 `pnpm validate`。
+- 清理前基线 `pnpm build:runtime-deps && pnpm build:pi-agent-host && pnpm build:codex-app-server && pnpm validate` 通过；清理后 `pnpm validate` 全量通过，包含 typecheck、docs truth、runtime/UI/Office/Codex/Pi/native-stage gates 与 Knip。`pnpm harness:review-fixes`、Biome、`git diff --check` 单独复核通过。
+- GitNexus 对比 `codex/offisim-visual-semantics`：59 个文件、104 个文档/脚本索引节点，风险 `low`、受影响执行流程 0；本 task 没有修改现有 function/class/method 行为。
 
 ---
 

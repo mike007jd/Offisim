@@ -1,6 +1,6 @@
 # Feature Catalog
 
-Checked at: 2026-06-26 NZST
+Checked at: 2026-07-16 NZST
 
 This catalog documents the product features that are currently expected to be
 maintained for Offisim 1.0. Each feature entry names the user value, owner
@@ -45,7 +45,9 @@ Data/contracts:
 
 - Active company/project/thread selection lives in renderer UI state and local
   repositories.
-- Pi events are projected into messages, run activity, and scene state.
+- Neutral engine events are projected into messages, run activity, and scene
+  state. The dense HUD and Office dramaturgy remain product behavior, not
+  decorative diagnostics.
 
 Verification:
 
@@ -53,9 +55,9 @@ Verification:
 - release `.app` chat/workbench smoke when UI behavior changes
 - `pnpm check:ui-hygiene`
 
-## Pi Agent Runtime
+## AI Runtime Engines
 
-Purpose: execute real AI work through the bundled official Pi Agent runtime.
+Purpose: execute real AI work through one mutually exclusive engine per Turn.
 
 Owner paths:
 
@@ -63,19 +65,27 @@ Owner paths:
 - `scripts/build-pi-agent-host.mjs`
 - `scripts/harness-pi-agent-host.mjs`
 - `apps/desktop/src-tauri/src/pi_agent_host/`
+- `apps/desktop/src-tauri/src/codex_agent_host/`
+- `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`
 - `Docs/HARNESS_ARCHITECTURE.md`
 
 Data/contracts:
 
-- Pi owns provider auth, model registry, sessions, compaction, tool loop,
-  streaming protocol, retries, and provider errors.
-- Offisim owns cwd binding, desktop event projection, and product persistence.
-- Settings may show Pi status and a single advanced model override; it must not
-  restore an Offisim provider/model catalog.
+- The production gateway ships complete API and Codex subscription adapters;
+  Claude remains pending.
+- Each engine owns its native auth/session/compaction/tool loop. Offisim owns
+  safe account/model metadata, effective-workspace authorization, Conversation
+  persistence, and neutral desktop projection.
+- API accounts show token usage plus actual or clearly estimated Cost.
+  Subscriptions show provider-native Usage/remaining/reset/credits only.
+- Every selectable model retains exact leaf id, source, checkedAt, account
+  ownership, capabilities, and availability.
 
 Verification:
 
 - `pnpm harness:pi-agent-host`
+- `pnpm harness:codex-app-server-contract`
+- `pnpm harness:runtime-conformance`
 - `pnpm build:pi-agent-host`
 - release `.app` launch from exact worktree path
 
@@ -120,9 +130,11 @@ per-project assistant threads. Collaboration lives in its own
 or Mission row, and never bound to a project. UI co-location does not merge the
 two storage/runtime contracts.
 
-Company-channel replies use the host-enforced Pi `collaboration` capability
-(`agent_runtime_collaborate`) with zero tools, no project cwd bind, and no
-`agent_runs` writes. Direct, mentions and roundtable behavior is preserved.
+Company-channel replies use isolated no-tools collaboration. API accounts route
+through `agent_runtime_collaborate`; Codex accounts route through the native
+one-shot host with the same exact-target and isolation rules. Neither path binds
+a project cwd or writes `agent_runs`. Direct, mentions and roundtable behavior
+is preserved.
 `meeting_sessions` remains honest historical storage with no live writer; real
 rows are projected into the Board timeline and never imply scheduling.
 
@@ -136,14 +148,14 @@ Owner paths:
   controller)
 - `packages/core/src/runtime/collaboration/collaboration-service.ts` (domain
   repository over the collaboration tables)
-- `apps/desktop/src-tauri/src/pi_agent_host/mod.rs` (`agent_runtime_collaborate`)
+- API `agent_runtime_collaborate` and the isolated Codex one-shot host
 
 Data/contracts:
 
 - The collaboration aggregate is company-scoped and isolated from Office: no
   `project_id`, no Mission/run, no crossover into the `chatThreads` repository.
-- `agent_runtime_collaborate` must stay tool-free and project-unbound; it must
-  not masquerade as a work runtime.
+- Every collaboration engine path must stay tool-free and project-unbound; it
+  must not masquerade as a work runtime.
 - Calendar and Contacts are local views; they must not imply hosted execution.
 
 Verification:
@@ -192,8 +204,8 @@ Owner paths:
 Data/contracts:
 
 - Loop state lives in `loop_definitions` / `loop_revisions` (immutable) /
-  `loop_skill_bindings` / `loop_invocations` (migration 0005). Save creates a
-  revision and never a Mission, thread, or run.
+  `loop_skill_bindings` / `loop_invocations` in the current prelaunch schema
+  baseline. Save creates a revision and never a Mission, thread, or run.
 - `loop_revisions.compiled_ir_json` is the stored business truth; the graph is a
   pure read-only view and never written back.
 - `loop_invocations` is written only at Office Send materialization (PR-10),
@@ -227,7 +239,8 @@ Owner paths:
 Data/contracts:
 
 - Employees shape context, roster, presentation, skills, and memory.
-- They do not create separate model lanes; AI runtime remains Pi Agent.
+- Employee bindings choose an account-owned exact model through the production
+  gateway; they never create a parallel transport lane.
 
 Verification:
 
@@ -236,27 +249,34 @@ Verification:
 
 ## Settings
 
-Purpose: expose local runtime policy, Pi Agent status/config, MCP servers, and
-external employee setup.
+Purpose: expose AI Accounts, Models, truthful Usage/Cost, local runtime policy,
+MCP servers, and external employee setup.
 
 Owner paths:
 
 - `apps/desktop/renderer/src/surfaces/settings`
 - `apps/desktop/src-tauri/src/pi_agent_host/`
+- `apps/desktop/src-tauri/src/codex_agent_host/`
 - `apps/desktop/src-tauri/src/mcp_bridge`
 - `Docs/UI_FRAMEWORK_STACK.md`
 
 Data/contracts:
 
-- Pi auth/model/session status comes from Pi-owned config paths.
+- API accounts expose sealed local credential status; subscription accounts
+  expose safe native login status without copying raw auth or session files.
+- Models are friendly-name-first safe catalog records backed by exact id,
+  source, checkedAt, capabilities, account ownership, and availability.
+- API shows Cost; subscriptions show only provider-native Usage.
 - MCP is a tool layer, not the main chat/runtime protocol.
-- Settings must not expose old provider catalog, provider freshness, or SDK
-  lane mental models.
+- Settings must not expose auth-file paths, OAuth tokens, SDK lane badges, or
+  runtime implementation names as the product model.
 
 Verification:
 
 - `pnpm harness:review-fixes`
 - `pnpm harness:pi-agent-host`
+- `pnpm harness:ai-account-configuration`
+- `pnpm harness:ai-account-usage`
 - `pnpm check:ui-hygiene`
 
 ## Market

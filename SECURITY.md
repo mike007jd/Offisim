@@ -46,15 +46,20 @@ For Offisim 1.0, the highest-priority reports are:
 Offisim desktop is the 1.0 reference runtime. The webview is not trusted to pick
 credential destinations or arbitrary local execution roots.
 
-- Pi Agent owns provider secrets, model registry, sessions, tool loop, and
-  compaction through `~/.pi/agent/auth.json` and `~/.pi/agent/models.json`.
-  Offisim does not store provider API keys or maintain a provider/model catalog.
-- The Tauri bridge launches the bundled Pi Agent Host, binds the selected
-  project workspace as the session cwd, forwards Pi JSONL events, and filters
-  credential-shaped process output before it reaches the webview.
-- Claude/Codex/OpenAI sidecar lanes are not active in Offisim 1.0. If one
-  returns, it must be a mutually exclusive runtime engine with separate release
-  evidence, not an additional provider lane inside Pi Agent.
+- Each task selects one mutually exclusive engine through the production
+  gateway. Complete API and Codex subscription engines are active; Claude is
+  not shipped until its own adapter and release evidence exist.
+- API secrets configured in Offisim are sealed through the narrow desktop
+  secret boundary. Subscription engines reuse native login state; Offisim does
+  not copy OAuth tokens, native session files, compaction state, or global
+  memory into product storage.
+- The model catalog contains only safe account-owned metadata: exact leaf id,
+  source, checkedAt, capabilities, and availability. It never contains raw
+  credentials. The renderer consumes safe status and opaque native references.
+- Tauri binds the backend-authorized effective task workspace and routes the
+  turn to either the bundled API adapter host or native Codex app-server host.
+  Host output is projected and credential-shaped values are filtered before
+  they reach the webview.
 - Local path open/save, git, and shell commands are scoped to a project
   workspace. Shell execution scrubs inherited environment variables and records
   approval/network-policy metadata. Current network policy is disclosure plus

@@ -40,7 +40,7 @@ Common local entrypoints:
 Offisim does not keep a broad product unit-test suite. Release validation is a
 smaller set of retained gates that must match the risk of the change:
 
-- Pi-only runtime guards and the official Pi Agent Host harness
+- engine-neutral gateway, account/model truth, and engine-specific runtime harnesses
 - aggregated security harnesses for P0/P1 platform, marketplace, local-tool, attachment, registry, and web fetch/search boundaries
 - targeted Rust safety checks for desktop host execution, workspace containment, local shell/git/path commands, and install materialization
 - platform migration generation/drift checks for `apps/platform` / `packages/db-platform`
@@ -49,7 +49,7 @@ smaller set of retained gates that must match the risk of the change:
 
 Do not reintroduce broad `vitest`, Playwright, `pnpm test`, `test:ai`, or ad-hoc
 smoke suites as product gates. Temporary local exploration is allowed, but
-release evidence must name the Pi Agent Host/Rust/platform/build/live
+release evidence must name the relevant runtime/Rust/platform/build/live
 gate that actually proved the behavior.
 
 For desktop release verification, dev webviews, dev servers, localhost browser
@@ -68,7 +68,11 @@ For platform-backed local or deployed usage, the most important Offisim environm
 - `CORS_ORIGINS`
 - `BETTER_AUTH_SECRET`
 
-Provider auth and model configuration are managed by Pi Agent in `~/.pi/agent/auth.json` and `~/.pi/agent/models.json`.
+AI account state is engine-specific. API credentials configured in Offisim are
+sealed behind the desktop secret boundary; subscription engines reuse their
+native login without copying OAuth tokens, sessions, compaction state, or global
+memory. The selectable model catalog stores safe exact-id/source/checkedAt
+metadata rather than raw credentials.
 
 ## Naming Note
 
@@ -80,8 +84,10 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
    Boss, Manager, PM, employees, meetings, queueing, interrupts, resume, and reporting are first-class.
 2. **Execution lives in the user's local runtime.**
    The marketplace is a registry and distribution surface, not the user's execution plane.
-3. **Pi Agent owns AI runtime choice.**
-   Marketplace assets may describe model requirements, but Offisim must not hard-bind the product to one provider, one model, or a second coding runtime.
+3. **One engine owns each task.**
+   The production gateway currently ships complete API and Codex subscription
+   engines; Claude remains pending. A task selects one engine/account/model and
+   never mixes provider or subscription lanes inside a run.
 4. **Packages are declarative and auditable.**
    1.0 does not allow install hooks, postinstall scripts, embedded secrets, or hidden shell bootstrap behavior.
 5. **Desktop is the product environment.**
@@ -136,8 +142,9 @@ Current application/package shape:
 - `Docs/SYSTEM_FRAMEWORK.md` — architecture, runtime layers, persistence, flows, and verification map
 - `Docs/FEATURES.md` — maintained feature catalog with owner paths and gates
 - `Docs/CODEBASE_MAP.md` — package/code ownership map and cleanup rules
-- `Docs/HARNESS_ARCHITECTURE.md` — current Pi Agent Host runtime architecture
-- `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` — active runtime decision record
+- `Docs/HARNESS_ARCHITECTURE.md` — current engine gateway and host validation architecture
+- `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md` — current engine/account/session/workspace decision record
+- `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` — superseded Pi-only implementation history
 
 ### Live contracts (code is the source of truth)
 
@@ -147,7 +154,9 @@ Current application/package shape:
 - Local SQLite schema → `packages/db-local/src/schema.ts` + `packages/db-local/src/schema.sql`
 - Platform Postgres schema → `packages/db-platform/src/schema.ts`
 - A2A JSON-RPC → `packages/core/src/a2a/`
-- Desktop AI runtime → `apps/desktop/src-tauri/src/pi_agent_host/` + `scripts/tauri-pi-agent-host.entry.mjs` (architecture: `Docs/HARNESS_ARCHITECTURE.md`)
+- Desktop AI runtime → `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts` +
+  `apps/desktop/src-tauri/src/{pi_agent_host,codex_agent_host}/` (architecture:
+  `Docs/HARNESS_ARCHITECTURE.md`)
 
 ### Design source files
 

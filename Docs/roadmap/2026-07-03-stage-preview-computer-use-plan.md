@@ -1,5 +1,10 @@
 # Stage Preview + Computer Use Implementation Plan
 
+> **Historical / superseded (2026-07-16):** completed execution ledger, not a
+> current worker instruction or runtime truth source. Use the
+> [current Codex-alignment tasks](./2026-07-13-ui-ux-consistency-pass/tasks.md),
+> [feature catalog](../FEATURES.md), and current release gates.
+
 > **For agentic workers:** Execute with the project's `verified-iteration-loop` (or superpowers:executing-plans). One phase per session; the user runs `/clear` between phases; this document is the cross-session truth. Steps use checkbox (`- [ ]`) syntax for tracking. Update the Progress Ledger at the bottom after every phase.
 
 **Goal:** Extend Stage with two complete capabilities in one delivery: full multi-format preview (replacing text-only assumptions) and a first-class Computer Use surface backed by Cua Driver through Pi/MCP.

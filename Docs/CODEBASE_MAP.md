@@ -1,6 +1,6 @@
 # Codebase Map
 
-Checked at: 2026-06-26 NZST
+Checked at: 2026-07-16 NZST
 
 This map is for maintainers deciding where a change belongs. Keep it aligned
 with package ownership; do not use old audit or plan files as architecture
@@ -46,7 +46,7 @@ Company-channel collaboration and Loops remain isolated from project chat/runtim
 | Company-channel renderer glue | `apps/desktop/renderer/src/surfaces/office/rail/connect/collaboration-data.ts` |
 | Connect no-tools runtime + turn controller | `apps/desktop/renderer/src/runtime/collaboration` |
 | Connect domain repository | `packages/core/src/runtime/collaboration/collaboration-service.ts` |
-| Connect host capability | `agent_runtime_collaborate` in `apps/desktop/src-tauri/src/pi_agent_host/mod.rs` |
+| Connect no-tools host capabilities | API `agent_runtime_collaborate` plus the isolated native Codex one-shot host |
 | Loops editor / library / graph | `apps/desktop/renderer/src/surfaces/mission/loops` (graph in `loops/graph`, `LoopGraphPanel.tsx`) |
 | Loops domain (service, profiles, IR adapter) | `packages/core/src/loops` (+ `packages/shared-types/src/loops/ir.ts`) |
 | Versioned Prompt Enhance | `apps/desktop/renderer/src/assistant/enhance` |
@@ -58,6 +58,7 @@ Company-channel collaboration and Loops remain isolated from project chat/runtim
 | `scripts/release-gates.mjs` | Single source of truth for release gate command list |
 | `scripts/run-clean-release.mjs` | Release evidence runner and desktop build entrypoint |
 | `scripts/build-pi-agent-host.mjs` | Bundles official Pi Agent host and Node runtime into the desktop app |
+| `scripts/prepare-codex-app-server.mjs` / `scripts/check-codex-app-server-artifact.mjs` | Prepare and verify the pinned native Codex sidecar artifact |
 | `scripts/harness-*.mjs` / `*.mts` | Targeted retained harnesses; use only current root `package.json` scripts as release evidence |
 | `scripts/check-*.mjs` | Drift/hygiene checks for UI, platform/Tauri origin coupling, migrations, attachments |
 | `scripts/harness-collaboration-repo-contract.mts`, `scripts/harness-pi-collaboration-runtime.mts`, `scripts/harness-connect-chat-flow.mts` | Connect/collaboration domain, no-tools runtime, and chat-flow harnesses |
@@ -84,8 +85,9 @@ should be deleted/rebuilt from the current baseline.
 | `Docs/SYSTEM_FRAMEWORK.md` | Maintained architecture map |
 | `Docs/FEATURES.md` | Maintained feature catalog |
 | `Docs/CODEBASE_MAP.md` | Maintained package/code ownership map |
-| `Docs/HARNESS_ARCHITECTURE.md` | Pi Agent Host runtime architecture |
-| `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md` | Current engine/account/session/workspace target |
+| `Docs/HARNESS_ARCHITECTURE.md` | Production gateway, engine hosts, and runtime gates |
+| `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md` | Current engine/account/session/workspace decision |
+| `Docs/document-truth-ledger.md` | Current, retained, superseded, and deletion decisions for documentation |
 | `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` | Superseded Pi-only implementation history |
 | `Docs/architecture/2026-06-26-collaboration-domain-boundary.md` | Connect collaboration domain + no-tools runtime ADR |
 | `Docs/architecture/2026-06-26-loop-domain-mission-adapter.md` | Loop IR / immutable revisions / Mission send-time adapter ADR |
@@ -95,7 +97,8 @@ should be deleted/rebuilt from the current baseline.
 | `Docs/00_start_here/DEPLOYMENT.md` | Platform/desktop deployment notes |
 | `Docs/00_start_here/RELEASE_GATES.md` | Release gates and evidence rules |
 | `Docs/UI_FRAMEWORK_STACK.md` | Approved renderer UI framework stack |
-| `Docs/design/` | Surface design prototypes and density notes |
+| `Docs/design/.v3-dna-brief.md` + `offisim-office-layout-v3-prototype.html` | Current V3 design language and canonical specimen |
+| Other `Docs/design/*-prototype.html` files | Historical/reference specimens only when their visible superseded banner says so |
 
 ## Files That Look Disposable But Are Not
 
@@ -130,5 +133,8 @@ Before deleting a tracked document or source file:
 1. Check tracked references with `rg`.
 2. Confirm the file is not listed in `README.md`, `Docs/*`, release scripts, CI,
    or package exports.
-3. Prefer deleting stale process notes over keeping them with warning banners.
-4. Keep current source-of-truth docs short and linked from README.
+3. Delete only when a skeptic pass proves no unique decision, contract, or
+   evidence value; otherwise add a visible historical/superseded banner and a
+   current replacement link.
+4. Record the disposition in `Docs/document-truth-ledger.md` and keep current
+   source-of-truth docs short and linked from README.

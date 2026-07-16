@@ -1,8 +1,8 @@
 # Offisim Codex 对齐盲测收敛计划
 
-> 状态：IN PROGRESS（T00-T05 已完成；整包 final release 验收留在 T16）
-> 时间基准：2026-07-15 AEST（+10:00）
-> 代码基线：`a142000cf360`
+> 状态：IN PROGRESS（14/17 implemented；T07、T11、T16 尚未闭环）
+> 最近核对：2026-07-16 NZST（+12:00）
+> 当前堆叠基线：`2680de58`
 > 执行清单：[tasks.md](./tasks.md)
 > 架构真源：[Engine-neutral AI Accounts](../../architecture/2026-07-13-engine-neutral-ai-accounts.md)
 
@@ -18,7 +18,7 @@
 2. **Conversation 独立存在。** Project 目录被删后，历史仍可读；新 Turn 可在唯一高置信目录继续，并披露实际工作目录，但不得暗改 Projects catalog。
 3. **历史状态不等于 live run。** stale/expired approval 只能作为历史记录，不得制造全局 running、Stop 或占用人员工作态。
 4. **标题两阶段生成。** 首条消息立即形成可读 fallback；首次成功回复后生成同语言的短语义标题；用户手动改名后永久锁定。
-5. **产品层不强调 Pi Agent。** Pi 只是当前实现；生产入口是 engine-neutral gateway，一个 task 互斥选择一个完整 engine。
+5. **产品层不强调 Pi Agent。** Pi host 只是 API adapter 的实现细节；生产入口是 engine-neutral gateway，一个 task 互斥选择一个完整 engine。
 6. **账户与计费分型。** API 账户显示 token 与 actual/estimated Cost；Codex、Claude 等订阅显示官方可证明的 Usage、remaining、reset、credits，不把 token 反算成订阅 cost。
 7. **复用本机原生登录。** Offisim 不复制 OAuth/secret，不做二次登录；原生 session、compaction、global memory 仍归对应 Agent Home。
 8. **模型 catalog 必须真实。** 存储 exact leaf model id、source、checkedAt、availability；普通 UI 以友好名称为主，exact id 下沉到二级信息/诊断。
@@ -40,15 +40,15 @@
 
 | 结论 | 当前事实 | 计划含义 |
 |---|---|---|
-| 当前生产 runtime | `DesktopAgentRuntimeGateway` 是唯一生产入口，当前只注册完整 API adapter；内部 Pi host 只是该 adapter 的实现，不是产品 engine | T05 已交付 API 纵切；Codex / Claude engine 仍分别等待 T06 / T07，禁止冒充已支持 |
+| 当前生产 runtime | `DesktopAgentRuntimeGateway` 是唯一生产入口，已注册互斥的完整 API 与 Codex subscription adapter；内部 Pi host 只是 API adapter 的实现 | T05/T06 已交付；Claude 仍等待 T07，禁止冒充已支持 |
 | Conversation 标题 | 已有首条消息 fallback 与 `title_set_by_user` 锁 | T02 复用现有合同，补首次成功回复后的语义标题 |
 | stale approval | 旧投影可制造 active run | T01 从控制器真源修复，不在按钮层 no-op |
 | Project workspace | T03 已交付后端签发、scope 防伪、内存 capability 与安全历史投影 | T04 只负责 Project folder 缺失后的高置信恢复与明确披露 |
-| Settings | 已以 `AI Accounts / Models / Usage / Cost` 展示当前真实 API 能力；subscription account 尚未交付 | T06-T08 增加真实 Codex / Claude account 后再完成跨账户整合，不预放空壳 |
+| Settings | `AI Accounts / Models / Usage / Cost` 已整合真实 API 与 Codex account；Claude account 不存在 | T08 已交付已验证能力；T07 完成前不预放 Claude 空壳 |
 | UI finding | 原始 15 张截图涵盖 radius、rails、cost、run pill、nav、Market、presence、error 等 | T12-T14 统一收敛并加入 deterministic gates |
 | 最终验收 | 仓库明确只认 release `.app` + Computer Use | dev server、localhost、dev webview 仅用于排查 |
 
-T05 API account 的模型、费率与 Usage 来源已按 2026-07-14 官方资料固化；进入 T06 时已于 2026-07-15 重新核对 Codex 稳定 release、app-server protocol、认证、模型与 Usage 来源，T07-T08 仍须在各自实施时刷新真实日期和官方资料。
+T05 API account 的模型、费率与 Usage 来源已按 2026-07-14 官方资料固化；T06/T08 已于 2026-07-15 至 2026-07-16 重新核对 Codex stable release、app-server protocol、认证、模型与 Usage 来源。T07 实施时仍须刷新 Claude 官方资料。
 
 ## 5. 执行 Waves
 
@@ -90,9 +90,9 @@ T05 API account 的模型、费率与 Usage 来源已按 2026-07-14 官方资料
 - T00 是所有产品方向任务的控制真源前置。
 - T03、T05a、T09、T10、T11、T14 在 T00 后可独立推进。
 - T02 依赖 T05a，禁止在 provenance 不可证明时用全局默认模型伪装“同一 Turn engine/account”。
-- T04 依赖 T03；T06、T07 依赖 T05；T08 依赖 T02、T05-T07；T13 依赖 T08。
+- T04 依赖 T03；T06、T07 依赖 T05；T08 依赖 T02、T05、T06，并只整合已交付 engine；T07 以后按相同账户合同扩展；T13 依赖 T08。
 - T12 依赖 T01，避免 UI 再消费幽灵 live run。
-- T15 必须等 T01-T14 真实行为完成后再把目标态写成 shipped state。
+- T15 只把已经 release-verified 的能力写成 shipped state；T07、T11 等未闭环项必须显式保持 pending，不能靠文档提前完成。
 - T16 是唯一 package 完成门；任何未闭环 finding 都回到所属 task。
 
 ## 7. 反过度工程边界

@@ -1,24 +1,23 @@
 # @offisim/core
 
-Core now holds shared services, repos, data contracts, tools, vault, and legacy
-helpers. It is no longer the product AI runtime owner. Desktop AI execution is
-Pi Agent Host (`apps/desktop/src-tauri/src/pi_agent_host/` +
-`scripts/tauri-pi-agent-host.entry.mjs`), and renderer code must treat
-`DesktopAgentRuntime` as a thin Pi client.
+Core holds shared services, repositories, data contracts, tools, vault, and
+legacy helpers. It is not the product AI runtime owner. Desktop AI execution
+enters through `DesktopAgentRuntimeGateway`; complete API and Codex adapters
+live at the desktop boundary, while Claude remains pending.
 
 ## Gotchas
 
 - `HookRegistry` (**同步串行**, `await emit()` 阻塞流控用) ≠ `EventBus` (**异步 fire-and-forget**, 前缀订阅 UI 推送), 不要合并。pi 运行时常常两个都 emit
 - `Scratchpad` per-runtime 临时存储, 持久化用 `MemoryService`
-- Desktop AI 编排归 Pi Agent Host；core 只保留可审计的本地工具、repo、install、vault 和数据契约。不要在 core 内重建 boss/employee prompt loop。
+- Desktop AI 编排归 engine gateway 与具体 desktop host；core 只保留可审计的本地工具、repo、install、vault 和数据契约。不要在 core 内重建 boss/employee prompt loop。
 - `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 两半独立查询独立截断, 不要加独立 middleware
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
-- 不要在 core 里恢复 Claude/Codex/OpenAI SDK lane、provider catalog、runtime provider profile、或新的模型 transport factory。Pi Agent owns auth/model/session/tool loop.
+- 不要在 core 里另建 engine lane、credential store、session owner 或 model transport factory。账户 catalog 只承载 safe exact-id/source/checkedAt 元数据；raw auth 与 native session/tool loop 归选中的 desktop engine。
 - `read_attachment` 是唯一允许 AI 读 chat attachment 的 builtin：只在 gateway lane 进入 tool pool，执行时必须拿到当前 `companyId + RunScope.threadId`，并且 `vaultRef` 里的 company/thread 必须完全匹配；缺 scope、跨 company、跨 thread 都返回 `attachment-forbidden`，不要 fallback 到全局 store 或 graph thread。
-- Pi runtime 主门禁是 `scripts/harness-pi-agent-host.mjs`。旧 `pi-bridge` / vendored fork 已删除，不可重新接回桌面主路径。
-- Roster、模型选择、session lifecycle、tool loop、stream protocol、compaction 均由 Pi Agent runtime 决定；Offisim 只把 workspace、用户输入、配置路径和事件投影接到桌面壳。
-- Runtime workspace binding SSOT for file/shell tools is the active graph thread's project: carry `threadId` through `ToolCallRequest` into builtin adapters, resolve `graph_threads.project_id` first, then legacy `projects.thread_id`; if selected project has no usable `workspace_root`, emit `workspace-binding.unavailable` once per `(companyId, projectId)` session from the runtime-context layer.
+- API adapter 主门禁是 `scripts/harness-pi-agent-host.mjs`，跨 engine 走 runtime conformance 与各自 host harness。旧 `pi-bridge` / vendored fork 已删除，不可重新接回桌面主路径。
+- Roster/context 由 Offisim 组织；model、native session lifecycle、tool loop、stream protocol 与 compaction 由本 Turn 选中的 engine 决定。Core 不得凭实现细节重建第二套真相。
+- File/shell tools 的 workspace 真源是后端签发、按 company/conversation/turn scope 的 effective task binding。不得从 graph thread、renderer raw path 或 legacy project fallback 推断写入权限；host 与 `project_*` tools 必须解析同一 binding。
 
 ## Data Model & Zones
 
@@ -46,7 +45,7 @@ Pi Agent Host (`apps/desktop/src-tauri/src/pi_agent_host/` +
   - 员工专属：`companies/{cid}/employees/{employeeSlug}/skills/{slug}/SKILL.md`
 - DB 表 `skills` 属于当前单基线 SQLite schema；`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞。repo 三后端：`runtime/repos/skills/{drizzle,memory}.ts` + `tauri-repos/skills.ts`。
 - **唯一 live 安装路径 = marketplace 包导入**：`packages/install-core/src/materializer.ts` 的 `case 'skill'` 写 `skills` DB 行 + vault SKILL.md（自带内联 SKILL.md 解析，独立于已删的 agent 链）。
-- **live 读取路径**：`useEmployeeSkills`（renderer `data/queries.ts`）按 company/employee 两层 scope 读 `skills` 索引并 stat vault 喂 `SkillsTab`；Pi work session 由 `buildDelegationContext` 一次读取 company 索引，将公司级 + 当前员工级 `vault_path` 解析成 `SKILL.md` 路径，经 Rust/Node wire 交给 Pi SDK `DefaultResourceLoader.additionalSkillPaths`。root 用当前员工集合，delegate child 用 roster 中 child 员工集合；SKILL.md 内容仍只由 Pi 从 vault 读取。marketplace publish 读 `repos.skills.listByCompany`。
+- **live 读取路径**：`useEmployeeSkills`（renderer `data/queries.ts`）按 company/employee 两层 scope 读 `skills` 索引并 stat vault 喂 `SkillsTab`；当前 API adapter 由 `buildDelegationContext` 一次读取 company 索引，将公司级 + 当前员工级 `vault_path` 解析成 `SKILL.md` 路径，经 Rust/Node wire 交给其资源加载器。root 用当前员工集合，delegate child 用 roster 中 child 员工集合；SKILL.md 内容仍只由 adapter 从 vault 读取。marketplace publish 读 `repos.skills.listByCompany`。
 - **⚠️ 已删（2026-06-19 `fdc7acdc`，死代码，勿重建）**：`SkillLoader` 三层 progressive disclosure（`listSkillsForEmployee`/`loadSkillBody`/`loadSkillAsset`）、`skill-install-tools.ts`（`create_skill_from_scratch`/`fork_skill`/`edit_skill_body`）、`SkillInstallCommitter`、`skill-staging`、`skill-md.ts`/`skill-slug.ts`/`skill-path.ts`、claude-code/codex/local-sync 同步 resolver。这套「agent 自助装/fork/写/读技能」从没接进 Pi 工具池，整链删除。要重做 agent skill 集成就在上面 live 的 DB/vault 上新建，别复活旧链。
 - 安全原语保留（`scripts/harness-git-source-security.mts` 在 `security:harness` 用）：`skill-source-resolvers/{git,upload,types}.ts` + `tar.ts` + `skill-scanner.ts` + `virtual-tree-utils.ts`（SSRF / zip-bomb / path-traversal 防护）。
 

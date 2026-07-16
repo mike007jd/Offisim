@@ -1,6 +1,6 @@
 # Cleanup Exemptions
 
-Checked at: 2026-07-01 NZST.
+Checked at: 2026-07-16 NZST.
 
 This file records dead-code/dead-doc candidates that were reviewed and should not
 be re-opened as deletion targets without new evidence.
@@ -24,7 +24,7 @@ API until a separate downstream review proves otherwise.
 | Candidate | Decision | Evidence |
 |---|---|---|
 | Tauri command names, permission allowlists, and renderer `invoke(commandName)` paths | Keep | These are runtime string contracts rather than import graph edges; deleting by grep would miss registered commands and permission entries. |
-| `apps/desktop/src-tauri/resources/**` | Keep | Generated Pi Agent host resource is bundled by Tauri release config and verified by `pnpm harness:pi-agent-host`; `knip.json` intentionally ignores it. |
+| `apps/desktop/src-tauri/resources/**` and engine sidecar binaries | Keep | Generated API host resources and the pinned Codex sidecar are bundled by Tauri release config and verified by engine-specific harnesses; `knip.json` intentionally ignores generated release artifacts. |
 | DB schema baseline | Keep | `local_db.rs` uses `include_str!` for `schema.sql`; historical local migration SQL was removed after confirming Offisim has no launched user-data upgrade contract. |
 | `packages/renderer` | Keep | It is pure shared renderer logic used by desktop renderer and platform, not a standalone web product or shared visual UI package. |
 | Historical second-runtime scorecard and inert-storage ledger | Archive/keep | The scorecard is historical NO-GO evidence and was moved out of the active architecture path. Inert SQLite tables remain documented until a deliberate baseline cleanup removes or rewires them. |

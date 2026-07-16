@@ -1,5 +1,10 @@
 # Offisim Agent Workspace Requirements Package
 
+> **Historical / superseded (2026-07-16):** research/evidence package retained
+> for provenance. Its Pi-only/no-catalog conclusions are not current. Use the
+> [current Codex-alignment plan](./2026-07-13-ui-ux-consistency-pass/plan.md) and
+> [engine-neutral workspace decision](../architecture/2026-07-13-engine-neutral-ai-accounts.md).
+
 ## Current Time Baseline
 - Checked at: 2026-07-03 23:38 NZST.
 - Purpose: collect the product issues shown in the 2026-07-03 live screenshots and turn them into a requirements package.
