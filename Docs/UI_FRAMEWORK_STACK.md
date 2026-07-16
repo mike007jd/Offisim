@@ -2,7 +2,10 @@
 
 Last updated: 2026-07-13
 
-This is the source of truth for new Offisim desktop UI work. The design source remains `Docs/design`; when a prototype conflicts with the V3 DNA brief or a retired product surface, treat the V3 DNA brief as authoritative and retire the stale prototype language instead of restoring old UI.
+This is the source of truth for new Offisim desktop UI work. The canonical
+design source is `Docs/design/.v3-dna-brief.md` plus the Office V3 specimen.
+Other HTML prototypes with a visible superseded banner are historical reference
+only; current production code and the active task package own their behavior.
 
 ## Product Direction
 

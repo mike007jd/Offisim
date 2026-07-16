@@ -42,6 +42,10 @@ assert(
   'The architecture guard must validate dynamic Pi configuration without a closed-world catalog.',
 );
 assert(
+  rootPackage.scripts['harness:review-fixes'].includes('check:docs-truth'),
+  'The architecture guard must reject stale current docs and broken replacement links.',
+);
+assert(
   rootPackage.scripts['harness:review-fixes'].includes('harness:visual-semantics'),
   'The review gate must verify radius, presence, and error semantics.',
 );

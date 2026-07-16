@@ -30,8 +30,10 @@ pnpm install
 
 `.env.local` notes:
 
-- Pi Agent owns provider auth/model registry/session state. Offisim no longer
-  reads provider keys from `.env.local` or maintains a provider-source catalog.
+- AI provider keys are not read from `.env.local`. Configure API providers in
+  the desktop AI Accounts surface; Pi writes them to its own
+  `~/.pi/agent/models.json` and returns only safe summaries. External CLI
+  orchestration reuses CLI-owned login without copying OAuth/session files.
 - Platform-backed features (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `CORS_ORIGINS`)
   are only required if you run `apps/platform`.
 
@@ -65,12 +67,13 @@ pnpm --filter @offisim/desktop build
 The release bundle for live verification is the exact worktree path
 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`.
 
-## Pi Agent runtime (desktop)
+## AI runtime engines (desktop)
 
-AI execution goes through the Pi Agent Host bundled with the Tauri app. Offisim
-passes the active project workspace as the Pi session cwd and projects Pi
-events into chat/3D state. Provider auth, models, sessions, and compaction stay
-inside Pi-owned storage.
+AI execution goes through one neutral desktop gateway. The Pi API engine and
+Codex CLI orchestration adapter are implemented; Claude Code remains pending.
+Each Turn binds one backend-authorized effective workspace and one engine lane.
+Pi additionally binds a configured API account/model; external CLI login, model
+choice, sessions, compaction, and global memory remain in the CLI's own home.
 
 ## Local SQLite
 

@@ -44,7 +44,7 @@ Stage verdict: `confirmed-prelaunch`.
 
 Implication: agents must not add or preserve migrations, compatibility layers,
 fallback paths, or minimal patching for old local state. Real security,
-external API/package, Pi wire, MCP, project-file sandbox, and release `.app`
+external API/package, engine wires, MCP, project-file sandbox, and release `.app`
 validation boundaries still require explicit oracles before changing.
 
 ## Retained Boundaries
@@ -53,7 +53,8 @@ These are real product contracts unless a narrower loop proves otherwise:
 
 - Current local SQLite baseline (`schema.sql` + the `LOCAL_SCHEMA_VERSION`
   constant in `local_db.rs` — the constant is the truth source).
-- Pi Agent JSONL wire, Pi-owned `~/.pi/agent/auth.json`, and Pi `models.json`.
+- Current engine wire/protocol contracts, sealed API secret references, native
+  external CLI auth/session boundaries, and safe dynamic API model metadata.
 - MCP bridge, grants, approval status, and risk classification.
 - `offisim://install`, `.offisimpkg`, package integrity, and install receipt
   semantics.
@@ -79,7 +80,7 @@ Treat these as discovery triggers, not automatic delete permission:
 1. Treat Offisim as confirmed prelaunch until a future release-readiness loop
    records public-launch evidence.
 2. Retain only explicit protected boundaries: security, external API/package
-   contracts, Pi/MCP wire, project-file sandboxing, and release `.app` behavior.
+   contracts, engine/MCP wire, project-file sandboxing, and release `.app` behavior.
 3. Prelaunch cleanup favors direct product truth over compatibility theater.
    Collapse false layers; do not replace them with new abstraction layers.
 4. Complete delivery beats MVP. An implementation is not done because it compiles

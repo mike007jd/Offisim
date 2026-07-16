@@ -1,5 +1,9 @@
 # 外壳 + 形象 Lane(与 P3 任务板编排并行)
 
+> **Historical / superseded (2026-07-16):** 已交付 lane 的过程记录，不是当前
+> shell、状态或 runtime 真源。当前验收见 [Codex 对齐 tasks](./2026-07-13-ui-ux-consistency-pass/tasks.md)、
+> [V3 DNA](../design/.v3-dna-brief.md) 与维护文档。
+
 日期:2026-07-12。状态:已拍板,与 `feat/p3-task-board-orchestration` 并行推进,零文件冲突。
 上位文档:`2026-07-11-vibe-coding-company-roadmap.md`(行业基线 2026-07-11 已核对,本文不重查)。
 

@@ -27,14 +27,15 @@ when the list changes.
 
 | Gate | Command | Proves |
 |------|---------|--------|
-| Types | `pnpm typecheck` | all 21 workspace packages compile (`tsc --noEmit`) |
-| Validate | `pnpm validate` | `typecheck` + Pi-only runtime guards + Studio placement + Pi Agent Host harness |
-| Pi-only runtime guards | `pnpm harness:review-fixes` | old provider catalog, ProviderPane, Claude/Codex/OpenAI SDK lanes, and raw LLM Tauri commands stay removed |
-| Pi Agent Host | `pnpm harness:pi-agent-host` | official Pi SDK host wiring, Pi AuthStorage/ModelRegistry status path, release resources, and validate script shape |
+| Validate | `pnpm validate` | types plus product/document truth, Pi API/Codex orchestration hosts, runtime, workspace, UI, security-boundary, and dead-code harnesses |
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
-| Desktop Rust | `cargo test` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db baseline/refusal behavior |
 | Supply chain | `pnpm audit:prod` | no unresolved high/critical advisories in the prod tree; the script pins `pnpm@11.13.0` for npm's current Bulk Advisory API while the build toolchain remains on pnpm 10 (transitive highs are pinned via root workspace overrides) |
+| Desktop Rust | `cargo test --locked` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db baseline/refusal behavior |
+
+`node scripts/release-gates.mjs --lane=node` runs only the first four Node gates
+and never prepares or invokes Cargo. `--lane=rust` runs only Desktop Rust;
+omitting `--lane` runs both lanes.
 
 ## Build gates (desktop release)
 
@@ -63,14 +64,16 @@ pnpm platform:auth-harness      # auth boundary harness (also run inside securit
 
 | Area | Command |
 |------|---------|
-| Pi Agent host / runtime cutover | `pnpm harness:pi-agent-host` |
+| Production gateway / cross-engine behavior | `pnpm harness:runtime-conformance`, `pnpm harness:renderer-engine-authority`, `pnpm harness:execution-provenance` |
+| API adapter host | `pnpm harness:pi-agent-host` |
+| Codex orchestration host | `pnpm harness:codex-app-server-contract` |
 | Doc-engine parsers | `pnpm harness:doc-engine` |
 | Chat attachments | `pnpm harness:chat-attachment-roundtrip` |
 
 The full harness inventory is the `harness:*` scripts in the root
-`package.json`. LangGraph-era and self-owned provider/model runtime gates are
-not release evidence for the current product route; Pi Agent Host is the active
-runtime gate.
+`package.json`. LangGraph-era or partial provider lanes are not release
+evidence. The neutral gateway plus the selected engine-specific host gate are
+the active runtime proof.
 
 ## Release `.app` live verification (required for desktop runtime behavior)
 
@@ -93,7 +96,7 @@ the bundle id).
 
 ## Evidence rule
 
-Release evidence must name the specific gate (Pi Agent Host harness,
+Release evidence must name the specific gate (gateway/engine harness,
 Rust check, platform drift, build, or live `.app` observation) that actually
 proved the behavior. Do not reintroduce broad `vitest` / Playwright / `pnpm
 test` suites as product gates.

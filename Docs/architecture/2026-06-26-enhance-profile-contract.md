@@ -1,9 +1,9 @@
 # Versioned Prompt Enhance profile contract
 
-Checked at: 2026-06-26 NZST
+Checked at: 2026-06-26 NZST; engine boundary refreshed 2026-07-16 NZST
 Status: accepted (PR-06)
-Scope: a versioned, context-aware Prompt Enhance platform with an isolated Pi
-enhance path. Does **not** change the work runtime, Missions, the Loop compiler,
+Scope: a versioned, context-aware Prompt Enhance platform with an isolated
+same-engine text job. Does **not** change the work runtime, Missions, the Loop compiler,
 or any persistence — Enhance only rewrites text the user is about to use.
 
 ## Decision
@@ -11,8 +11,9 @@ or any persistence — Enhance only rewrites text the user is about to use.
 Prompt Enhance is a single platform with named, versioned profiles
 (`office_instruction`, `collaboration_message`, `loop_design`). Each surface calls
 Enhance with its profile; the enhanced text is validated against protected spans
-before it is returned; and the enhance call runs on an isolated Pi path with no
-tools and no persistence.
+before it is returned; and the enhance call runs through the Turn's frozen
+engine/account/model identity with no tools, workspace resources, native session
+persistence, or product writes.
 
 ## Context
 
@@ -33,9 +34,10 @@ drifting behavior. The design pins three things:
   protected spans survive verbatim; if they would be altered, the result is
   rejected rather than silently mangled. This is what lets Enhance preserve a Loop
   chip (PR-10) and a Connect mention.
-- **Isolated, no-persistence Pi path.** Enhance is a one-shot text transform, not
-  work. It runs on an isolated Pi enhance path with no tools, no project bind, and
-  no persistence — it must not write threads, runs, or any product state, and must
+- **Isolated, no-persistence engine job.** Enhance is a one-shot text transform,
+  not work. It uses the frozen source execution identity with no tools, project
+  bind, native session persistence, or product writes — it must not write threads,
+  runs, or any product state, and must
   not masquerade as a work runtime (the same boundary as the Connect collaboration
   runtime).
 

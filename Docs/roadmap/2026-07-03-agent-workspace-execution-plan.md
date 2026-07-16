@@ -1,5 +1,10 @@
 # Agent Workspace — Execution Plan (verified-iteration-loop)
 
+> **Historical / superseded (2026-07-16):** completed implementation plan. Its
+> Pi-only and Project-scopes-Conversation assumptions are not current. Use the
+> [current Codex-alignment plan](./2026-07-13-ui-ux-consistency-pass/plan.md) and
+> [engine-neutral workspace decision](../architecture/2026-07-13-engine-neutral-ai-accounts.md).
+
 Companion to `2026-07-03-agent-workspace-requirements-package.md`. Dependency-ordered
 implementation backlog derived from a Phase-A parallel deep-read (6 clusters,
 file:line evidence). Every phase closes with `/simplify xhigh` + `codex:review`

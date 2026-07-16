@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，10/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
+> 状态：IN PROGRESS，15/17 implemented；T07、T16 尚未闭环，整包 final release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -14,17 +14,17 @@
 | T03 | 后端签发 effective task workspace | T00 | [x] |
 | T04 | 缺失 Project 目录自主恢复 | T03 | [x] |
 | T05 | 生产 engine gateway 与 API account | T00 | [x] |
-| T06 | Codex CLI 编排适配器 | T05 | [ ] |
+| T06 | Codex CLI 编排适配器 | T05 | [x] |
 | T07 | Claude Code CLI 编排适配器 | T05 | [ ] |
-| T08 | AI Accounts / Models 设置整合 | T02,T05,T06,T07 | [ ] |
+| T08 | AI Accounts / Models 设置整合 | T02,T05,T06 | [x] |
 | T09 | Loops 自然语言主流程 | T00 | [x] |
 | T10 | Market 用户语言与空状态 | T00 | [x] |
-| T11 | Personnel Danger Zone | T00 | [ ] |
+| T11 | Personnel Danger Zone | T00 | [x] |
 | T12 | Chrome、rails、nav、run pill 稳定 | T01 | [x] |
 | T13 | Usage / Cost 单一表达 | T08 | [x] |
 | T14 | Radius、presence、error 视觉语义 | T00 | [x] |
-| T15 | Dead docs 与 gates 收敛 | T01-T14 | [ ] |
-| T16 | Release `.app` 盲测闭环 | T15 | [ ] |
+| T15 | Dead docs 与 gates 收敛 | T00 | [x] |
+| T16 | Release `.app` 盲测闭环 | T01-T15 | [ ] |
 
 ## 全局执行规则
 
@@ -47,15 +47,15 @@
 
 ## T00 — 当前控制真源
 
-**结果：** 文档诚实区分当前 Pi 实现与 engine-neutral 产品目标，后续 Accounts / Models / subscription engine 不再被 dead rules 阻断。
+**结果：** 文档诚实记录 Pi API 引擎、Codex CLI 编排 adapter 与 Claude Code pending，不再用旧 Pi-only 或订阅账户叙述阻断当前架构。
 
 ### Acceptance
 
-- [x] T00 baseline 当时明确只有 `DesktopPiAgentRuntime`；T05 后当前真值已更新为 production `DesktopAgentRuntimeGateway` + 完整 API adapter，内部 Pi host 仅是实现细节，Codex / Claude 仍未写成 shipped。
-- [x] 产品目标明确为单一 production gateway + 每 task 一个互斥完整 engine。
-- [x] API 显示 Cost；subscription 显示官方 Usage。
+- [x] 当前真值是 production `DesktopAgentRuntimeGateway` + Pi API engine + Codex CLI 编排 adapter；Claude Code 仍为 pending。
+- [x] Pi API 与外部 CLI 编排可以并存；每个 run 只走一个 engine lane，外部 CLI 不伪装成 Pi provider。
+- [x] API 显示 token/Cost；编排任务只显示 token/时长与“订阅内 · 无 API 成本”。
 - [x] Project、Conversation、Native Agent Home/Session/Memory、effective workspace 四层分离。
-- [x] exact model id / source / checkedAt 与友好 UI 名称分层。
+- [x] Pi API 使用动态 exact model id，用户 source 可选、官方 source/checkedAt 严格；外部 CLI 模型归 CLI 自管。
 - [x] release、sandbox、prelaunch、Tauri-only 门禁未削弱。
 
 ### Evidence
@@ -291,29 +291,29 @@
 
 ---
 
-## T07 — Claude subscription 完整 engine
+## T07 — Claude Code CLI 编排适配器（pending，#69）
 
-**结果：** 本机已登录 Claude Code 的用户无需二次登录，可选择 Claude 完成完整 task；Usage 只按 Anthropic 官方可证明口径显示。
+**结果：** 尚未接入。#69 将按外部 CLI 编排口径实现，当前 UI、文档和门禁都不得写成 shipped。
 
 ### Scope
 
-- 使用当前官方 CLI / 本机 surface 发现账户与执行能力。
-- Claude 作为互斥完整 engine，不经 Pi OAuth provider lane 冒充订阅。
-- 原始 auth、session、compaction、global memory 归 Claude Agent Home。
+- 检测本机 Claude Code CLI 安装、登录和版本，提供官方指引。
+- 经 production gateway spawn CLI、绑定 workspace、接收过程事件流并支持 Stop；不作为 Pi provider。
+- 凭据、模型、session、compaction、global memory 与订阅用量归 Claude Code 自管。
 
 ### Acceptance
 
-- [ ] 安全发现已登录状态，未登录时给原生指引。
-- [ ] 完成 stream/tool/approval/Stop/recovery 与文件 workspace。
-- [ ] 有官方 plan Usage 时显示真实 remaining/reset；没有时显示 unavailable。
-- [ ] 第三方 harness extra usage 与 Claude subscription Usage 隔离。
+- [ ] 安全发现安装/登录/版本状态，未就绪时给官方指引。
+- [ ] 完成 spawn、过程事件流、tool/approval/Stop/recovery 与文件 workspace。
+- [ ] 模型选择与凭据留在 Claude Code；Offisim 不建模型 catalog、账户健康或订阅 Usage 页。
+- [ ] 任务只记录 CLI 返回的 token 与时长，并标“订阅内 · 无 API 成本”。
 - [ ] 不读取、复制、展示或持久化原始 auth secret。
 - [ ] 不可用时不静默切换其他 engine。
 - [ ] release `.app` 有真实 Claude task 证据。
 
 ### Oracles
 
-- 实施时重查 Claude Code 官方 CLI / subscription 文档。
+- 实施时重查 Claude Code 官方 CLI / 编排协议文档。
 - live Claude task + secret scan + runtime conformance。
 
 ---
@@ -370,7 +370,7 @@
 - 默认 `general-work` profile 保留用户步骤、退出、反馈循环、显式重试次数与条件式求助；实测修改描述后旧 graph 标记 Stale、Save/Run 同时阻断，更新后从 7 节点 v1 正确变为含新增验证步骤的 8 节点 v2。
 - fresh-state release 盲测实际捕获并修复三类 blocker/slop：WebView `Buffer` 保存崩溃、重开已保存版本仍可重复 Save、`stop after …` 被误判为 action；同时覆盖 `failed reviews` 等任务语言重试单位。
 - 最终两轮零发现：轮次一正确生成 `failed reviews → ×2`、保存并启动；轮次二正确生成 `stop after the draft is ready` 退出条件和 `if any source is unavailable` 求助边，无伪造重试次数，保存并启动。Runs 仅展示真实 `loop_invocations`。
-- 最终 release `.app` 可执行文件 SHA-256 为 `884b92c3f6dbcc6b0030623ab65386f72631340a52e8c9204670d1d4147a98ab`；Codex sidecar SHA-256 为 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
+- 最终 release `.app` 可执行文件 SHA-256 为 `884b92c3f6dbcc6b0030623ab65386f72631340a52e8c9204670d1d4147a98ab`；同批次记录的 Codex sidecar hash 仅属纠偏前历史证据，不代表当前包仍含 Codex 二进制。
 - `harness:loop-authoring-flow` 19/19、typecheck 21/21、强制 `@offisim/desktop` release build 与 bundle check 已通过；full `pnpm validate`、UI/dead-code gates 与 GitNexus change detection 在提交前复核。
 
 ---
@@ -401,7 +401,7 @@
 - Endpoint 与 Access token 只保留在 Settings → Advanced connections，并支持保存 endpoint override、替换或清除安全 token；Market 只显示连接结果和任务入口。
 - `harness:market-surface` 10/10 覆盖离线本地搜索、状态文案、工具栏结构、查询透传和技术术语边界；renderer production build、typecheck、UI drift gate 均通过。
 - 两轮精确 release `.app` 盲测零发现：分别使用两个独立临时 HOME 直接执行 bundle 内二进制，从零创建公司并覆盖 Browse / Installed / Updates / Published、离线搜索、发布审核与 Advanced connection；未通过 LaunchServices 猜 bundle，未触达原 `~/.offisim`。
-- release `.app` 可执行文件 SHA-256 为 `8d9d903384f1e502438c493bde5dfc6e22f93744b659595f1805b66a81f15ec4`；Codex sidecar SHA-256 为 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
+- release `.app` 可执行文件 SHA-256 为 `8d9d903384f1e502438c493bde5dfc6e22f93744b659595f1805b66a81f15ec4`；同批次记录的 Codex sidecar hash 仅属纠偏前历史证据，不代表当前包仍含 Codex 二进制。
 
 ---
 
@@ -411,16 +411,21 @@
 
 ### Acceptance
 
-- [ ] 正常编辑视图 Save 是唯一主动作。
-- [ ] Delete 可发现但不与 Save 同权重。
-- [ ] 确认明确对象，取消无副作用，不增加多层权限戏剧。
-- [ ] 删除后 selection、列表、Office projection 和历史引用正确。
-- [ ] 保存、取消、删除均可键盘与辅助功能完成。
+- [x] 正常编辑视图 Save 是唯一主动作。
+- [x] Delete 可发现但不与 Save 同权重。
+- [x] 确认明确对象，取消无副作用，不增加多层权限戏剧。
+- [x] 删除后 selection、列表、Office projection 和历史引用正确。
+- [x] 保存、取消、删除均可键盘与辅助功能完成。
 
 ### Oracles
 
 - employee save/delete、employee-version-on-save、Office projection harness。
 - T16 使用临时员工覆盖保存、取消删除、确认删除。
+
+### T11 Evidence（2026-07-16 NZST）
+
+- #63 的实现随 #66 合入 `main@c009065e`；`harness:personnel-danger-zone` 10/10，并覆盖 Save-only 日常操作、可访问 Danger Zone、明确对象、Cancel 无副作用与防双击。
+- 两个隔离 HOME 的 release `.app` 已完成真实删除、邻近员工选择、Office TEAM 投影、SQLite foreign key 与重启持久化检查；canonical evidence 记录于 `d0ee7c74`。
 
 ---
 
@@ -451,7 +456,7 @@
 - `harness:chrome-stability` 10/10、renderer production build、renderer typecheck、UI drift 和整组 `harness:review-fixes` 通过。UI hygiene 没有新增 T12 finding；当前失败仍仅来自已归入 T14 的 Terminal、Browser 与 OfficeScene2D 裸视觉值。
 - 两轮精确 release `.app` 使用独立 HOME `/private/tmp/offisim-t12-fresh-a.Nll7MB` 与 `/private/tmp/offisim-t12-fresh-b.d2Hiuh`，均直接执行 bundle 内二进制，从零创建公司并覆盖四种 rail 组合、idle/无 Stop、Settings 激活态和六个 surface 名称；未通过 LaunchServices 猜 bundle，未触达原 `~/.offisim`。
 - Computer Use 附着前核验窗口身份：`windowId=10873`、`pid=18089`、title `Offisim`、bounds `x=36 y=33 width=1440 height=888`。T16 仍按 oracle 补足精确 `1440×900`、`1024×700` 与真实 live run 状态矩阵。
-- release `.app` 可执行文件为 32,717,104 bytes，SHA-256 `e83ba5604538d900476cdd2e156c7b94ac74c7e29ef63e69b9988893c1b74aa3`；Codex sidecar SHA-256 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
+- release `.app` 可执行文件为 32,717,104 bytes，SHA-256 `e83ba5604538d900476cdd2e156c7b94ac74c7e29ef63e69b9988893c1b74aa3`；同批次记录的 Codex sidecar hash 仅属纠偏前历史证据，不代表当前包仍含 Codex 二进制。
 
 ---
 
@@ -472,7 +477,7 @@
 
 - run-cost-scope 扩展 billing-mode/provenance fixture。
 - activity-data、settings coordinator gates。
-- T16 覆盖 API / Codex / Claude。
+- T16 覆盖 Pi API 与 Codex；Claude Code 只核对 pending 真相，不伪造 live run。
 
 ### T13 Evidence（2026-07-17 NZST）
 
@@ -512,7 +517,7 @@
 - `harness:visual-semantics` 覆盖五态、offline precedence、真实 `threadToVm` failed 投影、radius 唯一映射、裸 radius 扫描与 error inset；`pnpm validate` 全量通过，包含 typecheck、UI hygiene/drift、Office visual language/diorama、Codex Rust 51/51、Pi host、native stage、deadcode。`pnpm --filter @offisim/desktop build` 与 bundle sidecar 校验通过。
 - 精确 release `.app` 使用隔离 HOME `/private/tmp/offisim-t14-five-state.WfC8Ya`，预置 WORKING / IDLE / BLOCKED / FAILED / OFFLINE 五态并在同一屏完成 Computer Use 验收；disabled + queued fixture 正确显示 OFFLINE。无认证环境发送 `Local visual verification` 只产生本地 `Agent runtime run failed`，未发生外部模型调用；error banner 与消息列内缩视觉一致。
 - 操作前匹配精确 app path、`pid=11207`、`windowId=11783`、title `Offisim`、bounds `x=36 y=33 width=1440 height=879`、WebView URL `tauri://localhost`；全程未使用 bundle id、LaunchServices、AppleScript、dev server 或原 `~/.offisim`，窗口由 Computer Use 关闭。
-- release 主二进制 SHA-256 `08573b4f6149448cad03a8e5030457435ef1586c8ccc6ad68a75856285a5ee19`；Codex sidecar SHA-256 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
+- release 主二进制 SHA-256 `08573b4f6149448cad03a8e5030457435ef1586c8ccc6ad68a75856285a5ee19`；同批次记录的 Codex sidecar hash 仅属纠偏前历史证据，不代表当前包仍含 Codex 二进制。
 
 ---
 
@@ -522,19 +527,29 @@
 
 ### Acceptance
 
-- [ ] 逐份记录 retain / rewrite / supersede / delete 与替代真源。
-- [ ] T00 的“目标态”按真实完成状态更新，未完成能力不提前写成 shipped。
-- [ ] current docs 统一四层边界、engine-neutral、Cost/Usage、exact model truth。
-- [ ] current docs 统一 Loops 自然语言、Market 用户语言、Office dramaturgy 保留。
-- [ ] 旧 ADR/roadmap/prototype 要么删除，要么带 superseded banner 与当前链接。
-- [ ] repo 搜索无互相冲突的现行 Pi-only/no-catalog/Settings exposes `~/.pi` 断言。
-- [ ] gates 不再锁死 stale approval、实现词或旧产品语言。
-- [ ] screenshots 作为历史证据保留，临时产物清理。
+- [x] 逐份记录 retain / rewrite / supersede / delete 与替代真源。
+- [x] T00 的“目标态”按真实完成状态更新，未完成能力不提前写成 shipped。
+- [x] current docs 统一四层边界、engine-neutral、Cost/Usage、exact model truth。
+- [x] current docs 统一 Loops 自然语言、Market 用户语言、Office dramaturgy 保留。
+- [x] 旧 ADR/roadmap/prototype 要么删除，要么带 superseded banner 与当前链接。
+- [x] repo 搜索无互相冲突的现行 Pi-only/no-catalog/Settings exposes `~/.pi` 断言。
+- [x] gates 不再锁死 stale approval、实现词或旧产品语言。
+- [x] screenshots 作为历史证据保留，临时产物清理。
 
 ### Oracles
 
 - dead-doc ledger、冲突词搜索、link checker。
-- UI hygiene、runtime capabilities、catalog freshness、`pnpm validate`。
+- UI hygiene、runtime capabilities、dynamic API catalog、Codex orchestration contract、`pnpm validate`。
+
+### T15 Evidence（2026-07-17 NZST）
+
+- [`document-truth-ledger.md`](../../document-truth-ledger.md) 对 current、scoped contract、历史 ADR/roadmap/prototype、archive、live-verify evidence 与本地产物逐份记录 `REWRITE / RETAIN / SUPERSEDE / DELETE`；五镜头加 skeptic 复核确认没有 tracked doc 或 screenshot 满足安全删除阈值，独有合同、审计链和历史证据全部保留。
+- current docs 已统一为 Pi API engine + Codex CLI 编排 adapter implemented、Claude Code pending。Pi 保留完整 provider/model 编辑；Codex 只做检测、PATH spawn、事件流、Stop/recovery，凭据/模型/订阅用量归 CLI 自管，任务标“订阅内 · 无 API 成本”。Project folder catalog、Offisim Conversation、Native Agent Home / Session / Memory、effective task workspace 四层分离。
+- 25 份历史 Markdown 与 7 份非 canonical HTML prototype 均有醒目的 historical/superseded 标记和 current replacement；canonical Office prototype 明确只承载 visual grammar。所有证据截图保留；ignored 的 `.playwright-mcp/`、`.playwright-cli/`、`feedbacks/`、`output/`、`.DS_Store`、`*.log` 在本 worktree 无 tracked 残留。
+- 新增 `pnpm check:docs-truth`，覆盖全库 tracked Markdown 本地链接、current source 持久合同/旧引擎黑名单、superseded record banner/current link，并接入 `harness:review-fixes`、`pnpm validate` 与 node release lane。
+- `scripts/harness-codex-app-server-contract.mjs` 与 current docs 同步把“用户安装 CLI + 编排适配器”作为真相，并明确防止已删除的内置二进制及账户/模型/用量探测逻辑回潮。
+- GitNexus 在 `main@c009065e` 刷新后确认 production gateway 的影响面为 MEDIUM（8 个直接消费者、13 个总关联、1 个 Runtime 模块）；T15 未修改现有 runtime function/class/method 行为。
+- 最终门禁：`node scripts/check-docs-truth.mjs` 检查 99 个 Markdown、22 个 current sources、32 条 superseded records，退出码 0；`node scripts/release-gates.mjs --lane=node` 的 validate、UI hygiene、security harness、supply-chain audit 共 4 个 gate 全绿，退出码 0，且 node lane 未准备或调用 Cargo。
 
 ---
 
@@ -560,7 +575,7 @@
 - [ ] stale approval / new Turn / live Stop。
 - [ ] immediate fallback / semantic title / manual rename lock。
 - [ ] normal / missing / unique / ambiguous task workspace。
-- [ ] API / Codex / Claude account、model、真实 run、Usage / Cost。
+- [ ] Pi API provider/model/真实 run/Usage/Cost；Codex CLI 状态与真实编排 run/token/时长；Claude Code 明确保持 pending、无伪支持。
 - [ ] Loops 自然语言创建、修改、审阅、运行。
 - [ ] Market、Personnel、chrome、rails、nav、run pill。
 - [ ] radius、presence、error、Office projection 与 dramaturgy。

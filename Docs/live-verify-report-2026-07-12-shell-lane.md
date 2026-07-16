@@ -1,5 +1,9 @@
 # Shell lane live verification — 2026-07-12
 
+> **Historical evidence only (2026-07-16):** this report records a past
+> provider-timeout blocker and does not describe current runtime support or
+> release status. Use the [current Codex-alignment tasks](./roadmap/2026-07-13-ui-ux-consistency-pass/tasks.md).
+
 ## Status
 
 `BLOCKED`: the implementation, automated gates, release build, Board/Game invariant, and split-ratio restart recovery are verified. The final live PiP proof for all five activity families remains blocked because the configured Pi route timed out twice before any tool activity.

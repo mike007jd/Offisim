@@ -6,7 +6,7 @@ Status: API engine and Codex orchestration adapter implemented; the corrected Co
 ## Current implementation truth
 
 Offisim routes production work through `DesktopAgentRuntimeGateway`. The gateway
-registers mutually exclusive `api` and `codex` adapters. `api` executes through
+registers coexisting `api` and `codex` adapters, with one lane owning each run. `api` executes through
 Pi-managed providers. `codex` is an external CLI orchestration adapter: it
 detects the user's Codex installation/login/version, starts `codex app-server
 --stdio`, binds the task workspace, and projects process events. Claude is not a
@@ -16,8 +16,9 @@ as evidence that an engine exists.
 ## Product decision
 
 Offisim is an engine-neutral desktop AI workbench. `DesktopAgentRuntime` is the
-single production engine gateway. Each task selects one complete, mutually
-exclusive engine; a run cannot mix Pi, Codex, Claude, or another lane.
+single production engine gateway. Pi API execution and external CLI orchestration
+coexist behind it; one run uses one engine lane and cannot mix Pi, Codex, Claude,
+or another adapter.
 
 `RuntimeEngineAdapter` is the production gateway SPI. `AgentRuntimeDriver` is a
 separate neutral conformance SPI; passing its harness alone does not place an
@@ -33,8 +34,8 @@ when the selected engine declares support.
 
 | Account | Execution | Primary usage display |
 |---|---|---|
-| API | Complete Pi/provider engine adapter | input/output/cache/reasoning tokens plus actual or clearly estimated cost |
-| Codex CLI orchestration | User-installed Codex CLI/app-server session | task token counts and duration, labelled “subscription-included · no API cost” |
+| Pi API engine | User-configured provider/model executed through the Pi host | input/output/cache/reasoning tokens plus actual or clearly estimated cost |
+| Codex CLI orchestration | User-installed Codex CLI/app-server session | task token counts and duration, labelled “订阅内 · 无 API 成本” |
 | Future external CLI | Engine-owned CLI/session through its own adapter | task process metrics only; no Offisim subscription accounting |
 
 External CLI subscription cost is never inferred from local token counts.
@@ -92,10 +93,10 @@ localhost evidence is insufficient.
 
 The current API-engine release proof is the exact worktree binary SHA-256
 `b62ae06de3280d332b7f5ccc0a180e59fe901b5cfaf85352b1a6ea299693f206`,
-verified on 2026-07-15 AEST from fresh schema v12 through real file tools,
+verified on 2026-07-15 AEST from a fresh current-baseline database through real file tools,
 Ask approval, Stop, restart recovery, and live Usage/Cost rendering.
 
-The earlier 2026-07-16 Codex subscription-engine proof is superseded by the lane
+The earlier 2026-07-16 bundled Codex lane proof is superseded by the lane
 correction in `Docs/roadmap/2026-07-16-engine-lane-correction.md`; it must not be
 reused as evidence for the orchestration adapter. The corrected adapter requires
 the later unified release-app live-verification batch before it can be reported

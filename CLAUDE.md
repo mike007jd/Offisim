@@ -46,14 +46,15 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 
 ## AI Runtime Policy (hard rule)
 
-- Current implementation truth: live chat still assembles
-  `DesktopPiAgentRuntime` behind `DesktopAgentRuntime`. Do not claim Codex or
-  Claude support until the corresponding full engine task and release `.app`
-  evidence exist.
+- Current implementation truth: `DesktopAgentRuntimeGateway` registers the Pi
+  API engine and Codex CLI orchestration adapter. Claude Code is still pending and must not be
+  presented as supported before its full engine task and release `.app` proof.
+  The internal Pi host is an API-adapter implementation detail, not the product
+  identity.
 - Product target: `DesktopAgentRuntime` is the single production engine gateway.
-  Each task selects one complete, mutually exclusive engine. Pi/API engines and
-  Codex/Claude Code external CLI orchestration engines may coexist, but never mix
-  lanes inside one run or masquerade as Pi providers.
+  Pi/API engines and Codex/Claude Code external CLI orchestration adapters may
+  coexist; exactly one engine lane owns a run, and external CLIs never masquerade
+  as Pi providers.
 - Settings is an engine-neutral AI Accounts surface with two sections. API
   engines expose safe Pi-managed provider/model editing; orchestration engines
   expose only CLI install/login/version status and official guidance. External

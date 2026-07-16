@@ -1,5 +1,11 @@
 # Offisim — Codex Functional Test Loop
 
+> **Historical / superseded (2026-07-16):** this 2026-06-20 loop contains stale
+> Pi-only credentials, wire versions, gate counts, provider policy, and a manual
+> verification model that no longer matches the product. Do not execute it as a
+> current test plan. Use [Release Gates](../00_start_here/RELEASE_GATES.md) and
+> the [current Codex-alignment tasks](../roadmap/2026-07-13-ui-ux-consistency-pass/tasks.md).
+
 A self-running, **terminating** functional-test loop for a CLI coding agent (Codex).
 It covers every major Offisim capability with concrete pass/fail assertions, fixes
 root causes, reruns affected scenarios then the whole set, and **stops** on a

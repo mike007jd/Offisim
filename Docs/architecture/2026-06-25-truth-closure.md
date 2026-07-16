@@ -1,5 +1,10 @@
 # Truth Closure: run / artifact / cost / evaluation source-of-truth
 
+> **Partially superseded (2026-07-16):** retained for run/artifact/evaluation
+> decision history. Its single Pi-run and aggregated-token Cost assumptions are
+> not current: API Cost and subscription-native Usage are separate contracts.
+> Use [Engine-neutral AI Accounts](./2026-07-13-engine-neutral-ai-accounts.md).
+
 Checked at: 2026-06-25 NZST; updated 2026-06-29 NZST for MCP audit/runtime
 Status: accepted (Milestone M0, slice VM-001)
 Supersedes the conflicting acceptance assertions corrected below; does **not**

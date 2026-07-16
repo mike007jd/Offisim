@@ -1,5 +1,7 @@
 # Office 表现层大改：玩具胶囊角色 + 状态生态 + 开放地台
 
+> **Historical / superseded (2026-07-16):** 已交付方案的决策记录，不再是当前执行入口。当前验收见 [Codex 对齐 tasks](./2026-07-13-ui-ux-consistency-pass/tasks.md)、[Office art bible](../design/office-art-bible.md) 与现行 Office harness。
+
 > 2026-07-09 grill-me 会话拍板产物（决策记录）。GPT 5.5 Pro 的原始建议只是参考输入，不是圣旨。
 > 已展开为需求包：`2026-07-09-office-toy-performance-requirements.md`（specs + 验收）
 > 与执行计划：`2026-07-09-office-toy-performance-execution-plan.md`（phase/tasks/门禁）——执行以这两份为准。

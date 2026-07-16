@@ -9,7 +9,8 @@ Offisim does not own or bundle pet artwork. It reads valid packages from
 then persists only the selected pet id in Offisim. It never writes to Codex config or pet files.
 
 The companion remains an ambient office projection. It cannot run AI work, mutate projects,
-messages, permissions, or runs, and it never becomes a second runtime beside Pi Agent.
+messages, permissions, or runs, and it never becomes a second runtime beside the
+selected AI engine.
 
 ## Package contract
 

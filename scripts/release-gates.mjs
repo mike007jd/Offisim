@@ -12,8 +12,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // .github/workflows/ci.yml (`--lane=node` on ubuntu, `--lane=rust` on macos).
 // The prose table in Docs/00_start_here/RELEASE_GATES.md describes this list.
 export const RELEASE_GATES = [
-  // `validate` already runs typecheck plus the Pi-only runtime guards, Studio
-  // placement check, and official Pi Agent Host harness.
+  // `validate` already runs typecheck plus product/document truth, Studio,
+  // neutral runtime, and engine-specific host harnesses.
   { name: 'validate', lane: 'node', command: 'pnpm', args: ['validate'] },
   { name: 'ui-hygiene', lane: 'node', command: 'pnpm', args: ['check:ui-hygiene'] },
   { name: 'security-harness', lane: 'node', command: 'pnpm', args: ['security:harness'] },

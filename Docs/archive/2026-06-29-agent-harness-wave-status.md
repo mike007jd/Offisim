@@ -1,7 +1,8 @@
 # Agent Harness Wave Status — 2026-06-29
 
 Historical archive note (2026-07-01): this was a point-in-time implementation
-status note, not a current architecture source of truth.
+status note, not a current architecture source of truth. See the
+[current runtime architecture](../HARNESS_ARCHITECTURE.md).
 
 Source package: `/Users/haoshengli/Downloads/offisim_agent_harness_wave_2026-06-29`.
 

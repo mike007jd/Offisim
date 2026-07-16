@@ -1,6 +1,6 @@
 # System Framework
 
-Checked at: 2026-07-13 AEST
+Checked at: 2026-07-17 NZST
 
 This is the maintained system map for Offisim. It explains what runs where,
 which layer owns each responsibility, and which files are the source of truth
@@ -11,28 +11,29 @@ when the implementation changes.
 Offisim is a local-first desktop product with an optional registry backend.
 
 - The desktop app is the product runtime.
-- Pi Agent is the current bundled engine implementation behind the production
-  `DesktopAgentRuntime` gateway.
+- `DesktopAgentRuntimeGateway` is the only production engine entry. The Pi API
+  engine and Codex CLI orchestration adapter are implemented; Claude Code remains pending.
 - The platform API is registry/auth/install support, not the execution plane.
 - The renderer is internal to the desktop app, not a standalone web product.
 
-Do not restore a standalone launcher, standalone web runtime, parallel provider
-execution plane, ad-hoc Claude/Codex sidecar lane, OpenAI Agents lane, or
-vendored Pi fork as the main runtime path. Engine-neutral Accounts and the exact
-model catalog belong behind the single production gateway defined by the
-current architecture target.
+Do not restore a standalone launcher, standalone web runtime, partial provider
+lane, raw model transport, or vendored runtime fork as a second production
+path. Every engine and the dynamic Pi API model catalog belong behind the
+single gateway defined by the current architecture decision.
 
 ## Runtime Layers
 
 | Layer | Owner paths | Responsibility | Must not own |
 |-------|-------------|----------------|--------------|
-| Desktop renderer | `apps/desktop/renderer` | GUI shell, assistant-ui chat surface, 3D/2D office theater, Settings, Market, Personnel, Activity, Studio, Workspace apps | Provider SDK transports, model catalog freshness, local filesystem reads outside Tauri commands |
-| Tauri shell | `apps/desktop/src-tauri` | Window lifecycle, local SQLite setup, command boundary, workspace sandbox, shell/git/file safety, attachment store, MCP process bridge | AI model/provider logic |
-| Pi Agent host | `scripts/tauri-pi-agent-host.entry.mjs`, `apps/desktop/src-tauri/src/pi_agent_host/` | Runs bundled `@earendil-works/pi-coding-agent`, forwards JSONL events, exposes status, binds cwd/session/config paths | Offisim-specific business persistence or UI state |
-| Local data contracts | `packages/db-local`, `packages/core/src/runtime/repositories.ts` | Company/project/thread/activity/install/vault state and local schema migrations | Provider credentials |
+| Desktop renderer | `apps/desktop/renderer` | GUI shell, assistant-ui, 3D/2D work theater, AI Accounts/Models, Cost/Usage, Market, Personnel, Activity, Studio, Workspace | Raw credentials, native session files, canonical workspace authorization |
+| Production gateway | `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`, neutral `agent_runtime_*` commands | Resolve one engine lane, its applicable API account/model/billing identity, and project neutral events | Mixing engines in one run or accepting renderer-asserted trust roots |
+| Tauri shell | `apps/desktop/src-tauri` | Window lifecycle, local SQLite, command boundary, effective-workspace sandbox, shell/git/file safety, attachment store, MCP process bridge | Renderer-owned product state or unsealed credential projection |
+| API adapter host | `scripts/tauri-pi-agent-host.entry.mjs`, `apps/desktop/src-tauri/src/pi_agent_host/` | Bundled API execution, tools, delegation, stream, provenance, and usage projection | Product identity or a parallel provider-settings surface |
+| Codex orchestration host | `apps/desktop/src-tauri/src/codex_agent_host/` | Detect user CLI/login/version, spawn native app-server, project event stream, session/approval/Stop/recovery, task tokens/duration | Bundling Codex, choosing its model, or copying OAuth/session/global memory |
+| Local data contracts | `packages/db-local`, `packages/core/src/runtime/repositories.ts` | Company/project/conversation/activity/install/vault state and the current prelaunch schema baseline | Raw engine credentials or native Agent Home contents |
 | Package/install contracts | `packages/asset-schema`, `packages/install-core`, `packages/registry-client`, `packages/shared-types` | Declarative package schema, install state machine, registry client validation, shared types | Install hooks, hidden postinstall execution |
 | Scene engine | `packages/renderer` | Office layout, prefab geometry/state, scene tokens shared by renderer surfaces | Product data ownership |
-| Platform API | `apps/platform`, `packages/db-platform` | Auth, creator profiles, marketplace listing/search/review/publish/install support | Desktop execution, local shell/file access, Pi sessions |
+| Platform API | `apps/platform`, `packages/db-platform` | Auth, creator profiles, marketplace listing/search/review/publish/install support | Desktop execution, local shell/file access, native engine sessions |
 | Doc engine | `packages/doc-engine` | Document parsing/render support and harness fixtures | Runtime chat loop |
 
 ## Main Flows
@@ -42,20 +43,21 @@ current architecture target.
 1. User writes in the desktop renderer.
 2. Renderer persists the user turn into local thread state.
 3. Renderer calls the runtime-neutral `agent_runtime_execute` gateway.
-4. Tauri resolves the selected project workspace as cwd and starts the bundled
-   Pi Agent host.
-5. Pi Agent owns model selection, session storage, compaction, tool loop,
-   stream protocol, retries, and provider auth.
-6. Tauri forwards Pi JSONL events to the renderer.
+4. Tauri validates the backend-issued effective task workspace and starts the
+   selected complete API or Codex adapter.
+5. The selected engine owns native model execution, session storage,
+   compaction, tool loop, stream protocol, retries, and native auth.
+6. Tauri forwards the engine's safe neutral event projection to the renderer.
 7. Renderer projects those events into assistant-ui messages, run state,
    activity telemetry, and the office theater.
 
 Source of truth:
 
 - `Docs/HARNESS_ARCHITECTURE.md`
-- `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md` (current target)
-- `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` (historical/current Pi implementation)
+- `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md` (current decision)
+- `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` (superseded history)
 - `apps/desktop/src-tauri/src/pi_agent_host/`
+- `apps/desktop/src-tauri/src/codex_agent_host/`
 - `scripts/tauri-pi-agent-host.entry.mjs`
 - `apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts`
 
@@ -106,19 +108,18 @@ Source of truth:
 
 | Store | Location | Purpose |
 |-------|----------|---------|
-| Local SQLite | Tauri app data, schema in `packages/db-local/src/schema.sql` | Companies, projects, threads, employees, events, install state, vault metadata |
-| Pi Agent files | `~/.pi/agent/` by default | Provider auth, model registry, Pi sessions |
+| Local SQLite | Tauri app data, schema in `packages/db-local/src/schema.sql` | Projects catalog, Offisim Conversations, runs, employees, events, safe account/model metadata, install state, vault metadata |
+| Native Agent Home / Session / Memory | Engine-owned locations | Native auth, session, compaction, global memory; Offisim keeps only opaque refs and safe status |
 | Platform Postgres | `packages/db-platform/src/schema.ts` | Users, creators, listings, versions, reviews, install receipts |
-| Workspace folders | User-selected project roots and Offisim-managed company workspaces | Actual project files and deliverables |
+| Effective task workspace | Backend-authorized canonical folder for one Turn | Actual task files and deliverables without silently rewriting the Projects catalog |
 
 ## Change Rules
 
 - UI changes start from `Docs/UI_FRAMEWORK_STACK.md` and the relevant surface
   under `apps/desktop/renderer/src/surfaces`.
 - Runtime changes start from `Docs/HARNESS_ARCHITECTURE.md` and
-  `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. The current Pi
-  adapter remains the only shipped engine until another complete adapter passes
-  conformance and release `.app` verification; no run may mix engine lanes.
+  `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. API and Codex
+  are shipped; Claude remains pending. No run may mix engine lanes.
 - Desktop command changes must preserve Rust-side workspace containment and run
   `cargo test --locked` in `apps/desktop/src-tauri`.
 - Platform route changes must run platform migration/auth/security gates when
@@ -130,9 +131,10 @@ Source of truth:
 
 | Change area | Minimum gates |
 |-------------|---------------|
-| Docs only | `git diff --check`, relevant grep/reference checks |
+| Docs only | `pnpm check:docs-truth`, `git diff --check` |
 | Renderer UI | `pnpm validate`, `pnpm lint`, `pnpm check:ui-hygiene`, desktop renderer build; release `.app` live verification when behavior changes |
-| Pi Agent host | `pnpm harness:pi-agent-host`, `pnpm build:pi-agent-host`, desktop release build |
+| API adapter host | `pnpm harness:pi-agent-host`, `pnpm build:pi-agent-host`, desktop release build |
+| Codex orchestration host | `pnpm harness:codex-app-server-contract`, desktop release build |
 | Tauri/Rust | `cargo test --locked` in `apps/desktop/src-tauri`, desktop release build |
 | Platform API | `pnpm security:harness`, `pnpm platform:migration:drift` when schema changes |
 | Release-bound change | Full `Docs/00_start_here/RELEASE_GATES.md` core gates plus release `.app` evidence |

@@ -1,5 +1,9 @@
 # Parallel Work Dramaturgy PRD
 
+> **Historical / superseded (2026-07-16):** delivery-era dramaturgy input, not
+> current runtime or UI truth. Use the [current Codex-alignment plan](./2026-07-13-ui-ux-consistency-pass/plan.md),
+> [feature catalog](../FEATURES.md), and [Office art bible](../design/office-art-bible.md).
+
 > Status update, 2026-07-02: this PRD is now the Wave 1 baseline. Most core projection requirements have landed (`workloadSummary`, grouped workload chips, artifact path preservation, terminal issue visibility, dominant issue priority, claimable delivery). New production-stage dramaturgy, renderer, and character-asset requirements live in `Docs/roadmap/2026-07-02-production-work-dramaturgy-prd.md`.
 
 ## Current Time Baseline

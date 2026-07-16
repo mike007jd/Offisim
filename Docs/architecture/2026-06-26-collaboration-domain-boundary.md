@@ -1,18 +1,19 @@
 # Connect collaboration domain boundary
 
-Checked at: 2026-06-26 NZST
+Checked at: 2026-06-26 NZST; engine lanes refreshed 2026-07-16 NZST
 Status: accepted (PR-02 data domain, PR-03 runtime, PR-04/05 surface)
 Scope: a new company-scoped Collaboration aggregate and a host-enforced no-tools
 collaboration runtime. Does **not** change Office project chat (`chat_threads`),
-the Pi work runtime, Missions, or runs.
+the work runtime, Missions, or runs.
 
 ## Decision
 
 Connect (company daily chat — direct, group, contacts) is a separate
 company-scoped data domain with its own tables, not a flag or mode on Office's
-project-scoped `chat_threads`. Connect AI replies run on a dedicated
-host-enforced Pi "collaboration" capability (`agent_runtime_collaborate`) that
-has zero tools, no project cwd bind, and writes no `agent_runs` row.
+project-scoped `chat_threads`. Collaboration replies use an isolated no-tools
+engine path: API accounts call `agent_runtime_collaborate`; Codex accounts use
+the native one-shot host. Both require exact execution identity, bind no project
+cwd, expose no tools, and write no `agent_runs` row.
 
 ## Context
 
@@ -33,12 +34,13 @@ have:
 The boundary is therefore drawn in both the data layer and the runtime layer.
 
 - **Data:** `collaboration_threads` / `collaboration_thread_members` /
-  `collaboration_messages` / `collaboration_read_state` (migration 0004, v4) plus a
-  `collaboration_turns` reply ledger (migration 0006, v6). All company-scoped, no
+  `collaboration_messages` / `collaboration_read_state` plus a
+  `collaboration_turns` reply ledger. These are part of the current prelaunch
+  schema baseline: all company-scoped, no
   `project_id`, never an `agent_runs` / Mission row, never crossing into the
   `chatThreads` repository.
-- **Runtime:** `agent_runtime_collaborate` is a distinct Tauri/host capability,
-  separate from the work execute path. It is tool-free and project-unbound by
+- **Runtime:** each shipped engine has a distinct isolated collaboration path,
+  separate from work execution. It is tool-free and project-unbound by
   construction at the host, so the restriction cannot be lost by a renderer or
   config mistake. A direct / mentions / roundtable turn controller schedules which
   employees speak; the `collaboration_turns` ledger records each reply's lifecycle
@@ -50,7 +52,8 @@ The boundary is therefore drawn in both the data layer and the runtime layer.
 - Office's project chat contract is untouched; the two surfaces stay isolated.
 - A new no-tools runtime path exists and must be kept tool-free and
   project-unbound — it must not be repurposed as a back door work runtime.
-- Two additive migrations (0004, 0006) land in the local DB; both are DDL-only.
+- The tables live in the single current prelaunch schema baseline; no historical
+  local migration chain is retained.
 - Honesty constraint carried forward: Connect's Calendar stays honest-empty
   (`meeting_sessions` is inert, no live writer); collaboration data does not imply
   scheduled or hosted execution.

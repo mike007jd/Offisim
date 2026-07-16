@@ -1,5 +1,9 @@
 # Fable Production Work Dramaturgy Requirements
 
+> **Historical / superseded (2026-07-16):** delivery input retained for design
+> history. Use the [current Codex-alignment plan](./2026-07-13-ui-ux-consistency-pass/plan.md),
+> [feature catalog](../FEATURES.md), and [Office art bible](../design/office-art-bible.md).
+
 ## Current Time Baseline
 - Checked at: 2026-07-02 12:39 NZST.
 - Scope: post-cleanup Offisim desktop Office scene, deterministic work dramaturgy, 2D/3D work theater, and production-grade UI/UX behavior.

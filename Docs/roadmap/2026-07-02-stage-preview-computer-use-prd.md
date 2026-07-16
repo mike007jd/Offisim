@@ -1,5 +1,9 @@
 # Stage Preview + Computer Use PRD
 
+> **Historical / superseded (2026-07-16):** implementation-era PRD, not current
+> runtime/account truth or release proof. Use the [current Codex-alignment tasks](./2026-07-13-ui-ux-consistency-pass/tasks.md),
+> [feature catalog](../FEATURES.md), and current release gates.
+
 ## Current Time Baseline
 - Checked at: 2026-07-02 19:27 NZST; code audit pass 2026-07-03.
 - Audit basis: `builtin_tools.rs`, `WorkspacePanel.tsx`, `StageViewer.tsx`, `ui-state.ts`, `packages/doc-engine`, `shared-types/events/agent-run.ts`, release CSP in `tauri.conf.json`.

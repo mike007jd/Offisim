@@ -1,5 +1,10 @@
 # Vibe Coding 公司模版与生产力 Roadmap
 
+> **Superseded (2026-07-16):** 本文的 Pi-only、no-catalog、Settings 直接映射
+> `~/.pi` 等产品约束已失效，保留仅作需求历史。当前真源是
+> [Codex 对齐计划](./2026-07-13-ui-ux-consistency-pass/plan.md) 与
+> [Engine-neutral AI Accounts](../architecture/2026-07-13-engine-neutral-ai-accounts.md)。
+
 日期:2026-07-11(行业资料按当日核对)。状态:已拍板,待分 phase 执行。
 
 ## 0. 背景与拍板

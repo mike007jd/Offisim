@@ -6,7 +6,7 @@ Status: frozen for GitHub issue #48 on 2026-07-13 (AEST).
 
 Offisim has two distinct Stage lanes:
 
-- Pi Agent activity remains a read-only projection: browser screenshots/pages use `preview` targets and tool output uses `logs` targets.
+- AI engine activity remains a read-only projection: browser screenshots/pages use `preview` targets and tool output uses `logs` targets.
 - User-operated tools are native sessions: `browser-session` and `terminal-session` targets. They are always labelled `You · Manual`, never `Assistant`.
 
 Neither native session is a second agent runtime. A manual PTY starts in the selected project's canonical workspace but retains the signed-in user's normal machine permissions; this is not an OS filesystem jail.
@@ -43,7 +43,8 @@ Six commands are exposed only to the main renderer WebView:
 
 Rust selects the user's shell, canonicalizes the project workspace, sets `TERM=xterm-256color`, and runs reader/wait work on dedicated threads. Output is raw base64 bytes. A bounded byte ring has monotonic byte cursors; snapshots return `startCursor`, `endCursor`, chunks, a gap/truncation flag, and terminal state. Raw input/output is never persisted.
 
-The manual PTY cannot be used by Pi Agent. Pi execution continues through the existing `bash_execute`/Pi tool path.
+The manual PTY cannot be used by an AI engine. Agent execution continues through
+the selected engine's gated tool path.
 
 ## Browser contract
 
@@ -70,7 +71,7 @@ Capabilities match `webviews: ["main", "main-live"]`, not the containing window.
 
 Manual controls append metadata-only records to the native Stage audit log. Records contain session id, immutable scope, action, actor `boss`, origin `manual` or `page`, timestamp, and byte counts where relevant. Browser records retain only scheme and host; query and fragment are discarded. Terminal keystrokes and output are never recorded.
 
-Agent browser/tool activity keeps its existing Pi event path and Assistant label.
+Agent browser/tool activity keeps its neutral runtime event path and Assistant label.
 
 ## Required gates
 

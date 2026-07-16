@@ -1,5 +1,9 @@
 # Office Toy Performance — Execution Plan (verified-iteration-loop)
 
+> **Historical / superseded (2026-07-16):** completed execution ledger. Use
+> the [current Codex-alignment tasks](./2026-07-13-ui-ux-consistency-pass/tasks.md),
+> [Office art bible](../design/office-art-bible.md), and current release gates.
+
 Companion to `2026-07-09-office-toy-performance-requirements.md`（specs）与
 `plan-office-toy-performance-overhaul.md`（决策记录）。依赖排序的实现 backlog，
 基于 2026-07-09 深读事实清单（file:line 证据）。每 phase 收口走
