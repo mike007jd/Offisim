@@ -742,6 +742,9 @@ fn git_target_parent_scope(
         .filter(|value| !value.is_empty() && *value != "." && *value != "..")
         .ok_or_else(|| format!("{label} has no valid basename"))?
         .to_string();
+    if basename.starts_with('-') {
+        return Err(format!("{label} basename must not start with '-'"));
+    }
     let parent_execution = root_execution.with_live_cwd(parent)?;
     Ok((parent_execution, basename))
 }
@@ -773,46 +776,6 @@ pub(crate) async fn run_git_validated<A: GitRootAuthority + ?Sized>(
         guarded_target = Some((destination, None));
         authority.verify_git_root()?;
     }
-    let worktree_add = if args.first().map(String::as_str) == Some("worktree")
-        && args.get(1).map(String::as_str) == Some("add")
-    {
-        let destination = prepare_worktree_parent(&root_execution, &args).await?;
-        let branch = args
-            .get(3)
-            .cloned()
-            .ok_or_else(|| "git worktree add requires a branch".to_string())?;
-        let (parent_execution, basename) =
-            git_target_parent_scope(&root_execution, &destination, "git worktree destination")?;
-        args[4] = basename;
-        execution = parent_execution;
-        guarded_target = Some((destination.clone(), None));
-        authority.verify_git_root()?;
-        Some((branch, destination))
-    } else if args.first().map(String::as_str) == Some("worktree")
-        && args.get(1).map(String::as_str) == Some("remove")
-    {
-        let target_arg = args
-            .get(2)
-            .ok_or_else(|| "git worktree remove requires a path".to_string())?;
-        let target = resolve_new_path_under_root(root, target_arg, "git worktree path")?;
-        let (parent_execution, basename) =
-            git_target_parent_scope(&root_execution, &target, "git worktree removal target")?;
-        let target_identity = match std::fs::symlink_metadata(&target) {
-            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
-                Some(filesystem_identity(&target)?)
-            }
-            Ok(_) => return Err("git worktree removal target must be an ordinary directory".into()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-            Err(error) => return Err(format!("Inspect git worktree removal target: {error}")),
-        };
-        args[2] = basename;
-        execution = parent_execution;
-        guarded_target = Some((target, target_identity));
-        None
-    } else {
-        None
-    };
-
     if args.first().map(String::as_str) == Some("push") {
         validate_push_context(&args, &execution).await?;
     }
@@ -832,22 +795,6 @@ pub(crate) async fn run_git_validated<A: GitRootAuthority + ?Sized>(
         run_git_capped(command, GIT_EXEC_TIMEOUT, MAX_GIT_OUTPUT_BYTES).await?
     };
     execution.verify_live()?;
-    if let Some((branch, destination)) = worktree_add {
-        if result.ok {
-            if let Err(error) =
-                validate_live_git_worktree(&root_execution, &destination, &branch).await
-            {
-                let rollback =
-                    rollback_created_worktree(&root_execution, &destination, &branch).await;
-                return Err(match rollback {
-                    Ok(()) => format!("Post-create git worktree validation failed: {error}"),
-                    Err(rollback_error) => format!(
-                        "Post-create git worktree validation failed: {error}; rollback failed: {rollback_error}"
-                    ),
-                });
-            }
-        }
-    }
     Ok(result)
 }
 
@@ -4530,6 +4477,20 @@ mod tests {
         cleanup_root(outside);
     }
 
+    #[test]
+    fn git_target_parent_scope_rejects_option_like_basename() {
+        let root = git_root();
+        let execution = git_execution(&root);
+        let error = git_target_parent_scope(
+            &execution,
+            &root.join("-option-like-target"),
+            "fixture target",
+        )
+        .expect_err("option-like basenames must never enter a git argument vector");
+        assert!(error.contains("must not start with '-'"), "{error}");
+        cleanup_root(root);
+    }
+
     #[tokio::test]
     async fn registered_lease_missing_path_is_atomically_invalidated() {
         let root = git_root();
@@ -5014,35 +4975,6 @@ mod tests {
             .status
             .success());
         assert_eq!(fixture_lease_status(&pool, "lease-retain").await, "active");
-
-        cleanup_root(root);
-    }
-
-    #[tokio::test]
-    async fn post_create_rollback_removes_worktree_and_branch() {
-        let root = git_root();
-        let path = root.join(".offisim/worktrees/lease-rollback");
-        let branch = expected_workspace_lease_branch("run-rollback", "lease-rollback");
-        let args = vec![
-            "worktree".into(),
-            "add".into(),
-            "-b".into(),
-            branch.clone(),
-            path.to_string_lossy().to_string(),
-        ];
-        let result = run_git_validated(args, &root, Some(&root))
-            .await
-            .expect("create validated worktree");
-        assert!(result.ok);
-        let execution = git_execution(&root);
-        rollback_created_worktree(&execution, &path, &branch)
-            .await
-            .expect("rollback worktree");
-        assert!(!path.exists());
-        let branch_ref = format!("refs/heads/{branch}");
-        assert!(!fixture_git(&root, &["show-ref", "--verify", &branch_ref])
-            .status
-            .success());
 
         cleanup_root(root);
     }

@@ -151,15 +151,15 @@ insert.run(
   'old-root',
   'old-root',
   JSON.stringify(apiUsage({ accountId: 'api:a', input: 777, cost: actualCost(7) })),
-  '2026-06-30T13:59:59.000Z',
-  '2026-06-30T13:59:59.000Z',
+  '2026-06-15T00:00:00.000Z',
+  '2026-06-15T00:00:00.000Z',
 );
 insert.run(
   'next-root',
   'next-root',
   JSON.stringify(apiUsage({ accountId: 'api:a', input: 888, cost: actualCost(8) })),
-  '2026-07-31T14:00:00.000Z',
-  '2026-07-31T14:00:00.000Z',
+  '2026-08-15T00:00:00.000Z',
+  '2026-08-15T00:00:00.000Z',
 );
 insert.run(
   'subscription-root',
