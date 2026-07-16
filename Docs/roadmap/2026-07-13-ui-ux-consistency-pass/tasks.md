@@ -571,36 +571,46 @@
 
 **结果：** 当前 worktree release `.app` 在 fresh state 下连续两轮无本轮 finding。
 
+**Evidence（checkedAt `2026-07-16 23:12:44 NZST`）：**
+
+- 验收实现 commit `9d12608d81c8ebf4864ab3c332e2eda02b9c24e6`。精确产物为 `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`；App 内容指纹 `531d76f7015579c275bf613abbb62c0303c826efbe284aa9bd2c46ea81663988`，主二进制 SHA-256 `f3fb31a7ef0d8615ab872f1682858c4b5d0cebab00099ceb2a3271696dd1389b`，Codex sidecar `rust-v0.144.4` SHA-256 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
+- `node scripts/release-gates.mjs` 默认 `all` 为 `5/5` green，Rust `441/441`；生产依赖审计通过，只有 `1 low / 5 moderate`，无 high / critical。`pnpm --filter @offisim/desktop build`、bundle 签名/sidecar 完整性、`git diff --check` 均通过。
+- Computer Use 操作前绑定精确 app path、title `Offisim`、WebView `tauri://localhost`；数值窗口记录为 `pid=50075`、`CGWindowNumber=13866`、bounds `x=36 y=33 width=1440 height=889`（1440×900 显示器可用区），随后实拖为 `1024×700`。全程直接启动 bundle 内主二进制，未使用 bundle id、LaunchServices、AppleScript、dev server 或 localhost。
+- Fresh Round A：无 Project 创建公司，再经原生 folder picker 绑定 Project；Files 扫描 `README.md`，API 真跑 `FINAL-A`，Working → Complete、`≥6,300 tok / Estimated $0.00`，重启后公司、Project、Conversation 与 accounting 均持久。Accounts 展示 API 5 个、Codex 7 个 exact leaf；Market offline、Personnel engine-neutral system-instruction copy、Studio `7 zones / 33 objects` 均正确。自然语言 Loop 生成 `9 nodes / 9 edges`、保存为 `v1` 并产生 `Project run pending`；1024×700 下 rails/nav/run pill、stage maximize、2D/3D 均可用，Computer Use 截图无截断或外圈黑边。
+- Fresh Round B：Content Studio 模板、独立 HOME、独立 Project。真实 live Stop 进入 `Interrupted / Stopped` 并恢复原 composer；新 Turn 返回 `RESUMED-B`。标题先即时 fallback，再手动改为 `Recovered Workspace Matrix`，后续 Turn 保持锁定。Workspace 实测 normal、missing、unique、ambiguous：missing 明示无文件访问；唯一同名 + repo identity 自动恢复并披露路径；两个候选时 fail-closed 且不猜目录；恢复原目录后 normal 再次通过。
+- Native subscriptions：最终产物读取 Codex GPT-5.4-Mini 真实 Conversation 后，Stage 从错误的 `No task usage` 收敛为 provider-native `≈56% remaining`，且不显示 Cost。随后临时、可逆地挂载隔离 Offisim 状态到真实 HOME；最终产物识别 `Claude Max`、5 个 exact native model，Haiku 真跑返回 `FINAL-CLAUDE`，Stage 显示 `Not reported remaining` 与 reset、无 Cost。验收后原 `~/.offisim` 与 Claude Max 登录已恢复并复核。
+- 两轮没有新增 UI/UX slop、AI slop、阻断性 bug 或理解困难 finding；本轮创建的 HOME、workspace、recovery 候选、日志与无价值截图均清理。T11 的两套 Delete 验证 fixture 按破坏性操作门禁单独保留，不属于 T16 临时残留。
+
 ### Full gates
 
-- [ ] `node scripts/release-gates.mjs` 默认 `all` 通过，包含 Rust `cargo test --locked`。
-- [ ] `pnpm --filter @offisim/desktop build` 通过。
-- [ ] GitNexus detect_changes 影响范围与 T00-T15 一致。
-- [ ] `git diff --check` 通过。
+- [x] `node scripts/release-gates.mjs` 默认 `all` 通过，包含 Rust `cargo test --locked`。
+- [x] `pnpm --filter @offisim/desktop build` 通过。
+- [x] GitNexus detect_changes 影响范围与 T00-T15 一致。
+- [x] `git diff --check` 通过。
 
 ### Window identity
 
-- [ ] 启动精确路径 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`。
-- [ ] 操作前记录 windowId / CGWindowNumber、pid、title、bounds。
-- [ ] 未使用 bundle id 启动、盲切焦点或 AppleScript 代替验收。
+- [x] 启动精确路径 `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`。
+- [x] 操作前记录 windowId / CGWindowNumber、pid、title、bounds。
+- [x] 未使用 bundle id 启动、盲切焦点或 AppleScript 代替验收。
 
 ### Matrix
 
-- [ ] stale approval / new Turn / live Stop。
-- [ ] immediate fallback / semantic title / manual rename lock。
-- [ ] normal / missing / unique / ambiguous task workspace。
-- [ ] API / Codex / Claude account、model、真实 run、Usage / Cost。
-- [ ] Loops 自然语言创建、修改、审阅、运行。
-- [ ] Market、Personnel、chrome、rails、nav、run pill。
-- [ ] radius、presence、error、Office projection 与 dramaturgy。
-- [ ] 1440×900 与 1024×700。
+- [x] stale approval / new Turn / live Stop。
+- [x] immediate fallback / semantic title / manual rename lock。
+- [x] normal / missing / unique / ambiguous task workspace。
+- [x] API / Codex / Claude account、model、真实 run、Usage / Cost。
+- [x] Loops 自然语言创建、修改、审阅、运行。
+- [x] Market、Personnel、chrome、rails、nav、run pill。
+- [x] radius、presence、error、Office projection 与 dramaturgy。
+- [x] 1440×900 与 1024×700。
 
 ### Closure
 
-- [ ] fresh state 连续两轮零 finding。
-- [ ] 每个新 finding 已回写所属 task、修根因、重建、重测。
-- [ ] evidence 含 checkedAt、commit SHA、App SHA、窗口 identity、步骤、截图与 PASS/BLOCKER。
-- [ ] transient profile、临时 workspace/员工、日志与无价值截图已清理。
+- [x] fresh state 连续两轮零 finding。
+- [x] 每个新 finding 已回写所属 task、修根因、重建、重测。
+- [x] evidence 含 checkedAt、commit SHA、App SHA、窗口 identity、步骤、截图与 PASS/BLOCKER。
+- [x] transient profile、临时 workspace/员工、日志与无价值截图已清理。
 
 ---
 
