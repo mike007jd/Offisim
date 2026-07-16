@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -20,41 +20,40 @@ use crate::task_workspace_binding::{
 
 use super::protocol::{
     CodexConnection, CodexHostError, StartupCancellation, CODEX_ADAPTER_ID,
-    CODEX_APP_SERVER_VERSION, CODEX_MODEL_SOURCE_URL,
+    CODEX_APP_SERVER_VERSION,
 };
 use super::stream::{
     opaque_session_id, PendingInteractionKind, PendingUserInputQuestion, RunMetadata, RunOutcome,
     RunStream,
 };
 use super::types::{
-    CodexAccountUsageResponse, CodexAdapterIdentity, CodexAgentEnhanceRequest,
-    CodexAgentExecuteRequest, CodexAgentHostEvent, CodexAgentHostResponse,
-    CodexAgentStatusResponse, CodexExecutionProvenance, CodexExecutionTarget, CodexModelSummary,
-    CodexNativeSessionMode, CodexNativeThreadRef, CodexNativeUsageProjection,
-    CodexRateLimitSnapshot, CodexRateLimitWindow, CodexRateLimitsResponse, CodexRunStreamSnapshot,
-    NativeAccount, NativeAccountReadResponse, NativeModel, NativeModelListResponse,
+    CodexAdapterIdentity, CodexAgentEnhanceRequest, CodexAgentExecuteRequest, CodexAgentHostEvent,
+    CodexAgentHostResponse, CodexAgentStatusResponse, CodexExecutionProvenance,
+    CodexExecutionTarget, CodexModelSummary, CodexNativeSessionMode, CodexNativeThreadRef,
+    CodexRunStreamSnapshot,
 };
 use super::CODEX_HOST_PROTOCOL_VERSION;
 
 const ENGINE_ID: &str = "codex";
+const ACCOUNT_ID: &str = "codex:local";
 const BILLING_MODE: &str = "subscription";
+const MODEL_ID: &str = "engine-managed";
 const NATIVE_THREAD_PROTOCOL: &str = "codex-app-server";
 const TERMINAL_STREAM_TTL: Duration = Duration::from_secs(30 * 60);
 const INTERRUPT_ACK_TIMEOUT: Duration = Duration::from_secs(3);
 const INTERRUPT_TERMINAL_TIMEOUT: Duration = Duration::from_secs(6);
-const USAGE_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
-const STARTUP_STOP_MESSAGE: &str = "Codex request was stopped before native work started.";
 const CODEX_LANE: AgentHostLane = AgentHostLane {
-    name: "Codex app-server",
+    name: "Codex CLI app-server",
     execution_lane: ENGINE_ID,
-    resource_path: "binaries/codex-app-server",
-    dev_script_name: "codex-app-server",
+    // AgentHostLane keeps script-path fields for the Pi sidecar resolver. The
+    // Codex adapter never resolves either path; it launches the PATH CLI.
+    resource_path: "codex",
+    dev_script_name: "codex",
     aborted_message: "The Codex request was aborted.",
 };
 
 #[derive(Default)]
 struct ManagerInner {
-    control: Option<Arc<CodexConnection>>,
     runs: HashMap<String, Arc<ManagedRun>>,
     starting: HashSet<String>,
     cancelled_starting: HashSet<String>,
@@ -63,14 +62,12 @@ struct ManagerInner {
 
 pub(crate) struct CodexAgentHostState {
     inner: Mutex<ManagerInner>,
-    control_gate: AsyncMutex<()>,
 }
 
 impl Default for CodexAgentHostState {
     fn default() -> Self {
         Self {
             inner: Mutex::new(ManagerInner::default()),
-            control_gate: AsyncMutex::new(()),
         }
     }
 }
@@ -212,25 +209,6 @@ impl ManagedRun {
     }
 }
 
-struct CatalogSnapshot {
-    account: AccountSnapshot,
-    models: Vec<NativeModel>,
-    checked_at: String,
-    rate_limits: Option<CodexRateLimitsResponse>,
-    account_usage: Option<CodexAccountUsageResponse>,
-}
-
-struct AccountSnapshot {
-    account_id: String,
-    display_name: String,
-    available: bool,
-    reason: Option<String>,
-}
-
-struct SelectedModel {
-    native: NativeModel,
-}
-
 struct WorkspaceRunContext {
     process_cwd: Option<AuthorizedProcessCwd>,
     cwd: PathBuf,
@@ -240,26 +218,21 @@ struct WorkspaceRunContext {
 
 struct NativeThreadSetup {
     native_thread_ref: CodexNativeThreadRef,
-    actual_model_selector: String,
+    actual_model_id: Option<String>,
 }
 
 struct NativeThreadStart<'a> {
     cwd: &'a Path,
-    model: &'a NativeModel,
     continuation: Option<&'a CodexNativeThreadRef>,
     ephemeral: bool,
     policy: &'a PermissionPolicy,
     developer_instructions: Option<&'a str>,
-    service_tier: Option<&'a str>,
 }
 
 struct NativeTurnStart<'a> {
     cwd: &'a Path,
-    model: &'a NativeModel,
     thread_id: &'a str,
     policy: &'a PermissionPolicy,
-    service_tier: Option<&'a str>,
-    effort: Option<&'a str>,
     client_user_message_id: &'a str,
     text: &'a str,
 }
@@ -269,63 +242,6 @@ struct PermissionPolicy {
     approval_policy: Value,
     turn_sandbox: Value,
     native_collaboration_mode: &'static str,
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SubscriptionUsageProjection {
-    kind: &'static str,
-    source: &'static str,
-    limits: Vec<SubscriptionLimitProjection>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reset_credits: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    activity: Option<SubscriptionActivityProjection>,
-    updated_at: String,
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SubscriptionLimitProjection {
-    limit_id: String,
-    label: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    plan_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reached_type: Option<String>,
-    windows: Vec<SubscriptionWindowProjection>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    credits: Option<String>,
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SubscriptionWindowProjection {
-    kind: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    window_duration_mins: Option<i64>,
-    used: String,
-    remaining: String,
-    remaining_is_derived: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reset_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    limit: Option<String>,
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SubscriptionActivityProjection {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    lifetime_tokens: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    peak_daily_tokens: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    longest_running_turn_sec: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    current_streak_days: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    longest_streak_days: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -377,6 +293,7 @@ async fn execute_claimed(
     let startup_cancellation = state
         .startup_cancellation(&req.request_id)
         .ok_or_else(|| "Codex request startup authority is unavailable.".to_string())?;
+    validate_execution_target(&req.expected_target)?;
     let requested_continuation = resolve_requested_continuation(req, mode)?;
     let execute_continuation = if mode.is_resume() {
         None
@@ -432,7 +349,7 @@ async fn execute_claimed(
         return Err("Codex request was stopped before native work started.".into());
     }
 
-    let binary = bundled_binary_path()?;
+    let binary = codex_binary_path()?;
     let neutral = neutral_cwd(&app)?;
     let connection = match CodexConnection::spawn(
         &binary,
@@ -453,38 +370,6 @@ async fn execute_claimed(
             revoke_prestart_binding(&app, workspace.binding_ref.as_deref(), false).await;
             stream.finish_failed("codex_unavailable", error.to_string());
             return Err(error.to_string());
-        }
-    };
-    let catalog_result =
-        load_catalog_during_startup(&connection, &startup_cancellation, false).await;
-    let catalog = match catalog_result {
-        Ok(catalog) => catalog,
-        Err(error) => {
-            connection.terminate().await;
-            let aborted = startup_cancellation.is_cancelled();
-            revoke_prestart_binding(&app, workspace.binding_ref.as_deref(), aborted).await;
-            if aborted {
-                stream.finish_interrupted("Codex request was stopped before native work started.");
-            } else {
-                stream.finish_failed("codex_account_revalidation_failed", error.clone());
-            }
-            return Err(error);
-        }
-    };
-    let selected = match validate_execution_target(
-        &catalog,
-        &req.expected_target,
-        req.runtime_model_ref.as_deref(),
-        req.model.as_deref(),
-        req.thinking_level.as_deref(),
-        req.service_tier.as_deref(),
-    ) {
-        Ok(selected) => selected,
-        Err(error) => {
-            connection.terminate().await;
-            revoke_prestart_binding(&app, workspace.binding_ref.as_deref(), false).await;
-            stream.finish_failed("codex_execution_target_changed", error.clone());
-            return Err(error);
         }
     };
     if state.starting_was_cancelled(&req.request_id) {
@@ -515,38 +400,19 @@ async fn execute_claimed(
         &run.connection,
         NativeThreadStart {
             cwd: &workspace.cwd,
-            model: &selected.native,
             continuation: continuation.as_ref(),
             ephemeral: false,
             policy: &policy,
             developer_instructions: req.system_prompt_append.as_deref(),
-            service_tier: req.service_tier.as_deref(),
         },
     )
     .await;
 
     match setup {
         Ok(setup) => {
-            let actual_model = match product_model_id(&catalog.models, &setup.actual_model_selector)
-            {
-                Ok(actual_model) => actual_model,
-                Err(error) => {
-                    run.stream
-                        .finish_failed("codex_model_reroute_invalid", error);
-                    return finish_invoke(&run).await;
-                }
-            };
-            if validate_frozen_actual_model(&actual_model, &req.expected_target.model_id).is_err() {
-                run.stream.finish_failed(
-                    "codex_model_mismatch",
-                    "Codex started a different model than the frozen execution target.",
-                );
-                run.connection.terminate().await;
-                return finish_invoke(&run).await;
-            }
-            let model = model_summary(&selected.native, &actual_model);
+            let model = setup.actual_model_id.as_deref().map(model_summary);
             let mut provenance = provenance;
-            provenance.actual_model_id = Some(actual_model);
+            provenance.actual_model_id = setup.actual_model_id;
             let opaque = match opaque_session_id(&setup.native_thread_ref) {
                 Ok(opaque) => opaque,
                 Err(error) => {
@@ -555,7 +421,7 @@ async fn execute_claimed(
                 }
             };
             run.stream.set_metadata(RunMetadata {
-                model: model.clone(),
+                model: model.clone().unwrap_or_else(engine_managed_model_summary),
                 provenance,
                 native_thread_ref: setup.native_thread_ref.clone(),
                 expose_session: true,
@@ -563,18 +429,15 @@ async fn execute_claimed(
             run.stream.publish(CodexAgentHostEvent::Started {
                 session_id: Some(opaque),
                 session_file: None,
-                model: Some(model),
+                model,
                 model_fallback_message: None,
             });
             if let Err(error) = start_native_turn(
                 &run.connection,
                 NativeTurnStart {
                     cwd: &workspace.cwd,
-                    model: &selected.native,
                     thread_id: &setup.native_thread_ref.thread_id,
                     policy: &policy,
-                    service_tier: req.service_tier.as_deref(),
-                    effort: req.thinking_level.as_deref(),
                     client_user_message_id: req
                         .client_user_message_id
                         .as_deref()
@@ -641,6 +504,7 @@ async fn enhance_claimed(
     let startup_cancellation = state
         .startup_cancellation(&req.request_id)
         .ok_or_else(|| "Codex request startup authority is unavailable.".to_string())?;
+    validate_execution_target(&req.expected_target)?;
     let stream = RunStream::new(req.request_id.clone(), on_event);
     let provenance = execution_provenance(&req.expected_target, &req.request_id);
     publish_prepared(
@@ -660,7 +524,7 @@ async fn enhance_claimed(
     // is not a planning Turn. Keep Codex in its native default collaboration
     // mode so Enhance cannot inherit a sticky Plan mode from native state.
     let policy = permission_policy(Some("auto"), &neutral, false)?;
-    let binary = bundled_binary_path()?;
+    let binary = codex_binary_path()?;
     let connection = match CodexConnection::spawn(
         &binary,
         None,
@@ -680,35 +544,6 @@ async fn enhance_claimed(
             return Err(error.to_string());
         }
     };
-    let catalog_result =
-        load_catalog_during_startup(&connection, &startup_cancellation, false).await;
-    let catalog = match catalog_result {
-        Ok(catalog) => catalog,
-        Err(error) => {
-            connection.terminate().await;
-            if startup_cancellation.is_cancelled() {
-                stream.finish_interrupted("Codex request was stopped before native work started.");
-            } else {
-                stream.finish_failed("codex_account_revalidation_failed", error.clone());
-            }
-            return Err(error);
-        }
-    };
-    let selected = match validate_execution_target(
-        &catalog,
-        &req.expected_target,
-        req.runtime_model_ref.as_deref(),
-        req.model.as_deref(),
-        req.thinking_level.as_deref(),
-        None,
-    ) {
-        Ok(selected) => selected,
-        Err(error) => {
-            connection.terminate().await;
-            stream.finish_failed("codex_execution_target_changed", error.clone());
-            return Err(error);
-        }
-    };
     if state.starting_was_cancelled(&req.request_id) {
         connection.terminate().await;
         stream.finish_interrupted("Codex request was stopped before native work started.");
@@ -726,39 +561,20 @@ async fn enhance_claimed(
         &run.connection,
         NativeThreadStart {
             cwd: &neutral,
-            model: &selected.native,
             continuation: None,
             ephemeral: true,
             policy: &policy,
             developer_instructions: Some(&req.system_prompt),
-            service_tier: None,
         },
     )
     .await
     {
         Ok(setup) => {
-            let actual_model = match product_model_id(&catalog.models, &setup.actual_model_selector)
-            {
-                Ok(actual_model) => actual_model,
-                Err(error) => {
-                    run.stream
-                        .finish_failed("codex_model_reroute_invalid", error);
-                    return finish_invoke(&run).await;
-                }
-            };
-            if validate_frozen_actual_model(&actual_model, &req.expected_target.model_id).is_err() {
-                run.stream.finish_failed(
-                    "codex_model_mismatch",
-                    "Codex started a different model than the frozen execution target.",
-                );
-                run.connection.terminate().await;
-                return finish_invoke(&run).await;
-            }
-            let model = model_summary(&selected.native, &actual_model);
+            let model = setup.actual_model_id.as_deref().map(model_summary);
             let mut provenance = provenance;
-            provenance.actual_model_id = Some(actual_model);
+            provenance.actual_model_id = setup.actual_model_id;
             run.stream.set_metadata(RunMetadata {
-                model: model.clone(),
+                model: model.clone().unwrap_or_else(engine_managed_model_summary),
                 provenance,
                 native_thread_ref: setup.native_thread_ref.clone(),
                 expose_session: false,
@@ -766,18 +582,15 @@ async fn enhance_claimed(
             run.stream.publish(CodexAgentHostEvent::Started {
                 session_id: None,
                 session_file: None,
-                model: Some(model),
+                model,
                 model_fallback_message: None,
             });
             if let Err(error) = start_native_turn(
                 &run.connection,
                 NativeTurnStart {
                     cwd: &neutral,
-                    model: &selected.native,
                     thread_id: &setup.native_thread_ref.thread_id,
                     policy: &policy,
-                    service_tier: None,
-                    effort: req.thinking_level.as_deref(),
                     client_user_message_id: &req.request_id,
                     text: &req.text,
                 },
@@ -937,12 +750,10 @@ async fn start_native_thread(
 ) -> Result<NativeThreadSetup, CodexHostError> {
     let NativeThreadStart {
         cwd,
-        model,
         continuation,
         ephemeral,
         policy,
         developer_instructions,
-        service_tier,
     } = request;
     let cwd_text = cwd.to_str().ok_or_else(|| {
         CodexHostError::Request("The Project folder name is not supported by Codex.".into())
@@ -950,22 +761,16 @@ async fn start_native_thread(
     let developer_instructions = developer_instructions
         .map(str::trim)
         .filter(|value| !value.is_empty());
-    let service_tier = service_tier
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-
     let thread_result = if let Some(native) = continuation {
         connection
             .request(
                 "thread/resume",
                 json!({
                     "threadId": native.thread_id,
-                    "model": native_model_selector(model),
                     "cwd": cwd_text,
                     "approvalPolicy": policy.approval_policy,
                     "sandbox": policy.thread_sandbox,
                     "developerInstructions": developer_instructions,
-                    "serviceTier": service_tier,
                 }),
             )
             .await?
@@ -974,28 +779,28 @@ async fn start_native_thread(
             .request(
                 "thread/start",
                 json!({
-                    "model": native_model_selector(model),
                     "cwd": cwd_text,
                     "approvalPolicy": policy.approval_policy,
                     "sandbox": policy.thread_sandbox,
                     "developerInstructions": developer_instructions,
                     "serviceName": "offisim",
-                    "serviceTier": service_tier,
                     "ephemeral": ephemeral,
                 }),
             )
             .await?
     };
     let thread = parse_thread_result(&thread_result, cwd, continuation)?;
-    let actual_model_selector = required_json_string(
-        thread_result.as_object().ok_or(CodexHostError::Protocol)?,
-        "model",
-    )?
-    .to_string();
+    let actual_model_id = thread_result
+        .as_object()
+        .and_then(|result| result.get("model"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
 
     Ok(NativeThreadSetup {
         native_thread_ref: thread,
-        actual_model_selector,
+        actual_model_id,
     })
 }
 
@@ -1005,26 +810,18 @@ async fn start_native_turn(
 ) -> Result<String, CodexHostError> {
     let NativeTurnStart {
         cwd,
-        model,
         thread_id,
         policy,
-        service_tier,
-        effort,
         client_user_message_id,
         text,
     } = request;
     let cwd_text = cwd.to_str().ok_or_else(|| {
         CodexHostError::Request("The Project folder name is not supported by Codex.".into())
     })?;
-    let service_tier = service_tier
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-    let effort = effort.map(str::trim).filter(|value| !value.is_empty());
-    let model_selector = native_model_selector(model);
     // Codex collaboration mode is sticky on a native thread. Send an explicit
     // mode on every Turn so Auto -> Plan, Plan -> Auto, and resumed tasks all
     // preserve the Offisim composer selection instead of inheriting old state.
-    let collaboration_mode = turn_collaboration_mode(policy, model, effort);
+    let collaboration_mode = turn_collaboration_mode(policy);
 
     let turn_result = connection
         .request(
@@ -1033,9 +830,6 @@ async fn start_native_turn(
                 "threadId": thread_id,
                 "input": [{"type": "text", "text": text}],
                 "cwd": cwd_text,
-                "model": model_selector,
-                "effort": effort,
-                "serviceTier": service_tier,
                 "clientUserMessageId": client_user_message_id,
                 "approvalPolicy": policy.approval_policy,
                 "sandboxPolicy": policy.turn_sandbox,
@@ -1055,22 +849,10 @@ async fn start_native_turn(
     Ok(turn_id)
 }
 
-fn turn_collaboration_mode(
-    policy: &PermissionPolicy,
-    model: &NativeModel,
-    effort: Option<&str>,
-) -> Value {
-    let effort = effort
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .or_else(|| (policy.native_collaboration_mode == "plan").then_some("medium"));
+fn turn_collaboration_mode(policy: &PermissionPolicy) -> Value {
     json!({
         "mode": policy.native_collaboration_mode,
-        "settings": {
-            "model": native_model_selector(model),
-            "reasoning_effort": effort,
-            "developer_instructions": null,
-        },
+        "settings": {},
     })
 }
 
@@ -1290,7 +1072,7 @@ fn resolve_resume_continuation(
         }
         Some(NativeSessionReference::Opaque { .. }) => {
             return Err(
-                "The interrupted Codex session belongs to another subscription account.".into(),
+                "The interrupted Codex session belongs to another Codex CLI instance.".into(),
             );
         }
         Some(NativeSessionReference::FileBacked { .. }) => {
@@ -1736,488 +1518,123 @@ pub(super) fn release_stream_impl(app: AppHandle, request_id: String) -> Result<
 }
 
 pub(crate) async fn status_impl(
-    app: AppHandle,
-    include_usage: bool,
+    _app: AppHandle,
+    _include_usage: bool,
 ) -> Result<CodexAgentStatusResponse, String> {
-    let state = app.state::<CodexAgentHostState>();
-    let connection = control_connection(&app, &state).await?;
-    let snapshot = load_catalog(&connection, include_usage).await?;
-    Ok(status_response(snapshot))
+    inspect_codex_cli().await
 }
 
-async fn control_connection(
-    app: &AppHandle,
-    state: &CodexAgentHostState,
-) -> Result<Arc<CodexConnection>, String> {
-    if let Some(connection) = state.guard().control.clone() {
-        if connection.is_alive() {
-            return Ok(connection);
-        }
-    }
-    let _gate = state.control_gate.lock().await;
-    if let Some(connection) = state.guard().control.clone() {
-        if connection.is_alive() {
-            return Ok(connection);
-        }
-    }
-    let stale = state.guard().control.take();
-    if let Some(stale) = stale {
-        stale.terminate().await;
-    }
-    let binary = bundled_binary_path()?;
-    let neutral = neutral_cwd(app)?;
-    let connection = CodexConnection::spawn(&binary, None, &neutral, None, None)
-        .await
-        .map_err(|error| error.to_string())?;
-    state.guard().control = Some(Arc::clone(&connection));
-    Ok(connection)
-}
-
-async fn load_catalog(
-    connection: &Arc<CodexConnection>,
-    include_usage: bool,
-) -> Result<CatalogSnapshot, String> {
+async fn inspect_codex_cli() -> Result<CodexAgentStatusResponse, String> {
     let checked_at = rfc3339_now()?;
-    let account_value = connection
-        .request("account/read", json!({"refreshToken": false}))
-        .await
-        .map_err(|error| error.to_string())?;
-    let account: NativeAccountReadResponse = serde_json::from_value(account_value)
-        .map_err(|_| "Codex returned an invalid account status.".to_string())?;
-    let fingerprint = connection
-        .codex_home_fingerprint()
-        .ok_or_else(|| "Codex runtime identity is unavailable.".to_string())?;
-    let account = account_snapshot(account, &fingerprint);
+    let capabilities = orchestration_capabilities();
+    let Some(binary) = find_codex_binary() else {
+        return Ok(CodexAgentStatusResponse {
+            engine_id: ENGINE_ID.into(),
+            display_name: "Codex CLI".into(),
+            state: "not-installed".into(),
+            version: None,
+            status_reason: Some("Install Codex CLI to run Codex tasks.".into()),
+            login_command: "codex login".into(),
+            docs_url: "https://developers.openai.com/codex/auth".into(),
+            checked_at,
+            capabilities,
+        });
+    };
 
-    let models = if account.available {
-        list_models(connection).await?
-    } else {
-        Vec::new()
+    let version_output = tokio::process::Command::new(&binary)
+        .arg("--version")
+        .output()
+        .await;
+    let version = match version_output {
+        Ok(output) if output.status.success() => first_nonempty_line(&output.stdout),
+        _ => None,
     };
-    let (rate_limits, account_usage) = if include_usage && account.available {
-        let (rate_limits_result, account_usage_result) = tokio::join!(
-            connection
-                .request_no_params_with_timeout("account/rateLimits/read", USAGE_REQUEST_TIMEOUT,),
-            connection.request_no_params_with_timeout("account/usage/read", USAGE_REQUEST_TIMEOUT,),
-        );
-        let rate_limits = match rate_limits_result {
-            Ok(value) => serde_json::from_value::<CodexRateLimitsResponse>(value).ok(),
-            Err(_) => None,
-        };
-        let account_usage = match account_usage_result {
-            Ok(value) => serde_json::from_value::<CodexAccountUsageResponse>(value).ok(),
-            Err(_) => None,
-        };
-        (rate_limits, account_usage)
-    } else {
-        (None, None)
+    if version.is_none() {
+        return Ok(CodexAgentStatusResponse {
+            engine_id: ENGINE_ID.into(),
+            display_name: "Codex CLI".into(),
+            state: "unavailable".into(),
+            version: None,
+            status_reason: Some("Codex CLI is installed but could not report its version.".into()),
+            login_command: "codex login".into(),
+            docs_url: "https://developers.openai.com/codex/auth".into(),
+            checked_at,
+            capabilities,
+        });
+    }
+
+    let login_status = tokio::process::Command::new(&binary)
+        .args(["login", "status"])
+        .output()
+        .await;
+    let (state, status_reason) = match login_status {
+        Ok(output) if output.status.success() => ("ready", None),
+        Ok(_) => (
+            "not-signed-in",
+            Some("Sign in with `codex login`; credentials remain managed by Codex CLI.".into()),
+        ),
+        Err(_) => (
+            "unavailable",
+            Some("Codex CLI login status could not be checked.".into()),
+        ),
     };
-    Ok(CatalogSnapshot {
-        account,
-        models,
+    Ok(CodexAgentStatusResponse {
+        engine_id: ENGINE_ID.into(),
+        display_name: "Codex CLI".into(),
+        state: state.into(),
+        version,
+        status_reason,
+        login_command: "codex login".into(),
+        docs_url: "https://developers.openai.com/codex/auth".into(),
         checked_at,
-        rate_limits,
-        account_usage,
+        capabilities,
     })
 }
 
-async fn load_catalog_during_startup(
-    connection: &Arc<CodexConnection>,
-    cancellation: &StartupCancellation,
-    include_usage: bool,
-) -> Result<CatalogSnapshot, String> {
-    tokio::select! {
-        result = load_catalog(connection, include_usage) => result,
-        () = cancellation.cancelled() => {
-            connection.terminate().await;
-            Err(STARTUP_STOP_MESSAGE.into())
-        }
-    }
-}
-
-async fn list_models(connection: &Arc<CodexConnection>) -> Result<Vec<NativeModel>, String> {
-    let mut models = Vec::new();
-    let mut cursor: Option<String> = None;
-    let mut seen_cursors = HashSet::new();
-    let mut seen_runtime_refs = HashSet::new();
-    loop {
-        let value = connection
-            .request(
-                "model/list",
-                json!({"limit": 100, "includeHidden": false, "cursor": cursor}),
-            )
-            .await
-            .map_err(|error| error.to_string())?;
-        let page: NativeModelListResponse = serde_json::from_value(value)
-            .map_err(|_| "Codex returned an invalid model catalog.".to_string())?;
-        for model in page.data.into_iter().filter(|model| !model.hidden) {
-            if model.id.trim().is_empty() || model.model.trim().is_empty() {
-                return Err("Codex returned an incomplete model catalog entry.".into());
-            }
-            let runtime_ref = runtime_model_ref(&model);
-            if !seen_runtime_refs.insert(runtime_ref) {
-                return Err("Codex returned duplicate model preset identifiers.".into());
-            }
-            models.push(model);
-        }
-        let Some(next) = page.next_cursor.filter(|value| !value.is_empty()) else {
-            break;
-        };
-        if !seen_cursors.insert(next.clone()) || seen_cursors.len() > 100 {
-            return Err("Codex model catalog pagination did not converge.".into());
-        }
-        cursor = Some(next);
-    }
-    Ok(models)
-}
-
-fn account_snapshot(response: NativeAccountReadResponse, fingerprint: &str) -> AccountSnapshot {
-    let fallback_id = stable_account_id(&format!("home\0{fingerprint}"));
-    match response.account {
-        Some(account) => match account.chatgpt() {
-            Some((email, plan)) => match email.and_then(|email| chatgpt_account_id(fingerprint, email)) {
-                Some(account_id) => AccountSnapshot {
-                    account_id,
-                    display_name: format!("Codex {}", friendly_plan(plan)),
-                    available: true,
-                    reason: None,
-                },
-                None => AccountSnapshot {
-                    account_id: stable_account_id(&format!("chatgpt-missing\0{fingerprint}")),
-                    display_name: format!("Codex {}", friendly_plan(plan)),
-                    available: false,
-                    reason: Some(
-                        "Codex did not publish a stable account identity; sign in again before running tasks."
-                            .into(),
-                    ),
-                },
-            },
-            None => AccountSnapshot {
-                account_id: fallback_id,
-                display_name: "Codex subscription".into(),
-                available: false,
-                reason: Some(match account {
-                    NativeAccount::ApiKey => {
-                        "Codex is using an API key, not a subscription account.".into()
-                    }
-                    NativeAccount::AmazonBedrock { credential_source } => {
-                        // The source kind is only used to distinguish this native lane;
-                        // never project its raw value into product status.
-                        let _credential_source_is_present = !credential_source.trim().is_empty();
-                        "Codex is using Amazon Bedrock, not a subscription account.".into()
-                    }
-                    NativeAccount::Chatgpt { .. } => unreachable!(),
-                }),
-            },
+fn orchestration_capabilities() -> Value {
+    json!({
+        "stop": true,
+        "steer": false,
+        "resume": true,
+        "permissionModes": ["plan", "ask", "auto", "full"],
+        "interactions": {
+            "approval": true,
+            "userInput": true,
         },
-        None => AccountSnapshot {
-            account_id: fallback_id,
-            display_name: "Codex subscription".into(),
-            available: false,
-            reason: Some(if response.requires_openai_auth {
-                "Sign in with `codex login` to use the Codex subscription.".into()
-            } else {
-                "No Codex subscription account is available.".into()
-            }),
+        "processEvents": {
+            "reasoning": true,
+            "toolCalls": true,
+            "fileChanges": true,
         },
-    }
+    })
 }
 
-fn validate_execution_target(
-    catalog: &CatalogSnapshot,
-    target: &CodexExecutionTarget,
-    runtime_model_ref_value: Option<&str>,
-    model_value: Option<&str>,
-    effort: Option<&str>,
-    service_tier: Option<&str>,
-) -> Result<SelectedModel, String> {
-    if !catalog.account.available {
-        return Err(catalog
-            .account
-            .reason
-            .clone()
-            .unwrap_or_else(|| "The Codex subscription is unavailable.".into()));
-    }
+fn first_nonempty_line(bytes: &[u8]) -> Option<String> {
+    String::from_utf8_lossy(bytes)
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .map(str::to_string)
+}
+
+fn validate_execution_target(target: &CodexExecutionTarget) -> Result<(), String> {
     if target.engine_id != ENGINE_ID
+        || target.account_id != ACCOUNT_ID
         || target.billing_mode != BILLING_MODE
-        || target.account_id != catalog.account.account_id
+        || target.model_id != MODEL_ID
     {
-        return Err("The selected AI account does not match the Codex subscription.".into());
+        return Err("The Codex execution target must use the local orchestration engine.".into());
     }
     if target.model_source.kind != "native"
-        || target.model_source.source_url != CODEX_MODEL_SOURCE_URL
-        || target.model_source.checked_at.trim().is_empty()
+        || target.model_source.source_url.is_some()
+        || target.model_source.checked_at.is_some()
     {
-        return Err("The selected Codex model does not have a valid native catalog source.".into());
+        return Err(
+            "The Codex orchestration target must use native engine provenance without a catalog URL."
+                .into(),
+        );
     }
-    let runtime_ref = runtime_model_ref_value
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| "Codex requires an exact runtime model reference.".to_string())?;
-    if model_value
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .is_some_and(|model| model != runtime_ref)
-    {
-        return Err("The selected Codex model references do not match.".into());
-    }
-    let native = catalog
-        .models
-        .iter()
-        .find(|model| runtime_model_ref(model) == runtime_ref && model.model == target.model_id)
-        .cloned()
-        .ok_or_else(|| "The selected Codex model is no longer available.".to_string())?;
-    if let Some(effort) = effort.map(str::trim).filter(|value| !value.is_empty()) {
-        if !native
-            .supported_reasoning_efforts
-            .iter()
-            .any(|option| option.reasoning_effort == effort)
-        {
-            return Err(
-                "The selected reasoning level is not available for this Codex model.".into(),
-            );
-        }
-    }
-    if let Some(tier) = service_tier
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        if !native.service_tiers.iter().any(|option| option.id == tier) {
-            return Err("The selected service tier is not available for this Codex model.".into());
-        }
-    }
-    Ok(SelectedModel { native })
-}
-
-fn status_response(snapshot: CatalogSnapshot) -> CodexAgentStatusResponse {
-    let usage = subscription_usage(&snapshot);
-    let model_capability = if snapshot.models.is_empty() {
-        unavailable_capability("No callable Codex models are available.")
-    } else {
-        available_capability()
-    };
-    let execute_capability = if snapshot.account.available && !snapshot.models.is_empty() {
-        available_capability()
-    } else {
-        unavailable_capability(
-            snapshot
-                .account
-                .reason
-                .as_deref()
-                .unwrap_or("The Codex subscription is unavailable."),
-        )
-    };
-    let usage_capability = if usage.is_some() {
-        available_capability()
-    } else {
-        unavailable_capability("Codex did not publish subscription usage for this account.")
-    };
-    let account = json!({
-        "engineId": ENGINE_ID,
-        "accountId": snapshot.account.account_id,
-        "billingMode": BILLING_MODE,
-        "displayName": snapshot.account.display_name,
-        "status": if snapshot.account.available { "available" } else { "unavailable" },
-        "statusReason": snapshot.account.reason,
-        "capabilities": {
-            "execute": execute_capability,
-            "models": model_capability,
-            "usage": usage_capability,
-            "cost": unavailable_capability("Subscription usage is not converted into API cost."),
-        },
-        "usage": usage,
-    });
-    let models = snapshot
-        .models
-        .iter()
-        .map(|model| {
-            json!({
-                "engineId": ENGINE_ID,
-                "accountId": snapshot.account.account_id,
-                "billingMode": BILLING_MODE,
-                "modelId": model.model,
-                "displayName": model.display_name,
-                "description": model.description,
-                "runtimeModelRef": runtime_model_ref(model),
-                "availability": "available",
-                "isDefault": model.is_default,
-                "defaultReasoningEffort": model.default_reasoning_effort,
-                "reasoningEfforts": model.supported_reasoning_efforts.iter().map(|effort| json!({
-                    "id": effort.reasoning_effort,
-                    "description": effort.description,
-                })).collect::<Vec<_>>(),
-                "supportsPersonality": model.supports_personality,
-                "serviceTiers": model.service_tiers.iter().map(|tier| json!({
-                    "id": tier.id,
-                    "name": tier.name,
-                    "description": tier.description,
-                })).collect::<Vec<_>>(),
-                "defaultServiceTier": model.default_service_tier,
-                "capabilities": {
-                    "textInput": model.input_modalities.iter().any(|value| value == "text"),
-                    "imageInput": model.input_modalities.iter().any(|value| value == "image"),
-                    "tools": true,
-                    "reasoning": !model.supported_reasoning_efforts.is_empty(),
-                },
-                "source": {
-                    "kind": "native",
-                    "sourceUrl": CODEX_MODEL_SOURCE_URL,
-                    "checkedAt": snapshot.checked_at,
-                },
-                "catalogId": model.id,
-            })
-        })
-        .collect();
-    let native_usage = (snapshot.rate_limits.is_some() || snapshot.account_usage.is_some())
-        .then_some({
-            CodexNativeUsageProjection {
-                rate_limits: snapshot.rate_limits,
-                account_usage: snapshot.account_usage,
-            }
-        });
-    CodexAgentStatusResponse {
-        accounts: vec![account],
-        models,
-        checked_at: snapshot.checked_at,
-        runtime_version: CODEX_APP_SERVER_VERSION.into(),
-        native_usage,
-    }
-}
-
-fn subscription_usage(snapshot: &CatalogSnapshot) -> Option<Value> {
-    let mut buckets = BTreeMap::<String, &CodexRateLimitSnapshot>::new();
-    if let Some(rate_limits) = snapshot.rate_limits.as_ref() {
-        if let Some(by_limit_id) = rate_limits
-            .rate_limits_by_limit_id
-            .as_ref()
-            .filter(|limits| !limits.is_empty())
-        {
-            for (map_limit_id, rate) in by_limit_id {
-                let limit_id = rate
-                    .limit_id
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty())
-                    .unwrap_or(map_limit_id)
-                    .to_string();
-                buckets.entry(limit_id).or_insert(rate);
-            }
-        } else {
-            let rate = &rate_limits.rate_limits;
-            let limit_id = rate
-                .limit_id
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .unwrap_or("codex")
-                .to_string();
-            buckets.insert(limit_id, rate);
-        }
-    }
-
-    let limits = buckets
-        .into_iter()
-        .map(|(limit_id, rate)| {
-            let mut windows = Vec::new();
-            if let Some(primary) = rate.primary.as_ref() {
-                windows.push(project_rate_window("primary", primary));
-            }
-            if let Some(secondary) = rate.secondary.as_ref() {
-                windows.push(project_rate_window("secondary", secondary));
-            }
-            if let Some(individual) = rate.individual_limit.as_ref() {
-                windows.push(SubscriptionWindowProjection {
-                    kind: "spendControl",
-                    window_duration_mins: None,
-                    used: individual.used.clone(),
-                    remaining: format!("{}%", individual.remaining_percent),
-                    remaining_is_derived: false,
-                    reset_at: Some(rfc3339_from_unix(individual.resets_at)),
-                    limit: Some(individual.limit.clone()),
-                });
-            }
-            let credits = rate.credits.as_ref().and_then(|credits| {
-                if credits.unlimited {
-                    Some("Unlimited".into())
-                } else if credits.has_credits {
-                    credits.balance.clone()
-                } else {
-                    None
-                }
-            });
-            SubscriptionLimitProjection {
-                label: rate
-                    .limit_name
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty())
-                    .unwrap_or(&limit_id)
-                    .to_string(),
-                limit_id,
-                plan_type: rate.plan_type.clone(),
-                reached_type: rate.rate_limit_reached_type.clone(),
-                windows,
-                credits,
-            }
-        })
-        .collect::<Vec<_>>();
-    let reset_credits = snapshot
-        .rate_limits
-        .as_ref()
-        .and_then(|limits| limits.rate_limit_reset_credits.as_ref())
-        .map(|credits| credits.available_count);
-    let activity = snapshot
-        .account_usage
-        .as_ref()
-        .and_then(|usage| project_subscription_activity(&usage.summary));
-    if limits.is_empty() && reset_credits.is_none() && activity.is_none() {
-        return None;
-    }
-    serde_json::to_value(SubscriptionUsageProjection {
-        kind: "subscription",
-        source: "native",
-        limits,
-        reset_credits,
-        activity,
-        updated_at: snapshot.checked_at.clone(),
-    })
-    .ok()
-}
-
-fn project_rate_window(
-    kind: &'static str,
-    window: &CodexRateLimitWindow,
-) -> SubscriptionWindowProjection {
-    SubscriptionWindowProjection {
-        kind,
-        window_duration_mins: window.window_duration_mins,
-        used: format!("{}%", window.used_percent),
-        remaining: format!(
-            "{}%",
-            100_i64.saturating_sub(window.used_percent).clamp(0, 100)
-        ),
-        remaining_is_derived: true,
-        reset_at: window.resets_at.map(rfc3339_from_unix),
-        limit: None,
-    }
-}
-
-fn project_subscription_activity(
-    summary: &super::types::CodexAccountUsageSummary,
-) -> Option<SubscriptionActivityProjection> {
-    let activity = SubscriptionActivityProjection {
-        lifetime_tokens: summary.lifetime_tokens,
-        peak_daily_tokens: summary.peak_daily_tokens,
-        longest_running_turn_sec: summary.longest_running_turn_sec,
-        current_streak_days: summary.current_streak_days,
-        longest_streak_days: summary.longest_streak_days,
-    };
-    (activity.lifetime_tokens.is_some()
-        || activity.peak_daily_tokens.is_some()
-        || activity.longest_running_turn_sec.is_some()
-        || activity.current_streak_days.is_some()
-        || activity.longest_streak_days.is_some())
-    .then_some(activity)
+    Ok(())
 }
 
 fn execution_provenance(target: &CodexExecutionTarget, run_id: &str) -> CodexExecutionProvenance {
@@ -2229,8 +1646,8 @@ fn execution_provenance(target: &CodexExecutionTarget, run_id: &str) -> CodexExe
         model_source: target.model_source.clone(),
         run_id: run_id.to_string(),
         adapter: adapter_identity(),
-        requested_model_id: Some(target.model_id.clone()),
-        actual_model_id: Some(target.model_id.clone()),
+        requested_model_id: None,
+        actual_model_id: None,
     }
 }
 
@@ -2255,42 +1672,32 @@ fn publish_prepared(
     Ok(())
 }
 
-fn model_summary(model: &NativeModel, actual_model: &str) -> CodexModelSummary {
+fn model_summary(actual_model: &str) -> CodexModelSummary {
     CodexModelSummary {
         provider: Some("openai".into()),
         id: Some(actual_model.to_string()),
-        name: Some(if actual_model == model.model {
-            model.display_name.clone()
-        } else {
-            actual_model.to_string()
-        }),
+        name: Some(actual_model.to_string()),
         api: Some(NATIVE_THREAD_PROTOCOL.into()),
-        reasoning: Some(!model.supported_reasoning_efforts.is_empty()),
+        reasoning: None,
         context_window: None,
         max_tokens: None,
-        input: model.input_modalities.clone(),
-        catalog_id: Some(model.id.clone()),
+        input: Vec::new(),
+        catalog_id: None,
     }
 }
 
-fn runtime_model_ref(model: &NativeModel) -> String {
-    format!("codex:{}", model.id)
-}
-
-fn native_model_selector(model: &NativeModel) -> &str {
-    model.id.as_str()
-}
-
-fn product_model_id(models: &[NativeModel], selector_or_model: &str) -> Result<String, String> {
-    models
-        .iter()
-        .find(|model| model.id == selector_or_model || model.model == selector_or_model)
-        .map(|model| model.model.clone())
-        .ok_or_else(|| "Codex changed to a model outside its native catalog.".to_string())
-}
-
-fn validate_frozen_actual_model(actual_model: &str, expected_model: &str) -> Result<(), ()> {
-    (actual_model == expected_model).then_some(()).ok_or(())
+fn engine_managed_model_summary() -> CodexModelSummary {
+    CodexModelSummary {
+        provider: None,
+        id: Some(MODEL_ID.into()),
+        name: Some("Engine managed".into()),
+        api: Some(NATIVE_THREAD_PROTOCOL.into()),
+        reasoning: None,
+        context_window: None,
+        max_tokens: None,
+        input: Vec::new(),
+        catalog_id: None,
+    }
 }
 
 fn adapter_identity() -> CodexAdapterIdentity {
@@ -2300,40 +1707,8 @@ fn adapter_identity() -> CodexAdapterIdentity {
     }
 }
 
-fn available_capability() -> Value {
-    json!({"status": "available"})
-}
-
-fn unavailable_capability(reason: &str) -> Value {
-    json!({"status": "unavailable", "reason": reason})
-}
-
-fn stable_account_id(seed: &str) -> String {
-    format!("codex-subscription-{}", &stable_hex(seed)[..24])
-}
-
-fn chatgpt_account_id(fingerprint: &str, email: &str) -> Option<String> {
-    let discriminator = email.trim().to_lowercase();
-    (!discriminator.is_empty())
-        .then(|| stable_account_id(&format!("chatgpt\0{fingerprint}\0{discriminator}")))
-}
-
 fn stable_hex(seed: &str) -> String {
     hex::encode(Sha256::digest(seed.as_bytes()))
-}
-
-fn friendly_plan(plan: &str) -> String {
-    plan.split('_')
-        .filter(|value| !value.is_empty())
-        .map(|value| {
-            let mut chars = value.chars();
-            match chars.next() {
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-                None => String::new(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 fn validate_execute_request(req: &CodexAgentExecuteRequest) -> Result<(), String> {
@@ -2442,24 +1817,56 @@ fn neutral_cwd(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-fn bundled_binary_path() -> Result<PathBuf, String> {
-    let adjacent = std::env::current_exe()
-        .map_err(|_| "The bundled Codex runtime is unavailable.".to_string())?
-        .parent()
-        .map(|parent| parent.join("codex-app-server"))
-        .ok_or_else(|| "The bundled Codex runtime is unavailable.".to_string())?;
-    if adjacent.is_file() {
-        return Ok(adjacent);
+fn codex_binary_path() -> Result<PathBuf, String> {
+    find_codex_binary().ok_or_else(|| "Codex CLI is not installed or is not on PATH.".into())
+}
+
+fn find_codex_binary() -> Option<PathBuf> {
+    if let Some(candidate) = std::env::var_os("PATH").and_then(|path| {
+        std::env::split_paths(&path)
+            .map(|directory| directory.join("codex"))
+            .find(|candidate| codex_binary_is_executable(candidate))
+    }) {
+        return std::fs::canonicalize(&candidate).ok().or(Some(candidate));
     }
-    #[cfg(all(debug_assertions, target_os = "macos", target_arch = "aarch64"))]
+
+    // Finder-launched macOS apps do not inherit the user's interactive PATH.
+    // Ask the user's configured shell for the command path without evaluating
+    // any renderer-provided text, then still require a real executable file.
+    let shell = std::env::var_os("SHELL")?;
+    let output = std::process::Command::new(shell)
+        .args(["-lic", "command -v codex"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .rev()
+        .map(str::trim)
+        .filter(|value| value.starts_with('/'))
+        .map(PathBuf::from)
+        .find(|candidate| codex_binary_is_executable(candidate))
+        .and_then(|candidate| std::fs::canonicalize(&candidate).ok().or(Some(candidate)))
+}
+
+fn codex_binary_is_executable(candidate: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(candidate) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
     {
-        let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("binaries/codex-app-server-aarch64-apple-darwin");
-        if source.is_file() {
-            return Ok(source);
-        }
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
     }
-    Err("The bundled Codex runtime is unavailable.".into())
+    #[cfg(not(unix))]
+    {
+        true
+    }
 }
 
 pub(super) fn rfc3339_now() -> Result<String, String> {
@@ -2564,17 +1971,14 @@ mod tests {
             session_id: "missing-session".into(),
         };
         let policy = permission_policy(Some("auto"), &root, true).unwrap();
-        let model = native_model();
         let error = match start_native_thread(
             &connection,
             NativeThreadStart {
                 cwd: &root,
-                model: &model,
                 continuation: Some(&continuation),
                 ephemeral: false,
                 policy: &policy,
                 developer_instructions: None,
-                service_tier: None,
             },
         )
         .await
@@ -2708,15 +2112,9 @@ notification = read_message()
 assert notification["method"] == "initialized" and "id" not in notification
 
 request = read_message()
-assert request["method"] == "account/read"
-respond(request, {"requiresOpenaiAuth": True, "account": {"type": "chatgpt", "email": "owner@example.test", "planType": "plus"}})
-
-request = read_message()
-assert request["method"] == "model/list"
-respond(request, {"data": [{"id": "gpt-5.4-high", "model": "gpt-5.4", "displayName": "GPT-5.4", "description": "Native model", "hidden": False, "defaultReasoningEffort": "high", "supportedReasoningEfforts": [{"reasoningEffort": "high", "description": "Deep"}], "isDefault": True, "inputModalities": ["text"], "supportsPersonality": False, "serviceTiers": [], "defaultServiceTier": None}], "nextCursor": None})
-
-request = read_message()
 assert request["method"] == "thread/start"
+assert "model" not in request["params"]
+assert "serviceTier" not in request["params"]
 cwd = request["params"]["cwd"]
 respond(request, {"thread": {"id": "thread-1", "sessionId": "session-1"}, "cwd": cwd, "model": "gpt-5.4-high"})
 
@@ -2724,7 +2122,10 @@ request = read_message()
 assert request["method"] == "turn/start"
 assert request["params"]["approvalPolicy"] == "never"
 assert request["params"]["sandboxPolicy"] == {"type": "readOnly", "networkAccess": False}
-assert request["params"]["collaborationMode"] == {"mode": "plan", "settings": {"model": "gpt-5.4-high", "reasoning_effort": "high", "developer_instructions": None}}
+assert request["params"]["collaborationMode"] == {"mode": "plan", "settings": {}}
+assert "model" not in request["params"]
+assert "effort" not in request["params"]
+assert "serviceTier" not in request["params"]
 respond(request, {"turn": {"id": "turn-1", "status": "inProgress"}})
 
 send({"method": "attestation/read", "id": "unsupported-1", "params": None})
@@ -2792,6 +2193,7 @@ request = read_message()
 assert request["method"] == "thread/start"
 assert request["params"]["approvalPolicy"] == "on-request"
 assert request["params"]["sandbox"] == "read-only"
+assert "model" not in request["params"]
 cwd = request["params"]["cwd"]
 respond(request, {"thread": {"id": "thread-ask", "sessionId": "session-ask"}, "cwd": cwd, "model": "gpt-5.4-high"})
 
@@ -2799,86 +2201,15 @@ request = read_message()
 assert request["method"] == "turn/start"
 assert request["params"]["approvalPolicy"] == "on-request"
 assert request["params"]["sandboxPolicy"] == {"type": "readOnly", "networkAccess": False}
+assert "model" not in request["params"]
+assert "effort" not in request["params"]
+assert "serviceTier" not in request["params"]
 respond(request, {"turn": {"id": "turn-ask", "status": "inProgress"}})
 time.sleep(30)
 "#;
 
     #[cfg(unix)]
-    const AUTH_SWITCH_FIXTURE: &str = r#"#!/usr/bin/python3
-import json
-import sys
-import time
-
-TRANSCRIPT = __TRANSCRIPT__
-
-def record(direction, message):
-    with open(TRANSCRIPT, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"direction": direction, "message": message}, separators=(",", ":")) + "\n")
-
-def read_message():
-    line = sys.stdin.readline()
-    if not line:
-        sys.exit(0)
-    message = json.loads(line)
-    record("in", message)
-    return message
-
-def respond(request, result):
-    message = {"id": request["id"], "result": result}
-    record("out", message)
-    sys.stdout.write(json.dumps(message, separators=(",", ":")) + "\n")
-    sys.stdout.flush()
-
-request = read_message()
-assert request["method"] == "initialize"
-respond(request, {"userAgent": "codex-cli/0.144.4", "codexHome": "/native/codex-home", "platformFamily": "unix", "platformOs": "macos"})
-notification = read_message()
-assert notification["method"] == "initialized"
-request = read_message()
-assert request["method"] == "account/read"
-respond(request, {"requiresOpenaiAuth": True, "account": {"type": "chatgpt", "email": "switched@example.test", "planType": "plus"}})
-request = read_message()
-assert request["method"] == "model/list"
-respond(request, {"data": [{"id": "gpt-5.4-high", "model": "gpt-5.4", "displayName": "GPT-5.4", "description": "Native model", "hidden": False, "defaultReasoningEffort": "high", "supportedReasoningEfforts": [{"reasoningEffort": "high", "description": "Deep"}], "isDefault": True, "inputModalities": ["text"], "supportsPersonality": False, "serviceTiers": [], "defaultServiceTier": None}], "nextCursor": None})
-time.sleep(30)
-"#;
-
     #[cfg(unix)]
-    const HANGING_ACCOUNT_FIXTURE: &str = r#"#!/usr/bin/python3
-import json
-import sys
-import time
-
-TRANSCRIPT = __TRANSCRIPT__
-
-def record(direction, message):
-    with open(TRANSCRIPT, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"direction": direction, "message": message}, separators=(",", ":")) + "\n")
-
-def read_message():
-    line = sys.stdin.readline()
-    if not line:
-        sys.exit(0)
-    message = json.loads(line)
-    record("in", message)
-    return message
-
-def respond(request, result):
-    message = {"id": request["id"], "result": result}
-    record("out", message)
-    sys.stdout.write(json.dumps(message, separators=(",", ":")) + "\n")
-    sys.stdout.flush()
-
-request = read_message()
-assert request["method"] == "initialize"
-respond(request, {"userAgent": "codex-cli/0.144.4", "codexHome": "/native/codex-home", "platformFamily": "unix", "platformOs": "macos"})
-notification = read_message()
-assert notification["method"] == "initialized"
-request = read_message()
-assert request["method"] == "account/read"
-time.sleep(30)
-"#;
-
     #[cfg(unix)]
     const MISSING_ROLLOUT_FIXTURE: &str = r#"#!/usr/bin/python3
 import json
@@ -2924,13 +2255,13 @@ time.sleep(30)
             text: "hello".into(),
             expected_target: CodexExecutionTarget {
                 engine_id: ENGINE_ID.into(),
-                account_id: "account".into(),
+                account_id: ACCOUNT_ID.into(),
                 billing_mode: BILLING_MODE.into(),
-                model_id: "gpt-5.4".into(),
+                model_id: MODEL_ID.into(),
                 model_source: CodexModelSource {
                     kind: "native".into(),
-                    source_url: CODEX_MODEL_SOURCE_URL.into(),
-                    checked_at: "2026-07-15T00:00:00Z".into(),
+                    source_url: None,
+                    checked_at: None,
                 },
             },
             company_id: "company".into(),
@@ -2941,32 +2272,11 @@ time.sleep(30)
             workspace_binding_history_id: None,
             native_session_mode: CodexNativeSessionMode::Tracked,
             native_session_reset_source_run_id: None,
-            model: Some("codex:gpt-5.4-high".into()),
-            runtime_model_ref: Some("codex:gpt-5.4-high".into()),
             permission_mode: Some("auto".into()),
-            thinking_level: None,
-            service_tier: None,
             system_prompt_append: None,
             client_user_message_id: None,
             workspace_requirement: CodexWorkspaceRequirement::Required,
             native_session_id: None,
-        }
-    }
-
-    fn native_model() -> NativeModel {
-        NativeModel {
-            id: "gpt-5.4-high".into(),
-            model: "gpt-5.4".into(),
-            display_name: "GPT-5.4".into(),
-            description: "Native model".into(),
-            hidden: false,
-            default_reasoning_effort: "high".into(),
-            supported_reasoning_efforts: vec![],
-            is_default: true,
-            input_modalities: vec!["text".into()],
-            supports_personality: false,
-            service_tiers: vec![],
-            default_service_tier: None,
         }
     }
 
@@ -2988,50 +2298,6 @@ time.sleep(30)
         assert!(cancellation.is_cancelled());
         assert!(state.cancel_starting("starting-request"));
         state.release_claim("starting-request");
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn startup_stop_terminates_hung_account_revalidation_without_request_timeout() {
-        let root = unique_test_dir("startup-stop");
-        let (binary, transcript_path) = write_scripted_app_server(&root, HANGING_ACCOUNT_FIXTURE);
-        let cancellation = Arc::new(StartupCancellation::new());
-        let connection =
-            CodexConnection::spawn(&binary, None, &root, None, Some(cancellation.as_ref()))
-                .await
-                .unwrap();
-        let catalog_task = {
-            let connection = Arc::clone(&connection);
-            let cancellation = Arc::clone(&cancellation);
-            tokio::spawn(async move {
-                load_catalog_during_startup(&connection, cancellation.as_ref(), false).await
-            })
-        };
-
-        tokio::time::timeout(Duration::from_secs(1), async {
-            loop {
-                let reached_account_read = std::fs::read_to_string(&transcript_path)
-                    .is_ok_and(|transcript| transcript.contains("account/read"));
-                if reached_account_read {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-        })
-        .await
-        .expect("fixture must reach the hanging account request");
-
-        cancellation.cancel();
-        let result = tokio::time::timeout(Duration::from_millis(500), catalog_task)
-            .await
-            .expect("Stop must not wait for the native request timeout")
-            .unwrap();
-        match result {
-            Ok(_) => panic!("catalog unexpectedly loaded after startup Stop"),
-            Err(error) => assert_eq!(error, STARTUP_STOP_MESSAGE),
-        }
-        assert!(!connection.is_alive());
-        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]
@@ -3059,45 +2325,37 @@ time.sleep(30)
             CodexConnection::spawn(&binary, None, &root, Some(Arc::clone(&stream)), None)
                 .await
                 .unwrap();
-        let catalog = load_catalog(&connection, false).await.unwrap();
         let target = CodexExecutionTarget {
             engine_id: ENGINE_ID.into(),
-            account_id: catalog.account.account_id.clone(),
+            account_id: ACCOUNT_ID.into(),
             billing_mode: BILLING_MODE.into(),
-            model_id: "gpt-5.4".into(),
+            model_id: MODEL_ID.into(),
             model_source: CodexModelSource {
                 kind: "native".into(),
-                source_url: CODEX_MODEL_SOURCE_URL.into(),
-                checked_at: catalog.checked_at.clone(),
+                source_url: None,
+                checked_at: None,
             },
         };
-        let selected = validate_execution_target(
-            &catalog,
-            &target,
-            Some("codex:gpt-5.4-high"),
-            Some("codex:gpt-5.4-high"),
-            Some("high"),
-            None,
-        )
-        .unwrap();
+        validate_execution_target(&target).unwrap();
         let policy = permission_policy(Some("plan"), &root, true).unwrap();
         let setup = start_native_thread(
             &connection,
             NativeThreadStart {
                 cwd: &root,
-                model: &selected.native,
                 continuation: None,
                 ephemeral: false,
                 policy: &policy,
                 developer_instructions: None,
-                service_tier: None,
             },
         )
         .await
         .unwrap();
-        let actual_model = product_model_id(&catalog.models, &setup.actual_model_selector).unwrap();
         stream.set_metadata(RunMetadata {
-            model: model_summary(&selected.native, &actual_model),
+            model: setup
+                .actual_model_id
+                .as_deref()
+                .map(model_summary)
+                .unwrap_or_else(engine_managed_model_summary),
             provenance: execution_provenance(&target, "conformance-run"),
             native_thread_ref: setup.native_thread_ref.clone(),
             expose_session: true,
@@ -3106,11 +2364,8 @@ time.sleep(30)
             &connection,
             NativeTurnStart {
                 cwd: &root,
-                model: &selected.native,
                 thread_id: &setup.native_thread_ref.thread_id,
                 policy: &policy,
-                service_tier: None,
-                effort: Some("high"),
                 client_user_message_id: "user-message-1",
                 text: "Run the conformance fixture",
             },
@@ -3166,8 +2421,14 @@ time.sleep(30)
             _ => panic!("scripted turn did not complete"),
         };
         assert_eq!(response.text, "# Plan\n\n1. Inspect\n2. Report");
-        assert_eq!(response.model.unwrap().id.as_deref(), Some("gpt-5.4"));
-        assert_eq!(response.usage.unwrap()["total"]["totalTokens"], 12);
+        assert_eq!(response.model.unwrap().id.as_deref(), Some("gpt-5.4-high"));
+        let usage = response.usage.unwrap();
+        assert_eq!(usage["scope"]["kind"], "subscription-run-diagnostic");
+        assert_eq!(usage["input"], 9);
+        assert_eq!(usage["output"], 2);
+        assert_eq!(usage["cacheRead"], 1);
+        assert_eq!(usage["usageSource"]["kind"], "adapter");
+        assert_eq!(usage["cost"]["kind"], "unavailable");
         let after_clock = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -3180,14 +2441,7 @@ time.sleep(30)
             .filter(|entry| entry["direction"] == "in")
             .filter_map(|entry| entry["message"]["method"].as_str())
             .collect::<Vec<_>>();
-        for expected in [
-            "initialize",
-            "initialized",
-            "account/read",
-            "model/list",
-            "thread/start",
-            "turn/start",
-        ] {
+        for expected in ["initialize", "initialized", "thread/start", "turn/start"] {
             assert!(
                 inbound_methods.contains(&expected),
                 "missing outbound {expected}"
@@ -3248,18 +2502,15 @@ time.sleep(30)
         let connection = CodexConnection::spawn(&binary, None, &root, None, None)
             .await
             .unwrap();
-        let model = native_model();
         let policy = permission_policy(Some("ask"), &root, true).unwrap();
         let setup = start_native_thread(
             &connection,
             NativeThreadStart {
                 cwd: &root,
-                model: &model,
                 continuation: None,
                 ephemeral: false,
                 policy: &policy,
                 developer_instructions: None,
-                service_tier: None,
             },
         )
         .await
@@ -3268,11 +2519,8 @@ time.sleep(30)
             &connection,
             NativeTurnStart {
                 cwd: &root,
-                model: &model,
                 thread_id: &setup.native_thread_ref.thread_id,
                 policy: &policy,
-                service_tier: None,
-                effort: Some("high"),
                 client_user_message_id: "ask-user-message",
                 text: "Attempt a write only after approval",
             },
@@ -3288,71 +2536,6 @@ time.sleep(30)
         }));
         connection.terminate().await;
         std::fs::remove_dir_all(root).unwrap();
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn codex_runtime_conformance_auth_switch_fails_before_native_thread_start() {
-        let root = unique_test_dir("auth-switch-conformance");
-        let (binary, transcript_path) = write_scripted_app_server(&root, AUTH_SWITCH_FIXTURE);
-        let connection = CodexConnection::spawn(&binary, None, &root, None, None)
-            .await
-            .unwrap();
-        let fingerprint = connection.codex_home_fingerprint().unwrap();
-        let expected_account = account_snapshot(
-            serde_json::from_value(json!({
-                "requiresOpenaiAuth": true,
-                "account": {"type":"chatgpt","email":"owner@example.test","planType":"plus"}
-            }))
-            .unwrap(),
-            &fingerprint,
-        );
-        let switched_catalog = load_catalog(&connection, false).await.unwrap();
-        let target = CodexExecutionTarget {
-            engine_id: ENGINE_ID.into(),
-            account_id: expected_account.account_id,
-            billing_mode: BILLING_MODE.into(),
-            model_id: "gpt-5.4".into(),
-            model_source: CodexModelSource {
-                kind: "native".into(),
-                source_url: CODEX_MODEL_SOURCE_URL.into(),
-                checked_at: switched_catalog.checked_at.clone(),
-            },
-        };
-        assert!(validate_execution_target(
-            &switched_catalog,
-            &target,
-            Some("codex:gpt-5.4-high"),
-            Some("codex:gpt-5.4-high"),
-            Some("high"),
-            None,
-        )
-        .is_err());
-        connection.terminate().await;
-
-        let transcript = read_transcript(&transcript_path);
-        assert!(!transcript.iter().any(|entry| {
-            matches!(
-                entry["message"]["method"].as_str(),
-                Some("thread/start" | "thread/resume" | "turn/start")
-            )
-        }));
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    fn catalog_with_limits(rate_limits: Value) -> CatalogSnapshot {
-        CatalogSnapshot {
-            account: AccountSnapshot {
-                account_id: "account".into(),
-                display_name: "Codex Plus".into(),
-                available: true,
-                reason: None,
-            },
-            models: vec![],
-            checked_at: "2026-07-15T00:00:00Z".into(),
-            rate_limits: Some(serde_json::from_value(rate_limits).unwrap()),
-            account_usage: None,
-        }
     }
 
     #[test]
@@ -3406,7 +2589,6 @@ time.sleep(30)
     #[test]
     fn permission_modes_drive_explicit_native_collaboration_state() {
         let root = Path::new("/tmp/project");
-        let model = native_model();
         for (mode, expected_native_mode) in [
             ("plan", "plan"),
             ("ask", "default"),
@@ -3415,22 +2597,15 @@ time.sleep(30)
         ] {
             let policy = permission_policy(Some(mode), root, true).unwrap();
             assert_eq!(policy.native_collaboration_mode, expected_native_mode);
-            let collaboration = turn_collaboration_mode(&policy, &model, Some("high"));
+            let collaboration = turn_collaboration_mode(&policy);
             assert_eq!(collaboration["mode"], expected_native_mode);
-            assert_eq!(collaboration["settings"]["model"], "gpt-5.4-high");
-            assert_eq!(collaboration["settings"]["reasoning_effort"], "high");
-            assert!(collaboration["settings"]["developer_instructions"].is_null());
+            assert_eq!(collaboration["settings"], json!({}));
         }
 
         let plan = permission_policy(Some("plan"), root, true).unwrap();
-        assert_eq!(
-            turn_collaboration_mode(&plan, &model, None)["settings"]["reasoning_effort"],
-            "medium"
-        );
+        assert_eq!(turn_collaboration_mode(&plan)["settings"], json!({}));
         let auto = permission_policy(Some("auto"), root, true).unwrap();
-        assert!(
-            turn_collaboration_mode(&auto, &model, None)["settings"]["reasoning_effort"].is_null()
-        );
+        assert_eq!(turn_collaboration_mode(&auto)["settings"], json!({}));
 
         let ask = permission_policy(Some("ask"), root, true).unwrap();
         assert_eq!(ask.thread_sandbox, "read-only");
@@ -3457,9 +2632,6 @@ time.sleep(30)
             "text": "rewrite",
             "expectedTarget": serde_json::to_value(execute_request().expected_target).unwrap(),
             "systemPrompt": "Improve the text",
-            "model": "codex:gpt-5.4-high",
-            "runtimeModelRef": "codex:gpt-5.4-high",
-            "thinkingLevel": "high",
             "sourceProvenance": null
         });
         assert!(serde_json::from_value::<CodexAgentEnhanceRequest>(request.clone()).is_ok());
@@ -3522,44 +2694,6 @@ time.sleep(30)
             None,
         )
         .is_err());
-    }
-
-    #[test]
-    fn runtime_model_ref_and_native_selector_preserve_both_catalog_ids() {
-        let model = native_model();
-        assert_eq!(runtime_model_ref(&model), "codex:gpt-5.4-high");
-        assert_eq!(native_model_selector(&model), "gpt-5.4-high");
-        assert_eq!(
-            product_model_id(&[model], "gpt-5.4-high").unwrap(),
-            "gpt-5.4"
-        );
-        assert!(validate_frozen_actual_model("gpt-5.4", "gpt-5.4").is_ok());
-        assert!(validate_frozen_actual_model("gpt-5.4-mini", "gpt-5.4").is_err());
-    }
-
-    #[test]
-    fn chatgpt_account_identity_uses_home_and_private_email_discriminator() {
-        let account = |email: Option<&str>| {
-            let response: NativeAccountReadResponse = serde_json::from_value(json!({
-                "requiresOpenaiAuth": true,
-                "account": {
-                    "type": "chatgpt",
-                    "email": email,
-                    "planType": "plus"
-                }
-            }))
-            .unwrap();
-            account_snapshot(response, "home-fingerprint")
-        };
-        let first = account(Some("owner@example.com"));
-        let second = account(Some("other@example.com"));
-        assert!(first.available);
-        assert_ne!(first.account_id, second.account_id);
-        assert!(!first.account_id.contains("owner"));
-        assert!(!first.display_name.contains('@'));
-        let missing = account(None);
-        assert!(!missing.available);
-        assert!(missing.reason.is_some());
     }
 
     #[test]
@@ -3690,115 +2824,6 @@ time.sleep(30)
                 .unwrap(),
             json!({"answers": {}})
         );
-    }
-
-    #[test]
-    fn subscription_usage_uses_top_level_only_when_native_limit_map_is_absent() {
-        let fallback = catalog_with_limits(json!({
-            "rateLimits": {
-                "limitName": "Top-level",
-                "primary": {"usedPercent": 40, "resetsAt": 1_782_864_000}
-            }
-        }));
-        let fallback_usage = subscription_usage(&fallback).unwrap();
-        assert_eq!(fallback_usage["limits"].as_array().unwrap().len(), 1);
-        assert_eq!(fallback_usage["limits"][0]["label"], "Top-level");
-        assert_eq!(fallback_usage["limits"][0]["windows"][0]["used"], "40%");
-        assert_eq!(
-            fallback_usage["limits"][0]["windows"][0]["remaining"],
-            "60%"
-        );
-    }
-
-    #[test]
-    fn subscription_usage_preserves_all_native_buckets_windows_and_activity() {
-        let mut exact = catalog_with_limits(json!({
-            "rateLimits": {
-                "limitName": "Top-level",
-                "primary": {"usedPercent": 99}
-            },
-            "rateLimitsByLimitId": {
-                "codex-a": {
-                    "limitId": "codex",
-                    "limitName": "Codex",
-                    "planType": "plus",
-                    "rateLimitReachedType": "primary",
-                    "primary": {
-                        "usedPercent": 40,
-                        "windowDurationMins": 60,
-                        "resetsAt": 1_782_864_000
-                    },
-                    "secondary": {
-                        "usedPercent": 5,
-                        "windowDurationMins": 10080,
-                        "resetsAt": 1_783_468_800
-                    },
-                    "individualLimit": {
-                        "limit": "25000",
-                        "used": "8000",
-                        "remainingPercent": 68,
-                        "resetsAt": 1_783_468_800
-                    },
-                    "credits": {"hasCredits": true, "unlimited": false, "balance": "0"}
-                },
-                "codex-duplicate": {
-                    "limitId": "codex",
-                    "limitName": "Duplicate must be ignored",
-                    "primary": {"usedPercent": 1}
-                },
-                "spark": {
-                    "limitId": "spark",
-                    "limitName": "Spark",
-                    "primary": {"usedPercent": 88}
-                }
-            },
-            "rateLimitResetCredits": {"availableCount": 3}
-        }));
-        exact.account_usage = Some(
-            serde_json::from_value(json!({
-                "summary": {
-                    "lifetimeTokens": 120000,
-                    "peakDailyTokens": 9000,
-                    "longestRunningTurnSec": 321,
-                    "currentStreakDays": 4,
-                    "longestStreakDays": 11
-                }
-            }))
-            .unwrap(),
-        );
-        let exact_usage = subscription_usage(&exact).unwrap();
-        let limits = exact_usage["limits"].as_array().unwrap();
-        assert_eq!(
-            limits.len(),
-            2,
-            "duplicate native limit IDs are deduplicated"
-        );
-        assert_eq!(limits[0]["limitId"], "codex");
-        assert_eq!(limits[0]["label"], "Codex");
-        assert_eq!(limits[0]["planType"], "plus");
-        assert_eq!(limits[0]["reachedType"], "primary");
-        assert_eq!(limits[0]["credits"], "0");
-        let windows = limits[0]["windows"].as_array().unwrap();
-        assert_eq!(windows.len(), 3);
-        assert_eq!(windows[0]["kind"], "primary");
-        assert_eq!(windows[0]["used"], "40%");
-        assert_eq!(windows[0]["remaining"], "60%");
-        assert_eq!(windows[0]["remainingIsDerived"], true);
-        assert_eq!(windows[0]["windowDurationMins"], 60);
-        assert_eq!(windows[1]["kind"], "secondary");
-        assert_eq!(windows[1]["used"], "5%");
-        assert_eq!(windows[2]["kind"], "spendControl");
-        assert_eq!(windows[2]["limit"], "25000");
-        assert_eq!(windows[2]["used"], "8000");
-        assert_eq!(windows[2]["remaining"], "68%");
-        assert_eq!(windows[2]["remainingIsDerived"], false);
-        assert_eq!(limits[1]["limitId"], "spark");
-        assert_eq!(limits[1]["windows"][0]["used"], "88%");
-        assert_eq!(exact_usage["resetCredits"], 3);
-        assert_eq!(exact_usage["activity"]["lifetimeTokens"], 120000);
-        assert_eq!(exact_usage["activity"]["longestStreakDays"], 11);
-        assert_eq!(exact_usage["updatedAt"], "2026-07-15T00:00:00Z");
-        assert!(exact_usage.get("cost").is_none());
     }
 
     #[test]

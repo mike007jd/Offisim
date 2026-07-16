@@ -792,6 +792,7 @@ export function createChildSupervisor(ctx) {
           COMBINED_OUTPUT_CAP,
           'combined',
         ),
+        completed: result.completed,
         model: result.model,
         provenance: result.provenance,
       };

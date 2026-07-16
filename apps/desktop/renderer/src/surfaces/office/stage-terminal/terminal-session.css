@@ -5,7 +5,7 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: #090d12;
+  background: var(--off-terminal-background);
 }
 
 .off-terminal-session-host {
@@ -39,7 +39,7 @@
 .off-terminal-session-foot > span {
   padding: 2px 7px;
   border: 1px solid color-mix(in srgb, var(--off-accent) 35%, transparent);
-  border-radius: 999px;
+  border-radius: var(--off-radius-status);
   color: var(--off-accent);
   text-transform: uppercase;
 }

@@ -86,7 +86,8 @@ export function InstallDialog({ listing, open, onOpenChange, onInstall }: Instal
     try {
       await onInstall(listing, values);
       setStep('done');
-    } catch {
+    } catch (error) {
+      console.error('[InstallDialog] Package installation failed', error);
       setErrorMessage(
         'The item could not be installed. Check its access requirements and try again.',
       );

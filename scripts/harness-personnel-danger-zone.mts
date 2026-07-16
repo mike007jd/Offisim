@@ -69,6 +69,15 @@ check('delete is guarded against double submission and refreshes the roster', ()
   assert.match(personnelSurface, /invalidateQueries\(\{ queryKey: \['employees', companyId\] \}\)/);
 });
 
+check('post-delete selection uses the visible roster and failure is not rendered twice', () => {
+  assert.match(
+    personnelSurface,
+    /nextEmployeeIdAfterDelete\(visibleEmployeeIdsRef\.current, selected\.id\)/,
+  );
+  assert.doesNotMatch(personnelSurface, /setDeleteError|off-pers-delete-error/);
+  assert.match(personnelSurface, /toast\.error\('Employee delete failed'/);
+});
+
 check('work and conversation history keeps readable employee references', () => {
   for (const expected of [
     'employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL',
@@ -93,4 +102,4 @@ check('employee-owned mutable state is removed with the employee', () => {
   );
 });
 
-console.log(`\nPersonnel Danger Zone harness: ${passed}/10 checks passed`);
+console.log(`\nPersonnel Danger Zone harness: ${passed}/11 checks passed`);
