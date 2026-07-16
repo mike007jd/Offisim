@@ -6,7 +6,13 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
     Column, Row, Sqlite, SqlitePool, TypeInfo, ValueRef,
 };
-use std::{str::FromStr, time::Duration};
+use std::{
+    fs,
+    io::ErrorKind,
+    path::{Path, PathBuf},
+    str::FromStr,
+    time::Duration,
+};
 use tauri::{Manager, Runtime};
 
 const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/schema.sql");
@@ -17,8 +23,9 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// only supported local database shape: fresh databases apply it directly and
 /// are stamped with this baseline version.
 ///
-/// Any existing local database with another version is a disposable dev artifact:
-/// delete it and let the app rebuild from the current baseline.
+/// Any existing local database with another version is a disposable dev artifact.
+/// Startup preserves one overwrite-only `.stale` backup, then rebuilds the
+/// current baseline automatically.
 const LOCAL_SCHEMA_VERSION: i64 = 14;
 
 pub struct OffisimDbState {
@@ -27,22 +34,27 @@ pub struct OffisimDbState {
 
 pub async fn init_offisim_db_state<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
     crate::local_paths::purge_legacy_app_storage(app)?;
+    let db_path = crate::local_paths::offisim_storage_path("offisim.db")?;
     let db_url = offisim_db_url()?;
+    let pool = open_offisim_database(&db_url).await?;
+    let pool = apply_schema(pool, &db_path, &db_url).await?;
+    app.manage(OffisimDbState { pool });
+    Ok(())
+}
+
+async fn open_offisim_database(db_url: &str) -> Result<SqlitePool, String> {
     let options = SqliteConnectOptions::from_str(&db_url)
         .map_err(|err| format!("parse offisim.db URL: {err}"))?
         .create_if_missing(true)
         .foreign_keys(true)
         .journal_mode(SqliteJournalMode::Wal)
         .busy_timeout(Duration::from_secs(5));
-    let pool = SqlitePoolOptions::new()
+    SqlitePoolOptions::new()
         .min_connections(1)
         .max_connections(4)
         .connect_with(options)
         .await
-        .map_err(|err| format!("open offisim.db: {err}"))?;
-    apply_schema(&pool).await?;
-    app.manage(OffisimDbState { pool });
-    Ok(())
+        .map_err(|err| format!("open offisim.db: {err}"))
 }
 
 pub fn get_offisim_pool<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<SqlitePool, String> {
@@ -431,37 +443,114 @@ fn offisim_db_url() -> Result<String, String> {
     crate::local_paths::offisim_sqlite_url()
 }
 
-async fn apply_schema(pool: &SqlitePool) -> Result<(), String> {
-    ensure_schema(pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL).await
+async fn apply_schema(
+    pool: SqlitePool,
+    db_path: &Path,
+    db_url: &str,
+) -> Result<SqlitePool, String> {
+    ensure_schema(
+        pool,
+        db_path,
+        db_url,
+        LOCAL_SCHEMA_VERSION,
+        LOCAL_SCHEMA_SQL,
+    )
+    .await
 }
 
 /// Fresh-baseline schema bootstrap:
 /// - fresh database → apply the end-state baseline atomically, stamp `latest`
-/// - `user_version == 0` but tables exist → refuse: an unstamped non-empty
-///   database is an unrecognized local artifact, not a supported shape to adopt
 /// - `user_version == latest` → no-op
-/// - any other `user_version` → refuse and ask for local reset
-async fn ensure_schema(pool: &SqlitePool, latest: i64, baseline_sql: &str) -> Result<(), String> {
-    let version = read_user_version(pool).await?;
+/// - `user_version == 0` with tables, or any other version → move the disposable
+///   database and its WAL/SHM sidecars to one overwrite-only `.stale` backup,
+///   then bootstrap the current baseline
+async fn ensure_schema(
+    pool: SqlitePool,
+    db_path: &Path,
+    db_url: &str,
+    latest: i64,
+    baseline_sql: &str,
+) -> Result<SqlitePool, String> {
+    let version = read_user_version(&pool).await?;
     if version == latest {
-        return Ok(());
-    }
-    if version > 0 {
-        return Err(format!(
-            "offisim.db user_version {version} is not supported by this prelaunch build \
-             (expected {latest}); delete the local database to rebuild the current baseline"
-        ));
+        return Ok(pool);
     }
 
-    if is_empty_database(pool).await? {
-        apply_sql_and_stamp(pool, baseline_sql, latest, "offisim schema bootstrap").await?;
-        return Ok(());
+    if version == 0 && is_empty_database(&pool).await? {
+        apply_sql_and_stamp(&pool, baseline_sql, latest, "offisim schema bootstrap").await?;
+        return Ok(pool);
     }
-    Err(
-        "offisim.db has tables but no user_version stamp; this prelaunch build only \
-         supports a fresh baseline — delete the local database to rebuild"
-            .to_string(),
+
+    let reason = if version == 0 {
+        "database has tables but no user_version stamp".to_string()
+    } else {
+        format!("database user_version is {version}, expected {latest}")
+    };
+
+    pool.close().await;
+    let stale_path = replace_stale_database_backup(db_path)?;
+    let fresh_pool = open_offisim_database(db_url).await?;
+    apply_sql_and_stamp(
+        &fresh_pool,
+        baseline_sql,
+        latest,
+        "offisim schema bootstrap after prelaunch reset",
     )
+    .await?;
+    eprintln!(
+        "[local_db] prelaunch reset: {reason}; moved disposable local database to {} and rebuilt baseline v{latest}",
+        stale_path.display()
+    );
+    Ok(fresh_pool)
+}
+
+fn path_with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut value = path.as_os_str().to_os_string();
+    value.push(suffix);
+    PathBuf::from(value)
+}
+
+fn replace_stale_database_backup(db_path: &Path) -> Result<PathBuf, String> {
+    let paths = [
+        (db_path.to_path_buf(), path_with_suffix(db_path, ".stale")),
+        (
+            path_with_suffix(db_path, "-wal"),
+            path_with_suffix(db_path, ".stale-wal"),
+        ),
+        (
+            path_with_suffix(db_path, "-shm"),
+            path_with_suffix(db_path, ".stale-shm"),
+        ),
+    ];
+
+    for (_, backup) in &paths {
+        match fs::remove_file(backup) {
+            Ok(()) => {}
+            Err(err) if err.kind() == ErrorKind::NotFound => {}
+            Err(err) => {
+                return Err(format!(
+                    "replace stale offisim.db backup {}: {err}",
+                    backup.display()
+                ))
+            }
+        }
+    }
+
+    for (index, (source, backup)) in paths.iter().enumerate() {
+        match fs::rename(source, backup) {
+            Ok(()) => {}
+            Err(err) if index > 0 && err.kind() == ErrorKind::NotFound => {}
+            Err(err) => {
+                return Err(format!(
+                    "move stale offisim.db artifact {} to {}: {err}",
+                    source.display(),
+                    backup.display()
+                ))
+            }
+        }
+    }
+
+    Ok(paths[0].1.clone())
 }
 
 /// Run `sql` and stamp `PRAGMA user_version = version` in one transaction.
@@ -810,9 +899,15 @@ mod tests {
     #[tokio::test]
     async fn fresh_database_bootstraps_baseline_and_stamps_latest_version() {
         let pool = memory_pool().await;
-        ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL)
-            .await
-            .expect("fresh bootstrap");
+        let pool = ensure_schema(
+            pool,
+            Path::new("unused-memory-database"),
+            "sqlite::memory:",
+            LOCAL_SCHEMA_VERSION,
+            LOCAL_SCHEMA_SQL,
+        )
+        .await
+        .expect("fresh bootstrap");
         assert_eq!(
             read_user_version(&pool).await.unwrap(),
             LOCAL_SCHEMA_VERSION
@@ -824,37 +919,125 @@ mod tests {
                 .unwrap();
         assert_eq!(companies, 1, "baseline schema should create companies");
         // Re-running on an up-to-date database is a no-op.
-        ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL)
-            .await
-            .expect("idempotent re-run");
+        ensure_schema(
+            pool,
+            Path::new("unused-memory-database"),
+            "sqlite::memory:",
+            LOCAL_SCHEMA_VERSION,
+            LOCAL_SCHEMA_SQL,
+        )
+        .await
+        .expect("idempotent re-run");
     }
 
     #[tokio::test]
-    async fn unstamped_database_with_tables_is_refused() {
-        let pool = memory_pool().await;
-        raw_sql("CREATE TABLE companies (company_id TEXT PRIMARY KEY)")
+    async fn unstamped_database_with_tables_is_reset() {
+        let fixture = file_database_fixture("unstamped-reset");
+        let db_url = sqlite_url(&fixture.db_path);
+        let pool = open_offisim_database(&db_url).await.unwrap();
+        raw_sql("CREATE TABLE legacy_only (id TEXT PRIMARY KEY)")
             .execute(&pool)
             .await
             .unwrap();
-        let err = ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL)
-            .await
-            .unwrap_err();
-        assert!(err.contains("no user_version stamp"), "got: {err}");
+        let pool = ensure_schema(
+            pool,
+            &fixture.db_path,
+            &db_url,
+            LOCAL_SCHEMA_VERSION,
+            LOCAL_SCHEMA_SQL,
+        )
+        .await
+        .expect("reset unstamped database");
+
+        assert_current_baseline(&pool).await;
+        assert!(!table_exists(&pool, "legacy_only").await);
+        let backup = path_with_suffix(&fixture.db_path, ".stale");
+        assert!(backup.is_file(), "stale database backup should exist");
+        let backup_pool = open_read_only_database(&backup).await;
+        assert_eq!(read_user_version(&backup_pool).await.unwrap(), 0);
+        assert!(table_exists(&backup_pool, "legacy_only").await);
     }
 
     #[tokio::test]
-    async fn unsupported_local_database_version_is_rejected() {
-        let pool = memory_pool().await;
-        let unsupported = LOCAL_SCHEMA_VERSION + 1;
+    async fn unsupported_local_database_version_is_reset() {
+        let fixture = file_database_fixture("version-reset");
+        let db_url = sqlite_url(&fixture.db_path);
+        let pool = open_offisim_database(&db_url).await.unwrap();
+        let unsupported = 6;
         raw_sql(&format!(
-            "CREATE TABLE companies (company_id TEXT PRIMARY KEY); PRAGMA user_version = {unsupported}"
+            "CREATE TABLE legacy_only (id TEXT PRIMARY KEY); PRAGMA user_version = {unsupported}"
         ))
         .execute(&pool)
         .await
         .unwrap();
-        let err = ensure_schema(&pool, LOCAL_SCHEMA_VERSION, LOCAL_SCHEMA_SQL)
+        let pool = ensure_schema(
+            pool,
+            &fixture.db_path,
+            &db_url,
+            LOCAL_SCHEMA_VERSION,
+            LOCAL_SCHEMA_SQL,
+        )
+        .await
+        .expect("reset old-version database");
+
+        assert_current_baseline(&pool).await;
+        assert!(!table_exists(&pool, "legacy_only").await);
+        let backup = path_with_suffix(&fixture.db_path, ".stale");
+        assert!(backup.is_file(), "stale database backup should exist");
+        let backup_pool = open_read_only_database(&backup).await;
+        assert_eq!(read_user_version(&backup_pool).await.unwrap(), unsupported);
+        assert!(table_exists(&backup_pool, "legacy_only").await);
+    }
+
+    struct FileDatabaseFixture {
+        root: PathBuf,
+        db_path: PathBuf,
+    }
+
+    impl Drop for FileDatabaseFixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn file_database_fixture(label: &str) -> FileDatabaseFixture {
+        let root = std::env::temp_dir().join(format!(
+            "offisim-local-db-{label}-{}-{}",
+            std::process::id(),
+            rand::random::<u64>()
+        ));
+        fs::create_dir_all(&root).expect("create local db fixture directory");
+        FileDatabaseFixture {
+            db_path: root.join("offisim.db"),
+            root,
+        }
+    }
+
+    fn sqlite_url(path: &Path) -> String {
+        format!("sqlite://{}?mode=rwc", path.to_string_lossy())
+    }
+
+    async fn open_read_only_database(path: &Path) -> SqlitePool {
+        SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect(&format!("sqlite://{}?mode=ro", path.to_string_lossy()))
             .await
-            .unwrap_err();
-        assert!(err.contains("not supported"), "got: {err}");
+            .expect("open stale database backup")
+    }
+
+    async fn table_exists(pool: &SqlitePool, table: &str) -> bool {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?",
+        )
+        .bind(table)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+            == 1
+    }
+
+    async fn assert_current_baseline(pool: &SqlitePool) {
+        assert_eq!(read_user_version(pool).await.unwrap(), LOCAL_SCHEMA_VERSION);
+        assert!(table_exists(pool, "companies").await);
     }
 }
