@@ -36,7 +36,7 @@ when the list changes.
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
 | Desktop Rust | `cargo test` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db baseline/refusal behavior |
-| Supply chain | `pnpm audit --prod --audit-level high` | no unresolved high/critical advisories in the prod tree (transitive highs are pinned via root `pnpm.overrides`) |
+| Supply chain | `node scripts/audit-production-dependencies.mjs` | pnpm 11 Bulk Advisory audit reports no unresolved high/critical advisories in the prod tree (the build toolchain remains on pnpm 10; transitive highs are pinned via root `pnpm.overrides`) |
 
 ## Build gates (desktop release)
 

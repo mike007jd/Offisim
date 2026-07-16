@@ -20,8 +20,8 @@ export const RELEASE_GATES = [
   {
     name: 'supply-chain-audit',
     lane: 'node',
-    command: 'pnpm',
-    args: ['audit', '--prod', '--audit-level', 'high'],
+    command: 'node',
+    args: ['scripts/audit-production-dependencies.mjs'],
   },
   {
     name: 'cargo-test',

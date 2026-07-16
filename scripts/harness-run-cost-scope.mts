@@ -419,6 +419,24 @@ const seed = db.transaction(() => {
     JSON.stringify({ model: 'gpt-exact' }),
     '2026-07-10T00:00:00.000Z',
   );
+  insert.run(
+    'native-subscription-no-usage-root',
+    'native-subscription-no-usage-root',
+    'native-subscription-no-usage-thread',
+    'co-native-subscription-no-usage',
+    null,
+    null,
+    JSON.stringify({
+      model: 'codex:gpt-5.4-mini',
+      executionTarget: {
+        engineId: 'codex',
+        accountId: 'codex:chatgpt:native-no-usage',
+        billingMode: 'subscription',
+        modelId: 'gpt-5.4-mini',
+      },
+    }),
+    '2026-07-10T00:00:00.000Z',
+  );
 });
 seed();
 
@@ -570,6 +588,28 @@ const nativeSubscriptionUsage = {
     updatedAt: capturedAt,
   },
 };
+const nativeSubscriptionWithoutDiagnosticTokens = await loadRunCostFromDatabase(
+  adapter,
+  'co-native-subscription-no-usage',
+  'native-subscription-no-usage-thread',
+  new Date('2026-07-13T12:00:00.000Z'),
+);
+assert.deepEqual(nativeSubscriptionWithoutDiagnosticTokens.sessionAccounts, [
+  {
+    engineId: 'codex',
+    accountId: 'codex:chatgpt:native-no-usage',
+    billingMode: 'subscription',
+  },
+]);
+assert.equal(nativeSubscriptionWithoutDiagnosticTokens.sessionTokens, null);
+assert.equal(nativeSubscriptionWithoutDiagnosticTokens.sessionCostKind, 'none');
+const nativeSubscriptionWithoutDiagnosticPresentation = taskAccountingPresentation({
+  ...nativeSubscriptionWithoutDiagnosticTokens,
+  sessionSubscriptionUsage: nativeSubscriptionUsage.sessionSubscriptionUsage,
+});
+assert.equal(nativeSubscriptionWithoutDiagnosticPresentation.kind, 'subscription');
+assert.equal(nativeSubscriptionWithoutDiagnosticPresentation.primary, '60% remaining');
+assert.doesNotMatch(JSON.stringify(nativeSubscriptionWithoutDiagnosticPresentation), /Cost/u);
 const subscriptionPresentation = taskAccountingPresentation(nativeSubscriptionUsage);
 assert.equal(subscriptionPresentation.kind, 'subscription');
 assert.equal(subscriptionPresentation.primary, '60% remaining');

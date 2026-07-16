@@ -7,11 +7,10 @@ import { inferMcpGrantRiskClass } from './mcp-risk.js';
 /**
  * Canonical employee system prompt.
  *
- * Both the Personnel "System prompt" preview and the live Pi session render
+ * Both the Personnel "System prompt" preview and every runtime engine render
  * from this single builder, so what the user reads in the inspector is exactly
- * what the employee's Pi sessions receive (forwarded as the session's
- * `appendSystemPrompt`). Persona is a real, generic agent capability — a system
- * prompt addendum — not a Pi-specific control.
+ * what the employee's run receives. Persona is a generic agent capability — a
+ * system-prompt addendum — not an engine-specific control.
  */
 export interface EmployeePersonaInput {
   name: string;

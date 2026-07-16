@@ -257,6 +257,11 @@ const checks = [
       /Employee retry requires runtime recovery wiring|runtime\.retryEmployee|failed row gets a Retry chip|<button[\s\S]{0,180}off-pers-retry-chip|<span class="retry-chip"[\s\S]{0,120}>Retry/,
   },
   {
+    label: 'Personnel engine-specific runtime identity',
+    dirs: ['apps/desktop/renderer/src/surfaces/personnel'],
+    pattern: /\bPi (?:Agent|sessions?)\b/i,
+  },
+  {
     label: 'residual fake disabled surface controls',
     dirs: [
       'apps/desktop/renderer/src/surfaces/market',

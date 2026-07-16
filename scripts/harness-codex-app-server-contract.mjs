@@ -1019,6 +1019,11 @@ assert.match(
   /codex-app-server-aarch64-apple-darwin/u,
   'clean-checkout cargo tests need an inert ignored Codex externalBin placeholder',
 );
+assert.match(
+  cargoTestPrepSource,
+  /resources\/pi-agent-host\.mjs[\s\S]*resources\/claude-agent-host\.mjs/u,
+  'clean-checkout cargo tests need inert ignored API and Claude host resource placeholders',
+);
 assert.equal(
   packageJson.scripts?.['harness:codex-runtime-conformance'],
   'pnpm prepare:desktop-cargo-test && cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml codex_agent_host:: --lib',

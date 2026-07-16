@@ -745,9 +745,14 @@ function runHost(scriptPath, payload, label) {
 }
 
 function ensureBundledHost(scriptPath) {
-  if (existsSync(scriptPath)) return;
+  if (
+    existsSync(scriptPath) &&
+    !readFileSync(scriptPath, 'utf8').startsWith('THIS IS A CARGO-TEST-ONLY STUB')
+  ) {
+    return;
+  }
 
-  console.log(`[harness:pi-agent-host] rebuilding missing bundle ${scriptPath}`);
+  console.log(`[harness:pi-agent-host] rebuilding missing or inert bundle ${scriptPath}`);
   const result = spawnSync(process.execPath, ['scripts/build-pi-agent-host.mjs'], {
     stdio: 'inherit',
   });

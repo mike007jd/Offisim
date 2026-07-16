@@ -258,7 +258,7 @@ export interface RunCost {
   sessionTokens: number | null;
   sessionKnownTokens: number;
   sessionTokenCoverage: 'complete' | 'partial' | 'unavailable';
-  /** Exact engine/account lane(s) proven by the selected Conversation's persisted root usage. */
+  /** Exact engine/account lane(s) proven by persisted root usage or frozen runtime provenance. */
   sessionAccounts: RunAccountingAccount[];
   sessionCostKind: 'actual' | 'estimate' | 'unavailable' | 'none';
   sessionCostLabel: string;
