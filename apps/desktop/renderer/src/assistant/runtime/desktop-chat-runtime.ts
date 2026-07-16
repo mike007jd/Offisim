@@ -1,15 +1,21 @@
 import type { ChatAttachment, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import type { AppendMessage } from '@assistant-ui/react';
+import { bytesToBase64, parseAttachment } from '@offisim/doc-engine';
 import { sha256Hex } from '@offisim/install-core';
 import {
   type AttachmentKind,
   type AttachmentMeta,
+  CHAT_ATTACHMENT_MAX_BYTES,
   CURRENT_PARSED_REV,
+  type ParsedAttachment,
   type VaultRef,
 } from '@offisim/shared-types';
 
 const INLINE_ATTACHMENT_MAX_CHARS = 48_000;
+const TRUNCATION_MARKER = '\n[truncated]';
+const NATIVE_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+export const ATTACHMENT_ONLY_PROMPT = 'Review the attached files.';
 
 /**
  * Upsert a streamed tool-call into a per-run accumulator (replace-by-id, never
@@ -62,6 +68,7 @@ export function displayAttachmentsFromStaged(
 export interface MaterializedChatTurn {
   promptText: string;
   attachments: ChatAttachment[];
+  images: Array<{ data: string; mimeType: string }>;
 }
 
 export async function materializeChatTurn({
@@ -76,24 +83,99 @@ export async function materializeChatTurn({
   staged: readonly StagedAttachment[];
 }): Promise<MaterializedChatTurn> {
   const attached = staged.filter((attachment) => attachment.status === 'attached');
-  if (attached.length === 0) return { promptText: text, attachments: [] };
+  if (attached.length === 0) return { promptText: text, attachments: [], images: [] };
   const attachments: ChatAttachment[] = [];
+  const images: Array<{ data: string; mimeType: string }> = [];
   const promptLines: string[] = [
     text,
     '',
     '## Current turn attachments',
-    'The user attached files to this turn. Text/data excerpts below are readable context. Binary or metadata-only attachments are not readable in this Agent runtime turn; do not claim to have inspected their contents.',
+    'The user attached files to this turn. Parsed document and text content appears below. Native images are supplied separately in the model input; inspect them directly when the selected model supports image input.',
   ];
 
   for (const attachment of attached) {
     const materialized = await persistAttachment({ companyId, threadId, attachment });
     attachments.push(materialized.chatAttachment);
+    const imageMime = nativeImageMime(materialized.chatAttachment.mimeType);
+    if (imageMime) {
+      promptLines.push(attachmentHeader(materialized.chatAttachment));
+      if (materialized.bytes) {
+        images.push({ data: bytesToBase64(materialized.bytes), mimeType: imageMime });
+        promptLines.push('Native image input: attached separately for direct visual inspection.');
+      } else {
+        promptLines.push(
+          'Native image input: unavailable because the attachment bytes were not materialized.',
+        );
+      }
+      continue;
+    }
     promptLines.push(
-      ...attachmentPromptLines(materialized.chatAttachment, attachment, materialized.bytes),
+      ...(await attachmentPromptLines(materialized.chatAttachment, attachment, materialized.bytes)),
     );
   }
 
-  return { promptText: promptLines.join('\n'), attachments };
+  return { promptText: promptLines.join('\n'), attachments, images };
+}
+
+/** Rebuild the exact Pi-facing attachment packet from the durable vault after a
+ * renderer reload. Display rows keep metadata while bytes remain single-copy. */
+export async function rehydratePersistedChatTurn({
+  text,
+  attachments,
+}: {
+  text: string;
+  attachments: readonly ChatAttachment[];
+}): Promise<MaterializedChatTurn> {
+  if (attachments.length === 0) return { promptText: text, attachments: [], images: [] };
+  const images: Array<{ data: string; mimeType: string }> = [];
+  const promptLines = [
+    text,
+    '',
+    '## Current turn attachments',
+    'The user attached files to this turn. Parsed document and text content appears below. Native images are supplied separately in the model input; inspect them directly when the selected model supports image input.',
+  ];
+
+  for (const attachment of attachments) {
+    let bytes: Uint8Array | undefined;
+    if (attachment.vaultRef) {
+      try {
+        const payload = await invokeCommand('attachment_read', {
+          vaultRef: attachment.vaultRef,
+          maxBytes: CHAT_ATTACHMENT_MAX_BYTES,
+        });
+        bytes = new Uint8Array(payload.bytes);
+      } catch (error) {
+        console.warn('[desktop-chat-runtime] persisted attachment rehydrate failed', {
+          attachmentId: attachment.id,
+          error,
+        });
+      }
+    }
+    const imageMime = nativeImageMime(attachment.mimeType);
+    if (imageMime) {
+      promptLines.push(attachmentHeader(attachment));
+      if (bytes) {
+        images.push({ data: bytesToBase64(bytes), mimeType: imageMime });
+        promptLines.push('Native image input: attached separately for direct visual inspection.');
+      } else {
+        promptLines.push(
+          'Native image input: unavailable because the attachment bytes were not materialized.',
+        );
+      }
+      continue;
+    }
+    const inline = bytes
+      ? await inlineAttachmentBytes(bytes, attachment.mimeType, attachment.name)
+      : null;
+    promptLines.push(
+      attachmentHeader(attachment),
+      inline
+        ? `Parsed readable content:\n\`\`\`\n${inline}\n\`\`\``
+        : 'Readable content: unavailable for this attachment type or parsing failed.',
+    );
+  }
+
+  return { promptText: promptLines.join('\n'), attachments: [...attachments], images };
 }
 
 async function persistAttachment({
@@ -148,40 +230,71 @@ async function persistAttachment({
   };
 }
 
-function attachmentPromptLines(
+async function attachmentPromptLines(
   chatAttachment: ChatAttachment,
   staged: StagedAttachment,
   bytes: Uint8Array | undefined,
-): string[] {
+): Promise<string[]> {
+  const header = attachmentHeader(chatAttachment);
+  const inline = await inlineAttachmentText(staged, bytes);
+  if (!inline)
+    return [header, 'Readable content: unavailable for this attachment type or parsing failed.'];
+  return [header, 'Parsed readable content:', '```', inline, '```'];
+}
+
+async function inlineAttachmentText(
+  attachment: StagedAttachment,
+  bytes: Uint8Array | undefined,
+): Promise<string | null> {
+  if (!bytes) return null;
+  return inlineAttachmentBytes(bytes, attachment.mimeType, attachment.name);
+}
+
+async function inlineAttachmentBytes(
+  bytes: Uint8Array,
+  mimeType: string | undefined,
+  name: string,
+): Promise<string | null> {
+  const parsed = await parseAttachment(bytes, mimeType ?? 'application/octet-stream', name);
+  const trimmed = parsedAttachmentText(parsed)?.trim();
+  if (!trimmed) return null;
+  return trimmed.length > INLINE_ATTACHMENT_MAX_CHARS
+    ? `${trimmed.slice(0, INLINE_ATTACHMENT_MAX_CHARS - TRUNCATION_MARKER.length)}${TRUNCATION_MARKER}`
+    : trimmed;
+}
+
+function parsedAttachmentText(parsed: ParsedAttachment): string | null {
+  switch (parsed.kind) {
+    case 'text':
+    case 'pdf':
+    case 'docx':
+    case 'pptx':
+      return parsed.text;
+    case 'xlsx':
+      return parsed.sheets
+        .map((sheet: { name: string; csv: string }) =>
+          [`## Sheet: ${sheet.name}`, sheet.csv].filter(Boolean).join('\n'),
+        )
+        .join('\n\n');
+    case 'image':
+    case 'binary':
+    case 'unsupported':
+      return null;
+  }
+  return null;
+}
+
+function attachmentHeader(chatAttachment: ChatAttachment): string {
   const mime = chatAttachment.mimeType ?? 'application/octet-stream';
   const kind = chatAttachment.kind ?? 'other';
   const ref = chatAttachment.vaultRef ? `, ref=${chatAttachment.vaultRef}` : '';
-  const header = `[attachment ${chatAttachment.name}, ${mime}, ${chatAttachment.byteLength ?? 0} bytes, kind=${kind}${ref}]`;
-  const inline = inlineAttachmentText(staged, bytes);
-  if (!inline) return [header, 'Readable content: unavailable in this Agent runtime turn.'];
-  return [header, 'Readable content:', '```', inline, '```'];
+  return `[attachment ${chatAttachment.name}, ${mime}, ${chatAttachment.byteLength ?? 0} bytes, kind=${kind}${ref}]`;
 }
 
-function inlineAttachmentText(
-  attachment: StagedAttachment,
-  bytes: Uint8Array | undefined,
-): string | null {
-  if (!bytes) return null;
-  const kind = attachment.kind ?? 'other';
-  const mime = attachment.mimeType ?? '';
-  const textLike =
-    kind === 'code' ||
-    kind === 'data' ||
-    kind === 'document' ||
-    mime.startsWith('text/') ||
-    /application\/(json|xml|yaml|x-yaml|javascript|typescript|toml|x-ndjson|ld\+json)/i.test(mime);
-  if (!textLike) return null;
-  const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-  const trimmed = decoded.trim();
-  if (!trimmed) return null;
-  return trimmed.length > INLINE_ATTACHMENT_MAX_CHARS
-    ? `${trimmed.slice(0, INLINE_ATTACHMENT_MAX_CHARS)}\n[truncated]`
-    : trimmed;
+function nativeImageMime(mimeType: string | undefined): string | null {
+  const normalized = mimeType?.split(';', 1)[0]?.trim().toLowerCase();
+  const canonical = normalized === 'image/jpg' ? 'image/jpeg' : normalized;
+  return canonical && NATIVE_IMAGE_MIMES.has(canonical) ? canonical : null;
 }
 
 async function materializeAttachmentBytes(

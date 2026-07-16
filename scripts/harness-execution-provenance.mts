@@ -52,14 +52,11 @@ const apiTurn: TurnExecutionProvenance = {
     checkedAt: '2026-07-14T00:00:00Z',
   },
   runId: 'turn-2',
-  adapter: { id: 'pi-agent', version: '0.79.8' },
+  adapter: { id: 'pi-agent', version: '0.80.9' },
 };
 
 check('orchestration provenance validates with its exact Turn id', () => {
-  assert.deepEqual(
-    validateTurnExecutionProvenance(orchestrationTurn, 'turn-1'),
-    orchestrationTurn,
-  );
+  assert.deepEqual(validateTurnExecutionProvenance(orchestrationTurn, 'turn-1'), orchestrationTurn);
 });
 check('API provenance validates independently of orchestration billing', () => {
   assert.deepEqual(validateTurnExecutionProvenance(apiTurn, 'turn-2'), apiTurn);
@@ -482,7 +479,7 @@ check('empty reload terminals retain the last durable assistant checkpoint', () 
   assert.match(projectionBody, /terminal\.status === 'failed'[\s\S]*?'failed'/u);
 });
 
-check('native Stop coalesces duplicate abort paths for one request', () => {
+check('native Stop coalesces transport and snapshot arbitration for one request', () => {
   assert.match(
     desktopRuntimeSource,
     /private readonly abortInFlight = new Map<string, Promise<void>>\(\);/u,
@@ -492,10 +489,16 @@ check('native Stop coalesces duplicate abort paths for one request', () => {
     1,
     'only the coalescer may call the raw native abort transport',
   );
-  assert.ok(
-    (desktopRuntimeSource.match(/this\.invokeAbortOnce\(requestId\)/gu)?.length ?? 0) >= 5,
-    'signal, explicit Stop, and rejected-binding paths must share the same abort',
+  assert.match(
+    desktopRuntimeSource,
+    /private readonly abortDecisionByRequest = new Map<string, Promise<void>>\(\);/u,
   );
+  assert.match(desktopRuntimeSource, /void this\.abort\(input\.threadId\)\.catch/u);
+  assert.ok(
+    (desktopRuntimeSource.match(/this\.invokeAbortOnce\(requestId\)/gu)?.length ?? 0) >= 3,
+    'Stop and rejected-binding paths must share the native abort coalescer',
+  );
+  assert.match(desktopRuntimeSource, /snapshot\?\.terminal\?\.status === 'aborted'/u);
   assert.match(
     desktopRuntimeSource,
     /if \(this\.abortInFlight\.get\(requestId\) === pending\) \{\s*this\.abortInFlight\.delete\(requestId\);/u,

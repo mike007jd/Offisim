@@ -139,9 +139,12 @@ pub fn agent_runtime_abort(request_id: String) -> Result<(), String> {
 pub async fn agent_runtime_control(
     request_id: String,
     action: String,
-    run_id: String,
+    control_id: Option<String>,
+    run_id: Option<String>,
+    text: Option<String>,
+    images: Option<serde_json::Value>,
 ) -> Result<(), String> {
-    bridge::control_impl(request_id, action, run_id).await
+    bridge::control_impl(request_id, action, control_id, run_id, text, images).await
 }
 
 /// Confirm the exact host-observed API execution target. Rust only writes this

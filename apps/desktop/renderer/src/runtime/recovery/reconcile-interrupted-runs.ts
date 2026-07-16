@@ -86,7 +86,7 @@ interface InterruptedRunCardOptions {
   currentWireProtocolVersion?: number;
 }
 
-export const PI_HOST_PROTOCOL_VERSION = 10;
+export const PI_HOST_PROTOCOL_VERSION = 11;
 export const CODEX_APP_SERVER_PROTOCOL_VERSION = 2;
 export const CLAUDE_AGENT_HOST_PROTOCOL_VERSION = 1;
 

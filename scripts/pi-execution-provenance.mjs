@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-export const PI_EXECUTION_ADAPTER = Object.freeze({ id: 'pi-agent', version: '0.79.8' });
+export const PI_EXECUTION_ADAPTER = Object.freeze({ id: 'pi-agent', version: '0.80.9' });
 export const EXECUTION_TARGET_ACK_TIMEOUT_MS = 15_000;
 
 function nonEmpty(value) {

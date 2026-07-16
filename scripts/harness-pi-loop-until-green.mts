@@ -72,7 +72,7 @@ async function runScenario({
         identity: {
           ...expectedTarget,
           runId,
-          adapter: { id: 'pi-agent', version: '0.79.8' },
+          adapter: { id: 'pi-agent', version: '0.80.9' },
         },
       };
     },

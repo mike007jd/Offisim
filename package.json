@@ -160,7 +160,7 @@
   },
   "author": "Offisim Contributors",
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "0.79.8",
+    "@earendil-works/pi-coding-agent": "0.80.9",
     "strip-json-comments": "5.0.3",
     "typebox": "1.1.38"
   }

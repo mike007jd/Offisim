@@ -20,6 +20,7 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
   const activity = run.activity;
   const activityTotal = run.activityTotal;
   const delegations = run.delegations;
+  const runtimeStatus = run.runtimeStatus;
   const rootId = run.attemptId;
   // Flatten the delegation forest into DFS order with depth, so the strip shows
   // the real run tree (who delegated whom, nested) rather than a flat list. A
@@ -55,7 +56,12 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
   }, [delegations, rootId]);
   // Render while active if there's either direct tool work or a delegation — a
   // run that only delegates has no tool calls of its own.
-  if (!isRunning || (activity.length === 0 && delegations.length === 0)) return null;
+  const hasLifecycle =
+    Boolean(runtimeStatus.message) ||
+    runtimeStatus.contextPercent !== null ||
+    runtimeStatus.steeringQueued + runtimeStatus.followUpQueued > 0;
+  if (!isRunning || (activity.length === 0 && delegations.length === 0 && !hasLifecycle))
+    return null;
   // Most recent calls, oldest→newest, capped so the strip stays one compact row.
   const recent = activity.slice(-6);
   const latest = recent[recent.length - 1];
@@ -64,7 +70,7 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
     ? `${latestError.tool} failed${latestError.detail ? `: ${latestError.detail}` : ''}`
     : latest
       ? `${latest.tool}${latest.detail ? ` · ${latest.detail}` : ''}`
-      : 'Preparing tools';
+      : (runtimeStatus.message ?? 'Preparing tools');
   // Count against the run-wide total (not the capped array) so the badge stays
   // accurate even after older entries are evicted from `activity`.
   const hidden = activityTotal - recent.length;
@@ -107,6 +113,14 @@ export function RunActivityStrip({ threadId }: { threadId: string }) {
         </div>
       ) : null}
       <div className="off-run-act-list">
+        {runtimeStatus.contextPercent !== null ? (
+          <span className="off-run-act is-running">
+            <span className="off-run-act-dot" />
+            <span className="off-run-act-name">
+              Context {Math.round(runtimeStatus.contextPercent)}%
+            </span>
+          </span>
+        ) : null}
         {recent.map((entry) => (
           <span key={entry.id} className={cn('off-run-act', `is-${entry.state}`)}>
             <span className="off-run-act-dot" />

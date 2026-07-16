@@ -95,6 +95,7 @@ export type PiAgentHostEvent =
       id: string;
       resolution: 'answered' | 'cancelled' | 'timeout' | 'native';
     }
+  | { kind: 'lifecycle'; event: string; payload: unknown }
   | {
       kind: 'agentRun';
       threadId: string;
@@ -132,10 +133,10 @@ void ([
         checkedAt: '2026-07-14T00:00:00Z',
       },
       runId: 'run-1',
-      adapter: { id: 'pi-agent', version: '0.79.8' },
+      adapter: { id: 'pi-agent', version: '0.80.9' },
     },
     targetDigest: 'digest',
-    adapter: { id: 'pi-agent', version: '0.79.8' },
+    adapter: { id: 'pi-agent', version: '0.80.9' },
   },
   { kind: 'started', sessionId: 's', sessionFile: '/f', modelFallbackMessage: 'm' },
   {
