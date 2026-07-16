@@ -1050,6 +1050,7 @@ export class ConversationRunController {
         ...(run.workspaceProvenance ? { workspaceProvenance: run.workspaceProvenance } : {}),
       };
       run.assistantMessage = assistant;
+      if (!this.isActiveRun(run) || run.stopped) return;
       if (!response.conversationTerminalCommitted) {
         await this.persistRunMessage(run, assistant);
       }
