@@ -31,6 +31,12 @@ const SKIP_SEGMENTS = new Set(['dist', 'target', 'node_modules']);
 
 const checks = [
   {
+    label: 'geometry-changing active workspace navigation',
+    dirs: ['apps/desktop/renderer/src/design-system/shell'],
+    pattern:
+      /\(!isUtility\s*\|\|\s*active\)|\.is-icon\.is-active|\.off-workspace-nav\s+\.is-active\s*\{[^}]*font-weight\s*:/s,
+  },
+  {
     label: 'native select element',
     dirs: ['apps/desktop/renderer/src', 'Docs/design'],
     pattern: /<select\b/,
@@ -569,9 +575,13 @@ const requiredChecks = [
   {
     // IconBar was folded into WorkspaceNav (one nav grammar, both tiers);
     // a single registry map renders both tiers, keyed off `tier`.
-    label: 'WorkspaceNav consumes the nav registry (both tiers, not hardcoded)',
+    label: 'WorkspaceNav keeps registry-driven utility navigation icon-only',
     file: 'apps/desktop/renderer/src/design-system/shell/WorkspaceNav.tsx',
-    patterns: [/NAV_ENTRIES\.map/, /tier === 'utility'/],
+    patterns: [
+      /NAV_ENTRIES\.map/,
+      /tier === 'utility'/,
+      /\{!isUtility && <span className="off-nav-label">/,
+    ],
   },
   {
     label: 'Command palette consumes the nav registry (no separate surface list)',

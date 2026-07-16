@@ -218,19 +218,12 @@
   background: var(--off-accent-surface);
   color: var(--off-accent);
   box-shadow: inset 0 0 0 1px var(--off-accent-ring);
-  font-weight: 640;
 }
 
-/* Utility surfaces ride the same chip-bar as icon-only tabs, sharing the
-   `.is-active` grammar so the current surface is always visible here. */
+/* Utility surfaces stay icon-only and keep one stable footprint in every
+   state; `.is-active` changes emphasis without changing geometry. */
 .off-workspace-nav button.is-icon {
   padding: 0 var(--off-sp-3);
-}
-
-/* The active utility tab reveals its text label (icon-only when inactive),
-   so the padding widens to match the primary text tabs. */
-.off-workspace-nav button.is-icon.is-active {
-  padding: 0 var(--off-sp-4);
 }
 
 /* Divider between the primary text tabs and the utility icon tabs. */
