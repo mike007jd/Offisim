@@ -588,7 +588,7 @@ function EmployeeDetail({
           <div
             className={cn('off-pers-savebar', guardPulsing && 'is-guard-pulse')}
             onAnimationEnd={(e) => {
-              if (e.animationName === 'off-pers-guard-pulse') setGuardPulsing(false);
+              if (e.animationName === 'off-pers-guard-flash') setGuardPulsing(false);
             }}
           >
             <div className="off-pers-savebar-left">

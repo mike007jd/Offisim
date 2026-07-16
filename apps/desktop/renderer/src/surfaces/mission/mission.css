@@ -22,16 +22,6 @@
   min-height: 0;
 }
 
-/* ── shared status spinner (active phases) ── */
-.off-mission-spin {
-  animation: off-mission-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
-}
-@keyframes off-mission-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* ══════════ List view ══════════ */
 
 .off-mission-list-head {

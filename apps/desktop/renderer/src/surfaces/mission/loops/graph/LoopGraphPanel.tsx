@@ -302,7 +302,7 @@ function LoopGraphPanelInner({
     return (
       <div className="off-loopgraph off-loopgraph--state" aria-busy="true">
         <div className="off-loopgraph-progress">
-          <Loader2 className="off-loopgraph-spin" aria-hidden="true" />
+          <Loader2 className="off-loopgraph-loading-icon off-spin" aria-hidden="true" />
           <div>
             <p className="off-loopgraph-state-title">Building your orchestration graph</p>
             <p className="off-loopgraph-state-text">
@@ -410,7 +410,7 @@ function LoopGraphPanelInner({
         >
           {isLaying ? (
             <div className="off-loopgraph-laying" aria-hidden="true">
-              <Loader2 className="off-loopgraph-spin" />
+              <Loader2 className="off-loopgraph-loading-icon off-spin" />
             </div>
           ) : null}
           <ReactFlow

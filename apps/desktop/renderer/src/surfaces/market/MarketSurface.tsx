@@ -23,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
 import { Input } from '@/design-system/primitives/input.js';
-import { cn } from '@/lib/utils.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -43,6 +42,7 @@ import {
   UserRound,
   WifiOff,
 } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { InstallDialog } from './InstallDialog.js';
@@ -305,7 +305,7 @@ export function MarketSurface() {
   const registryNotConnected = registryConnection.data?.reason === 'registry-config-missing';
 
   return (
-    <div className={cn('off-market', detailOpen && 'is-detail-mode')}>
+    <div className="off-market">
       <div className="off-mkt-fbar">
         <div className="off-mkt-fbar-main">
           {registryNotConnected && mode === 'explore' ? (
@@ -391,14 +391,7 @@ export function MarketSurface() {
       </div>
 
       <div className="off-mkt-grid-wrap">
-        {detailOpen && detailListing ? (
-          <MarketDetail
-            listing={detailListing}
-            installed={detailListing.installed}
-            onClose={() => setDetailListingId(null)}
-            onInstall={() => void openInstall(detailListing)}
-          />
-        ) : mode === 'manage' ? (
+        {mode === 'manage' ? (
           <div className="off-mkt-listing">
             <MarketManage
               view={manageView}
@@ -435,6 +428,17 @@ export function MarketSurface() {
             onOpen={openDetail}
           />
         )}
+        <AnimatePresence initial={false}>
+          {detailOpen && detailListing ? (
+            <MarketDetail
+              key="market-detail"
+              listing={detailListing}
+              installed={detailListing.installed}
+              onClose={() => setDetailListingId(null)}
+              onInstall={() => void openInstall(detailListing)}
+            />
+          ) : null}
+        </AnimatePresence>
       </div>
 
       <InstallDialog
