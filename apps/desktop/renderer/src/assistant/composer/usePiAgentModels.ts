@@ -7,12 +7,17 @@ import {
   type DurableThreadExecutionAuthority,
   resolveAuthoritativeThreadExecutionAuthority,
 } from '@/runtime/thread-execution-authority.js';
-import type { AiModelCatalogEntry, AiRuntimeStatus } from '@offisim/shared-types';
+import type {
+  AiModelCatalogEntry,
+  AiRuntimeStatus,
+  RuntimeEngineCapabilityManifest,
+} from '@offisim/shared-types';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
 /** One runnable model projected by the engine-neutral desktop runtime. */
 export interface AgentRuntimeModelOption {
+  selectionKind: 'api-model' | 'orchestration-engine';
   /** Adapter-private selector sent to the runtime; never shown to the user. */
   value: string;
   /** Friendly product label. */
@@ -23,14 +28,24 @@ export interface AgentRuntimeModelOption {
   engineId: string;
   modelId: string;
   billingMode: 'api' | 'subscription';
-  source: AiModelCatalogEntry['source'];
+  source?: AiModelCatalogEntry['source'];
   availability: 'available' | 'expiring';
   availabilityReason?: string;
   expiresAt?: string;
   reasoning: boolean;
   reasoningEfforts: readonly ThinkingLevel[];
   defaultReasoningEffort?: ThinkingLevel;
+  capabilities: RuntimeEngineCapabilityManifest;
 }
+
+const API_RUNTIME_CAPABILITIES: RuntimeEngineCapabilityManifest = {
+  stop: true,
+  steer: false,
+  resume: true,
+  permissionModes: ['plan', 'ask', 'auto', 'full'],
+  interactions: { approval: true, userInput: true },
+  processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+};
 
 function isRuntimeStatus(value: unknown): value is AiRuntimeStatus {
   if (!value || typeof value !== 'object') return false;
@@ -38,6 +53,7 @@ function isRuntimeStatus(value: unknown): value is AiRuntimeStatus {
   return (
     Array.isArray(candidate.accounts) &&
     Array.isArray(candidate.models) &&
+    Array.isArray(candidate.orchestrationEngines) &&
     typeof candidate.checkedAt === 'string'
   );
 }
@@ -52,7 +68,7 @@ async function loadModels(): Promise<AgentRuntimeModelOption[]> {
 }
 
 /** Safe picker projection: catalog rows are runnable only with a live executable account. */
-export function projectRunnableModelOptions(
+function projectRunnableModelOptions(
   rawStatus: AiRuntimeStatus,
   nowMs = Date.now(),
 ): AgentRuntimeModelOption[] {
@@ -75,9 +91,11 @@ export function projectRunnableModelOptions(
       )
       .map((account) => aiAccountLaneKey(account.engineId, account.accountId, account.billingMode)),
   );
-  return rawStatus.models
+  const apiModels: AgentRuntimeModelOption[] = rawStatus.models
     .filter(
       (model): model is AiModelCatalogEntry & { readonly availability: 'available' | 'expiring' } =>
+        model.engineId === 'api' &&
+        model.billingMode === 'api' &&
         (model.availability === 'available' ||
           (model.availability === 'expiring' &&
             Boolean(model.expiresAt) &&
@@ -88,7 +106,7 @@ export function projectRunnableModelOptions(
     .map((model) => {
       const accountName =
         accountNames.get(aiAccountLaneKey(model.engineId, model.accountId, model.billingMode)) ??
-        'AI account';
+        'API account';
       const exactReasoningEfforts = (model.reasoningEfforts ?? [])
         .map((effort) => effort.id)
         .filter((id): id is ThinkingLevel => Boolean(id && /^[a-z0-9][a-z0-9._-]{0,63}$/u.test(id)))
@@ -103,6 +121,7 @@ export function projectRunnableModelOptions(
         (effort) => effort === model.defaultReasoningEffort,
       );
       return {
+        selectionKind: 'api-model',
         value: model.runtimeModelRef,
         name: model.displayName,
         accountName,
@@ -117,8 +136,28 @@ export function projectRunnableModelOptions(
         reasoning: model.capabilities.reasoning,
         reasoningEfforts,
         ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}),
+        capabilities: API_RUNTIME_CAPABILITIES,
       };
     });
+
+  const orchestrationEngines: AgentRuntimeModelOption[] = rawStatus.orchestrationEngines
+    .filter((engine) => engine.state === 'ready')
+    .map((engine) => ({
+      selectionKind: 'orchestration-engine',
+      value: engine.engineId,
+      name: engine.displayName,
+      accountName: 'Orchestration engines',
+      accountId: `${engine.engineId}:local`,
+      engineId: engine.engineId,
+      modelId: 'engine-managed',
+      billingMode: 'subscription',
+      availability: 'available',
+      reasoning: false,
+      reasoningEfforts: [],
+      capabilities: engine.capabilities,
+    }));
+
+  return [...apiModels, ...orchestrationEngines];
 }
 
 async function loadThreadExecutionAuthority(

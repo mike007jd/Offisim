@@ -67,7 +67,7 @@ Treat these as discovery triggers, not automatic delete permission:
 
 | smell | likely debt | first action |
 |---|---|---|
-| migration ledger, `0002..0012`, `MIGRATIONS`, `LOCAL_SCHEMA_VERSION = 12` | stale launched-user upgrade narrative | collapse to the current baseline unless a real post-launch contract exists |
+| migration ledger, numbered migration chains, or a duplicated schema-version number in docs | stale launched-user upgrade narrative | collapse to the current baseline; the `LOCAL_SCHEMA_VERSION` constant remains the only version truth unless a real post-launch contract exists |
 | "temporary", "MVP", "minimal viable", "quick fix" | incomplete AI-assisted implementation | require complete product behavior and oracle |
 | "legacy", "compat", "back-compat", "alias" | possible real contract or false compatibility | prove consumer/data boundary before changing |
 | broad fallback or swallowed errors | safety theater or honest degraded mode | classify failure mode and user-visible contract |

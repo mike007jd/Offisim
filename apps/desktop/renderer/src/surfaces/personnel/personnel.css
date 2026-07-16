@@ -691,10 +691,10 @@
    edits: a one-shot accent pulse at the save bar gives the blocked click
    local feedback (the discard toast alone is far from the click point). */
 .off-pers-savebar.is-guard-pulse {
-  animation: off-pers-guard-pulse 600ms var(--off-motion-ease);
+  animation: off-pers-guard-flash var(--off-motion-flash) var(--off-motion-ease);
 }
 
-@keyframes off-pers-guard-pulse {
+@keyframes off-pers-guard-flash {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--off-accent) 60%, transparent);
   }

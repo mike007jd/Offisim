@@ -162,7 +162,8 @@ export function PublishDialog({
         riskClass: values.riskClass as PublishPackageRequest['riskClass'],
         tags,
       });
-    } catch {
+    } catch (error) {
+      console.error('[PublishDialog] Package submission failed', error);
       toast.error('Submission failed', {
         description: 'The item was not submitted. Check the connection and try again.',
       });

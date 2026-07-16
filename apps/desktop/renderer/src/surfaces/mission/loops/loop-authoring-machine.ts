@@ -115,8 +115,13 @@ export function deriveAuthoringState(model: LoopAuthoringModel): LoopAuthoringSt
   // is stale → dirty (the old graph still renders; the UI shows a stale badge).
   if (isDirty(model)) return 'dirty';
 
+  // Persistence is not a business state. A selected/hydrated needs_input or
+  // invalid revision must still surface its questions/findings instead of being
+  // masked as saved. Only a ready revision becomes the resting `saved` state.
+  const compiledState = compileStatusToState(model.compiled.status);
+  if (compiledState !== 'ready') return compiledState;
   if (model.justSaved || model.compiled.savedRevisionId) return 'saved';
-  return compileStatusToState(model.compiled.status);
+  return compiledState;
 }
 
 /**

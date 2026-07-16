@@ -275,15 +275,6 @@
   animation: off-shimmer var(--off-motion-loop-base) var(--off-motion-loop-soft) infinite;
 }
 
-@keyframes off-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
 /* The one inline callout grammar (warn/error), shared across surfaces —
    compose with a surface-local class for placement, never re-derive the
    danger/warn surface+border+ink recipe. */
