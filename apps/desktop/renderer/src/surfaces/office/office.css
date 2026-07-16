@@ -1296,6 +1296,16 @@
   color: var(--off-ink-2);
 }
 
+.off-stage-readout.is-warning {
+  border-color: color-mix(in srgb, var(--off-warn) 46%, var(--off-line));
+  color: var(--off-warn);
+}
+
+.off-stage-readout.is-critical {
+  border-color: color-mix(in srgb, var(--off-danger) 52%, var(--off-line));
+  color: var(--off-danger);
+}
+
 .off-stage-readout-part {
   min-width: 0;
   gap: var(--off-sp-2);

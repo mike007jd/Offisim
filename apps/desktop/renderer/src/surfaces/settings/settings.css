@@ -849,40 +849,6 @@
   font-weight: 620;
 }
 
-.off-set-provider-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--off-sp-3);
-  margin-bottom: var(--off-sp-6);
-}
-
-.off-set-provider-summary-grid div {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-  padding: var(--off-sp-4);
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-2);
-}
-
-.off-set-provider-summary-grid span {
-  color: var(--off-ink-4);
-  font-size: var(--off-fs-micro);
-  font-weight: 670;
-  text-transform: uppercase;
-}
-
-.off-set-provider-summary-grid strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--off-ink-1);
-  font-size: var(--off-fs-sm);
-  font-weight: 660;
-}
-
 .off-set-account-section {
   display: grid;
   gap: var(--off-sp-3);
@@ -1413,10 +1379,6 @@
   font-size: var(--off-fs-sm);
 }
 
-.off-set-provider-summary-grid.is-subscription {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .off-set-account-usage-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1526,8 +1488,6 @@
     flex-wrap: wrap;
   }
 
-  .off-set-provider-summary-grid,
-  .off-set-provider-summary-grid.is-subscription,
   .off-set-account-usage-grid {
     grid-template-columns: 1fr;
   }

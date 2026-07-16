@@ -36,6 +36,7 @@ const estimateCost = (amountUsd: number) => ({
   checkedAt: capturedAt,
 });
 const apiUsage = ({
+  engineId = 'api',
   accountId,
   input,
   output,
@@ -44,6 +45,7 @@ const apiUsage = ({
   reasoning,
   cost,
 }: {
+  engineId?: string;
   accountId: string;
   input?: number;
   output?: number;
@@ -57,7 +59,7 @@ const apiUsage = ({
 }) => ({
   scope: {
     kind: 'api-run' as const,
-    engineId: 'api',
+    engineId,
     accountId,
     modelId: 'provider/exact-model',
   },
@@ -105,6 +107,24 @@ insert.run(
   ),
   '2026-07-10T00:00:00.000Z',
   '2026-07-10T00:01:00.000Z',
+);
+insert.run(
+  'same-account-id-other-engine',
+  'same-account-id-other-engine',
+  JSON.stringify(
+    apiUsage({
+      engineId: 'other-api',
+      accountId: 'api:a',
+      input: 4,
+      output: 1,
+      cacheRead: 0,
+      cacheWrite: 0,
+      reasoning: 0,
+      cost: actualCost(0.04),
+    }),
+  ),
+  '2026-07-10T02:00:00.000Z',
+  '2026-07-10T02:01:00.000Z',
 );
 insert.run(
   'aggregate-root',
@@ -184,7 +204,9 @@ const snapshots = await loadAiAccountUsageFromDatabase(database, now);
 
 assert.deepEqual(snapshots, [
   {
+    engineId: 'api',
     accountId: 'api:a',
+    billingMode: 'api',
     usage: {
       kind: 'api',
       inputTokens: 15,
@@ -201,7 +223,9 @@ assert.deepEqual(snapshots, [
     },
   },
   {
+    engineId: 'api',
     accountId: 'api:b',
+    billingMode: 'api',
     usage: {
       kind: 'api',
       outputTokens: 8,
@@ -219,6 +243,27 @@ assert.deepEqual(snapshots, [
       updatedAt: capturedAt,
     },
   },
+  {
+    engineId: 'other-api',
+    accountId: 'api:a',
+    billingMode: 'api',
+    usage: {
+      kind: 'api',
+      inputTokens: 4,
+      outputTokens: 1,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      reasoningTokens: 0,
+      updatedAt: capturedAt,
+      periodLabel: 'This month',
+      runCount: 1,
+    },
+    cost: {
+      kind: 'actual',
+      amountUsd: 0.04,
+      updatedAt: capturedAt,
+    },
+  },
 ]);
 
 assert.deepEqual(
@@ -227,4 +272,6 @@ assert.deepEqual(
   'an account with no current-month root usage must not receive a fabricated zero snapshot',
 );
 
-console.log('✓ ai-account-usage: root-only monthly usage and cost semantics stay truthful');
+console.log(
+  '✓ ai-account-usage: root-only monthly accounting stays isolated by engine/account/billing lane',
+);

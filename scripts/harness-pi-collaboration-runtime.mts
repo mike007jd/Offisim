@@ -341,11 +341,51 @@ async function seedThread(
   };
   const selected = selectCollaborationExecutionTarget(safeCatalogStatus);
   check(
-    'safe runtime catalog selects only a configured stable exact API model',
+    'safe runtime catalog selects a configured stable exact API model',
     selected.runtimeModelRef === 'fixture/fixture-stable' &&
       selected.target.accountId === 'api:fixture:0123456789abcdef' &&
       selected.target.modelId === 'fixture-stable',
     JSON.stringify(selected),
+  );
+  const codexCatalogStatus = {
+    accounts: [
+      {
+        engineId: 'codex',
+        accountId: 'codex:chatgpt:fixture',
+        billingMode: 'subscription',
+        displayName: 'Codex Pro',
+        status: 'available',
+        capabilities: {
+          execute: { status: 'available' },
+          models: { status: 'available' },
+          usage: { status: 'available' },
+          cost: { status: 'unavailable', reason: 'Subscription usage has no API cost.' },
+        },
+      },
+    ],
+    models: [
+      {
+        engineId: 'codex',
+        accountId: 'codex:chatgpt:fixture',
+        billingMode: 'subscription',
+        modelId: 'gpt-fixture',
+        displayName: 'GPT Fixture',
+        runtimeModelRef: 'gpt-fixture',
+        availability: 'available',
+        capabilities: { textInput: true, imageInput: true, tools: true, reasoning: true },
+        source: { ...MODEL_SOURCE, kind: 'native' as const },
+      },
+    ],
+    checkedAt: MODEL_SOURCE.checkedAt,
+  };
+  const codexSelected = selectCollaborationExecutionTarget(codexCatalogStatus);
+  check(
+    'safe runtime catalog selects a configured Codex subscription model',
+    codexSelected.runtimeModelRef === 'gpt-fixture' &&
+      codexSelected.target.engineId === 'codex' &&
+      codexSelected.target.billingMode === 'subscription' &&
+      codexSelected.target.accountId === 'codex:chatgpt:fixture',
+    JSON.stringify(codexSelected),
   );
   let unavailableRejected = false;
   try {
@@ -1018,7 +1058,7 @@ await (async () => {
     perm.includes('"agent_runtime_collaborate"'),
   );
 
-  // The transport invokes the dedicated command, NOT agent_runtime_execute.
+  // The transport invokes isolated collaboration commands, never the work path.
   const transportPath = fileURLToPath(
     new URL(
       '../apps/desktop/renderer/src/runtime/collaboration/collaboration-transport.ts',
@@ -1027,9 +1067,14 @@ await (async () => {
   );
   const transportSrc = readFileSync(transportPath, 'utf8');
   check(
-    '(4) collaboration transport invokes agent_runtime_collaborate (not _execute)',
+    '(4) collaboration transport routes API through agent_runtime_collaborate (not _execute)',
     transportSrc.includes("invokeCommand('agent_runtime_collaborate'") &&
       !transportSrc.includes("invokeCommand('agent_runtime_execute'"),
+  );
+  check(
+    '(4) collaboration transport routes Codex through its isolated one-shot host',
+    transportSrc.includes("invokeCommand('codex_agent_enhance'") &&
+      transportSrc.includes("invokeCommand('codex_agent_abort'"),
   );
   check(
     '(4) collaboration transport never touches agent_runs / mission / chat_threads',

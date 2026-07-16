@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { loadRunCostFromDatabase } from '../apps/desktop/renderer/src/data/run-cost.js';
+import { taskAccountingPresentation } from '../apps/desktop/renderer/src/data/task-accounting-presentation.js';
 import {
   RUN_COST_UPDATED_EVENT,
   persistRunCostAndNotify,
@@ -87,9 +88,38 @@ const apiUsage = ({
   usageSource: { kind: 'provider', capturedAt },
   cost,
 });
-const aggregateUsage = (
-  contributions: Array<{ runId: string; usage: ReturnType<typeof apiUsage> }>,
-) => {
+const subscriptionUsage = ({
+  engineId,
+  accountId,
+  modelId,
+  input = 0,
+  output = 0,
+}: {
+  engineId: string;
+  accountId: string;
+  modelId: string;
+  input?: number;
+  output?: number;
+}) => ({
+  scope: {
+    kind: 'subscription-run-diagnostic' as const,
+    engineId,
+    accountId,
+    modelId,
+  },
+  input,
+  output,
+  cacheRead: 0,
+  cacheWrite: 0,
+  reasoning: 0,
+  turns: 1,
+  inputAccounting: 'excludes-cache' as const,
+  outputAccounting: 'includes-reasoning' as const,
+  usageSource: { kind: 'provider' as const, capturedAt },
+  cost: { kind: 'unavailable' as const, reason: 'Subscription usage has no API cost.' },
+});
+type FixtureUsage = ReturnType<typeof apiUsage> | ReturnType<typeof subscriptionUsage>;
+const aggregateUsage = (contributions: Array<{ runId: string; usage: FixtureUsage }>) => {
   const usageFields = ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning', 'turns'] as const;
   const fields = Object.fromEntries(
     usageFields.map((key) => {
@@ -261,6 +291,48 @@ const seed = db.transaction(() => {
     '2026-07-10T00:00:01.000Z',
   );
   insert.run(
+    'future-root',
+    'future-root',
+    'future-thread',
+    'co',
+    null,
+    JSON.stringify(
+      aggregateUsage([
+        {
+          runId: 'future-root',
+          usage: apiUsage({
+            modelId: 'future-model',
+            input: 9_999,
+            cost: { kind: 'actual', amountUsd: 99, source: 'provider', capturedAt },
+          }),
+        },
+      ]),
+    ),
+    null,
+    '2026-08-01T00:00:00.000Z',
+  );
+  insert.run(
+    'other-company-same-thread',
+    'other-company-same-thread',
+    'selected',
+    'other-co',
+    null,
+    JSON.stringify(
+      aggregateUsage([
+        {
+          runId: 'other-company-same-thread',
+          usage: apiUsage({
+            modelId: 'other-company-model',
+            input: 8_888,
+            cost: { kind: 'actual', amountUsd: 88, source: 'provider', capturedAt },
+          }),
+        },
+      ]),
+    ),
+    null,
+    '2026-07-10T00:00:00.000Z',
+  );
+  insert.run(
     'free-root',
     'free-root',
     'free-thread',
@@ -324,6 +396,29 @@ const seed = db.transaction(() => {
     JSON.stringify({ model: 'partial-model' }),
     '2026-07-10T00:00:00.000Z',
   );
+  insert.run(
+    'subscription-root',
+    'subscription-root',
+    'subscription-thread',
+    'co-subscription',
+    null,
+    JSON.stringify(
+      aggregateUsage([
+        {
+          runId: 'subscription-root',
+          usage: subscriptionUsage({
+            engineId: 'codex',
+            accountId: 'codex:chatgpt:test',
+            modelId: 'gpt-exact',
+            input: 20,
+            output: 2,
+          }),
+        },
+      ]),
+    ),
+    JSON.stringify({ model: 'gpt-exact' }),
+    '2026-07-10T00:00:00.000Z',
+  );
 });
 seed();
 
@@ -358,6 +453,22 @@ assert.ok(
   !runCostHookSource.includes('refetchInterval'),
   'run cost must not use unconditional polling',
 );
+assert.match(
+  querySource,
+  /loadSelectedSubscriptionUsage[\s\S]*agent_runtime_status[\s\S]*includeUsage:\s*true/u,
+  'selected subscription tasks must resolve provider-native usage from the exact runtime lane',
+);
+
+const appFrameSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/design-system/shell/AppFrame.tsx', import.meta.url),
+  'utf8',
+);
+assert.doesNotMatch(appFrameSource, /useRunCost|off-topbar-cost|costLabel/u);
+const accountPaneSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/surfaces/settings/AiAccountsPane.tsx', import.meta.url),
+  'utf8',
+);
+assert.doesNotMatch(accountPaneSource, /usageHeadline|off-set-provider-summary-grid/u);
 
 assert.equal(resultSizes[0], 2, 'monthly detail query must not return historical rows');
 assert.equal(resultSizes[1], 2, 'session query returns only the selected thread root rows');
@@ -365,6 +476,11 @@ assert.equal(result.monthlyTokens, 100, 'monthly total reads rolled-up roots onl
 assert.equal(result.monthlyTokenCoverage, 'complete');
 assert.equal(result.sessionTokens, 107, 'session aggregate includes old and current root usage');
 assert.equal(result.sessionTokenCoverage, 'complete');
+assert.deepEqual(result.sessionAccounts, [
+  { engineId: 'api', accountId: 'api:test:opaque', billingMode: 'api' },
+]);
+assert.equal(result.sessionCostKind, 'estimate');
+assert.equal(result.sessionCostLabel, 'Estimated $1.07');
 assert.equal(result.costKind, 'estimate');
 assert.equal(result.costLabel, 'Estimated $1.00');
 assert.deepEqual(
@@ -388,12 +504,13 @@ assert.equal(freeResult.costLabel, 'Actual $0.00', 'provider-confirmed free is n
 const unavailableResult = await loadRunCostFromDatabase(
   adapter,
   'co-unknown',
-  null,
+  'unknown-thread',
   new Date('2026-07-13T12:00:00.000Z'),
 );
 assert.equal(unavailableResult.tokens, 2);
 assert.equal(unavailableResult.costKind, 'unavailable');
 assert.equal(unavailableResult.costLabel, 'Cost unavailable');
+assert.equal(taskAccountingPresentation(unavailableResult).secondary, 'Cost unavailable');
 
 const partialResult = await loadRunCostFromDatabase(
   adapter,
@@ -407,6 +524,140 @@ assert.equal(partialResult.monthlyTokenCoverage, 'partial');
 assert.equal(partialResult.sessionTokens, null);
 assert.equal(partialResult.sessionKnownTokens, 100);
 assert.equal(partialResult.sessionTokenCoverage, 'partial');
+
+const apiPresentation = taskAccountingPresentation(result);
+assert.equal(apiPresentation.kind, 'api');
+assert.equal(apiPresentation.primary, '107 tok');
+assert.equal(apiPresentation.secondary, 'Estimated $1.07');
+assert.equal(apiPresentation.tone, 'neutral');
+
+const subscriptionResult = await loadRunCostFromDatabase(
+  adapter,
+  'co-subscription',
+  'subscription-thread',
+  new Date('2026-07-13T12:00:00.000Z'),
+);
+assert.deepEqual(subscriptionResult.sessionAccounts, [
+  { engineId: 'codex', accountId: 'codex:chatgpt:test', billingMode: 'subscription' },
+]);
+assert.equal(subscriptionResult.sessionTokens, 22, 'local tokens remain diagnostic only');
+assert.equal(subscriptionResult.sessionCostKind, 'unavailable');
+const missingNativeUsage = taskAccountingPresentation(subscriptionResult);
+assert.equal(missingNativeUsage.primary, 'Usage unavailable');
+assert.equal(missingNativeUsage.secondary, null);
+assert.doesNotMatch(JSON.stringify(missingNativeUsage), /0%|Cost/u);
+
+const nativeSubscriptionUsage = {
+  ...subscriptionResult,
+  sessionSubscriptionUsage: {
+    kind: 'subscription' as const,
+    source: 'native' as const,
+    limits: [
+      {
+        limitId: 'codex',
+        label: 'Codex',
+        windows: [
+          {
+            kind: 'primary' as const,
+            used: '40%',
+            remaining: '60%',
+            remainingIsDerived: false,
+            resetAt: '2026-07-17T00:00:00.000Z',
+          },
+        ],
+      },
+    ],
+    updatedAt: capturedAt,
+  },
+};
+const subscriptionPresentation = taskAccountingPresentation(nativeSubscriptionUsage);
+assert.equal(subscriptionPresentation.kind, 'subscription');
+assert.equal(subscriptionPresentation.primary, '60% remaining');
+assert.match(subscriptionPresentation.secondary ?? '', /^Resets /u);
+assert.equal(subscriptionPresentation.tone, 'neutral');
+assert.doesNotMatch(JSON.stringify(subscriptionPresentation), /Cost/u);
+
+const derivedSubscription = taskAccountingPresentation({
+  ...nativeSubscriptionUsage,
+  sessionSubscriptionUsage: {
+    ...nativeSubscriptionUsage.sessionSubscriptionUsage,
+    limits: [
+      {
+        ...nativeSubscriptionUsage.sessionSubscriptionUsage.limits[0],
+        windows: [
+          {
+            ...nativeSubscriptionUsage.sessionSubscriptionUsage.limits[0].windows[0],
+            remaining: '2%',
+            remainingIsDerived: true,
+          },
+        ],
+      },
+    ],
+  },
+});
+assert.equal(derivedSubscription.primary, '≈2% remaining');
+assert.equal(
+  derivedSubscription.tone,
+  'neutral',
+  'low remaining must not invent a warning without a provider threshold or explicit budget',
+);
+
+const providerReached = taskAccountingPresentation({
+  ...nativeSubscriptionUsage,
+  sessionSubscriptionUsage: {
+    ...nativeSubscriptionUsage.sessionSubscriptionUsage,
+    limits: [
+      {
+        ...nativeSubscriptionUsage.sessionSubscriptionUsage.limits[0],
+        reachedType: 'primary',
+      },
+    ],
+  },
+});
+assert.equal(providerReached.tone, 'critical');
+
+const explicitBudgetWarning = taskAccountingPresentation({
+  ...nativeSubscriptionUsage,
+  alerts: [
+    {
+      scope: 'session',
+      level: 'warning',
+      percent: 80,
+      used: 80,
+      budget: 100,
+      lowerBound: false,
+    },
+  ],
+});
+assert.equal(explicitBudgetWarning.tone, 'warning');
+assert.equal(
+  taskAccountingPresentation({
+    ...result,
+    alerts: [
+      {
+        scope: 'monthly',
+        level: 'critical',
+        percent: 100,
+        used: 100,
+        budget: 100,
+        lowerBound: false,
+      },
+    ],
+  }).tone,
+  'neutral',
+  'a company-month alert must not tint the selected Conversation readout',
+);
+
+const mixedPresentation = taskAccountingPresentation({
+  ...result,
+  sessionAccounts: [
+    ...result.sessionAccounts,
+    { engineId: 'codex', accountId: 'codex:chatgpt:test', billingMode: 'subscription' },
+  ],
+});
+assert.equal(mixedPresentation.kind, 'mixed');
+assert.equal(mixedPresentation.secondary, null, 'mixed lanes must never expose a fake total cost');
+assert.equal(taskAccountingPresentation(undefined).primary, 'Usage loading');
 
 const monthlyPlan = db
   .prepare(
@@ -425,5 +676,5 @@ assert.ok(sessionPlan.some((row) => row.detail.includes('idx_agent_runs_company_
 
 db.close();
 console.log(
-  '[harness-run-cost-scope] ok — 5,001 historical rows stay outside monthly transfer; session history returns one aggregate row',
+  '[harness-run-cost-scope] ok — month/task/account lanes stay isolated; API cost and subscription-native usage never merge',
 );

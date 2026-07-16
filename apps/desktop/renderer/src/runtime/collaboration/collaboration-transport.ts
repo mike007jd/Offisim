@@ -1,9 +1,8 @@
 // Collaboration runtime transport — the ONLY place the collaboration controller
-// touches the Pi host (PR-03). It invokes the dedicated `agent_runtime_collaborate`
-// Tauri command (NOT `agent_runtime_execute`), so a collaboration reply can never
-// take the work path: no project bind, no agent_runs / mission persistence, no
-// Office dramaturgy projection. The host enforces zero tools / no workspace; this
-// transport only streams the reply deltas and returns the final text + usage.
+// touches an engine host (PR-03). It routes API and Codex through their dedicated
+// isolated one-shot commands (never a work execute command), so a collaboration
+// reply cannot bind a project, persist an agent run/mission, or project Office
+// dramaturgy. Each host enforces zero tools and a neutral workspace.
 //
 // Shaped as an injectable interface so the turn controller is testable with a fake
 // transport (no live model) and the production transport is the only Tauri-bound
@@ -13,16 +12,13 @@ import { invokeCommand } from '@/lib/tauri-commands.js';
 import type {
   AgentRunUsage,
   AiExecutionTarget,
-  AiModelCatalogEntry,
   AiRuntimeStatus,
   CollaborationProfile,
   TurnExecutionProvenance,
 } from '@offisim/shared-types';
 import { Channel } from '@tauri-apps/api/core';
-import {
-  requireTurnExecutionProvenance,
-  validateExecutionTarget,
-} from '../execution-provenance.js';
+import { resolveRuntimeExecutionSelection } from '../desktop-agent-runtime.js';
+import { requireTurnExecutionProvenance } from '../execution-provenance.js';
 import type { PiAgentHostEvent, PiAgentHostResponse } from '../pi-runtime-driver.js';
 
 export interface CollaborationExecutionSelection {
@@ -42,24 +38,11 @@ function sameExecutionTarget(a: AiExecutionTarget, b: AiExecutionTarget): boolea
   );
 }
 
-function isRunnableApiModel(status: AiRuntimeStatus, model: AiModelCatalogEntry): boolean {
-  const account = status.accounts.find(
-    (candidate) => candidate.engineId === model.engineId && candidate.accountId === model.accountId,
-  );
-  const expiry = model.expiresAt ? Date.parse(model.expiresAt) : Number.NaN;
-  return Boolean(
-    model.engineId === 'api' &&
-      model.billingMode === 'api' &&
-      model.runtimeModelRef.trim() &&
-      model.modelId.trim() &&
-      (model.availability === 'available' ||
-        (model.availability === 'expiring' && Number.isFinite(expiry) && expiry > Date.now())) &&
-      account?.engineId === 'api' &&
-      account.billingMode === 'api' &&
-      account.status === 'available' &&
-      account.capabilities.execute.status === 'available' &&
-      account.capabilities.models.status === 'available',
-  );
+type CollaborationEngineId = 'api' | 'codex';
+
+function requireCollaborationEngine(engineId: string): CollaborationEngineId {
+  if (engineId === 'api' || engineId === 'codex') return engineId;
+  throw new Error(`AI engine ${engineId} does not support company chat.`);
 }
 
 /** Pure selection over the safe `agent_runtime_status` projection. */
@@ -73,62 +56,15 @@ export function selectCollaborationExecutionTarget(
     throw new Error('AI Accounts status is unavailable for collaboration.');
   }
   const runtimeStatus: AiRuntimeStatus = {
-    accounts: status.accounts,
-    models: status.models,
+    accounts: status.accounts.filter(
+      (account) => account.engineId === 'api' || account.engineId === 'codex',
+    ),
+    models: status.models.filter((model) => model.engineId === 'api' || model.engineId === 'codex'),
     checkedAt: typeof status.checkedAt === 'string' ? status.checkedAt : '',
   };
-  const candidates = runtimeStatus.models.filter((model) =>
-    isRunnableApiModel(runtimeStatus, model),
-  );
-  const requested = requestedModel?.trim();
-
-  if (frozenTarget) {
-    const target = validateExecutionTarget(frozenTarget);
-    if (!target || target.engineId !== 'api' || target.billingMode !== 'api') {
-      throw new Error('The collaboration turn has an invalid saved API execution target.');
-    }
-    const matches = candidates.filter(
-      (model) =>
-        model.engineId === target.engineId &&
-        model.accountId === target.accountId &&
-        model.billingMode === target.billingMode &&
-        model.modelId === target.modelId &&
-        (!requested || requested === model.runtimeModelRef || requested === model.modelId),
-    );
-    if (matches.length !== 1) {
-      throw new Error("The collaboration turn's saved API account or exact model is unavailable.");
-    }
-    const [selected] = matches;
-    if (!selected) throw new Error('The saved collaboration model could not be resolved.');
-    return { target, runtimeModelRef: selected.runtimeModelRef };
-  }
-
-  let selected: AiModelCatalogEntry | undefined;
-  if (requested) {
-    const matches = candidates.filter(
-      (model) => model.runtimeModelRef === requested || model.modelId === requested,
-    );
-    if (matches.length !== 1) {
-      throw new Error(
-        `The selected collaboration model is unavailable or ambiguous: ${requested}.`,
-      );
-    }
-    [selected] = matches;
-  } else {
-    selected = candidates.find((model) => model.availability === 'available');
-  }
-  if (!selected) {
-    throw new Error('No verified stable API model is available for collaboration.');
-  }
-  const target = validateExecutionTarget({
-    engineId: selected.engineId,
-    accountId: selected.accountId,
-    billingMode: selected.billingMode,
-    modelId: selected.modelId,
-    modelSource: selected.source,
-  });
-  if (!target) throw new Error('The collaboration model has invalid execution provenance.');
-  return { target, runtimeModelRef: selected.runtimeModelRef };
+  const selection = resolveRuntimeExecutionSelection(runtimeStatus, requestedModel, frozenTarget);
+  requireCollaborationEngine(selection.target.engineId);
+  return selection;
 }
 
 /** A single collaboration speaker turn the transport runs against the host. */
@@ -207,11 +143,14 @@ export function createTauriCollaborationTransport(
       ) {
         throw new Error('The collaboration execution selection changed before invocation.');
       }
+      const engineId = requireCollaborationEngine(verifiedSelection.target.engineId);
 
       const abortHost = () => {
-        void invokeCommand('agent_runtime_abort', { requestId: req.requestId }).catch(
-          () => undefined,
-        );
+        void (
+          engineId === 'codex'
+            ? invokeCommand('codex_agent_abort', { requestId: req.requestId })
+            : invokeCommand('agent_runtime_abort', { requestId: req.requestId })
+        ).catch(() => undefined);
       };
       const onEvent = new Channel<PiAgentHostEvent>();
       let streamed = '';
@@ -253,6 +192,7 @@ export function createTauriCollaborationTransport(
             preparation = (async () => {
               await opts.verifyDurableTarget(identity);
               if (opts.signal?.aborted) throw new Error('Collaboration execution was stopped.');
+              if (engineId === 'codex') return;
               await invokeCommand('agent_runtime_confirm_execution', {
                 requestId: req.requestId,
                 prepareId: event.prepareId,
@@ -293,27 +233,44 @@ export function createTauriCollaborationTransport(
       }
 
       try {
-        const response = (await invokeCommand('agent_runtime_collaborate', {
-          req: {
-            requestId: req.requestId,
-            // The frozen capability enum the host routes on. Always 'collaboration'
-            // from this transport — the host has its own `mode:'collaborate'`
-            // dispatch, but forwarding the enum keeps the wire contract explicit.
-            capabilityProfile: 'collaboration',
-            text: req.text,
-            companyId: req.companyId,
-            collaborationThreadId: req.collaborationThreadId,
-            employeeId: req.employeeId,
-            model: req.runtimeModelRef,
-            expectedTarget: req.expectedTarget,
-            runtimeModelRef: req.runtimeModelRef,
-            thinkingLevel: req.thinkingLevel?.trim() || undefined,
-            collaborationProfile: req.collaborationProfile,
-            mcpTools: req.mcpTools,
-            systemPromptAppend: req.systemPromptAppend?.trim() || undefined,
-          },
-          onEvent,
-        })) as PiAgentHostResponse;
+        if (engineId === 'codex' && req.collaborationProfile === 'collaboration_read') {
+          throw new Error('Codex company chat does not support the read-only tool profile.');
+        }
+        const response = (await (engineId === 'codex'
+          ? invokeCommand('codex_agent_enhance', {
+              req: {
+                requestId: req.requestId,
+                text: req.text,
+                expectedTarget: req.expectedTarget,
+                systemPrompt:
+                  req.systemPromptAppend?.trim() ||
+                  'Reply as the assigned employee in this company chat. Do not use tools or access files.',
+                model: req.runtimeModelRef,
+                runtimeModelRef: req.runtimeModelRef,
+                thinkingLevel: req.thinkingLevel?.trim() || undefined,
+              },
+              onEvent,
+            })
+          : invokeCommand('agent_runtime_collaborate', {
+              req: {
+                requestId: req.requestId,
+                // The frozen capability enum the API host routes on. Always
+                // collaboration; this path never invokes the work command.
+                capabilityProfile: 'collaboration',
+                text: req.text,
+                companyId: req.companyId,
+                collaborationThreadId: req.collaborationThreadId,
+                employeeId: req.employeeId,
+                model: req.runtimeModelRef,
+                expectedTarget: req.expectedTarget,
+                runtimeModelRef: req.runtimeModelRef,
+                thinkingLevel: req.thinkingLevel?.trim() || undefined,
+                collaborationProfile: req.collaborationProfile,
+                mcpTools: req.mcpTools,
+                systemPromptAppend: req.systemPromptAppend?.trim() || undefined,
+              },
+              onEvent,
+            }))) as PiAgentHostResponse;
         if (!preparation) {
           onAbort();
           throw new Error('Agent runtime did not prepare the collaboration execution target.');

@@ -70,6 +70,10 @@ const appFrameSource = readFileSync(
   new URL('../apps/desktop/renderer/src/design-system/shell/AppFrame.tsx', import.meta.url),
   'utf8',
 );
+const officeStageSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/surfaces/office/OfficeStage.tsx', import.meta.url),
+  'utf8',
+);
 const usageCoverageSource = readFileSync(
   new URL('../apps/desktop/renderer/src/data/usage-token-coverage.ts', import.meta.url),
   'utf8',
@@ -84,10 +88,16 @@ assert.doesNotMatch(
   /TokenBudget:\s*500\b/,
   'budget settings must not restore the old 500-token test residue as a default',
 );
-assert.match(appFrameSource, /Advisory only — this run continues\./);
-assert.match(appFrameSource, /openSettings\('runtime'\)/);
-assert.doesNotMatch(appFrameSource, /toast\.error\(message/);
-assert.match(appFrameSource, /Usage incomplete/);
+assert.doesNotMatch(
+  appFrameSource,
+  /useRunCost|off-topbar-cost|Advisory only — this run continues\./,
+  'the global AppFrame must not duplicate task Usage, Cost, or budget alerts',
+);
+assert.match(officeStageSource, /Advisory only — this run continues\./);
+assert.match(officeStageSource, /openSettings\('runtime'\)/);
+assert.match(officeStageSource, /selectedThreadId/);
+assert.doesNotMatch(officeStageSource, /toast\.error\(message/);
+assert.match(officeStageSource, /taskAccountingPresentation\(runCost\.data\)/);
 assert.match(usageCoverageSource, /≥/);
 
 console.log('token-budget-alerts: 13 checks passed');

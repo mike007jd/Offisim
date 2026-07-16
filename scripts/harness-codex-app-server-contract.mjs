@@ -978,10 +978,10 @@ assert.match(
   /if\s*\(account\.billingMode\s*===\s*'subscription'\)\s*return\s+account/u,
   'subscription accounts must bypass API accounting snapshots',
 );
-assert.match(
+assert.doesNotMatch(
   aiAccountsPaneSource,
-  /selectedAccount\.billingMode\s*===\s*'api'\s*\?\s*\([\s\S]{0,500}<span>Cost<\/span>/u,
-  'Settings summary must render Cost only inside the API-account branch',
+  /off-set-provider-summary-grid|function\s+usageHeadline\s*\(/u,
+  'Settings must not duplicate Usage or Cost in an account summary grid',
 );
 assert.match(
   aiAccountsPaneSource,

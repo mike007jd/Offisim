@@ -114,30 +114,6 @@ function modelAvailabilityDetail(model: AiModelCatalogEntry): string | null {
   return null;
 }
 
-function usageHeadline(account: AccountView): string {
-  if (account.accountingStatus === 'loading') return 'Loading';
-  if (account.accountingStatus === 'error') return 'Unavailable';
-  if (account.usage?.kind === 'api') {
-    const buckets = [
-      account.usage.inputTokens,
-      account.usage.outputTokens,
-      account.usage.cacheReadTokens,
-      account.usage.cacheWriteTokens,
-    ];
-    if (buckets.every((value): value is number => value !== undefined)) {
-      return `${compactNumber(buckets.reduce((sum, value) => sum + value, 0))} tokens`;
-    }
-    return `${account.usage.runCount} ${account.usage.runCount === 1 ? 'run' : 'runs'} · partial`;
-  }
-  if (account.usage?.kind === 'subscription') {
-    const firstWindow = account.usage.limits.flatMap((limit) => limit.windows)[0];
-    if (firstWindow) return `${subscriptionValue(firstWindow.remaining)} remaining`;
-    const credits = account.usage.limits.find((limit) => limit.credits !== undefined)?.credits;
-    return credits === undefined ? 'Native usage' : `${subscriptionValue(credits)} credits`;
-  }
-  return account.capabilities.usage.status === 'available' ? 'No recorded usage' : 'Unavailable';
-}
-
 function costHeadline(account: AccountView): string {
   if (account.accountingStatus === 'loading') return 'Loading';
   if (account.accountingStatus === 'error') return 'Unavailable';
@@ -402,11 +378,17 @@ export function AiAccountsPane() {
   });
   const accounts = useMemo(() => {
     const accounting = new Map(
-      (accountingQuery.data ?? []).map((snapshot) => [snapshot.accountId, snapshot] as const),
+      (accountingQuery.data ?? []).map(
+        (snapshot) =>
+          [
+            aiAccountLaneKey(snapshot.engineId, snapshot.accountId, snapshot.billingMode),
+            snapshot,
+          ] as const,
+      ),
     );
     return (statusQuery.data?.accounts ?? []).map((account) => {
       if (account.billingMode === 'subscription') return account;
-      const snapshot = accounting.get(account.accountId);
+      const snapshot = accounting.get(accountLane(account));
       return {
         ...account,
         ...(snapshot ? { usage: snapshot.usage, cost: snapshot.cost } : {}),
@@ -567,25 +549,6 @@ export function AiAccountsPane() {
               {selectedAccount.statusReason}
             </div>
           ) : null}
-
-          <div
-            className={`off-set-provider-summary-grid ${selectedAccount.billingMode === 'subscription' ? 'is-subscription' : ''}`}
-          >
-            <div>
-              <span>Models</span>
-              <strong>{models.length}</strong>
-            </div>
-            <div>
-              <span>Usage</span>
-              <strong>{usageHeadline(selectedAccount)}</strong>
-            </div>
-            {selectedAccount.billingMode === 'api' ? (
-              <div>
-                <span>Cost</span>
-                <strong>{costHeadline(selectedAccount)}</strong>
-              </div>
-            ) : null}
-          </div>
 
           <section className="off-set-account-section">
             <div className="off-set-sec-head">

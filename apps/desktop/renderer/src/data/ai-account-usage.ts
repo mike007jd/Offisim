@@ -32,7 +32,9 @@ export type AccountCostSnapshot =
     };
 
 export interface AiAccountUsageSnapshot {
+  readonly engineId: string;
   readonly accountId: string;
+  readonly billingMode: 'api';
   readonly usage: ApiUsageSnapshot;
   readonly cost: AccountCostSnapshot;
 }
@@ -56,6 +58,7 @@ interface BucketAccumulator {
 }
 
 interface AccountAccumulator {
+  readonly engineId: string;
   readonly accountId: string;
   readonly input: BucketAccumulator;
   readonly output: BucketAccumulator;
@@ -248,7 +251,9 @@ export async function loadAiAccountUsageFromDatabase(
     if (!contributions) continue;
     for (const usage of contributions) {
       if (usage.scope.kind !== 'api-run') continue;
-      const account = accounts.get(usage.scope.accountId) ?? {
+      const laneKey = `${usage.scope.engineId}\0${usage.scope.accountId}\0api`;
+      const account = accounts.get(laneKey) ?? {
+        engineId: usage.scope.engineId,
         accountId: usage.scope.accountId,
         input: emptyBucket(),
         output: emptyBucket(),
@@ -267,12 +272,16 @@ export async function loadAiAccountUsageFromDatabase(
       account.runCount += 1;
       account.updatedAt = laterTimestamp(account.updatedAt, usage.usageSource.capturedAt);
       account.updatedAt = laterTimestamp(account.updatedAt, costTimestamp(usage.cost));
-      accounts.set(account.accountId, account);
+      accounts.set(laneKey, account);
     }
   }
 
   return [...accounts.values()]
-    .sort((left, right) => left.accountId.localeCompare(right.accountId))
+    .sort(
+      (left, right) =>
+        left.engineId.localeCompare(right.engineId) ||
+        left.accountId.localeCompare(right.accountId),
+    )
     .map((account) => {
       const inputTokens = bucketValue(account.input);
       const outputTokens = bucketValue(account.output);
@@ -280,7 +289,9 @@ export async function loadAiAccountUsageFromDatabase(
       const cacheWriteTokens = bucketValue(account.cacheWrite);
       const reasoningTokens = bucketValue(account.reasoning);
       return {
+        engineId: account.engineId,
         accountId: account.accountId,
+        billingMode: 'api' as const,
         usage: {
           kind: 'api' as const,
           ...(inputTokens === undefined ? {} : { inputTokens }),

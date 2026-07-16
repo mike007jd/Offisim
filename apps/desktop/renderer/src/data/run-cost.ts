@@ -1,7 +1,7 @@
 import { getTauriDb } from '@/lib/tauri-db.js';
 import type { AgentRunCost, AgentRunUsage } from '@offisim/shared-types';
 import { isTauriRuntime } from './adapters.js';
-import type { RunCost, RunCostBreakdown } from './types.js';
+import type { RunAccountingAccount, RunCost, RunCostBreakdown } from './types.js';
 import {
   type UsageTokenSummary,
   combineUsageTokenSummaries,
@@ -122,6 +122,31 @@ function tokenCount(usage: UsageRecord): UsageTokenSummary {
   return summarizeUsageTokens(usage);
 }
 
+function accountingAccounts(usages: readonly UsageRecord[]): RunAccountingAccount[] {
+  const accounts = new Map<string, RunAccountingAccount>();
+  for (const usage of usages) {
+    const contributions = isTaskAggregateUsage(usage)
+      ? usage.contributions.map((entry) => entry.usage)
+      : [usage];
+    for (const contribution of contributions) {
+      const billingMode =
+        contribution.scope.kind === 'subscription-run-diagnostic' ? 'subscription' : 'api';
+      const account = {
+        engineId: contribution.scope.engineId,
+        accountId: contribution.scope.accountId,
+        billingMode,
+      } satisfies RunAccountingAccount;
+      accounts.set(`${account.engineId}\0${account.accountId}\0${account.billingMode}`, account);
+    }
+  }
+  return [...accounts.values()].sort(
+    (left, right) =>
+      left.engineId.localeCompare(right.engineId) ||
+      left.accountId.localeCompare(right.accountId) ||
+      left.billingMode.localeCompare(right.billingMode),
+  );
+}
+
 function summarizeCosts(costs: CostRecord[]): CostSummary | undefined {
   if (costs.length === 0) return undefined;
   const unavailable = costs.filter((cost) => cost.kind === 'unavailable');
@@ -169,6 +194,10 @@ function emptyRunCost(): RunCost {
     sessionTokens: null,
     sessionKnownTokens: 0,
     sessionTokenCoverage: 'unavailable',
+    sessionAccounts: [],
+    sessionCostKind: 'none',
+    sessionCostLabel: 'No task usage',
+    sessionSubscriptionUsage: null,
     costKind: 'none',
     costLabel: 'No API usage',
     live: false,
@@ -201,7 +230,10 @@ export async function loadRunCostFromDatabase(
   const monthStart = new Date(now);
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
+  const nextMonthStart = new Date(monthStart);
+  nextMonthStart.setMonth(nextMonthStart.getMonth() + 1);
   const monthStartIso = monthStart.toISOString();
+  const nextMonthStartIso = nextMonthStart.toISOString();
   const [rows, sessionRows] = await Promise.all([
     db.select<RunCostRow[]>(
       `SELECT ar.run_id, ar.root_run_id, ar.thread_id, ar.started_at,
@@ -210,9 +242,10 @@ export async function loadRunCostFromDatabase(
          LEFT JOIN employees e ON e.employee_id = ar.employee_id
         WHERE ar.company_id = $1
           AND ar.started_at >= $2
+          AND ar.started_at < $3
           AND ar.usage_json IS NOT NULL
           AND json_valid(ar.usage_json)`,
-      [companyId, monthStartIso],
+      [companyId, monthStartIso, nextMonthStartIso],
     ),
     threadId
       ? db.select<Array<{ usage_json: string }>>(
@@ -235,13 +268,13 @@ export async function loadRunCostFromDatabase(
   const roots = parsedRows.filter((row) => row.run_id === row.root_run_id);
   const children = parsedRows.filter((row) => row.run_id !== row.root_run_id);
   const monthlyTokenSummary = combineUsageTokenSummaries(roots.map((row) => tokenCount(row.usage)));
-  const sessionTokenSummary = combineUsageTokenSummaries(
-    sessionRows.flatMap((row) => {
-      const usage = parseUsage(row.usage_json);
-      return usage ? [tokenCount(usage)] : [];
-    }),
-  );
+  const sessionUsages = sessionRows.flatMap((row) => {
+    const usage = parseUsage(row.usage_json);
+    return usage ? [usage] : [];
+  });
+  const sessionTokenSummary = combineUsageTokenSummaries(sessionUsages.map(tokenCount));
   const monthlyCost = summarizeCosts(roots.map((row) => row.usage.cost));
+  const sessionCost = summarizeCosts(sessionUsages.map((usage) => usage.cost));
 
   type MutableBreakdown = Omit<RunCostBreakdown, 'tokens' | 'knownTokens' | 'tokenCoverage'> & {
     costs: CostRecord[];
@@ -330,6 +363,10 @@ export async function loadRunCostFromDatabase(
     sessionTokens: exactUsageTokens(sessionTokenSummary),
     sessionKnownTokens: sessionTokenSummary.knownTokens,
     sessionTokenCoverage: sessionTokenSummary.coverage,
+    sessionAccounts: accountingAccounts(sessionUsages),
+    sessionCostKind: sessionCost?.kind ?? 'none',
+    sessionCostLabel: formatCostLabel(sessionCost),
+    sessionSubscriptionUsage: null,
     costKind,
     costLabel: formatCostLabel(monthlyCost),
     live: roots.length > 0,
