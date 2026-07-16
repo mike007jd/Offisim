@@ -11,16 +11,17 @@ pub(crate) use payload::app_pi_session_dir;
 pub use stream::PiRunStreamSnapshot;
 #[allow(unused_imports)]
 pub use types::{
-    AiRuntimeStatusResponse, ConfigureApiAccountRequest, PiAgentCollaborateRequest,
-    PiAgentEnhanceRequest, PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse,
-    PiAgentModelsConfig, PiAgentPaths, PiAgentProviderAuthStatus, PiAgentProviderStatus,
-    PiAgentStatusResponse, PiModelSummary,
+    AiRuntimeStatusResponse, PiAgentCollaborateRequest, PiAgentEnhanceRequest,
+    PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse, PiAgentModelsConfig,
+    PiAgentPaths, PiAgentProviderAuthStatus, PiAgentProviderConfigInput,
+    PiAgentProviderConfigStatus, PiAgentProviderModelConfig, PiAgentProviderStatus,
+    PiAgentProviderTemplate, PiAgentStatusResponse, PiModelSummary,
 };
 pub(crate) use wire::parse_response;
 pub(crate) use wire::PI_HOST_PROTOCOL_VERSION;
 
 use bridge::{confirm_execution_impl, ui_response_impl};
-use provider::{configure_api_account_impl, runtime_status_impl, status_impl};
+use provider::{runtime_status_impl, status_impl};
 use run::{abort_impl, collaborate_impl, enhance_impl, execute_impl, resume_impl};
 
 use tauri::{ipc::Channel, AppHandle};
@@ -173,6 +174,19 @@ pub async fn pi_agent_status(app: AppHandle) -> Result<PiAgentStatusResponse, St
     status_impl(app).await
 }
 
+#[tauri::command]
+pub async fn pi_agent_open_config_folder(app: AppHandle) -> Result<(), String> {
+    provider::open_config_folder(app).await
+}
+
+#[tauri::command]
+pub async fn pi_agent_save_provider(
+    app: AppHandle,
+    config: PiAgentProviderConfigInput,
+) -> Result<PiAgentStatusResponse, String> {
+    provider::save_provider(app, config).await
+}
+
 /// Engine-neutral runtime status. Native lanes are inspected concurrently and
 /// merged without allowing one unavailable engine to hide the other.
 #[tauri::command]
@@ -196,16 +210,6 @@ pub async fn agent_runtime_status(
     Ok(merge_runtime_status(api, codex, claude, checked_at))
 }
 
-/// Store or replace one API credential inside the selected runtime's native
-/// credential store and return the refreshed, secret-free account projection.
-#[tauri::command]
-pub async fn agent_runtime_configure_api_account(
-    app: AppHandle,
-    req: ConfigureApiAccountRequest,
-) -> Result<AiRuntimeStatusResponse, String> {
-    configure_api_account_impl(app, req).await
-}
-
 fn merge_runtime_status(
     api: Result<AiRuntimeStatusResponse, String>,
     codex: Result<crate::codex_agent_host::CodexAgentStatusResponse, String>,
@@ -214,19 +218,24 @@ fn merge_runtime_status(
 ) -> AiRuntimeStatusResponse {
     let mut accounts = Vec::new();
     let mut models = Vec::new();
+    let mut orchestration_engines = Vec::new();
     match api {
         Ok(api) => {
             accounts.extend(api.accounts);
             models.extend(api.models);
+            orchestration_engines.extend(api.orchestration_engines);
         }
         Err(_) => accounts.push(api_unavailable_account()),
     }
     match codex {
         Ok(codex) => {
-            accounts.extend(codex.accounts);
-            models.extend(codex.models);
+            if let Ok(engine) = serde_json::to_value(codex) {
+                orchestration_engines.push(engine);
+            } else {
+                orchestration_engines.push(codex_unavailable_account());
+            }
         }
-        Err(_) => accounts.push(codex_unavailable_account()),
+        Err(_) => orchestration_engines.push(codex_unavailable_account()),
     }
     match claude {
         Ok(claude) => {
@@ -238,6 +247,7 @@ fn merge_runtime_status(
     AiRuntimeStatusResponse {
         accounts,
         models,
+        orchestration_engines,
         checked_at,
     }
 }
@@ -267,26 +277,22 @@ fn api_unavailable_account() -> serde_json::Value {
 }
 
 fn codex_unavailable_account() -> serde_json::Value {
-    let unavailable = |reason: &str| {
-        serde_json::json!({
-            "status": "unavailable",
-            "reason": reason,
-        })
-    };
     serde_json::json!({
         "engineId": "codex",
-        "accountId": "codex-subscription-unavailable",
-        "billingMode": "subscription",
-        "displayName": "Codex subscription",
-        "status": "unavailable",
-        "statusReason": "Codex subscription status is unavailable.",
+        "displayName": "Codex CLI",
+        "state": "unavailable",
+        "statusReason": "Codex CLI status is unavailable.",
+        "loginCommand": "codex login",
+        "docsUrl": "https://developers.openai.com/codex/auth",
+        "checkedAt": "1970-01-01T00:00:00Z",
         "capabilities": {
-            "execute": unavailable("Codex subscription status is unavailable."),
-            "models": unavailable("Codex model status is unavailable."),
-            "usage": unavailable("Codex native usage is unavailable."),
-            "cost": unavailable("Subscription usage is not converted into API cost."),
-        },
-        "usage": null,
+            "stop": true,
+            "steer": false,
+            "resume": true,
+            "permissionModes": ["plan", "ask", "auto", "full"],
+            "interactions": { "approval": true, "userInput": true },
+            "processEvents": { "reasoning": true, "toolCalls": true, "fileChanges": true },
+        }
     })
 }
 

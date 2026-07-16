@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -267,27 +267,100 @@ pub struct PiExecutionProvenance {
     pub(super) account_id: String,
     pub(super) billing_mode: String,
     pub(super) model_id: String,
-    pub(super) model_source: PiModelSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) model_source: Option<PiModelSource>,
     pub(super) run_id: String,
     pub(super) adapter: PiAdapterIdentity,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PiExecutionTarget {
     pub(super) engine_id: String,
     pub(super) account_id: String,
     pub(super) billing_mode: String,
     pub(super) model_id: String,
-    pub(super) model_source: PiModelSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) model_source: Option<PiModelSource>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawPiExecutionTarget {
+    engine_id: String,
+    account_id: String,
+    billing_mode: String,
+    model_id: String,
+    #[serde(default)]
+    model_source: Option<PiModelSource>,
+}
+
+impl<'de> Deserialize<'de> for PiExecutionTarget {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = RawPiExecutionTarget::deserialize(deserializer)?;
+        let account_id = raw.account_id.trim().to_owned();
+        let model_id = raw.model_id.trim().to_owned();
+        if raw.engine_id != "api"
+            || raw.billing_mode != "api"
+            || account_id.is_empty()
+            || model_id.is_empty()
+        {
+            return Err(D::Error::custom(
+                "Pi execution target must use the api engine and billing lane with exact account/model identity",
+            ));
+        }
+        Ok(Self {
+            engine_id: raw.engine_id,
+            account_id,
+            billing_mode: raw.billing_mode,
+            model_id,
+            model_source: raw.model_source,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PiModelSource {
     pub(super) kind: String,
     pub(super) source_url: String,
     pub(super) checked_at: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawPiModelSource {
+    kind: String,
+    source_url: String,
+    checked_at: String,
+}
+
+impl<'de> Deserialize<'de> for PiModelSource {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = RawPiModelSource::deserialize(deserializer)?;
+        let source_url = raw.source_url.trim().to_owned();
+        let checked_at = raw.checked_at.trim().to_owned();
+        let source = url::Url::parse(&source_url).map_err(D::Error::custom)?;
+        if raw.kind != "official-api"
+            || source.scheme() != "https"
+            || chrono::DateTime::parse_from_rfc3339(&checked_at).is_err()
+        {
+            return Err(D::Error::custom(
+                "API model source must be official-api with HTTPS sourceUrl and RFC3339 checkedAt",
+            ));
+        }
+        Ok(Self {
+            kind: raw.kind,
+            source_url,
+            checked_at,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -428,21 +501,63 @@ pub struct PiAgentProviderStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PiAgentProviderModelConfig {
+    pub(super) id: String,
+    #[serde(default)]
+    pub(super) name: Option<String>,
+    #[serde(default)]
+    pub(super) api: Option<String>,
+    #[serde(default)]
+    pub(super) context_window: Option<u64>,
+    #[serde(default)]
+    pub(super) max_tokens: Option<u64>,
+}
+
+/// Secret-free projection of one provider configured in Pi's models.json.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAgentProviderConfigStatus {
+    pub(super) provider: String,
+    pub(super) display_name: String,
+    #[serde(default)]
+    pub(super) name: Option<String>,
+    #[serde(default)]
+    pub(super) base_url: Option<String>,
+    #[serde(default)]
+    pub(super) api: Option<String>,
+    #[serde(default)]
+    pub(super) has_api_key: bool,
+    #[serde(default)]
+    pub(super) auth_source: Option<String>,
+    #[serde(default)]
+    pub(super) models: Vec<PiAgentProviderModelConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAgentProviderTemplate {
+    pub(super) provider: String,
+    pub(super) display_name: String,
+    #[serde(default)]
+    pub(super) base_url: Option<String>,
+    #[serde(default)]
+    pub(super) api: Option<String>,
+    #[serde(default)]
+    pub(super) configured: bool,
+    #[serde(default)]
+    pub(super) models: Vec<PiAgentProviderModelConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AiRuntimeStatusResponse {
     #[serde(default)]
     pub(crate) accounts: Vec<serde_json::Value>,
     #[serde(default)]
-    pub(crate) models: Vec<serde_json::Value>,
-    pub(crate) checked_at: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ConfigureApiAccountRequest {
-    pub(super) service: String,
+    pub(super) models: Vec<serde_json::Value>,
     #[serde(default)]
-    pub(super) account_id: Option<String>,
-    pub(super) api_key: String,
+    pub(super) orchestration_engines: Vec<serde_json::Value>,
+    pub(super) checked_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -457,6 +572,10 @@ pub struct PiAgentStatusResponse {
     pub(super) provider_status: Vec<PiAgentProviderStatus>,
     #[serde(default)]
     pub(super) configured_provider_status: Vec<PiAgentProviderStatus>,
+    #[serde(default)]
+    pub(super) provider_configs: Vec<PiAgentProviderConfigStatus>,
+    #[serde(default)]
+    pub(super) provider_templates: Vec<PiAgentProviderTemplate>,
     #[serde(default)]
     pub(super) available_models: Vec<PiModelSummary>,
     #[serde(default)]
@@ -496,4 +615,22 @@ pub struct PiAgentModelsConfig {
     pub(super) providers: Vec<String>,
     #[serde(default)]
     pub(super) parse_error: Option<String>,
+}
+
+/// Write-only provider editor input. `api_key` is never represented in any
+/// status/result projection; the sidecar writes it directly into Pi's config.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiAgentProviderConfigInput {
+    pub(super) provider_id: String,
+    #[serde(default)]
+    pub(super) display_name: Option<String>,
+    pub(super) base_url: String,
+    pub(super) api: String,
+    #[serde(default)]
+    pub(super) api_key: Option<String>,
+    #[serde(default)]
+    pub(super) keep_existing_api_key: bool,
+    #[serde(default)]
+    pub(super) models: Vec<PiAgentProviderModelConfig>,
 }

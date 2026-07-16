@@ -93,7 +93,13 @@ const staleCurrentClaims = [
   /Offisim does not (?:store provider API keys or )?maintain a provider\/model catalog/iu,
   /live chat still assembles[\s\S]{0,80}DesktopPiAgentRuntime/iu,
   /Claude\/Codex\/OpenAI sidecar lanes are not active/iu,
-  /Claude[\s\S]{0,100}(?:remains pending|still pending|not shipped|尚未交付|等待 T07|T07 完成前)/iu,
+  /Codex(?: CLI)? subscription(?:-engine| engine| adapter| host)/iu,
+  /Claude(?: Code)? subscription(?: engine| adapter| host)/iu,
+  /complete API and Codex subscription/iu,
+  /subscription engines? (?:are shipped|reuse native login)/iu,
+  /bundled (?:official )?(?:native )?Codex(?: app-server| sidecar| binary)/iu,
+  /Codex[^\n]{0,120}(?:account\/model discovery|provider-native Usage)/iu,
+  /Claude[\s\S]{0,160}(?:remaining\/reset\/credits|provider-native Usage)/iu,
 ];
 
 for (const relativePath of currentDocs) {
@@ -106,18 +112,39 @@ for (const relativePath of currentDocs) {
 const currentTruth = currentDocs.map(read).join('\n');
 const durableContracts = [
   [
-    /API[\s\S]{0,120}Codex[\s\S]{0,120}Claude[\s\S]{0,160}(?:shipped|implemented|release-verified|已交付)/iu,
-    'API, Codex, and Claude shipped truth',
+    /Pi API[\s\S]{0,120}Codex CLI orchestration[\s\S]{0,120}(?:implemented|shipped)/iu,
+    'Pi API and Codex CLI orchestration implementation truth',
+  ],
+  [/Claude Code[\s\S]{0,100}(?:pending|not shipped|尚未|未接入)/iu, 'Claude Code pending truth'],
+  [/Pi(?:'s)?[\s\S]{0,100}models\.json/iu, 'Pi dynamic provider and model truth'],
+  [
+    /(?:provider\/model (?:editing|配置)|(?:edit|编辑)[^\n]{0,100}provider\/model)/iu,
+    'Pi provider and model editing',
+  ],
+  [
+    /Codex[\s\S]{0,160}(?:detect|检测)[\s\S]{0,220}(?:app-server|spawn|启动)[\s\S]{0,220}(?:event|事件)[\s\S]{0,160}Stop/iu,
+    'Codex detection spawn event stream and Stop',
+  ],
+  [
+    /external\s+CLI[\s\S]{0,180}(?:credentials|凭据)[\s\S]{0,180}(?:model choice|模型)[\s\S]{0,180}(?:CLI-owned|自管|own)/iu,
+    'external CLI credential and model ownership',
+  ],
+  [
+    /(?:task|任务)[\s\S]{0,120}(?:token|令牌)[\s\S]{0,120}(?:duration|时长)[\s\S]{0,160}订阅内 · 无 API 成本/iu,
+    'orchestration task token duration and no API cost',
   ],
   [/Project[\s\S]{0,120}(?:catalog|目录)/iu, 'Project folder catalog layer'],
   [/Offisim Conversation/iu, 'Offisim Conversation layer'],
   [/Native Agent Home \/ Session \/ Memory/iu, 'native Agent Home/session/memory layer'],
   [/effective task workspace/iu, 'effective task workspace layer'],
   [
-    /API[\s\S]{0,120}Cost[\s\S]{0,160}subscription[\s\S]{0,120}Usage/iu,
-    'API Cost versus subscription Usage',
+    /API[\s\S]{0,160}(?:token|Usage)[\s\S]{0,160}Cost/iu,
+    'API token and Cost accounting',
   ],
-  [/exact leaf[\s\S]{0,120}(?:source|checkedAt)/iu, 'exact leaf model provenance'],
+  [
+    /user-configured[\s\S]{0,160}(?:source metadata|source)[\s\S]{0,80}optional/iu,
+    'user-configured API model source is optional',
+  ],
   [/repeatable process in natural language/iu, 'Loops natural-language authoring'],
   [/Purpose: browse, preview, publish, review, and install/iu, 'Market user-language flow'],
   [/Office dramaturgy/iu, 'Office dramaturgy preservation'],

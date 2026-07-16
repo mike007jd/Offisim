@@ -1,6 +1,6 @@
 # System Framework
 
-Checked at: 2026-07-16 NZST
+Checked at: 2026-07-17 NZST
 
 This is the maintained system map for Offisim. It explains what runs where,
 which layer owns each responsibility, and which files are the source of truth
@@ -11,14 +11,14 @@ when the implementation changes.
 Offisim is a local-first desktop product with an optional registry backend.
 
 - The desktop app is the product runtime.
-- `DesktopAgentRuntimeGateway` is the only production engine entry. Complete
-  API, Codex subscription, and Claude subscription adapters are shipped.
+- `DesktopAgentRuntimeGateway` is the only production engine entry. The Pi API
+  engine and Codex CLI orchestration adapter are implemented; Claude Code remains pending.
 - The platform API is registry/auth/install support, not the execution plane.
 - The renderer is internal to the desktop app, not a standalone web product.
 
 Do not restore a standalone launcher, standalone web runtime, partial provider
 lane, raw model transport, or vendored runtime fork as a second production
-path. Every complete engine and the safe exact model catalog belong behind the
+path. Every engine and the dynamic Pi API model catalog belong behind the
 single gateway defined by the current architecture decision.
 
 ## Runtime Layers
@@ -26,11 +26,10 @@ single gateway defined by the current architecture decision.
 | Layer | Owner paths | Responsibility | Must not own |
 |-------|-------------|----------------|--------------|
 | Desktop renderer | `apps/desktop/renderer` | GUI shell, assistant-ui, 3D/2D work theater, AI Accounts/Models, Cost/Usage, Market, Personnel, Activity, Studio, Workspace | Raw credentials, native session files, canonical workspace authorization |
-| Production gateway | `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`, neutral `agent_runtime_*` commands | Resolve one engine/account/model/billing identity and project neutral events | Mixing engines in one run or accepting renderer-asserted trust roots |
+| Production gateway | `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`, neutral `agent_runtime_*` commands | Resolve one engine lane, its applicable API account/model/billing identity, and project neutral events | Mixing engines in one run or accepting renderer-asserted trust roots |
 | Tauri shell | `apps/desktop/src-tauri` | Window lifecycle, local SQLite, command boundary, effective-workspace sandbox, shell/git/file safety, attachment store, MCP process bridge | Renderer-owned product state or unsealed credential projection |
 | API adapter host | `scripts/tauri-pi-agent-host.entry.mjs`, `apps/desktop/src-tauri/src/pi_agent_host/` | Bundled API execution, tools, delegation, stream, provenance, and usage projection | Product identity or a parallel provider-settings surface |
-| Codex subscription host | `apps/desktop/src-tauri/src/codex_agent_host/` | Native app-server lifecycle, account/model discovery, session/approval/Stop/recovery, provider-native Usage | Copying Codex OAuth, sessions, compaction, or global memory |
-| Claude subscription host | `scripts/tauri-claude-agent-host.entry.mjs`, `apps/desktop/src-tauri/src/claude_agent_host/` | Native SDK lifecycle, account/model discovery, session/approval/Stop/recovery, workspace guard, provider-native Usage | Copying Claude auth, sessions, compaction, or global memory |
+| Codex orchestration host | `apps/desktop/src-tauri/src/codex_agent_host/` | Detect user CLI/login/version, spawn native app-server, project event stream, session/approval/Stop/recovery, task tokens/duration | Bundling Codex, choosing its model, or copying OAuth/session/global memory |
 | Local data contracts | `packages/db-local`, `packages/core/src/runtime/repositories.ts` | Company/project/conversation/activity/install/vault state and the current prelaunch schema baseline | Raw engine credentials or native Agent Home contents |
 | Package/install contracts | `packages/asset-schema`, `packages/install-core`, `packages/registry-client`, `packages/shared-types` | Declarative package schema, install state machine, registry client validation, shared types | Install hooks, hidden postinstall execution |
 | Scene engine | `packages/renderer` | Office layout, prefab geometry/state, scene tokens shared by renderer surfaces | Product data ownership |
@@ -135,8 +134,7 @@ Source of truth:
 | Docs only | `pnpm check:docs-truth`, `git diff --check` |
 | Renderer UI | `pnpm validate`, `pnpm lint`, `pnpm check:ui-hygiene`, desktop renderer build; release `.app` live verification when behavior changes |
 | API adapter host | `pnpm harness:pi-agent-host`, `pnpm build:pi-agent-host`, desktop release build |
-| Codex subscription host | `pnpm harness:codex-app-server-contract`, desktop release build |
-| Claude subscription host | `pnpm harness:claude-agent-host`, `pnpm build:claude-agent-host`, desktop release build |
+| Codex orchestration host | `pnpm harness:codex-app-server-contract`, desktop release build |
 | Tauri/Rust | `cargo test --locked` in `apps/desktop/src-tauri`, desktop release build |
 | Platform API | `pnpm security:harness`, `pnpm platform:migration:drift` when schema changes |
 | Release-bound change | Full `Docs/00_start_here/RELEASE_GATES.md` core gates plus release `.app` evidence |

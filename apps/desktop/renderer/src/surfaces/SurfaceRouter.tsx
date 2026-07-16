@@ -1,5 +1,6 @@
 import { ErrorBoundary } from '@/app/ErrorBoundary.js';
 import { type SurfaceKey, useUiState } from '@/app/ui-state.js';
+import { motionPresets } from '@/styles/motion-tokens.js';
 import { motion } from 'motion/react';
 import { type ReactNode, Suspense, lazy } from 'react';
 
@@ -57,13 +58,7 @@ function SurfaceErrorPane({ onRetry }: { onRetry: () => void }) {
 export function SurfaceRouter() {
   const surface = useUiState((s) => s.surface);
   return (
-    <motion.div
-      key={surface}
-      className="off-surface-anim"
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
-    >
+    <motion.div key={surface} className="off-surface-anim" {...motionPresets.surfaceEnter}>
       <Suspense fallback={<div className="off-surface-loading">Loading…</div>}>
         {/* Scene-local boundary: keyed on surface so navigating away clears the
             error; falls back to a pane plate instead of nuking the whole shell. */}

@@ -137,9 +137,30 @@ CREATE TABLE collaboration_turns (
       AND length(trim(json_extract(execution_target_json, '$.accountId'))) > 0
       AND json_extract(execution_target_json, '$.billingMode') IN ('api', 'subscription')
       AND length(trim(json_extract(execution_target_json, '$.modelId'))) > 0
-      AND json_extract(execution_target_json, '$.modelSource.kind') IN ('official-api', 'native')
-      AND length(trim(json_extract(execution_target_json, '$.modelSource.sourceUrl'))) > 0
-      AND length(trim(json_extract(execution_target_json, '$.modelSource.checkedAt'))) > 0
+      AND (
+        (
+          json_extract(execution_target_json, '$.billingMode') = 'api'
+          AND json_extract(execution_target_json, '$.engineId') = 'api'
+          AND json_type(execution_target_json, '$.modelSource') IS NULL
+        )
+        OR (
+          json_extract(execution_target_json, '$.billingMode') = 'api'
+          AND json_extract(execution_target_json, '$.engineId') = 'api'
+          AND json_type(execution_target_json, '$.modelSource') = 'object'
+          AND json_extract(execution_target_json, '$.modelSource.kind') = 'official-api'
+          AND json_type(execution_target_json, '$.modelSource.sourceUrl') = 'text'
+          AND lower(trim(json_extract(execution_target_json, '$.modelSource.sourceUrl'))) GLOB 'https://*'
+          AND json_type(execution_target_json, '$.modelSource.checkedAt') = 'text'
+          AND datetime(json_extract(execution_target_json, '$.modelSource.checkedAt')) IS NOT NULL
+        )
+        OR (
+          json_extract(execution_target_json, '$.billingMode') = 'subscription'
+          AND json_type(execution_target_json, '$.modelSource') = 'object'
+          AND json_extract(execution_target_json, '$.modelSource.kind') = 'native'
+          AND json_extract(execution_target_json, '$.modelSource.sourceUrl') IS NULL
+          AND json_extract(execution_target_json, '$.modelSource.checkedAt') IS NULL
+        )
+      )
     ),
   result_provenance_json TEXT
     CHECK (
@@ -151,9 +172,9 @@ CREATE TABLE collaboration_turns (
         AND json_extract(result_provenance_json, '$.accountId') = json_extract(execution_target_json, '$.accountId')
         AND json_extract(result_provenance_json, '$.billingMode') = json_extract(execution_target_json, '$.billingMode')
         AND json_extract(result_provenance_json, '$.modelId') = json_extract(execution_target_json, '$.modelId')
-        AND json_extract(result_provenance_json, '$.modelSource.kind') = json_extract(execution_target_json, '$.modelSource.kind')
-        AND json_extract(result_provenance_json, '$.modelSource.sourceUrl') = json_extract(execution_target_json, '$.modelSource.sourceUrl')
-        AND json_extract(result_provenance_json, '$.modelSource.checkedAt') = json_extract(execution_target_json, '$.modelSource.checkedAt')
+        AND json_extract(result_provenance_json, '$.modelSource.kind') IS json_extract(execution_target_json, '$.modelSource.kind')
+        AND json_extract(result_provenance_json, '$.modelSource.sourceUrl') IS json_extract(execution_target_json, '$.modelSource.sourceUrl')
+        AND json_extract(result_provenance_json, '$.modelSource.checkedAt') IS json_extract(execution_target_json, '$.modelSource.checkedAt')
         AND length(trim(json_extract(result_provenance_json, '$.adapter.id'))) > 0
         AND length(trim(json_extract(result_provenance_json, '$.adapter.version'))) > 0
       )

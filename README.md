@@ -68,11 +68,10 @@ For platform-backed local or deployed usage, the most important Offisim environm
 - `CORS_ORIGINS`
 - `BETTER_AUTH_SECRET`
 
-AI account state is engine-specific. API credentials configured in Offisim are
-sealed behind the desktop secret boundary; subscription engines reuse their
-native login without copying OAuth tokens, sessions, compaction state, or global
-memory. The selectable model catalog stores safe exact-id/source/checkedAt
-metadata rather than raw credentials.
+AI engine state is lane-specific. Pi API provider keys entered in AI Accounts are
+written to Pi-owned `~/.pi/agent/models.json`, while Offisim projects only safe
+summaries. External CLI orchestration reuses CLI-owned login, model choice,
+sessions, compaction, and global memory without copying them into product storage.
 
 ## Naming Note
 
@@ -84,10 +83,10 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
    Boss, Manager, PM, employees, meetings, queueing, interrupts, resume, and reporting are first-class.
 2. **Execution lives in the user's local runtime.**
    The marketplace is a registry and distribution surface, not the user's execution plane.
-3. **One engine owns each task.**
-   The production gateway currently ships complete API, Codex subscription,
-   and Claude subscription engines. A task selects one engine/account/model and
-   never mixes provider or subscription lanes inside a run.
+3. **One engine lane owns each task.**
+   The production gateway currently ships the Pi API engine and Codex CLI
+   orchestration adapter; Claude Code remains pending. Pi and external CLI lanes
+   coexist, but a run never mixes them.
 4. **Packages are declarative and auditable.**
    1.0 does not allow install hooks, postinstall scripts, embedded secrets, or hidden shell bootstrap behavior.
 5. **Desktop is the product environment.**
