@@ -2,6 +2,7 @@ import { isTauriRuntime } from '@/data/adapters.js';
 import type { ChatMessage, Deliverable, Employee, RunState } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import type { AgentQueueBehavior } from '@/runtime/desktop-agent-runtime.js';
 import { CapabilityManifest } from '@/surfaces/office/rail/CapabilityManifest.js';
 import { ConvOutputs } from '@/surfaces/office/rail/ConvOutputs.js';
 import { MessageItem } from '@/surfaces/office/rail/MessageItem.js';
@@ -14,8 +15,17 @@ import {
   useComposerRuntime,
 } from '@assistant-ui/react';
 import { listen } from '@tauri-apps/api/event';
+import { readFile } from '@tauri-apps/plugin-fs';
 import { MessageSquarePlus, Paperclip, SendHorizontal, Square } from 'lucide-react';
-import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type DragEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { DraftRecipientRow } from './composer/ComposerControls.js';
 import { ComposerLoopChip } from './composer/ComposerLoopChip.js';
 import { ComposerSettingsMenu } from './composer/ComposerSettingsMenu.js';
@@ -23,7 +33,12 @@ import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { LoopPicker } from './composer/LoopPicker.js';
 import { StagedAttachments } from './composer/StagedAttachments.js';
 import {
+  advanceComposerEditRevision,
+  shouldClearAcceptedComposerText,
+} from './composer/active-run-composer.js';
+import {
   type ComposerAttachmentScope,
+  composerAttachmentScopeKey,
   useComposerAttachmentStore,
 } from './composer/composer-attachment-store.js';
 import {
@@ -35,6 +50,7 @@ import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
 import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
 import { RunActivityStrip } from './parts/RunActivityStrip.js';
 import { isConversationRunActive, useConversationRun } from './runtime/conversation-run-react.js';
+import { ATTACHMENT_ONLY_PROMPT } from './runtime/desktop-chat-runtime.js';
 import { useOfficeRuntime } from './runtime/useOfficeRuntime.js';
 
 function dragHasFiles(event: DragEvent<HTMLElement>) {
@@ -42,6 +58,7 @@ function dragHasFiles(event: DragEvent<HTMLElement>) {
 }
 
 interface NativeDroppedFile {
+  path: string;
   name: string;
   bytes: number;
   is_directory?: boolean;
@@ -85,12 +102,15 @@ interface OfficeThreadProps {
  * the seeded token and re-appends it once. With typed text it defers to the
  * standard `ComposerPrimitive.Send` (the no-Loop / has-text path is unchanged).
  */
-function LoopAwareSend({ threadId }: { threadId: string }) {
+function LoopAwareSend({
+  threadId,
+  hasAttachments,
+}: { threadId: string; hasAttachments: boolean }) {
   const reference = useComposerLoopReferenceStore((s) => s.byThread[threadId]);
   const text = useComposer((c) => c.text);
   const composer = useComposerRuntime();
 
-  if (text.trim().length > 0 || !reference) {
+  if (text.trim().length > 0 || (!reference && !hasAttachments)) {
     return (
       <ComposerPrimitive.Send className="off-composer-send off-focusable" aria-label="Send">
         <span>Send</span>
@@ -99,20 +119,111 @@ function LoopAwareSend({ threadId }: { threadId: string }) {
     );
   }
 
-  const chip = reference;
   return (
     <button
       type="button"
       className="off-composer-send off-focusable"
-      aria-label="Run Loop"
+      aria-label={reference ? 'Run Loop' : 'Send'}
       onClick={() => {
-        composer.setText(loopReferenceToken(chip));
+        composer.setText(reference ? loopReferenceToken(reference) : ATTACHMENT_ONLY_PROMPT);
         composer.send();
       }}
     >
-      <span>Run Loop</span>
+      <span>{reference ? 'Run Loop' : 'Send'}</span>
       <Icon icon={SendHorizontal} size="sm" />
     </button>
+  );
+}
+
+function OfficeComposerInput({
+  isRunning,
+  employeeName,
+  editRevision,
+  onSend,
+}: {
+  isRunning: boolean;
+  employeeName: string | null;
+  editRevision: { current: number };
+  onSend: (text: string, behavior: AgentQueueBehavior) => Promise<boolean>;
+}) {
+  const text = useComposer((composer) => composer.text);
+  const composer = useComposerRuntime();
+  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!isRunning || event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing)
+      return;
+    event.preventDefault();
+    const behavior: AgentQueueBehavior = event.altKey ? 'followUp' : 'steer';
+    const submitted = { text, revision: editRevision.current };
+    void onSend(submitted.text, behavior).then((accepted) => {
+      const current = { text: composer.getState().text, revision: editRevision.current };
+      if (shouldClearAcceptedComposerText(current, submitted, accepted)) composer.setText('');
+    });
+  };
+  return (
+    <ComposerPrimitive.Input
+      className="off-composer-input"
+      placeholder={
+        isRunning
+          ? 'Enter adjusts the current run · ⌥Enter queues next'
+          : employeeName
+            ? `Message ${employeeName}`
+            : 'Message the team'
+      }
+      rows={1}
+      submitOnEnter={!isRunning}
+      onChange={() => advanceComposerEditRevision(editRevision)}
+      onKeyDown={onKeyDown}
+    />
+  );
+}
+
+function ActiveRunControls({
+  hasAttachments,
+  sending,
+  editRevision,
+  onSend,
+}: {
+  hasAttachments: boolean;
+  sending: AgentQueueBehavior | null;
+  editRevision: { current: number };
+  onSend: (text: string, behavior: AgentQueueBehavior) => Promise<boolean>;
+}) {
+  const text = useComposer((composer) => composer.text);
+  const composer = useComposerRuntime();
+  const send = async (behavior: AgentQueueBehavior) => {
+    const submitted = { text, revision: editRevision.current };
+    const accepted = await onSend(submitted.text, behavior);
+    const current = { text: composer.getState().text, revision: editRevision.current };
+    if (shouldClearAcceptedComposerText(current, submitted, accepted)) composer.setText('');
+  };
+  return (
+    <>
+      <button
+        type="button"
+        className="off-composer-send off-focusable"
+        disabled={(!text.trim() && !hasAttachments) || sending !== null}
+        title="Apply after the current tool call"
+        onClick={() => void send('steer')}
+      >
+        Steer
+      </button>
+      <button
+        type="button"
+        className="off-composer-send off-focusable"
+        disabled={(!text.trim() && !hasAttachments) || sending !== null}
+        title="Run after the current turn"
+        onClick={() => void send('followUp')}
+      >
+        Queue
+      </button>
+      <ComposerPrimitive.Cancel
+        className="off-composer-send is-stop off-focusable"
+        aria-label="Stop run"
+      >
+        <span>Stop</span>
+        <Icon icon={Square} size="sm" />
+      </ComposerPrimitive.Cancel>
+    </>
   );
 }
 
@@ -125,6 +236,7 @@ function OfficeComposer({
   employeeName,
   scopeEmployeeId,
   isDraft,
+  onSendWhileRunning,
 }: {
   attachmentScope: ComposerAttachmentScope;
   threadId: string;
@@ -137,16 +249,40 @@ function OfficeComposer({
   scopeEmployeeId: string | null;
   /** A draft (pre-first-message) thread can still retarget its scope. */
   isDraft: boolean;
+  onSendWhileRunning: (text: string, behavior: AgentQueueBehavior) => Promise<boolean>;
 }) {
   const employees = useMemo(() => Array.from(employeesById.values()), [employeesById]);
   const run = useConversationRun(threadId);
   const isRunning = isConversationRunActive(run.phase);
   const stageFiles = useComposerAttachmentStore((s) => s.stageFiles);
   const storageAvailable = useComposerAttachmentStore((s) => s.storageAvailable);
+  const hasAttachments = useComposerAttachmentStore((s) =>
+    (s.stagedByScope[composerAttachmentScopeKey(attachmentScope)] ?? []).some(
+      (attachment) => attachment.status === 'attached',
+    ),
+  );
   const fileInput = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLFormElement>(null);
+  const composerEditRevision = useRef(0);
   const dragDepth = useRef(0);
+  const activeSendPendingRef = useRef(false);
   const [dragActive, setDragActive] = useState(false);
+  const [activeSendPending, setActiveSendPending] = useState<AgentQueueBehavior | null>(null);
+
+  const sendWhileRunning = useCallback(
+    async (text: string, behavior: AgentQueueBehavior) => {
+      if (activeSendPendingRef.current) return false;
+      activeSendPendingRef.current = true;
+      setActiveSendPending(behavior);
+      try {
+        return await onSendWhileRunning(text, behavior);
+      } finally {
+        activeSendPendingRef.current = false;
+        setActiveSendPending(null);
+      }
+    },
+    [onSendWhileRunning],
+  );
 
   function stageFileList(fileList: FileList | null) {
     const files = Array.from(fileList ?? []).map((f) => ({
@@ -159,14 +295,17 @@ function OfficeComposer({
   }
 
   const stageNativeFiles = useCallback(
-    (payload: NativeDroppedFilesPayload) => {
+    async (payload: NativeDroppedFilesPayload) => {
       const files = (payload.files ?? [])
         .filter((file) => !file.is_directory)
         .map((file) => ({
           name: file.name,
           bytes: file.bytes,
+          file: {
+            arrayBuffer: async () => Uint8Array.from(await readFile(file.path)).buffer,
+          },
         }));
-      if (files.length) void stageFiles(attachmentScope, files);
+      if (files.length) await stageFiles(attachmentScope, files);
     },
     [attachmentScope, stageFiles],
   );
@@ -199,7 +338,7 @@ function OfficeComposer({
     let unlisten: (() => void) | undefined;
     void listen<NativeDroppedFilesPayload>('offisim-native-file-drop', (event) => {
       if (!nativeDropHitsComposer(event.payload)) return;
-      stageNativeFiles(event.payload);
+      void stageNativeFiles(event.payload);
       dragDepth.current = 0;
       setDragActive(false);
     }).then((nextUnlisten) => {
@@ -256,11 +395,11 @@ function OfficeComposer({
             ) : null}
             <ComposerLoopChip threadId={threadId} />
             <div className="off-composer-input-wrap">
-              <ComposerPrimitive.Input
-                className="off-composer-input"
-                placeholder={employeeName ? `Message ${employeeName}` : 'Message the team'}
-                rows={1}
-                submitOnEnter
+              <OfficeComposerInput
+                isRunning={isRunning}
+                employeeName={employeeName}
+                editRevision={composerEditRevision}
+                onSend={sendWhileRunning}
               />
               <OfficeEnhanceButton
                 threadId={threadId}
@@ -296,15 +435,14 @@ function OfficeComposer({
               <div className="off-composer-controls">
                 <ComposerSettingsMenu threadId={threadId} contextLabel={projectName} />
                 {isRunning ? (
-                  <ComposerPrimitive.Cancel
-                    className="off-composer-send is-stop off-focusable"
-                    aria-label="Stop run"
-                  >
-                    <span>Stop</span>
-                    <Icon icon={Square} size="sm" />
-                  </ComposerPrimitive.Cancel>
+                  <ActiveRunControls
+                    hasAttachments={hasAttachments}
+                    sending={activeSendPending}
+                    editRevision={composerEditRevision}
+                    onSend={sendWhileRunning}
+                  />
                 ) : (
-                  <LoopAwareSend threadId={threadId} />
+                  <LoopAwareSend threadId={threadId} hasAttachments={hasAttachments} />
                 )}
               </div>
             </div>
@@ -338,7 +476,7 @@ export function OfficeThread({
     () => ({ companyId, projectId, threadId }),
     [companyId, projectId, threadId],
   );
-  const runtime = useOfficeRuntime({
+  const { runtime, sendWhileRunning } = useOfficeRuntime({
     threadId,
     seedMessages,
     assigneeId: employeeId,
@@ -385,6 +523,7 @@ export function OfficeThread({
           employeeName={employeeId ? (employeesById.get(employeeId)?.name ?? null) : null}
           scopeEmployeeId={employeeId}
           isDraft={isDraft}
+          onSendWhileRunning={sendWhileRunning}
         />
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>

@@ -1930,9 +1930,15 @@ function verifyWorkspaceBindingStreamGate(): void {
     'the backend abort command must have one coalesced call site',
   );
   assert.ok(
-    runtime.split('this.invokeAbortOnce(requestId)').length - 1 >= 5,
-    'execute/resume, reattach, binding rejection, and user stop must all reach the abort coalescer',
+    runtime.split('this.invokeAbortOnce(requestId)').length - 1 >= 3,
+    'binding rejection and user Stop must share the native abort transport coalescer',
   );
+  assertContains(
+    runtime,
+    "snapshot?.terminal?.status === 'aborted'",
+    'Stop authoritative aborted snapshot gate',
+  );
+  assertContains(runtime, 'StopLostTerminalRaceError', 'Stop versus natural terminal arbitration');
   assert.ok(
     runtime.split('if (bindingAbortPromise) await bindingAbortPromise').length - 1 >= 3,
     'binding rejection must await backend termination before returning from the runtime boundary',

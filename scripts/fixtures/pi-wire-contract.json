@@ -1,5 +1,5 @@
 [
-  { "kind": "ready", "protocolVersion": 10 },
+  { "kind": "ready", "protocolVersion": 11 },
   {
     "kind": "executionPrepared",
     "prepareId": "prepare-1",
@@ -15,10 +15,10 @@
         "checkedAt": "2026-07-14T00:00:00Z"
       },
       "runId": "root-run-1",
-      "adapter": { "id": "pi-agent", "version": "0.79.8" }
+      "adapter": { "id": "pi-agent", "version": "0.80.9" }
     },
     "targetDigest": "fixture-digest",
-    "adapter": { "id": "pi-agent", "version": "0.79.8" }
+    "adapter": { "id": "pi-agent", "version": "0.80.9" }
   },
   {
     "kind": "started",
@@ -124,6 +124,11 @@
   },
   { "kind": "messageEnd", "text": "Listed 3 files.", "stopReason": "end_turn" },
   {
+    "kind": "lifecycle",
+    "event": "queue",
+    "payload": { "steeringCount": 1, "followUpCount": 0 }
+  },
+  {
     "kind": "result",
     "response": {
       "ok": true,
@@ -146,7 +151,7 @@
           "checkedAt": "2026-07-14T00:00:00Z"
         },
         "runId": "root-run-1",
-        "adapter": { "id": "pi-agent", "version": "0.79.8" }
+        "adapter": { "id": "pi-agent", "version": "0.80.9" }
       },
       "usage": {
         "input": 10,

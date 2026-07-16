@@ -47,6 +47,8 @@ impl NativeSessionMode {
 pub struct PiAgentExecuteRequest {
     pub(super) request_id: String,
     pub(super) text: String,
+    #[serde(default)]
+    pub(super) images: Option<serde_json::Value>,
     /// Product-authoritative target frozen before the request can cross the API
     /// side-effect boundary. The Node host must prove the created session matches.
     pub(super) expected_target: PiExecutionTarget,
@@ -461,6 +463,10 @@ pub enum PiAgentHostEvent {
         placeholder: Option<String>,
         #[serde(default)]
         prefill: Option<String>,
+    },
+    Lifecycle {
+        event: String,
+        payload: serde_json::Value,
     },
     AgentRun {
         thread_id: String,

@@ -88,6 +88,7 @@ pub(super) fn sidecar_payload(
         "mode": "execute",
         "requestId": req.request_id,
         "text": req.text,
+        "images": req.images,
         // The Rust host fchdir(2)s the sidecar into the verified Project inode
         // immediately before exec. Every root-session file/tool operation must
         // stay relative to that inherited directory object; forwarding the

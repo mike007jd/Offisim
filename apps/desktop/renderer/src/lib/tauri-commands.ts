@@ -296,6 +296,7 @@ export interface BrowserSessionSnapshot {
 interface PiAgentExecuteRequest {
   requestId: string;
   text: string;
+  images?: Array<{ data: string; mimeType: string }> | null;
   expectedTarget: AiExecutionTarget;
   runtimeModelRef: string;
   companyId: string;
@@ -478,6 +479,7 @@ type PiAgentHostEvent =
       prefill?: string;
       params?: unknown;
     }
+  | { kind: 'lifecycle'; event: string; payload: unknown }
   | {
       kind: 'uiRequestResolved';
       id: string;
@@ -900,7 +902,14 @@ export interface CommandMap {
   agent_runtime_resume: CommandSpec<AgentRuntimeArgs<PiAgentExecuteRequest>, PiAgentHostResponse>;
   agent_runtime_abort: CommandSpec<{ requestId: string }, void>;
   agent_runtime_control: CommandSpec<
-    { requestId: string; action: 'stopChild'; runId: string },
+    {
+      requestId: string;
+      action: 'stopChild' | 'steer' | 'followUp' | 'reattach';
+      controlId?: string | null;
+      runId?: string | null;
+      text?: string | null;
+      images?: Array<{ data: string; mimeType: string }> | null;
+    },
     void
   >;
   agent_runtime_confirm_execution: CommandSpec<

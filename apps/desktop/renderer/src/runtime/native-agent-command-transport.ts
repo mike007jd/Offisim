@@ -88,6 +88,7 @@ export function createNativeAgentCommandTransport(
           ? call('claude_agent_reattach', args)
           : call('agent_runtime_reattach', args),
     stopChild: (args: CommandArgs<'agent_runtime_control'>) => call('agent_runtime_control', args),
+    control: (args: CommandArgs<'agent_runtime_control'>) => call('agent_runtime_control', args),
   };
 }
 

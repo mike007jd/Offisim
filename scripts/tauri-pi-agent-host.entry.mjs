@@ -1,10 +1,10 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import {
-  AuthStorage,
   DefaultResourceLoader,
+  ModelRuntime,
   ModelRegistry,
   SessionManager,
   SettingsManager,
@@ -20,6 +20,7 @@ import {
   decodePiRequestPayload,
   errorLine,
   executionPreparedLine,
+  lifecycleLine,
   messageDeltaLine,
   messageEndLine,
   readyLine,
@@ -69,6 +70,7 @@ import {
  */
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
 const MCP_APPROVAL_TIMEOUT_MS = 75_000;
+const ROOT_CONTROL_CUSTOM_TYPE = 'offisim.control';
 const DELEGATION_LIMIT_KEYS = Object.freeze([
   'maxDepth',
   'maxParallelPerDelegation',
@@ -183,6 +185,16 @@ function normalizeThinkingLevel(value) {
   return typeof value === 'string' && THINKING_LEVELS.includes(value) ? value : undefined;
 }
 
+function normalizePromptImages(value) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((image) => {
+    const data = asNonEmptyString(image?.data);
+    const mimeType = asNonEmptyString(image?.mimeType)?.toLowerCase();
+    if (!data || !mimeType || !/^image\/(png|jpe?g|gif|webp)$/.test(mimeType)) return [];
+    return [{ type: 'image', data, mimeType }];
+  });
+}
+
 // Ask mode pauses a tool call and asks the user through Pi's extension UI
 // (`ctx.ui.confirm`). Pi's TUI would render that dialog itself; the host is
 // headless, so we inject a custom `uiContext` (via `session.bindExtensions`) that
@@ -274,6 +286,14 @@ const createTaskScopedAgentSession = createTaskScopedAgentSessionFactory(
 let activeRootSession = null;
 let activeExecutionTargetGate = null;
 let hostTerminating = false;
+const pendingRootControls = [];
+const acceptedRootControls = { steer: [], followUp: [] };
+const observedRootControlIds = new Set();
+const rootControlLedger = new Map();
+let rootControlDrain = Promise.resolve();
+let rootControlsOpen = false;
+let activeRootRunId = null;
+let nativeRootQueueCounts = { steer: 0, followUp: 0 };
 
 function createWorkAgentSession(options) {
   return createTaskScopedAgentSession(options);
@@ -332,10 +352,227 @@ function requireRuntimeModel(payload, modelRegistry) {
   return { model, runtimeModelRef };
 }
 
+function publishControlState(control, state, errorMessage) {
+  emit(
+    lifecycleLine({
+      event: 'control',
+      payload: {
+        state,
+        action: control.action,
+        controlId: control.controlId,
+        ...(errorMessage ? { errorMessage } : {}),
+      },
+    }),
+  );
+}
+
+function controlPayloadFingerprint(control) {
+  const images = normalizePromptImages(control.images).map(({ data, mimeType }) => ({
+    data,
+    mimeType,
+  }));
+  return createHash('sha256')
+    .update(JSON.stringify({ action: control.action, text: control.text, images }))
+    .digest('hex');
+}
+
+function emitControlState(control, state, errorMessage) {
+  const recorded = rootControlLedger.get(control.controlId);
+  rootControlLedger.set(control.controlId, {
+    control: { ...control },
+    state,
+    errorMessage,
+    rootRunId: recorded?.rootRunId ?? activeRootRunId,
+    payloadFingerprint: recorded?.payloadFingerprint ?? controlPayloadFingerprint(control),
+  });
+  publishControlState(control, state, errorMessage);
+}
+
+function rootControlMessage(control, rootRunId) {
+  return {
+    customType: ROOT_CONTROL_CUSTOM_TYPE,
+    content: [{ type: 'text', text: control.text }, ...normalizePromptImages(control.images)],
+    display: true,
+    details: {
+      version: 1,
+      rootRunId,
+      controlId: control.controlId,
+      action: control.action,
+      payloadFingerprint: controlPayloadFingerprint(control),
+    },
+  };
+}
+
+function rootControlFromCustomMessage(message, rootRunId) {
+  if (message?.role !== 'custom' || message.customType !== ROOT_CONTROL_CUSTOM_TYPE) return null;
+  const details = message.details;
+  if (
+    !details ||
+    details.version !== 1 ||
+    asNonEmptyString(details.rootRunId) !== rootRunId ||
+    (details.action !== 'steer' && details.action !== 'followUp')
+  )
+    return null;
+  const controlId = asNonEmptyString(details.controlId);
+  const payloadFingerprint = asNonEmptyString(details.payloadFingerprint);
+  if (!controlId || !payloadFingerprint) return null;
+  const content = Array.isArray(message.content)
+    ? message.content
+    : [{ type: 'text', text: String(message.content ?? '') }];
+  const text = content
+    .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+    .map((part) => part.text)
+    .join('\n');
+  const images = content.filter((part) => part?.type === 'image');
+  const control = { action: details.action, controlId, text, images };
+  if (controlPayloadFingerprint(control) !== payloadFingerprint) return null;
+  return { control, payloadFingerprint, rootRunId };
+}
+
+function hydrateRootControlLedger(sessionManager, rootRunId) {
+  if (!rootRunId) return;
+  for (const entry of sessionManager.getBranch()) {
+    if (entry.type !== 'custom_message') continue;
+    const decoded = rootControlFromCustomMessage(
+      {
+        role: 'custom',
+        customType: entry.customType,
+        content: entry.content,
+        details: entry.details,
+      },
+      rootRunId,
+    );
+    if (!decoded || rootControlLedger.has(decoded.control.controlId)) continue;
+    rootControlLedger.set(decoded.control.controlId, {
+      control: decoded.control,
+      state: 'consumed',
+      rootRunId,
+      payloadFingerprint: decoded.payloadFingerprint,
+    });
+  }
+}
+
+function emitRootQueueState() {
+  emit(
+    lifecycleLine({
+      event: 'queue',
+      payload: {
+        steeringCount: nativeRootQueueCounts.steer + acceptedRootControls.steer.length,
+        followUpCount: nativeRootQueueCounts.followUp + acceptedRootControls.followUp.length,
+      },
+    }),
+  );
+}
+
+function settleObservedRootControl(controlId, action) {
+  const current = rootControlLedger.get(controlId);
+  if (!current || current.state !== 'accepted') return;
+  const accepted = acceptedRootControls[action];
+  const index = accepted.findIndex((control) => control.controlId === controlId);
+  if (index >= 0) accepted.splice(index, 1);
+  emitControlState(current.control, 'consumed');
+  emitRootQueueState();
+}
+
+function consumeRootControlMessage(message) {
+  const decoded = rootControlFromCustomMessage(message, activeRootRunId);
+  if (!decoded) return;
+  const record = rootControlLedger.get(decoded.control.controlId);
+  if (!record || record.payloadFingerprint !== decoded.payloadFingerprint) return;
+  observedRootControlIds.add(decoded.control.controlId);
+  queueMicrotask(() => {
+    const current = rootControlLedger.get(decoded.control.controlId);
+    if (!current || current.state !== 'accepted') return;
+    settleObservedRootControl(decoded.control.controlId, decoded.control.action);
+  });
+}
+
+function drainRootControls() {
+  if (!activeRootSession || pendingRootControls.length === 0) return;
+  const session = activeRootSession;
+  rootControlDrain = rootControlDrain.then(async () => {
+    while (activeRootSession === session && pendingRootControls.length > 0) {
+      const control = pendingRootControls.shift();
+      let acceptedControl = null;
+      try {
+        const message = rootControlMessage(control, activeRootRunId);
+        await session.sendCustomMessage(message, { deliverAs: control.action, triggerTurn: true });
+        acceptedControl = { ...control };
+        acceptedRootControls[control.action].push(acceptedControl);
+        emitControlState(acceptedControl, 'accepted');
+        emitRootQueueState();
+        if (observedRootControlIds.has(control.controlId)) {
+          settleObservedRootControl(control.controlId, control.action);
+        }
+      } catch (error) {
+        if (acceptedControl) {
+          const accepted = acceptedRootControls[control.action];
+          const index = accepted.indexOf(acceptedControl);
+          if (index >= 0) accepted.splice(index, 1);
+        }
+        if (rootControlLedger.get(control.controlId)?.state !== 'consumed') {
+          emitControlState(
+            control,
+            'failed',
+            normalizePiErrorMessage(error instanceof Error ? error.message : String(error)),
+          );
+          emitRootQueueState();
+        }
+      }
+    }
+  });
+}
+
 function resolveRuntimeControl(message) {
-  if (message?.type !== 'control' || message.action !== 'stopChild') return;
-  const runId = asNonEmptyString(message.runId);
-  if (runId) activeChildControllers.get(runId)?.abort();
+  if (message?.type !== 'control') return;
+  if (message.action === 'reattach') {
+    if (activeRootSession) {
+      emitRootQueueState();
+      for (const record of rootControlLedger.values()) {
+        if (record.state !== 'pending') {
+          publishControlState(record.control, record.state, record.errorMessage);
+        }
+      }
+    }
+    emit(lifecycleLine({ event: 'reattach', payload: { state: 'ready' } }));
+    return;
+  }
+  if (message.action === 'stopChild') {
+    const runId = asNonEmptyString(message.runId);
+    if (runId) activeChildControllers.get(runId)?.abort();
+    return;
+  }
+  if (message.action !== 'steer' && message.action !== 'followUp') return;
+  const controlId = asNonEmptyString(message.controlId);
+  const text = asNonEmptyString(message.text);
+  if (!controlId || !text) return;
+  const control = { action: message.action, controlId, text, images: message.images };
+  const recorded = rootControlLedger.get(controlId);
+  if (recorded) {
+    const samePayload = recorded.payloadFingerprint === controlPayloadFingerprint(control);
+    if (!samePayload) {
+      publishControlState(
+        control,
+        'rejected',
+        'This control id was already used for another queued instruction.',
+      );
+    } else if (recorded.state !== 'pending') {
+      publishControlState(recorded.control, recorded.state, recorded.errorMessage);
+    }
+    return;
+  }
+  if (!rootControlsOpen) {
+    emitControlState(control, 'rejected', 'The Pi run is no longer accepting queued instructions.');
+    return;
+  }
+  rootControlLedger.set(controlId, {
+    control: { ...control },
+    state: 'pending',
+    rootRunId: activeRootRunId,
+    payloadFingerprint: controlPayloadFingerprint(control),
+  });
+  pendingRootControls.push(control);
+  drainRootControls();
 }
 
 function assertWorktreeOk(response, label) {
@@ -728,12 +965,30 @@ function modelSummary(model) {
   };
 }
 
-function createPiRegistries(agentDir) {
+async function createPiRegistries(agentDir) {
   const authPath = agentDir ? join(agentDir, 'auth.json') : undefined;
   const modelsPath = agentDir ? join(agentDir, 'models.json') : undefined;
   if (authPath) mkdirSync(dirname(authPath), { recursive: true });
-  const authStorage = AuthStorage.create(authPath);
-  const modelRegistry = ModelRegistry.create(authStorage, modelsPath);
+  const modelRuntime = await ModelRuntime.create({ authPath, modelsPath });
+  const modelRegistry = new ModelRegistry(modelRuntime);
+  await modelRegistry.refresh();
+  const readCredentials = () => {
+    if (!authPath || !existsSync(authPath)) return {};
+    try {
+      const parsed = JSON.parse(readFileSync(authPath, 'utf8'));
+      return isRecord(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+  // Pi 0.80 moved credential ownership behind ModelRuntime. Keep the narrow
+  // provenance/status facade synchronous without re-exporting or copying SDK
+  // internals; secret resolution itself still goes through ModelRegistry.
+  const authStorage = {
+    get: (provider) => readCredentials()[provider],
+    getApiKey: async () => undefined,
+    list: () => Object.keys(readCredentials()),
+  };
   return { agentDir, authPath, modelsPath, authStorage, modelRegistry };
 }
 
@@ -936,7 +1191,8 @@ function insertJsoncObjectProperty(source, objectStart, propertyName, value) {
   const objectEnd = findJsoncMatching(source, objectStart, '{', '}');
   const parentIndent = lineIndentAt(source, objectStart);
   const firstChild = skipJsoncTrivia(source, objectStart + 1);
-  const childIndent = firstChild < objectEnd ? lineIndentAt(source, firstChild) : `${parentIndent}  `;
+  const childIndent =
+    firstChild < objectEnd ? lineIndentAt(source, firstChild) : `${parentIndent}  `;
   const propertyText = `${JSON.stringify(propertyName)}: ${formatJsoncValue(value, childIndent)}`;
   const hasProperties = firstChild < objectEnd;
   const needsComma = hasProperties && previousJsoncSignificantChar(source, objectEnd) !== ',';
@@ -1160,7 +1416,7 @@ async function piSaveProvider(payload) {
   mkdirSync(agentDir, { recursive: true, mode: 0o700 });
   const modelsPath = join(agentDir, 'models.json');
   const root = readModelsJsonForWrite(modelsPath);
-  const { modelRegistry } = createPiRegistries(agentDir);
+  const { modelRegistry } = await createPiRegistries(agentDir);
   const config = isRecord(payload.config) ? payload.config : {};
   const requestedProviderId = asNonEmptyString(config.providerId);
   const existingProvider =
@@ -1226,7 +1482,7 @@ async function runtimeStatusProjection({ authStorage, modelRegistry, providerCon
 }
 
 async function piStatus(payload) {
-  const { agentDir, authPath, modelsPath, authStorage, modelRegistry } = createPiRegistries(
+  const { agentDir, authPath, modelsPath, authStorage, modelRegistry } = await createPiRegistries(
     asNonEmptyString(payload.agentDir),
   );
   const providers = Array.from(
@@ -1288,6 +1544,15 @@ async function piStatus(payload) {
 }
 
 async function runPrompt(payload) {
+  rootControlsOpen = false;
+  activeRootSession = null;
+  pendingRootControls.length = 0;
+  acceptedRootControls.steer.length = 0;
+  acceptedRootControls.followUp.length = 0;
+  observedRootControlIds.clear();
+  rootControlLedger.clear();
+  nativeRootQueueCounts = { steer: 0, followUp: 0 };
+  activeRootRunId = asNonEmptyString(payload.rootRunId) ?? asNonEmptyString(payload.requestId);
   const executionGate = createRequestExecutionTargetGate(payload);
   const workspaceState = normalizeExecuteWorkspace(payload);
   const workspaceUnavailable = workspaceState.availability === 'unavailable';
@@ -1307,9 +1572,10 @@ async function runPrompt(payload) {
       code: 'invalid-request',
     });
   }
+  const promptImages = normalizePromptImages(payload.images);
 
   const agentDir = asNonEmptyString(payload.agentDir);
-  const { authStorage, modelRegistry } = createPiRegistries(agentDir);
+  const { authStorage, modelRegistry } = await createPiRegistries(agentDir);
   const sessionDir = asNonEmptyString(payload.sessionDir);
   const nativeSessionMode = asNonEmptyString(payload.nativeSessionMode);
   if (nativeSessionMode !== 'tracked' && nativeSessionMode !== 'fresh') {
@@ -1341,6 +1607,7 @@ async function runPrompt(payload) {
   const sessionManager = exactSessionFile
     ? SessionManager.open(exactSessionFile, sessionDir, cwd)
     : SessionManager.create(cwd, sessionDir);
+  hydrateRootControlLedger(sessionManager, activeRootRunId);
   const { model, runtimeModelRef } = requireRuntimeModel(payload, modelRegistry);
 
   // Per-conversation permission mode (plan / ask / auto / full). Plan restricts
@@ -1681,6 +1948,8 @@ async function runPrompt(payload) {
     ...(resourceLoader ? { resourceLoader } : {}),
   });
   activeRootSession = session;
+  rootControlsOpen = true;
+  drainRootControls();
   effectiveRootModel = session.model ?? model;
   if (
     exactSessionFile &&
@@ -1727,6 +1996,79 @@ async function runPrompt(payload) {
   const runAssistantMessages = [];
   const toolInputsById = new Map();
   const unsubscribe = session.subscribe((event) => {
+    if (event.type === 'queue_update') {
+      nativeRootQueueCounts = {
+        steer: event.steering.length,
+        followUp: event.followUp.length,
+      };
+      emitRootQueueState();
+      return;
+    }
+    if (event.type === 'compaction_start') {
+      emit(
+        lifecycleLine({ event: 'compaction', payload: { state: 'started', reason: event.reason } }),
+      );
+      return;
+    }
+    if (event.type === 'compaction_end') {
+      emit(
+        lifecycleLine({
+          event: 'compaction',
+          payload: {
+            state: 'finished',
+            reason: event.reason,
+            aborted: event.aborted,
+            willRetry: event.willRetry,
+            errorMessage: event.errorMessage,
+          },
+        }),
+      );
+      return;
+    }
+    if (event.type === 'auto_retry_start') {
+      emit(
+        lifecycleLine({
+          event: 'retry',
+          payload: {
+            state: 'started',
+            attempt: event.attempt,
+            maxAttempts: event.maxAttempts,
+            delayMs: event.delayMs,
+            errorMessage: event.errorMessage,
+          },
+        }),
+      );
+      return;
+    }
+    if (event.type === 'auto_retry_end') {
+      emit(
+        lifecycleLine({
+          event: 'retry',
+          payload: {
+            state: 'finished',
+            success: event.success,
+            attempt: event.attempt,
+            finalError: event.finalError,
+          },
+        }),
+      );
+      return;
+    }
+    if (event.type === 'agent_settled') {
+      const context = session.getContextUsage();
+      if (context)
+        emit(
+          lifecycleLine({
+            event: 'context',
+            payload: {
+              tokens: context.tokens,
+              contextWindow: context.contextWindow,
+              percent: context.percent,
+            },
+          }),
+        );
+      return;
+    }
     if (event.type === 'agent_start') {
       emit(
         startedLine({
@@ -1751,6 +2093,10 @@ async function runPrompt(payload) {
       return;
     }
     if (event.type === 'message_end') {
+      if (event.message?.role === 'custom') {
+        consumeRootControlMessage(event.message);
+        return;
+      }
       if (event.message?.role === 'assistant') {
         const reasoningText = clampText(messageThinking(event.message) || activeReasoningText);
         if (reasoningText && !activeReasoningText.trim()) {
@@ -1853,7 +2199,7 @@ async function runPrompt(payload) {
 
   try {
     executionGate.assertPrepared(preparedExecution, session);
-    await session.prompt(text);
+    await session.prompt(text, promptImages.length > 0 ? { images: promptImages } : undefined);
     const finalAssistant = lastAssistantMessage(session);
     const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
     if (finalAssistant?.stopReason === 'error' || assistantError) {
@@ -1894,6 +2240,26 @@ async function runPrompt(payload) {
       }),
     );
   } finally {
+    rootControlsOpen = false;
+    await rootControlDrain.catch(() => {});
+    for (const control of pendingRootControls) {
+      emitControlState(control, 'failed', 'The Pi run ended before this instruction was accepted.');
+    }
+    for (const action of ['steer', 'followUp']) {
+      for (const control of acceptedRootControls[action]) {
+        if (rootControlLedger.get(control.controlId)?.state === 'accepted') {
+          emitControlState(
+            control,
+            'failed',
+            'The Pi run ended before this instruction was consumed.',
+          );
+        }
+      }
+      acceptedRootControls[action].length = 0;
+    }
+    activeRootRunId = null;
+    pendingRootControls.length = 0;
+    observedRootControlIds.clear();
     unsubscribe();
     session.dispose();
     if (activeRootSession === session) activeRootSession = null;
@@ -1936,7 +2302,7 @@ async function runEnhance(payload) {
   // A neutral cwd (Rust passes a non-project dir). Never bind a workspace.
   const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
   const agentDir = asNonEmptyString(payload.agentDir);
-  const { authStorage, modelRegistry } = createPiRegistries(agentDir);
+  const { authStorage, modelRegistry } = await createPiRegistries(agentDir);
   const sourceProvenance = isRecord(payload.sourceProvenance)
     ? payload.sourceProvenance
     : undefined;
@@ -2092,7 +2458,7 @@ async function runCollaboration(payload) {
   // A neutral cwd (Rust passes a non-project dir). Never bind a workspace.
   const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
   const agentDir = asNonEmptyString(payload.agentDir);
-  const { authStorage, modelRegistry } = createPiRegistries(agentDir);
+  const { authStorage, modelRegistry } = await createPiRegistries(agentDir);
   const { model, runtimeModelRef } = requireRuntimeModel(payload, modelRegistry);
   const thinkingLevel = normalizeThinkingLevel(payload.thinkingLevel);
   const collaborationProfile = normalizeCollaborationProfile(payload.collaborationProfile);

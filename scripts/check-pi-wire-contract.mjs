@@ -52,6 +52,10 @@ const SPEC = {
     required: ['id', 'method', 'title'],
     allowed: ['id', 'method', 'title', 'message', 'options', 'placeholder', 'prefill'],
   },
+  lifecycle: {
+    required: ['event', 'payload'],
+    allowed: ['event', 'payload'],
+  },
   mcpCall: {
     required: ['id', 'server', 'tool'],
     allowed: ['id', 'server', 'tool', 'arguments'],

@@ -1,4 +1,5 @@
 import {
+  loadPersistedChatMessages,
   loadPersistedChatMessagesByIdsWithRepositories,
   persistChatMessage,
 } from '@/data/chat-message-events.js';
@@ -9,9 +10,13 @@ import {
 import { appendThreadMessageEvent } from '@/data/thread-message-events.js';
 import type { ChatMessage, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
 import {
+  AGENT_LIFECYCLE_EVENT,
   AGENT_UI_REQUEST_EVENT,
   AGENT_UI_REQUEST_RESOLVED_EVENT,
   AgentTerminalCheckpointError,
+  StopLostTerminalRaceError,
+  type AgentLifecyclePayload,
+  type AgentQueueBehavior,
   type AgentUiRequestPayload,
   type AgentUiRequestResolvedPayload,
   type DesktopAgentRuntime,
@@ -56,6 +61,7 @@ import {
   displayAttachmentsFromStaged,
   materializeChatTurn,
   newDraftId,
+  rehydratePersistedChatTurn,
   upsertChatToolCall,
 } from './desktop-chat-runtime.js';
 
@@ -256,8 +262,16 @@ export interface ConversationRunSnapshot {
   activity: readonly RunToolActivity[];
   activityTotal: number;
   delegations: readonly RunDelegation[];
+  runtimeStatus: RunRuntimeStatus;
   approval: PendingApproval | null;
   error: RunError | null;
+}
+
+interface RunRuntimeStatus {
+  message: string | null;
+  contextPercent: number | null;
+  steeringQueued: number;
+  followUpQueued: number;
 }
 
 export interface ConversationRunsSnapshot {
@@ -324,7 +338,11 @@ type MaterializeTurn = (input: {
   companyId: string | null;
   threadId: string;
   staged: readonly StagedAttachment[];
-}) => Promise<{ promptText: string; attachments: ChatMessage['attachments'] }>;
+}) => Promise<{
+  promptText: string;
+  attachments: ChatMessage['attachments'];
+  images: Array<{ data: string; mimeType: string }>;
+}>;
 
 interface ConversationRunControllerDeps {
   eventBus: EventBus;
@@ -333,6 +351,7 @@ interface ConversationRunControllerDeps {
   materializeTurn: MaterializeTurn;
   persistMessage: typeof persistChatMessage;
   loadMessagesByIds: typeof loadPersistedChatMessagesByIdsWithRepositories;
+  loadMessages: typeof loadPersistedChatMessages;
   appendEvent: typeof appendThreadMessageEvent;
   now: () => number;
   randomUUID: () => string;
@@ -346,9 +365,22 @@ interface RetryRecord {
   userMessage: ChatMessage;
   assistantMessageId: string;
   promptText: string;
+  images: Array<{ data: string; mimeType: string }>;
   messagePersisted: boolean;
   clearRestoredApproval: boolean;
   pendingLoopHandoff: PendingLoopHandoff | null;
+}
+
+interface QueuedTurn {
+  promptText: string;
+  images: Array<{ data: string; mimeType: string }>;
+  behavior: AgentQueueBehavior;
+  userMessageId: string;
+  delivering: boolean;
+  delivered: boolean;
+  consumed: boolean;
+  failed: boolean;
+  onDelivered?: () => void;
 }
 
 interface PendingLoopHandoff {
@@ -366,9 +398,13 @@ interface ActiveRun {
   threadId: string;
   attemptId: string;
   userMessage: ChatMessage;
+  userMessages: ChatMessage[];
   assistantMessageId: string;
   assistantMessage: ChatMessage | null;
   promptText: string | null;
+  images: Array<{ data: string; mimeType: string }>;
+  queuedTurns: QueuedTurn[];
+  queueChain: Promise<void>;
   contentText: string;
   reasoningText: string;
   toolCalls: ChatToolCall[];
@@ -376,6 +412,7 @@ interface ActiveRun {
   activity: RunToolActivity[];
   activityTotal: number;
   delegations: RunDelegation[];
+  runtimeStatus: RunRuntimeStatus;
   runtime: DesktopAgentRuntime | null;
   stopped: boolean;
   lastCheckpointAt: number;
@@ -391,6 +428,14 @@ interface ActiveRun {
   threadRunLease: ThreadRunLease | null;
   resolveReattachSettlement: (() => void) | null;
   unsubscribers: Array<() => void>;
+}
+
+function emptyRuntimeStatus(): RunRuntimeStatus {
+  return { message: null, contextPercent: null, steeringQueued: 0, followUpQueued: 0 };
+}
+
+function visibleRunMessages(run: ActiveRun, assistant = run.assistantMessage): ChatMessage[] {
+  return assistant ? [...run.userMessages, assistant] : [...run.userMessages];
 }
 
 type LiveRunHydrationResult = 'hydrated' | 'owned_elsewhere' | 'projection_missing';
@@ -465,6 +510,7 @@ function defaultSnapshot(threadId: string): ConversationRunSnapshot {
     activity: [],
     activityTotal: 0,
     delegations: [],
+    runtimeStatus: emptyRuntimeStatus(),
     approval: null,
     error: null,
   };
@@ -476,6 +522,10 @@ export function isConversationRunActive(phase: ConversationRunPhase): boolean {
 
 function safeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
+}
+
+function finiteCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
 }
 
 function terminalToolState(
@@ -580,6 +630,7 @@ function globalFieldsChanged(
     // child run starting or finishing has to invalidate it or the x2/x3 badge
     // and parallel actor lighting go stale.
     prev.delegations !== next.delegations ||
+    prev.runtimeStatus !== next.runtimeStatus ||
     prev.approval !== next.approval ||
     prev.error !== next.error
   );
@@ -609,6 +660,7 @@ export class ConversationRunController {
   private readonly snapshots = new Map<string, ConversationRunSnapshot>();
   private readonly idleSnapshots = new Map<string, ConversationRunSnapshot>();
   private readonly activeRuns = new Map<string, ActiveRun>();
+  private readonly stopOperations = new Map<string, Promise<void>>();
   private readonly mutationLocks = new Set<string>();
   private readonly retryRecords = new Map<string, RetryRecord>();
   private readonly listeners = new Map<string, Set<() => void>>();
@@ -656,6 +708,67 @@ export class ConversationRunController {
     return { threadId: input.threadId, attemptId, userMessageId: userMessage.id };
   }
 
+  async enqueue(
+    input: SubmitConversationRun,
+    behavior: AgentQueueBehavior,
+  ): Promise<ConversationRunHandle> {
+    const run = this.activeRuns.get(input.threadId);
+    if (!run || run.stopped) throw new Error('This conversation no longer has an active run.');
+    if (input.loopExecution) throw new Error('A Loop cannot be queued inside an active run.');
+    let handle: ConversationRunHandle | null = null;
+    const operation = run.queueChain
+      .catch(() => undefined)
+      .then(async () => {
+        if (!this.isActiveRun(run) || run.stopped) {
+          throw new Error('The active run ended before this message could be queued.');
+        }
+        const materialized = await this.deps.materializeTurn({
+          text: input.text,
+          companyId: input.companyId,
+          threadId: input.threadId,
+          staged: input.stagedAttachments,
+        });
+        const userMessage: ChatMessage = {
+          id: newDraftId('boss'),
+          threadId: input.threadId,
+          author: 'boss',
+          employeeId: null,
+          body: input.text,
+          at: this.deps.now(),
+          attachments: materialized.attachments?.length ? materialized.attachments : undefined,
+          attemptId: run.attemptId,
+          queueBehavior: behavior,
+          queueState: 'pending',
+          status: 'complete',
+        };
+        await this.persistRunMessage(run, userMessage);
+        const turn: QueuedTurn = {
+          promptText: materialized.promptText,
+          images: materialized.images,
+          behavior,
+          userMessageId: userMessage.id,
+          delivering: false,
+          delivered: false,
+          consumed: false,
+          failed: false,
+          onDelivered: input.onMessagePersisted,
+        };
+        run.userMessages = [...run.userMessages, userMessage];
+        run.queuedTurns.push(turn);
+        this.patchSnapshot(run.threadId, { liveMessages: visibleRunMessages(run) });
+        if (run.runtime) await this.deliverQueuedTurn(run, turn);
+        handle = {
+          threadId: run.threadId,
+          attemptId: run.attemptId,
+          userMessageId: userMessage.id,
+        };
+      });
+    run.queueChain = operation;
+    await operation;
+    if (!handle) throw new Error('The queued message was not accepted.');
+    return handle;
+  }
+
   async retry(threadId: string, attemptId: string): Promise<ConversationRunHandle> {
     if (this.mutationLocks.has(threadId)) throw new ConversationRunMutationLockedError(threadId);
     if (this.activeRuns.has(threadId)) throw new ConversationRunAlreadyActiveError(threadId);
@@ -670,6 +783,7 @@ export class ConversationRunController {
       record.promptText,
       record.clearRestoredApproval,
     );
+    run.images = record.images;
     run.messagePersistedNotified = record.messagePersisted;
     run.pendingLoopHandoff = record.pendingLoopHandoff;
     if (record.pendingLoopHandoff) {
@@ -742,6 +856,7 @@ export class ConversationRunController {
         record.clearRestoredApproval,
         { mode: 'fresh', sourceRunId },
       );
+      run.images = record.images;
       run.messagePersistedNotified = record.messagePersisted;
       this.trackRunTask(run, this.executeAttempt(run));
       return { threadId, attemptId: nextAttemptId, userMessageId: record.userMessage.id };
@@ -801,9 +916,13 @@ export class ConversationRunController {
       threadId: input.threadId,
       attemptId,
       userMessage,
+      userMessages: [userMessage],
       assistantMessageId: newDraftId('assistant'),
       assistantMessage: null,
       promptText,
+      images: [],
+      queuedTurns: [],
+      queueChain: Promise.resolve(),
       contentText: '',
       reasoningText: '',
       toolCalls: [],
@@ -811,6 +930,7 @@ export class ConversationRunController {
       activity: [],
       activityTotal: 0,
       delegations: [],
+      runtimeStatus: emptyRuntimeStatus(),
       runtime: null,
       stopped: false,
       lastCheckpointAt: 0,
@@ -840,6 +960,7 @@ export class ConversationRunController {
       activity: [],
       activityTotal: 0,
       delegations: [],
+      runtimeStatus: emptyRuntimeStatus(),
       approval: null,
       error: null,
     });
@@ -873,10 +994,47 @@ export class ConversationRunController {
     };
   }
 
-  async stopAndWait(threadId: string): Promise<void> {
+  stopAndWait(threadId: string): Promise<void> {
+    const existing = this.stopOperations.get(threadId);
+    if (existing) return existing;
+    const operation = this.performStopAndWait(threadId);
+    this.stopOperations.set(threadId, operation);
+    void operation.then(
+      () => {
+        if (this.stopOperations.get(threadId) === operation) this.stopOperations.delete(threadId);
+      },
+      () => {
+        if (this.stopOperations.get(threadId) === operation) this.stopOperations.delete(threadId);
+      },
+    );
+    return operation;
+  }
+
+  private async performStopAndWait(threadId: string): Promise<void> {
     const run = this.activeRuns.get(threadId);
     if (!run) return;
     if (run.stopped) return;
+    let stuck = false;
+    const stuckTimer = setTimeout(() => {
+      if (!this.isActiveRun(run) || run.stopped) return;
+      stuck = true;
+      this.patchSnapshot(threadId, {
+        error: {
+          ...buildRunError('Rust has not yet confirmed an aborted retained-stream snapshot.'),
+          message: 'Stopping is taking longer than expected. Offisim is still confirming it.',
+        },
+      });
+    }, 10_000);
+    try {
+      await run.runtime?.abort(threadId);
+    } catch (error) {
+      clearTimeout(stuckTimer);
+      if (stuck && this.isActiveRun(run)) this.patchSnapshot(threadId, { error: null });
+      if (error instanceof StopLostTerminalRaceError) return;
+      throw error;
+    }
+    clearTimeout(stuckTimer);
+    if (!this.isActiveRun(run)) return;
     run.stopped = true;
     // Stop is already the user's terminal intent. Retain the partial prose but
     // retire every live tool projection immediately; native cleanup may finish
@@ -890,18 +1048,16 @@ export class ConversationRunController {
     }
     run.executionAbortController?.abort();
     if (!run.reattached) this.unsubscribeRun(run);
-    run.runtime?.abort(threadId);
     this.patchSnapshot(threadId, {
       attemptId: run.attemptId,
       phase: 'interrupted',
       employeeId: run.input.employeeId,
       source: run.input.source,
-      liveMessages: run.assistantMessage
-        ? [run.userMessage, run.assistantMessage]
-        : [run.userMessage],
+      liveMessages: visibleRunMessages(run),
       approval: null,
       activity: run.activity,
       activityTotal: run.activityTotal,
+      error: null,
     });
     this.saveRetryRecord(run);
   }
@@ -1124,6 +1280,7 @@ export class ConversationRunController {
       userMessage,
       assistantMessageId: current.projection.assistantMessageId,
       promptText: current.row.objective?.trim() || userMessage.body,
+      images: [],
       messagePersisted: true,
       clearRestoredApproval: false,
       pendingLoopHandoff: null,
@@ -1140,6 +1297,7 @@ export class ConversationRunController {
       activity: [],
       activityTotal: 0,
       delegations: [],
+      runtimeStatus: emptyRuntimeStatus(),
       approval: null,
       error: this.freshSessionRunError(
         threadId,
@@ -1207,7 +1365,7 @@ export class ConversationRunController {
       this.patchSnapshot(run.threadId, {
         phase: 'completed',
         approval: null,
-        liveMessages: [run.userMessage, assistant],
+        liveMessages: visibleRunMessages(run, assistant),
         activity: run.activity,
         activityTotal: run.activityTotal,
       });
@@ -1376,6 +1534,12 @@ export class ConversationRunController {
       if (run?.attemptId === runId) {
         run.hostConnected = true;
         await this.restoreLiveApproval(repos, run);
+        void this.flushQueuedTurns(run).catch((error: unknown) => {
+          console.warn('[conversation-run] reattached queue replay failed', {
+            threadId: run.threadId,
+            error,
+          });
+        });
       }
     }
     for (const row of conversationRoots) {
@@ -1395,7 +1559,13 @@ export class ConversationRunController {
     // bootstrap until the terminal stream is durably observed.
     for (const row of conversationRoots) {
       if (!projectionMissing.has(row.run_id) || !handledRootRunIds.has(row.run_id)) continue;
-      runtime.abort(row.thread_id);
+      await runtime.abort(row.thread_id).catch((error: unknown) => {
+        console.warn('[conversation-run] malformed live thread stop failed', {
+          threadId: row.thread_id,
+          runId: row.run_id,
+          error,
+        });
+      });
       protectedRootRunIds.add(row.run_id);
     }
 
@@ -1406,7 +1576,9 @@ export class ConversationRunController {
         ...result.confirmedMissingRootRunIds,
         ...orphanRootRunIds,
       ]),
-      complete: result.complete && projectionMissing.size === 0,
+      // A malformed projection is isolated to its thread. It must never turn
+      // one bad JSONL/SQLite row into a company-wide send breaker.
+      complete: result.complete,
     };
   }
 
@@ -1421,13 +1593,14 @@ export class ConversationRunController {
     if (!threadRunLease) return 'owned_elsewhere';
     let hydrated = false;
     try {
-      const [messages, subtree] = await Promise.all([
+      const [messages, subtree, threadMessages] = await Promise.all([
         this.deps.loadMessagesByIds({
           repos,
           threadId: row.thread_id,
           messageIds: [projection.userMessageId, projection.assistantMessageId],
         }),
         repos.agentRuns.findByRoot(row.run_id),
+        this.deps.loadMessages(row.thread_id),
       ]);
       const delegations = subtree
         .map(restoreDelegation)
@@ -1449,6 +1622,31 @@ export class ConversationRunController {
       const assistantMessage: ChatMessage | null = persistedAssistant
         ? { ...persistedAssistant, status: 'streaming' }
         : null;
+      const queuedMessages = threadMessages.filter(
+        (message) =>
+          message.author === 'boss' &&
+          message.attemptId === row.run_id &&
+          message.queueBehavior &&
+          message.queueState,
+      );
+      const queuedTurns = await Promise.all(
+        queuedMessages.map(async (message): Promise<QueuedTurn> => {
+          const materialized = await rehydratePersistedChatTurn({
+            text: message.body,
+            attachments: message.attachments ?? [],
+          });
+          return {
+            promptText: materialized.promptText,
+            images: materialized.images,
+            behavior: message.queueBehavior ?? 'followUp',
+            userMessageId: message.id,
+            delivering: false,
+            delivered: message.queueState === 'consumed',
+            consumed: message.queueState === 'consumed',
+            failed: message.queueState === 'failed',
+          };
+        }),
+      );
       const input: SubmitConversationRun = {
         companyId: row.company_id,
         projectId: row.project_id,
@@ -1466,9 +1664,13 @@ export class ConversationRunController {
         threadId: row.thread_id,
         attemptId: row.run_id,
         userMessage,
+        userMessages: [userMessage, ...queuedMessages],
         assistantMessageId: projection.assistantMessageId,
         assistantMessage,
         promptText: row.objective ?? userMessage.body,
+        images: [],
+        queuedTurns,
+        queueChain: Promise.resolve(),
         contentText: assistantMessage?.body ?? '',
         reasoningText: assistantMessage?.reasoning ?? '',
         toolCalls: [],
@@ -1476,6 +1678,7 @@ export class ConversationRunController {
         activity: [],
         activityTotal: 0,
         delegations,
+        runtimeStatus: emptyRuntimeStatus(),
         runtime,
         stopped: false,
         lastCheckpointAt: 0,
@@ -1502,10 +1705,13 @@ export class ConversationRunController {
         phase: 'running',
         employeeId: row.employee_id,
         source: projection.source,
-        liveMessages: assistantMessage ? [userMessage, assistantMessage] : [userMessage],
+        liveMessages: assistantMessage
+          ? [userMessage, ...queuedMessages, assistantMessage]
+          : [userMessage, ...queuedMessages],
         activity: [],
         activityTotal: 0,
         delegations,
+        runtimeStatus: emptyRuntimeStatus(),
         approval: null,
         error: null,
       });
@@ -1558,9 +1764,7 @@ export class ConversationRunController {
       title: typeof payload.title === 'string' ? payload.title : 'Approval needed',
       message: typeof payload.message === 'string' ? payload.message : undefined,
       ...(parsedInput?.questions ? { questions: parsedInput.questions } : {}),
-      ...(parsedInput?.autoResolutionMs
-        ? { autoResolutionMs: parsedInput.autoResolutionMs }
-        : {}),
+      ...(parsedInput?.autoResolutionMs ? { autoResolutionMs: parsedInput.autoResolutionMs } : {}),
       state: 'live',
       createdAt: Date.parse(row.created_at) || this.deps.now(),
     };
@@ -1623,6 +1827,7 @@ export class ConversationRunController {
       });
       if (!this.isActiveRun(run)) return;
       run.promptText = materialized.promptText;
+      run.images = materialized.images;
       run.userMessage = {
         ...run.userMessage,
         attachments: materialized.attachments?.length ? materialized.attachments : undefined,
@@ -1761,9 +1966,10 @@ export class ConversationRunController {
       }
       run.unsubscribers = this.subscribeRuntimeEvents(run);
       run.executionAbortController = new AbortController();
-      const response = await run.runtime.execute(
+      const execution = run.runtime.execute(
         {
           text: run.promptText ?? run.input.text,
+          images: run.images,
           threadId: run.threadId,
           employeeId: run.input.employeeId,
           projectId: run.input.projectId,
@@ -1786,6 +1992,15 @@ export class ConversationRunController {
         },
         run.executionAbortController.signal,
       );
+      void this.flushQueuedTurns(run).catch((error: unknown) => {
+        run.runtimeStatus = { ...run.runtimeStatus, message: 'Queued instruction failed' };
+        this.patchSnapshot(run.threadId, { runtimeStatus: run.runtimeStatus });
+        console.warn('[conversation-run] queued-message delivery failed', {
+          threadId: run.threadId,
+          error,
+        });
+      });
+      const response = await execution;
       if (!this.isActiveRun(run) || run.stopped) return;
       const reasoning = (response.reasoning || run.reasoningText).trim();
       const assistant: ChatMessage = {
@@ -1813,7 +2028,7 @@ export class ConversationRunController {
       this.patchSnapshot(run.threadId, {
         phase: 'completed',
         approval: null,
-        liveMessages: [run.userMessage, assistant],
+        liveMessages: visibleRunMessages(run, assistant),
         activity: run.activity,
         activityTotal: run.activityTotal,
       });
@@ -1925,6 +2140,17 @@ export class ConversationRunController {
       this.finalizeReattachedRun(run, payload);
     });
 
+    const offLifecycle = this.deps.eventBus.on(AGENT_LIFECYCLE_EVENT, (event) => {
+      const payload = event.payload as AgentLifecyclePayload;
+      if (
+        !payload?.event ||
+        !this.matchesRun(event, payload as unknown as Record<string, unknown>, run)
+      ) {
+        return;
+      }
+      this.noteLifecycle(run, payload);
+    });
+
     // Delegation run-tree events graft onto this run when the child's rootRunId
     // equals this run's attemptId (the agentRun envelope carries the child runId
     // in payload.runId, not the root, so matchesRun's attemptId check won't fit).
@@ -1939,7 +2165,70 @@ export class ConversationRunController {
       this.noteDelegation(run, payload);
     });
 
-    return [offStream, offTool, offUi, offUiResolved, offLiveTerminal, offAgentRun];
+    return [offStream, offTool, offUi, offUiResolved, offLiveTerminal, offLifecycle, offAgentRun];
+  }
+
+  private noteLifecycle(run: ActiveRun, payload: AgentLifecyclePayload): void {
+    const data = payload.data ?? {};
+    let next = run.runtimeStatus;
+    if (payload.event === 'queue') {
+      const steeringQueued = finiteCount(data.steeringCount);
+      const followUpQueued = finiteCount(data.followUpCount);
+      const total = steeringQueued + followUpQueued;
+      next = {
+        ...next,
+        steeringQueued,
+        followUpQueued,
+        message: total > 0 ? `${total} queued instruction${total === 1 ? '' : 's'}` : null,
+      };
+    } else if (payload.event === 'context') {
+      const percent =
+        typeof data.percent === 'number' && Number.isFinite(data.percent)
+          ? Math.max(0, Math.min(100, data.percent))
+          : null;
+      next = { ...next, contextPercent: percent };
+    } else if (payload.event === 'compaction') {
+      next = {
+        ...next,
+        message:
+          data.state === 'started'
+            ? 'Compacting context'
+            : data.errorMessage
+              ? 'Context compaction failed'
+              : null,
+      };
+    } else if (payload.event === 'retry') {
+      next = {
+        ...next,
+        message:
+          data.state === 'started'
+            ? `Retrying ${finiteCount(data.attempt) || 1}`
+            : data.success === false
+              ? 'Retry failed'
+              : null,
+      };
+    } else if (payload.event === 'control') {
+      const controlId = typeof data.controlId === 'string' ? data.controlId : '';
+      const turn = run.queuedTurns.find((candidate) => candidate.userMessageId === controlId);
+      if (turn && data.state === 'consumed') {
+        turn.consumed = true;
+        turn.delivered = true;
+        turn.failed = false;
+        void this.persistQueuedTurnState(run, turn, 'consumed');
+      } else if (turn && data.state === 'accepted' && !turn.consumed) {
+        turn.delivered = true;
+        turn.failed = false;
+        void this.persistQueuedTurnState(run, turn, 'accepted');
+      } else if (turn && (data.state === 'failed' || data.state === 'rejected')) {
+        turn.failed = true;
+        void this.persistQueuedTurnState(run, turn, 'failed');
+        next = { ...next, message: 'Queued instruction failed' };
+      }
+    }
+    if (next !== run.runtimeStatus) {
+      run.runtimeStatus = next;
+      this.patchSnapshot(run.threadId, { runtimeStatus: next });
+    }
   }
 
   private finalizeReattachedRun(run: ActiveRun, terminal: LiveConversationTerminalPayload): void {
@@ -2001,7 +2290,7 @@ export class ConversationRunController {
       this.patchSnapshot(run.threadId, {
         phase: 'failed',
         approval: null,
-        liveMessages: assistant ? [run.userMessage, assistant] : [run.userMessage],
+        liveMessages: visibleRunMessages(run, assistant),
         error: runError,
       });
       return;
@@ -2011,7 +2300,7 @@ export class ConversationRunController {
     this.patchSnapshot(run.threadId, {
       phase: terminal.status === 'completed' ? 'completed' : 'interrupted',
       approval: null,
-      liveMessages: assistant ? [run.userMessage, assistant] : [run.userMessage],
+      liveMessages: visibleRunMessages(run, assistant),
       error: null,
     });
     if (terminal.status === 'completed' && terminal.provenance && assistant?.body.trim()) {
@@ -2108,7 +2397,7 @@ export class ConversationRunController {
     run.assistantMessage = assistant;
     this.patchSnapshot(run.threadId, (current) => ({
       phase: current.phase === 'awaiting-approval' ? 'awaiting-approval' : 'running',
-      liveMessages: [run.userMessage, assistant],
+      liveMessages: visibleRunMessages(run, assistant),
     }));
   }
 
@@ -2223,9 +2512,7 @@ export class ConversationRunController {
       title: request.title,
       message: request.message,
       ...(parsedInput?.questions ? { questions: parsedInput.questions } : {}),
-      ...(parsedInput?.autoResolutionMs
-        ? { autoResolutionMs: parsedInput.autoResolutionMs }
-        : {}),
+      ...(parsedInput?.autoResolutionMs ? { autoResolutionMs: parsedInput.autoResolutionMs } : {}),
       state: 'live',
       createdAt: this.deps.now(),
     };
@@ -2366,6 +2653,51 @@ export class ConversationRunController {
     });
   }
 
+  private async persistQueuedTurnState(
+    run: ActiveRun,
+    turn: QueuedTurn,
+    state: NonNullable<ChatMessage['queueState']>,
+  ): Promise<void> {
+    const index = run.userMessages.findIndex((message) => message.id === turn.userMessageId);
+    if (index < 0) return;
+    const next: ChatMessage = { ...run.userMessages[index]!, queueState: state };
+    run.userMessages = run.userMessages.map((message, messageIndex) =>
+      messageIndex === index ? next : message,
+    );
+    await this.persistRunMessage(run, next);
+    this.patchSnapshot(run.threadId, { liveMessages: visibleRunMessages(run) });
+  }
+
+  private async deliverQueuedTurn(run: ActiveRun, turn: QueuedTurn): Promise<void> {
+    if (turn.delivered || turn.delivering || turn.failed || !run.runtime) return;
+    turn.delivering = true;
+    try {
+      await run.runtime.queueMessage(run.threadId, {
+        id: turn.userMessageId,
+        text: turn.promptText,
+        images: turn.images,
+        behavior: turn.behavior,
+      });
+      turn.delivered = true;
+      if (!turn.consumed) await this.persistQueuedTurnState(run, turn, 'accepted');
+      const onDelivered = turn.onDelivered;
+      turn.onDelivered = undefined;
+      onDelivered?.();
+    } catch (error) {
+      turn.failed = true;
+      await this.persistQueuedTurnState(run, turn, 'failed').catch(() => undefined);
+      throw error;
+    } finally {
+      turn.delivering = false;
+    }
+  }
+
+  private async flushQueuedTurns(run: ActiveRun): Promise<void> {
+    for (const turn of run.queuedTurns) {
+      if (!turn.consumed) await this.deliverQueuedTurn(run, turn);
+    }
+  }
+
   private notifyMessagePersisted(run: ActiveRun): void {
     if (run.messagePersistedNotified) return;
     run.messagePersistedNotified = true;
@@ -2474,9 +2806,7 @@ export class ConversationRunController {
               : null
           : null,
       freeform_response:
-        approval.method === 'confirm' && typeof response.value === 'string'
-          ? response.value
-          : null,
+        approval.method === 'confirm' && typeof response.value === 'string' ? response.value : null,
       request_json: JSON.stringify(approval),
       response_json: JSON.stringify(response),
       payload_json: JSON.stringify({
@@ -2556,6 +2886,7 @@ export class ConversationRunController {
       userMessage: run.userMessage,
       assistantMessageId: run.assistantMessageId,
       promptText: run.promptText ?? run.input.text,
+      images: run.images,
       messagePersisted: run.messagePersistedNotified,
       clearRestoredApproval: run.clearRestoredApproval,
       pendingLoopHandoff: run.pendingLoopHandoff,
@@ -2609,6 +2940,7 @@ export function createConversationRunController(
     materializeTurn: deps.materializeTurn ?? materializeChatTurn,
     persistMessage: deps.persistMessage ?? persistChatMessage,
     loadMessagesByIds: deps.loadMessagesByIds ?? loadPersistedChatMessagesByIdsWithRepositories,
+    loadMessages: deps.loadMessages ?? loadPersistedChatMessages,
     appendEvent: deps.appendEvent ?? appendThreadMessageEvent,
     now: deps.now ?? (() => Date.now()),
     randomUUID: deps.randomUUID ?? (() => crypto.randomUUID()),

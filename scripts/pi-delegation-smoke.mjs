@@ -4,7 +4,7 @@
  *
  * Locks down the two facts the multi-agent delegation epic needs before any
  * orchestration code is written, against the *actually installed*
- * `@earendil-works/pi-coding-agent@0.79.8` (not docs, not the upstream main):
+ * `@earendil-works/pi-coding-agent@0.80.9` (not docs, not the upstream main):
  *
  *   (a) Can multiple independent `createAgentSession` instances live in the same
  *       Node process with isolated state (distinct sessionId, independent message

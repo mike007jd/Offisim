@@ -88,7 +88,7 @@ import {
   workspaceProvenanceForUnavailable,
 } from './workspace-provenance.js';
 
-const PI_SDK_VERSION = '0.79.8';
+const PI_SDK_VERSION = '0.80.9';
 const TERMINAL_CHECKPOINT_RETRY_MS = 5_000;
 
 async function retryTerminalCheckpointUntilDurable({
@@ -240,6 +240,7 @@ export interface DirectDelegationInput {
 
 export interface DesktopAgentRunInput {
   text: string;
+  images?: Array<{ data: string; mimeType: string }>;
   threadId: string;
   employeeId: string | null;
   projectId: string | null;
@@ -365,6 +366,13 @@ export class AgentTerminalCheckpointError extends Error {
   }
 }
 
+export class StopLostTerminalRaceError extends Error {
+  constructor(readonly terminalStatus: string) {
+    super(`The run reached ${terminalStatus} before Stop was acknowledged.`);
+    this.name = 'StopLostTerminalRaceError';
+  }
+}
+
 export type { AiBillingMode, TurnExecutionProvenance } from './execution-provenance.js';
 
 export interface IsolatedTextJobInput {
@@ -407,7 +415,8 @@ export interface DesktopAgentRuntime {
   execute(input: DesktopAgentRunInput, signal?: AbortSignal): Promise<DesktopAgentRunResult>;
   generateText(input: IsolatedTextJobInput): Promise<IsolatedTextJobResult>;
   resume(runId: string, signal?: AbortSignal): Promise<DesktopAgentRunResult>;
-  abort(threadId: string): void;
+  abort(threadId: string): Promise<void>;
+  queueMessage(threadId: string, message: AgentQueuedMessage): Promise<void>;
   abortChild(threadId: string, runId: string): void;
   /** Deliver the user's answer to a mid-run `agent.ui.request` back to the host. */
   answerUiRequest(answer: AgentUiAnswer): Promise<void>;
@@ -416,6 +425,24 @@ export interface DesktopAgentRuntime {
   /** Reconnect renderer-owned projections to host streams before stale-run reconciliation. */
   reattachLiveRuns?(rootRunIds?: ReadonlySet<string>): Promise<LiveRunReattachResult>;
   dispose(): Promise<void>;
+}
+
+export type AgentQueueBehavior = 'steer' | 'followUp';
+
+export interface AgentQueuedMessage {
+  id: string;
+  text: string;
+  behavior: AgentQueueBehavior;
+  images?: Array<{ data: string; mimeType: string }>;
+}
+
+export const AGENT_LIFECYCLE_EVENT = 'agent.lifecycle';
+
+export interface AgentLifecyclePayload {
+  requestId: string;
+  runId: string;
+  event: string;
+  data: Record<string, unknown>;
 }
 
 interface RuntimeEngineAdapter extends DesktopAgentRuntime {
@@ -442,7 +469,7 @@ const API_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
   supportsOffisimDelegation: true,
   capabilities: {
     stop: true,
-    steer: false,
+    steer: true,
     resume: true,
     permissionModes: ['plan', 'ask', 'auto', 'full'],
     interactions: { approval: true, userInput: true },
@@ -584,6 +611,22 @@ function agentUiRequestResolvedEvent(
   return {
     type: AGENT_UI_REQUEST_RESOLVED_EVENT,
     entityId: payload.id,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
+function agentLifecycleEvent(
+  companyId: string,
+  threadId: string,
+  payload: AgentLifecyclePayload,
+): RuntimeEvent<AgentLifecyclePayload> {
+  return {
+    type: AGENT_LIFECYCLE_EVENT,
+    entityId: payload.runId,
     entityType: 'runtime',
     companyId,
     threadId,
@@ -1355,6 +1398,14 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
   // the runtime abort method. Coalesce those paths so one native request cannot
   // race itself through the host's interrupt and cleanup gates.
   private readonly abortInFlight = new Map<string, Promise<void>>();
+  private readonly abortDecisionByRequest = new Map<string, Promise<void>>();
+  private readonly controlReadyByThread = new Map<string, string>();
+  private readonly acceptingControlThreads = new Set<string>();
+  private readonly pendingControlsByThread = new Map<string, AgentQueuedMessage[]>();
+  private readonly pendingControlAcks = new Map<
+    string,
+    { threadId: string; resolve: () => void; reject: (error: unknown) => void }
+  >();
   // Serializes agent-run persistence in event order, catches failures at each
   // task boundary, and coalesces high-frequency stream cursors per run.
   private readonly persistQueue = new AgentRunPersistenceQueue();
@@ -1433,6 +1484,74 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
   ) {
     const args = { requestId, afterCursor, onEvent };
     return this.commands.reattach(this.config.engineId, args);
+  }
+
+  private async releaseRetainedStream(requestId: string): Promise<void> {
+    try {
+      await this.commands.releaseStream(this.config.engineId, { requestId });
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] retained stream release failed', {
+        engineId: this.engineId,
+        requestId,
+        err,
+      });
+    }
+  }
+
+  private settleControlAck(controlId: string, error?: unknown): void {
+    const pending = this.pendingControlAcks.get(controlId);
+    if (!pending) return;
+    this.pendingControlAcks.delete(controlId);
+    if (error) pending.reject(error);
+    else pending.resolve();
+  }
+
+  private async sendRuntimeControl(requestId: string, message: AgentQueuedMessage): Promise<void> {
+    await this.commands.control({
+      requestId,
+      action: message.behavior,
+      controlId: message.id,
+      runId: null,
+      text: message.text,
+      images: message.images ?? null,
+    });
+  }
+
+  private flushPendingControls(threadId: string, requestId: string): void {
+    this.controlReadyByThread.set(threadId, requestId);
+    const pending = this.pendingControlsByThread.get(threadId) ?? [];
+    this.pendingControlsByThread.delete(threadId);
+    for (const message of pending) {
+      void this.sendRuntimeControl(requestId, message).catch((error: unknown) => {
+        this.settleControlAck(message.id, error);
+      });
+    }
+  }
+
+  private rejectPendingControls(threadId: string, error: Error): void {
+    this.pendingControlsByThread.delete(threadId);
+    for (const [controlId, pending] of this.pendingControlAcks) {
+      if (pending.threadId === threadId) this.settleControlAck(controlId, error);
+    }
+  }
+
+  private handleControlLifecycle(payload: unknown): void {
+    if (!payload || typeof payload !== 'object') return;
+    const data = payload as Record<string, unknown>;
+    const controlId = typeof data.controlId === 'string' ? data.controlId : '';
+    const state = typeof data.state === 'string' ? data.state : '';
+    if (!controlId) return;
+    if (state === 'accepted' || state === 'consumed') this.settleControlAck(controlId);
+    else if (state === 'failed' || state === 'rejected') {
+      this.settleControlAck(
+        controlId,
+        new Error(
+          typeof data.errorMessage === 'string'
+            ? data.errorMessage
+            : 'The queued instruction was rejected.',
+        ),
+      );
+    }
   }
 
   private async assertTaskExecutionAccount(
@@ -1678,6 +1797,24 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
 
     if (event.kind === 'started') {
       input.onStarted(event);
+      if (this.engineId === 'api') {
+        this.flushPendingControls(expectedWorkspace.threadId, expectedWorkspace.requestId);
+      }
+      return true;
+    }
+    if (event.kind === 'lifecycle') {
+      this.handleControlLifecycle(event.payload);
+      runtimeEventBus.emit(
+        agentLifecycleEvent(this.companyId, expectedWorkspace.threadId, {
+          requestId: expectedWorkspace.requestId,
+          runId: runScope.runId,
+          event: event.event,
+          data:
+            event.payload && typeof event.payload === 'object'
+              ? (event.payload as Record<string, unknown>)
+              : {},
+        }),
+      );
       return true;
     }
     if (event.kind === 'messageDelta') {
@@ -2715,7 +2852,14 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           onEvent,
         );
         executionAckAllowed = reattachSnapshot.running;
-        if (reattachSnapshot.running) liveRootRunIds.add(row.run_id);
+        if (reattachSnapshot.running) {
+          liveRootRunIds.add(row.run_id);
+          if (this.engineId === 'api') {
+            this.acceptingControlThreads.add(row.thread_id);
+            this.controlReadyByThread.set(row.thread_id, requestId);
+            await this.commands.control({ requestId, action: 'reattach' });
+          }
+        }
         if (bindingFailurePersisted) {
           if (bindingAbortPromise) await bindingAbortPromise;
           bufferedEvents.length = 0;
@@ -2779,6 +2923,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           }
         }
         await Promise.all(terminalCheckpointPromises);
+        if (!snapshot.running) await this.releaseRetainedStream(requestId);
         bootstrapSettled = true;
         handledRootRunIds.add(row.run_id);
       } catch (err: unknown) {
@@ -2810,6 +2955,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     resumeWorkspaceBinding?: TaskWorkspaceBindingProjection,
     signal?: AbortSignal,
   ): Promise<DesktopAgentRunResult> {
+    if (this.engineId === 'api') this.acceptingControlThreads.add(input.threadId);
     throwIfRunAborted(signal);
     if (
       !this.config.supportsOffisimDelegation &&
@@ -3116,10 +3262,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     if (commandName === 'agent_runtime_execute') openRootRun();
 
     this.inFlightByThread.set(input.threadId, requestId);
+    if (this.engineId === 'api') this.acceptingControlThreads.add(input.threadId);
     const abortFromSignal = (): void => {
-      this.abortedRequests.add(requestId);
-      void this.invokeAbortOnce(requestId).catch((err: unknown) => {
-        console.warn('[desktop-agent-runtime] resume abort failed', {
+      void this.abort(input.threadId).catch((err: unknown) => {
+        if (err instanceof StopLostTerminalRaceError) return;
+        console.warn('[desktop-agent-runtime] signal abort confirmation failed', {
           threadId: input.threadId,
           err,
         });
@@ -3164,31 +3311,39 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       const runtimeStatus = rosterModels.length
         ? await invokeCommand('agent_runtime_status', { includeUsage: false })
         : undefined;
+      // One root run owns one engine/account/billing lane. Employees bound to a
+      // different lane stay visible in Offisim but are not exposed as Pi child
+      // candidates; their presence must never reject otherwise valid root work.
       const boundRoster = this.config.supportsOffisimDelegation
-        ? roster.map((entry) => {
+        ? roster.flatMap((entry) => {
             const employeeModel = entry.model?.trim();
-            if (!employeeModel) return entry;
-            if (!runtimeStatus) throw new Error('The employee model catalog is unavailable.');
-            const childSelection = resolveApiExecutionSelection(
-              runtimeStatus,
-              employeeModel,
-              undefined,
-            );
+            if (!employeeModel) return [entry];
+            if (!runtimeStatus) return [];
+            let childSelection: ResolvedRuntimeExecutionSelection;
+            try {
+              childSelection = resolveRuntimeExecutionSelection(
+                runtimeStatus,
+                employeeModel,
+                undefined,
+              );
+            } catch {
+              return [];
+            }
             if (
               childSelection.target.engineId !== executionTarget?.engineId ||
               childSelection.target.accountId !== executionTarget.accountId ||
               childSelection.target.billingMode !== executionTarget.billingMode
             ) {
-              throw new Error(
-                `Employee ${entry.name} is bound to another AI account or billing lane.`,
-              );
+              return [];
             }
-            return {
-              ...entry,
-              model: childSelection.runtimeModelRef,
-              runtimeModelRef: childSelection.runtimeModelRef,
-              executionTarget: childSelection.target,
-            };
+            return [
+              {
+                ...entry,
+                model: childSelection.runtimeModelRef,
+                runtimeModelRef: childSelection.runtimeModelRef,
+                executionTarget: childSelection.target,
+              },
+            ];
           })
         : [];
       runtimeContext.executionTarget = executionTarget;
@@ -3317,6 +3472,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           req: {
             requestId,
             text: input.text,
+            images: input.images?.length ? input.images : null,
             companyId: this.companyId,
             threadId: input.threadId,
             projectId,
@@ -3355,11 +3511,85 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           : this.commands.executeApi(commandArgs));
       }
       if (executionPreparations.size === 0) {
-        throw new Error('Agent runtime did not prepare the exact execution target.');
+        const abortDecision = this.abortDecisionByRequest.get(requestId);
+        if (abortDecision) {
+          try {
+            await abortDecision;
+          } catch (error) {
+            if (!(error instanceof StopLostTerminalRaceError)) throw error;
+          }
+        }
+        if (!this.abortedRequests.has(requestId)) {
+          throw new Error('Agent runtime did not prepare the exact execution target.');
+        }
       }
       await Promise.all([...executionPreparations.values()].map((entry) => entry.promise));
       await Promise.all(startedIdentityCheckpoints);
       if (channelError) throw channelError;
+      // The sidecar may resolve its command response as soon as the retained
+      // stream aborts, while Stop is still polling Rust for the authoritative
+      // terminal snapshot. Join that decision before validating success-only
+      // provenance: an acknowledged cancellation is a valid terminal without
+      // result provenance, whereas a natural Result/Error keeps winning the
+      // race and continues through the normal validation below.
+      const pendingAbortDecision = this.abortDecisionByRequest.get(requestId);
+      if (pendingAbortDecision) {
+        try {
+          await pendingAbortDecision;
+        } catch (error) {
+          if (!(error instanceof StopLostTerminalRaceError)) throw error;
+        }
+      }
+      if (this.abortedRequests.has(requestId)) {
+        this.flushRunStreamCursor(runScope.runId);
+        const cancelledText = commandResponse.text || finalText;
+        const cancelledReasoning = (commandResponse.reasoning || reasoningText).trim();
+        const conversationTerminal: LiveConversationTerminalPayload = {
+          runId: runScope.runId,
+          status: 'cancelled',
+          text: cancelledText,
+          ...(cancelledReasoning ? { reasoning: cancelledReasoning } : {}),
+        };
+        const terminalCheckpointLabel = `commit terminal checkpoint for ${runScope.runId}`;
+        const commitTerminal = () =>
+          this.persistQueue.enqueueTerminalCheckpoint(terminalCheckpointLabel, () =>
+            this.persistRootTerminal(
+              runScope.runId,
+              'cancelled',
+              commandResponse.usage,
+              undefined,
+              {
+                context: runtimeContext,
+                terminal: conversationTerminal,
+              },
+            ),
+          );
+        try {
+          await commitTerminal();
+        } catch (cause) {
+          if (runtimeContext.conversationProjection) {
+            throw new AgentTerminalCheckpointError(runScope.runId, cause);
+          }
+          await retryTerminalCheckpointUntilDurable({
+            label: terminalCheckpointLabel,
+            runId: runScope.runId,
+            commit: commitTerminal,
+            initialError: cause,
+          });
+        }
+        await this.releaseRetainedStream(requestId);
+        emitRootBus(rootRun('run.cancelled', { status: 'cancelled' }));
+        return {
+          text: cancelledText,
+          ...(workspaceBindingGate.status === 'bound'
+            ? { workspaceBindingClaim: workspaceBindingGate.claim }
+            : {}),
+          ...(cancelledReasoning ? { reasoning: cancelledReasoning } : {}),
+          ...(commandResponse.usage ? { usage: commandResponse.usage } : {}),
+          ...(commandResponse.budgetUsage ? { budgetUsage: commandResponse.budgetUsage } : {}),
+          ...(runtimeContext.conversationProjection ? { conversationTerminalCommitted: true } : {}),
+        };
+      }
       if (workspaceRequirement === 'required' && workspaceBindingGate.status !== 'bound') {
         throw new Error('Backend completed a workspace-required Turn without a binding claim.');
       }
@@ -3437,6 +3667,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           initialError: cause,
         });
       }
+      await this.releaseRetainedStream(requestId);
       if (aborted) {
         emitRootBus(rootRun('run.cancelled', { status: 'cancelled' }));
       } else {
@@ -3550,6 +3781,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           });
         }
       }
+      if (hostCommandStarted) await this.releaseRetainedStream(requestId);
       emitRootBus(
         aborted
           ? rootRun('run.cancelled', { status, summary: message })
@@ -3559,6 +3791,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     } finally {
       signal?.removeEventListener('abort', abortFromSignal);
       this.abortedRequests.delete(requestId);
+      this.controlReadyByThread.delete(input.threadId);
+      this.acceptingControlThreads.delete(input.threadId);
+      this.rejectPendingControls(
+        input.threadId,
+        new Error('The run ended before the queued instruction was accepted.'),
+      );
       if (this.inFlightByThread.get(input.threadId) === requestId) {
         this.inFlightByThread.delete(input.threadId);
       }
@@ -3934,20 +4172,97 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     }
   }
 
-  abort(threadId: string): void {
+  async queueMessage(threadId: string, message: AgentQueuedMessage): Promise<void> {
+    if (this.engineId !== 'api') {
+      throw new Error('Queued steering is available only for API engine runs.');
+    }
+    if (!message.id.trim()) throw new Error('Queued messages require a stable id.');
+    if (this.pendingControlAcks.has(message.id)) {
+      throw new Error('This queued message is already awaiting acknowledgement.');
+    }
+    const acknowledged = new Promise<void>((resolve, reject) => {
+      this.pendingControlAcks.set(message.id, { threadId, resolve, reject });
+    });
+    const requestId = this.controlReadyByThread.get(threadId);
+    if (requestId) {
+      void this.sendRuntimeControl(requestId, message).catch((error: unknown) => {
+        this.settleControlAck(message.id, error);
+      });
+    } else if (this.acceptingControlThreads.has(threadId)) {
+      const pending = this.pendingControlsByThread.get(threadId) ?? [];
+      pending.push(message);
+      this.pendingControlsByThread.set(threadId, pending);
+    } else {
+      this.settleControlAck(
+        message.id,
+        new Error('This conversation is no longer accepting queued messages.'),
+      );
+    }
+    await acknowledged;
+  }
+
+  async abort(threadId: string): Promise<void> {
     const requestId = this.inFlightByThread.get(threadId);
     if (!requestId) return;
-    // Mark before invoking: a Rust abort resolves execute()'s invoke with empty
-    // text, and the flag is how execute() knows to classify the terminal as
-    // cancelled rather than completed.
-    this.abortedRequests.add(requestId);
-    void this.invokeAbortOnce(requestId).catch((err: unknown) => {
-      console.warn('[desktop-agent-runtime] native abort failed', {
-        engineId: this.engineId,
-        threadId,
-        err,
-      });
-    });
+    const existing = this.abortDecisionByRequest.get(requestId);
+    if (existing) return existing;
+    const decision = (async () => {
+      let nextAbortAt = 0;
+      for (;;) {
+        if (Date.now() >= nextAbortAt) {
+          try {
+            await this.invokeAbortOnce(requestId);
+          } catch (err) {
+            console.warn('[desktop-agent-runtime] native abort request retrying', {
+              engineId: this.engineId,
+              threadId,
+              err,
+            });
+          }
+          nextAbortAt = Date.now() + 2_000;
+        }
+        let snapshot: Awaited<ReturnType<DesktopNativeAgentRuntime['invokeStreamSnapshot']>>;
+        try {
+          snapshot = await this.invokeStreamSnapshot(requestId);
+        } catch (err) {
+          console.warn('[desktop-agent-runtime] Stop snapshot confirmation retrying', {
+            engineId: this.engineId,
+            threadId,
+            err,
+          });
+          await new Promise<void>((resolve) => setTimeout(resolve, 250));
+          continue;
+        }
+        if (snapshot?.terminal?.status === 'aborted') {
+          this.abortedRequests.add(requestId);
+          this.controlReadyByThread.delete(threadId);
+          this.acceptingControlThreads.delete(threadId);
+          this.rejectPendingControls(
+            threadId,
+            new Error('The queued message was cancelled with the run.'),
+          );
+          return;
+        }
+        if (snapshot?.terminal) {
+          throw new StopLostTerminalRaceError(snapshot.terminal.status);
+        }
+        if (!snapshot && this.inFlightByThread.get(threadId) !== requestId) {
+          // No stream to confirm against and execute() has already settled
+          // this request (failed before host registration, or released after
+          // its natural terminal): there is nothing left for Stop to win.
+          throw new StopLostTerminalRaceError('settled');
+        }
+        await new Promise<void>((resolve) => setTimeout(resolve, 250));
+      }
+    })();
+    this.abortDecisionByRequest.set(requestId, decision);
+    try {
+      await decision;
+    } finally {
+      if (this.abortDecisionByRequest.get(requestId) === decision) {
+        this.abortDecisionByRequest.delete(requestId);
+      }
+    }
   }
 
   abortChild(threadId: string, runId: string): void {
@@ -3979,6 +4294,15 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
   readonly ownsConversationProjectionPersistence = true;
   private readonly adapters: ReadonlyMap<string, RuntimeEngineAdapter>;
   private readonly activeEngineByThread = new Map<string, string>();
+  private readonly admittingThreads = new Set<string>();
+  private readonly pendingQueuesByThread = new Map<
+    string,
+    Array<{
+      message: AgentQueuedMessage;
+      resolve: () => void;
+      reject: (error: unknown) => void;
+    }>
+  >();
 
   constructor(
     private readonly companyId: string,
@@ -3996,87 +4320,118 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
     return adapter;
   }
 
+  private flushPendingQueue(threadId: string, engineId: string): void {
+    const pending = this.pendingQueuesByThread.get(threadId) ?? [];
+    this.pendingQueuesByThread.delete(threadId);
+    for (const entry of pending) {
+      void this.adapter(engineId)
+        .queueMessage(threadId, entry.message)
+        .then(entry.resolve, entry.reject);
+    }
+  }
+
+  private rejectPendingQueue(threadId: string, error: Error): void {
+    const pending = this.pendingQueuesByThread.get(threadId) ?? [];
+    this.pendingQueuesByThread.delete(threadId);
+    for (const entry of pending) entry.reject(error);
+  }
+
   getEngineCapabilities(engineId: string): RuntimeEngineCapabilityManifest | undefined {
     return this.adapters.get(engineId)?.capabilities;
   }
 
   async execute(input: DesktopAgentRunInput, signal?: AbortSignal): Promise<DesktopAgentRunResult> {
-    const durableAuthority = resolveAuthoritativeThreadExecutionAuthority(
-      await this.repos.agentRuns.findByThread(input.threadId),
-      this.companyId,
-    );
-    let requestedModel = input.model?.trim() || undefined;
-    if (!requestedModel && !durableAuthority && input.employeeId && !input.executionTarget) {
-      const context = await buildDelegationContext(this.repos, this.companyId, input.employeeId, {
-        model: undefined,
-        thinkingLevel: input.thinkingLevel,
-      });
-      requestedModel = context.runtimeSelection.model?.trim() || undefined;
-    }
-    const initialSelector = input.runtimeModelRef?.trim() || input.model?.trim() || undefined;
-    const initialAuthority: DurableThreadExecutionAuthority | undefined =
-      input.executionTarget && initialSelector
-        ? { target: input.executionTarget, runtimeModelRef: initialSelector }
-        : undefined;
-    const selectionPlan = planThreadExecutionSelection(
-      durableAuthority,
-      requestedModel,
-      initialAuthority,
-    );
-    const selection = selectionPlan.requiresCatalog
-      ? resolveRuntimeExecutionSelection(
-          await invokeCommand('agent_runtime_status', { includeUsage: false }),
-          selectionPlan.requestedModel,
-          selectionPlan.frozenAuthority?.target ?? input.executionTarget,
-          selectionPlan.frozenAuthority?.runtimeModelRef ?? input.runtimeModelRef,
-        )
-      : selectionPlan.frozenAuthority;
-    if (!selection) throw new Error('This task does not have an executable AI binding.');
-    if (selectionPlan.authoritativeAuthority) {
-      assertThreadExecutionLane(selectionPlan.authoritativeAuthority.target, selection.target);
-    }
-    if (input.engineId && input.engineId !== selection.target.engineId) {
-      throw new Error('The selected model belongs to another AI engine.');
-    }
-    const engineId = selection.target.engineId;
-    const threadStatusInput = {
-      repos: this.repos,
-      eventBus: runtimeEventBus,
-      companyId: this.companyId,
-      threadId: input.threadId,
-      projectId: input.projectId,
-      rootTaskId: input.runId ?? null,
-      entryMode: input.employeeId ? 'direct_chat' : 'boss_chat',
-    } as const;
-    await persistThreadRuntimeStatus({ ...threadStatusInput, status: 'running' });
-    this.activeEngineByThread.set(input.threadId, engineId);
+    this.admittingThreads.add(input.threadId);
     try {
-      const result = await this.adapter(engineId).execute(
-        {
-          ...input,
-          engineId,
-          model: selection.runtimeModelRef,
-          runtimeModelRef: selection.runtimeModelRef,
-          executionTarget: selection.target,
-        },
-        signal,
+      const durableAuthority = resolveAuthoritativeThreadExecutionAuthority(
+        await this.repos.agentRuns.findByThread(input.threadId),
+        this.companyId,
       );
-      if (!input.missionId) {
-        await persistThreadRuntimeStatus({ ...threadStatusInput, status: 'completed' });
-      }
-      return result;
-    } catch (error) {
-      if (!input.missionId) {
-        await persistThreadRuntimeStatus({
-          ...threadStatusInput,
-          status: signal?.aborted ? 'paused' : 'failed',
+      let requestedModel = input.model?.trim() || undefined;
+      if (!requestedModel && !durableAuthority && input.employeeId && !input.executionTarget) {
+        const context = await buildDelegationContext(this.repos, this.companyId, input.employeeId, {
+          model: undefined,
+          thinkingLevel: input.thinkingLevel,
         });
+        requestedModel = context.runtimeSelection.model?.trim() || undefined;
       }
-      throw error;
+      const initialSelector = input.runtimeModelRef?.trim() || input.model?.trim() || undefined;
+      const initialAuthority: DurableThreadExecutionAuthority | undefined =
+        input.executionTarget && initialSelector
+          ? { target: input.executionTarget, runtimeModelRef: initialSelector }
+          : undefined;
+      const selectionPlan = planThreadExecutionSelection(
+        durableAuthority,
+        requestedModel,
+        initialAuthority,
+      );
+      const selection = selectionPlan.requiresCatalog
+        ? resolveRuntimeExecutionSelection(
+            await invokeCommand('agent_runtime_status', { includeUsage: false }),
+            selectionPlan.requestedModel,
+            selectionPlan.frozenAuthority?.target ?? input.executionTarget,
+            selectionPlan.frozenAuthority?.runtimeModelRef ?? input.runtimeModelRef,
+          )
+        : selectionPlan.frozenAuthority;
+      if (!selection) throw new Error('This task does not have an executable AI binding.');
+      if (selectionPlan.authoritativeAuthority) {
+        assertThreadExecutionLane(selectionPlan.authoritativeAuthority.target, selection.target);
+      }
+      if (input.engineId && input.engineId !== selection.target.engineId) {
+        throw new Error('The selected model belongs to another AI engine.');
+      }
+      const engineId = selection.target.engineId;
+      const threadStatusInput = {
+        repos: this.repos,
+        eventBus: runtimeEventBus,
+        companyId: this.companyId,
+        threadId: input.threadId,
+        projectId: input.projectId,
+        rootTaskId: input.runId ?? null,
+        entryMode: input.employeeId ? 'direct_chat' : 'boss_chat',
+      } as const;
+      await persistThreadRuntimeStatus({ ...threadStatusInput, status: 'running' });
+      this.activeEngineByThread.set(input.threadId, engineId);
+      try {
+        const execution = this.adapter(engineId).execute(
+          {
+            ...input,
+            engineId,
+            model: selection.runtimeModelRef,
+            runtimeModelRef: selection.runtimeModelRef,
+            executionTarget: selection.target,
+          },
+          signal,
+        );
+        this.flushPendingQueue(input.threadId, engineId);
+        const result = await execution;
+        if (!input.missionId) {
+          await persistThreadRuntimeStatus({ ...threadStatusInput, status: 'completed' });
+        }
+        return result;
+      } catch (error) {
+        if (!input.missionId) {
+          await persistThreadRuntimeStatus({
+            ...threadStatusInput,
+            status: signal?.aborted ? 'paused' : 'failed',
+          });
+        }
+        throw error;
+      } finally {
+        this.rejectPendingQueue(
+          input.threadId,
+          new Error('The run ended before the queued instruction was accepted.'),
+        );
+        if (this.activeEngineByThread.get(input.threadId) === engineId) {
+          this.activeEngineByThread.delete(input.threadId);
+        }
+      }
     } finally {
-      if (this.activeEngineByThread.get(input.threadId) === engineId) {
-        this.activeEngineByThread.delete(input.threadId);
-      }
+      this.admittingThreads.delete(input.threadId);
+      this.rejectPendingQueue(
+        input.threadId,
+        new Error('The run ended before the queued instruction was accepted.'),
+      );
     }
   }
 
@@ -4104,9 +4459,25 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
     }
   }
 
-  abort(threadId: string): void {
+  async abort(threadId: string): Promise<void> {
     const engineId = this.activeEngineByThread.get(threadId);
-    if (engineId) this.adapter(engineId).abort(threadId);
+    if (engineId) await this.adapter(engineId).abort(threadId);
+  }
+
+  async queueMessage(threadId: string, message: AgentQueuedMessage): Promise<void> {
+    const engineId = this.activeEngineByThread.get(threadId);
+    if (engineId) {
+      await this.adapter(engineId).queueMessage(threadId, message);
+      return;
+    }
+    if (!this.admittingThreads.has(threadId)) {
+      throw new Error('This conversation no longer has an active engine.');
+    }
+    await new Promise<void>((resolve, reject) => {
+      const pending = this.pendingQueuesByThread.get(threadId) ?? [];
+      pending.push({ message, resolve, reject });
+      this.pendingQueuesByThread.set(threadId, pending);
+    });
   }
 
   abortChild(threadId: string, runId: string): void {

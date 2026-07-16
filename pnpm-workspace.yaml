@@ -12,6 +12,12 @@ allowBuilds:
   'protobufjs@7.6.5': false
   'sharp@0.34.5': false
 
+minimumReleaseAgeExclude:
+  - '@earendil-works/pi-agent-core@0.80.9'
+  - '@earendil-works/pi-ai@0.80.9'
+  - '@earendil-works/pi-coding-agent@0.80.9'
+  - '@earendil-works/pi-tui@0.80.9'
+
 overrides:
   drizzle-orm: 0.45.2
   kysely: ^0.28.17

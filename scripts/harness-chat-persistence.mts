@@ -1007,7 +1007,7 @@ const SOURCE_PROVENANCE: TurnExecutionProvenance = {
     checkedAt: '2026-07-14T21:56:24+10:00',
   },
   runtimeModelRef: 'openrouter/openai/gpt-oss-20b:free',
-  adapter: { id: 'pi-agent', version: '0.79.8' },
+  adapter: { id: 'pi-agent', version: '0.80.9' },
   runId: 'placeholder',
 };
 

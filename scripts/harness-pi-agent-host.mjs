@@ -12,8 +12,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  AuthStorage,
   DefaultResourceLoader,
+  ModelRuntime,
   ModelRegistry,
   SessionManager,
   SettingsManager,
@@ -407,8 +407,12 @@ async function verifyBoundWorkspaceTools() {
       networkCalls += 1;
       throw new Error(`workspace tool oracle attempted network access: ${String(args[0])}`);
     };
-    const authStorage = AuthStorage.create(join(agentDir, 'auth.json'));
-    const modelRegistry = ModelRegistry.create(authStorage, join(agentDir, 'models.json'));
+    const modelRuntime = await ModelRuntime.create({
+      authPath: join(agentDir, 'auth.json'),
+      modelsPath: join(agentDir, 'models.json'),
+    });
+    const modelRegistry = new ModelRegistry(modelRuntime);
+    await modelRegistry.refresh();
     const settingsManager = SettingsManager.create(boundRoot, agentDir);
     const rogueExtensionFactory = (pi) => {
       pi.registerTool({
@@ -445,8 +449,7 @@ async function verifyBoundWorkspaceTools() {
     ({ session } = await createTaskScopedAgentSession({
       cwd: boundRoot,
       agentDir,
-      authStorage,
-      modelRegistry,
+      modelRuntime,
       settingsManager,
       sessionManager: SessionManager.inMemory(boundRoot),
       resourceLoader,
@@ -1205,13 +1208,65 @@ assert(
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 assert(
-  /PI_HOST_PROTOCOL_VERSION = 10/.test(wireSource) &&
-    /PI_HOST_PROTOCOL_VERSION: u32 = 10/.test(rustHostSource) &&
+  /PI_HOST_PROTOCOL_VERSION = 11/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 11/.test(rustHostSource) &&
     /'worktreeCall'/.test(wireSource) &&
     /WorktreeCall/.test(rustHostSource) &&
     /'verifyCall'/.test(wireSource) &&
     /VerifyCall/.test(rustHostSource),
   'F2 must keep the Pi host wire version current and decode worktreeCall on both Node and Rust sides',
+);
+assert(
+  /'lifecycle'/.test(wireSource) &&
+    /Lifecycle \{/.test(rustHostSource) &&
+    /event\.kind === 'lifecycle'/.test(desktopAgentRuntimeSource),
+  'wire v11 must decode lifecycle events on Node, Rust, and renderer sides',
+);
+assert(
+  /ROOT_CONTROL_CUSTOM_TYPE = 'offisim\.control'/.test(nodeHostSource) &&
+    /createHash\('sha256'\)/.test(nodeHostSource) &&
+    /session\.sendCustomMessage\(message, \{ deliverAs: control\.action, triggerTurn: true \}\)/.test(
+      nodeHostSource,
+    ) &&
+    /hydrateRootControlLedger\(sessionManager, rootRunId\)/.test(nodeHostSource) &&
+    /message\.action === 'reattach'/.test(nodeHostSource) &&
+    nodeHostSource.indexOf(
+      'await session.sendCustomMessage(message, { deliverAs: control.action, triggerTurn: true });',
+    ) < nodeHostSource.indexOf("emitControlState(acceptedControl, 'accepted');") &&
+    /controlId: message\.id/.test(desktopAgentRuntimeSource),
+  'steer/follow-up must durably journal before ACK and use SHA-256 reattach dedupe',
+);
+assert(
+  /"images": req\.images/.test(executePayloadSource) &&
+    /images: input\.images\?\.length \? input\.images : null/.test(desktopAgentRuntimeSource) &&
+    /session\.prompt\(text, promptImages\.length > 0 \? \{ images: promptImages \}/.test(
+      nodeHostSource,
+    ),
+  'native image attachments must cross renderer, Rust payload, and Pi prompt unchanged',
+);
+assert(
+  /snapshot\?\.terminal\?\.status === 'aborted'/.test(desktopAgentRuntimeSource) &&
+    /StopLostTerminalRaceError/.test(desktopAgentRuntimeSource) &&
+    /const pendingAbortDecision = this\.abortDecisionByRequest\.get\(requestId\);/.test(
+      desktopAgentRuntimeSource,
+    ) &&
+    desktopAgentRuntimeSource.indexOf('const pendingAbortDecision =') <
+      desktopAgentRuntimeSource.indexOf(
+        '...requireTurnExecutionProvenance(commandResponse.provenance, runScope.runId)',
+      ) &&
+    /if \(this\.abortedRequests\.has\(requestId\)\) \{[\s\S]*?this\.persistRootTerminal\(\s*runScope\.runId,\s*'cancelled'/.test(
+      desktopAgentRuntimeSource,
+    ) &&
+    /releaseRetainedStream\(requestId\)/.test(desktopAgentRuntimeSource),
+  'Stop requires an authoritative aborted snapshot, joins arbitration before result provenance, and releases retained streams only after settlement',
+);
+assert(
+  /roster\.flatMap\(\(entry\) =>/.test(desktopAgentRuntimeSource) &&
+    /resolveRuntimeExecutionSelection\([\s\S]*employeeModel/.test(desktopAgentRuntimeSource) &&
+    /childSelection\.target\.engineId !== executionTarget\?\.engineId[\s\S]*return \[\];/.test(
+      desktopAgentRuntimeSource,
+    ),
+  'Pi delegation must omit employees bound to another engine/account lane without rejecting the root run',
 );
 assert(
   /createWorktreeCallChannel/.test(nodeHostSource) &&

@@ -11,7 +11,7 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 10;
+export const PI_HOST_PROTOCOL_VERSION = 11;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',
@@ -21,6 +21,7 @@ export const PI_WIRE_KINDS = Object.freeze([
   'messageEnd',
   'tool',
   'uiRequest',
+  'lifecycle',
   'mcpCall',
   'worktreeCall',
   'verifyCall',
@@ -47,6 +48,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'mode',
       'requestId',
       'text',
+      'images',
       'cwd',
       'workspaceRequirement',
       'nativeSessionMode',
@@ -76,6 +78,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
     ],
     [
       'agentDir',
+      'images',
       'workspaceUnavailableReasonCode',
       'exactSessionFile',
       'exactSessionId',
@@ -146,6 +149,7 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
     mode: payload.mode,
     requestId: payload.requestId,
     text: payload.text,
+    images: payload.images,
     cwd: payload.cwd,
     workspaceRequirement: payload.workspaceRequirement,
     nativeSessionMode: payload.nativeSessionMode,
@@ -382,6 +386,12 @@ export function uiRequestLine({ id, method, title, message, options, placeholder
   });
 }
 
+// Pi remains authoritative for native queueing, compaction, retry, and context
+// accounting. Offisim projects those facts without recreating their policies.
+export function lifecycleLine({ event, payload } = {}) {
+  return withoutUndefined({ kind: 'lifecycle', event, payload });
+}
+
 // The host's MCP bridge extension wants to invoke an MCP tool. Unlike every
 // other line, `mcpCall` is NOT forwarded to the renderer: the Rust host
 // intercepts it in-process, calls mcp_bridge::call_tool against the connected
@@ -467,6 +477,7 @@ export const PI_WIRE_BUILDERS = Object.freeze({
   messageEnd: messageEndLine,
   tool: toolLine,
   uiRequest: uiRequestLine,
+  lifecycle: lifecycleLine,
   mcpCall: mcpCallLine,
   worktreeCall: worktreeCallLine,
   verifyCall: verifyCallLine,
