@@ -16,6 +16,7 @@ import { Type } from 'typebox';
 import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
 import { resolveApiRunUsage } from './agent-run-usage.mjs';
 import { projectApiAccountCatalog } from './ai-account-catalog.mjs';
+import { OPENROUTER_API_BASE_URL } from './ai-model-catalog.mjs';
 import {
   decodePiRequestPayload,
   errorLine,
@@ -867,6 +868,51 @@ function providerConfigsFromModelsJson(modelsPath, modelRegistry) {
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
+function apiProviderConfigs(modelsPath, modelRegistry) {
+  const configs = providerConfigsFromModelsJson(modelsPath, modelRegistry);
+  const hasOpenRouter = configs.some((config) => config.provider === 'openrouter');
+  const openRouterAuth = modelRegistry.getProviderAuthStatus('openrouter');
+  if (!hasOpenRouter && openRouterAuth?.configured) {
+    configs.push({
+      provider: 'openrouter',
+      displayName: 'OpenRouter',
+      baseUrl: OPENROUTER_API_BASE_URL,
+      api: 'openai-completions',
+      hasApiKey: true,
+      authSource: openRouterAuth.source,
+      models: [],
+    });
+  }
+  return configs.sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+function isOpenRouterApiConfig(config) {
+  const baseUrl = asNonEmptyString(config?.baseUrl)?.replace(/\/$/u, '');
+  return baseUrl === OPENROUTER_API_BASE_URL && config?.api === 'openai-completions';
+}
+
+async function configuredOpenRouterProvider({ accountId, authStorage, modelRegistry, modelsPath }) {
+  const configs = apiProviderConfigs(modelsPath, modelRegistry).filter(isOpenRouterApiConfig);
+  if (!accountId) return 'openrouter';
+
+  for (const config of configs) {
+    const model = modelRegistry.getAll().find((entry) => entry.provider === config.provider);
+    if (!model) continue;
+    try {
+      const identity = await executionAccountIdentity(authStorage, modelRegistry, model);
+      if (identity.billingMode === 'api' && identity.accountId === accountId) {
+        return config.provider;
+      }
+    } catch {
+      // The account may have changed since Settings loaded. The caller receives
+      // one neutral refresh error below; credential details never cross stdout.
+    }
+  }
+  throw Object.assign(new Error('This API account changed. Refresh Accounts and try again.'), {
+    code: 'api-account-stale',
+  });
+}
+
 function selectedModel(modelRegistry, override) {
   const raw = asNonEmptyString(override);
   if (!raw) return undefined;
@@ -928,7 +974,7 @@ async function piStatus(payload) {
     displayName: modelRegistry.getProviderDisplayName(provider),
     auth: modelRegistry.getProviderAuthStatus(provider),
   }));
-  const providerConfigs = providerConfigsFromModelsJson(modelsPath, modelRegistry);
+  const providerConfigs = apiProviderConfigs(modelsPath, modelRegistry);
   const configuredProviders = new Set(providerConfigs.map((config) => config.provider));
   for (const account of providerStatus) {
     if (account.auth?.configured) configuredProviders.add(account.provider);
@@ -974,6 +1020,37 @@ async function piStatus(payload) {
       checkedAt,
     }),
   );
+}
+
+async function configureApiAccount(payload) {
+  if (payload.service !== 'openrouter') {
+    throw Object.assign(new Error('This API service is not supported.'), {
+      code: 'api-account-unsupported',
+    });
+  }
+  const apiKey = asNonEmptyString(payload.apiKey);
+  if (!apiKey || apiKey.length < 20 || /\s/u.test(apiKey)) {
+    throw Object.assign(new Error('Enter a valid OpenRouter API key.'), {
+      code: 'api-key-invalid',
+    });
+  }
+
+  const agentDir = asNonEmptyString(payload.agentDir);
+  const { authStorage, modelRegistry, modelsPath } = createPiRegistries(agentDir);
+  const provider = await configuredOpenRouterProvider({
+    accountId: asNonEmptyString(payload.accountId),
+    authStorage,
+    modelRegistry,
+    modelsPath,
+  });
+  authStorage.set(provider, { type: 'api_key', key: apiKey });
+  const storageError = authStorage.drainErrors()[0];
+  if (storageError) {
+    throw Object.assign(new Error('The API key could not be saved locally.'), {
+      code: 'api-key-save-failed',
+    });
+  }
+  await piStatus(payload);
 }
 
 async function runPrompt(payload) {
@@ -2024,6 +2101,11 @@ function main() {
       if (payload.mode === 'status') {
         statusInFlight = true;
         void piStatus(payload).then(finishHost).catch(fail);
+        return;
+      }
+      if (payload.mode === 'configureApiAccount') {
+        statusInFlight = true;
+        void configureApiAccount(payload).then(finishHost).catch(fail);
         return;
       }
       try {

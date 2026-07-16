@@ -980,8 +980,13 @@ assert.match(
 );
 assert.match(
   aiAccountsPaneSource,
-  /Subscription usage is shown exactly as reported by the service[\s\S]*never converted into a[\s\S]*token-based cost/u,
-  'Settings must explain the native Usage/no-derived-Cost boundary',
+  /selectedAccount\.billingMode\s*===\s*'api'\s*\?\s*\([\s\S]{0,500}<span>Cost<\/span>/u,
+  'Settings summary must render Cost only inside the API-account branch',
+);
+assert.match(
+  aiAccountsPaneSource,
+  /selectedAccount\.billingMode\s*===\s*'api'\s*\?\s*\([\s\S]{0,300}<CapsLabel>Cost<\/CapsLabel>/u,
+  'Settings detail must render Cost only inside the API-account branch',
 );
 assert.match(
   aiAccountsPaneSource,

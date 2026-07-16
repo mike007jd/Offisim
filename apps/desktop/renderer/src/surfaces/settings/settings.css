@@ -1231,6 +1231,280 @@
   color: var(--off-accent);
 }
 
+/* AI Accounts — one full-width review surface. Account switching remains
+   compact while usage, cost, and model evidence keep the available width. */
+.off-set-account-panehead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--off-sp-5);
+}
+
+.off-set-account-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  flex: none;
+}
+
+.off-set-account-catalog-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--off-sp-5);
+  margin-top: var(--off-sp-5);
+}
+
+.off-set-account-catalog-status div {
+  display: grid;
+  gap: 2px;
+}
+
+.off-set-account-catalog-status strong {
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 660;
+}
+
+.off-set-account-catalog-status span {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+}
+
+.off-set-account-tabs {
+  margin-top: var(--off-sp-4);
+}
+
+.off-set-account-tablist {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+  min-width: 0;
+  padding: var(--off-sp-1);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+  overflow-x: auto;
+}
+
+.off-set-account-tabgroup {
+  padding: 0 var(--off-sp-2);
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.off-set-account-tabgroup:not(:first-child) {
+  margin-left: var(--off-sp-2);
+  padding-left: var(--off-sp-4);
+  border-left: 1px solid var(--off-line);
+}
+
+.off-set-account-tab {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--off-r-sm);
+  background: transparent;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 610;
+  white-space: nowrap;
+}
+
+.off-set-account-tab:hover {
+  color: var(--off-ink-1);
+  background: var(--off-surface-2);
+}
+
+.off-set-account-tab[data-state="active"] {
+  border-color: var(--off-line);
+  background: var(--off-surface-1);
+  color: var(--off-ink-1);
+}
+
+.off-set-account-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--off-r-pill);
+  background: var(--off-ink-5);
+}
+
+.off-set-account-dot.is-ready {
+  background: var(--off-ok);
+}
+
+.off-set-account-detail {
+  min-width: 0;
+  margin-top: var(--off-sp-4);
+  padding: var(--off-sp-6);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+}
+
+.off-set-account-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--off-sp-5);
+  margin-bottom: var(--off-sp-5);
+}
+
+.off-set-account-titleline {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+}
+
+.off-set-account-titleline h3 {
+  margin: 0;
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-lg);
+  font-weight: 680;
+}
+
+.off-set-account-detail-head p {
+  margin: 3px 0 0;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-sm);
+}
+
+.off-set-provider-summary-grid.is-subscription {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.off-set-account-usage-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.off-set-account-usage-grid small {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-xs);
+  line-height: 1.35;
+}
+
+.off-set-account-activity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2) var(--off-sp-4);
+  margin-top: var(--off-sp-3);
+  padding: var(--off-sp-3) var(--off-sp-4);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+}
+
+.off-set-account-activity > span {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.off-set-account-activity strong {
+  color: var(--off-ink-2);
+  font-weight: 610;
+}
+
+.off-set-account-updated {
+  margin: var(--off-sp-2) 0 0;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-xs);
+}
+
+.off-set-account-model {
+  grid-template-columns: minmax(0, 1fr) minmax(150px, auto) auto;
+}
+
+.off-set-account-model-copy strong,
+.off-set-account-model-copy code {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.off-set-account-model-source {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-xs);
+  line-height: 1.35;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.off-set-account-model-source:hover {
+  color: var(--off-accent);
+  text-decoration: underline;
+}
+
+.off-set-account-models.is-virtualized {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.off-set-account-model-virtual {
+  position: relative;
+  width: 100%;
+}
+
+.off-set-account-model-virtual-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding-bottom: var(--off-sp-2);
+}
+
+.off-set-api-key-form {
+  display: grid;
+  gap: var(--off-sp-5);
+}
+
+@media (max-width: 1180px) {
+  .off-set-account-model-limits {
+    display: grid;
+  }
+}
+
+@media (max-width: 760px) {
+  .off-set-account-panehead,
+  .off-set-account-detail-head,
+  .off-set-account-catalog-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .off-set-account-actions {
+    flex-wrap: wrap;
+  }
+
+  .off-set-provider-summary-grid,
+  .off-set-provider-summary-grid.is-subscription,
+  .off-set-account-usage-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .off-set-account-model {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .off-set-account-model-limits {
+    grid-column: 1 / -1;
+    justify-items: start;
+  }
+}
+
 /* Sticky commit bar — Provider's explicit save/discard, rendered only while
    dirty/saving. Sticks to the scrollport bottom (.off-set-scroll) so the
    actions stay adjacent to whichever field is being edited. */

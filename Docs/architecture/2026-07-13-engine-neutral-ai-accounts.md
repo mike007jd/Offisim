@@ -99,6 +99,18 @@ discovery, exact native model selection, Project-folder binding, Plan
 continuation, restart recovery, provider-native Usage or explicit unavailable,
 and secret-safe projection.
 
+The integrated AI Accounts / Models release proof is the exact worktree
+executable SHA-256
+`29ff89a5dffcbf33934dd10c1d67b577ab6e26b4eb6e30d329053f041fe1955f`,
+verified on 2026-07-16 NZST. A fresh-state release run configured an isolated
+OpenRouter API key through the product UI, automatically selected the new API
+account, and rendered five exact leaf models with official source and checkedAt.
+API accounts expose Models / Usage / Cost; subscription accounts expose only
+provider-native Models / Usage. An unavailable Codex account stayed neutral,
+offered the native `codex login` instruction, and did not display inferred cost.
+Claude remains absent until T07 can satisfy the independent official-engine
+release contract; its absence does not block the engine-neutral settings shell.
+
 ## Current references checked
 
 - OpenRouter API overview: https://openrouter.ai/docs/api/reference/overview

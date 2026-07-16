@@ -428,6 +428,15 @@ pub struct AiRuntimeStatusResponse {
     pub(super) checked_at: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigureApiAccountRequest {
+    pub(super) service: String,
+    #[serde(default)]
+    pub(super) account_id: Option<String>,
+    pub(super) api_key: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PiAgentStatusResponse {

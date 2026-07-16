@@ -235,6 +235,54 @@ assert.equal(
   'unavailable-account, expired, and unbounded expiring models must not appear runnable',
 );
 
+const sharedOpaqueAccountId = 'shared:opaque:0123456789abcdef';
+const compositeLaneOptions = projectRunnableModelOptions({
+  checkedAt: '2026-07-15T00:00:00Z',
+  accounts: [
+    {
+      ...duplicatePresetStatus.accounts[0],
+      engineId: 'api',
+      accountId: sharedOpaqueAccountId,
+      billingMode: 'api',
+      displayName: 'OpenRouter API',
+    },
+    {
+      ...duplicatePresetStatus.accounts[0],
+      accountId: sharedOpaqueAccountId,
+      displayName: 'Codex subscription',
+    },
+  ],
+  models: [
+    {
+      ...duplicatePresetStatus.models[0],
+      engineId: 'api',
+      accountId: sharedOpaqueAccountId,
+      billingMode: 'api',
+      runtimeModelRef: 'api:shared',
+      source: {
+        kind: 'official-api',
+        sourceUrl: 'https://openrouter.ai/api/v1/models/exact/endpoints',
+        checkedAt: '2026-07-15T00:00:00Z',
+      },
+    },
+    {
+      ...duplicatePresetStatus.models[1],
+      accountId: sharedOpaqueAccountId,
+      runtimeModelRef: 'codex:shared',
+    },
+  ],
+});
+assert.deepEqual(
+  compositeLaneOptions.map((option) => option.accountName),
+  ['OpenRouter API', 'Codex subscription'],
+  'account labels must resolve by engine, account, and billing lane rather than account id alone',
+);
+assert.equal(
+  compositeLaneOptions[0]?.source.sourceUrl,
+  'https://openrouter.ai/api/v1/models/exact/endpoints',
+  'picker options must preserve exact model provenance',
+);
+
 const textAndSecretQuestions = parseUserInputQuestions({
   questions: [
     {

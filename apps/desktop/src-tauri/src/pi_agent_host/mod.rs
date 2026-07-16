@@ -11,15 +11,15 @@ pub(crate) use payload::app_pi_session_dir;
 pub use stream::PiRunStreamSnapshot;
 #[allow(unused_imports)]
 pub use types::{
-    AiRuntimeStatusResponse, PiAgentCollaborateRequest, PiAgentEnhanceRequest,
-    PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse, PiAgentModelsConfig,
-    PiAgentPaths, PiAgentProviderAuthStatus, PiAgentProviderStatus, PiAgentStatusResponse,
-    PiModelSummary,
+    AiRuntimeStatusResponse, ConfigureApiAccountRequest, PiAgentCollaborateRequest,
+    PiAgentEnhanceRequest, PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse,
+    PiAgentModelsConfig, PiAgentPaths, PiAgentProviderAuthStatus, PiAgentProviderStatus,
+    PiAgentStatusResponse, PiModelSummary,
 };
 pub(crate) use wire::PI_HOST_PROTOCOL_VERSION;
 
 use bridge::{confirm_execution_impl, ui_response_impl};
-use provider::{runtime_status_impl, status_impl};
+use provider::{configure_api_account_impl, runtime_status_impl, status_impl};
 use run::{abort_impl, collaborate_impl, enhance_impl, execute_impl, resume_impl};
 
 use tauri::{ipc::Channel, AppHandle};
@@ -191,6 +191,16 @@ pub async fn agent_runtime_status(
         })
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".into());
     Ok(merge_runtime_status(api, codex, checked_at))
+}
+
+/// Store or replace one API credential inside the selected runtime's native
+/// credential store and return the refreshed, secret-free account projection.
+#[tauri::command]
+pub async fn agent_runtime_configure_api_account(
+    app: AppHandle,
+    req: ConfigureApiAccountRequest,
+) -> Result<AiRuntimeStatusResponse, String> {
+    configure_api_account_impl(app, req).await
 }
 
 fn merge_runtime_status(

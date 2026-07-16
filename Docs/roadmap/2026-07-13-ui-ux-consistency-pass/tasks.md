@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，6/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
+> 状态：IN PROGRESS，8/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -14,9 +14,9 @@
 | T03 | 后端签发 effective task workspace | T00 | [x] |
 | T04 | 缺失 Project 目录自主恢复 | T03 | [x] |
 | T05 | 生产 engine gateway 与 API account | T00 | [x] |
-| T06 | Codex subscription 完整 engine | T05 | [ ] |
+| T06 | Codex subscription 完整 engine | T05 | [x] |
 | T07 | Claude subscription 完整 engine | T05 | [ ] |
-| T08 | AI Accounts / Models 设置整合 | T02,T05,T06,T07 | [ ] |
+| T08 | AI Accounts / Models 设置整合 | T02,T05,T06 | [x] |
 | T09 | Loops 自然语言主流程 | T00 | [ ] |
 | T10 | Market 用户语言与空状态 | T00 | [ ] |
 | T11 | Personnel Danger Zone | T00 | [ ] |
@@ -327,18 +327,27 @@
 
 ### Acceptance
 
-- [ ] 本机订阅自动出现，无 Offisim 二次登录表单。
-- [ ] API account 可配置 key，与 subscription 分组和计费口径不同。
-- [ ] 模型 selector 以友好名称为主，exact id/source/checkedAt 在二级信息可见。
-- [ ] 不支持的 capability 隐藏或中性表达，不制造红色假错误。
-- [ ] 默认页面不出现 Pi Agent、`~/.pi`、`auth.json`、stored provider 等实现词。
-- [ ] Cursor 等其他订阅只显示官方可证明能力；不抓私有本地状态。
-- [ ] T02 标题 job 使用同一 Turn 的 account/engine，Usage/Cost 归属正确。
+- [x] 本机订阅自动出现，无 Offisim 二次登录表单。
+- [x] API account 可配置 key，与 subscription 分组和计费口径不同。
+- [x] 模型 selector 以友好名称为主，exact id/source/checkedAt 在二级信息可见。
+- [x] 不支持的 capability 隐藏或中性表达，不制造红色假错误。
+- [x] 默认页面不出现 Pi Agent、`~/.pi`、`auth.json`、stored provider 等实现词。
+- [x] Cursor 等其他订阅只显示官方可证明能力；不抓私有本地状态。
+- [x] T02 标题 job 使用同一 Turn 的 account/engine，Usage/Cost 归属正确。
 
 ### Oracles
 
 - settings coordinator、runtime capabilities、catalog freshness gates。
-- T16 覆盖 API / Codex / Claude 三种账户状态和模型选择。
+- T16 覆盖当前可交付的 API / Codex 账户状态和模型选择；Claude 仍由 T07 的官方能力边界独立阻塞，不阻塞本设置壳完成。
+
+### T08 Evidence（2026-07-16 NZST）
+
+- AI Accounts 以 API / Subscriptions 分组；OpenRouter API 可本地新增或替换 key，Codex 自动读取 native account，未登录只给 `codex login` 原生指引，没有订阅二次登录表单。
+- API 显示 Models / Usage / Cost；subscription 只显示 provider-native Models / Usage，缺失能力使用中性 unavailable，不推算 API cost，也不发现 Cursor 等没有官方个人接口的私有状态。
+- selector 与 Settings 均以友好模型名为主，同时保留 exact leaf id、官方 source、checkedAt、context/output 和 availability；account lane 使用 `engine + account + billing` 复合身份，避免 API 与订阅混算。
+- fresh-state release `.app` 从零账户打开 Settings，新增隔离 OpenRouter key 后自动选中 API tab，展示 5 个 exact model；切到未登录 Codex 时仅显示原生登录指引与 Usage unavailable，不出现 Cost。
+- 最终 worktree 可执行文件 SHA-256 为 `29ff89a5dffcbf33934dd10c1d67b577ab6e26b4eb6e30d329053f041fe1955f`；验收中实际捕获并修复 Tauri ACL 阻断与新增账户未自动选中的状态竞态。
+- `pnpm validate`、AI account configuration、renderer engine authority、account usage、settings coordinator、execution provenance、model catalog freshness、Tauri command hygiene 与 release bundle checks 均通过；UI hygiene 仅保留 T08 外既有 Office terminal/browser/2D scene 债务。
 
 ---
 

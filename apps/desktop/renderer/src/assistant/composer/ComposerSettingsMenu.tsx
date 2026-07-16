@@ -1,4 +1,9 @@
 import { useUiState } from '@/app/ui-state.js';
+import {
+  aiAccountKindLabel,
+  aiAccountLaneKey,
+  aiModelSourceLabel,
+} from '@/data/ai-model-presentation.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import {
   DropdownMenu,
@@ -94,9 +99,9 @@ function catalogDateLabel(value: string): string {
 }
 
 function modelOptionMeta(option: AgentRuntimeModelOption): string {
-  const parts = [option.modelId];
-  if (option.availabilityReason?.trim()) parts.push(option.availabilityReason.trim());
+  const parts = [option.modelId, aiModelSourceLabel(option.source)];
   if (option.expiresAt) parts.push(`Expires ${catalogDateLabel(option.expiresAt)}`);
+  else if (option.availabilityReason?.trim()) parts.push(option.availabilityReason.trim());
   else if (option.availability === 'expiring') parts.push('Expiration date not reported');
   return parts.join(' · ');
 }
@@ -165,12 +170,13 @@ export function ComposerSettingsMenu({
     const stableDefault = authority
       ? durable
       : list.find((option) => option.availability === 'available');
-    const effective = selected ?? stableDefault;
+    const effective = perThreadModel && !selected ? undefined : (selected ?? stableDefault);
     const groups = new Map<string, { account: string; items: typeof list }>();
     for (const option of list) {
-      const existing = groups.get(option.accountId);
+      const laneKey = aiAccountLaneKey(option.engineId, option.accountId, option.billingMode);
+      const existing = groups.get(laneKey);
       if (existing) existing.items.push(option);
-      else groups.set(option.accountId, { account: option.accountName, items: [option] });
+      else groups.set(laneKey, { account: option.accountName, items: [option] });
     }
     const exactLevels = effective?.reasoningEfforts ?? [];
     const nativeDefault = effective?.defaultReasoningEffort ?? exactLevels[0];
@@ -179,7 +185,7 @@ export function ComposerSettingsMenu({
         ? thinkingOverride
         : (nativeDefault ?? DEFAULT_THINKING_LEVEL);
     return {
-      accounts: [...groups].map(([accountId, group]) => ({ accountId, ...group })),
+      accounts: [...groups].map(([laneKey, group]) => ({ laneKey, ...group })),
       defaultModel: stableDefault,
       durableModel: durable,
       effectiveModel: effective,
@@ -204,6 +210,12 @@ export function ComposerSettingsMenu({
       setThreadModel(threadId, durableModel.value);
     }
   }, [durableModel, selectedFromAnotherLane, setThreadModel, threadId]);
+
+  useEffect(() => {
+    if (selectedModelUnavailable && !threadAuthority.data && models.data) {
+      setThreadModel(threadId, '');
+    }
+  }, [models.data, selectedModelUnavailable, setThreadModel, threadAuthority.data, threadId]);
 
   useEffect(() => {
     if (thinkingOverride && !reasoningLevels.includes(thinkingOverride)) {
@@ -273,7 +285,7 @@ export function ComposerSettingsMenu({
             {lockedAuthority ? (
               <DropdownMenuLabel className="off-composer-menu-provider">
                 Locked to {durableModel?.accountName ?? 'AI account'} ·{' '}
-                {lockedAuthority.target.engineId}
+                {aiAccountKindLabel(lockedAuthority.target.billingMode)}
               </DropdownMenuLabel>
             ) : null}
             {catalogUnavailable ? (
@@ -304,7 +316,7 @@ export function ComposerSettingsMenu({
                 ) : null}
                 {accounts.length ? (
                   accounts.map((group) => (
-                    <div key={group.accountId}>
+                    <div key={group.laneKey}>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel className="off-composer-menu-provider">
                         {group.account}

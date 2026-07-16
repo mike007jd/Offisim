@@ -851,10 +851,7 @@ export interface CommandMap {
     PiRunStreamSnapshot
   >;
   codex_agent_execute: CommandSpec<AgentRuntimeArgs<CodexAgentExecuteRequest>, PiAgentHostResponse>;
-  codex_agent_enhance: CommandSpec<
-    AgentRuntimeArgs<CodexAgentEnhanceRequest>,
-    PiAgentHostResponse
-  >;
+  codex_agent_enhance: CommandSpec<AgentRuntimeArgs<CodexAgentEnhanceRequest>, PiAgentHostResponse>;
   codex_agent_resume: CommandSpec<AgentRuntimeArgs<CodexAgentExecuteRequest>, PiAgentHostResponse>;
   codex_agent_abort: CommandSpec<{ requestId: string }, void>;
   codex_agent_answer: CommandSpec<AgentUiResponseArgs, void>;
@@ -866,6 +863,10 @@ export interface CommandMap {
   >;
   codex_agent_status: CommandSpec<undefined, AiRuntimeStatus>;
   agent_runtime_status: CommandSpec<{ includeUsage?: boolean }, AiRuntimeStatus>;
+  agent_runtime_configure_api_account: CommandSpec<
+    { req: { service: 'openrouter'; accountId?: string; apiKey: string } },
+    AiRuntimeStatus
+  >;
   computer_driver_status: CommandSpec<undefined, ComputerDriverStatus>;
   task_workspace_evaluation_lease_acquire: CommandSpec<
     {

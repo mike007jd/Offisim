@@ -4,10 +4,15 @@ import {
   type ApiUsageSnapshot,
   loadAiAccountUsage,
 } from '@/data/ai-account-usage.js';
-import { UI_DATA_COLORS } from '@/data/color-palette.js';
-import { CapsLabel, StatusPill } from '@/design-system/grammar/index.js';
+import {
+  aiAccountKindLabel,
+  aiAccountLaneKey,
+  aiModelSourceLabel,
+} from '@/data/ai-model-presentation.js';
+import { CapsLabel, CardBlock, StatusPill } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
+import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import type {
   AiAccountDescriptor,
@@ -16,8 +21,10 @@ import type {
   AiSubscriptionUsageSnapshot,
 } from '@offisim/shared-types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bot, Info, RefreshCw, TriangleAlert } from 'lucide-react';
-import { type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { KeyRound, Plus, RefreshCw, TriangleAlert } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ApiKeyDialog } from './ApiKeyDialog.js';
 
 interface AccountView extends Omit<AiAccountDescriptor, 'usage'> {
   readonly usage?: ApiUsageSnapshot | AiSubscriptionUsageSnapshot;
@@ -47,13 +54,13 @@ async function loadRuntimeStatus(): Promise<RuntimeStatusView> {
   return status;
 }
 
-function checkedAtLabel(value?: string): string {
+function checkedAtLabel(value?: string, includeTime = true): string {
   if (!value) return 'not checked';
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return value;
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
-    timeStyle: 'short',
+    ...(includeTime ? { timeStyle: 'short' as const } : {}),
   }).format(timestamp);
 }
 
@@ -64,62 +71,33 @@ function compactNumber(value: number | undefined): string {
   );
 }
 
-function formatLimit(value: number | undefined): string {
-  return value === undefined ? 'Not published' : compactNumber(value);
-}
-
 function subscriptionValue(value: number | string | undefined): string {
   if (value === undefined) return '—';
   return typeof value === 'number' ? compactNumber(value) : value;
 }
 
-function subscriptionWindowLabel(kind: 'primary' | 'secondary' | 'spendControl'): string {
-  if (kind === 'spendControl') return 'Spend control';
-  return kind === 'primary' ? 'Primary window' : 'Secondary window';
+function formatWindowDuration(minutes?: number): string | null {
+  if (!minutes || !Number.isFinite(minutes)) return null;
+  if (minutes % 10_080 === 0) return `${minutes / 10_080}-week window`;
+  if (minutes % 1_440 === 0) return `${minutes / 1_440}-day window`;
+  if (minutes % 60 === 0) return `${minutes / 60}-hour window`;
+  return `${minutes}-minute window`;
 }
 
-function usageHeadline(account: AccountView): string {
-  if (account.accountingStatus === 'loading') return 'Loading';
-  if (account.accountingStatus === 'error') return 'Unavailable';
-  if (account.usage?.kind === 'api') {
-    const additiveBuckets = [
-      account.usage.inputTokens,
-      account.usage.outputTokens,
-      account.usage.cacheReadTokens,
-      account.usage.cacheWriteTokens,
-    ];
-    if (additiveBuckets.every((value): value is number => value !== undefined)) {
-      return `${compactNumber(additiveBuckets.reduce((sum, value) => sum + value, 0))} tokens`;
-    }
-    return `${account.usage.runCount} usage ${account.usage.runCount === 1 ? 'record' : 'records'} · partial`;
-  }
-  if (account.usage?.kind === 'subscription') {
-    const firstWindow = account.usage.limits.flatMap((limit) => limit.windows)[0];
-    if (firstWindow) return `${subscriptionValue(firstWindow.remaining)} remaining`;
-    const firstCredit = account.usage.limits.find((limit) => limit.credits !== undefined)?.credits;
-    if (firstCredit !== undefined) return `${subscriptionValue(firstCredit)} credits`;
-    if (account.usage.resetCredits !== undefined) {
-      return `${subscriptionValue(account.usage.resetCredits)} reset credits`;
-    }
-    return account.usage.activity ? 'Native activity' : 'Native usage';
-  }
-  return account.capabilities.usage.status === 'available' ? 'No recorded usage' : 'Unavailable';
+function formatDurationSeconds(seconds?: number): string {
+  if (seconds === undefined || !Number.isFinite(seconds)) return '—';
+  const days = Math.floor(seconds / 86_400);
+  const hours = Math.floor((seconds % 86_400) / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  return (
+    [days ? `${days}d` : '', hours ? `${hours}h` : '', !days && minutes ? `${minutes}m` : '']
+      .filter(Boolean)
+      .join(' ') || '<1m'
+  );
 }
 
-function costHeadline(account: AccountView): string {
-  if (account.billingMode === 'subscription') return 'Not calculated';
-  if (account.accountingStatus === 'loading') return 'Loading';
-  if (account.accountingStatus === 'error') return 'Unavailable';
-  if (account.cost?.kind === 'unavailable') {
-    return account.cost.knownAmountUsd === undefined
-      ? 'Unavailable'
-      : `Unavailable · $${account.cost.knownAmountUsd.toFixed(6)} known`;
-  }
-  if (account.cost) {
-    const value = `$${account.cost.amountUsd.toFixed(6)}`;
-    return account.cost.kind === 'estimate' ? `~${value}` : value;
-  }
-  return account.capabilities.cost.status === 'available' ? 'No recorded cost' : 'Unavailable';
+function accountLane(account: Pick<AccountView, 'engineId' | 'accountId' | 'billingMode'>) {
+  return aiAccountLaneKey(account.engineId, account.accountId, account.billingMode);
 }
 
 function modelAvailabilityTone(model: AiModelCatalogEntry) {
@@ -129,51 +107,76 @@ function modelAvailabilityTone(model: AiModelCatalogEntry) {
 }
 
 function modelAvailabilityDetail(model: AiModelCatalogEntry): string | null {
-  const parts: string[] = [];
-  if (model.availabilityReason?.trim()) parts.push(model.availabilityReason.trim());
-  if (model.expiresAt) parts.push(`Expires ${checkedAtLabel(model.expiresAt)}`);
-  else if (model.availability === 'expiring') parts.push('Expiration date not reported');
-  else if (model.availability === 'unavailable' && parts.length === 0) {
-    parts.push('No availability reason reported');
-  }
-  return parts.length ? parts.join(' · ') : null;
+  if (model.expiresAt) return `Expires ${checkedAtLabel(model.expiresAt)}`;
+  if (model.availabilityReason?.trim()) return model.availabilityReason.trim();
+  if (model.availability === 'expiring') return 'Expiration date not reported';
+  if (model.availability === 'unavailable') return 'Availability not reported';
+  return null;
 }
 
-function AccountUsage({ account }: { account: AccountView }) {
-  if (account.billingMode === 'subscription') {
-    const usage = account.usage?.kind === 'subscription' ? account.usage : undefined;
-    if (!usage) {
-      return (
-        <div className="off-set-callout is-muted">Native subscription usage is unavailable.</div>
-      );
+function usageHeadline(account: AccountView): string {
+  if (account.accountingStatus === 'loading') return 'Loading';
+  if (account.accountingStatus === 'error') return 'Unavailable';
+  if (account.usage?.kind === 'api') {
+    const buckets = [
+      account.usage.inputTokens,
+      account.usage.outputTokens,
+      account.usage.cacheReadTokens,
+      account.usage.cacheWriteTokens,
+    ];
+    if (buckets.every((value): value is number => value !== undefined)) {
+      return `${compactNumber(buckets.reduce((sum, value) => sum + value, 0))} tokens`;
     }
-    const activity = usage.activity;
-    return (
+    return `${account.usage.runCount} ${account.usage.runCount === 1 ? 'run' : 'runs'} · partial`;
+  }
+  if (account.usage?.kind === 'subscription') {
+    const firstWindow = account.usage.limits.flatMap((limit) => limit.windows)[0];
+    if (firstWindow) return `${subscriptionValue(firstWindow.remaining)} remaining`;
+    const credits = account.usage.limits.find((limit) => limit.credits !== undefined)?.credits;
+    return credits === undefined ? 'Native usage' : `${subscriptionValue(credits)} credits`;
+  }
+  return account.capabilities.usage.status === 'available' ? 'No recorded usage' : 'Unavailable';
+}
+
+function costHeadline(account: AccountView): string {
+  if (account.accountingStatus === 'loading') return 'Loading';
+  if (account.accountingStatus === 'error') return 'Unavailable';
+  if (account.cost?.kind === 'unavailable') {
+    return account.cost.knownAmountUsd === undefined
+      ? 'Unavailable'
+      : `$${account.cost.knownAmountUsd.toFixed(6)} known`;
+  }
+  if (account.cost) {
+    const value = `$${account.cost.amountUsd.toFixed(6)}`;
+    return account.cost.kind === 'estimate' ? `~${value}` : value;
+  }
+  return account.capabilities.cost.status === 'available' ? 'No recorded cost' : 'Unavailable';
+}
+
+function SubscriptionUsage({ usage }: { usage: AiSubscriptionUsageSnapshot }) {
+  return (
+    <>
       <div className="off-set-account-usage-grid">
         {usage.limits.flatMap((limit) =>
           limit.windows.map((window) => {
-            const duration = window.windowDurationMins ? ` · ${window.windowDurationMins} min` : '';
-            const plan = limit.planType ? ` · ${limit.planType}` : '';
-            const reached = limit.reachedType ? ` · ${limit.reachedType}` : '';
-            const reset = window.resetAt ? ` · resets ${checkedAtLabel(window.resetAt)}` : '';
-            const limitLabel =
-              limit.label === limit.limitId ? limit.label : `${limit.label} (${limit.limitId})`;
+            const windowLabel =
+              window.kind === 'spendControl'
+                ? 'Spend control'
+                : (formatWindowDuration(window.windowDurationMins) ??
+                  (window.kind === 'primary' ? 'Primary window' : 'Secondary window'));
+            const reset = window.resetAt ? `Resets ${checkedAtLabel(window.resetAt)}` : null;
             const value =
               window.kind === 'spendControl'
-                ? `${subscriptionValue(window.used)} of ${subscriptionValue(window.limit)} · ${subscriptionValue(window.remaining)} remaining`
-                : `${subscriptionValue(window.used)} used · ${subscriptionValue(window.remaining)} remaining${
-                    window.remainingIsDerived ? ' (derived)' : ''
-                  }`;
+                ? `${subscriptionValue(window.remaining)} remaining of ${subscriptionValue(window.limit)}`
+                : `${subscriptionValue(window.remaining)} remaining`;
             return (
               <div key={`${limit.limitId}:${window.kind}`}>
                 <span>
-                  {limitLabel} · {subscriptionWindowLabel(window.kind)}
-                  {duration}
-                  {plan}
-                  {reached}
-                  {reset}
+                  {limit.label} · {windowLabel}
                 </span>
                 <strong>{value}</strong>
+                {reset ? <small>{reset}</small> : null}
+                {window.remainingIsDerived ? <small>Estimated from reported usage</small> : null}
               </div>
             );
           }),
@@ -192,40 +195,39 @@ function AccountUsage({ account }: { account: AccountView }) {
             <strong>{subscriptionValue(usage.resetCredits)}</strong>
           </div>
         ) : null}
-        {activity ? (
-          <>
-            <div>
-              <span>Lifetime activity</span>
-              <strong>{subscriptionValue(activity.lifetimeTokens)} tokens</strong>
-            </div>
-            <div>
-              <span>Peak day</span>
-              <strong>{subscriptionValue(activity.peakDailyTokens)} tokens</strong>
-            </div>
-            <div>
-              <span>Longest running turn</span>
-              <strong>{subscriptionValue(activity.longestRunningTurnSec)} sec</strong>
-            </div>
-            <div>
-              <span>Current streak</span>
-              <strong>{subscriptionValue(activity.currentStreakDays)} days</strong>
-            </div>
-            <div>
-              <span>Longest streak</span>
-              <strong>{subscriptionValue(activity.longestStreakDays)} days</strong>
-            </div>
-          </>
-        ) : null}
-        <div>
-          <span>Native usage updated</span>
-          <strong>{checkedAtLabel(usage.updatedAt)}</strong>
-        </div>
       </div>
-    );
-  }
+      {usage.activity ? (
+        <div className="off-set-account-activity">
+          <span>Activity</span>
+          {usage.activity.lifetimeTokens !== undefined ? (
+            <strong>{compactNumber(usage.activity.lifetimeTokens)} lifetime tokens</strong>
+          ) : null}
+          {usage.activity.peakDailyTokens !== undefined ? (
+            <strong>{compactNumber(usage.activity.peakDailyTokens)} peak-day tokens</strong>
+          ) : null}
+          {usage.activity.longestRunningTurnSec !== undefined ? (
+            <strong>
+              {formatDurationSeconds(usage.activity.longestRunningTurnSec)} longest turn
+            </strong>
+          ) : null}
+          {usage.activity.currentStreakDays !== undefined ? (
+            <strong>{usage.activity.currentStreakDays} day current streak</strong>
+          ) : null}
+          {usage.activity.longestStreakDays !== undefined ? (
+            <strong>{usage.activity.longestStreakDays} day longest streak</strong>
+          ) : null}
+        </div>
+      ) : null}
+      {usage.updatedAt ? (
+        <p className="off-set-account-updated">Updated {checkedAtLabel(usage.updatedAt)}</p>
+      ) : null}
+    </>
+  );
+}
 
+function AccountUsage({ account }: { account: AccountView }) {
   if (account.accountingStatus === 'loading') {
-    return <div className="off-set-callout is-muted">Loading this month's API usage…</div>;
+    return <div className="off-set-callout is-muted">Loading usage…</div>;
   }
   if (account.accountingStatus === 'error') {
     return (
@@ -235,9 +237,17 @@ function AccountUsage({ account }: { account: AccountView }) {
       </div>
     );
   }
-  const usage = account.usage?.kind === 'api' ? account.usage : undefined;
-  if (!usage) {
-    return <div className="off-set-callout is-muted">No recorded API usage this month.</div>;
+  if (account.usage?.kind === 'subscription') {
+    return <SubscriptionUsage usage={account.usage} />;
+  }
+  if (account.usage?.kind !== 'api') {
+    return (
+      <div className="off-set-callout is-muted">
+        {account.billingMode === 'subscription'
+          ? 'Subscription usage is not available from this service.'
+          : 'No recorded API usage this month.'}
+      </div>
+    );
   }
   const usageNumber = (value: number | undefined) =>
     value === undefined ? 'Unknown' : compactNumber(value);
@@ -245,67 +255,130 @@ function AccountUsage({ account }: { account: AccountView }) {
     <div className="off-set-account-usage-grid">
       <div>
         <span>Input</span>
-        <strong>{usageNumber(usage.inputTokens)}</strong>
+        <strong>{usageNumber(account.usage.inputTokens)}</strong>
       </div>
       <div>
         <span>Output</span>
-        <strong>{usageNumber(usage.outputTokens)}</strong>
+        <strong>{usageNumber(account.usage.outputTokens)}</strong>
       </div>
       <div>
         <span>Cache read / write</span>
         <strong>
-          {usageNumber(usage.cacheReadTokens)} / {usageNumber(usage.cacheWriteTokens)}
+          {usageNumber(account.usage.cacheReadTokens)} /{' '}
+          {usageNumber(account.usage.cacheWriteTokens)}
         </strong>
       </div>
       <div>
         <span>Reasoning</span>
-        <strong>{usageNumber(usage.reasoningTokens)}</strong>
+        <strong>{usageNumber(account.usage.reasoningTokens)}</strong>
       </div>
     </div>
   );
 }
 
 function AccountCost({ account }: { account: AccountView }) {
-  if (account.billingMode === 'subscription') {
-    return (
-      <div className="off-set-callout is-muted">
-        <Icon icon={Info} size="sm" />
-        Subscription usage is shown exactly as reported by the service. It is never converted into a
-        token-based cost.
-      </div>
-    );
-  }
-
   if (account.accountingStatus === 'loading') {
     return <div className="off-set-callout is-muted">Loading this month's API cost…</div>;
   }
   if (account.accountingStatus === 'error') {
-    return (
-      <div className="off-set-callout is-warn">
-        <Icon icon={TriangleAlert} size="sm" />
-        Cost history is unavailable. Refresh to retry.
-      </div>
-    );
+    return <div className="off-set-callout is-warn">API cost history is unavailable.</div>;
   }
   if (!account.cost) {
     return <div className="off-set-callout is-muted">No recorded API cost this month.</div>;
   }
-  const cost = account.cost;
-  const headline = costHeadline(account);
   const detail =
-    cost.kind === 'unavailable'
-      ? `${cost.reason}${
-          cost.knownAmountUsd === undefined
-            ? ''
-            : ` · $${cost.knownAmountUsd.toFixed(6)} known subtotal`
-        }`
-      : cost.kind === 'actual'
+    account.cost.kind === 'unavailable'
+      ? account.cost.reason
+      : account.cost.kind === 'actual'
         ? 'Actual service-reported cost · This month'
-        : 'Estimate from the verified model price · This month';
+        : 'Estimate from verified model pricing · This month';
   return (
     <div className="off-set-account-cost">
-      <strong>{headline}</strong>
+      <strong>{costHeadline(account)}</strong>
       <span>{detail}</span>
+    </div>
+  );
+}
+
+function ModelRow({ model }: { model: AiModelCatalogEntry }) {
+  const availabilityDetail = modelAvailabilityDetail(model);
+  return (
+    <article className="off-set-account-model">
+      <div className="off-set-account-model-copy">
+        <strong>{model.displayName}</strong>
+        <code>{model.modelId}</code>
+        <a
+          className="off-set-account-model-source off-focusable"
+          href={model.source.sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          title={model.source.sourceUrl}
+        >
+          {aiModelSourceLabel(model.source)}
+        </a>
+        {availabilityDetail ? (
+          <span className="off-set-account-model-availability">{availabilityDetail}</span>
+        ) : null}
+      </div>
+      <div className="off-set-account-model-limits">
+        <span>
+          Context{' '}
+          {model.contextWindow === undefined ? 'Not published' : compactNumber(model.contextWindow)}
+        </span>
+        <span>
+          Output{' '}
+          {model.maxOutputTokens === undefined
+            ? 'Not published'
+            : compactNumber(model.maxOutputTokens)}
+        </span>
+      </div>
+      <StatusPill tone={modelAvailabilityTone(model)}>
+        {model.availability === 'expiring'
+          ? 'Expiring'
+          : model.availability === 'available'
+            ? 'Available'
+            : 'Unavailable'}
+      </StatusPill>
+    </article>
+  );
+}
+
+function ModelList({ models }: { models: readonly AiModelCatalogEntry[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: models.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 108,
+    overscan: 5,
+  });
+  if (models.length <= 24) {
+    return (
+      <div className="off-set-account-models">
+        {models.map((model) => (
+          <ModelRow key={model.runtimeModelRef} model={model} />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div ref={scrollRef} className="off-set-account-models is-virtualized">
+      <div className="off-set-account-model-virtual" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => {
+          const model = models[item.index];
+          if (!model) return null;
+          return (
+            <div
+              key={model.runtimeModelRef}
+              ref={virtualizer.measureElement}
+              data-index={item.index}
+              className="off-set-account-model-virtual-row"
+              style={{ transform: `translateY(${item.start}px)` }}
+            >
+              <ModelRow model={model} />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -345,29 +418,35 @@ export function AiAccountsPane() {
       };
     });
   }, [accountingQuery.data, accountingQuery.isError, accountingQuery.isLoading, statusQuery.data]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [selectedLane, setSelectedLane] = useState<string>('');
+  const [keyDialog, setKeyDialog] = useState<{ accountId?: string } | null>(null);
 
   useEffect(() => {
-    if (accounts.length === 0) {
-      setSelectedAccountId(null);
+    const firstAccount = accounts[0];
+    if (!firstAccount) {
+      setSelectedLane('');
       return;
     }
-    if (!accounts.some((account) => account.accountId === selectedAccountId)) {
-      setSelectedAccountId(accounts[0]?.accountId ?? null);
+    if (!accounts.some((account) => accountLane(account) === selectedLane)) {
+      setSelectedLane(accountLane(firstAccount));
     }
-  }, [accounts, selectedAccountId]);
+  }, [accounts, selectedLane]);
 
-  const selectedAccount =
-    accounts.find((account) => account.accountId === selectedAccountId) ?? accounts[0];
+  const selectedAccount = accounts.find((account) => accountLane(account) === selectedLane);
   const models = useMemo(
     () =>
       (statusQuery.data?.models ?? []).filter(
-        (model) => model.accountId === selectedAccount?.accountId,
+        (model) =>
+          selectedAccount &&
+          aiAccountLaneKey(model.engineId, model.accountId, model.billingMode) ===
+            accountLane(selectedAccount),
       ),
-    [selectedAccount?.accountId, statusQuery.data?.models],
+    [selectedAccount, statusQuery.data?.models],
   );
-  const availableAccountCount = accounts.filter((account) => account.status === 'available').length;
-  const refreshAccounts = async () => {
+  const apiAccounts = accounts.filter((account) => account.billingMode === 'api');
+  const subscriptions = accounts.filter((account) => account.billingMode === 'subscription');
+
+  async function refreshAccounts() {
     await Promise.all([statusQuery.refetch(), accountingQuery.refetch()]);
     await Promise.all([
       queryClient.invalidateQueries({
@@ -379,207 +458,186 @@ export function AiAccountsPane() {
         refetchType: 'active',
       }),
     ]);
-  };
+  }
+
+  async function handleApiConfigured(status: AiRuntimeStatus) {
+    const configuredAccount = status.accounts.find(
+      (account) => account.billingMode === 'api' && account.status === 'available',
+    );
+    await refreshAccounts();
+    if (configuredAccount) setSelectedLane(accountLane(configuredAccount));
+  }
 
   return (
     <div className="off-set-pane">
-      <div className="off-set-panehead">
-        <div className="off-set-panetitle">AI Accounts</div>
-        <div className="off-set-panedesc">
-          Review available accounts, exact models, native usage, and cost reporting.
+      <div className="off-set-panehead off-set-account-panehead">
+        <div>
+          <div className="off-set-panetitle">AI Accounts</div>
+          <div className="off-set-panedesc">Accounts, exact models, usage, and API cost.</div>
+        </div>
+        <div className="off-set-account-actions">
+          <Button variant="outline" size="sm" onClick={() => setKeyDialog({})}>
+            <Icon icon={Plus} size="sm" /> Add API account
+          </Button>
+          <Button
+            variant="subtle"
+            size="sm"
+            onClick={() => void refreshAccounts()}
+            disabled={statusQuery.isFetching}
+          >
+            <Icon icon={RefreshCw} size="sm" /> {statusQuery.isFetching ? 'Refreshing…' : 'Refresh'}
+          </Button>
         </div>
       </div>
 
-      <div className="off-set-provider-runtime">
-        <div
-          className="off-set-pv-logo"
-          style={
-            {
-              '--off-provider-brand-a': UI_DATA_COLORS.blue,
-              '--off-provider-brand-b': UI_DATA_COLORS.green,
-            } as CSSProperties
-          }
-        >
-          <Icon icon={Bot} size="md" />
+      <CardBlock className="off-set-account-catalog-status">
+        <div>
+          <strong>
+            {accounts.filter((account) => account.status === 'available').length} available
+          </strong>
+          <span>
+            {apiAccounts.length} API · {subscriptions.length} subscription
+          </span>
         </div>
-        <div className="min-w-0">
-          <div className="off-set-pv-name">
-            AI runtime
-            <StatusPill
-              tone={statusQuery.isLoading ? 'accent' : availableAccountCount > 0 ? 'ok' : 'muted'}
-              running={statusQuery.isLoading}
-            >
-              {statusQuery.isLoading
-                ? 'Checking'
-                : availableAccountCount > 0
-                  ? 'Ready'
-                  : 'Unavailable'}
-            </StatusPill>
-          </div>
-          <div className="off-set-pv-meta">
-            {accounts.length} accounts · {statusQuery.data?.models.length ?? 0} exact models ·
-            checked {checkedAtLabel(statusQuery.data?.checkedAt)}
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="md"
-          disabled={!desktopAvailable || statusQuery.isFetching || accountingQuery.isFetching}
-          onClick={() => void refreshAccounts()}
-        >
-          <Icon icon={RefreshCw} size="sm" />
-          {statusQuery.isFetching || accountingQuery.isFetching ? 'Refreshing' : 'Refresh'}
-        </Button>
-      </div>
+        <span>Checked {checkedAtLabel(statusQuery.data?.checkedAt)}</span>
+      </CardBlock>
 
-      {statusQuery.isError || accountingQuery.isError ? (
-        <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
-          <Icon icon={TriangleAlert} size="sm" />
-          {statusQuery.isError
-            ? 'AI account status is unavailable. Refresh to retry.'
-            : 'Usage and cost history is unavailable. Refresh to retry.'}
-        </div>
-      ) : null}
-      {!desktopAvailable ? (
-        <div className="off-set-callout is-muted mt-[var(--off-sp-3)]">
-          <Icon icon={Info} size="sm" />
-          AI account status is available inside the desktop app.
-        </div>
-      ) : null}
-
-      <section className="off-set-provider-console">
-        <aside className="off-set-provider-list" aria-label="AI accounts">
-          <div className="off-set-provider-list-head">
-            <CapsLabel>Accounts</CapsLabel>
-            <span>{accounts.length}</span>
-          </div>
-          <div className="off-set-provider-nav-scroll">
-            {accounts.map((account) => (
-              <button
-                type="button"
-                key={account.accountId}
-                className={`off-set-provider-nav off-focusable ${
-                  selectedAccount?.accountId === account.accountId ? 'is-active' : ''
-                }`}
-                onClick={() => setSelectedAccountId(account.accountId)}
+      {accounts.length ? (
+        <Tabs value={selectedLane} onValueChange={setSelectedLane} className="off-set-account-tabs">
+          <TabsList className="off-set-account-tablist" aria-label="AI accounts">
+            {apiAccounts.length ? <span className="off-set-account-tabgroup">API</span> : null}
+            {apiAccounts.map((account) => (
+              <TabsTrigger
+                key={accountLane(account)}
+                value={accountLane(account)}
+                className="off-set-account-tab"
               >
                 <span
-                  className={`off-set-provider-dot ${
-                    account.status === 'available' ? 'is-ready' : 'is-muted'
-                  }`}
+                  className={`off-set-account-dot ${account.status === 'available' ? 'is-ready' : ''}`}
                 />
-                <span className="off-set-provider-nav-copy">
-                  <span>{account.displayName}</span>
-                  <small>{account.billingMode === 'api' ? 'API account' : 'Subscription'}</small>
-                </span>
-              </button>
+                {account.displayName}
+              </TabsTrigger>
             ))}
-            {!statusQuery.isLoading && accounts.length === 0 ? (
-              <div className="off-set-provider-empty">No available AI accounts.</div>
+            {subscriptions.length ? (
+              <span className="off-set-account-tabgroup">Subscriptions</span>
             ) : null}
-          </div>
-        </aside>
+            {subscriptions.map((account) => (
+              <TabsTrigger
+                key={accountLane(account)}
+                value={accountLane(account)}
+                className="off-set-account-tab"
+              >
+                <span
+                  className={`off-set-account-dot ${account.status === 'available' ? 'is-ready' : ''}`}
+                />
+                {account.displayName}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      ) : null}
 
-        <div className="off-set-provider-detail">
-          {selectedAccount ? (
-            <>
-              <div className="off-set-provider-detail-head">
-                <div className="min-w-0">
-                  <h3>{selectedAccount.displayName}</h3>
-                  <p>
-                    {selectedAccount.billingMode === 'api' ? 'API account' : 'Subscription account'}
-                    {selectedAccount.statusReason ? ` · ${selectedAccount.statusReason}` : ''}
-                  </p>
-                </div>
+      {selectedAccount ? (
+        <div className="off-set-account-detail">
+          <header className="off-set-account-detail-head">
+            <div>
+              <div className="off-set-account-titleline">
+                <h3>{selectedAccount.displayName}</h3>
                 <StatusPill tone={selectedAccount.status === 'available' ? 'ok' : 'muted'}>
                   {selectedAccount.status === 'available' ? 'Available' : 'Unavailable'}
                 </StatusPill>
               </div>
-
-              <div className="off-set-provider-summary-grid">
-                <div>
-                  <span>Models</span>
-                  <strong>{models.length} exact</strong>
-                </div>
-                <div>
-                  <span>Usage</span>
-                  <strong>{usageHeadline(selectedAccount)}</strong>
-                </div>
-                <div>
-                  <span>Cost</span>
-                  <strong>{costHeadline(selectedAccount)}</strong>
-                </div>
-              </div>
-
-              <section className="off-set-account-section">
-                <div className="off-set-sec-head">
-                  <CapsLabel>Usage</CapsLabel>
-                  <span>
-                    {selectedAccount.usage?.kind === 'api'
-                      ? `${selectedAccount.usage.periodLabel}${
-                          selectedAccount.usage.updatedAt
-                            ? ` · updated ${checkedAtLabel(selectedAccount.usage.updatedAt)}`
-                            : ''
-                        }`
-                      : ''}
-                  </span>
-                </div>
-                <AccountUsage account={selectedAccount} />
-              </section>
-
-              <section className="off-set-account-section">
-                <div className="off-set-sec-head">
-                  <CapsLabel>Cost</CapsLabel>
-                </div>
-                <AccountCost account={selectedAccount} />
-              </section>
-
-              <section className="off-set-account-section">
-                <div className="off-set-sec-head">
-                  <CapsLabel>Models</CapsLabel>
-                  <span>{models.length}</span>
-                </div>
-                <div className="off-set-account-models">
-                  {models.map((model) => {
-                    const availabilityDetail = modelAvailabilityDetail(model);
-                    return (
-                      <div className="off-set-account-model" key={model.runtimeModelRef}>
-                        <div className="off-set-account-model-copy">
-                          <strong>{model.displayName}</strong>
-                          <code>{model.modelId}</code>
-                          {availabilityDetail ? (
-                            <span className="off-set-account-model-availability">
-                              {availabilityDetail}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="off-set-account-model-limits">
-                          <span>Context {formatLimit(model.contextWindow)}</span>
-                          <span>Output {formatLimit(model.maxOutputTokens)}</span>
-                        </div>
-                        <StatusPill tone={modelAvailabilityTone(model)}>
-                          {model.availability === 'expiring'
-                            ? 'Expiring'
-                            : model.availability === 'available'
-                              ? 'Available'
-                              : 'Unavailable'}
-                        </StatusPill>
-                      </div>
-                    );
-                  })}
-                  {models.length === 0 ? (
-                    <div className="off-set-provider-empty">No verified exact models.</div>
-                  ) : null}
-                </div>
-              </section>
-            </>
-          ) : (
-            <div className="off-set-provider-empty">
-              {statusQuery.isLoading ? 'Loading AI accounts…' : 'No AI account is available.'}
+              <p>{aiAccountKindLabel(selectedAccount.billingMode)} account</p>
             </div>
-          )}
+            {selectedAccount.billingMode === 'api' ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setKeyDialog({ accountId: selectedAccount.accountId })}
+              >
+                <Icon icon={KeyRound} size="sm" /> Replace API key
+              </Button>
+            ) : null}
+          </header>
+
+          {selectedAccount.statusReason ? (
+            <div
+              className={`off-set-callout ${selectedAccount.status === 'available' ? 'is-muted' : 'is-warn'}`}
+            >
+              {selectedAccount.statusReason}
+            </div>
+          ) : null}
+
+          <div
+            className={`off-set-provider-summary-grid ${selectedAccount.billingMode === 'subscription' ? 'is-subscription' : ''}`}
+          >
+            <div>
+              <span>Models</span>
+              <strong>{models.length}</strong>
+            </div>
+            <div>
+              <span>Usage</span>
+              <strong>{usageHeadline(selectedAccount)}</strong>
+            </div>
+            {selectedAccount.billingMode === 'api' ? (
+              <div>
+                <span>Cost</span>
+                <strong>{costHeadline(selectedAccount)}</strong>
+              </div>
+            ) : null}
+          </div>
+
+          <section className="off-set-account-section">
+            <div className="off-set-sec-head">
+              <CapsLabel>Usage</CapsLabel>
+              <span>
+                {selectedAccount.billingMode === 'api'
+                  ? selectedAccount.usage?.kind === 'api'
+                    ? selectedAccount.usage.periodLabel
+                    : 'This month'
+                  : 'Provider reported'}
+              </span>
+            </div>
+            <AccountUsage account={selectedAccount} />
+          </section>
+
+          {selectedAccount.billingMode === 'api' ? (
+            <section className="off-set-account-section">
+              <div className="off-set-sec-head">
+                <CapsLabel>Cost</CapsLabel>
+              </div>
+              <AccountCost account={selectedAccount} />
+            </section>
+          ) : null}
+
+          <section className="off-set-account-section">
+            <div className="off-set-sec-head">
+              <CapsLabel>Models</CapsLabel>
+              <span>{models.length}</span>
+            </div>
+            {models.length ? (
+              <ModelList models={models} />
+            ) : (
+              <div className="off-set-provider-empty">
+                No verified exact models are available for this account.
+              </div>
+            )}
+          </section>
         </div>
-      </section>
+      ) : (
+        <div className="off-set-provider-empty">
+          {statusQuery.isLoading
+            ? 'Loading AI accounts…'
+            : 'No AI account is available. Add an API account to begin.'}
+        </div>
+      )}
+
+      <ApiKeyDialog
+        open={keyDialog !== null}
+        onOpenChange={(open) => !open && setKeyDialog(null)}
+        {...(keyDialog?.accountId ? { accountId: keyDialog.accountId } : {})}
+        onConfigured={handleApiConfigured}
+      />
     </div>
   );
 }

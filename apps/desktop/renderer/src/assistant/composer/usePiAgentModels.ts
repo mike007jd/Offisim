@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@/data/adapters.js';
+import { aiAccountLaneKey } from '@/data/ai-model-presentation.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { THINKING_LEVELS, type ThinkingLevel } from '@/runtime/pi-thread-thinking-store.js';
 import { getRepos } from '@/runtime/repos.js';
@@ -22,6 +23,7 @@ export interface AgentRuntimeModelOption {
   engineId: string;
   modelId: string;
   billingMode: 'api' | 'subscription';
+  source: AiModelCatalogEntry['source'];
   availability: 'available' | 'expiring';
   availabilityReason?: string;
   expiresAt?: string;
@@ -55,7 +57,13 @@ export function projectRunnableModelOptions(
   nowMs = Date.now(),
 ): AgentRuntimeModelOption[] {
   const accountNames = new Map(
-    rawStatus.accounts.map((account) => [account.accountId, account.displayName] as const),
+    rawStatus.accounts.map(
+      (account) =>
+        [
+          aiAccountLaneKey(account.engineId, account.accountId, account.billingMode),
+          account.displayName,
+        ] as const,
+    ),
   );
   const runnableAccounts = new Set(
     rawStatus.accounts
@@ -65,7 +73,7 @@ export function projectRunnableModelOptions(
           account.capabilities.execute.status === 'available' &&
           account.capabilities.models.status === 'available',
       )
-      .map((account) => `${account.engineId}\0${account.accountId}`),
+      .map((account) => aiAccountLaneKey(account.engineId, account.accountId, account.billingMode)),
   );
   return rawStatus.models
     .filter(
@@ -75,10 +83,12 @@ export function projectRunnableModelOptions(
             Boolean(model.expiresAt) &&
             Number.isFinite(Date.parse(model.expiresAt ?? '')) &&
             Date.parse(model.expiresAt ?? '') > nowMs)) &&
-        runnableAccounts.has(`${model.engineId}\0${model.accountId}`),
+        runnableAccounts.has(aiAccountLaneKey(model.engineId, model.accountId, model.billingMode)),
     )
     .map((model) => {
-      const accountName = accountNames.get(model.accountId) ?? 'AI account';
+      const accountName =
+        accountNames.get(aiAccountLaneKey(model.engineId, model.accountId, model.billingMode)) ??
+        'AI account';
       const exactReasoningEfforts = (model.reasoningEfforts ?? [])
         .map((effort) => effort.id)
         .filter((id): id is ThinkingLevel => Boolean(id && /^[a-z0-9][a-z0-9._-]{0,63}$/u.test(id)))
@@ -100,6 +110,7 @@ export function projectRunnableModelOptions(
         engineId: model.engineId,
         modelId: model.modelId,
         billingMode: model.billingMode,
+        source: model.source,
         availability: model.availability,
         ...(model.availabilityReason ? { availabilityReason: model.availabilityReason } : {}),
         ...(model.expiresAt ? { expiresAt: model.expiresAt } : {}),

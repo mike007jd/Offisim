@@ -258,6 +258,7 @@ pub fn run() {
             pi_agent_host::agent_runtime_release_stream,
             pi_agent_host::agent_runtime_reattach,
             pi_agent_host::agent_runtime_status,
+            pi_agent_host::agent_runtime_configure_api_account,
             computer_driver::computer_driver_status,
             git::git_exec,
             gh::gh_exec,
