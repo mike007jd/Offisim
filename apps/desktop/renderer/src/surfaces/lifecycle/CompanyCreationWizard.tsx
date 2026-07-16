@@ -8,6 +8,7 @@ import { Textarea } from '@/design-system/primitives/textarea.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { cn } from '@/lib/utils.js';
 import { overbroadWorkspaceReason } from '@/lib/workspace-root-guard.js';
+import { motionPresets } from '@/styles/motion-tokens.js';
 import { ChevronDown, ChevronLeft, ChevronUp, FolderOpen, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type CSSProperties, useCallback, useEffect, useId, useMemo, useState } from 'react';
@@ -260,12 +261,7 @@ export function CompanyCreationWizard({
   const ctaLabel = busy ? 'Creating…' : 'Create company';
 
   return (
-    <motion.div
-      className="off-wiz"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-    >
+    <motion.div className="off-wiz" {...motionPresets.pageFade}>
       <div className="off-wiz-head">
         <div className="off-wiz-head-ttl">Create a company</div>
         <div className="off-wiz-head-sub">Pick a starting template, or build your own.</div>

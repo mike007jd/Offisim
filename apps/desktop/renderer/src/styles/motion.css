@@ -4,7 +4,8 @@
   --off-motion-quick: 140ms;
   --off-motion-base: 180ms;
   --off-motion-slow: 260ms;
-  --off-motion-spin-fast: 800ms;
+  --off-motion-flash: 600ms;
+  --off-motion-highlight: 4.5s;
   --off-motion-spin: 900ms;
   --off-motion-loop-fast: 1.2s;
   --off-motion-loop-base: 1.4s;
@@ -15,6 +16,37 @@
   --off-motion-loop-soft: ease;
   --off-motion-loop-ease: ease-in-out;
   --off-motion-linear: linear;
+}
+
+@keyframes off-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes off-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes off-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.off-spin {
+  animation: off-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
 }
 
 .off-motion-popover[data-state="open"],

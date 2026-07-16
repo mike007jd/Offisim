@@ -23,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
 import { Input } from '@/design-system/primitives/input.js';
-import { cn } from '@/lib/utils.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -43,6 +42,7 @@ import {
   UserRound,
   WifiOff,
 } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { InstallDialog } from './InstallDialog.js';
@@ -305,7 +305,7 @@ export function MarketSurface() {
   const registryNotConnected = registryConnection.data?.reason === 'registry-config-missing';
 
   return (
-    <div className={cn('off-market', detailOpen && 'is-detail-mode')}>
+    <div className="off-market">
       <div className="off-mkt-fbar">
         <div className="off-mkt-fbar-main">
           {registryNotConnected && mode === 'explore' ? (
@@ -391,50 +391,58 @@ export function MarketSurface() {
       </div>
 
       <div className="off-mkt-grid-wrap">
-        {detailOpen && detailListing ? (
-          <MarketDetail
-            listing={detailListing}
-            installed={detailListing.installed}
-            onClose={() => setDetailListingId(null)}
-            onInstall={() => void openInstall(detailListing)}
-          />
-        ) : mode === 'manage' ? (
-          <div className="off-mkt-listing">
-            <MarketManage
-              view={manageView}
-              companyId={companyId}
-              onBrowseExplore={() => setMode('explore')}
+        {/* Underlay stays mounted beneath the detail overlay (scroll position
+            survives); inert keeps its covered controls out of tab order. */}
+        <div className="off-mkt-underlay" inert={detailOpen && detailListing != null}>
+          {mode === 'manage' ? (
+            <div className="off-mkt-listing">
+              <MarketManage
+                view={manageView}
+                companyId={companyId}
+                onBrowseExplore={() => setMode('explore')}
+                onConnectRegistry={() => setRegistryTokenOpen(true)}
+                onPublish={() => setPublishOpen(true)}
+                onOpenListing={(id) => {
+                  setMode('explore');
+                  const listing = (listings.data ?? []).find((l) => l.id === id);
+                  if (listing) openDetail(listing);
+                }}
+              />
+            </div>
+          ) : listings.isLoading ? (
+            <SkeletonGrid />
+          ) : listings.isError ? (
+            <MarketErrorState error={listings.error} onRetry={() => listings.refetch()} />
+          ) : registryNotConnected ? (
+            // No registry configured (the default desktop build): show an honest
+            // not-connected state with local import, not a fabricated storefront.
+            <MarketNotConnected
+              onImport={() => fileInputRef.current?.click()}
               onConnectRegistry={() => setRegistryTokenOpen(true)}
-              onPublish={() => setPublishOpen(true)}
-              onOpenListing={(id) => {
-                setMode('explore');
-                const listing = (listings.data ?? []).find((l) => l.id === id);
-                if (listing) openDetail(listing);
-              }}
+              importing={importPackageFile.isPending}
             />
-          </div>
-        ) : listings.isLoading ? (
-          <SkeletonGrid />
-        ) : listings.isError ? (
-          <MarketErrorState error={listings.error} onRetry={() => listings.refetch()} />
-        ) : registryNotConnected ? (
-          // No registry configured (the default desktop build): show an honest
-          // not-connected state with local import, not a fabricated storefront.
-          <MarketNotConnected
-            onImport={() => fileInputRef.current?.click()}
-            onConnectRegistry={() => setRegistryTokenOpen(true)}
-            importing={importPackageFile.isPending}
-          />
-        ) : filtered.length === 0 ? (
-          <MarketEmptyState filtered={query !== '' || kind !== 'all'} onReset={resetFilters} />
-        ) : (
-          <CardGrid
-            listings={filtered}
-            selectedId={selectedListingId}
-            onSelect={(listing) => selectListing(listing.id)}
-            onOpen={openDetail}
-          />
-        )}
+          ) : filtered.length === 0 ? (
+            <MarketEmptyState filtered={query !== '' || kind !== 'all'} onReset={resetFilters} />
+          ) : (
+            <CardGrid
+              listings={filtered}
+              selectedId={selectedListingId}
+              onSelect={(listing) => selectListing(listing.id)}
+              onOpen={openDetail}
+            />
+          )}
+        </div>
+        <AnimatePresence initial={false}>
+          {detailOpen && detailListing ? (
+            <MarketDetail
+              key="market-detail"
+              listing={detailListing}
+              installed={detailListing.installed}
+              onClose={() => setDetailListingId(null)}
+              onInstall={() => void openInstall(detailListing)}
+            />
+          ) : null}
+        </AnimatePresence>
       </div>
 
       <InstallDialog
