@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { RoundedSlab } from './RoundedSlab.js';
 import {
   FLOOR_BANDS,
+  FLOOR_RENDER_ORDER,
   OFFICE_PLINTH,
   OFFICE_ROOM,
   ROOM_GRID,
@@ -31,6 +32,22 @@ function buildGridGeometry(width: number, depth: number, step: number) {
 
 function FloorLineGrid() {
   const sc = useSceneColors();
+  const minorColor = useMemo(
+    () =>
+      new THREE.Color(sc.floorTile).lerp(
+        new THREE.Color(createTileLineColor(sc, 'minor')),
+        ROOM_GRID.minorOpacity,
+      ),
+    [sc],
+  );
+  const majorColor = useMemo(
+    () =>
+      new THREE.Color(sc.floorTile).lerp(
+        new THREE.Color(createTileLineColor(sc, 'major')),
+        ROOM_GRID.majorOpacity,
+      ),
+    [sc],
+  );
   const minorGeometry = useMemo(
     () => buildGridGeometry(OFFICE_ROOM.width, OFFICE_ROOM.depth, ROOM_GRID.minorStep),
     [],
@@ -49,20 +66,20 @@ function FloorLineGrid() {
   );
 
   return (
-    <group position={[0, SCENE_LAYER_Y.tile, 0]}>
-      <lineSegments geometry={minorGeometry} rotation={[-Math.PI / 2, 0, 0]}>
-        <lineBasicMaterial
-          color={createTileLineColor(sc, 'minor')}
-          transparent
-          opacity={ROOM_GRID.minorOpacity}
-        />
+    <group position={[0, SCENE_LAYER_Y.floorOverlay, 0]}>
+      <lineSegments
+        geometry={minorGeometry}
+        rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={FLOOR_RENDER_ORDER.minorGrid}
+      >
+        <lineBasicMaterial color={minorColor} depthTest={false} depthWrite={false} />
       </lineSegments>
-      <lineSegments geometry={majorGeometry} rotation={[-Math.PI / 2, 0, 0]}>
-        <lineBasicMaterial
-          color={createTileLineColor(sc, 'major')}
-          transparent
-          opacity={ROOM_GRID.majorOpacity}
-        />
+      <lineSegments
+        geometry={majorGeometry}
+        rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={FLOOR_RENDER_ORDER.majorGrid}
+      >
+        <lineBasicMaterial color={majorColor} depthTest={false} depthWrite={false} />
       </lineSegments>
     </group>
   );
@@ -70,20 +87,30 @@ function FloorLineGrid() {
 
 function FloorBands() {
   const sc = useSceneColors();
-  return FLOOR_BANDS.map((band) => (
-    <mesh
-      key={band.id}
-      position={[0, SCENE_LAYER_Y.floor + band.layerOffset, band.z]}
-      rotation={[-Math.PI / 2, 0, 0]}
-    >
-      <planeGeometry args={[OFFICE_ROOM.width - band.widthOffset, band.depth]} />
-      <SceneMaterial
-        materialClass="plastic"
-        color={sc[band.colorToken]}
-        overrides={{ transparent: true, opacity: band.opacity, roughness: band.roughness }}
-      />
-    </mesh>
-  ));
+  return FLOOR_BANDS.map((band) => {
+    const color = new THREE.Color(sc.floorTile).lerp(
+      new THREE.Color(sc[band.colorToken]),
+      band.opacity,
+    );
+    return (
+      <mesh
+        key={band.id}
+        position={[0, SCENE_LAYER_Y.floorOverlay, band.z]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={FLOOR_RENDER_ORDER.bands}
+        receiveShadow
+      >
+        <planeGeometry args={[OFFICE_ROOM.width - band.widthOffset, band.depth]} />
+        <meshStandardMaterial
+          color={color}
+          roughness={band.roughness}
+          metalness={0}
+          depthTest={false}
+          depthWrite={false}
+        />
+      </mesh>
+    );
+  });
 }
 
 /** Open display plinth. Zone rugs and furniture clusters carry all spatial
@@ -128,6 +155,7 @@ export function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
       <mesh
         position={[0, OFFICE_PLINTH.floorY, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={FLOOR_RENDER_ORDER.floor}
         receiveShadow
         onClick={() => onFloorClick?.()}
       >

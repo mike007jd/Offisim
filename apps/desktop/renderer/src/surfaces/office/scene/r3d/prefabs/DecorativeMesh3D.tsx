@@ -5,7 +5,13 @@
  * The `template` prop selects which decorative variant to render.
  */
 
-import { EmissiveMaterial, SceneMaterial } from '../scene-materials.js';
+import { SceneMaterial } from '../scene-materials.js';
+import {
+  EmissiveDecalMaterial,
+  SCENE_TRANSPARENT_RENDER_ORDER,
+  SceneDecalMaterial,
+  SceneGlassMaterial,
+} from '../scene-surface-materials.js';
 import { useSceneColors } from '../use-scene-colors.js';
 import { OfficeChair } from './WorkstationMesh3D.js';
 
@@ -15,6 +21,20 @@ export interface PlantMesh3DProps {
   state?: string;
   scale?: number;
 }
+
+const COFFEE_TABLE_STACK = {
+  baseCenterY: 0.34,
+  baseHeight: 0.08,
+  glassThickness: 0.025,
+  saucerHeight: 0.012,
+  cupHeight: 0.08,
+  baseBookHeight: 0.018,
+  topBookHeight: 0.012,
+} as const;
+
+const COFFEE_TABLE_BASE_TOP = COFFEE_TABLE_STACK.baseCenterY + COFFEE_TABLE_STACK.baseHeight / 2;
+const COFFEE_TABLE_GLASS_CENTER = COFFEE_TABLE_BASE_TOP + COFFEE_TABLE_STACK.glassThickness / 2;
+const COFFEE_TABLE_SURFACE = COFFEE_TABLE_BASE_TOP + COFFEE_TABLE_STACK.glassThickness;
 
 /** Standalone plant mesh — pot + foliage. */
 export function PlantMesh3D({
@@ -88,21 +108,21 @@ function CoffeeTableMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DPr
   const rotY = (rotation * Math.PI) / 180;
   return (
     <group position={position} rotation={[0, rotY, 0]}>
-      <mesh position={[0, 0.34, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.25, 0.08, 0.72]} />
+      <mesh position={[0, COFFEE_TABLE_STACK.baseCenterY, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.25, COFFEE_TABLE_STACK.baseHeight, 0.72]} />
         <SceneMaterial
           materialClass="wood"
           color={sc.furnitureLight}
           overrides={{ roughness: 0.56 }}
         />
       </mesh>
-      <mesh position={[0, 0.395, 0]} castShadow>
-        <boxGeometry args={[1.08, 0.025, 0.56]} />
-        <SceneMaterial
-          materialClass="glass"
-          color={sc.partition}
-          overrides={{ thickness: 0.04, roughness: 0.12 }}
-        />
+      <mesh
+        position={[0, COFFEE_TABLE_GLASS_CENTER, 0]}
+        renderOrder={SCENE_TRANSPARENT_RENDER_ORDER.glass}
+        castShadow={false}
+      >
+        <boxGeometry args={[1.08, COFFEE_TABLE_STACK.glassThickness, 0.56]} />
+        <SceneGlassMaterial color={sc.partition} overrides={{ thickness: 0.04, roughness: 0.12 }} />
       </mesh>
       {[-0.48, 0.48].map((x) =>
         [-0.24, 0.24].map((z) => (
@@ -112,33 +132,43 @@ function CoffeeTableMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DPr
           </mesh>
         )),
       )}
-      <mesh position={[-0.28, 0.396, 0.05]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.05, 0.11, 18]} />
-        <SceneMaterial
-          materialClass="plastic"
-          color={sc.furnitureDark}
-          overrides={{ transparent: true, opacity: 0.32 }}
-        />
+      <mesh
+        position={[-0.28, COFFEE_TABLE_SURFACE + COFFEE_TABLE_STACK.saucerHeight / 2, 0.05]}
+        castShadow
+      >
+        <cylinderGeometry args={[0.11, 0.11, COFFEE_TABLE_STACK.saucerHeight, 18]} />
+        <SceneMaterial materialClass="ceramic" color={sc.furnitureDark} />
       </mesh>
-      <mesh position={[-0.28, 0.44, 0.05]} castShadow>
-        <cylinderGeometry args={[0.08, 0.07, 0.08, 14]} />
+      <mesh
+        position={[
+          -0.28,
+          COFFEE_TABLE_SURFACE + COFFEE_TABLE_STACK.saucerHeight + COFFEE_TABLE_STACK.cupHeight / 2,
+          0.05,
+        ]}
+        castShadow
+      >
+        <cylinderGeometry args={[0.08, 0.07, COFFEE_TABLE_STACK.cupHeight, 14]} />
         <SceneMaterial materialClass="ceramic" color={sc.whiteboardSurface} />
       </mesh>
-      <mesh position={[0.18, 0.397, -0.05]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.42, 0.28]} />
-        <SceneMaterial
-          materialClass="plastic"
-          color={sc.furnitureDark}
-          overrides={{ transparent: true, opacity: 0.22 }}
-        />
+      <mesh
+        position={[0.18, COFFEE_TABLE_SURFACE + COFFEE_TABLE_STACK.baseBookHeight / 2, -0.05]}
+        castShadow
+      >
+        <boxGeometry args={[0.42, COFFEE_TABLE_STACK.baseBookHeight, 0.28]} />
+        <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
       </mesh>
-      <mesh position={[0.18, 0.4, -0.05]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.38, 0.24]} />
-        <SceneMaterial
-          materialClass="fabric"
-          color={sc.accentCool}
-          overrides={{ transparent: true, opacity: 0.42 }}
-        />
+      <mesh
+        position={[
+          0.18,
+          COFFEE_TABLE_SURFACE +
+            COFFEE_TABLE_STACK.baseBookHeight +
+            COFFEE_TABLE_STACK.topBookHeight / 2,
+          -0.05,
+        ]}
+        castShadow
+      >
+        <boxGeometry args={[0.38, COFFEE_TABLE_STACK.topBookHeight, 0.24]} />
+        <SceneMaterial materialClass="fabric" color={sc.accentCool} />
       </mesh>
     </group>
   );
@@ -165,11 +195,11 @@ function VendingMachineMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3
       </mesh>
       <mesh position={[0, 1.08, 0.325]}>
         <planeGeometry args={[0.74, 1.94]} />
-        <SceneMaterial materialClass="metal" color={sc.furnitureDark} />
+        <SceneDecalMaterial materialClass="metal" color={sc.furnitureDark} />
       </mesh>
       <mesh position={[-0.1, 1.12, 0.335]}>
         <planeGeometry args={[0.42, 1.18]} />
-        <SceneMaterial
+        <SceneDecalMaterial
           materialClass="glass"
           color={sc.partition}
           overrides={{ thickness: 0.05, transparent: true, opacity: 0.62 }}
@@ -188,7 +218,7 @@ function VendingMachineMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3
       )}
       <mesh position={[0.29, 1.48, 0.34]}>
         <planeGeometry args={[0.2, 0.28]} />
-        <EmissiveMaterial color={sc.vendingScreen} tier="signage" />
+        <EmissiveDecalMaterial color={sc.vendingScreen} tier="signage" />
       </mesh>
       <mesh position={[0.29, 0.8, 0.34]}>
         <boxGeometry args={[0.22, 0.08, 0.035]} />
@@ -211,13 +241,13 @@ function WaterCoolerMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DPr
         <cylinderGeometry args={[0.23, 0.26, 0.9, 18]} />
         <SceneMaterial materialClass="metal" color={sc.furnitureLight} />
       </mesh>
-      <mesh position={[0, 1.08, 0]} castShadow>
+      <mesh
+        position={[0, 1.08, 0]}
+        renderOrder={SCENE_TRANSPARENT_RENDER_ORDER.glass}
+        castShadow={false}
+      >
         <cylinderGeometry args={[0.2, 0.26, 0.42, 18]} />
-        <SceneMaterial
-          materialClass="glass"
-          color={sc.accentCool}
-          overrides={{ transparent: true, opacity: 0.48, thickness: 0.06 }}
-        />
+        <SceneGlassMaterial color={sc.accentCool} overrides={{ opacity: 0.48, thickness: 0.06 }} />
       </mesh>
       <mesh position={[0, 0.82, 0.25]} castShadow>
         <boxGeometry args={[0.34, 0.1, 0.08]} />
@@ -244,12 +274,12 @@ function StatusBoardMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantMesh3DPr
       </mesh>
       <mesh position={[0, 1.22, 0.045]}>
         <planeGeometry args={[1.55, 0.82]} />
-        <EmissiveMaterial color={sc.screen} tier="screen" />
+        <EmissiveDecalMaterial color={sc.screen} tier="screen" />
       </mesh>
       {[-0.45, 0, 0.45].map((x, index) => (
         <mesh key={`status-bar-${x}`} position={[x, 1.08 + index * 0.11, 0.052]}>
           <planeGeometry args={[0.28, 0.05]} />
-          <EmissiveMaterial
+          <EmissiveDecalMaterial
             color={[sc.ledGreen, sc.ledAmber, sc.ledCyan][index] ?? sc.ledCyan}
             tier="led"
           />

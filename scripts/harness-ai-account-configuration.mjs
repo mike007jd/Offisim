@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const HOST = 'scripts/tauri-pi-agent-host.entry.mjs';
-const FIRST_KEY = 'sk-or-v1-offisim-fixture-first-000000000000';
-const REPLACEMENT_KEY = 'sk-or-v1-offisim-fixture-second-1111111111';
+const FIRST_KEY = 'sk-private-fixture-first-0000000000000000';
+const SECOND_KEY = 'sk-local-fixture-second-11111111111111111';
 
 function run(payload, expectedStatus = 0) {
   const result = spawnSync(process.execPath, [HOST], {
@@ -18,7 +18,7 @@ function run(payload, expectedStatus = 0) {
   assert.equal(
     result.status,
     expectedStatus,
-    result.stderr || 'API account host exited with an unexpected status',
+    result.stderr || 'API provider host exited with an unexpected status',
   );
   const lines = result.stdout
     .split('\n')
@@ -28,74 +28,108 @@ function run(payload, expectedStatus = 0) {
   return { result, lines, response: lines.find((line) => line.kind === 'result')?.response };
 }
 
-const fixtureRoot = mkdtempSync(join(tmpdir(), 'offisim-api-account-'));
+const fixtureRoot = mkdtempSync(join(tmpdir(), 'offisim-api-provider-'));
 const agentDir = join(fixtureRoot, 'agent');
 try {
   const first = run({
-    mode: 'configureApiAccount',
+    mode: 'saveProvider',
     agentDir,
-    service: 'openrouter',
-    apiKey: FIRST_KEY,
+    config: {
+      providerId: 'private-gateway',
+      displayName: 'Private Gateway',
+      baseUrl: 'https://models.example.internal/v1',
+      api: 'openai-completions',
+      apiKey: FIRST_KEY,
+      keepExistingApiKey: false,
+      models: [
+        { id: 'vendor/new-leaf', name: 'New Leaf', contextWindow: 131_072 },
+        { id: 'Qwen3', name: 'Configured Family Label', maxTokens: 8_192 },
+      ],
+    },
   });
-  assert.ok(first.response?.runtimeStatus, 'configuration must return a safe refreshed catalog');
-  const status = first.response.runtimeStatus;
-  assert.equal(status.accounts.length, 1, 'one configured API identity must be projected');
-  assert.equal(status.accounts[0]?.billingMode, 'api');
-  assert.equal(status.accounts[0]?.displayName, 'OpenRouter API');
-  assert.equal(status.models.length, 5, 'only verified exact OpenRouter leaves are projected');
-  assert.ok(status.models.every((model) => model.accountId === status.accounts[0].accountId));
-
-  const authPath = join(agentDir, 'auth.json');
-  const authText = readFileSync(authPath, 'utf8');
-  assert.match(
-    authText,
-    new RegExp(FIRST_KEY, 'u'),
-    'the native credential store must receive key',
+  const firstStatus = first.response?.runtimeStatus;
+  assert.ok(firstStatus, 'saving a provider must return a refreshed safe runtime catalog');
+  assert.equal(firstStatus.accounts.length, 1);
+  assert.equal(firstStatus.accounts[0]?.displayName, 'Private Gateway');
+  assert.deepEqual(
+    firstStatus.models.map((model) => model.runtimeModelRef),
+    ['private-gateway/vendor/new-leaf', 'private-gateway/Qwen3'],
+    'arbitrary configured model ids become runnable without an allowlist',
   );
-  assert.equal(statSync(authPath).mode & 0o777, 0o600, 'credential file must be owner-only');
-  for (const output of [first.result.stdout, first.result.stderr, JSON.stringify(status)]) {
-    assert.doesNotMatch(output, new RegExp(FIRST_KEY, 'u'), 'credentials must never cross output');
+  assert.ok(firstStatus.models.every((model) => model.source === undefined));
+
+  const second = run({
+    mode: 'saveProvider',
+    agentDir,
+    config: {
+      providerId: 'local-lab',
+      displayName: 'Local Lab',
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      api: 'openai-completions',
+      apiKey: SECOND_KEY,
+      keepExistingApiKey: false,
+      models: [{ id: 'lab/experimental', name: 'Lab Experimental' }],
+    },
+  });
+  const secondStatus = second.response?.runtimeStatus;
+  assert.equal(secondStatus?.accounts.length, 2, 'custom endpoints are not restricted to OpenRouter');
+  assert.deepEqual(
+    new Set(secondStatus?.models.map((model) => model.runtimeModelRef)),
+    new Set([
+      'private-gateway/vendor/new-leaf',
+      'private-gateway/Qwen3',
+      'local-lab/lab/experimental',
+    ]),
+  );
+
+  const retained = run({
+    mode: 'saveProvider',
+    agentDir,
+    config: {
+      providerId: 'private-gateway',
+      displayName: 'Private Gateway',
+      baseUrl: 'https://models.example.internal/v1',
+      api: 'openai-completions',
+      apiKey: null,
+      keepExistingApiKey: true,
+      models: [{ id: 'vendor/replacement-leaf', name: 'Replacement Leaf' }],
+    },
+  });
+  assert.ok(
+    retained.response?.runtimeStatus.models.some(
+      (model) => model.runtimeModelRef === 'private-gateway/vendor/replacement-leaf',
+    ),
+  );
+
+  const modelsPath = join(agentDir, 'models.json');
+  const modelsText = readFileSync(modelsPath, 'utf8');
+  assert.match(modelsText, new RegExp(FIRST_KEY, 'u'), 'Pi-owned models.json retains the first key');
+  assert.match(modelsText, new RegExp(SECOND_KEY, 'u'), 'Pi-owned models.json stores the second key');
+  assert.equal(statSync(modelsPath).mode & 0o777, 0o600, 'credential file must be owner-only');
+
+  for (const output of [first, second, retained]) {
+    const serializedOutput = `${output.result.stdout}\n${output.result.stderr}`;
+    assert.doesNotMatch(serializedOutput, new RegExp(FIRST_KEY, 'u'));
+    assert.doesNotMatch(serializedOutput, new RegExp(SECOND_KEY, 'u'));
+    assert.doesNotMatch(JSON.stringify(output.response?.runtimeStatus), /(?:apiKey|models\.json)/iu);
   }
-  assert.doesNotMatch(JSON.stringify(status), /(?:auth\.json|models\.json|~\/\.pi|pi[ -]?agent)/iu);
-
-  const replacement = run({
-    mode: 'configureApiAccount',
-    agentDir,
-    service: 'openrouter',
-    accountId: status.accounts[0].accountId,
-    apiKey: REPLACEMENT_KEY,
-  });
-  const replacementStatus = replacement.response?.runtimeStatus;
-  assert.equal(
-    replacementStatus?.accounts[0]?.displayName,
-    status.accounts[0].displayName,
-    'replacing a key must retain the same product account service',
-  );
-  assert.notEqual(
-    replacementStatus?.accounts[0]?.accountId,
-    status.accounts[0].accountId,
-    'a replacement credential must start a distinct billing identity',
-  );
-  const replacedAuth = readFileSync(authPath, 'utf8');
-  assert.doesNotMatch(replacedAuth, new RegExp(FIRST_KEY, 'u'));
-  assert.match(replacedAuth, new RegExp(REPLACEMENT_KEY, 'u'));
-  assert.doesNotMatch(replacement.result.stdout, new RegExp(REPLACEMENT_KEY, 'u'));
-  assert.doesNotMatch(replacement.result.stderr, new RegExp(REPLACEMENT_KEY, 'u'));
 
   const invalid = run(
     {
-      mode: 'configureApiAccount',
+      mode: 'saveProvider',
       agentDir: join(fixtureRoot, 'invalid-agent'),
-      service: 'openrouter',
-      apiKey: 'too short',
+      config: {
+        providerId: 'missing-key',
+        baseUrl: 'https://example.com/v1',
+        api: 'openai-completions',
+        models: [{ id: 'valid-leaf' }],
+      },
     },
     1,
   );
-  const error = invalid.lines.find((line) => line.kind === 'error');
-  assert.equal(error?.code, 'api-key-invalid');
-  assert.doesNotMatch(JSON.stringify(error), /too short/u, 'validation errors must not echo input');
+  assert.match(invalid.lines.find((line) => line.kind === 'error')?.message ?? '', /API key/u);
 } finally {
   rmSync(fixtureRoot, { recursive: true, force: true });
 }
 
-console.log('PASS API account configuration (native store, replacement, and secret isolation)');
+console.log('PASS dynamic API provider configuration (multi-provider, Pi-owned secrets, safe output)');

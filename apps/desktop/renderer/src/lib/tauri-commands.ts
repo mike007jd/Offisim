@@ -503,11 +503,51 @@ interface PiAgentProviderStatus {
   auth: PiAgentProviderAuthStatus;
 }
 
+export interface PiAgentProviderModelConfig {
+  id: string;
+  name?: string;
+  api?: string;
+  contextWindow?: number;
+  maxTokens?: number;
+}
+
+export interface PiAgentProviderConfigStatus {
+  provider: string;
+  displayName: string;
+  name?: string;
+  baseUrl?: string;
+  api?: string;
+  hasApiKey: boolean;
+  authSource?: string;
+  models: PiAgentProviderModelConfig[];
+}
+
+export interface PiAgentProviderTemplate {
+  provider: string;
+  displayName: string;
+  baseUrl?: string;
+  api?: string;
+  configured: boolean;
+  models: PiAgentProviderModelConfig[];
+}
+
+export interface PiAgentProviderConfigInput {
+  providerId: string;
+  displayName?: string | null;
+  baseUrl: string;
+  api: string;
+  apiKey?: string | null;
+  keepExistingApiKey?: boolean;
+  models: PiAgentProviderModelConfig[];
+}
+
 interface PiAgentStatusResponse {
   ok: boolean;
   authProviders: string[];
   providerStatus: PiAgentProviderStatus[];
   configuredProviderStatus: PiAgentProviderStatus[];
+  providerConfigs: PiAgentProviderConfigStatus[];
+  providerTemplates: PiAgentProviderTemplate[];
   availableModels: PiAgentModelSummary[];
   allModelCount: number;
   paths?: {
@@ -826,7 +866,12 @@ export interface CommandMap {
     { sessionId: string; scope: NativeStageSessionScope },
     BrowserSessionSnapshot
   >;
+  pi_agent_open_config_folder: CommandSpec<undefined, void>;
   pi_agent_status: CommandSpec<undefined, PiAgentStatusResponse>;
+  pi_agent_save_provider: CommandSpec<
+    { config: PiAgentProviderConfigInput },
+    PiAgentStatusResponse
+  >;
   agent_runtime_execute: CommandSpec<AgentRuntimeArgs<PiAgentExecuteRequest>, PiAgentHostResponse>;
   agent_runtime_enhance: CommandSpec<AgentRuntimeArgs<PiAgentEnhanceRequest>, PiAgentHostResponse>;
   agent_runtime_collaborate: CommandSpec<
@@ -863,10 +908,6 @@ export interface CommandMap {
   >;
   codex_agent_status: CommandSpec<undefined, AiRuntimeStatus>;
   agent_runtime_status: CommandSpec<{ includeUsage?: boolean }, AiRuntimeStatus>;
-  agent_runtime_configure_api_account: CommandSpec<
-    { req: { service: 'openrouter'; accountId?: string; apiKey: string } },
-    AiRuntimeStatus
-  >;
   computer_driver_status: CommandSpec<undefined, ComputerDriverStatus>;
   task_workspace_evaluation_lease_acquire: CommandSpec<
     {

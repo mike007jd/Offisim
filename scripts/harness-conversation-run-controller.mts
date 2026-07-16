@@ -2463,6 +2463,46 @@ const scenarios: Array<{
     },
   },
   {
+    name: 'stale-approval hydration cannot interrupt a currently active thread',
+    criteria:
+      'Pass when a persisted stale approval for a thread is ignored while that same thread owns a live run, preserving its running phase and empty approval projection.',
+    run: async () => {
+      const env = makeEnv();
+      env.repos.seedStaleApproval({
+        threadId: 'hydration-race-thread',
+        companyId: 'co',
+        attemptId: 'attempt-stale-hydration-race',
+        hostRequestId: 'host-stale-hydration-race',
+        uiRequestId: 'ui-stale-hydration-race',
+      });
+      env.runtime.onExecute = async (_input, signal) => {
+        await new Promise<void>((resolve) => signal?.addEventListener('abort', () => resolve()));
+        return { text: 'stopped hydration race' };
+      };
+
+      await submitDefault(env.controller, {
+        threadId: 'hydration-race-thread',
+        employeeId: 'emp-1',
+      });
+      await waitFor(
+        'hydration race run is active',
+        () => env.controller.getSnapshot('hydration-race-thread').phase === 'running',
+      );
+      await env.controller.hydrateStaleApprovals('co');
+
+      const snapshot = env.controller.getSnapshot('hydration-race-thread');
+      assert.equal(snapshot.phase, 'running');
+      assert.equal(snapshot.approval, null);
+      assert.equal(env.controller.isActive('hydration-race-thread'), true);
+      await env.controller.stopAndWait('hydration-race-thread');
+      return {
+        phaseAfterHydration: snapshot.phase,
+        approvalAfterHydration: snapshot.approval,
+        activeAfterHydration: true,
+      };
+    },
+  },
+  {
     name: 'restored approval never blocks or reattaches to a new turn',
     criteria:
       'Pass when a restored approval is non-live, a failed cleanup remains retryable, and Retry clears the transient row before exactly one fresh turn executes.',

@@ -16,14 +16,26 @@ import {
   WORKSTATION_VERTICAL_METRICS,
 } from '../../workstation-geometry.js';
 import { hashStringToInt } from '../scene-hash.js';
-import { EmissiveMaterial, SceneMaterial } from '../scene-materials.js';
+import { SceneMaterial } from '../scene-materials.js';
+import {
+  EmissiveDecalMaterial,
+  SCENE_TRANSPARENT_RENDER_ORDER,
+  SceneDecalMaterial,
+  SceneGlassMaterial,
+} from '../scene-surface-materials.js';
 import { useSceneColors } from '../use-scene-colors.js';
+
+const CHAIR_BACKREST_DEPTH = 0.06;
+const CHAIR_BACKREST_RADIUS = 0.028;
 
 // ── Sub-components (shared with other prefabs) ────────────────────
 
 const CHAIR_SPOKE_COUNT = 5;
 const CHAIR_SPOKE_RADIUS = 0.32;
 const CHAIR_CASTER_RADIUS = 0.04;
+const WORK_SURFACE_MAT_THICKNESS = 0.018;
+const WORKSTATION_TABLE_SURFACE_Y = 0.775;
+const WORKSTATION_MAT_SURFACE_Y = WORKSTATION_TABLE_SURFACE_Y + WORK_SURFACE_MAT_THICKNESS;
 
 function ChairBase({
   spokeColor,
@@ -140,18 +152,18 @@ function ChairBackrest({
         <SceneMaterial materialClass="metal" color={frameColor} overrides={{ roughness: 0.36 }} />
       </mesh>
       <RoundedBox
-        args={[0.42, 0.2, 0.06]}
+        args={[0.42, 0.2, CHAIR_BACKREST_DEPTH]}
         position={[0, 0.02, 0]}
-        radius={0.04}
+        radius={CHAIR_BACKREST_RADIUS}
         smoothness={4}
         castShadow
       >
         <SceneMaterial materialClass="leather" color={upholsteryColor} />
       </RoundedBox>
       <RoundedBox
-        args={[0.38, 0.18, 0.06]}
+        args={[0.38, 0.18, CHAIR_BACKREST_DEPTH]}
         position={[0, 0.22, 0.018]}
-        radius={0.05}
+        radius={CHAIR_BACKREST_RADIUS}
         smoothness={4}
         castShadow
       >
@@ -222,7 +234,7 @@ function Laptop({
         </mesh>
         <mesh position={[0, screenHeight / 2, 0.011]}>
           <planeGeometry args={[width - 0.02, screenHeight - 0.02]} />
-          <EmissiveMaterial color={sc.screen} tier="screen" />
+          <EmissiveDecalMaterial color={sc.screen} tier="screen" />
         </mesh>
       </group>
     </group>
@@ -240,18 +252,27 @@ function WorkSurfaceAccent3D({
 }) {
   const sc = useSceneColors();
   return (
-    <group position={[0, 0.006, 0]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[width, depth]} />
-        <SceneMaterial
-          materialClass="fabric"
-          color={sc.workMat}
-          overrides={{ transparent: true, opacity }}
-        />
-      </mesh>
-      <mesh position={[0, 0.006, -depth / 2 + 0.05]} rotation={[-Math.PI / 2, 0, 0]}>
+    <group>
+      <RoundedBox
+        args={[width, WORK_SURFACE_MAT_THICKNESS, depth]}
+        position={[0, WORK_SURFACE_MAT_THICKNESS / 2, 0]}
+        radius={0.008}
+        smoothness={3}
+        castShadow
+        receiveShadow
+      >
+        <SceneMaterial materialClass="fabric" color={sc.workMat} overrides={{ roughness: 0.9 }} />
+      </RoundedBox>
+      <mesh
+        position={[0, WORK_SURFACE_MAT_THICKNESS + 0.001, -depth / 2 + 0.05]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
         <planeGeometry args={[Math.min(width * 0.72, 0.62), 0.035]} />
-        <meshBasicMaterial color={sc.cableAccent} transparent opacity={0.55} />
+        <SceneDecalMaterial
+          materialClass="fabric"
+          color={sc.cableAccent}
+          overrides={{ transparent: true, opacity: Math.min(opacity, 0.62) }}
+        />
       </mesh>
     </group>
   );
@@ -302,7 +323,7 @@ export function WorkstationUnit3D({
           overrides={{ useProceduralNormal: true, normalScale: 0.06 }}
         />
       </RoundedBox>
-      <group position={[0, WORKSTATION_VERTICAL_METRICS.deskTop + 0.007, 0.16]}>
+      <group position={[0, WORKSTATION_VERTICAL_METRICS.deskTop, 0.16]}>
         <WorkSurfaceAccent3D width={deskWidth * 0.62} depth={deskDepth * 0.46} opacity={0.78} />
       </group>
       {[-1, 1].map((xSign) =>
@@ -327,15 +348,16 @@ export function WorkstationUnit3D({
       )}
       <mesh
         position={[0, WORKSTATION_VERTICAL_METRICS.deskTop + 0.282, -deskDepth / 2 + 0.06]}
-        castShadow
+        renderOrder={SCENE_TRANSPARENT_RENDER_ORDER.glass}
+        castShadow={false}
       >
         <boxGeometry args={[deskWidth * 0.82, 0.48, 0.045]} />
-        <SceneMaterial materialClass="glass" color={sc.partition} overrides={{ thickness: 0.04 }} />
+        <SceneGlassMaterial color={sc.partition} overrides={{ thickness: 0.04 }} />
       </mesh>
       {laptopPositions.map(([x, z, rot]) => (
         <Laptop
           key={`unit-laptop-${x}`}
-          position={[x, WORKSTATION_VERTICAL_METRICS.laptopDeck, z]}
+          position={[x, WORKSTATION_VERTICAL_METRICS.deskTop + WORK_SURFACE_MAT_THICKNESS, z]}
           rotation={[0, rot, 0]}
         />
       ))}
@@ -370,13 +392,18 @@ function CornerPartition({
   const sc = useSceneColors();
   return (
     <group position={position} rotation={rotation}>
-      <mesh castShadow>
+      <mesh renderOrder={SCENE_TRANSPARENT_RENDER_ORDER.glass} castShadow={false}>
         <boxGeometry args={[1.1, 1.1, 0.05]} />
-        <SceneMaterial materialClass="glass" color={sc.partition} overrides={{ thickness: 0.05 }} />
+        <SceneGlassMaterial color={sc.partition} overrides={{ thickness: 0.05 }} />
       </mesh>
-      <mesh position={[0.55, 0, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
+      <mesh
+        position={[0.55, 0, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+        renderOrder={SCENE_TRANSPARENT_RENDER_ORDER.glass}
+        castShadow={false}
+      >
         <boxGeometry args={[1.1, 1.1, 0.05]} />
-        <SceneMaterial materialClass="glass" color={sc.partition} overrides={{ thickness: 0.05 }} />
+        <SceneGlassMaterial color={sc.partition} overrides={{ thickness: 0.05 }} />
       </mesh>
       {/* Valance: wood cap along top edge */}
       <mesh position={[0, 0.58, 0]} castShadow>
@@ -414,7 +441,7 @@ function DeskProp({ kind, x, z }: { kind: PropKind; x: number; z: number }) {
   const sc = useSceneColors();
   if (kind === 'mug') {
     return (
-      <group position={[x, 0.78, z]}>
+      <group position={[x, WORKSTATION_MAT_SURFACE_Y + 0.0425, z]}>
         <mesh castShadow>
           <cylinderGeometry args={[0.045, 0.05, 0.085, 14]} />
           <SceneMaterial materialClass="ceramic" color={PROP_MUG_COLOR} />
@@ -428,7 +455,7 @@ function DeskProp({ kind, x, z }: { kind: PropKind; x: number; z: number }) {
   }
   if (kind === 'paperStack') {
     return (
-      <mesh position={[x, 0.79, z]} castShadow>
+      <mesh position={[x, WORKSTATION_MAT_SURFACE_Y + 0.03, z]} castShadow>
         <boxGeometry args={[0.16, 0.06, 0.22]} />
         <SceneMaterial
           materialClass="plastic"
@@ -440,7 +467,7 @@ function DeskProp({ kind, x, z }: { kind: PropKind; x: number; z: number }) {
   }
   if (kind === 'lamp') {
     return (
-      <group position={[x, 0.78, z]}>
+      <group position={[x, WORKSTATION_MAT_SURFACE_Y + 0.015, z]}>
         <mesh castShadow>
           <cylinderGeometry args={[0.06, 0.08, 0.03, 14]} />
           <SceneMaterial materialClass="metal-brushed" color={sc.furnitureLight} />
@@ -458,28 +485,28 @@ function DeskProp({ kind, x, z }: { kind: PropKind; x: number; z: number }) {
   }
   if (kind === 'notes') {
     return (
-      <mesh position={[x, 0.787, z]} rotation={[-Math.PI / 2, 0, 0.08]} castShadow>
+      <mesh position={[x, WORKSTATION_MAT_SURFACE_Y + 0.001, z]} rotation={[-Math.PI / 2, 0, 0.08]}>
         <planeGeometry args={[0.1, 0.1]} />
-        <SceneMaterial materialClass="fabric" color={PROP_NOTE_COLOR} />
+        <SceneDecalMaterial materialClass="fabric" color={PROP_NOTE_COLOR} />
       </mesh>
     );
   }
   // monitor (small external display next to laptop)
   return (
-    <group position={[x, 0.78, z]}>
+    <group position={[x, WORKSTATION_MAT_SURFACE_Y, z]}>
       <mesh position={[0, 0.18, 0]} castShadow>
         <boxGeometry args={[0.36, 0.22, 0.02]} />
         <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
       </mesh>
       <mesh position={[0, 0.18, 0.011]}>
         <planeGeometry args={[0.34, 0.2]} />
-        <EmissiveMaterial color={sc.screen} tier="screen" />
+        <EmissiveDecalMaterial color={sc.screen} tier="screen" />
       </mesh>
       <mesh position={[0, 0.05, 0]} castShadow>
         <boxGeometry args={[0.025, 0.1, 0.025]} />
         <SceneMaterial materialClass="metal-brushed" color={sc.furniture} />
       </mesh>
-      <mesh position={[0, 0.005, 0]} castShadow>
+      <mesh position={[0, 0.006, 0]} castShadow>
         <boxGeometry args={[0.18, 0.012, 0.12]} />
         <SceneMaterial materialClass="metal-brushed" color={sc.furniture} />
       </mesh>
@@ -492,7 +519,7 @@ function DeskGrommet({ x, z }: { x: number; z: number }) {
   return (
     <mesh position={[x, 0.778, z]} rotation={[-Math.PI / 2, 0, 0]}>
       <ringGeometry args={[0.025, 0.038, 16]} />
-      <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
+      <SceneDecalMaterial materialClass="plastic" color={sc.furnitureDark} />
     </mesh>
   );
 }
@@ -573,7 +600,11 @@ export function WorkstationMesh3D({
           [0.8, 0.9, 0],
         ] as [number, number, number][]
       ).map(([x, z, rot]) => (
-        <group key={`mat-${x}-${z}`} position={[x, 0.785, z]} rotation={[0, rot, 0]}>
+        <group
+          key={`mat-${x}-${z}`}
+          position={[x, WORKSTATION_TABLE_SURFACE_Y, z]}
+          rotation={[0, rot, 0]}
+        >
           <WorkSurfaceAccent3D width={0.76} depth={0.46} opacity={0.82} />
         </group>
       ))}
@@ -600,7 +631,7 @@ export function WorkstationMesh3D({
       {/* Per-seat workstation: laptop + props seed-driven */}
       {WORKSTATION_SEAT_LAYOUT.map((seat, index) => (
         <group key={`ws-${seat.x}-${seat.z}`} position={[seat.x, 0, seat.z]}>
-          <Laptop position={[0, 0.775, 0]} rotation={[0, seat.laptopRot, 0]} />
+          <Laptop position={[0, WORKSTATION_MAT_SURFACE_Y, 0]} rotation={[0, seat.laptopRot, 0]} />
           {pickPropsForSeat(seed, index).map((kind, propIndex) => {
             // place props slightly to one side of the laptop based on seat side
             const offsetX = propIndex === 0 ? -0.22 : 0.22;
