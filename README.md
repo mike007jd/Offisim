@@ -84,9 +84,9 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
 2. **Execution lives in the user's local runtime.**
    The marketplace is a registry and distribution surface, not the user's execution plane.
 3. **One engine lane owns each task.**
-   The production gateway currently ships the Pi API engine and Codex CLI
-   orchestration adapter; Claude Code remains pending. Pi and external CLI lanes
-   coexist, but a run never mixes them.
+   The production gateway currently ships the Pi API engine plus Codex and
+   Claude Code CLI orchestration adapters. Pi and external CLI lanes coexist,
+   but a run never mixes them.
 4. **Packages are declarative and auditable.**
    1.0 does not allow install hooks, postinstall scripts, embedded secrets, or hidden shell bootstrap behavior.
 5. **Desktop is the product environment.**

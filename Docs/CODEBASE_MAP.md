@@ -46,7 +46,7 @@ Company-channel collaboration and Loops remain isolated from project chat/runtim
 | Company-channel renderer glue | `apps/desktop/renderer/src/surfaces/office/rail/connect/collaboration-data.ts` |
 | Connect no-tools runtime + turn controller | `apps/desktop/renderer/src/runtime/collaboration` |
 | Connect domain repository | `packages/core/src/runtime/collaboration/collaboration-service.ts` |
-| Connect no-tools host capabilities | API `agent_runtime_collaborate` plus the isolated native Codex/Claude one-shot hosts |
+| Connect no-tools host capabilities | API `agent_runtime_collaborate` plus the isolated native Codex one-shot host |
 | Loops editor / library / graph | `apps/desktop/renderer/src/surfaces/mission/loops` (graph in `loops/graph`, `LoopGraphPanel.tsx`) |
 | Loops domain (service, profiles, IR adapter) | `packages/core/src/loops` (+ `packages/shared-types/src/loops/ir.ts`) |
 | Versioned Prompt Enhance | `apps/desktop/renderer/src/assistant/enhance` |

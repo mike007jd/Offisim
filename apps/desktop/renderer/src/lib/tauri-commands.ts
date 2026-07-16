@@ -344,7 +344,6 @@ interface CodexAgentExecuteRequest {
   nativeSessionId?: string | null;
 }
 
-/** Closed renderer mirror of Rust's second native subscription request. */
 interface ClaudeAgentExecuteRequest {
   requestId: string;
   text: string;
@@ -357,10 +356,7 @@ interface ClaudeAgentExecuteRequest {
   workspaceBindingHistoryId?: string | null;
   nativeSessionMode: 'tracked' | 'fresh';
   nativeSessionResetSourceRunId?: string | null;
-  model?: string | null;
-  runtimeModelRef?: string | null;
   permissionMode?: string | null;
-  thinkingLevel?: string | null;
   systemPromptAppend?: string | null;
   workspaceRequirement: 'optional' | 'required';
   nativeSessionId?: string | null;
@@ -383,21 +379,14 @@ interface CodexAgentEnhanceRequest {
   text: string;
   expectedTarget: AiExecutionTarget;
   systemPrompt: string;
-  model?: string | null;
-  runtimeModelRef?: string | null;
-  thinkingLevel?: string | null;
   sourceProvenance?: TurnExecutionProvenance | null;
 }
 
-/** Closed second-subscription Enhance mirror; isolated from work/session scope. */
 interface ClaudeAgentEnhanceRequest {
   requestId: string;
   text: string;
   expectedTarget: AiExecutionTarget;
   systemPrompt: string;
-  model?: string | null;
-  runtimeModelRef?: string | null;
-  thinkingLevel?: string | null;
   sourceProvenance?: TurnExecutionProvenance | null;
 }
 
@@ -440,7 +429,6 @@ interface PiAgentHostResponse {
   provenance?: PiExecutionProvenance;
   usage?: AgentRunUsage;
   budgetUsage?: AgentRunUsage;
-  subscriptionUsage?: unknown;
 }
 
 type PiAgentHostEvent =

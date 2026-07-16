@@ -177,9 +177,9 @@ export function createTauriEnhanceTransport(opts?: {
             if (!event.prepareId.trim() || !event.targetDigest.trim()) {
               throw new Error('Enhance returned an invalid execution preparation receipt.');
             }
-            // One native engine validates and authorizes the paid boundary internally.
-            // API and the other native host hold the prompt until this durable ACK.
-            if (selectedEngineId === 'codex') return;
+            // Native CLI adapters validate their canonical orchestration target
+            // internally. Only the API lane needs the provider-side ACK.
+            if (selectedEngineId === 'codex' || selectedEngineId === 'claude') return;
             await invokeCommand('agent_runtime_confirm_execution', {
               requestId,
               prepareId: event.prepareId,
@@ -195,7 +195,17 @@ export function createTauriEnhanceTransport(opts?: {
 
         throwIfAborted();
         requestClaimed = true;
-        const args = {
+        const nativeArgs = {
+          req: {
+            requestId,
+            text: request.text,
+            expectedTarget: selection.target,
+            systemPrompt: profile.systemPrompt,
+            sourceProvenance,
+          },
+          onEvent,
+        };
+        const apiArgs = {
           req: {
             requestId,
             text: request.text,
@@ -212,10 +222,10 @@ export function createTauriEnhanceTransport(opts?: {
           onEvent,
         };
         const response = (await (selectedEngineId === 'codex'
-          ? invokeCommand('codex_agent_enhance', args)
+          ? invokeCommand('codex_agent_enhance', nativeArgs)
           : selectedEngineId === 'claude'
-            ? invokeCommand('claude_agent_enhance', args)
-            : invokeCommand('agent_runtime_enhance', args))) as PiAgentHostResponse;
+            ? invokeCommand('claude_agent_enhance', nativeArgs)
+            : invokeCommand('agent_runtime_enhance', apiArgs))) as PiAgentHostResponse;
         requestClaimed = false;
         throwIfAborted();
         if (preparations.size === 0) {

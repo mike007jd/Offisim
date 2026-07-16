@@ -1,9 +1,10 @@
+import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
-import { access } from 'node:fs/promises';
+import { access, realpath } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { fileURLToPath } from 'node:url';
 import { createClaudeWorkspaceGuard } from './claude-workspace-guard.mjs';
 import {
   errorLine,
@@ -14,29 +15,20 @@ import {
   resultLine,
   startedLine,
   toolLine,
-  uiRequestLine,
 } from './pi-agent-host-wire.mjs';
-import { executionTargetDigest } from './pi-execution-provenance.mjs';
 
-const CLAUDE_AGENT_SDK_VERSION = '0.3.211';
-const CLAUDE_ADAPTER = Object.freeze({
-  id: 'claude-agent-sdk',
-  version: CLAUDE_AGENT_SDK_VERSION,
-});
-const MODEL_SOURCE_URL = 'https://code.claude.com/docs/en/agent-sdk/typescript';
-const USAGE_SOURCE_URL = 'https://code.claude.com/docs/en/agent-sdk/typescript';
-const MAX_TEXT_CHARS = 4_000_000;
-const MAX_REASONING_CHARS = 2_000_000;
+const ENGINE_ID = 'claude';
+const ACCOUNT_ID = 'claude:local';
+const BILLING_MODE = 'subscription';
+const MODEL_ID = 'engine-managed';
+const CLAUDE_ADAPTER = Object.freeze({ id: 'claude-cli', version: '1' });
+const CLAUDE_CLI_SOURCE_URL = 'https://code.claude.com/docs/en/cli-usage';
+const CLAUDE_AUTH_DOCS_URL = 'https://code.claude.com/docs/en/authentication';
+const MAX_CAPTURE_BYTES = 1_000_000;
 const MAX_DETAIL_CHARS = 2_000;
-const EXECUTION_ACK_TIMEOUT_MS = 15_000;
 
-let activeAbortController;
-let activeQuery;
-let activeInputClose;
-let hostTerminating = false;
-let uiSequence = 0;
-let pendingExecutionAck;
-const pendingUiRequests = new Map();
+let activeChild;
+let terminating = false;
 
 function emit(line) {
   process.stdout.write(`${JSON.stringify(line)}\n`);
@@ -50,8 +42,14 @@ function nonEmpty(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+function finiteCount(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : undefined;
+}
+
 function clampText(value, max = MAX_DETAIL_CHARS) {
-  const text = typeof value === 'string' ? value : String(value ?? '');
+  const text = typeof value === 'string' ? value : JSON.stringify(value ?? '');
   return text.length <= max ? text : `${text.slice(0, max)}…`;
 }
 
@@ -60,22 +58,20 @@ function redact(value) {
   let text = clampText(value);
   if (home) text = text.split(home).join('~');
   return text
-    .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [redacted]')
-    .replace(/\b(?:sk-ant|sk-proj|sk-or-v1)-[A-Za-z0-9_-]+\b/g, '[redacted]')
-    .replace(/\b(?:ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN)\s*=\s*\S+/gi, '$1=[redacted]');
+    .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/giu, 'Bearer [redacted]')
+    .replace(/\b(?:sk-ant|sk-proj|sk-or-v1)-[A-Za-z0-9_-]+\b/gu, '[redacted]')
+    .replace(
+      /\b(?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|CLAUDE_CODE_OAUTH_TOKEN)\s*=\s*\S+/giu,
+      '$1=[redacted]',
+    );
 }
 
 function safeError(error) {
-  const message = error instanceof Error ? error.message : String(error ?? 'Unknown Claude error');
-  return redact(message || 'Claude Code did not complete the request.');
+  return redact(error instanceof Error ? error.message : String(error ?? 'Unknown Claude error'));
 }
 
-function fail(error) {
-  if (hostTerminating) return;
-  hostTerminating = true;
-  rejectPending(new Error('Claude host stopped before the pending response completed.'));
-  emit(errorLine({ code: nonEmpty(error?.code) ?? 'upstream', message: safeError(error) }));
-  void shutdown(true).finally(() => process.exit(1));
+function hostError(message, code = 'upstream') {
+  return Object.assign(new Error(message), { code });
 }
 
 async function executable(path) {
@@ -89,9 +85,9 @@ async function executable(path) {
 }
 
 async function resolveClaudeExecutable() {
-  const candidates = [];
   const override = nonEmpty(process.env.OFFISIM_CLAUDE_EXECUTABLE);
-  if (override) candidates.push(override);
+  if (override) return executable(override);
+  const candidates = [];
   const home = nonEmpty(process.env.HOME);
   if (home) candidates.push(join(home, '.local', 'bin', 'claude'));
   for (const dir of (process.env.PATH ?? '').split(delimiter).filter(Boolean)) {
@@ -102,12 +98,7 @@ async function resolveClaudeExecutable() {
     const found = await executable(candidate);
     if (found) return found;
   }
-  throw Object.assign(
-    new Error(
-      'Claude Code is not installed. Install it, then run `claude auth login` in Terminal.',
-    ),
-    { code: 'host-unavailable' },
-  );
+  return undefined;
 }
 
 function claudeChildEnv() {
@@ -121,928 +112,515 @@ function claudeChildEnv() {
     'AWS_SESSION_TOKEN',
     'GOOGLE_APPLICATION_CREDENTIALS',
   ]);
-  const env = Object.fromEntries(
+  return Object.fromEntries(
     Object.entries(process.env).filter(([key, value]) => !blocked.has(key) && value !== undefined),
   );
-  env.CLAUDE_AGENT_SDK_CLIENT_APP = 'offisim/1.0.0-rc.1';
-  return env;
 }
 
-function accountId(account) {
-  const material = [
-    nonEmpty(account?.email),
-    nonEmpty(account?.organization),
-    nonEmpty(account?.subscriptionType),
-    nonEmpty(account?.apiProvider),
-  ]
-    .filter(Boolean)
-    .join('\0');
-  if (!material) return undefined;
-  const fingerprint = createHash('sha256').update(material).digest('hex').slice(0, 20);
-  return `claude:subscription:${fingerprint}`;
-}
-
-function requireSubscriptionAccount(account) {
-  const id = accountId(account);
-  const subscriptionType = nonEmpty(account?.subscriptionType);
-  if (!id || !subscriptionType || account?.apiProvider !== 'firstParty') {
-    throw Object.assign(
-      new Error(
-        'Claude Code is not using a Claude subscription. Run `claude auth login` and select your Claude.ai account.',
-      ),
-      { code: 'subscription-unavailable' },
-    );
-  }
-  return { id, subscriptionType };
-}
-
-function unavailableCapability(reason) {
-  return { status: 'unavailable', reason };
-}
-
-function availableCapability() {
-  return { status: 'available' };
-}
-
-function unavailableStatus(reason, checkedAt = new Date().toISOString()) {
-  return {
-    accounts: [
-      {
-        engineId: 'claude',
-        accountId: 'claude-subscription-unavailable',
-        billingMode: 'subscription',
-        displayName: 'Claude subscription',
-        status: 'unavailable',
-        statusReason: reason,
-        capabilities: {
-          execute: unavailableCapability(reason),
-          models: unavailableCapability('Claude native models are unavailable.'),
-          usage: unavailableCapability('Claude plan Usage is unavailable.'),
-          cost: unavailableCapability('Subscription usage is not converted into API cost.'),
-        },
-        usage: null,
-      },
-    ],
-    models: [],
-    checkedAt,
-  };
-}
-
-function modelRows(models, account, checkedAt) {
-  return (Array.isArray(models) ? models : [])
-    .map((model) => {
-      const selector = nonEmpty(model?.value);
-      const modelId = nonEmpty(model?.resolvedModel) ?? selector;
-      if (!selector || !modelId) return undefined;
-      const efforts = Array.isArray(model.supportedEffortLevels)
-        ? model.supportedEffortLevels
-            .filter((value) => typeof value === 'string' && value.trim())
-            .map((id) => ({ id }))
-        : [];
-      return {
-        engineId: 'claude',
-        accountId: account.id,
-        billingMode: 'subscription',
-        modelId,
-        displayName: nonEmpty(model.displayName) ?? modelId,
-        runtimeModelRef: `claude:${selector}`,
-        availability: 'available',
-        ...(efforts.length ? { defaultReasoningEffort: 'high', reasoningEfforts: efforts } : {}),
-        capabilities: {
-          textInput: true,
-          imageInput: true,
-          tools: true,
-          reasoning: model.supportsEffort === true || model.supportsAdaptiveThinking === true,
-        },
-        source: { kind: 'native', sourceUrl: MODEL_SOURCE_URL, checkedAt },
-      };
-    })
-    .filter(Boolean);
-}
-
-function statusProjection(initialization, checkedAt = new Date().toISOString()) {
-  const account = requireSubscriptionAccount(initialization?.account);
-  const models = modelRows(initialization?.models, account, checkedAt);
-  if (!models.length) {
-    throw Object.assign(new Error('Claude Code did not report any native models.'), {
-      code: 'model-catalog-unavailable',
+function runCaptured(binary, args, cwd) {
+  return new Promise((resolveRun, reject) => {
+    const child = spawn(binary, args, {
+      cwd,
+      env: claudeChildEnv(),
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-  }
-  const usageReason = 'Run a Claude task to refresh provider-native plan Usage.';
+    const stdout = [];
+    const stderr = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    const capture = (target, chunk, bytes) => {
+      const remaining = MAX_CAPTURE_BYTES - bytes;
+      if (remaining > 0) target.push(chunk.subarray(0, remaining));
+      return bytes + chunk.length;
+    };
+    child.stdout.on('data', (chunk) => {
+      stdoutBytes = capture(stdout, chunk, stdoutBytes);
+    });
+    child.stderr.on('data', (chunk) => {
+      stderrBytes = capture(stderr, chunk, stderrBytes);
+    });
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      resolveRun({
+        code,
+        signal,
+        stdout: Buffer.concat(stdout).toString('utf8'),
+        stderr: Buffer.concat(stderr).toString('utf8'),
+      });
+    });
+  });
+}
+
+function orchestrationCapabilities() {
   return {
-    accounts: [
-      {
-        engineId: 'claude',
-        accountId: account.id,
-        billingMode: 'subscription',
-        displayName: account.subscriptionType,
-        status: 'available',
-        capabilities: {
-          execute: availableCapability(),
-          models: availableCapability(),
-          usage: unavailableCapability(usageReason),
-          cost: unavailableCapability('Subscription usage is not converted into API cost.'),
-        },
-        usage: null,
-      },
-    ],
-    models,
+    stop: true,
+    steer: false,
+    resume: true,
+    permissionModes: ['plan', 'auto', 'full'],
+    interactions: { approval: false, userInput: false },
+    processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  };
+}
+
+function statusProjection({ state, version, statusReason, checkedAt }) {
+  return {
+    engineId: ENGINE_ID,
+    displayName: 'Claude',
+    state,
+    ...(version ? { version } : {}),
+    ...(statusReason ? { statusReason } : {}),
+    loginCommand: 'claude auth login',
+    docsUrl: CLAUDE_AUTH_DOCS_URL,
+    sourceUrl: CLAUDE_CLI_SOURCE_URL,
     checkedAt,
+    capabilities: orchestrationCapabilities(),
   };
 }
 
-function idlePromptStream() {
-  return (async function* waitForever() {
-    await new Promise(() => undefined);
-  })();
-}
-
-function baseOptions(executablePath, cwd) {
-  return {
-    pathToClaudeCodeExecutable: executablePath,
-    cwd,
-    env: claudeChildEnv(),
-    settingSources: [],
-    tools: [],
-    permissionMode: 'dontAsk',
-    persistSession: false,
-  };
-}
-
-async function runStatus() {
+async function inspectClaudeCli(cwd = process.cwd()) {
   const checkedAt = new Date().toISOString();
-  let sdkQuery;
+  const binary = await resolveClaudeExecutable();
+  if (!binary) {
+    return statusProjection({
+      state: 'not-installed',
+      statusReason: 'Install Claude CLI to run Claude tasks.',
+      checkedAt,
+    });
+  }
+  const versionResult = await runCaptured(binary, ['--version'], cwd);
+  const version = nonEmpty(versionResult.stdout.split(/\r?\n/u).find((line) => line.trim()));
+  if (versionResult.code !== 0 || !version) {
+    return statusProjection({
+      state: 'unavailable',
+      statusReason: 'Claude CLI is installed but could not report its version.',
+      checkedAt,
+    });
+  }
+  const authResult = await runCaptured(binary, ['auth', 'status'], cwd);
+  if (authResult.code !== 0) {
+    return statusProjection({
+      state: 'not-signed-in',
+      version,
+      statusReason: 'Sign in with `claude auth login`; credentials remain managed by Claude CLI.',
+      checkedAt,
+    });
+  }
   try {
-    const executablePath = await resolveClaudeExecutable();
-    sdkQuery = query({
-      prompt: idlePromptStream(),
-      options: baseOptions(executablePath, process.cwd()),
+    const auth = JSON.parse(authResult.stdout);
+    if (auth?.loggedIn === true) return statusProjection({ state: 'ready', version, checkedAt });
+    return statusProjection({
+      state: 'not-signed-in',
+      version,
+      statusReason: 'Sign in with `claude auth login`; credentials remain managed by Claude CLI.',
+      checkedAt,
     });
-    const initialization = await sdkQuery.initializationResult();
-    emit(resultLine(statusProjection(initialization, checkedAt)));
-  } catch (error) {
-    emit(resultLine(unavailableStatus(safeError(error), checkedAt)));
-  } finally {
-    sdkQuery?.close();
+  } catch {
+    return statusProjection({
+      state: 'unavailable',
+      version,
+      statusReason: 'Claude CLI login status could not be checked.',
+      checkedAt,
+    });
   }
 }
 
-function validatePayload(payload) {
-  if (!isRecord(payload))
-    throw Object.assign(new Error('Claude request must be an object.'), {
-      code: 'invalid-request',
-    });
-  const mode = nonEmpty(payload.mode);
-  if (!['execute', 'enhance'].includes(mode)) {
-    throw Object.assign(new Error(`Unsupported Claude request mode: ${mode ?? '(missing)'}.`), {
-      code: 'invalid-request',
-    });
-  }
-  for (const field of ['requestId', 'text', 'runtimeModelRef']) {
-    if (!nonEmpty(payload[field])) {
-      throw Object.assign(new Error(`${field} is required for Claude.`), {
-        code: 'invalid-request',
-      });
-    }
-  }
-  if (!isRecord(payload.expectedTarget)) {
-    throw Object.assign(new Error('expectedTarget is required for Claude.'), {
-      code: 'invalid-request',
-    });
-  }
-  if (mode === 'execute' && !nonEmpty(payload.rootRunId)) {
-    throw Object.assign(new Error('rootRunId is required for Claude work.'), {
-      code: 'invalid-request',
-    });
-  }
-  return mode;
-}
-
-function selectedModel(initialization, runtimeModelRef) {
-  const selector = nonEmpty(runtimeModelRef)?.startsWith('claude:')
-    ? nonEmpty(runtimeModelRef).slice('claude:'.length)
-    : undefined;
-  if (!selector) {
-    throw Object.assign(new Error('The Claude runtime model selector is invalid.'), {
-      code: 'execution-target-mismatch',
-    });
-  }
-  const row = initialization.models?.find((candidate) => candidate.value === selector);
-  const modelId = nonEmpty(row?.resolvedModel) ?? nonEmpty(row?.value);
-  if (!row || !modelId) {
-    throw Object.assign(new Error('The selected Claude native model is unavailable.'), {
-      code: 'execution-target-mismatch',
-    });
-  }
-  return { row, selector, modelId };
-}
-
-function validateExecutionTarget(payload, initialization, selected) {
-  const account = requireSubscriptionAccount(initialization.account);
-  const target = payload.expectedTarget;
-  const source = target.modelSource;
-  const checkedAt = nonEmpty(source?.checkedAt);
+function validateTarget(target) {
   if (
-    target.engineId !== 'claude' ||
-    target.billingMode !== 'subscription' ||
-    target.accountId !== account.id ||
-    target.modelId !== selected.modelId ||
-    source?.kind !== 'native' ||
-    source?.sourceUrl !== MODEL_SOURCE_URL ||
-    !checkedAt ||
-    !Number.isFinite(Date.parse(checkedAt))
+    !isRecord(target) ||
+    target.engineId !== ENGINE_ID ||
+    target.accountId !== ACCOUNT_ID ||
+    target.billingMode !== BILLING_MODE ||
+    target.modelId !== MODEL_ID ||
+    !isRecord(target.modelSource) ||
+    target.modelSource.kind !== 'native' ||
+    'sourceUrl' in target.modelSource ||
+    'checkedAt' in target.modelSource
   ) {
-    throw Object.assign(
-      new Error('The selected Claude account or exact model changed before execution.'),
-      {
-        code: 'execution-target-mismatch',
-      },
+    throw hostError(
+      'Claude execution requires the canonical local orchestration target.',
+      'execution-target-mismatch',
     );
   }
   return {
-    identity: {
-      engineId: 'claude',
-      accountId: account.id,
-      billingMode: 'subscription',
-      modelId: selected.modelId,
-      modelSource: { kind: 'native', sourceUrl: MODEL_SOURCE_URL, checkedAt },
-      runId: payload.rootRunId ?? payload.requestId,
-      adapter: CLAUDE_ADAPTER,
-    },
-    account,
+    engineId: ENGINE_ID,
+    accountId: ACCOUNT_ID,
+    billingMode: BILLING_MODE,
+    modelId: MODEL_ID,
+    modelSource: { kind: 'native' },
   };
 }
 
-function waitForExecutionAck(payload, identity) {
-  const prepareId = `claude-prepare-${randomUUID()}`;
-  const targetDigest = executionTargetDigest(payload.expectedTarget, payload.runtimeModelRef);
-  const acknowledged = new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      pendingExecutionAck = undefined;
-      reject(
-        Object.assign(new Error('Claude execution target acknowledgement timed out.'), {
-          code: 'execution-target-ack-timeout',
-        }),
-      );
-    }, EXECUTION_ACK_TIMEOUT_MS);
-    pendingExecutionAck = {
-      requestId: payload.requestId,
-      prepareId,
-      targetDigest,
-      resolve: () => {
-        clearTimeout(timer);
-        pendingExecutionAck = undefined;
-        resolve();
-      },
-      reject: (error) => {
-        clearTimeout(timer);
-        pendingExecutionAck = undefined;
-        reject(error);
-      },
-    };
-  });
-  emit(
-    executionPreparedLine({
-      prepareId,
-      runId: identity.runId,
-      identity,
-      targetDigest,
-      adapter: CLAUDE_ADAPTER,
-    }),
-  );
-  return acknowledged;
-}
-
-function resolveExecutionAck(message) {
-  if (message?.type !== 'executionTargetAck' || !pendingExecutionAck) return false;
-  const pending = pendingExecutionAck;
-  if (
-    message.requestId !== pending.requestId ||
-    message.prepareId !== pending.prepareId ||
-    message.targetDigest !== pending.targetDigest
-  ) {
-    pending.reject(
-      Object.assign(new Error('Claude execution target acknowledgement did not match.'), {
-        code: 'execution-target-ack-invalid',
-      }),
+async function validatePayload(payload) {
+  if (!isRecord(payload) || !['execute', 'enhance'].includes(payload.mode)) {
+    throw hostError('Claude host received an unsupported request mode.', 'request-invalid');
+  }
+  const requestId = nonEmpty(payload.requestId);
+  const text = nonEmpty(payload.text);
+  if (!requestId || !text) {
+    throw hostError('Claude requestId and text are required.', 'request-invalid');
+  }
+  const target = validateTarget(payload.expectedTarget);
+  const cwd = await realpath(nonEmpty(payload.cwd) ?? process.cwd());
+  const actualCwd = await realpath(process.cwd());
+  if (cwd !== actualCwd) {
+    throw hostError(
+      'Claude workspace payload does not match the authorized process cwd.',
+      'workspace-invalid',
     );
-    return true;
   }
-  pending.resolve();
-  return true;
+  if (payload.mode === 'execute' && !nonEmpty(payload.rootRunId)) {
+    throw hostError('Claude execute requires rootRunId.', 'request-invalid');
+  }
+  if (payload.mode === 'enhance' && !nonEmpty(payload.systemPrompt)) {
+    throw hostError('Claude enhance requires systemPrompt.', 'request-invalid');
+  }
+  return { ...payload, requestId, text, target, cwd };
 }
 
-function createPromptStream(text) {
-  let releasePrompt;
-  let closeInput;
-  const promptGate = new Promise((resolve) => {
-    releasePrompt = resolve;
-  });
-  const closeGate = new Promise((resolve) => {
-    closeInput = resolve;
-  });
-  const stream = (async function* promptStream() {
-    await promptGate;
-    yield {
-      type: 'user',
-      message: { role: 'user', content: [{ type: 'text', text }] },
-      parent_tool_use_id: null,
-    };
-    await closeGate;
-  })();
-  return { stream, releasePrompt, closeInput };
+function permissionMode(value) {
+  if (value === 'plan') return 'plan';
+  if (value === 'full') return 'bypassPermissions';
+  return 'acceptEdits';
 }
 
-function permissionOptions(mode) {
-  switch (mode) {
-    case 'plan':
-      return { permissionMode: 'plan' };
-    case 'ask':
-      return { permissionMode: 'default' };
-    case 'auto':
-    case undefined:
-      return { permissionMode: 'auto' };
-    case 'full':
-      return { permissionMode: 'bypassPermissions', allowDangerouslySkipPermissions: true };
-    default:
-      throw Object.assign(new Error(`Unsupported Claude permission mode: ${String(mode)}.`), {
-        code: 'invalid-request',
-      });
-  }
-}
-
-function thinkingOptions(level) {
-  switch (level) {
-    case 'off':
-      return { thinking: { type: 'disabled' } };
-    case 'minimal':
-    case 'low':
-      return { effort: 'low' };
-    case 'medium':
-    case 'high':
-    case 'xhigh':
-      return { effort: level };
-    case undefined:
-    case null:
-    case '':
-      return {};
-    default:
-      throw Object.assign(new Error(`Unsupported Claude thinking level: ${String(level)}.`), {
-        code: 'invalid-request',
-      });
-  }
-}
-
-function requestUi(method, fields, signal) {
-  uiSequence += 1;
-  const id = `claude-ui-${uiSequence}`;
-  return new Promise((resolve) => {
-    const settle = (response) => {
-      if (!pendingUiRequests.delete(id)) return;
-      resolve(response);
-    };
-    pendingUiRequests.set(id, settle);
-    emit(uiRequestLine({ id, method, ...fields }));
-    if (signal?.aborted) settle({ id, cancelled: true });
-    else signal?.addEventListener('abort', () => settle({ id, cancelled: true }), { once: true });
-  });
-}
-
-function resolveUiResponse(message) {
-  const id = nonEmpty(message?.id);
-  const settle = id ? pendingUiRequests.get(id) : undefined;
-  if (!settle) return false;
-  settle(message);
-  return true;
-}
-
-function structuredQuestions(input) {
-  if (
-    !Array.isArray(input?.questions) ||
-    input.questions.length < 1 ||
-    input.questions.length > 4
-  ) {
-    return undefined;
-  }
-  const questions = input.questions.map((question, index) => {
-    const text = nonEmpty(question?.question);
-    const header = nonEmpty(question?.header);
-    if (
-      !text ||
-      !header ||
-      !Array.isArray(question.options) ||
-      question.options.length < 2 ||
-      question.options.length > 4
-    ) {
-      return undefined;
-    }
-    const options = question.options
-      .map((option) => ({
-        label: nonEmpty(option?.label),
-        ...(nonEmpty(option?.description) ? { description: nonEmpty(option.description) } : {}),
-      }))
-      .filter((option) => option.label);
-    if (options.length !== question.options.length) return undefined;
-    return {
-      id: `claude-question-${index + 1}`,
-      header: clampText(header, 12),
-      question: clampText(text, 16_384),
-      options,
-      multiSelect: question.multiSelect === true,
-      isOther: true,
-      isSecret: false,
-    };
-  });
-  return questions.every(Boolean) ? questions : undefined;
-}
-
-function parseStructuredAnswers(rawValue, projected, nativeQuestions) {
-  let parsed;
-  try {
-    parsed = JSON.parse(nonEmpty(rawValue) ?? '');
-  } catch {
-    return undefined;
-  }
-  if (!isRecord(parsed?.answers) || Object.keys(parsed.answers).length !== projected.length) {
-    return undefined;
-  }
-  const answers = {};
-  for (let index = 0; index < projected.length; index += 1) {
-    const projectedQuestion = projected[index];
-    const nativeQuestion = nativeQuestions[index];
-    const values = parsed.answers[projectedQuestion.id]?.answers;
-    if (
-      !Array.isArray(values) ||
-      values.length < 1 ||
-      (!projectedQuestion.multiSelect && values.length !== 1) ||
-      values.some((value) => !nonEmpty(value))
-    ) {
-      return undefined;
-    }
-    answers[nativeQuestion.question] = projectedQuestion.multiSelect
-      ? values.map((value) => nonEmpty(value)).join(', ')
-      : nonEmpty(values[0]);
-  }
-  return answers;
-}
-
-async function canUseTool(toolName, input, options) {
-  if (toolName === 'AskUserQuestion') {
-    const questions = structuredQuestions(input);
-    if (!questions) {
-      return { behavior: 'deny', message: 'Claude produced an unsupported question shape.' };
-    }
-    const response = await requestUi(
-      'requestUserInput',
-      {
-        title: questions[0].header,
-        message: questions.map((question) => question.question).join('\n'),
-        params: { questions },
-      },
-      options.signal,
-    );
-    if (response.cancelled) {
-      return { behavior: 'deny', message: 'The user skipped this question.' };
-    }
-    const answers = parseStructuredAnswers(response.value, questions, input.questions);
-    if (!answers) {
-      return { behavior: 'deny', message: 'The user response was incomplete or invalid.' };
-    }
-    return { behavior: 'allow', updatedInput: { ...input, answers } };
-  }
-
-  const detail = [nonEmpty(options.title), nonEmpty(options.description), summarizeToolInput(input)]
-    .filter(Boolean)
-    .join('\n');
-  const response = await requestUi(
-    'confirm',
-    {
-      title: nonEmpty(options.title) ?? `Allow ${toolName}?`,
-      message: redact(detail || `Claude wants to use ${toolName}.`),
+function hookSettings(workspaceRoot) {
+  const scriptPath = fileURLToPath(import.meta.url);
+  return JSON.stringify({
+    sandbox: {
+      enabled: true,
+      failIfUnavailable: true,
+      autoAllowBashIfSandboxed: true,
+      allowUnsandboxedCommands: false,
     },
-    options.signal,
-  );
-  if (response.confirmed === true && !response.cancelled) {
-    return { behavior: 'allow', updatedInput: input };
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: 'Bash|Edit|Write|NotebookEdit|Read|Glob|Grep',
+          hooks: [
+            {
+              type: 'command',
+              command: process.execPath,
+              args: [scriptPath, '--workspace-hook', workspaceRoot],
+            },
+          ],
+        },
+      ],
+    },
+  });
+}
+
+function cliArgs(payload, sessionId) {
+  const hasWorkspace = payload.mode === 'execute' && payload.workspaceAvailability === 'bound';
+  const args = [
+    '-p',
+    '--output-format',
+    'stream-json',
+    '--verbose',
+    '--include-partial-messages',
+    '--include-hook-events',
+    '--setting-sources',
+    '',
+  ];
+  if (hasWorkspace) {
+    args.push('--permission-mode', permissionMode(payload.permissionMode));
+    args.push('--settings', hookSettings(payload.cwd));
+    const systemPrompt = nonEmpty(payload.systemPromptAppend);
+    if (systemPrompt) args.push('--append-system-prompt', systemPrompt);
+  } else {
+    args.push('--permission-mode', 'plan', '--tools', '');
   }
-  return { behavior: 'deny', message: 'The user rejected this action.' };
+  if (payload.mode === 'enhance') {
+    args.push('--no-session-persistence', '--system-prompt', payload.systemPrompt);
+  } else if (nonEmpty(payload.nativeSessionId)) {
+    args.push('--resume', payload.nativeSessionId);
+  } else {
+    args.push('--session-id', sessionId);
+  }
+  args.push(payload.text);
+  return args;
 }
 
 function summarizeToolInput(input) {
   if (!isRecord(input)) return undefined;
-  for (const key of ['description', 'command', 'file_path', 'path', 'query']) {
+  for (const key of ['file_path', 'notebook_path', 'path', 'command', 'pattern', 'query']) {
     const value = nonEmpty(input[key]);
-    if (value) return redact(value);
+    if (value) return clampText(value);
   }
-  return undefined;
+  return Object.keys(input).length ? clampText(input) : undefined;
 }
 
-function modelSummary(selected) {
-  return {
-    provider: 'anthropic',
-    id: selected.modelId,
-    catalogId: selected.selector,
-    name: nonEmpty(selected.row.displayName) ?? selected.modelId,
-    api: 'claude-agent-sdk',
-    reasoning:
-      selected.row.supportsEffort === true || selected.row.supportsAdaptiveThinking === true,
-    input: ['text', 'image'],
-  };
-}
-
-function appendCapped(current, delta, limit) {
-  if (!delta || current.length >= limit) return current;
-  return current + delta.slice(0, Math.max(0, limit - current.length));
-}
-
-function rateLimitLabel(type) {
-  switch (type) {
-    case 'five_hour':
-      return { label: '5-hour limit', kind: 'primary', windowDurationMins: 300 };
-    case 'seven_day':
-      return { label: 'Weekly limit', kind: 'secondary', windowDurationMins: 10_080 };
-    case 'seven_day_opus':
-      return { label: 'Weekly Opus limit', kind: 'secondary', windowDurationMins: 10_080 };
-    case 'seven_day_sonnet':
-      return { label: 'Weekly Sonnet limit', kind: 'secondary', windowDurationMins: 10_080 };
-    case 'seven_day_overage_included':
-      return { label: 'Weekly included overage', kind: 'secondary', windowDurationMins: 10_080 };
-    case 'overage':
-      return { label: 'Overage', kind: 'spendControl' };
-    default:
-      return { label: 'Claude plan limit', kind: 'secondary' };
-  }
-}
-
-function normalizedPercent(value) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
-  const percent = value >= 0 && value <= 1 ? value * 100 : value;
-  return Math.max(0, Math.min(100, Math.round(percent * 10) / 10));
-}
-
-function subscriptionUsage(rateLimits, capturedAt) {
-  const limits = [...rateLimits.entries()].map(([type, info]) => {
-    const meta = rateLimitLabel(type);
-    const used = normalizedPercent(info.utilization);
-    const resetAt =
-      typeof info.resetsAt === 'number' && Number.isFinite(info.resetsAt)
-        ? new Date(info.resetsAt * 1000).toISOString()
-        : undefined;
-    return {
-      limitId: `claude:${type}`,
-      label: meta.label,
-      windows: [
-        {
-          kind: meta.kind,
-          ...(meta.windowDurationMins ? { windowDurationMins: meta.windowDurationMins } : {}),
-          used: used === undefined ? 'Not reported' : `${used}%`,
-          remaining: used === undefined ? 'Not reported' : `${Math.max(0, 100 - used)}%`,
-          remainingIsDerived: used !== undefined,
-          ...(resetAt ? { resetAt } : {}),
-          limit: '100%',
-        },
-      ],
-    };
-  });
-  if (!limits.length) return null;
-  return { kind: 'subscription', source: 'native', limits, updatedAt: capturedAt };
-}
-
-function diagnosticUsage(payload, selected, result, capturedAt) {
-  const usage = isRecord(result?.usage) ? result.usage : {};
-  const number = (value) =>
-    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+function usageProjection(frame, durationMs) {
+  const usage = isRecord(frame.usage) ? frame.usage : {};
+  const cacheCreation = finiteCount(usage.cache_creation_input_tokens);
+  const cacheRead = finiteCount(usage.cache_read_input_tokens);
+  const input = finiteCount(usage.input_tokens);
+  const output = finiteCount(usage.output_tokens);
+  const turns = finiteCount(frame.num_turns);
+  const capturedAt = new Date().toISOString();
   return {
     scope: {
       kind: 'subscription-run-diagnostic',
-      engineId: 'claude',
-      accountId: payload.expectedTarget.accountId,
-      modelId: selected.modelId,
+      engineId: ENGINE_ID,
+      accountId: ACCOUNT_ID,
+      modelId: MODEL_ID,
     },
-    ...(number(usage.input_tokens) !== undefined ? { input: number(usage.input_tokens) } : {}),
-    ...(number(usage.output_tokens) !== undefined ? { output: number(usage.output_tokens) } : {}),
-    ...(number(usage.cache_read_input_tokens) !== undefined
-      ? { cacheRead: number(usage.cache_read_input_tokens) }
-      : {}),
-    ...(number(usage.cache_creation_input_tokens) !== undefined
-      ? { cacheWrite: number(usage.cache_creation_input_tokens) }
-      : {}),
-    ...(number(result?.num_turns) !== undefined ? { turns: number(result.num_turns) } : {}),
+    ...(input !== undefined ? { input } : {}),
+    ...(output !== undefined ? { output } : {}),
+    ...(cacheRead !== undefined ? { cacheRead } : {}),
+    ...(cacheCreation !== undefined ? { cacheWrite: cacheCreation } : {}),
+    ...(turns !== undefined ? { turns } : {}),
     inputAccounting: 'excludes-cache',
     outputAccounting: 'includes-reasoning',
-    usageSource: { kind: 'provider', capturedAt, reference: USAGE_SOURCE_URL },
+    durationMs,
+    usageSource: {
+      kind: 'adapter',
+      capturedAt,
+      reference: CLAUDE_CLI_SOURCE_URL,
+    },
     cost: {
       kind: 'unavailable',
-      reason: 'Claude subscription runs are not converted into API cost.',
+      reason: '订阅内 · 无 API 成本',
     },
   };
 }
 
-function emitToolStarted(block, startedTools, startedAtByTool) {
-  const id = nonEmpty(block?.id);
-  const name = nonEmpty(block?.name);
-  if (!id || !name || startedTools.has(id)) return;
-  startedTools.set(id, name);
-  startedAtByTool.set(id, Date.now());
-  emit(
-    toolLine({
-      status: 'started',
-      toolCallId: id,
-      toolName: name,
-      detail: summarizeToolInput(block.input),
-    }),
-  );
+function responseProvenance(target, runId) {
+  return { ...target, runId, adapter: CLAUDE_ADAPTER };
 }
 
-function emitToolResults(message, startedTools, startedAtByTool) {
-  const blocks = Array.isArray(message?.message?.content) ? message.message.content : [];
-  for (const block of blocks) {
-    if (block?.type !== 'tool_result') continue;
-    const id = nonEmpty(block.tool_use_id);
-    if (!id) continue;
-    const startedAt = startedAtByTool.get(id);
-    emit(
-      toolLine({
-        status: block.is_error ? 'failed' : 'completed',
-        toolCallId: id,
-        toolName: startedTools.get(id) ?? 'Claude tool',
-        durationMs: startedAt ? Math.max(0, Date.now() - startedAt) : undefined,
+function executionTargetDigest(target) {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        accountId: target.accountId,
+        billingMode: target.billingMode,
+        engineId: target.engineId,
+        modelId: target.modelId,
+        modelSource: target.modelSource,
       }),
-    );
-    startedTools.delete(id);
-    startedAtByTool.delete(id);
-  }
+    )
+    .digest('hex');
 }
 
-async function runClaude(payload) {
-  const mode = validatePayload(payload);
-  const executablePath = await resolveClaudeExecutable();
-  const abortController = new AbortController();
-  activeAbortController = abortController;
-  const prompt = createPromptStream(payload.text);
-  activeInputClose = prompt.closeInput;
-  const ephemeral = mode === 'enhance';
-  const hasWorkspace = payload.workspaceAvailability === 'bound';
-  const sessionId = ephemeral ? undefined : (nonEmpty(payload.nativeSessionId) ?? randomUUID());
-  const selector = nonEmpty(payload.runtimeModelRef).slice('claude:'.length);
-  const permission = ephemeral
-    ? { permissionMode: 'dontAsk' }
-    : permissionOptions(nonEmpty(payload.permissionMode));
-  const appendSystemPrompt = ephemeral
-    ? nonEmpty(payload.systemPrompt)
-    : [
-        nonEmpty(payload.systemPromptAppend),
-        !hasWorkspace
-          ? 'No Project folder is currently available. Answer conversationally and do not claim to read or change project files.'
-          : undefined,
-      ]
-        .filter(Boolean)
-        .join('\n\n');
-  const options = {
-    ...baseOptions(executablePath, process.cwd()),
-    abortController,
-    model: selector,
-    includePartialMessages: true,
-    persistSession: !ephemeral,
-    settingSources: ephemeral ? [] : ['user', 'project', 'local'],
-    tools: !ephemeral && hasWorkspace ? { type: 'preset', preset: 'claude_code' } : [],
-    skills: !ephemeral && hasWorkspace ? 'all' : [],
-    strictMcpConfig: false,
-    ...(!ephemeral && hasWorkspace
-      ? {
-          hooks: {
-            PreToolUse: [
-              {
-                matcher: 'Bash|Edit|Glob|Grep|NotebookEdit|Read|Write',
-                hooks: [createClaudeWorkspaceGuard(process.cwd())],
-              },
-            ],
-          },
-          sandbox: {
-            enabled: true,
-            allowUnsandboxedCommands: false,
-          },
-        }
-      : {}),
-    ...permission,
-    ...thinkingOptions(nonEmpty(payload.thinkingLevel)),
-    ...(appendSystemPrompt
-      ? {
-          systemPrompt: ephemeral
-            ? appendSystemPrompt
-            : { type: 'preset', preset: 'claude_code', append: appendSystemPrompt },
-        }
-      : {}),
-    ...(!ephemeral && nonEmpty(payload.nativeSessionId)
-      ? { resume: nonEmpty(payload.nativeSessionId) }
-      : !ephemeral
-        ? { sessionId }
-        : {}),
-    ...(!ephemeral && hasWorkspace ? { canUseTool } : {}),
-  };
-
-  const sdkQuery = query({ prompt: prompt.stream, options });
-  activeQuery = sdkQuery;
-  const initialization = await sdkQuery.initializationResult();
-  const selected = selectedModel(initialization, payload.runtimeModelRef);
-  const { identity } = validateExecutionTarget(payload, initialization, selected);
-  await waitForExecutionAck(payload, identity);
-  emit(
-    startedLine({
-      sessionId,
-      model: modelSummary(selected),
-    }),
-  );
-  prompt.releasePrompt();
-
-  let content = '';
-  let reasoning = '';
-  let finalResult;
-  const rateLimits = new Map();
-  const startedTools = new Map();
-  const startedAtByTool = new Map();
-  try {
-    for await (const message of sdkQuery) {
-      if (message.type === 'stream_event') {
-        const event = message.event;
-        if (event?.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-          emitToolStarted(event.content_block, startedTools, startedAtByTool);
-        }
-        if (event?.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-          const delta = clampText(event.delta.text, MAX_TEXT_CHARS - content.length);
-          content = appendCapped(content, delta, MAX_TEXT_CHARS);
-          if (delta) emit(messageDeltaLine({ delta, channel: 'content' }));
-        }
-        if (event?.type === 'content_block_delta' && event.delta?.type === 'thinking_delta') {
-          const delta = clampText(event.delta.thinking, MAX_REASONING_CHARS - reasoning.length);
-          reasoning = appendCapped(reasoning, delta, MAX_REASONING_CHARS);
-          if (delta) emit(messageDeltaLine({ delta, channel: 'reasoning' }));
-        }
-        continue;
+function consumeAssistantMessage(frame, state) {
+  const content = Array.isArray(frame.message?.content) ? frame.message.content : [];
+  for (const block of content) {
+    if (!isRecord(block)) continue;
+    if (block.type === 'text' && !state.partialTextSeen) {
+      const text = nonEmpty(block.text);
+      if (text) {
+        state.text += text;
+        emit(messageDeltaLine({ delta: text, channel: 'assistant' }));
       }
-      if (message.type === 'assistant') {
-        for (const block of message.message?.content ?? []) {
-          if (block?.type === 'tool_use') emitToolStarted(block, startedTools, startedAtByTool);
-        }
-        continue;
+    } else if (block.type === 'thinking' && !state.partialThinkingSeen) {
+      const thinking = nonEmpty(block.thinking);
+      if (thinking) {
+        state.reasoning += thinking;
+        emit(messageDeltaLine({ delta: thinking, channel: 'reasoning' }));
       }
-      if (message.type === 'user') {
-        emitToolResults(message, startedTools, startedAtByTool);
-        continue;
-      }
-      if (message.type === 'tool_progress') {
-        const id = nonEmpty(message.tool_use_id);
-        if (id) {
-          emit(
-            toolLine({
-              status: 'running',
-              toolCallId: id,
-              toolName: nonEmpty(message.tool_name) ?? 'Claude tool',
-              durationMs:
-                typeof message.elapsed_time_seconds === 'number'
-                  ? Math.max(0, Math.round(message.elapsed_time_seconds * 1000))
-                  : undefined,
-            }),
-          );
-        }
-        continue;
-      }
-      if (message.type === 'rate_limit_event' && isRecord(message.rate_limit_info)) {
-        const type = nonEmpty(message.rate_limit_info.rateLimitType) ?? 'unknown';
-        rateLimits.set(type, message.rate_limit_info);
-        continue;
-      }
-      if (message.type === 'system' && message.subtype === 'permission_denied') {
+    } else if (block.type === 'tool_use') {
+      const id = nonEmpty(block.id) ?? randomUUID();
+      if (!state.tools.has(id)) {
+        const toolName = nonEmpty(block.name) ?? 'ClaudeTool';
+        state.tools.set(id, toolName);
         emit(
           toolLine({
-            status: 'failed',
-            toolCallId: message.tool_use_id,
-            toolName: message.tool_name,
-            detail: redact(message.message),
+            status: 'started',
+            toolCallId: id,
+            toolName,
+            detail: summarizeToolInput(block.input),
           }),
         );
-        continue;
-      }
-      if (message.type === 'result') {
-        finalResult = message;
-        if (message.subtype === 'success' && nonEmpty(message.result)) content = message.result;
-        break;
       }
     }
-  } finally {
-    prompt.closeInput();
-    activeInputClose = undefined;
-    sdkQuery.close();
-    activeQuery = undefined;
-    activeAbortController = undefined;
   }
+}
 
-  if (!finalResult) {
-    throw Object.assign(new Error('Claude Code ended without a final result.'), {
-      code: 'protocol',
-    });
+function consumeToolResults(frame, state) {
+  const content = Array.isArray(frame.message?.content) ? frame.message.content : [];
+  for (const block of content) {
+    if (!isRecord(block) || block.type !== 'tool_result') continue;
+    const id = nonEmpty(block.tool_use_id);
+    if (!id) continue;
+    emit(
+      toolLine({
+        status: block.is_error === true ? 'failed' : 'completed',
+        toolCallId: id,
+        toolName: state.tools.get(id) ?? 'ClaudeTool',
+        detail: clampText(block.content),
+      }),
+    );
+    state.tools.delete(id);
   }
-  if (finalResult.subtype !== 'success' || finalResult.is_error) {
-    throw Object.assign(
-      new Error(
-        Array.isArray(finalResult.errors) && finalResult.errors.length
-          ? finalResult.errors.map(safeError).join('; ')
-          : `Claude Code ended with ${finalResult.subtype}.`,
-      ),
-      { code: 'upstream' },
+}
+
+function consumeStreamEvent(frame, state) {
+  const event = frame.event;
+  if (!isRecord(event) || event.type !== 'content_block_delta' || !isRecord(event.delta)) return;
+  if (event.delta.type === 'text_delta') {
+    const delta = nonEmpty(event.delta.text);
+    if (!delta) return;
+    state.partialTextSeen = true;
+    state.text += delta;
+    emit(messageDeltaLine({ delta, channel: 'assistant' }));
+  } else if (event.delta.type === 'thinking_delta') {
+    const delta = nonEmpty(event.delta.thinking);
+    if (!delta) return;
+    state.partialThinkingSeen = true;
+    state.reasoning += delta;
+    emit(messageDeltaLine({ delta, channel: 'reasoning' }));
+  }
+}
+
+async function runClaude(payloadValue) {
+  const payload = await validatePayload(payloadValue);
+  const binary = await resolveClaudeExecutable();
+  if (!binary) throw hostError('Claude CLI is not installed.', 'host-unavailable');
+  const sessionId = nonEmpty(payload.nativeSessionId) ?? randomUUID();
+  const runId = nonEmpty(payload.rootRunId) ?? payload.requestId;
+  const identity = responseProvenance(payload.target, runId);
+  emit(
+    executionPreparedLine({
+      prepareId: randomUUID(),
+      runId,
+      identity,
+      targetDigest: executionTargetDigest(payload.target),
+      adapter: CLAUDE_ADAPTER,
+    }),
+  );
+
+  const startedAt = Date.now();
+  const child = spawn(binary, cliArgs(payload, sessionId), {
+    cwd: payload.cwd,
+    env: claudeChildEnv(),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  activeChild = child;
+  const state = {
+    started: false,
+    text: '',
+    reasoning: '',
+    partialTextSeen: false,
+    partialThinkingSeen: false,
+    tools: new Map(),
+    result: undefined,
+    protocolError: undefined,
+    stderr: '',
+  };
+  const stdout = createInterface({ input: child.stdout, crlfDelay: Number.POSITIVE_INFINITY });
+  stdout.on('line', (line) => {
+    if (!line.trim()) return;
+    let frame;
+    try {
+      frame = JSON.parse(line);
+    } catch {
+      state.protocolError = hostError('Claude CLI emitted malformed stream-json.', 'protocol');
+      child.kill('SIGTERM');
+      return;
+    }
+    if (frame.type === 'system' && frame.subtype === 'init') {
+      if (!state.started) {
+        state.started = true;
+        emit(startedLine({ sessionId: nonEmpty(frame.session_id) ?? sessionId }));
+      }
+    } else if (frame.type === 'stream_event') {
+      consumeStreamEvent(frame, state);
+    } else if (frame.type === 'assistant') {
+      consumeAssistantMessage(frame, state);
+    } else if (frame.type === 'user') {
+      consumeToolResults(frame, state);
+    } else if (frame.type === 'result') {
+      state.result = frame;
+    }
+  });
+  child.stderr.on('data', (chunk) => {
+    if (state.stderr.length < MAX_CAPTURE_BYTES) state.stderr += chunk.toString('utf8');
+  });
+  const exit = await new Promise((resolveExit, reject) => {
+    child.once('error', reject);
+    child.once('exit', (code, signal) => resolveExit({ code, signal }));
+  });
+  activeChild = undefined;
+  if (state.protocolError) throw state.protocolError;
+  if (terminating || exit.signal === 'SIGINT' || exit.signal === 'SIGTERM') {
+    throw hostError('Claude request stopped.', 'aborted');
+  }
+  const result = state.result;
+  if (exit.code !== 0 || !isRecord(result) || result.is_error === true) {
+    throw hostError(
+      nonEmpty(result?.result) ?? nonEmpty(state.stderr) ?? 'Claude CLI did not complete the task.',
+      'upstream',
     );
   }
-  const capturedAt = new Date().toISOString();
-  const planUsage = subscriptionUsage(rateLimits, capturedAt);
-  emit(messageEndLine({ text: content, stopReason: finalResult.stop_reason ?? 'end_turn' }));
+  if (!state.started) emit(startedLine({ sessionId: nonEmpty(result.session_id) ?? sessionId }));
+  const text = nonEmpty(result.result) ?? state.text;
+  emit(messageEndLine({ text, stopReason: nonEmpty(result.stop_reason) ?? result.subtype }));
+  const durationMs = Math.max(0, Date.now() - startedAt);
   emit(
     resultLine({
-      text: content,
-      ...(reasoning ? { reasoning } : {}),
-      ...(sessionId ? { sessionId } : {}),
-      model: modelSummary(selected),
+      text,
+      ...(state.reasoning ? { reasoning: state.reasoning } : {}),
+      ...(payload.mode === 'execute'
+        ? { sessionId: nonEmpty(result.session_id) ?? sessionId }
+        : {}),
       provenance: identity,
-      usage: diagnosticUsage(payload, selected, finalResult, capturedAt),
-      budgetUsage: null,
-      subscriptionUsage: planUsage,
+      usage: usageProjection(result, durationMs),
     }),
   );
 }
 
-function rejectPending(error) {
-  pendingExecutionAck?.reject(error);
-  pendingExecutionAck = undefined;
-  for (const settle of [...pendingUiRequests.values()]) settle({ cancelled: true });
-  pendingUiRequests.clear();
+async function readStdinJson() {
+  const input = createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY });
+  for await (const line of input) {
+    if (!line.trim()) continue;
+    input.close();
+    return JSON.parse(line);
+  }
+  throw hostError('Claude host stdin closed before a request arrived.', 'protocol');
 }
 
-async function shutdown(abort) {
-  rejectPending(new Error('Claude host input channel closed.'));
-  activeInputClose?.();
-  activeInputClose = undefined;
-  if (abort) activeAbortController?.abort();
-  activeQuery?.close();
-  activeQuery = undefined;
-  activeAbortController = undefined;
+async function runWorkspaceHook(workspaceRoot) {
+  const guard = createClaudeWorkspaceGuard(workspaceRoot);
+  const input = await readStdinJson();
+  const output = await guard(input);
+  if (isRecord(output) && Object.keys(output).length) process.stdout.write(JSON.stringify(output));
 }
 
-function main() {
-  const rl = createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY });
-  let sawPayload = false;
-  let statusRun = false;
-  const finish = async () => {
-    if (hostTerminating) return;
-    hostTerminating = true;
-    await shutdown(false);
-    rl.close();
-    process.exit(0);
-  };
-  const stopForSignal = () => {
-    if (hostTerminating) return;
-    hostTerminating = true;
-    void shutdown(true).finally(() => {
-      rl.close();
-      process.exit(143);
-    });
-  };
-  process.once('SIGTERM', stopForSignal);
-  process.once('SIGHUP', stopForSignal);
-
-  rl.on('line', (raw) => {
-    const trimmed = raw.trim();
-    if (!trimmed) return;
-    if (!sawPayload) {
-      sawPayload = true;
-      let payload;
-      try {
-        payload = JSON.parse(trimmed);
-      } catch (error) {
-        fail(Object.assign(error, { code: 'invalid-request' }));
-        return;
-      }
-      emit(readyLine());
-      if (payload.mode === 'status') {
-        statusRun = true;
-        void runStatus().then(finish, fail);
-        return;
-      }
-      void runClaude(payload).then(finish, fail);
-      return;
-    }
-    try {
-      const message = JSON.parse(trimmed);
-      resolveExecutionAck(message);
-      resolveUiResponse(message);
-    } catch {
-      // Malformed response lines cannot authorize execution or a tool.
-    }
-  });
-
-  rl.on('close', () => {
-    if (statusRun || hostTerminating) return;
-    hostTerminating = true;
-    void shutdown(true).finally(() => process.exit(1));
-  });
+async function shutdown() {
+  if (terminating) return;
+  terminating = true;
+  const child = activeChild;
+  if (!child || child.exitCode !== null) return;
+  child.kill('SIGINT');
+  const timer = setTimeout(() => {
+    if (child.exitCode === null) child.kill('SIGKILL');
+  }, 2_000);
+  timer.unref();
 }
 
-main();
+async function main() {
+  if (process.argv[2] === '--workspace-hook') {
+    await runWorkspaceHook(process.argv[3]);
+    return;
+  }
+  emit(readyLine());
+  const payload = await readStdinJson();
+  if (payload?.mode === 'status') {
+    emit(resultLine(await inspectClaudeCli()));
+    return;
+  }
+  await runClaude(payload);
+}
+
+process.once('SIGINT', () => void shutdown());
+process.once('SIGTERM', () => void shutdown());
+
+main().catch((error) => {
+  if (process.argv[2] === '--workspace-hook') {
+    process.stderr.write(safeError(error));
+    process.exitCode = 2;
+    return;
+  }
+  emit(errorLine({ code: nonEmpty(error?.code) ?? 'upstream', message: safeError(error) }));
+  process.exitCode = 1;
+});

@@ -1,7 +1,6 @@
 pub(crate) mod commands;
 
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -18,9 +17,7 @@ use crate::pi_agent_host::stream::{
     begin_run_stream, finish_run_stream, publish_host_event, reattach_stream, release_stream,
     stream_snapshot,
 };
-use crate::pi_agent_host::{
-    AiRuntimeStatusResponse, PiAgentHostEvent, PiAgentHostResponse, PiRunStreamSnapshot,
-};
+use crate::pi_agent_host::{PiAgentHostEvent, PiAgentHostResponse, PiRunStreamSnapshot};
 use crate::task_workspace_binding::{
     persist_conversation_native_session_reset,
     resolve_conversation_opaque_native_session_for_execute, resolve_task_workspace_for_turn,
@@ -43,18 +40,14 @@ const CLAUDE_LANE: AgentHostLane = AgentHostLane {
 };
 
 static IN_FLIGHT: InFlightRegistry = InFlightRegistry::new("claude_agent_host");
-static SUBSCRIPTION_USAGE: OnceLock<Mutex<HashMap<String, serde_json::Value>>> = OnceLock::new();
-
-fn usage_cache() -> &'static Mutex<HashMap<String, serde_json::Value>> {
-    SUBSCRIPTION_USAGE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct ClaudeModelSource {
     kind: String,
-    source_url: String,
-    checked_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    checked_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,10 +97,7 @@ pub(crate) struct ClaudeAgentExecuteRequest {
     #[serde(default)]
     native_session_mode: ClaudeNativeSessionMode,
     native_session_reset_source_run_id: Option<String>,
-    model: Option<String>,
-    runtime_model_ref: Option<String>,
     permission_mode: Option<String>,
-    thinking_level: Option<String>,
     system_prompt_append: Option<String>,
     #[serde(default)]
     workspace_requirement: ClaudeWorkspaceRequirement,
@@ -121,13 +111,25 @@ pub(crate) struct ClaudeAgentEnhanceRequest {
     text: String,
     expected_target: ClaudeExecutionTarget,
     system_prompt: String,
-    model: Option<String>,
-    runtime_model_ref: Option<String>,
-    thinking_level: Option<String>,
     source_provenance: Option<serde_json::Value>,
 }
 
-pub(crate) type ClaudeAgentStatusResponse = AiRuntimeStatusResponse;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ClaudeAgentStatusResponse {
+    pub(crate) engine_id: String,
+    pub(crate) display_name: String,
+    pub(crate) state: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) status_reason: Option<String>,
+    pub(crate) login_command: String,
+    pub(crate) docs_url: String,
+    pub(crate) source_url: String,
+    pub(crate) checked_at: String,
+    pub(crate) capabilities: serde_json::Value,
+}
 
 fn empty_response() -> PiAgentHostResponse {
     PiAgentHostResponse {
@@ -139,7 +141,6 @@ fn empty_response() -> PiAgentHostResponse {
         provenance: None,
         usage: None,
         budget_usage: None,
-        subscription_usage: None,
     }
 }
 
@@ -154,25 +155,23 @@ fn into_claude_code_message(error: HostError) -> (String, String) {
 }
 
 fn validate_target(target: &ClaudeExecutionTarget) -> Result<(), HostError> {
-    if target.engine_id != ENGINE_ID || target.billing_mode != "subscription" {
+    if target.engine_id != ENGINE_ID
+        || target.account_id != "claude:local"
+        || target.billing_mode != "subscription"
+        || target.model_id != "engine-managed"
+    {
         return Err(HostError::Request(
-            "The Claude request is bound to another engine or billing lane.".into(),
+            "The Claude request must use the local orchestration engine.".into(),
         ));
     }
-    for (value, label) in [
-        (&target.account_id, "expectedTarget.accountId"),
-        (&target.model_id, "expectedTarget.modelId"),
-        (&target.model_source.kind, "expectedTarget.modelSource.kind"),
-        (
-            &target.model_source.source_url,
-            "expectedTarget.modelSource.sourceUrl",
-        ),
-        (
-            &target.model_source.checked_at,
-            "expectedTarget.modelSource.checkedAt",
-        ),
-    ] {
-        required_text(Some(value), label, CLAUDE_LANE)?;
+    if target.model_source.kind != "native"
+        || target.model_source.source_url.is_some()
+        || target.model_source.checked_at.is_some()
+    {
+        return Err(HostError::Request(
+            "The Claude orchestration target must use native provenance without catalog metadata."
+                .into(),
+        ));
     }
     Ok(())
 }
@@ -299,36 +298,6 @@ fn claude_env(workspace_root: Option<&std::path::PathBuf>) -> HashMap<String, St
     trusted_host_env(workspace_root, &[], "OFFISIM_CLAUDE_EXECUTABLE")
 }
 
-fn cache_subscription_usage(account_id: &str, response: &PiAgentHostResponse) {
-    let Some(usage) = response.subscription_usage.clone() else {
-        return;
-    };
-    if let Ok(mut cache) = usage_cache().lock() {
-        cache.insert(account_id.to_string(), usage);
-    }
-}
-
-fn merge_cached_usage(status: &mut ClaudeAgentStatusResponse) {
-    let Ok(cache) = usage_cache().lock() else {
-        return;
-    };
-    for account in &mut status.accounts {
-        let Some(account_id) = account.get("accountId").and_then(serde_json::Value::as_str) else {
-            continue;
-        };
-        let Some(usage) = cache.get(account_id) else {
-            continue;
-        };
-        account["usage"] = usage.clone();
-        if let Some(capabilities) = account
-            .get_mut("capabilities")
-            .and_then(serde_json::Value::as_object_mut)
-        {
-            capabilities.insert("usage".into(), serde_json::json!({ "status": "available" }));
-        }
-    }
-}
-
 fn execute_payload(
     req: &ClaudeAgentExecuteRequest,
     cwd: &std::path::Path,
@@ -342,13 +311,10 @@ fn execute_payload(
         "cwd": cwd,
         "workspaceAvailability": workspace_availability,
         "nativeSessionId": native_session_id,
-        "model": req.model,
         "permissionMode": req.permission_mode,
-        "thinkingLevel": req.thinking_level,
         "systemPromptAppend": req.system_prompt_append,
         "rootRunId": req.root_run_id,
         "expectedTarget": req.expected_target,
-        "runtimeModelRef": req.runtime_model_ref,
     })
 }
 
@@ -418,16 +384,6 @@ async fn do_execute<R: tauri::Runtime>(
     required_text(Some(&req.thread_id), "threadId", CLAUDE_LANE)?;
     let project_id = required_text(req.project_id.as_ref(), "projectId", CLAUDE_LANE)?;
     let root_run_id = required_text(req.root_run_id.as_ref(), "rootRunId", CLAUDE_LANE)?;
-    let runtime_model_ref = required_text(
-        req.runtime_model_ref.as_ref(),
-        "runtimeModelRef",
-        CLAUDE_LANE,
-    )?;
-    if !runtime_model_ref.starts_with("claude:") {
-        return Err(HostError::Request(
-            "runtimeModelRef must be a native Claude selector.".into(),
-        ));
-    }
     validate_target(&req.expected_target)?;
     if is_resume && req.workspace_requirement.is_optional() {
         return Err(HostError::Request(
@@ -583,7 +539,6 @@ async fn do_execute<R: tauri::Runtime>(
         raw?
     };
     let response = crate::pi_agent_host::parse_response(raw)?;
-    cache_subscription_usage(&req.expected_target.account_id, &response);
     publish_host_event(
         Some(&req.request_id),
         Some(on_event),
@@ -654,16 +609,6 @@ async fn do_enhance<R: tauri::Runtime>(
     required_text(Some(&req.request_id), "requestId", CLAUDE_LANE)?;
     required_text(Some(&req.text), "text", CLAUDE_LANE)?;
     required_text(Some(&req.system_prompt), "systemPrompt", CLAUDE_LANE)?;
-    let runtime_model_ref = required_text(
-        req.runtime_model_ref.as_ref(),
-        "runtimeModelRef",
-        CLAUDE_LANE,
-    )?;
-    if !runtime_model_ref.starts_with("claude:") {
-        return Err(HostError::Request(
-            "runtimeModelRef must be a native Claude selector.".into(),
-        ));
-    }
     validate_target(&req.expected_target)?;
     let cwd = neutral_cwd(app)?;
     let dev_root = dev_workspace_root();
@@ -674,11 +619,8 @@ async fn do_enhance<R: tauri::Runtime>(
         "text": req.text,
         "cwd": cwd,
         "systemPrompt": req.system_prompt,
-        "model": req.model,
-        "thinkingLevel": req.thinking_level,
         "sourceProvenance": req.source_provenance,
         "expectedTarget": req.expected_target,
-        "runtimeModelRef": req.runtime_model_ref,
     });
     let raw = run_pi_sidecar_jsonl(
         app,
@@ -696,7 +638,6 @@ async fn do_enhance<R: tauri::Runtime>(
     )
     .await?;
     let response = crate::pi_agent_host::parse_response(raw)?;
-    cache_subscription_usage(&req.expected_target.account_id, &response);
     on_event
         .send(PiAgentHostEvent::Result {
             response: Box::new(response.clone()),
@@ -768,9 +709,8 @@ pub(crate) async fn status_impl<R: tauri::Runtime>(
         let (_, message) = into_claude_code_message(error);
         message
     })?;
-    let mut status: ClaudeAgentStatusResponse =
+    let status: ClaudeAgentStatusResponse =
         serde_json::from_value(raw).map_err(|error| format!("Decode Claude status: {error}"))?;
-    merge_cached_usage(&mut status);
     Ok(status)
 }
 
@@ -810,19 +750,19 @@ mod tests {
     fn target() -> ClaudeExecutionTarget {
         ClaudeExecutionTarget {
             engine_id: "claude".into(),
-            account_id: "claude:subscription:test".into(),
+            account_id: "claude:local".into(),
             billing_mode: "subscription".into(),
-            model_id: "claude-sonnet-5".into(),
+            model_id: "engine-managed".into(),
             model_source: ClaudeModelSource {
                 kind: "native".into(),
-                source_url: "https://code.claude.com/docs/en/agent-sdk/typescript".into(),
-                checked_at: "2026-07-16T00:00:00Z".into(),
+                source_url: None,
+                checked_at: None,
             },
         }
     }
 
     #[test]
-    fn claude_target_is_subscription_only() {
+    fn claude_target_is_canonical_orchestration_identity() {
         assert!(validate_target(&target()).is_ok());
         let mut invalid = target();
         invalid.billing_mode = "api".into();
@@ -856,10 +796,7 @@ mod tests {
             workspace_binding_history_id: None,
             native_session_mode: ClaudeNativeSessionMode::Tracked,
             native_session_reset_source_run_id: None,
-            model: Some("claude:sonnet".into()),
-            runtime_model_ref: Some("claude:sonnet".into()),
             permission_mode: Some("auto".into()),
-            thinking_level: None,
             system_prompt_append: None,
             workspace_requirement: ClaudeWorkspaceRequirement::Required,
             native_session_id: Some("opaque-session".into()),

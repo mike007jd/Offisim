@@ -470,10 +470,18 @@ const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
 const CLAUDE_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
   engineId: 'claude',
   billingMode: 'subscription',
-  runtimeVersion: '0.3.211',
+  runtimeVersion: '1',
   protocolVersion: 1,
   requestPrefix: 'claude-agent',
   supportsOffisimDelegation: false,
+  capabilities: {
+    stop: true,
+    steer: false,
+    resume: true,
+    permissionModes: ['plan', 'auto', 'full'],
+    interactions: { approval: false, userInput: false },
+    processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  },
 };
 
 type ExecutionPreparedEvent = Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>;
@@ -678,9 +686,6 @@ function hostModelRef(
 ): string | null {
   if (model?.api === 'codex-app-server' && model.catalogId?.trim()) {
     return `codex:${model.catalogId.trim()}`;
-  }
-  if (model?.api === 'claude-agent-sdk' && model.catalogId?.trim()) {
-    return `claude:${model.catalogId.trim()}`;
   }
   if (!model?.id) return null;
   return model.provider ? `${model.provider}/${model.id}` : model.id;
@@ -1369,8 +1374,21 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
   }
 
   private invokeEnhance(args: CommandArgs<'agent_runtime_enhance'>) {
-    if (this.engineId === 'codex') return this.commands.enhanceCodex(args);
-    if (this.engineId === 'claude') return this.commands.enhanceClaude(args);
+    if (this.engineId === 'codex' || this.engineId === 'claude') {
+      const nativeArgs = {
+        req: {
+          requestId: args.req.requestId,
+          text: args.req.text,
+          expectedTarget: args.req.expectedTarget,
+          systemPrompt: args.req.systemPrompt,
+          sourceProvenance: args.req.sourceProvenance,
+        },
+        onEvent: args.onEvent,
+      };
+      return this.engineId === 'codex'
+        ? this.commands.enhanceCodex(nativeArgs)
+        : this.commands.enhanceClaude(nativeArgs);
+    }
     return this.commands.enhanceApi(args);
   }
 
@@ -1543,7 +1561,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     // Codex validates the exact native account/model and the durable renderer
     // target inside execute/resume before it starts a turn. Pi retains its
     // separate provider ACK because its paid boundary occurs later.
-    if (this.engineId === 'codex') return;
+    if (this.engineId === 'codex' || this.engineId === 'claude') return;
     await invokeCommand('agent_runtime_confirm_execution', {
       requestId,
       prepareId: event.prepareId,
@@ -3277,10 +3295,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             rootRunId: runScope.runId,
             workspaceRequirement,
             nativeSessionMode,
-            model: resolvedModel,
-            runtimeModelRef: resolvedModel,
             permissionMode,
-            thinkingLevel: resolvedThinkingLevel,
             systemPromptAppend: systemPromptAppend ?? undefined,
             ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
               ? { nativeSessionId: runtimeContext.nativeSessionId }

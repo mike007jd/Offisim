@@ -225,8 +225,6 @@ pub struct PiModelSummary {
     pub(super) max_tokens: Option<u64>,
     #[serde(default)]
     pub(super) input: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(super) catalog_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -254,10 +252,6 @@ pub struct PiAgentHostResponse {
     // child rows when it reconciles the run tree.
     #[serde(default)]
     pub(crate) budget_usage: Option<serde_json::Value>,
-    /// Safe provider-native subscription window captured during this run.
-    /// The Claude lane caches it for Settings; it is never API cost telemetry.
-    #[serde(default)]
-    pub(crate) subscription_usage: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -326,16 +320,20 @@ impl<'de> Deserialize<'de> for PiExecutionTarget {
 #[serde(rename_all = "camelCase")]
 pub struct PiModelSource {
     pub(super) kind: String,
-    pub(super) source_url: String,
-    pub(super) checked_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) source_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) checked_at: Option<String>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RawPiModelSource {
     kind: String,
-    source_url: String,
-    checked_at: String,
+    #[serde(default)]
+    source_url: Option<String>,
+    #[serde(default)]
+    checked_at: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for PiModelSource {
@@ -344,12 +342,24 @@ impl<'de> Deserialize<'de> for PiModelSource {
         D: Deserializer<'de>,
     {
         let raw = RawPiModelSource::deserialize(deserializer)?;
-        let source_url = raw.source_url.trim().to_owned();
-        let checked_at = raw.checked_at.trim().to_owned();
-        let source = url::Url::parse(&source_url).map_err(D::Error::custom)?;
+        if raw.kind == "native" {
+            if raw.source_url.is_some() || raw.checked_at.is_some() {
+                return Err(D::Error::custom(
+                    "Native orchestration provenance cannot carry catalog metadata",
+                ));
+            }
+            return Ok(Self {
+                kind: raw.kind,
+                source_url: None,
+                checked_at: None,
+            });
+        }
+        let source_url = raw.source_url.as_deref().map(str::trim).unwrap_or_default();
+        let checked_at = raw.checked_at.as_deref().map(str::trim).unwrap_or_default();
+        let source = url::Url::parse(source_url).map_err(D::Error::custom)?;
         if raw.kind != "official-api"
             || source.scheme() != "https"
-            || chrono::DateTime::parse_from_rfc3339(&checked_at).is_err()
+            || chrono::DateTime::parse_from_rfc3339(checked_at).is_err()
         {
             return Err(D::Error::custom(
                 "API model source must be official-api with HTTPS sourceUrl and RFC3339 checkedAt",
@@ -357,8 +367,8 @@ impl<'de> Deserialize<'de> for PiModelSource {
         }
         Ok(Self {
             kind: raw.kind,
-            source_url,
-            checked_at,
+            source_url: Some(source_url.to_owned()),
+            checked_at: Some(checked_at.to_owned()),
         })
     }
 }
@@ -451,8 +461,6 @@ pub enum PiAgentHostEvent {
         placeholder: Option<String>,
         #[serde(default)]
         prefill: Option<String>,
-        #[serde(default)]
-        params: Option<serde_json::Value>,
     },
     AgentRun {
         thread_id: String,
@@ -552,7 +560,7 @@ pub struct PiAgentProviderTemplate {
 #[serde(rename_all = "camelCase")]
 pub struct AiRuntimeStatusResponse {
     #[serde(default)]
-    pub(crate) accounts: Vec<serde_json::Value>,
+    pub(super) accounts: Vec<serde_json::Value>,
     #[serde(default)]
     pub(super) models: Vec<serde_json::Value>,
     #[serde(default)]

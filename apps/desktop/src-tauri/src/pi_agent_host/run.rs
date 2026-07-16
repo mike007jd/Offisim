@@ -1237,7 +1237,6 @@ async fn execute_with_mode(
                 provenance: None,
                 usage: None,
                 budget_usage: None,
-                subscription_usage: None,
             })
         }
         Err(error) => {
@@ -1335,7 +1334,6 @@ pub(super) async fn enhance_impl(
             provenance: None,
             usage: None,
             budget_usage: None,
-            subscription_usage: None,
         }),
         Err(error) => {
             let (code, message) = error.into_code_message(PI_LANE);
@@ -1433,7 +1431,6 @@ pub(super) async fn collaborate_impl(
             provenance: None,
             usage: None,
             budget_usage: None,
-            subscription_usage: None,
         }),
         Err(error) => {
             let (code, message) = error.into_code_message(PI_LANE);

@@ -239,10 +239,13 @@ fn merge_runtime_status(
     }
     match claude {
         Ok(claude) => {
-            accounts.extend(claude.accounts);
-            models.extend(claude.models);
+            if let Ok(engine) = serde_json::to_value(claude) {
+                orchestration_engines.push(engine);
+            } else {
+                orchestration_engines.push(claude_unavailable_account());
+            }
         }
-        Err(_) => accounts.push(claude_unavailable_account()),
+        Err(_) => orchestration_engines.push(claude_unavailable_account()),
     }
     AiRuntimeStatusResponse {
         accounts,
@@ -297,26 +300,23 @@ fn codex_unavailable_account() -> serde_json::Value {
 }
 
 fn claude_unavailable_account() -> serde_json::Value {
-    let unavailable = |reason: &str| {
-        serde_json::json!({
-            "status": "unavailable",
-            "reason": reason,
-        })
-    };
     serde_json::json!({
         "engineId": "claude",
-        "accountId": "claude-subscription-unavailable",
-        "billingMode": "subscription",
-        "displayName": "Claude subscription",
-        "status": "unavailable",
-        "statusReason": "Claude subscription status is unavailable.",
+        "displayName": "Claude",
+        "state": "unavailable",
+        "statusReason": "Claude CLI status is unavailable.",
+        "loginCommand": "claude auth login",
+        "docsUrl": "https://code.claude.com/docs/en/authentication",
+        "sourceUrl": "https://code.claude.com/docs/en/cli-usage",
+        "checkedAt": "1970-01-01T00:00:00Z",
         "capabilities": {
-            "execute": unavailable("Claude subscription status is unavailable."),
-            "models": unavailable("Claude model status is unavailable."),
-            "usage": unavailable("Claude native usage is unavailable."),
-            "cost": unavailable("Subscription usage is not converted into API cost."),
-        },
-        "usage": null,
+            "stop": true,
+            "steer": false,
+            "resume": true,
+            "permissionModes": ["plan", "auto", "full"],
+            "interactions": { "approval": false, "userInput": false },
+            "processEvents": { "reasoning": true, "toolCalls": true, "fileChanges": true },
+        }
     })
 }
 

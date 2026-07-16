@@ -37,7 +37,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
   const [deciding, setDeciding] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [inputAnswers, setInputAnswers] = useState<
-    Record<string, { values: string[]; other: boolean; otherValue: string }>
+    Record<string, { value: string; other: boolean }>
   >({});
   const approvalKey = approval
     ? `${approval.attemptId}:${approval.uiRequestId}:${approval.state}`
@@ -137,18 +137,10 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
     setDecisionError(null);
     try {
       const answers = Object.fromEntries(
-        (approval.questions ?? []).map((question) => {
-          const answer = inputAnswers[question.id];
-          return [
-            question.id,
-            {
-              answers: [
-                ...(answer?.values ?? []),
-                ...(answer?.other && answer.otherValue.trim() ? [answer.otherValue] : []),
-              ],
-            },
-          ];
-        }),
+        (approval.questions ?? []).map((question) => [
+          question.id,
+          { answers: [inputAnswers[question.id]?.value ?? ''] },
+        ]),
       );
       await conversationRunController.answerApproval({
         threadId,
@@ -211,11 +203,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
       {isUserInput && approval.state === 'live' ? (
         <div className="off-permission-questions">
           {(approval.questions ?? []).map((question) => {
-            const answer = inputAnswers[question.id] ?? {
-              values: [],
-              other: false,
-              otherValue: '',
-            };
+            const answer = inputAnswers[question.id] ?? { value: '', other: false };
             return (
               <fieldset className="off-permission-question" key={question.id} disabled={deciding}>
                 <legend>{question.header}</legend>
@@ -223,18 +211,18 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
                 {question.options.length ? (
                   <div
                     className="off-permission-options"
-                    role={question.multiSelect ? 'group' : 'radiogroup'}
+                    role="radiogroup"
                     aria-label={question.header}
                   >
                     {question.options.map((option) => {
-                      const selected = answer.values.includes(option.label);
+                      const selected = !answer.other && answer.value === option.label;
                       return (
                         <label
                           className={`off-permission-option${selected ? ' is-selected' : ''}`}
                           key={option.label}
                         >
                           <input
-                            type={question.multiSelect ? 'checkbox' : 'radio'}
+                            type="radio"
                             name={`${approval.uiRequestId}:${question.id}`}
                             value={option.label}
                             checked={selected}
@@ -242,18 +230,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
                             onChange={() =>
                               setInputAnswers((current) => ({
                                 ...current,
-                                [question.id]: question.multiSelect
-                                  ? {
-                                      ...answer,
-                                      values: selected
-                                        ? answer.values.filter((value) => value !== option.label)
-                                        : [...answer.values, option.label],
-                                    }
-                                  : {
-                                      values: [option.label],
-                                      other: false,
-                                      otherValue: '',
-                                    },
+                                [question.id]: { value: option.label, other: false },
                               }))
                             }
                           />
@@ -269,7 +246,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
                         className={`off-permission-option${answer.other ? ' is-selected' : ''}`}
                       >
                         <input
-                          type={question.multiSelect ? 'checkbox' : 'radio'}
+                          type="radio"
                           name={`${approval.uiRequestId}:${question.id}`}
                           value="other"
                           checked={answer.other}
@@ -277,9 +254,7 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
                           onChange={() =>
                             setInputAnswers((current) => ({
                               ...current,
-                              [question.id]: question.multiSelect
-                                ? { ...answer, other: !answer.other, otherValue: '' }
-                                : { values: [], other: true, otherValue: '' },
+                              [question.id]: { value: '', other: true },
                             }))
                           }
                         />
@@ -295,17 +270,13 @@ export function PermissionApprovalBar({ threadId }: { threadId: string }) {
                   <Input
                     type={question.isSecret ? 'password' : 'text'}
                     autoComplete="off"
-                    value={answer.otherValue}
+                    value={answer.value}
                     aria-label={question.header}
                     placeholder={question.isSecret ? 'Enter securely' : 'Type your answer'}
                     onChange={(event) =>
                       setInputAnswers((current) => ({
                         ...current,
-                        [question.id]: {
-                          ...answer,
-                          other: true,
-                          otherValue: event.target.value,
-                        },
+                        [question.id]: { value: event.target.value, other: answer.other },
                       }))
                     }
                   />

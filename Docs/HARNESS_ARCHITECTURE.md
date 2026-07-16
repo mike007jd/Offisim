@@ -22,8 +22,12 @@ exactly one adapter:
   `apps/desktop/src-tauri/src/codex_agent_host/` to detect the user-installed CLI,
   start `codex app-server --stdio`, project its event stream, and support Stop and
   recovery. Offisim does not bundle a Codex binary.
-- **Claude Code orchestration** — pending. No Settings card, label, or compatibility
-  shim counts as support before its full adapter and release proof exist.
+- **Claude Code orchestration** — implemented. The adapter uses
+  `scripts/tauri-claude-agent-host.entry.mjs` and
+  `apps/desktop/src-tauri/src/claude_agent_host/` to detect the user-installed
+  CLI, start print-mode `stream-json`, project reasoning/tool/file-operation
+  events, and support Stop and recovery. Offisim bundles neither the Claude Code
+  CLI nor the Agent SDK.
 
 All three shipped adapters enter through the neutral `agent_runtime_*` Tauri
 commands and project neutral message, tool, approval, usage, and terminal events
@@ -58,6 +62,9 @@ The retained runtime gates are responsibility-based:
 - `pnpm harness:codex-app-server-contract` — Codex CLI detection, PATH launch,
   app-server protocol, event stream, approval, Stop, recovery, and secret-isolation
   contract; it also prevents bundled-binary and account/model/Usage code from returning.
+- `pnpm harness:claude-agent-host` — Claude CLI detection, renderer/Rust command
+  lockstep, print-mode stream protocol, workspace/symlink/Bash guards, process
+  events, token/duration projection, Stop, lifecycle, and secret isolation.
 - `pnpm harness:renderer-engine-authority` and
   `pnpm harness:execution-provenance` — one authoritative engine/account/model
   identity per Turn.

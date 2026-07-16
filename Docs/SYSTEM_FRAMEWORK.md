@@ -12,7 +12,7 @@ Offisim is a local-first desktop product with an optional registry backend.
 
 - The desktop app is the product runtime.
 - `DesktopAgentRuntimeGateway` is the only production engine entry. The Pi API
-  engine and Codex CLI orchestration adapter are implemented; Claude Code remains pending.
+  engine plus Codex and Claude Code CLI orchestration adapters are implemented.
 - The platform API is registry/auth/install support, not the execution plane.
 - The renderer is internal to the desktop app, not a standalone web product.
 
@@ -44,7 +44,7 @@ single gateway defined by the current architecture decision.
 2. Renderer persists the user turn into local thread state.
 3. Renderer calls the runtime-neutral `agent_runtime_execute` gateway.
 4. Tauri validates the backend-issued effective task workspace and starts the
-   selected complete API, Codex, or Claude adapter.
+   selected complete API or Codex adapter.
 5. The selected engine owns native model execution, session storage,
    compaction, tool loop, stream protocol, retries, and native auth.
 6. Tauri forwards the engine's safe neutral event projection to the renderer.
