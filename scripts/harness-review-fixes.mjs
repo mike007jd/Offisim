@@ -37,8 +37,9 @@ assert(
   'The current API adapter host must be buildable.',
 );
 assert(
-  rootPackage.scripts['harness:review-fixes'].includes('check:model-catalog-freshness'),
-  'The architecture guard must verify the exact model catalog.',
+  rootPackage.scripts['harness:review-fixes'].includes('harness:ai-account-catalog') &&
+    !rootPackage.scripts['harness:review-fixes'].includes('check:model-catalog-freshness'),
+  'The architecture guard must validate dynamic Pi configuration without a closed-world catalog.',
 );
 assert(
   rootPackage.scripts['harness:review-fixes'].includes('harness:visual-semantics'),
@@ -87,10 +88,15 @@ assert(
   agentBridgePermission.includes('"pi_agent_status"'),
   'The implementation diagnostic status command must remain explicitly scoped.',
 );
+assertIncludesAll(
+  agentBridgePermission,
+  ['"pi_agent_save_provider"', '"pi_agent_open_config_folder"'],
+  'Tauri permissions must expose the Pi-owned provider editor and config-folder entry.',
+);
 assertNoMatch(
   agentBridgePermission,
-  /pi_agent_(save_provider|open_config_folder)|runtime_provider_|llm_fetch/u,
-  'Tauri permissions must not expose a second provider configuration or raw transport path.',
+  /runtime_provider_|llm_fetch/u,
+  'Tauri permissions must not expose a second raw provider transport path.',
 );
 
 const rustLib = await source('apps/desktop/src-tauri/src/lib.rs');
@@ -99,10 +105,15 @@ assertIncludesAll(
   neutralCommands.map((command) => `pi_agent_host::${command}`),
   'The Rust command registry must mount the complete neutral production gateway.',
 );
+assertIncludesAll(
+  rustLib,
+  ['pi_agent_host::pi_agent_save_provider', 'pi_agent_host::pi_agent_open_config_folder'],
+  'The Rust registry must mount the Pi-owned provider editor commands.',
+);
 assertNoMatch(
   rustLib,
-  /pi_agent_(save_provider|open_config_folder)|runtime_provider_|llm_fetch/u,
-  'The Rust registry must not retain a writable implementation-config lane.',
+  /runtime_provider_|llm_fetch/u,
+  'The Rust registry must not expose a duplicate provider transport lane.',
 );
 
 const workspaceBindingHost = await source('apps/desktop/src-tauri/src/task_workspace_binding.rs');
@@ -165,30 +176,43 @@ assertIncludesAll(
 );
 assertIncludesAll(
   accountsPane,
-  ["invokeCommand('agent_runtime_status'", 'Models', 'Usage', 'Cost'],
-  'AI Accounts must use the safe status projection and truthful Usage/Cost sections.',
+  [
+    "invokeCommand('agent_runtime_status'",
+    "invokeCommand('pi_agent_save_provider'",
+    "invokeCommand('pi_agent_open_config_folder'",
+    'API engines',
+    'Orchestration engines',
+  ],
+  'AI Accounts must combine safe status with the Pi-owned provider editor.',
 );
 assertNoMatch(
   settingsSurface + accountsPane,
-  /PiAgentPane|pi_agent_status|pi_agent_open_config_folder|pi_agent_save_provider|auth\.json|models\.json|Provider profile/u,
-  'Ordinary Settings must not expose implementation identity, auth files, or provider-profile editing.',
+  /PiAgentPane|readPiModelOverride|writePiModelOverride|auth\.json/u,
+  'Settings must not restore implementation identity, raw auth files, or the old global override.',
 );
 
 const hostSource = await source('scripts/tauri-pi-agent-host.entry.mjs');
 assertIncludesAll(
   hostSource,
-  ['runtimeStatusProjection', 'createRequestExecutionTargetGate', 'resolveApiRunUsage'],
-  'The current API adapter must project a safe catalog, gate exact targets, and report honest usage.',
+  [
+    'runtimeStatusProjection',
+    'createRequestExecutionTargetGate',
+    'resolveApiRunUsage',
+    'saveProvider',
+    'writeModelsJsonProvider',
+  ],
+  'The API adapter must project dynamic models, safely edit Pi config, gate targets, and report usage.',
 );
 assertNoMatch(
   hostSource,
-  /saveProvider|piSaveProvider|writeModelsJsonProvider|providerTemplates:/u,
-  'The host must not retain the old writable provider-profile mode.',
+  /readPiModelOverride|writePiModelOverride|offisim:pi-agent:model-override|configureApiAccount/u,
+  'The host must not restore a global override or OpenRouter-only configuration lane.',
 );
 
 for (const removedPath of [
   'apps/desktop/renderer/src/surfaces/settings/PiAgentPane.tsx',
   'apps/desktop/renderer/src/surfaces/settings/ProviderPane.tsx',
+  'apps/desktop/renderer/src/surfaces/settings/ApiKeyDialog.tsx',
   'apps/desktop/renderer/src/runtime/pi-agent-config.ts',
   'apps/desktop/renderer/src/lib/provider-bridge.ts',
   'apps/desktop/renderer/src/lib/tauri-llm-fetch.ts',

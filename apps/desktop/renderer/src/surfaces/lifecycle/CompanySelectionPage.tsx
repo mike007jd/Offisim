@@ -31,6 +31,7 @@ import { employeeAvatarUri } from '@/lib/avatar.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { cn } from '@/lib/utils.js';
 import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
+import { motionPresets } from '@/styles/motion-tokens.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import {
   Archive,
@@ -208,12 +209,7 @@ export function CompanySelectionPage({ onNewCompany }: CompanySelectionPageProps
   }
 
   return (
-    <motion.div
-      className="off-csp"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-    >
+    <motion.div className="off-csp" {...motionPresets.pageFade}>
       <aside className="off-csp-aside">
         <div className="off-csp-aside-h">
           <div className="off-csp-aside-ttl">Companies</div>

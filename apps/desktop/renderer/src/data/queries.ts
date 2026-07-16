@@ -9,8 +9,6 @@ import { RUN_COST_UPDATED_EVENT } from '@/runtime/run-cost-refresh.js';
 import { buildWizardTemplates } from '@/surfaces/lifecycle/template-view.js';
 import type {
   ActivityType,
-  AiRuntimeStatus,
-  AiSubscriptionUsageSnapshot,
   PrefabDefinition,
   PrefabInstanceRow,
   SemanticCategory,
@@ -42,7 +40,6 @@ import type {
   Employee,
   FileNode,
   GitRepoState,
-  RunCost,
   Skill,
 } from './types.js';
 
@@ -626,30 +623,6 @@ export async function loadDeliverableBody(deliverable: Deliverable): Promise<str
   return row?.content ?? '';
 }
 
-async function loadSelectedSubscriptionUsage(
-  cost: RunCost,
-): Promise<AiSubscriptionUsageSnapshot | null> {
-  const account =
-    cost.sessionAccounts.length === 1 && cost.sessionAccounts[0]?.billingMode === 'subscription'
-      ? cost.sessionAccounts[0]
-      : null;
-  if (!account) return null;
-  try {
-    const status: AiRuntimeStatus = await invokeCommand('agent_runtime_status', {
-      includeUsage: true,
-    });
-    const matched = status.accounts.find(
-      (candidate) =>
-        candidate.engineId === account.engineId &&
-        candidate.accountId === account.accountId &&
-        candidate.billingMode === account.billingMode,
-    );
-    return matched?.usage?.kind === 'subscription' ? matched.usage : null;
-  } catch {
-    return null;
-  }
-}
-
 export function useRunCost() {
   const companyId = useUiState((state) => state.companyId) || null;
   const threadId = useUiState((state) => state.selectedThreadId);
@@ -668,10 +641,8 @@ export function useRunCost() {
         loadRunCost(companyId, threadId),
         loadTokenBudgets(companyId),
       ]);
-      const sessionSubscriptionUsage = await loadSelectedSubscriptionUsage(cost);
       return {
         ...cost,
-        sessionSubscriptionUsage,
         alerts: computeTokenBudgetAlerts({
           monthlyTokens: cost.monthlyTokens,
           monthlyKnownTokens: cost.monthlyKnownTokens,

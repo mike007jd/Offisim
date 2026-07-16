@@ -1,6 +1,5 @@
 import type { EmployeeAppearance } from '@/lib/avatar.js';
 import type {
-  AiSubscriptionUsageSnapshot,
   AttachmentKind,
   RoleSlug,
   VaultRef,
@@ -258,12 +257,12 @@ export interface RunCost {
   sessionTokens: number | null;
   sessionKnownTokens: number;
   sessionTokenCoverage: 'complete' | 'partial' | 'unavailable';
+  /** Sum of persisted root-run wall-clock durations for the selected Conversation. */
+  sessionDurationMs: number;
   /** Exact engine/account lane(s) proven by the selected Conversation's persisted root usage. */
   sessionAccounts: RunAccountingAccount[];
   sessionCostKind: 'actual' | 'estimate' | 'unavailable' | 'none';
   sessionCostLabel: string;
-  /** Provider-native subscription limits for the selected lane, never local token math. */
-  sessionSubscriptionUsage: AiSubscriptionUsageSnapshot | null;
   costKind: 'actual' | 'estimate' | 'unavailable' | 'none';
   costLabel: string;
   live: boolean;

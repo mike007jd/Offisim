@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import {
@@ -16,7 +16,6 @@ import { Type } from 'typebox';
 import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
 import { resolveApiRunUsage } from './agent-run-usage.mjs';
 import { projectApiAccountCatalog } from './ai-account-catalog.mjs';
-import { OPENROUTER_API_BASE_URL } from './ai-model-catalog.mjs';
 import {
   decodePiRequestPayload,
   errorLine,
@@ -798,6 +797,186 @@ function readModelsJsonForWrite(modelsPath) {
   return parsed;
 }
 
+function skipJsoncTrivia(source, index) {
+  let cursor = index;
+  while (cursor < source.length) {
+    const char = source[cursor];
+    if (/\s/u.test(char)) {
+      cursor += 1;
+      continue;
+    }
+    if (char === '/' && source[cursor + 1] === '/') {
+      cursor += 2;
+      while (cursor < source.length && source[cursor] !== '\n') cursor += 1;
+      continue;
+    }
+    if (char === '/' && source[cursor + 1] === '*') {
+      cursor += 2;
+      while (cursor < source.length && !(source[cursor] === '*' && source[cursor + 1] === '/')) {
+        cursor += 1;
+      }
+      cursor = Math.min(cursor + 2, source.length);
+      continue;
+    }
+    break;
+  }
+  return cursor;
+}
+
+function parseJsonStringAt(source, index) {
+  if (source[index] !== '"') throw new Error('Expected JSON string key in models.json');
+  let cursor = index + 1;
+  while (cursor < source.length) {
+    const char = source[cursor];
+    if (char === '\\') {
+      cursor += 2;
+      continue;
+    }
+    if (char === '"') {
+      const end = cursor + 1;
+      return { value: JSON.parse(source.slice(index, end)), end };
+    }
+    cursor += 1;
+  }
+  throw new Error('Unterminated JSON string in models.json');
+}
+
+function findJsoncMatching(source, openIndex, openChar, closeChar) {
+  let depth = 0;
+  let cursor = openIndex;
+  while (cursor < source.length) {
+    const char = source[cursor];
+    if (char === '"') {
+      cursor = parseJsonStringAt(source, cursor).end;
+      continue;
+    }
+    if (char === '/' && (source[cursor + 1] === '/' || source[cursor + 1] === '*')) {
+      cursor = skipJsoncTrivia(source, cursor);
+      continue;
+    }
+    if (char === openChar) depth += 1;
+    if (char === closeChar) {
+      depth -= 1;
+      if (depth === 0) return cursor;
+    }
+    cursor += 1;
+  }
+  throw new Error('Unbalanced models.json object');
+}
+
+function findJsoncValueEnd(source, valueStart) {
+  const start = skipJsoncTrivia(source, valueStart);
+  const char = source[start];
+  if (char === '{') return findJsoncMatching(source, start, '{', '}') + 1;
+  if (char === '[') return findJsoncMatching(source, start, '[', ']') + 1;
+  if (char === '"') return parseJsonStringAt(source, start).end;
+  let cursor = start;
+  while (cursor < source.length && !/[,\]}]/u.test(source[cursor])) cursor += 1;
+  return cursor;
+}
+
+function lineIndentAt(source, index) {
+  const lineStart = source.lastIndexOf('\n', Math.max(0, index - 1)) + 1;
+  return source.slice(lineStart, index).match(/^\s*/u)?.[0] ?? '';
+}
+
+function previousJsoncSignificantChar(source, index) {
+  let cursor = index - 1;
+  while (cursor >= 0) {
+    if (/\s/u.test(source[cursor])) {
+      cursor -= 1;
+      continue;
+    }
+    if (source[cursor] === '/' && source[cursor - 1] === '/') {
+      cursor -= 2;
+      while (cursor >= 0 && source[cursor] !== '\n') cursor -= 1;
+      continue;
+    }
+    if (source[cursor] === '/' && source[cursor - 1] === '*') {
+      cursor -= 2;
+      while (cursor >= 0 && !(source[cursor] === '/' && source[cursor + 1] === '*')) cursor -= 1;
+      cursor -= 1;
+      continue;
+    }
+    return source[cursor];
+  }
+  return undefined;
+}
+
+function findJsoncObjectProperty(source, objectStart, propertyName) {
+  if (source[objectStart] !== '{') throw new Error('Expected object in models.json');
+  const objectEnd = findJsoncMatching(source, objectStart, '{', '}');
+  let cursor = skipJsoncTrivia(source, objectStart + 1);
+  while (cursor < objectEnd) {
+    if (source[cursor] === ',') {
+      cursor = skipJsoncTrivia(source, cursor + 1);
+      continue;
+    }
+    if (source[cursor] !== '"') break;
+    const key = parseJsonStringAt(source, cursor);
+    const colon = skipJsoncTrivia(source, key.end);
+    if (source[colon] !== ':') throw new Error('Expected colon in models.json object');
+    const valueStart = skipJsoncTrivia(source, colon + 1);
+    const valueEnd = findJsoncValueEnd(source, valueStart);
+    if (key.value === propertyName) return { valueStart, valueEnd };
+    cursor = skipJsoncTrivia(source, valueEnd);
+    if (source[cursor] === ',') cursor = skipJsoncTrivia(source, cursor + 1);
+  }
+  return null;
+}
+
+function formatJsoncValue(value, indent) {
+  return JSON.stringify(value, null, 2)
+    .split('\n')
+    .map((line, index) => (index === 0 ? line : `${indent}${line}`))
+    .join('\n');
+}
+
+function insertJsoncObjectProperty(source, objectStart, propertyName, value) {
+  const objectEnd = findJsoncMatching(source, objectStart, '{', '}');
+  const parentIndent = lineIndentAt(source, objectStart);
+  const firstChild = skipJsoncTrivia(source, objectStart + 1);
+  const childIndent = firstChild < objectEnd ? lineIndentAt(source, firstChild) : `${parentIndent}  `;
+  const propertyText = `${JSON.stringify(propertyName)}: ${formatJsoncValue(value, childIndent)}`;
+  const hasProperties = firstChild < objectEnd;
+  const needsComma = hasProperties && previousJsoncSignificantChar(source, objectEnd) !== ',';
+  const insertion = `${needsComma ? ',' : ''}\n${childIndent}${propertyText}\n${parentIndent}`;
+  return `${source.slice(0, objectEnd)}${insertion}${source.slice(objectEnd)}`;
+}
+
+function upsertJsoncObjectProperty(source, objectStart, propertyName, value) {
+  const property = findJsoncObjectProperty(source, objectStart, propertyName);
+  if (!property) return insertJsoncObjectProperty(source, objectStart, propertyName, value);
+  const indent = lineIndentAt(source, property.valueStart);
+  return `${source.slice(0, property.valueStart)}${formatJsoncValue(value, indent)}${source.slice(
+    property.valueEnd,
+  )}`;
+}
+
+function writeModelsJsonProvider(modelsPath, providerId, provider) {
+  if (!existsSync(modelsPath)) {
+    writeFileSync(
+      modelsPath,
+      `${JSON.stringify({ providers: { [providerId]: provider } }, null, 2)}\n`,
+      { mode: 0o600 },
+    );
+    chmodSync(modelsPath, 0o600);
+    return;
+  }
+  const source = readFileSync(modelsPath, 'utf8');
+  const rootStart = skipJsoncTrivia(source, 0);
+  if (source[rootStart] !== '{') throw new Error('models.json root must be an object');
+  const providersProperty = findJsoncObjectProperty(source, rootStart, 'providers');
+  if (providersProperty && source[providersProperty.valueStart] !== '{') {
+    throw new Error('models.json providers must be an object');
+  }
+  const next = providersProperty
+    ? upsertJsoncObjectProperty(source, providersProperty.valueStart, providerId, provider)
+    : insertJsoncObjectProperty(source, rootStart, 'providers', { [providerId]: provider });
+  writeFileSync(modelsPath, next.endsWith('\n') ? next : `${next}\n`, { mode: 0o600 });
+  chmodSync(modelsPath, 0o600);
+}
+
 function positiveInteger(value) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? Math.floor(number) : undefined;
@@ -836,6 +1015,44 @@ function normalizedProviderModelConfig(model, existingModel) {
   return next;
 }
 
+function normalizeProviderId(value) {
+  const providerId = asNonEmptyString(value);
+  if (!providerId) throw new Error('Provider id is required');
+  if (!/^[A-Za-z0-9._-]+$/u.test(providerId)) {
+    throw new Error('Provider id may only contain letters, numbers, dot, dash, and underscore');
+  }
+  return providerId;
+}
+
+function normalizeBaseUrl(value) {
+  const baseUrl = asNonEmptyString(value);
+  if (!baseUrl) throw new Error('Base URL is required');
+  let parsed;
+  try {
+    parsed = new URL(baseUrl);
+  } catch (error) {
+    throw new Error(`Base URL is invalid: ${error?.message ?? String(error)}`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Base URL must start with http:// or https://');
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('Base URL must not contain credentials, query parameters, or fragments');
+  }
+  return baseUrl;
+}
+
+function normalizeApi(value) {
+  const api = asNonEmptyString(value);
+  if (!api) throw new Error('API format is required');
+  if (!/^[A-Za-z0-9._/-]+$/u.test(api)) {
+    throw new Error(
+      'API format may only contain letters, numbers, dot, slash, dash, and underscore',
+    );
+  }
+  return api;
+}
+
 function providerConfigsFromModelsJson(modelsPath, modelRegistry) {
   const path = asNonEmptyString(modelsPath);
   if (!path || !existsSync(path)) return [];
@@ -868,49 +1085,94 @@ function providerConfigsFromModelsJson(modelsPath, modelRegistry) {
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
-function apiProviderConfigs(modelsPath, modelRegistry) {
-  const configs = providerConfigsFromModelsJson(modelsPath, modelRegistry);
-  const hasOpenRouter = configs.some((config) => config.provider === 'openrouter');
-  const openRouterAuth = modelRegistry.getProviderAuthStatus('openrouter');
-  if (!hasOpenRouter && openRouterAuth?.configured) {
-    configs.push({
-      provider: 'openrouter',
-      displayName: 'OpenRouter',
-      baseUrl: OPENROUTER_API_BASE_URL,
-      api: 'openai-completions',
-      hasApiKey: true,
-      authSource: openRouterAuth.source,
+function providerTemplatesFromRegistry(modelRegistry, configuredProviders) {
+  const templates = new Map();
+  for (const model of modelRegistry.getAll()) {
+    const provider = asNonEmptyString(model.provider);
+    const id = asNonEmptyString(model.id);
+    if (!provider || !id) continue;
+    const current = templates.get(provider) ?? {
+      provider,
+      displayName: modelRegistry.getProviderDisplayName(provider),
+      configured: configuredProviders.has(provider),
       models: [],
-    });
-  }
-  return configs.sort((a, b) => a.displayName.localeCompare(b.displayName));
-}
-
-function isOpenRouterApiConfig(config) {
-  const baseUrl = asNonEmptyString(config?.baseUrl)?.replace(/\/$/u, '');
-  return baseUrl === OPENROUTER_API_BASE_URL && config?.api === 'openai-completions';
-}
-
-async function configuredOpenRouterProvider({ accountId, authStorage, modelRegistry, modelsPath }) {
-  const configs = apiProviderConfigs(modelsPath, modelRegistry).filter(isOpenRouterApiConfig);
-  if (!accountId) return 'openrouter';
-
-  for (const config of configs) {
-    const model = modelRegistry.getAll().find((entry) => entry.provider === config.provider);
-    if (!model) continue;
-    try {
-      const identity = await executionAccountIdentity(authStorage, modelRegistry, model);
-      if (identity.billingMode === 'api' && identity.accountId === accountId) {
-        return config.provider;
-      }
-    } catch {
-      // The account may have changed since Settings loaded. The caller receives
-      // one neutral refresh error below; credential details never cross stdout.
+    };
+    if (!current.baseUrl && asNonEmptyString(model.baseUrl)) current.baseUrl = model.baseUrl;
+    if (!current.api && asNonEmptyString(model.api)) current.api = model.api;
+    if (current.models.length < 3) {
+      const projected = normalizedProviderModelConfig(model);
+      if (projected) current.models.push(projected);
     }
+    templates.set(provider, current);
   }
-  throw Object.assign(new Error('This API account changed. Refresh Accounts and try again.'), {
-    code: 'api-account-stale',
-  });
+  return [...templates.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+function providerConfigForWrite(payload, existingProvider, authStatus) {
+  const config = isRecord(payload.config) ? payload.config : undefined;
+  if (!config) throw new Error('saveProvider requires config');
+  const providerId = normalizeProviderId(config.providerId);
+  const baseUrl = normalizeBaseUrl(config.baseUrl);
+  const api = normalizeApi(config.api);
+  const apiKey = asNonEmptyString(config.apiKey);
+  const keepExistingApiKey = config.keepExistingApiKey === true;
+  const hasExistingKey = Boolean(asNonEmptyString(existingProvider?.apiKey));
+  if (!apiKey && !(keepExistingApiKey && (hasExistingKey || authStatus?.configured))) {
+    throw new Error('API key is required');
+  }
+
+  const existingModels = new Map(
+    Array.isArray(existingProvider?.models)
+      ? existingProvider.models
+          .filter((model) => isRecord(model) && asNonEmptyString(model.id))
+          .map((model) => [asNonEmptyString(model.id), model])
+      : [],
+  );
+  const models = Array.isArray(config.models)
+    ? config.models
+        .map((model) => {
+          const id = asNonEmptyString(model?.id);
+          if (!id) return undefined;
+          const modelApi = asNonEmptyString(model.api);
+          return normalizedProviderModelConfig(
+            { ...model, ...(modelApi ? { api: normalizeApi(modelApi) } : {}) },
+            existingModels.get(id),
+          );
+        })
+        .filter(Boolean)
+    : [];
+  if (!models.length) throw new Error('Add at least one model id');
+  return {
+    providerId,
+    provider: {
+      name: asNonEmptyString(config.displayName),
+      baseUrl,
+      api,
+      ...(apiKey ? { apiKey } : {}),
+      models,
+    },
+  };
+}
+
+async function piSaveProvider(payload) {
+  const agentDir = asNonEmptyString(payload.agentDir);
+  if (!agentDir) throw new Error('saveProvider requires agentDir');
+  mkdirSync(agentDir, { recursive: true, mode: 0o700 });
+  const modelsPath = join(agentDir, 'models.json');
+  const root = readModelsJsonForWrite(modelsPath);
+  const { modelRegistry } = createPiRegistries(agentDir);
+  const config = isRecord(payload.config) ? payload.config : {};
+  const requestedProviderId = asNonEmptyString(config.providerId);
+  const existingProvider =
+    requestedProviderId && isRecord(root.providers[requestedProviderId])
+      ? root.providers[requestedProviderId]
+      : {};
+  const authStatus = requestedProviderId
+    ? modelRegistry.getProviderAuthStatus(requestedProviderId)
+    : undefined;
+  const { providerId, provider } = providerConfigForWrite(payload, existingProvider, authStatus);
+  writeModelsJsonProvider(modelsPath, providerId, { ...existingProvider, ...provider });
+  await piStatus(payload);
 }
 
 function selectedModel(modelRegistry, override) {
@@ -943,6 +1205,7 @@ async function runtimeStatusProjection({ authStorage, modelRegistry, providerCon
       if (identity.billingMode !== 'api') continue;
       providerAccounts.push({
         providerId: config.provider,
+        displayName: config.displayName,
         accountId: identity.accountId,
         configured: true,
         authMode: 'api',
@@ -974,7 +1237,7 @@ async function piStatus(payload) {
     displayName: modelRegistry.getProviderDisplayName(provider),
     auth: modelRegistry.getProviderAuthStatus(provider),
   }));
-  const providerConfigs = apiProviderConfigs(modelsPath, modelRegistry);
+  const providerConfigs = providerConfigsFromModelsJson(modelsPath, modelRegistry);
   const configuredProviders = new Set(providerConfigs.map((config) => config.provider));
   for (const account of providerStatus) {
     if (account.auth?.configured) configuredProviders.add(account.provider);
@@ -1009,6 +1272,8 @@ async function piStatus(payload) {
       authProviders: authStorage.list().sort(),
       providerStatus,
       configuredProviderStatus,
+      providerConfigs,
+      providerTemplates: providerTemplatesFromRegistry(modelRegistry, configuredProviders),
       availableModels: modelRegistry.getAvailable().map(modelSummary),
       allModelCount: modelRegistry.getAll().length,
       paths: {
@@ -1020,37 +1285,6 @@ async function piStatus(payload) {
       checkedAt,
     }),
   );
-}
-
-async function configureApiAccount(payload) {
-  if (payload.service !== 'openrouter') {
-    throw Object.assign(new Error('This API service is not supported.'), {
-      code: 'api-account-unsupported',
-    });
-  }
-  const apiKey = asNonEmptyString(payload.apiKey);
-  if (!apiKey || apiKey.length < 20 || /\s/u.test(apiKey)) {
-    throw Object.assign(new Error('Enter a valid OpenRouter API key.'), {
-      code: 'api-key-invalid',
-    });
-  }
-
-  const agentDir = asNonEmptyString(payload.agentDir);
-  const { authStorage, modelRegistry, modelsPath } = createPiRegistries(agentDir);
-  const provider = await configuredOpenRouterProvider({
-    accountId: asNonEmptyString(payload.accountId),
-    authStorage,
-    modelRegistry,
-    modelsPath,
-  });
-  authStorage.set(provider, { type: 'api_key', key: apiKey });
-  const storageError = authStorage.drainErrors()[0];
-  if (storageError) {
-    throw Object.assign(new Error('The API key could not be saved locally.'), {
-      code: 'api-key-save-failed',
-    });
-  }
-  await piStatus(payload);
 }
 
 async function runPrompt(payload) {
@@ -1413,7 +1647,7 @@ async function runPrompt(payload) {
         : undefined,
     });
     const summary = directResult.text;
-    if (!directResult.model || !directResult.provenance) {
+    if (directResult.completed && (!directResult.model || !directResult.provenance)) {
       throw Object.assign(
         new Error('Direct delegation completed without a prepared child execution identity.'),
         { code: 'provenance-missing' },
@@ -1425,8 +1659,8 @@ async function runPrompt(payload) {
       resultLine({
         ok: true,
         text: summary,
-        model: modelSummary(directResult.model),
-        provenance: directResult.provenance,
+        ...(directResult.model ? { model: modelSummary(directResult.model) } : {}),
+        ...(directResult.provenance ? { provenance: directResult.provenance } : {}),
         ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
       }),
     );
@@ -2103,9 +2337,9 @@ function main() {
         void piStatus(payload).then(finishHost).catch(fail);
         return;
       }
-      if (payload.mode === 'configureApiAccount') {
+      if (payload.mode === 'saveProvider') {
         statusInFlight = true;
-        void configureApiAccount(payload).then(finishHost).catch(fail);
+        void piSaveProvider(payload).then(finishHost).catch(fail);
         return;
       }
       try {

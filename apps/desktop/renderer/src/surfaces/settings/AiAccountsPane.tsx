@@ -4,30 +4,52 @@ import {
   type ApiUsageSnapshot,
   loadAiAccountUsage,
 } from '@/data/ai-account-usage.js';
-import {
-  aiAccountKindLabel,
-  aiAccountLaneKey,
-  aiModelSourceLabel,
-} from '@/data/ai-model-presentation.js';
-import { CapsLabel, CardBlock, StatusPill } from '@/design-system/grammar/index.js';
+import { CapsLabel, StatusPill } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
-import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
-import { invokeCommand } from '@/lib/tauri-commands.js';
+import { Input } from '@/design-system/primitives/input.js';
+import { safeErrorMessage } from '@/lib/error-message.js';
+import {
+  type CommandResult,
+  type PiAgentProviderConfigInput,
+  type PiAgentProviderConfigStatus,
+  type PiAgentProviderModelConfig,
+  type PiAgentProviderTemplate,
+  invokeCommand,
+} from '@/lib/tauri-commands.js';
 import type {
   AiAccountDescriptor,
   AiModelCatalogEntry,
   AiRuntimeStatus,
-  AiSubscriptionUsageSnapshot,
+  OrchestrationEngineStatus,
 } from '@offisim/shared-types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { KeyRound, Plus, RefreshCw, TriangleAlert } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ApiKeyDialog } from './ApiKeyDialog.js';
+import {
+  ArrowLeft,
+  Bot,
+  Check,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  FolderOpen,
+  Info,
+  List,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Terminal,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react';
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
+
+type PiAgentStatusResponse = CommandResult<'pi_agent_status'>;
+type ProviderSelection = { mode: 'overview' } | { mode: 'add' } | { mode: 'edit'; id: string };
 
 interface AccountView extends Omit<AiAccountDescriptor, 'usage'> {
-  readonly usage?: ApiUsageSnapshot | AiSubscriptionUsageSnapshot;
+  readonly usage?: ApiUsageSnapshot;
   readonly cost?: AccountCostSnapshot;
   readonly accountingStatus?: 'loading' | 'error';
 }
@@ -36,32 +58,148 @@ interface RuntimeStatusView extends Omit<AiRuntimeStatus, 'accounts'> {
   readonly accounts: readonly AccountView[];
 }
 
+interface ProviderModelFormRow {
+  readonly rowKey: string;
+  readonly id: string;
+  readonly name: string;
+  readonly api: string;
+  readonly contextWindow: string;
+  readonly maxTokens: string;
+}
+
+interface ProviderFormState {
+  readonly providerId: string;
+  readonly displayName: string;
+  readonly baseUrl: string;
+  readonly api: string;
+  readonly apiKey: string;
+  readonly keepExistingApiKey: boolean;
+  readonly models: readonly ProviderModelFormRow[];
+}
+
+let providerModelRowSequence = 0;
+
+function nextProviderModelRowKey(): string {
+  providerModelRowSequence += 1;
+  return `provider-model-${providerModelRowSequence}`;
+}
+
+function emptyModelRow(): ProviderModelFormRow {
+  return {
+    rowKey: nextProviderModelRowKey(),
+    id: '',
+    name: '',
+    api: '',
+    contextWindow: '',
+    maxTokens: '',
+  };
+}
+
+function initialProviderForm(): ProviderFormState {
+  return {
+    providerId: '',
+    displayName: '',
+    baseUrl: '',
+    api: '',
+    apiKey: '',
+    keepExistingApiKey: false,
+    models: [emptyModelRow()],
+  };
+}
+
+function modelRowsFromConfig(
+  models: readonly PiAgentProviderModelConfig[] | undefined,
+): ProviderModelFormRow[] {
+  const rows = (models ?? []).map((model) => ({
+    rowKey: nextProviderModelRowKey(),
+    id: model.id,
+    name: model.name ?? '',
+    api: model.api ?? '',
+    contextWindow: model.contextWindow ? String(model.contextWindow) : '',
+    maxTokens: model.maxTokens ? String(model.maxTokens) : '',
+  }));
+  return rows.length ? rows : [emptyModelRow()];
+}
+
+function positiveNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function serializeProviderForm(form: ProviderFormState): PiAgentProviderConfigInput {
+  return {
+    providerId: form.providerId.trim(),
+    displayName: form.displayName.trim() || null,
+    baseUrl: form.baseUrl.trim(),
+    api: form.api.trim(),
+    apiKey: form.apiKey.trim() || null,
+    keepExistingApiKey: form.keepExistingApiKey,
+    models: form.models
+      .filter((model) => model.id.trim())
+      .map((model) => ({
+        id: model.id.trim(),
+        ...(model.name.trim() ? { name: model.name.trim() } : {}),
+        ...(model.api.trim() ? { api: model.api.trim() } : {}),
+        ...(positiveNumber(model.contextWindow)
+          ? { contextWindow: positiveNumber(model.contextWindow) }
+          : {}),
+        ...(positiveNumber(model.maxTokens) ? { maxTokens: positiveNumber(model.maxTokens) } : {}),
+      })),
+  };
+}
+
+function formFromProvider(
+  config: PiAgentProviderConfigStatus,
+  template?: PiAgentProviderTemplate,
+): ProviderFormState {
+  return {
+    providerId: config.provider,
+    displayName: config.name ?? config.displayName,
+    baseUrl: config.baseUrl ?? template?.baseUrl ?? '',
+    api: config.api ?? template?.api ?? '',
+    apiKey: '',
+    keepExistingApiKey: config.hasApiKey || Boolean(config.authSource),
+    models: modelRowsFromConfig(config.models.length ? config.models : template?.models),
+  };
+}
+
+function formFromTemplate(template: PiAgentProviderTemplate): ProviderFormState {
+  return {
+    providerId: template.provider,
+    displayName: template.displayName,
+    baseUrl: template.baseUrl ?? '',
+    api: template.api ?? '',
+    apiKey: '',
+    keepExistingApiKey: false,
+    models: modelRowsFromConfig(template.models),
+  };
+}
+
 function isRuntimeStatus(value: unknown): value is RuntimeStatusView {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<RuntimeStatusView>;
   return (
     Array.isArray(candidate.accounts) &&
     Array.isArray(candidate.models) &&
+    Array.isArray(candidate.orchestrationEngines) &&
     typeof candidate.checkedAt === 'string'
   );
 }
 
 async function loadRuntimeStatus(): Promise<RuntimeStatusView> {
   const status: unknown = await invokeCommand('agent_runtime_status', { includeUsage: true });
-  if (!isRuntimeStatus(status)) {
-    throw new Error('The desktop runtime returned an invalid account catalog.');
-  }
+  if (!isRuntimeStatus(status)) throw new Error('The desktop runtime returned invalid AI status.');
   return status;
 }
 
-function checkedAtLabel(value?: string, includeTime = true): string {
+function checkedAtLabel(value?: string): string {
   if (!value) return 'not checked';
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return value;
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    ...(includeTime ? { timeStyle: 'short' as const } : {}),
-  }).format(timestamp);
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+    timestamp,
+  );
 }
 
 function compactNumber(value: number | undefined): string {
@@ -71,47 +209,20 @@ function compactNumber(value: number | undefined): string {
   );
 }
 
-function subscriptionValue(value: number | string | undefined): string {
-  if (value === undefined) return '—';
-  return typeof value === 'number' ? compactNumber(value) : value;
-}
-
-function formatWindowDuration(minutes?: number): string | null {
-  if (!minutes || !Number.isFinite(minutes)) return null;
-  if (minutes % 10_080 === 0) return `${minutes / 10_080}-week window`;
-  if (minutes % 1_440 === 0) return `${minutes / 1_440}-day window`;
-  if (minutes % 60 === 0) return `${minutes / 60}-hour window`;
-  return `${minutes}-minute window`;
-}
-
-function formatDurationSeconds(seconds?: number): string {
-  if (seconds === undefined || !Number.isFinite(seconds)) return '—';
-  const days = Math.floor(seconds / 86_400);
-  const hours = Math.floor((seconds % 86_400) / 3_600);
-  const minutes = Math.floor((seconds % 3_600) / 60);
-  return (
-    [days ? `${days}d` : '', hours ? `${hours}h` : '', !days && minutes ? `${minutes}m` : '']
-      .filter(Boolean)
-      .join(' ') || '<1m'
-  );
-}
-
-function accountLane(account: Pick<AccountView, 'engineId' | 'accountId' | 'billingMode'>) {
-  return aiAccountLaneKey(account.engineId, account.accountId, account.billingMode);
-}
-
-function modelAvailabilityTone(model: AiModelCatalogEntry) {
-  if (model.availability === 'available') return 'ok' as const;
-  if (model.availability === 'expiring') return 'warn' as const;
-  return 'muted' as const;
-}
-
-function modelAvailabilityDetail(model: AiModelCatalogEntry): string | null {
-  if (model.expiresAt) return `Expires ${checkedAtLabel(model.expiresAt)}`;
-  if (model.availabilityReason?.trim()) return model.availabilityReason.trim();
-  if (model.availability === 'expiring') return 'Expiration date not reported';
-  if (model.availability === 'unavailable') return 'Availability not reported';
-  return null;
+function usageHeadline(account: AccountView): string {
+  if (account.accountingStatus === 'loading') return 'Loading';
+  if (account.accountingStatus === 'error') return 'Unavailable';
+  if (!account.usage) return 'No recorded usage';
+  const buckets = [
+    account.usage.inputTokens,
+    account.usage.outputTokens,
+    account.usage.cacheReadTokens,
+    account.usage.cacheWriteTokens,
+  ];
+  if (buckets.every((value): value is number => value !== undefined)) {
+    return `${compactNumber(buckets.reduce((sum, value) => sum + value, 0))} tokens`;
+  }
+  return `${account.usage.runCount} ${account.usage.runCount === 1 ? 'run' : 'runs'} · partial`;
 }
 
 function costHeadline(account: AccountView): string {
@@ -122,239 +233,204 @@ function costHeadline(account: AccountView): string {
       ? 'Unavailable'
       : `$${account.cost.knownAmountUsd.toFixed(6)} known`;
   }
-  if (account.cost) {
-    const value = `$${account.cost.amountUsd.toFixed(6)}`;
-    return account.cost.kind === 'estimate' ? `~${value}` : value;
-  }
-  return account.capabilities.cost.status === 'available' ? 'No recorded cost' : 'Unavailable';
+  if (!account.cost) return 'No recorded cost';
+  const amount = `$${account.cost.amountUsd.toFixed(6)}`;
+  return account.cost.kind === 'estimate' ? `~${amount}` : amount;
 }
 
-function SubscriptionUsage({ usage }: { usage: AiSubscriptionUsageSnapshot }) {
+function modelAvailabilityTone(model: AiModelCatalogEntry) {
+  if (model.availability === 'available') return 'ok' as const;
+  if (model.availability === 'expiring') return 'warn' as const;
+  return 'muted' as const;
+}
+
+function FormField({
+  label,
+  htmlFor,
+  wide,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <>
-      <div className="off-set-account-usage-grid">
-        {usage.limits.flatMap((limit) =>
-          limit.windows.map((window) => {
-            const windowLabel =
-              window.kind === 'spendControl'
-                ? 'Spend control'
-                : (formatWindowDuration(window.windowDurationMins) ??
-                  (window.kind === 'primary' ? 'Primary window' : 'Secondary window'));
-            const reset = window.resetAt ? `Resets ${checkedAtLabel(window.resetAt)}` : null;
-            const value =
-              window.kind === 'spendControl'
-                ? `${subscriptionValue(window.remaining)} remaining of ${subscriptionValue(window.limit)}`
-                : `${subscriptionValue(window.remaining)} remaining`;
-            return (
-              <div key={`${limit.limitId}:${window.kind}`}>
-                <span>
-                  {limit.label} · {windowLabel}
-                </span>
-                <strong>{value}</strong>
-                {reset ? <small>{reset}</small> : null}
-                {window.remainingIsDerived ? <small>Estimated from reported usage</small> : null}
-              </div>
-            );
-          }),
-        )}
-        {usage.limits
-          .filter((limit) => limit.credits !== undefined)
-          .map((limit) => (
-            <div key={`${limit.limitId}:credits`}>
-              <span>{limit.label} · Credits</span>
-              <strong>{subscriptionValue(limit.credits)}</strong>
-            </div>
-          ))}
-        {usage.resetCredits !== undefined ? (
-          <div>
-            <span>Rate-limit reset credits</span>
-            <strong>{subscriptionValue(usage.resetCredits)}</strong>
-          </div>
-        ) : null}
-      </div>
-      {usage.activity ? (
-        <div className="off-set-account-activity">
-          <span>Activity</span>
-          {usage.activity.lifetimeTokens !== undefined ? (
-            <strong>{compactNumber(usage.activity.lifetimeTokens)} lifetime tokens</strong>
-          ) : null}
-          {usage.activity.peakDailyTokens !== undefined ? (
-            <strong>{compactNumber(usage.activity.peakDailyTokens)} peak-day tokens</strong>
-          ) : null}
-          {usage.activity.longestRunningTurnSec !== undefined ? (
-            <strong>
-              {formatDurationSeconds(usage.activity.longestRunningTurnSec)} longest turn
-            </strong>
-          ) : null}
-          {usage.activity.currentStreakDays !== undefined ? (
-            <strong>{usage.activity.currentStreakDays} day current streak</strong>
-          ) : null}
-          {usage.activity.longestStreakDays !== undefined ? (
-            <strong>{usage.activity.longestStreakDays} day longest streak</strong>
-          ) : null}
-        </div>
-      ) : null}
-      {usage.updatedAt ? (
-        <p className="off-set-account-updated">Updated {checkedAtLabel(usage.updatedAt)}</p>
-      ) : null}
-    </>
+    <div className={`off-set-provider-field${wide ? ' is-wide' : ''}`}>
+      <label htmlFor={htmlFor}>{label}</label>
+      {children}
+    </div>
   );
 }
 
-function AccountUsage({ account }: { account: AccountView }) {
-  if (account.accountingStatus === 'loading') {
-    return <div className="off-set-callout is-muted">Loading usage…</div>;
-  }
-  if (account.accountingStatus === 'error') {
+function ProviderModelsEditor({
+  models,
+  onChange,
+}: {
+  models: readonly ProviderModelFormRow[];
+  onChange: (models: readonly ProviderModelFormRow[]) => void;
+}) {
+  const update = (index: number, patch: Partial<ProviderModelFormRow>) => {
+    onChange(models.map((model, row) => (row === index ? { ...model, ...patch } : model)));
+  };
+  const remove = (index: number) => {
+    const next = models.filter((_, row) => row !== index);
+    onChange(next.length ? next : [emptyModelRow()]);
+  };
+  return (
+    <div className="off-set-provider-model-editor">
+      <div className="off-set-provider-model-editor-head">
+        <CapsLabel>Models</CapsLabel>
+        <Button variant="subtle" size="sm" onClick={() => onChange([...models, emptyModelRow()])}>
+          <Icon icon={Plus} size="sm" /> Add model
+        </Button>
+      </div>
+      <div className="off-set-provider-model-rows">
+        {models.map((model, index) => (
+          <div className="off-set-provider-model-row" key={model.rowKey}>
+            <Input
+              value={model.id}
+              placeholder="Model id"
+              aria-label="Model id"
+              spellCheck={false}
+              onChange={(event) => update(index, { id: event.currentTarget.value })}
+            />
+            <Input
+              value={model.name}
+              placeholder="Display name"
+              aria-label="Model display name"
+              onChange={(event) => update(index, { name: event.currentTarget.value })}
+            />
+            <Input
+              value={model.api}
+              placeholder="API override"
+              aria-label="Model API override"
+              spellCheck={false}
+              onChange={(event) => update(index, { api: event.currentTarget.value })}
+            />
+            <Input
+              value={model.contextWindow}
+              placeholder="Context"
+              aria-label="Context window"
+              inputMode="numeric"
+              onChange={(event) => update(index, { contextWindow: event.currentTarget.value })}
+            />
+            <Input
+              value={model.maxTokens}
+              placeholder="Max tokens"
+              aria-label="Max tokens"
+              inputMode="numeric"
+              onChange={(event) => update(index, { maxTokens: event.currentTarget.value })}
+            />
+            <Button
+              variant="subtle"
+              size="icon"
+              aria-label="Remove model"
+              onClick={() => remove(index)}
+            >
+              <Icon icon={Trash2} size="sm" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ApiUsage({ account }: { account: AccountView }) {
+  if (account.accountingStatus === 'loading')
+    return <div className="off-set-callout is-muted">Loading API usage…</div>;
+  if (account.accountingStatus === 'error')
     return (
       <div className="off-set-callout is-warn">
         <Icon icon={TriangleAlert} size="sm" />
-        Usage history is unavailable. Refresh to retry.
+        API usage is unavailable.
       </div>
     );
-  }
-  if (account.usage?.kind === 'subscription') {
-    return <SubscriptionUsage usage={account.usage} />;
-  }
-  if (account.usage?.kind !== 'api') {
-    return (
-      <div className="off-set-callout is-muted">
-        {account.billingMode === 'subscription'
-          ? 'Subscription usage is not available from this service.'
-          : 'No recorded API usage this month.'}
-      </div>
-    );
-  }
-  const usageNumber = (value: number | undefined) =>
+  if (!account.usage)
+    return <div className="off-set-callout is-muted">No API usage recorded this month.</div>;
+  const number = (value: number | undefined) =>
     value === undefined ? 'Unknown' : compactNumber(value);
   return (
     <div className="off-set-account-usage-grid">
       <div>
         <span>Input</span>
-        <strong>{usageNumber(account.usage.inputTokens)}</strong>
+        <strong>{number(account.usage.inputTokens)}</strong>
       </div>
       <div>
         <span>Output</span>
-        <strong>{usageNumber(account.usage.outputTokens)}</strong>
+        <strong>{number(account.usage.outputTokens)}</strong>
       </div>
       <div>
         <span>Cache read / write</span>
         <strong>
-          {usageNumber(account.usage.cacheReadTokens)} /{' '}
-          {usageNumber(account.usage.cacheWriteTokens)}
+          {number(account.usage.cacheReadTokens)} / {number(account.usage.cacheWriteTokens)}
         </strong>
       </div>
       <div>
         <span>Reasoning</span>
-        <strong>{usageNumber(account.usage.reasoningTokens)}</strong>
+        <strong>{number(account.usage.reasoningTokens)}</strong>
       </div>
     </div>
   );
 }
 
-function AccountCost({ account }: { account: AccountView }) {
-  if (account.accountingStatus === 'loading') {
-    return <div className="off-set-callout is-muted">Loading this month's API cost…</div>;
-  }
-  if (account.accountingStatus === 'error') {
-    return <div className="off-set-callout is-warn">API cost history is unavailable.</div>;
-  }
-  if (!account.cost) {
-    return <div className="off-set-callout is-muted">No recorded API cost this month.</div>;
-  }
-  const detail =
-    account.cost.kind === 'unavailable'
-      ? account.cost.reason
-      : account.cost.kind === 'actual'
-        ? 'Actual service-reported cost · This month'
-        : 'Estimate from verified model pricing · This month';
-  return (
-    <div className="off-set-account-cost">
-      <strong>{costHeadline(account)}</strong>
-      <span>{detail}</span>
-    </div>
-  );
+function orchestrationStateLabel(state: OrchestrationEngineStatus['state']): string {
+  if (state === 'ready') return 'Ready';
+  if (state === 'not-installed') return 'Not installed';
+  if (state === 'not-signed-in') return 'Not signed in';
+  return 'Unavailable';
 }
 
-function ModelRow({ model }: { model: AiModelCatalogEntry }) {
-  const availabilityDetail = modelAvailabilityDetail(model);
+function OrchestrationEngineCard({ engine }: { engine: OrchestrationEngineStatus }) {
+  const [copied, setCopied] = useState(false);
+  const docsUrl = useMemo(() => {
+    try {
+      const parsed = new URL(engine.docsUrl);
+      return parsed.protocol === 'https:' ? parsed.href : null;
+    } catch {
+      return null;
+    }
+  }, [engine.docsUrl]);
+  const copyCommand = async () => {
+    await navigator.clipboard.writeText(engine.loginCommand);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1_500);
+  };
   return (
-    <article className="off-set-account-model">
-      <div className="off-set-account-model-copy">
-        <strong>{model.displayName}</strong>
-        <code>{model.modelId}</code>
-        <a
-          className="off-set-account-model-source off-focusable"
-          href={model.source.sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-          title={model.source.sourceUrl}
-        >
-          {aiModelSourceLabel(model.source)}
-        </a>
-        {availabilityDetail ? (
-          <span className="off-set-account-model-availability">{availabilityDetail}</span>
-        ) : null}
+    <div className="off-set-provider-runtime">
+      <div className="off-set-pv-logo">
+        <Icon icon={Terminal} size="md" />
       </div>
-      <div className="off-set-account-model-limits">
-        <span>
-          Context{' '}
-          {model.contextWindow === undefined ? 'Not published' : compactNumber(model.contextWindow)}
-        </span>
-        <span>
-          Output{' '}
-          {model.maxOutputTokens === undefined
-            ? 'Not published'
-            : compactNumber(model.maxOutputTokens)}
-        </span>
+      <div className="min-w-0">
+        <div className="off-set-pv-name">
+          {engine.displayName}
+          <StatusPill
+            tone={
+              engine.state === 'ready' ? 'ok' : engine.state === 'unavailable' ? 'muted' : 'warn'
+            }
+          >
+            {orchestrationStateLabel(engine.state)}
+          </StatusPill>
+        </div>
+        <div className="off-set-pv-meta">
+          {engine.version ? `Version ${engine.version} · ` : ''}订阅内 · 无 API 成本 · checked{' '}
+          {checkedAtLabel(engine.checkedAt)}
+        </div>
+        {engine.statusReason ? <div className="off-set-pv-meta">{engine.statusReason}</div> : null}
       </div>
-      <StatusPill tone={modelAvailabilityTone(model)}>
-        {model.availability === 'expiring'
-          ? 'Expiring'
-          : model.availability === 'available'
-            ? 'Available'
-            : 'Unavailable'}
-      </StatusPill>
-    </article>
-  );
-}
-
-function ModelList({ models }: { models: readonly AiModelCatalogEntry[] }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const virtualizer = useVirtualizer({
-    count: models.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 108,
-    overscan: 5,
-  });
-  if (models.length <= 24) {
-    return (
-      <div className="off-set-account-models">
-        {models.map((model) => (
-          <ModelRow key={model.runtimeModelRef} model={model} />
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div ref={scrollRef} className="off-set-account-models is-virtualized">
-      <div className="off-set-account-model-virtual" style={{ height: virtualizer.getTotalSize() }}>
-        {virtualizer.getVirtualItems().map((item) => {
-          const model = models[item.index];
-          if (!model) return null;
-          return (
-            <div
-              key={model.runtimeModelRef}
-              ref={virtualizer.measureElement}
-              data-index={item.index}
-              className="off-set-account-model-virtual-row"
-              style={{ transform: `translateY(${item.start}px)` }}
-            >
-              <ModelRow model={model} />
-            </div>
-          );
-        })}
-      </div>
+      <Button variant="outline" size="sm" onClick={() => void copyCommand()}>
+        <Icon icon={copied ? Check : Copy} size="sm" />
+        {copied ? 'Copied' : `Copy ${engine.loginCommand}`}
+      </Button>
+      {docsUrl ? (
+        <Button variant="outline" size="sm" asChild>
+          <a href={docsUrl} target="_blank" rel="noreferrer">
+            <Icon icon={ExternalLink} size="sm" />
+            Official guide
+          </a>
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -362,9 +438,16 @@ function ModelList({ models }: { models: readonly AiModelCatalogEntry[] }) {
 export function AiAccountsPane() {
   const desktopAvailable = isTauriRuntime();
   const queryClient = useQueryClient();
-  const statusQuery = useQuery({
+  const runtimeQuery = useQuery({
     queryKey: ['settings', 'agent-runtime-status'],
     queryFn: loadRuntimeStatus,
+    enabled: desktopAvailable,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const providerQuery = useQuery({
+    queryKey: ['settings', 'pi-provider-config'],
+    queryFn: () => invokeCommand('pi_agent_status'),
     enabled: desktopAvailable,
     staleTime: 60_000,
     retry: false,
@@ -376,22 +459,105 @@ export function AiAccountsPane() {
     staleTime: 60_000,
     retry: false,
   });
-  const accounts = useMemo(() => {
-    const accounting = new Map(
-      (accountingQuery.data ?? []).map(
-        (snapshot) =>
-          [
-            aiAccountLaneKey(snapshot.engineId, snapshot.accountId, snapshot.billingMode),
-            snapshot,
-          ] as const,
+  const [selection, setSelection] = useState<ProviderSelection>({ mode: 'overview' });
+  const [form, setForm] = useState<ProviderFormState>(() => initialProviderForm());
+  const [templateSearch, setTemplateSearch] = useState('');
+  const [savingProvider, setSavingProvider] = useState(false);
+  const loadedProviderRef = useRef<string | null>(null);
+  const providerIdInputId = useId();
+  const providerNameInputId = useId();
+  const baseUrlInputId = useId();
+  const apiInputId = useId();
+  const apiKeyInputId = useId();
+
+  const providerConfigs = providerQuery.data?.providerConfigs ?? [];
+  const templates = providerQuery.data?.providerTemplates ?? [];
+  const selectedProvider =
+    selection.mode === 'edit'
+      ? providerConfigs.find((provider) => provider.provider === selection.id)
+      : undefined;
+  const templateById = useMemo(
+    () => new Map(templates.map((template) => [template.provider, template])),
+    [templates],
+  );
+  const addableTemplates = useMemo(
+    () =>
+      templates.filter(
+        (template) =>
+          !template.configured &&
+          (!templateSearch.trim() ||
+            `${template.provider} ${template.displayName} ${template.models.map((model) => model.id).join(' ')}`
+              .toLowerCase()
+              .includes(templateSearch.trim().toLowerCase())),
       ),
-    );
-    return (statusQuery.data?.accounts ?? []).map((account) => {
-      if (account.billingMode === 'subscription') return account;
-      const snapshot = accounting.get(accountLane(account));
+    [templateSearch, templates],
+  );
+
+  useEffect(() => {
+    if (!selectedProvider || loadedProviderRef.current === selectedProvider.provider) return;
+    loadedProviderRef.current = selectedProvider.provider;
+    setForm(formFromProvider(selectedProvider, templateById.get(selectedProvider.provider)));
+  }, [selectedProvider, templateById]);
+
+  useEffect(() => {
+    if (!providerQuery.data || providerConfigs.length || selection.mode !== 'overview') return;
+    setSelection({ mode: 'add' });
+  }, [providerConfigs.length, providerQuery.data, selection.mode]);
+
+  const updateForm = <K extends keyof ProviderFormState>(key: K, value: ProviderFormState[K]) =>
+    setForm((current) => ({ ...current, [key]: value }));
+  const showAddProvider = (template?: PiAgentProviderTemplate) => {
+    loadedProviderRef.current = null;
+    setForm(template ? formFromTemplate(template) : initialProviderForm());
+    setSelection({ mode: 'add' });
+  };
+  const editProvider = (provider: PiAgentProviderConfigStatus) => {
+    loadedProviderRef.current = null;
+    setSelection({ mode: 'edit', id: provider.provider });
+  };
+  const saveProvider = async () => {
+    const config = serializeProviderForm(form);
+    if (!config.providerId || !config.baseUrl || !config.api || !config.models.length) {
+      toast.error('Provider id, endpoint, API format, and at least one model id are required.');
+      return;
+    }
+    if (!config.keepExistingApiKey && !config.apiKey) {
+      toast.error('Enter the provider API key.');
+      return;
+    }
+    setSavingProvider(true);
+    try {
+      const next = await invokeCommand('pi_agent_save_provider', { config });
+      queryClient.setQueryData<PiAgentStatusResponse>(['settings', 'pi-provider-config'], next);
+      setForm((current) => ({ ...current, apiKey: '', keepExistingApiKey: true }));
+      setSelection({ mode: 'edit', id: config.providerId });
+      loadedProviderRef.current = null;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['settings', 'agent-runtime-status'] }),
+        queryClient.invalidateQueries({ queryKey: ['agent-runtime', 'models'] }),
+      ]);
+      toast.success('Provider saved to Pi models.json.');
+    } catch (error) {
+      toast.error('Provider save failed', { description: safeErrorMessage(error) });
+    } finally {
+      setSavingProvider(false);
+    }
+  };
+
+  const accountingByAccount = useMemo(
+    () =>
+      new Map(
+        (accountingQuery.data ?? []).map((snapshot) => [snapshot.accountId, snapshot] as const),
+      ),
+    [accountingQuery.data],
+  );
+  const apiAccounts: AccountView[] = (runtimeQuery.data?.accounts ?? [])
+    .filter((account) => account.engineId === 'api' && account.billingMode === 'api')
+    .map((account) => {
+      const accounting = accountingByAccount.get(account.accountId);
       return {
         ...account,
-        ...(snapshot ? { usage: snapshot.usage, cost: snapshot.cost } : {}),
+        ...(accounting ? { usage: accounting.usage, cost: accounting.cost } : {}),
         ...(accountingQuery.isLoading
           ? { accountingStatus: 'loading' as const }
           : accountingQuery.isError
@@ -399,208 +565,433 @@ export function AiAccountsPane() {
             : {}),
       };
     });
-  }, [accountingQuery.data, accountingQuery.isError, accountingQuery.isLoading, statusQuery.data]);
-  const [selectedLane, setSelectedLane] = useState<string>('');
-  const [keyDialog, setKeyDialog] = useState<{ accountId?: string } | null>(null);
-
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   useEffect(() => {
-    const firstAccount = accounts[0];
-    if (!firstAccount) {
-      setSelectedLane('');
-      return;
-    }
-    if (!accounts.some((account) => accountLane(account) === selectedLane)) {
-      setSelectedLane(accountLane(firstAccount));
-    }
-  }, [accounts, selectedLane]);
-
-  const selectedAccount = accounts.find((account) => accountLane(account) === selectedLane);
-  const models = useMemo(
-    () =>
-      (statusQuery.data?.models ?? []).filter(
-        (model) =>
-          selectedAccount &&
-          aiAccountLaneKey(model.engineId, model.accountId, model.billingMode) ===
-            accountLane(selectedAccount),
-      ),
-    [selectedAccount, statusQuery.data?.models],
+    if (!apiAccounts.length) setSelectedAccountId(null);
+    else if (!apiAccounts.some((account) => account.accountId === selectedAccountId))
+      setSelectedAccountId(apiAccounts[0]?.accountId ?? null);
+  }, [apiAccounts, selectedAccountId]);
+  const selectedAccount =
+    apiAccounts.find((account) => account.accountId === selectedAccountId) ?? apiAccounts[0];
+  const selectedModels = (runtimeQuery.data?.models ?? []).filter(
+    (model) => model.engineId === 'api' && model.accountId === selectedAccount?.accountId,
   );
-  const apiAccounts = accounts.filter((account) => account.billingMode === 'api');
-  const subscriptions = accounts.filter((account) => account.billingMode === 'subscription');
-
-  async function refreshAccounts() {
-    await Promise.all([statusQuery.refetch(), accountingQuery.refetch()]);
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: ['agent-runtime', 'models'],
-        refetchType: 'active',
-      }),
-      queryClient.invalidateQueries({
-        queryKey: ['agent-runtime', 'thread-authority'],
-        refetchType: 'active',
-      }),
-    ]);
-  }
-
-  async function handleApiConfigured(status: AiRuntimeStatus) {
-    const configuredAccount = status.accounts.find(
-      (account) => account.billingMode === 'api' && account.status === 'available',
-    );
-    await refreshAccounts();
-    if (configuredAccount) setSelectedLane(accountLane(configuredAccount));
-  }
+  const orchestrationEngines = runtimeQuery.data?.orchestrationEngines ?? [];
+  const refreshing =
+    runtimeQuery.isFetching || providerQuery.isFetching || accountingQuery.isFetching;
+  const refresh = async () => {
+    await Promise.all([runtimeQuery.refetch(), providerQuery.refetch(), accountingQuery.refetch()]);
+    await queryClient.invalidateQueries({ queryKey: ['agent-runtime', 'models'] });
+  };
 
   return (
     <div className="off-set-pane">
-      <div className="off-set-panehead off-set-account-panehead">
-        <div>
-          <div className="off-set-panetitle">AI Accounts</div>
-          <div className="off-set-panedesc">Accounts, exact models, usage, and API cost.</div>
-        </div>
-        <div className="off-set-account-actions">
-          <Button variant="outline" size="sm" onClick={() => setKeyDialog({})}>
-            <Icon icon={Plus} size="sm" /> Add API account
-          </Button>
-          <Button
-            variant="subtle"
-            size="sm"
-            onClick={() => void refreshAccounts()}
-            disabled={statusQuery.isFetching}
-          >
-            <Icon icon={RefreshCw} size="sm" /> {statusQuery.isFetching ? 'Refreshing…' : 'Refresh'}
-          </Button>
+      <div className="off-set-panehead">
+        <div className="off-set-panetitle">AI Accounts</div>
+        <div className="off-set-panedesc">
+          Pi-managed API providers and external CLI orchestration engines.
         </div>
       </div>
-
-      <CardBlock className="off-set-account-catalog-status">
-        <div>
-          <strong>
-            {accounts.filter((account) => account.status === 'available').length} available
-          </strong>
-          <span>
-            {apiAccounts.length} API · {subscriptions.length} subscription
-          </span>
+      <div className="off-set-provider-runtime">
+        <div className="off-set-pv-logo">
+          <Icon icon={Bot} size="md" />
         </div>
-        <span>Checked {checkedAtLabel(statusQuery.data?.checkedAt)}</span>
-      </CardBlock>
-
-      {accounts.length ? (
-        <Tabs value={selectedLane} onValueChange={setSelectedLane} className="off-set-account-tabs">
-          <TabsList className="off-set-account-tablist" aria-label="AI accounts">
-            {apiAccounts.length ? <span className="off-set-account-tabgroup">API</span> : null}
-            {apiAccounts.map((account) => (
-              <TabsTrigger
-                key={accountLane(account)}
-                value={accountLane(account)}
-                className="off-set-account-tab"
-              >
-                <span
-                  className={`off-set-account-dot ${account.status === 'available' ? 'is-ready' : ''}`}
-                />
-                {account.displayName}
-              </TabsTrigger>
-            ))}
-            {subscriptions.length ? (
-              <span className="off-set-account-tabgroup">Subscriptions</span>
-            ) : null}
-            {subscriptions.map((account) => (
-              <TabsTrigger
-                key={accountLane(account)}
-                value={accountLane(account)}
-                className="off-set-account-tab"
-              >
-                <span
-                  className={`off-set-account-dot ${account.status === 'available' ? 'is-ready' : ''}`}
-                />
-                {account.displayName}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <div className="min-w-0">
+          <div className="off-set-pv-name">
+            AI engines
+            <StatusPill tone={refreshing ? 'accent' : 'ok'} running={refreshing}>
+              {refreshing ? 'Checking' : 'Ready'}
+            </StatusPill>
+          </div>
+          <div className="off-set-pv-meta">
+            {providerConfigs.length} API providers · {orchestrationEngines.length} orchestration
+            engines · checked {checkedAtLabel(runtimeQuery.data?.checkedAt)}
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="md"
+          disabled={!desktopAvailable || refreshing || savingProvider}
+          onClick={() => void refresh()}
+        >
+          <Icon icon={RefreshCw} size="sm" />
+          {refreshing ? 'Refreshing' : 'Refresh'}
+        </Button>
+      </div>
+      {!desktopAvailable ? (
+        <div className="off-set-callout is-muted mt-[var(--off-sp-3)]">
+          <Icon icon={Info} size="sm" />
+          AI settings are available inside the desktop app.
+        </div>
+      ) : null}
+      {runtimeQuery.isError || providerQuery.isError ? (
+        <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
+          <Icon icon={TriangleAlert} size="sm" />
+          {providerQuery.isError
+            ? 'Pi provider configuration is unavailable.'
+            : 'AI runtime status is unavailable.'}
+        </div>
       ) : null}
 
-      {selectedAccount ? (
-        <div className="off-set-account-detail">
-          <header className="off-set-account-detail-head">
-            <div>
-              <div className="off-set-account-titleline">
-                <h3>{selectedAccount.displayName}</h3>
-                <StatusPill tone={selectedAccount.status === 'available' ? 'ok' : 'muted'}>
-                  {selectedAccount.status === 'available' ? 'Available' : 'Unavailable'}
-                </StatusPill>
-              </div>
-              <p>{aiAccountKindLabel(selectedAccount.billingMode)} account</p>
+      <section className="off-set-account-section">
+        <div className="off-set-sec-head">
+          <CapsLabel>API engines</CapsLabel>
+          <span>
+            Pi owns ~/.pi/agent/models.json; Offisim shows safe summaries and edit controls.
+          </span>
+        </div>
+        <section className="off-set-provider-console">
+          <aside className="off-set-provider-list" aria-label="Pi providers">
+            <div className="off-set-provider-list-head">
+              <CapsLabel>Providers</CapsLabel>
+              <span>{providerConfigs.length}</span>
             </div>
-            {selectedAccount.billingMode === 'api' ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setKeyDialog({ accountId: selectedAccount.accountId })}
+            {providerConfigs.length ? (
+              <button
+                type="button"
+                className={`off-set-provider-nav off-focusable ${selection.mode === 'overview' ? 'is-active' : ''}`}
+                onClick={() => setSelection({ mode: 'overview' })}
               >
-                <Icon icon={KeyRound} size="sm" /> Replace API key
-              </Button>
+                <Icon icon={List} size="sm" />
+                <span>All providers</span>
+              </button>
             ) : null}
-          </header>
-
-          {selectedAccount.statusReason ? (
-            <div
-              className={`off-set-callout ${selectedAccount.status === 'available' ? 'is-muted' : 'is-warn'}`}
+            <button
+              type="button"
+              className={`off-set-provider-nav off-focusable ${selection.mode === 'add' ? 'is-active' : ''}`}
+              onClick={() => showAddProvider()}
             >
-              {selectedAccount.statusReason}
+              <Icon icon={Plus} size="sm" />
+              <span>Add provider</span>
+            </button>
+            <div className="off-set-provider-nav-scroll">
+              {providerConfigs.map((provider) => (
+                <button
+                  type="button"
+                  key={provider.provider}
+                  className={`off-set-provider-nav off-focusable ${selection.mode === 'edit' && selection.id === provider.provider ? 'is-active' : ''}`}
+                  onClick={() => editProvider(provider)}
+                >
+                  <span
+                    className={`off-set-provider-dot ${provider.hasApiKey || provider.authSource ? 'is-ready' : 'is-muted'}`}
+                  />
+                  <span className="off-set-provider-nav-copy">
+                    <span>{provider.displayName}</span>
+                    <small>{provider.provider}</small>
+                  </span>
+                </button>
+              ))}
             </div>
-          ) : null}
-
-          <section className="off-set-account-section">
-            <div className="off-set-sec-head">
-              <CapsLabel>Usage</CapsLabel>
-              <span>
-                {selectedAccount.billingMode === 'api'
-                  ? selectedAccount.usage?.kind === 'api'
-                    ? selectedAccount.usage.periodLabel
-                    : 'This month'
-                  : 'Provider reported'}
-              </span>
-            </div>
-            <AccountUsage account={selectedAccount} />
-          </section>
-
-          {selectedAccount.billingMode === 'api' ? (
-            <section className="off-set-account-section">
-              <div className="off-set-sec-head">
-                <CapsLabel>Cost</CapsLabel>
+          </aside>
+          <div className="off-set-provider-detail">
+            {selection.mode === 'overview' ? (
+              <div className="off-set-provider-form">
+                <div className="off-set-provider-detail-head">
+                  <div>
+                    <h3>Configured providers</h3>
+                    <p>Safe summary only. Stored API keys are never returned to this page.</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => showAddProvider()}>
+                    <Icon icon={Plus} size="sm" />
+                    Add provider
+                  </Button>
+                </div>
+                <div className="off-set-provider-overview">
+                  {providerConfigs.map((provider) => (
+                    <div className="off-set-provider-overview-row" key={provider.provider}>
+                      <span
+                        className={`off-set-provider-dot ${provider.hasApiKey || provider.authSource ? 'is-ready' : 'is-muted'}`}
+                      />
+                      <span className="off-set-provider-overview-copy">
+                        <strong>{provider.displayName}</strong>
+                        <small>{provider.provider}</small>
+                      </span>
+                      <span className="off-set-provider-overview-meta">
+                        {provider.models.length} {provider.models.length === 1 ? 'model' : 'models'}{' '}
+                        · {provider.api ?? 'API format not set'}
+                      </span>
+                      <StatusPill tone={provider.hasApiKey || provider.authSource ? 'ok' : 'muted'}>
+                        {provider.hasApiKey || provider.authSource
+                          ? 'Credentials configured'
+                          : 'Needs key'}
+                      </StatusPill>
+                      <Button variant="subtle" size="sm" onClick={() => editProvider(provider)}>
+                        <Icon icon={Pencil} size="sm" />
+                        Edit
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <AccountCost account={selectedAccount} />
-            </section>
-          ) : null}
-
-          <section className="off-set-account-section">
-            <div className="off-set-sec-head">
-              <CapsLabel>Models</CapsLabel>
-              <span>{models.length}</span>
-            </div>
-            {models.length ? (
-              <ModelList models={models} />
             ) : (
-              <div className="off-set-provider-empty">
-                No verified exact models are available for this account.
+              <div className="off-set-provider-form">
+                <div className="off-set-provider-detail-head">
+                  <div>
+                    {providerConfigs.length ? (
+                      <button
+                        type="button"
+                        className="off-set-provider-back off-focusable"
+                        onClick={() => setSelection({ mode: 'overview' })}
+                      >
+                        <Icon icon={ArrowLeft} size="sm" />
+                        All providers
+                      </button>
+                    ) : null}
+                    <h3>
+                      {selection.mode === 'add'
+                        ? 'Add API provider'
+                        : (selectedProvider?.displayName ?? 'Edit provider')}
+                    </h3>
+                    <p>
+                      Endpoint, model ids, and credentials are written directly to Pi models.json.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      void invokeCommand('pi_agent_open_config_folder').catch((error) =>
+                        toast.error('Open config failed', { description: safeErrorMessage(error) }),
+                      )
+                    }
+                  >
+                    <Icon icon={FolderOpen} size="sm" />
+                    Open Pi config
+                  </Button>
+                </div>
+                <div className="off-set-provider-form-grid">
+                  <FormField label="Provider id" htmlFor={providerIdInputId}>
+                    <Input
+                      id={providerIdInputId}
+                      value={form.providerId}
+                      disabled={selection.mode === 'edit'}
+                      placeholder="my-provider"
+                      spellCheck={false}
+                      onChange={(event) => updateForm('providerId', event.currentTarget.value)}
+                    />
+                  </FormField>
+                  <FormField label="Display name" htmlFor={providerNameInputId}>
+                    <Input
+                      id={providerNameInputId}
+                      value={form.displayName}
+                      placeholder="My provider"
+                      onChange={(event) => updateForm('displayName', event.currentTarget.value)}
+                    />
+                  </FormField>
+                  <FormField label="Base URL" htmlFor={baseUrlInputId} wide>
+                    <Input
+                      id={baseUrlInputId}
+                      value={form.baseUrl}
+                      placeholder="https://api.example.com/v1"
+                      spellCheck={false}
+                      onChange={(event) => updateForm('baseUrl', event.currentTarget.value)}
+                    />
+                  </FormField>
+                  <FormField label="API format" htmlFor={apiInputId}>
+                    <Input
+                      id={apiInputId}
+                      value={form.api}
+                      placeholder="openai-completions"
+                      spellCheck={false}
+                      onChange={(event) => updateForm('api', event.currentTarget.value)}
+                    />
+                  </FormField>
+                  <FormField
+                    label={form.keepExistingApiKey ? 'Replace API key' : 'API key'}
+                    htmlFor={apiKeyInputId}
+                    wide
+                  >
+                    <Input
+                      id={apiKeyInputId}
+                      type="password"
+                      value={form.apiKey}
+                      placeholder={
+                        form.keepExistingApiKey
+                          ? 'Leave blank to keep the stored key'
+                          : 'Paste provider API key'
+                      }
+                      autoComplete="off"
+                      spellCheck={false}
+                      onChange={(event) => updateForm('apiKey', event.currentTarget.value)}
+                    />
+                  </FormField>
+                </div>
+                <details className="off-set-disclosure" open={selection.mode === 'add'}>
+                  <summary>
+                    <span className="off-set-chev">
+                      <Icon icon={ChevronRight} size="sm" />
+                    </span>
+                    Models{' '}
+                    <span className="off-set-provider-disc-count">
+                      {form.models.filter((model) => model.id.trim()).length}
+                    </span>
+                  </summary>
+                  <div className="off-set-disclosure-body">
+                    <ProviderModelsEditor
+                      models={form.models}
+                      onChange={(models) => updateForm('models', models)}
+                    />
+                  </div>
+                </details>
+                <div className="off-set-provider-form-actions">
+                  <Button
+                    disabled={!desktopAvailable || savingProvider}
+                    onClick={() => void saveProvider()}
+                  >
+                    {savingProvider
+                      ? 'Saving…'
+                      : selection.mode === 'add'
+                        ? 'Save provider'
+                        : 'Save changes'}
+                  </Button>
+                </div>
+                {selection.mode === 'add' ? (
+                  <div className="off-set-provider-template-panel">
+                    <div className="off-set-provider-template-head">
+                      <CapsLabel>Provider templates</CapsLabel>
+                      <div className="off-set-provider-template-search">
+                        <Icon icon={Search} size="sm" />
+                        <Input
+                          value={templateSearch}
+                          placeholder="Search templates"
+                          aria-label="Search provider templates"
+                          onChange={(event) => setTemplateSearch(event.currentTarget.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="off-set-provider-template-list">
+                      {addableTemplates.length ? (
+                        addableTemplates.map((template) => (
+                          <button
+                            type="button"
+                            key={template.provider}
+                            className="off-set-provider-template off-focusable"
+                            onClick={() => showAddProvider(template)}
+                          >
+                            <span>
+                              <strong>{template.displayName}</strong>
+                              <small>{template.provider}</small>
+                            </span>
+                            <em>{template.models[0]?.id ?? template.api ?? 'custom endpoint'}</em>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="off-set-provider-empty">
+                          No matching template. Enter a custom provider above.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
-          </section>
-        </div>
-      ) : (
-        <div className="off-set-provider-empty">
-          {statusQuery.isLoading
-            ? 'Loading AI accounts…'
-            : 'No AI account is available. Add an API account to begin.'}
-        </div>
-      )}
+          </div>
+        </section>
 
-      <ApiKeyDialog
-        open={keyDialog !== null}
-        onOpenChange={(open) => !open && setKeyDialog(null)}
-        {...(keyDialog?.accountId ? { accountId: keyDialog.accountId } : {})}
-        onConfigured={handleApiConfigured}
-      />
+        <div className="off-set-sec-head">
+          <CapsLabel>API account activity</CapsLabel>
+          <span>Usage and API cost remain separate from provider configuration.</span>
+        </div>
+        <section className="off-set-provider-console">
+          <aside className="off-set-provider-list" aria-label="API accounts">
+            <div className="off-set-provider-list-head">
+              <CapsLabel>Accounts</CapsLabel>
+              <span>{apiAccounts.length}</span>
+            </div>
+            <div className="off-set-provider-nav-scroll">
+              {apiAccounts.map((account) => (
+                <button
+                  type="button"
+                  key={account.accountId}
+                  className={`off-set-provider-nav off-focusable ${selectedAccount?.accountId === account.accountId ? 'is-active' : ''}`}
+                  onClick={() => setSelectedAccountId(account.accountId)}
+                >
+                  <span
+                    className={`off-set-provider-dot ${account.status === 'available' ? 'is-ready' : 'is-muted'}`}
+                  />
+                  <span className="off-set-provider-nav-copy">
+                    <span>{account.displayName}</span>
+                    <small>API account</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </aside>
+          <div className="off-set-provider-detail">
+            {selectedAccount ? (
+              <>
+                <div className="off-set-provider-detail-head">
+                  <div>
+                    <h3>{selectedAccount.displayName}</h3>
+                    <p>{selectedAccount.statusReason ?? 'API usage and cost summary'}</p>
+                  </div>
+                  <StatusPill tone={selectedAccount.status === 'available' ? 'ok' : 'muted'}>
+                    {selectedAccount.status === 'available' ? 'Available' : 'Unavailable'}
+                  </StatusPill>
+                </div>
+                <div className="off-set-provider-summary-grid">
+                  <div>
+                    <span>Models</span>
+                    <strong>{selectedModels.length}</strong>
+                  </div>
+                  <div>
+                    <span>Usage</span>
+                    <strong>{usageHeadline(selectedAccount)}</strong>
+                  </div>
+                  <div>
+                    <span>Cost</span>
+                    <strong>{costHeadline(selectedAccount)}</strong>
+                  </div>
+                </div>
+                <section className="off-set-account-section">
+                  <div className="off-set-sec-head">
+                    <CapsLabel>Usage</CapsLabel>
+                  </div>
+                  <ApiUsage account={selectedAccount} />
+                </section>
+                <section className="off-set-account-section">
+                  <div className="off-set-sec-head">
+                    <CapsLabel>Models</CapsLabel>
+                    <span>{selectedModels.length}</span>
+                  </div>
+                  <div className="off-set-account-models">
+                    {selectedModels.map((model) => (
+                      <div className="off-set-account-model" key={model.runtimeModelRef}>
+                        <div className="off-set-account-model-copy">
+                          <strong>{model.displayName}</strong>
+                          <code>{model.modelId}</code>
+                        </div>
+                        <StatusPill tone={modelAvailabilityTone(model)}>
+                          {model.availability}
+                        </StatusPill>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </>
+            ) : (
+              <div className="off-set-provider-empty">No API account is available.</div>
+            )}
+          </div>
+        </section>
+      </section>
+
+      <section className="off-set-account-section">
+        <div className="off-set-sec-head">
+          <CapsLabel>Orchestration engines</CapsLabel>
+          <span>CLI-owned sign-in, model selection, and credentials.</span>
+        </div>
+        <div className="off-set-callout is-muted">
+          <Icon icon={Info} size="sm" />
+          Offisim never receives or persists CLI credentials. Use the CLI's own login flow.
+        </div>
+        {orchestrationEngines.map((engine) => (
+          <OrchestrationEngineCard key={engine.engineId} engine={engine} />
+        ))}
+        {!runtimeQuery.isLoading && !orchestrationEngines.length ? (
+          <div className="off-set-provider-empty">No orchestration engines reported.</div>
+        ) : null}
+      </section>
     </div>
   );
 }

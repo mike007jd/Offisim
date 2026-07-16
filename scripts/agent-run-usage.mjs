@@ -1,4 +1,7 @@
-import { OPENROUTER_API_BASE_URL, verifiedOpenRouterModel } from './ai-model-catalog.mjs';
+import {
+  OPENROUTER_API_BASE_URL,
+  openRouterPricingFor,
+} from './openrouter-pricing-registry.mjs';
 
 const OPENROUTER_GENERATION_URL = `${OPENROUTER_API_BASE_URL}/generation`;
 const DEFAULT_RETRY_DELAYS_MS = Object.freeze([0, 150, 400, 950]);
@@ -60,19 +63,19 @@ function aggregateOptionalNumbers(contributions, key) {
 }
 
 function estimateContributionCost(tokens, modelId) {
-  const catalog = verifiedOpenRouterModel(modelId);
-  if (!catalog) {
+  const pricing = openRouterPricingFor(modelId);
+  if (!pricing) {
     return {
       kind: 'unavailable',
-      reason: `No verified pricing catalog exists for ${modelId}.`,
+      reason: `No verified pricing source exists for ${modelId}.`,
     };
   }
 
   const buckets = [
-    ['input', catalog.pricing.inputPerMillion],
-    ['output', catalog.pricing.outputPerMillion],
-    ['cacheRead', catalog.pricing.cacheReadPerMillion],
-    ['cacheWrite', catalog.pricing.cacheWritePerMillion],
+    ['input', pricing.inputPerMillion],
+    ['output', pricing.outputPerMillion],
+    ['cacheRead', pricing.cacheReadPerMillion],
+    ['cacheWrite', pricing.cacheWritePerMillion],
   ];
   let amountUsd = 0;
   const missing = [];
@@ -95,8 +98,8 @@ function estimateContributionCost(tokens, modelId) {
   return {
     kind: 'estimate',
     amountUsd,
-    sourceUrl: catalog.pricing.sourceUrl,
-    checkedAt: catalog.pricing.checkedAt,
+    sourceUrl: pricing.sourceUrl,
+    checkedAt: pricing.checkedAt,
   };
 }
 

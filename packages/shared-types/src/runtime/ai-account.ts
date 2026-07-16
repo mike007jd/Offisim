@@ -11,46 +11,6 @@ export interface AiAccountCapabilities {
   readonly cost: AiCapabilityState;
 }
 
-export interface AiSubscriptionUsageWindow {
-  readonly kind: 'primary' | 'secondary' | 'spendControl';
-  readonly windowDurationMins?: number;
-  readonly used: number | string;
-  readonly remaining: number | string;
-  readonly remainingIsDerived: boolean;
-  readonly resetAt?: string;
-  readonly limit?: number | string;
-}
-
-export interface AiSubscriptionUsageLimit {
-  readonly limitId: string;
-  readonly label: string;
-  readonly planType?: string;
-  readonly reachedType?: string;
-  readonly windows: readonly AiSubscriptionUsageWindow[];
-  readonly credits?: number | string;
-}
-
-export interface AiSubscriptionUsageActivity {
-  readonly lifetimeTokens?: number;
-  readonly peakDailyTokens?: number;
-  readonly longestRunningTurnSec?: number;
-  readonly currentStreakDays?: number;
-  readonly longestStreakDays?: number;
-}
-
-/** Provider-native subscription usage. Every native limit bucket and window
- * stays distinct; derived remaining percentages are labelled, and subscription
- * activity is never converted to API cost. */
-export interface AiSubscriptionUsageSnapshot {
-  readonly kind: 'subscription';
-  readonly source: 'native';
-  readonly limits: readonly AiSubscriptionUsageLimit[];
-  /** Provider-issued rate-limit reset credits, distinct from plan credit balance. */
-  readonly resetCredits?: number | string;
-  readonly activity?: AiSubscriptionUsageActivity;
-  readonly updatedAt?: string;
-}
-
 export interface AiAccountDescriptor {
   readonly engineId: string;
   readonly accountId: string;
@@ -59,13 +19,53 @@ export interface AiAccountDescriptor {
   readonly status: 'available' | 'unavailable';
   readonly statusReason?: string;
   readonly capabilities: AiAccountCapabilities;
-  readonly usage?: AiSubscriptionUsageSnapshot;
 }
 
-export interface AiModelSource {
-  readonly kind: 'official-api' | 'native';
-  readonly sourceUrl: string;
+export type AiModelSource =
+  | {
+      readonly kind: 'official-api';
+      readonly sourceUrl: string;
+      readonly checkedAt: string;
+    }
+  | {
+      /** The engine itself owns model/version discovery. No fabricated catalog
+       * URL or check timestamp may be attached to this native identity. */
+      readonly kind: 'native';
+      readonly sourceUrl?: never;
+      readonly checkedAt?: never;
+    };
+
+export type RuntimeEnginePermissionMode = 'plan' | 'ask' | 'auto' | 'full';
+
+/** Product controls and event projections that one runtime actually supports. */
+export interface RuntimeEngineCapabilityManifest {
+  readonly stop: boolean;
+  readonly steer: boolean;
+  readonly resume: boolean;
+  readonly permissionModes: readonly RuntimeEnginePermissionMode[];
+  readonly interactions: {
+    readonly approval: boolean;
+    readonly userInput: boolean;
+  };
+  readonly processEvents: {
+    readonly reasoning: boolean;
+    readonly toolCalls: boolean;
+    readonly fileChanges: boolean;
+  };
+}
+
+/** Safe status projection for an external CLI orchestration engine. Credentials,
+ * account health, model catalogs, and subscription usage never cross this seam. */
+export interface OrchestrationEngineStatus {
+  readonly engineId: string;
+  readonly displayName: string;
+  readonly state: 'not-installed' | 'not-signed-in' | 'ready' | 'unavailable';
+  readonly version?: string;
+  readonly statusReason?: string;
+  readonly loginCommand: string;
+  readonly docsUrl: string;
   readonly checkedAt: string;
+  readonly capabilities: RuntimeEngineCapabilityManifest;
 }
 
 export interface AiModelCapabilities {
@@ -108,7 +108,9 @@ export interface AiModelCatalogEntry {
   readonly reasoningEfforts?: readonly AiModelReasoningEffort[];
   readonly capabilities: AiModelCapabilities;
   readonly pricing?: AiModelPricing;
-  readonly source: AiModelSource;
+  /** Optional for user-authored Pi provider/model entries. When present,
+   * official sources remain fully verified; orchestration engines use native. */
+  readonly source?: AiModelSource;
 }
 
 /** Exact execution selection frozen before a run crosses its paid side-effect boundary. */
@@ -117,7 +119,9 @@ export interface AiExecutionTarget {
   readonly accountId: string;
   readonly billingMode: AiBillingMode;
   readonly modelId: string;
-  readonly modelSource: AiModelSource;
+  /** User-authored API models may omit provenance. Subscription orchestration
+   * targets must carry the engine-owned native identity. */
+  readonly modelSource?: AiModelSource;
 }
 
 export interface TurnExecutionProvenance extends AiExecutionTarget {
@@ -134,5 +138,6 @@ export interface TurnExecutionProvenance extends AiExecutionTarget {
 export interface AiRuntimeStatus {
   readonly accounts: readonly AiAccountDescriptor[];
   readonly models: readonly AiModelCatalogEntry[];
+  readonly orchestrationEngines: readonly OrchestrationEngineStatus[];
   readonly checkedAt: string;
 }

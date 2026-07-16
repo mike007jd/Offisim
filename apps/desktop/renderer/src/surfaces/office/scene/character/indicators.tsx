@@ -24,6 +24,9 @@ interface CharacterIndicatorsProps {
   readonly hasTypedResourceMarker: boolean;
 }
 
+const HEAD_MARKER_DEPTH = 0.052;
+const HEAD_MARKER_RADIUS = 0.024;
+
 type DotRefs = readonly [RefObject<Mesh | null>, RefObject<Mesh | null>, RefObject<Mesh | null>];
 
 function WorkingDotMeshes({
@@ -186,8 +189,8 @@ export function CharacterIndicators({
       {has('approval-marker') || has('blocked-marker') ? (
         <group position={[0.29, headY + 0.02, 0]}>
           <RoundedBox
-            args={[G.headMarkerSize, G.headMarkerSize, 0.052]}
-            radius={0.035}
+            args={[G.headMarkerSize, G.headMarkerSize, HEAD_MARKER_DEPTH]}
+            radius={HEAD_MARKER_RADIUS}
             smoothness={3}
           >
             <meshStandardMaterial

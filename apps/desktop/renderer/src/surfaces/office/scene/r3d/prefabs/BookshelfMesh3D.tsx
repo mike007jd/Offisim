@@ -11,6 +11,12 @@ import { useSceneColors } from '../use-scene-colors.js';
 import { PlantMesh3D } from './DecorativeMesh3D.js';
 import { OfficeChair } from './WorkstationMesh3D.js';
 
+const READING_TABLE_SURFACE_Y = 0.75;
+const READING_MAT_THICKNESS = 0.016;
+const CABINET_FRONT_Z = 0.36;
+const DRAWER_FACE_DEPTH = 0.03;
+const DRAWER_HANDLE_DEPTH = 0.018;
+
 export interface BookshelfMesh3DProps {
   position?: [number, number, number];
   rotation?: number;
@@ -36,12 +42,20 @@ export function BookshelfMesh3D({
         </RoundedBox>
         {[0.28, 0.58, 0.88].map((y) => (
           <group key={`drawer-${y}`}>
-            <mesh position={[0, y, 0.37]}>
-              <boxGeometry args={[0.72, 0.18, 0.035]} />
+            <RoundedBox
+              args={[0.72, 0.18, DRAWER_FACE_DEPTH]}
+              position={[0, y, CABINET_FRONT_Z + DRAWER_FACE_DEPTH / 2]}
+              radius={0.01}
+              smoothness={3}
+              castShadow
+            >
               <SceneMaterial materialClass="metal" color={sc.furniture} />
-            </mesh>
-            <mesh position={[0, y, 0.395]}>
-              <boxGeometry args={[0.22, 0.025, 0.02]} />
+            </RoundedBox>
+            <mesh
+              position={[0, y, CABINET_FRONT_Z + DRAWER_FACE_DEPTH + DRAWER_HANDLE_DEPTH / 2]}
+              castShadow
+            >
+              <boxGeometry args={[0.22, 0.025, DRAWER_HANDLE_DEPTH]} />
               <SceneMaterial materialClass="metal" color={sc.metal} />
             </mesh>
           </group>
@@ -63,14 +77,16 @@ export function BookshelfMesh3D({
         >
           <SceneMaterial materialClass="wood" color={sc.tableReading} />
         </RoundedBox>
-        <mesh position={[0, 0.758, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[1.74, 0.68]} />
-          <SceneMaterial
-            materialClass="fabric"
-            color={sc.workMat}
-            overrides={{ transparent: true, opacity: 0.58 }}
-          />
-        </mesh>
+        <RoundedBox
+          args={[1.74, READING_MAT_THICKNESS, 0.68]}
+          position={[0, READING_TABLE_SURFACE_Y + READING_MAT_THICKNESS / 2, 0]}
+          radius={0.007}
+          smoothness={3}
+          castShadow
+          receiveShadow
+        >
+          <SceneMaterial materialClass="fabric" color={sc.workMat} overrides={{ roughness: 0.9 }} />
+        </RoundedBox>
         {[-0.92, 0.92].map((x) =>
           [-0.42, 0.42].map((z) => (
             <mesh key={`reading-leg-${x}-${z}`} position={[x, 0.36, z]} castShadow>
@@ -79,21 +95,35 @@ export function BookshelfMesh3D({
             </mesh>
           )),
         )}
-        <mesh position={[-0.42, 0.82, 0.06]} castShadow>
-          <boxGeometry args={[0.36, 0.035, 0.28]} />
+        <RoundedBox
+          args={[0.36, 0.035, 0.28]}
+          position={[-0.42, READING_TABLE_SURFACE_Y + READING_MAT_THICKNESS + 0.0175, 0.06]}
+          radius={0.012}
+          smoothness={3}
+          castShadow
+        >
           <SceneMaterial materialClass="plastic" color={sc.whiteboardSurface} />
-        </mesh>
-        <mesh position={[-0.38, 0.85, 0.06]} rotation={[0, 0, 0.18]}>
-          <boxGeometry args={[0.34, 0.02, 0.22]} />
+        </RoundedBox>
+        <RoundedBox
+          args={[0.34, 0.012, 0.22]}
+          position={[-0.38, READING_TABLE_SURFACE_Y + READING_MAT_THICKNESS + 0.041, 0.06]}
+          rotation={[0, 0.18, 0]}
+          radius={0.005}
+          smoothness={3}
+          castShadow
+        >
           <SceneMaterial materialClass="plastic" color={sc.accentCool} />
-        </mesh>
-        <mesh position={[0.48, 0.83, -0.02]}>
+        </RoundedBox>
+        <mesh
+          position={[0.48, READING_TABLE_SURFACE_Y + READING_MAT_THICKNESS + 0.04, -0.02]}
+          castShadow
+        >
           <cylinderGeometry args={[0.07, 0.07, 0.08, 14]} />
           <SceneMaterial materialClass="metal" color={sc.metal} />
         </mesh>
-        <mesh position={[0.48, 0.93, -0.02]}>
+        <mesh position={[0.48, READING_TABLE_SURFACE_Y + READING_MAT_THICKNESS + 0.17, -0.02]}>
           <coneGeometry args={[0.13, 0.18, 16]} />
-          <meshBasicMaterial color={sc.ledAmber} transparent opacity={0.68} />
+          <meshBasicMaterial color={sc.ledAmber} transparent opacity={0.68} depthWrite={false} />
         </mesh>
       </group>
     );

@@ -67,8 +67,8 @@ T05 API account 的模型、费率与 Usage 来源已按 2026-07-14 官方资料
 ### Wave C — Engines、Accounts、Models
 
 - T05：生产 engine gateway 与 API account 纵切。
-- T06：Codex subscription 完整 engine。
-- T07：Claude subscription 完整 engine。
+- T06：Codex CLI 编排适配器。
+- T07：Claude Code CLI 编排适配器。
 - T08：AI Accounts / Models 设置整合。
 
 ### Wave D — 产品主流程与视觉语义
