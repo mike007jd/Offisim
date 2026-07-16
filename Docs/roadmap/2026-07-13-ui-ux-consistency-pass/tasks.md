@@ -406,7 +406,7 @@
 - Market 主流程统一为 `Import from computer…`、`Publish for review…`、`Connection settings` 等用户任务语言；registry、token、receipt、job ID、包扩展名和 runtime/schema 细节不再暴露。
 - Endpoint 与 Access token 只保留在 Settings → Advanced connections，并支持保存 endpoint override、替换或清除安全 token；Market 只显示连接结果和任务入口。
 - `harness:market-surface` 10/10 覆盖离线本地搜索、状态文案、工具栏结构、查询透传和技术术语边界；renderer production build、typecheck、UI drift gate 均通过。
-- 两轮精确 release `.app` 盲测零发现：第一轮使用原用户状态覆盖 Browse / Installed / Updates / Published、搜索、发布审核与 Advanced connection；第二轮使用临时 HOME 从零创建公司并复测离线 Browse 与本地搜索，未触达原 `~/.offisim`。
+- 两轮精确 release `.app` 盲测零发现：分别使用两个独立临时 HOME 直接执行 bundle 内二进制，从零创建公司并覆盖 Browse / Installed / Updates / Published、离线搜索、发布审核与 Advanced connection；未通过 LaunchServices 猜 bundle，未触达原 `~/.offisim`。
 - release `.app` 可执行文件 SHA-256 为 `8d9d903384f1e502438c493bde5dfc6e22f93744b659595f1805b66a81f15ec4`；Codex sidecar SHA-256 为 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
 
 ---
