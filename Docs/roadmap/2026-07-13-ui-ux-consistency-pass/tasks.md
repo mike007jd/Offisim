@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，15/17 implemented；T11、T16 尚未闭环，整包 final release 验收统一留在 T16
+> 状态：COMPLETE，17/17 implemented；T00–T16 均以真实行为、门禁与精确 release `.app` 证据闭环
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -19,12 +19,12 @@
 | T08 | AI Accounts / Models 设置整合 | T02,T05,T06 | [x] |
 | T09 | Loops 自然语言主流程 | T00 | [x] |
 | T10 | Market 用户语言与空状态 | T00 | [x] |
-| T11 | Personnel Danger Zone | T00 | [ ] |
+| T11 | Personnel Danger Zone | T00 | [x] |
 | T12 | Chrome、rails、nav、run pill 稳定 | T01 | [x] |
 | T13 | Usage / Cost 单一表达 | T08 | [x] |
 | T14 | Radius、presence、error 视觉语义 | T00 | [x] |
 | T15 | Dead docs 与 gates 收敛 | T00 | [x] |
-| T16 | Release `.app` 盲测闭环 | T01-T15 | [ ] |
+| T16 | Release `.app` 盲测闭环 | T01-T15 | [x] |
 
 ## 全局执行规则
 
@@ -427,16 +427,24 @@
 
 ### Acceptance
 
-- [ ] 正常编辑视图 Save 是唯一主动作。
-- [ ] Delete 可发现但不与 Save 同权重。
-- [ ] 确认明确对象，取消无副作用，不增加多层权限戏剧。
-- [ ] 删除后 selection、列表、Office projection 和历史引用正确。
-- [ ] 保存、取消、删除均可键盘与辅助功能完成。
+- [x] 正常编辑视图 Save 是唯一主动作。
+- [x] Delete 可发现但不与 Save 同权重。
+- [x] 确认明确对象，取消无副作用，不增加多层权限戏剧。
+- [x] 删除后 selection、列表、Office projection 和历史引用正确。
+- [x] 保存、取消、删除均可键盘与辅助功能完成。
 
 ### Oracles
 
 - employee save/delete、employee-version-on-save、Office projection harness。
 - T16 使用临时员工覆盖保存、取消删除、确认删除。
+
+### T11 Evidence（2026-07-16 23:43:47 NZST）
+
+- 实现 commit `c9d047f2c24038e0e41ea8cd72456a2d231eedf3`。`pnpm harness:personnel-danger-zone` 10/10：覆盖中间/末尾/唯一员工删除后的 selection、日常 Save bar 无 Delete、可访问的 header Danger Zone、明确对象且 Cancel 优先的确认框、重复提交保护、roster refresh、历史工作/对话引用保持可读，以及员工私有可变状态清除。
+- 精确产物为 `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`；App 内容指纹 `9225d0a012168b112343420853658f96c397fc8f7df808f9b3e4ede7f94815c7`，主二进制 SHA-256 `c7724908bfce15ff0da468af240900303efd42a1ab195089447be245c0f69399`。两轮均直接执行 bundle 内主二进制并绑定 Computer Use 的 `Offisim` / `tauri://localhost` 窗口，未使用 bundle id、LaunchServices、AppleScript、dev server 或原 `~/.offisim`。
+- Fresh Round A / B 分别在独立 HOME 创建并保存 `Temporary A Saved`、`Temporary B Saved`。日常 Profile 仅保留 Reset / Save；Delete 位于 `Actions for …` → `DANGER ZONE` → `Delete employee…`。确认框逐字命名对象、说明不可恢复与历史保留边界，并默认聚焦 Cancel。
+- A 轮用 Escape 取消后，数据库仍为 9 人且原 selection 不变；重新用键盘打开确认框后再按 action-time 授权删除。B 轮通过同一路径确认删除并收到 `Temporary B Saved removed`。两轮删除后数据库均为 8 人，Personnel 自动选择前一位 `Jamie Reeves`，Office 均显示 `TEAM 8 people · 8 inherit` 且无临时员工残影。
+- B 轮删除后 `PRAGMA foreign_key_check` 为空，`employee_versions`、`project_assignments`、`skills`、`chat_threads`、`agent_runs` 均无该临时员工残留；重启同一 release `.app` 后 Companies card 仍显示 `EMPLOYEES 8`。真实 fixture 无项目/Conversation，带历史引用时的可读快照由上述专属 harness 直接覆盖。
 
 ---
 
@@ -571,7 +579,7 @@
 
 **结果：** 当前 worktree release `.app` 在 fresh state 下连续两轮无本轮 finding。
 
-**Evidence（checkedAt `2026-07-16 23:12:44 NZST`）：**
+**Evidence（checkedAt `2026-07-16 23:43:47 NZST`）：**
 
 - 验收实现 commit `9d12608d81c8ebf4864ab3c332e2eda02b9c24e6`。精确产物为 `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`；App 内容指纹 `531d76f7015579c275bf613abbb62c0303c826efbe284aa9bd2c46ea81663988`，主二进制 SHA-256 `f3fb31a7ef0d8615ab872f1682858c4b5d0cebab00099ceb2a3271696dd1389b`，Codex sidecar `rust-v0.144.4` SHA-256 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
 - `node scripts/release-gates.mjs` 默认 `all` 为 `5/5` green，Rust `441/441`；生产依赖审计通过，只有 `1 low / 5 moderate`，无 high / critical。`pnpm --filter @offisim/desktop build`、bundle 签名/sidecar 完整性、`git diff --check` 均通过。
@@ -579,7 +587,7 @@
 - Fresh Round A：无 Project 创建公司，再经原生 folder picker 绑定 Project；Files 扫描 `README.md`，API 真跑 `FINAL-A`，Working → Complete、`≥6,300 tok / Estimated $0.00`，重启后公司、Project、Conversation 与 accounting 均持久。Accounts 展示 API 5 个、Codex 7 个 exact leaf；Market offline、Personnel engine-neutral system-instruction copy、Studio `7 zones / 33 objects` 均正确。自然语言 Loop 生成 `9 nodes / 9 edges`、保存为 `v1` 并产生 `Project run pending`；1024×700 下 rails/nav/run pill、stage maximize、2D/3D 均可用，Computer Use 截图无截断或外圈黑边。
 - Fresh Round B：Content Studio 模板、独立 HOME、独立 Project。真实 live Stop 进入 `Interrupted / Stopped` 并恢复原 composer；新 Turn 返回 `RESUMED-B`。标题先即时 fallback，再手动改为 `Recovered Workspace Matrix`，后续 Turn 保持锁定。Workspace 实测 normal、missing、unique、ambiguous：missing 明示无文件访问；唯一同名 + repo identity 自动恢复并披露路径；两个候选时 fail-closed 且不猜目录；恢复原目录后 normal 再次通过。
 - Native subscriptions：最终产物读取 Codex GPT-5.4-Mini 真实 Conversation 后，Stage 从错误的 `No task usage` 收敛为 provider-native `≈56% remaining`，且不显示 Cost。随后临时、可逆地挂载隔离 Offisim 状态到真实 HOME；最终产物识别 `Claude Max`、5 个 exact native model，Haiku 真跑返回 `FINAL-CLAUDE`，Stage 显示 `Not reported remaining` 与 reset、无 Cost。验收后原 `~/.offisim` 与 Claude Max 登录已恢复并复核。
-- 两轮没有新增 UI/UX slop、AI slop、阻断性 bug 或理解困难 finding；本轮创建的 HOME、workspace、recovery 候选、日志与无价值截图均清理。T11 的两套 Delete 验证 fixture 按破坏性操作门禁单独保留，不属于 T16 临时残留。
+- 两轮没有新增 UI/UX slop、AI slop、阻断性 bug 或理解困难 finding；T11 随后在两套独立 HOME 完成 Save、键盘 Cancel、action-time 确认删除、Personnel selection、Office projection、SQLite 外键与重启持久化验收。所有 HOME、workspace、recovery 候选、临时员工、日志与无价值截图均在最终交付前清理。
 
 ### Full gates
 
