@@ -464,7 +464,7 @@
 - [x] Office 默认视图不重复显示相同 token/cost。
 - [x] API 显示 token + actual/estimated/unavailable Cost。
 - [x] 外部 CLI 编排只显示任务 token/时长与“订阅内 · 无 API 成本”，不建立账户 Usage 页面。
-- [x] 无 Usage capability 时隐藏或显示 unavailable，不显示 0%。
+- [x] subscription task 不依赖 provider Usage capability，不显示 unavailable 或伪造 0%。
 - [x] account/task 切换后不串 Conversation、Project、月份或计费窗口。
 - [x] warning/critical 只来自真实 provider threshold 或用户明确预算。
 
@@ -474,17 +474,13 @@
 - activity-data、settings coordinator gates。
 - T16 覆盖 API / Codex / Claude。
 
-### T13 Evidence（2026-07-16 NZST）
+### T13 Evidence（2026-07-17 NZST）
 
-- 按当前官方口径核对：ChatGPT/Codex subscription 展示 plan-native credits、limits 与 reset；API 按 provider token usage 和已核实 rate 表达 actual / estimate / unavailable Cost。来源：`https://learn.chatgpt.com/docs/pricing#what-are-tokens-and-credits`、`https://developers.openai.com/api/docs/guides/production-best-practices#text-generation`。
-- AppFrame 的 company-month token/cost 副本和 Settings 的 Usage/Cost summary grid 已删除。Office Stage 成为 selected Conversation 的唯一读数；Settings 只保留 account-month 的 Usage / Cost 明细。
-- API Stage 显示 selected Conversation token coverage 与 actual / estimated / unavailable Cost；subscription 只匹配该 Conversation 持久化的 exact `engine + account + billing` lane，并读取 provider-native remaining/reset/credits/activity。没有 native capability 时显示 `Usage unavailable`，不生成 `0%` 或 API Cost。
-- 月度 SQL 增加 `< nextMonthStart` 上界；Settings 聚合键改为 `engine + account + billing`。多 lane Conversation 明确显示 `Usage split across accounts` 并隐藏总 Cost；company-month budget 不再染色 selected Conversation，warning/critical 只来自 session 明确预算或 provider `reachedType`。
-- release 盲测首次捕获旧 company chat 仍锁死 API-only selector 的阻断。修复后 API 继续走无 workspace/无工具的 `agent_runtime_collaborate`，Codex strict chat 走同样隔离的 native one-shot host；`harness:pi-collaboration-runtime` 105/105 证明 exact target、durable ACK、隔离边界和两条 engine lane。
-- 两轮精确 release `.app` 使用独立 HOME `/private/tmp/offisim-t13-fresh-a.gktngJ` 与 `/private/tmp/offisim-t13-fresh-b.i0WQwT`。Round A 从零创建公司，Stage 稳定显示唯一 `No task usage`，Settings 未认证 subscription 只显示 Usage unavailable、无 Cost。Round B 通过本机 `CODEX_HOME` 自动发现 Codex Pro，真实显示两个 provider window、reset credits 与 activity；默认 GPT-5.6-Sol 的 0% window 返回真实 usage-limit，GUI 切换到 100% window 的 exact `gpt-5.3-codex-spark` 后 company chat 返回 `OK`。
-- Computer Use 操作前核验窗口身份；最终窗口为 `windowId=11227`、`pid=43342`、title `Offisim`、bounds `x=36 y=33 width=1440 height=879`。全程直接执行当前 worktree bundle 内二进制，未使用 bundle id、LaunchServices、AppleScript 或原 `~/.offisim`。
-- 最终 release 主二进制 32,717,104 bytes，SHA-256 `ccae4abd77e00c8469c272f5b6c3795f59c9fe0e8a1321fb51fa9a72a9bcce7b`；Codex sidecar SHA-256 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
-- `pnpm validate` 全量通过（含 `harness:run-cost-scope`、`harness:ai-account-usage`、`harness:pi-collaboration-runtime`、Codex Rust conformance、activity-data、settings coordinator 与 deadcode）；renderer build、UI drift 与 diff check 通过。UI hygiene 没有新增 T13 finding；当前失败仍仅是已归入 T14 的 Terminal、Browser 与 OfficeScene2D 裸视觉值。T16 继续覆盖完整 API / Codex / Claude release 矩阵。
+- #57/#59 引擎返工后，subscription task 不再有 provider-native limits/reset/credits 数据源；selected task accounting 已移除 `agent_runtime_status(includeUsage: true)` 依赖和 `sessionSubscriptionUsage` 投影。
+- API task 继续显示持久化 token coverage 与 actual / estimated / unavailable Cost；subscription task 改为持久化 root run 的本地 token 与 wall-clock duration，并固定显示“订阅内 · 无 API 成本”，不显示 Usage unavailable、不伪造金额。
+- duration 由 selected Conversation 的 root `started_at/finished_at` 汇总；运行中 root 以当前时刻计算，异常缺失终止时间的非运行中 root 不扩大时长。
+- 多 lane Conversation 继续显示 `Usage split across accounts` 并隐藏合计 Cost；warning/critical 只来自 selected Conversation 的明确 token budget。
+- `harness:run-cost-scope` 覆盖 22 tokens / 90 秒 subscription fixture、旧 provider-native 调用与文案禁用、API Cost 和多 lane 隔离；本单不做 release `.app` live verify。
 
 ---
 
