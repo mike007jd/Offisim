@@ -18,9 +18,8 @@ import {
   buildSystemPrompt,
 } from './personnel-data.js';
 
-/** The persona system prompt this employee's Pi sessions actually receive
- *  (forwarded as `appendSystemPrompt`), shown verbatim so the inspector never
- *  promises behavior the runtime doesn't apply. */
+/** The persona system prompt this employee's runs actually receive, shown
+ *  verbatim so the inspector never promises behavior the runtime doesn't apply. */
 function SystemPromptPreview({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -236,7 +235,7 @@ export function ProfileTab({ employee, companyName, form }: ProfileTabProps) {
                 {...register('customInstructions')}
               />
               <p className="off-field-hint">
-                Added to this employee's Pi sessions as system instructions on every run.
+                Added as system instructions every time this employee runs.
               </p>
             </div>
             <SystemPromptPreview text={buildSystemPrompt(values, companyName)} />

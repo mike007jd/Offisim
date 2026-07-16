@@ -199,6 +199,11 @@ export function useLoopRuns(companyId: string | null) {
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
     },
     enabled: companyId !== null,
+    // Tauri's WebView can be reported as backgrounded even while its native
+    // window is visible. Keep the local SQLite projection live so a Mission
+    // terminalizing after invocation materialization updates Runs in place.
+    refetchInterval: (query) => (query.state.data ? 5_000 : false),
+    refetchIntervalInBackground: true,
   });
 }
 

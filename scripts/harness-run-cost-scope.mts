@@ -421,6 +421,24 @@ const seed = db.transaction(() => {
     JSON.stringify({ model: 'gpt-exact' }),
     '2026-07-10T00:00:00.000Z',
   );
+  insert.run(
+    'orchestration-no-usage-root',
+    'orchestration-no-usage-root',
+    'orchestration-no-usage-thread',
+    'co-orchestration-no-usage',
+    null,
+    null,
+    JSON.stringify({
+      model: 'codex:gpt-5.4-mini',
+      executionTarget: {
+        engineId: 'codex',
+        accountId: 'codex:cli:local',
+        billingMode: 'subscription',
+        modelId: 'gpt-5.4-mini',
+      },
+    }),
+    '2026-07-10T00:00:00.000Z',
+  );
 });
 seed();
 db.prepare(`UPDATE agent_runs SET finished_at = ? WHERE run_id = ?`).run(
@@ -549,6 +567,23 @@ assert.equal(subscriptionPresentation.primary, '22 tok · 1m 30s');
 assert.equal(subscriptionPresentation.secondary, '订阅内 · 无 API 成本');
 assert.equal(subscriptionPresentation.tone, 'neutral');
 assert.doesNotMatch(JSON.stringify(subscriptionPresentation), /Usage unavailable|remaining|reset|credits|\$/u);
+
+const orchestrationWithoutUsage = await loadRunCostFromDatabase(
+  adapter,
+  'co-orchestration-no-usage',
+  'orchestration-no-usage-thread',
+  new Date('2026-07-13T12:00:00.000Z'),
+);
+assert.deepEqual(orchestrationWithoutUsage.sessionAccounts, [
+  {
+    engineId: 'codex',
+    accountId: 'codex:cli:local',
+    billingMode: 'subscription',
+  },
+]);
+assert.equal(orchestrationWithoutUsage.sessionTokens, null);
+assert.equal(orchestrationWithoutUsage.sessionDurationMs, 0);
+assert.equal(orchestrationWithoutUsage.sessionCostKind, 'none');
 
 const explicitBudgetWarning = taskAccountingPresentation({
   ...subscriptionResult,

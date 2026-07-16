@@ -9,9 +9,10 @@ import {
   summarizeUsageTokens,
 } from './usage-token-coverage.js';
 
-// `agent_runs.usage_json` is the only run accounting source. Root rows carry a
-// task aggregate with exact per-run contributions; child rows carry their own
-// account-scoped usage. No token rate is inferred in the renderer.
+// `agent_runs.usage_json` is the only token/cost source. Root rows carry a task
+// aggregate with exact per-run contributions; child rows carry their own
+// account-scoped usage. Frozen runtime provenance may identify the lane when an
+// orchestration run reports no usage, but it never fabricates tokens or cost.
 
 type CostKind = RunCost['costKind'];
 
@@ -65,6 +66,14 @@ interface RunCostRow {
   employee_id: string | null;
   employee_name: string | null;
   usage_json: string;
+  runtime_context_json: string | null;
+}
+
+interface SessionRunCostRow {
+  started_at: string;
+  finished_at: string | null;
+  status: string;
+  usage_json: string | null;
   runtime_context_json: string | null;
 }
 
@@ -140,6 +149,54 @@ function accountingAccounts(usages: readonly UsageRecord[]): RunAccountingAccoun
       } satisfies RunAccountingAccount;
       accounts.set(`${account.engineId}\0${account.accountId}\0${account.billingMode}`, account);
     }
+  }
+  return [...accounts.values()].sort(
+    (left, right) =>
+      left.engineId.localeCompare(right.engineId) ||
+      left.accountId.localeCompare(right.accountId) ||
+      left.billingMode.localeCompare(right.billingMode),
+  );
+}
+
+function runtimeAccountingAccount(value: string | null): RunAccountingAccount | undefined {
+  if (!value) return undefined;
+  try {
+    const context: unknown = JSON.parse(value);
+    if (!isRecord(context)) return undefined;
+    const candidate = isRecord(context.executionTarget)
+      ? context.executionTarget
+      : isRecord(context.provenance)
+        ? context.provenance
+        : null;
+    if (!candidate) return undefined;
+    const engineId = candidate.engineId;
+    const accountId = candidate.accountId;
+    const billingMode = candidate.billingMode;
+    if (
+      typeof engineId !== 'string' ||
+      !engineId.trim() ||
+      typeof accountId !== 'string' ||
+      !accountId.trim() ||
+      (billingMode !== 'api' && billingMode !== 'subscription')
+    ) {
+      return undefined;
+    }
+    return {
+      engineId: engineId.trim(),
+      accountId: accountId.trim(),
+      billingMode,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function mergeAccountingAccounts(
+  ...accountGroups: readonly (readonly RunAccountingAccount[])[]
+): RunAccountingAccount[] {
+  const accounts = new Map<string, RunAccountingAccount>();
+  for (const account of accountGroups.flat()) {
+    accounts.set(`${account.engineId}\0${account.accountId}\0${account.billingMode}`, account);
   }
   return [...accounts.values()].sort(
     (left, right) =>
@@ -250,15 +307,12 @@ export async function loadRunCostFromDatabase(
       [companyId, monthStartIso, nextMonthStartIso],
     ),
     threadId
-      ? db.select<RunCostRow[]>(
-          `SELECT run_id, root_run_id, thread_id, started_at, finished_at, status,
-                  employee_id, NULL AS employee_name, usage_json, runtime_context_json
+      ? db.select<SessionRunCostRow[]>(
+          `SELECT started_at, finished_at, status, usage_json, runtime_context_json
              FROM agent_runs
             WHERE company_id = $1
               AND thread_id = $2
-              AND run_id = root_run_id
-              AND usage_json IS NOT NULL
-              AND json_valid(usage_json)`,
+              AND run_id = root_run_id`,
           [companyId, threadId],
         )
       : Promise.resolve([]),
@@ -272,8 +326,12 @@ export async function loadRunCostFromDatabase(
   const children = parsedRows.filter((row) => row.run_id !== row.root_run_id);
   const monthlyTokenSummary = combineUsageTokenSummaries(roots.map((row) => tokenCount(row.usage)));
   const sessionUsages = sessionRows.flatMap((row) => {
-    const usage = parseUsage(row.usage_json);
+    const usage = row.usage_json ? parseUsage(row.usage_json) : undefined;
     return usage ? [usage] : [];
+  });
+  const sessionRuntimeAccounts = sessionRows.flatMap((row) => {
+    const account = runtimeAccountingAccount(row.runtime_context_json);
+    return account ? [account] : [];
   });
   const nowMs = now.getTime();
   const sessionDurationMs = sessionRows.reduce((total, row) => {
@@ -378,7 +436,10 @@ export async function loadRunCostFromDatabase(
     sessionKnownTokens: sessionTokenSummary.knownTokens,
     sessionTokenCoverage: sessionTokenSummary.coverage,
     sessionDurationMs,
-    sessionAccounts: accountingAccounts(sessionUsages),
+    sessionAccounts: mergeAccountingAccounts(
+      accountingAccounts(sessionUsages),
+      sessionRuntimeAccounts,
+    ),
     sessionCostKind: sessionCost?.kind ?? 'none',
     sessionCostLabel: formatCostLabel(sessionCost),
     costKind,

@@ -126,7 +126,7 @@ export function profileDefaultsFromRecord(
 
 /** Runtime defaults applied when a persona selector was never set — MUST stay
  *  in sync with `personaFromRow` in `data/employee-persona.ts`, so the preview
- *  shows exactly what the employee's Pi sessions receive. */
+ *  shows exactly what the employee's runs receive. */
 export const PERSONA_RUNTIME_DEFAULTS = {
   communication: 'medium',
   risk: 'balanced',
@@ -136,7 +136,7 @@ export const PERSONA_RUNTIME_DEFAULTS = {
 /** Compose the live system-prompt preview from the form state. Delegates to the
  *  shared {@link buildEmployeeSystemPrompt} and applies the same empty-value
  *  fallbacks as the runtime (`personaFromRow`), so the preview matches exactly
- *  what the employee's Pi sessions receive as `appendSystemPrompt`. */
+ *  what every runtime engine receives as its system-prompt addendum. */
 export function buildSystemPrompt(values: ProfileFormValues, companyName: string): string {
   return buildEmployeeSystemPrompt({
     name: values.name,
