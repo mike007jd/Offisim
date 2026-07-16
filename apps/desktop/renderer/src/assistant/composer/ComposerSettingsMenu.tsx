@@ -94,6 +94,9 @@ function catalogDateLabel(value: string): string {
 }
 
 function modelOptionMeta(option: AgentRuntimeModelOption): string {
+  if (option.selectionKind === 'orchestration-engine') {
+    return 'External CLI · model managed by the engine';
+  }
   const parts = [option.modelId];
   if (option.availabilityReason?.trim()) parts.push(option.availabilityReason.trim());
   if (option.expiresAt) parts.push(`Expires ${catalogDateLabel(option.expiresAt)}`);
@@ -143,6 +146,7 @@ export function ComposerSettingsMenu({
     selectedModelUnavailable,
     selectedFromAnotherLane,
     reasoningLevels,
+    supportedModes,
     level,
   } = useMemo(() => {
     const allModels = models.data ?? [];
@@ -188,6 +192,9 @@ export function ComposerSettingsMenu({
       ),
       selectedFromAnotherLane: Boolean(authority && rawSelected && !sameLane(rawSelected)),
       reasoningLevels: exactLevels,
+      supportedModes: (effective?.capabilities.permissionModes ?? []).filter(
+        (candidate): candidate is PermissionMode => PERMISSION_MODES.includes(candidate),
+      ),
       level: effectiveLevel,
     };
   }, [
@@ -211,9 +218,16 @@ export function ComposerSettingsMenu({
     }
   }, [clearThreadThinking, reasoningLevels, thinkingOverride, threadId]);
 
+  useEffect(() => {
+    if (!supportedModes.length || supportedModes.includes(mode)) return;
+    setThreadMode(threadId, supportedModes[0] ?? DEFAULT_PERMISSION_MODE);
+  }, [mode, setThreadMode, supportedModes, threadId]);
+
   const supportsReasoning = reasoningLevels.length > 0;
   const lockedAuthority = threadAuthority.data ?? null;
   const modelRadioValue = perThreadModel || durableModel?.value || '';
+  const orchestrationSelected = effectiveModel?.selectionKind === 'orchestration-engine';
+  const showPermissionMode = showMode && supportedModes.length > 0;
 
   const summary = [
     effectiveModel?.name ??
@@ -225,7 +239,7 @@ export function ComposerSettingsMenu({
             ? 'Selected model unavailable — reselect'
             : 'Model unavailable'),
     supportsReasoning ? thinkingMeta(level).label : null,
-    showMode ? MODE_META[mode].label : null,
+    showPermissionMode ? MODE_META[mode].label : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -257,7 +271,9 @@ export function ComposerSettingsMenu({
           <DropdownMenuSubTrigger>
             <Icon icon={Bot} size="sm" />
             <span className="off-composer-menu-row">
-              <span className="off-composer-menu-name">Model</span>
+              <span className="off-composer-menu-name">
+                {orchestrationSelected ? 'Engine' : 'Model'}
+              </span>
               <span className="off-composer-menu-meta">
                 {effectiveModel?.name ??
                   (catalogUnavailable
@@ -269,10 +285,14 @@ export function ComposerSettingsMenu({
             </span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="off-composer-menu off-composer-model-menu">
-            <DropdownMenuLabel>Model for this conversation</DropdownMenuLabel>
+            <DropdownMenuLabel>
+              {orchestrationSelected
+                ? 'Engine for this conversation'
+                : 'Engine and model for this conversation'}
+            </DropdownMenuLabel>
             {lockedAuthority ? (
               <DropdownMenuLabel className="off-composer-menu-provider">
-                Locked to {durableModel?.accountName ?? 'AI account'} ·{' '}
+                Locked to {durableModel?.accountName ?? 'AI engine'} ·{' '}
                 {lockedAuthority.target.engineId}
               </DropdownMenuLabel>
             ) : null}
@@ -315,9 +335,11 @@ export function ComposerSettingsMenu({
                           <DropdownMenuRadioItem key={option.value} value={option.value}>
                             <span className="off-composer-menu-row">
                               <span className="off-composer-menu-name">{option.name}</span>
-                              <span className="off-composer-menu-meta" title={optionMeta}>
-                                {optionMeta}
-                              </span>
+                              {option.selectionKind === 'api-model' ? (
+                                <span className="off-composer-menu-meta" title={optionMeta}>
+                                  {optionMeta}
+                                </span>
+                              ) : null}
                             </span>
                           </DropdownMenuRadioItem>
                         );
@@ -334,7 +356,7 @@ export function ComposerSettingsMenu({
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => setSurface('settings')}>
               <Icon icon={SlidersHorizontal} size="sm" />
-              Manage models…
+              Manage AI engines…
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
@@ -365,7 +387,7 @@ export function ComposerSettingsMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         ) : null}
-        {showMode ? (
+        {showPermissionMode ? (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <Icon icon={MODE_META[mode].icon} size="sm" />
@@ -380,7 +402,7 @@ export function ComposerSettingsMenu({
                 value={mode}
                 onValueChange={(value) => setThreadMode(threadId, value as PermissionMode)}
               >
-                {PERMISSION_MODES.map((value) => (
+                {supportedModes.map((value) => (
                   <DropdownMenuRadioItem key={value} value={value}>
                     <span className="off-composer-menu-row">
                       <span className="off-composer-menu-name">{MODE_META[value].label}</span>

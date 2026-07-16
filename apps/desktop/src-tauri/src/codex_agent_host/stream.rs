@@ -370,18 +370,6 @@ impl RunStream {
         self.guard().latest_usage = Some(usage);
     }
 
-    pub(super) fn reroute_matches_frozen_model(&self, model_id: &str) -> Result<bool, String> {
-        let inner = self.guard();
-        let metadata = inner
-            .metadata
-            .as_ref()
-            .ok_or_else(|| "Codex model authority is not initialized.".to_string())?;
-        Ok(model_matches_frozen(
-            model_id,
-            &metadata.provenance.model_id,
-        ))
-    }
-
     pub(super) fn insert_pending_interaction(
         &self,
         interaction_id: String,
@@ -555,10 +543,6 @@ impl RunStream {
     }
 }
 
-fn model_matches_frozen(model_id: &str, frozen_model_id: &str) -> bool {
-    model_id == frozen_model_id
-}
-
 fn terminalize_locked(
     inner: &mut StreamInner,
     outcome: RunOutcome,
@@ -653,13 +637,6 @@ mod tests {
     }
 
     #[test]
-    fn model_reroute_only_accepts_the_frozen_product_leaf() {
-        assert!(model_matches_frozen("gpt-5.4", "gpt-5.4"));
-        assert!(!model_matches_frozen("gpt-5.4-high", "gpt-5.4"));
-        assert!(!model_matches_frozen("gpt-5.3", "gpt-5.4"));
-    }
-
-    #[test]
     fn completed_native_plan_is_the_authoritative_user_facing_answer() {
         let stream = test_stream();
         stream.set_metadata(RunMetadata {
@@ -681,8 +658,8 @@ mod tests {
                 model_id: "gpt-5.4".into(),
                 model_source: super::super::types::CodexModelSource {
                     kind: "native".into(),
-                    source_url: "https://developers.openai.com/codex/app-server/".into(),
-                    checked_at: "2026-07-15T00:00:00Z".into(),
+                    source_url: None,
+                    checked_at: None,
                 },
                 run_id: "run".into(),
                 adapter: super::super::types::CodexAdapterIdentity {

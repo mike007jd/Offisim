@@ -200,23 +200,29 @@ fn merge_runtime_status(
 ) -> AiRuntimeStatusResponse {
     let mut accounts = Vec::new();
     let mut models = Vec::new();
+    let mut orchestration_engines = Vec::new();
     match api {
         Ok(api) => {
             accounts.extend(api.accounts);
             models.extend(api.models);
+            orchestration_engines.extend(api.orchestration_engines);
         }
         Err(_) => accounts.push(api_unavailable_account()),
     }
     match codex {
         Ok(codex) => {
-            accounts.extend(codex.accounts);
-            models.extend(codex.models);
+            if let Ok(engine) = serde_json::to_value(codex) {
+                orchestration_engines.push(engine);
+            } else {
+                orchestration_engines.push(codex_unavailable_account());
+            }
         }
-        Err(_) => accounts.push(codex_unavailable_account()),
+        Err(_) => orchestration_engines.push(codex_unavailable_account()),
     }
     AiRuntimeStatusResponse {
         accounts,
         models,
+        orchestration_engines,
         checked_at,
     }
 }
@@ -246,26 +252,22 @@ fn api_unavailable_account() -> serde_json::Value {
 }
 
 fn codex_unavailable_account() -> serde_json::Value {
-    let unavailable = |reason: &str| {
-        serde_json::json!({
-            "status": "unavailable",
-            "reason": reason,
-        })
-    };
     serde_json::json!({
         "engineId": "codex",
-        "accountId": "codex-subscription-unavailable",
-        "billingMode": "subscription",
-        "displayName": "Codex subscription",
-        "status": "unavailable",
-        "statusReason": "Codex subscription status is unavailable.",
+        "displayName": "Codex CLI",
+        "state": "unavailable",
+        "statusReason": "Codex CLI status is unavailable.",
+        "loginCommand": "codex login",
+        "docsUrl": "https://developers.openai.com/codex/auth",
+        "checkedAt": "1970-01-01T00:00:00Z",
         "capabilities": {
-            "execute": unavailable("Codex subscription status is unavailable."),
-            "models": unavailable("Codex model status is unavailable."),
-            "usage": unavailable("Codex native usage is unavailable."),
-            "cost": unavailable("Subscription usage is not converted into API cost."),
-        },
-        "usage": null,
+            "stop": true,
+            "steer": false,
+            "resume": true,
+            "permissionModes": ["plan", "ask", "auto", "full"],
+            "interactions": { "approval": true, "userInput": true },
+            "processEvents": { "reasoning": true, "toolCalls": true, "fileChanges": true },
+        }
     })
 }
 

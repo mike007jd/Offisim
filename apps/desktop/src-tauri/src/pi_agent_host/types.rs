@@ -425,6 +425,8 @@ pub struct AiRuntimeStatusResponse {
     pub(super) accounts: Vec<serde_json::Value>,
     #[serde(default)]
     pub(super) models: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub(super) orchestration_engines: Vec<serde_json::Value>,
     pub(super) checked_at: String,
 }
 
