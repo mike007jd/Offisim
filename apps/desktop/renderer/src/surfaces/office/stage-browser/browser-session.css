@@ -10,12 +10,12 @@
 
 .off-browser-chrome {
   position: relative;
-  z-index: 1;
+  z-index: var(--off-z-base);
 }
 
 .off-browser-toolbar {
   position: relative;
-  z-index: 1;
+  z-index: var(--off-z-base);
   display: grid;
   grid-template-columns: auto minmax(160px, 1fr) auto;
   align-items: center;
@@ -36,7 +36,7 @@
   height: 28px;
   place-items: center;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--off-radius-control);
   color: var(--off-ink-3);
   background: transparent;
 }
@@ -51,7 +51,7 @@
 }
 
 .off-browser-nav button.is-loading svg {
-  animation: off-browser-spin 0.9s linear infinite;
+  animation: off-browser-spin var(--off-motion-spin) var(--off-motion-linear) infinite;
 }
 
 .off-browser-address {
@@ -63,7 +63,7 @@
   height: 30px;
   padding: 0 9px;
   border: 1px solid color-mix(in srgb, var(--off-line) 78%, transparent);
-  border-radius: 7px;
+  border-radius: var(--off-radius-control);
   background: color-mix(in srgb, var(--off-surface-sunken) 86%, transparent);
 }
 
@@ -107,7 +107,7 @@
 .off-browser-native-host {
   min-width: 0;
   min-height: 0;
-  background: #fff;
+  background: var(--off-surface-1);
 }
 
 .off-browser-progress {
@@ -118,7 +118,7 @@
   width: 34%;
   height: 2px;
   background: var(--off-accent);
-  animation: off-browser-progress 1.1s ease-in-out infinite;
+  animation: off-browser-progress var(--off-motion-loop-fast) var(--off-motion-loop-ease) infinite;
 }
 
 .off-browser-status {
