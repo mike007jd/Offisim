@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { stageTabForTarget, useUiState } from '../apps/desktop/renderer/src/app/ui-state.js';
+import { CANVAS_FONT_TOKENS } from '../apps/desktop/renderer/src/styles/visual-tokens.js';
 import { syncOfficeCanvasBackingStore } from '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.js';
 import { newestBrowserSnapshot } from '../apps/desktop/renderer/src/surfaces/office/stage-browser/browser-session-state.js';
 import {
@@ -224,6 +225,11 @@ assert.deepEqual([backingWidth, backingHeight], [480, 270]);
 const officeScene2DSource = read(
   'apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx',
 );
+assert.equal(
+  CANVAS_FONT_TOKENS.officeSceneReset,
+  '10px sans-serif',
+  'the tokenized Canvas reset preserves the browser baseline value',
+);
 for (const baseline of [
   "ctx.filter = 'none'",
   "ctx.lineCap = 'butt'",
@@ -231,7 +237,7 @@ for (const baseline of [
   'ctx.shadowBlur = 0',
   'ctx.shadowOffsetX = 0',
   'ctx.shadowOffsetY = 0',
-  "ctx.font = '10px sans-serif'",
+  'ctx.font = CANVAS_FONT_TOKENS.officeSceneReset',
 ]) {
   assert.match(
     officeScene2DSource,

@@ -114,8 +114,8 @@ export function RuntimeTab({
         </div>
         {invalid ? (
           <p className="off-pers-runtime-warning">
-            Saved model “{model}” is no longer available. It is not sent; this employee inherits the
-            conversation model until you choose another.
+            The saved model binding is no longer available. It is not sent; this employee inherits
+            the conversation model until you choose another.
           </p>
         ) : null}
       </div>

@@ -8,6 +8,9 @@ import { RoundedBox } from '@react-three/drei';
 import { EmissiveMaterial, SceneMaterial } from '../scene-materials.js';
 import { useSceneColors } from '../use-scene-colors.js';
 
+const SEAT_CUSHION_THICKNESS = 0.1;
+const SEAT_CUSHION_RADIUS = 0.04;
+
 export interface RestAreaMesh3DProps {
   position?: [number, number, number];
   rotation?: number;
@@ -24,15 +27,6 @@ export function RestAreaMesh3D({
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>
-      <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[6.8, 4.8]} />
-        <SceneMaterial
-          materialClass="carpet"
-          color={sc.zoneRest}
-          overrides={{ transparent: true, opacity: 0.78 }}
-        />
-      </mesh>
-
       <RoundedBox
         args={[3.9, 0.42, 1.12]}
         position={[-0.9, 0.24, -1.45]}
@@ -77,9 +71,9 @@ export function RestAreaMesh3D({
       {[-2.1, -1.05, 0.0].map((x) => (
         <RoundedBox
           key={`sofa-seat-${x}`}
-          args={[0.78, 0.1, 0.58]}
+          args={[0.78, SEAT_CUSHION_THICKNESS, 0.58]}
           position={[x, 0.49, -1.38]}
-          radius={0.08}
+          radius={SEAT_CUSHION_RADIUS}
           smoothness={4}
           castShadow
         >
@@ -89,9 +83,9 @@ export function RestAreaMesh3D({
       {[-0.9, 0.15].map((z) => (
         <RoundedBox
           key={`chaise-seat-${z}`}
-          args={[0.58, 0.1, 0.82]}
+          args={[0.58, SEAT_CUSHION_THICKNESS, 0.82]}
           position={[-2.28, 0.49, z]}
-          radius={0.08}
+          radius={SEAT_CUSHION_RADIUS}
           smoothness={4}
           castShadow
         >

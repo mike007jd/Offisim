@@ -42,6 +42,30 @@ function stableJson(value) {
   return JSON.stringify(value);
 }
 
+function normalizedEndpointIdentity(model, provider) {
+  const rawEndpoint = nonEmpty(model?.baseUrl);
+  if (!rawEndpoint) return `provider:${provider}`;
+  try {
+    const endpoint = new URL(rawEndpoint);
+    endpoint.username = '';
+    endpoint.password = '';
+    endpoint.search = '';
+    endpoint.hash = '';
+    endpoint.pathname = endpoint.pathname.replace(/\/+$/u, '') || '/';
+    return endpoint.toString();
+  } catch {
+    return rawEndpoint.replace(/[?#].*$/u, '').replace(/\/+$/u, '') || `provider:${provider}`;
+  }
+}
+
+function anonymousEndpointAccountId(model, provider) {
+  const endpointFingerprint = createHash('sha256')
+    .update(normalizedEndpointIdentity(model, provider))
+    .digest('hex')
+    .slice(0, 16);
+  return `credential-generation:anonymous:${endpointFingerprint}`;
+}
+
 async function providerAccountMaterial(authStorage, modelRegistry, model, provider, credential) {
   for (const key of ['accountId', 'account_id', 'userId', 'user_id', 'subject', 'sub']) {
     const value = nonEmpty(credential?.[key]);
@@ -58,10 +82,7 @@ async function providerAccountMaterial(authStorage, modelRegistry, model, provid
     resolvedSecret = resolved?.ok ? nonEmpty(resolved.apiKey) : undefined;
   }
   resolvedSecret ??= nonEmpty(await authStorage.getApiKey(provider, { includeFallback: true }));
-  if (!resolvedSecret) {
-    throw executionError('The execution account identity is unavailable.', 'provenance-missing');
-  }
-  return `credential-generation:${resolvedSecret}`;
+  return resolvedSecret ? `credential-generation:${resolvedSecret}` : undefined;
 }
 
 export function runtimeModelRefFor(model) {
@@ -88,13 +109,15 @@ export async function executionAccountIdentity(authStorage, modelRegistry, model
     provider,
     credential,
   );
-  const accountFingerprint = createHash('sha256')
-    .update(`${provider}\0${billingMode}\0${accountMaterial}`)
-    .digest('hex')
-    .slice(0, 16);
+  const accountId = accountMaterial
+    ? `api:${provider}:${createHash('sha256')
+        .update(`${provider}\0${billingMode}\0${accountMaterial}`)
+        .digest('hex')
+        .slice(0, 16)}`
+    : anonymousEndpointAccountId(model, provider);
   return {
     engineId: 'api',
-    accountId: `api:${provider}:${accountFingerprint}`,
+    accountId,
     billingMode,
   };
 }

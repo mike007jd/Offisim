@@ -1,6 +1,10 @@
 import { RoundedBox } from '@react-three/drei';
-import { EmissiveMaterial, SceneMaterial } from '../scene-materials.js';
+import { SceneMaterial } from '../scene-materials.js';
+import { EmissiveDecalMaterial, SceneDecalMaterial } from '../scene-surface-materials.js';
 import { useSceneColors } from '../use-scene-colors.js';
+
+const WHITEBOARD_DEPTH = 0.08;
+const WHITEBOARD_RADIUS = 0.038;
 
 export interface WhiteboardMesh3DProps {
   position?: [number, number, number];
@@ -25,9 +29,9 @@ export function WhiteboardMesh3D({
   return (
     <group position={position} rotation={[0, rotY, 0]}>
       <RoundedBox
-        args={[2.38, 1.42, 0.08]}
+        args={[2.38, 1.42, WHITEBOARD_DEPTH]}
         position={[0, 1.34, 0]}
-        radius={0.05}
+        radius={WHITEBOARD_RADIUS}
         smoothness={4}
         castShadow
         receiveShadow
@@ -56,16 +60,16 @@ export function WhiteboardMesh3D({
       </mesh>
 
       <mesh position={[-0.55, 1.3, 0.05]}>
-        <boxGeometry args={[0.32, 0.04, 0.02]} />
-        <EmissiveMaterial color={sc.whiteboardMarker[0]} tier="accent" intensity={0.6} />
+        <planeGeometry args={[0.32, 0.04]} />
+        <EmissiveDecalMaterial color={sc.whiteboardMarker[0]} tier="accent" intensity={0.6} />
       </mesh>
       <mesh position={[0.1, 1.15, 0.05]} rotation={[0, 0, -0.18]}>
-        <boxGeometry args={[0.52, 0.03, 0.02]} />
-        <SceneMaterial materialClass="plastic" color={sc.whiteboardMarker[1]} />
+        <planeGeometry args={[0.52, 0.03]} />
+        <SceneDecalMaterial materialClass="plastic" color={sc.whiteboardMarker[1]} />
       </mesh>
       <mesh position={[0.38, 0.95, 0.05]} rotation={[0, 0, 0.12]}>
-        <boxGeometry args={[0.42, 0.03, 0.02]} />
-        <SceneMaterial materialClass="plastic" color={sc.whiteboardMarker[2]} />
+        <planeGeometry args={[0.42, 0.03]} />
+        <SceneDecalMaterial materialClass="plastic" color={sc.whiteboardMarker[2]} />
       </mesh>
       <mesh position={[0, 0.24, -0.05]} castShadow>
         <boxGeometry args={[0.08, 0.54, 0.08]} />

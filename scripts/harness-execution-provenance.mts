@@ -154,7 +154,7 @@ const hostProvenanceSource = readFileSync(
 check('host delegates OAuth billing truth to Pi without exposing the credential', () => {
   assert.match(hostProvenanceSource, /modelRegistry\.isUsingOAuth\(model\)/u);
   assert.match(hostProvenanceSource, /createHash\('sha256'\)/u);
-  assert.match(hostProvenanceSource, /accountFingerprint/u);
+  assert.match(hostProvenanceSource, /accountMaterial[\s\S]*createHash\('sha256'\)/u);
   assert.doesNotMatch(hostProvenanceSource, /accountId:.*credential\.(key|access|refresh)/u);
 });
 check('isolated host jobs require an exact target and refuse provenance drift', () => {
@@ -223,11 +223,15 @@ check('root runs persist their exact target before execution and retain host pro
 check('direct delegated roots report the child session actual model', () => {
   assert.match(childSupervisorSource, /binding\.actualModel = session\.model \?\? model/u);
   assert.match(childSupervisorSource, /runSingleWithMetadata/u);
+  assert.match(childSupervisorSource, /completed: result\.completed/u);
   assert.match(
     nodeHostSource,
-    /if \(!directResult\.model \|\| !directResult\.provenance\)[\s\S]*?Direct delegation completed without a prepared child execution identity/u,
+    /if \(directResult\.completed && \(!directResult\.model \|\| !directResult\.provenance\)\)[\s\S]*?Direct delegation completed without a prepared child execution identity/u,
   );
-  assert.match(nodeHostSource, /provenance: directResult\.provenance/u);
+  assert.match(
+    nodeHostSource,
+    /directResult\.provenance \? \{ provenance: directResult\.provenance \} : \{\}/u,
+  );
 });
 
 const oauthRegistry = { isUsingOAuth: () => true };
@@ -328,6 +332,40 @@ check('one API-key reference cannot merge different resolved paid accounts', () 
   assert.equal(apiA.billingMode, 'api');
   assert.notEqual(apiA.accountId, apiB.accountId);
   assert.doesNotMatch(apiA.accountId, /api-key/u);
+});
+
+const anonymousLocalA = await hostExecutionProvenance(
+  {
+    get: () => ({ type: 'api_key', key: '$LOCAL_CREDENTIAL_FRAGMENT' }),
+    getApiKey: async () => undefined,
+  },
+  apiRegistry,
+  {
+    provider: 'ollama',
+    id: 'qwen-fixture',
+    baseUrl: 'HTTP://LOCALHOST:11434/v1/?token=credential-fragment#private',
+  },
+  'anonymous-local-a',
+  apiModelSource,
+);
+const anonymousLocalB = await hostExecutionProvenance(
+  {
+    get: () => undefined,
+    getApiKey: async () => undefined,
+  },
+  apiRegistry,
+  { provider: 'ollama', id: 'qwen-fixture', baseUrl: 'http://localhost:11434/v1' },
+  'anonymous-local-b',
+  apiModelSource,
+);
+check('credential-free local endpoints receive an explicit anonymous account fingerprint', () => {
+  assert.equal(anonymousLocalA.billingMode, 'api');
+  assert.match(anonymousLocalA.accountId, /^credential-generation:anonymous:[a-f0-9]{16}$/u);
+  assert.equal(anonymousLocalA.accountId, anonymousLocalB.accountId);
+  assert.doesNotMatch(
+    anonymousLocalA.accountId,
+    /LOCAL_CREDENTIAL_FRAGMENT|credential-fragment|localhost|11434/u,
+  );
 });
 
 check('terminal host streams remain eligible for renderer replay and DB reconciliation', () => {

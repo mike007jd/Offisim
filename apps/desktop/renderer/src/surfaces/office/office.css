@@ -5688,10 +5688,6 @@
   font-weight: 600;
 }
 
-.off-spin {
-  animation: off-spin var(--off-motion-spin-fast) var(--off-motion-linear) infinite;
-}
-
 /* === Chat error banner ==================================================== */
 .off-errbanner {
   margin: var(--off-sp-3) 0;
@@ -6215,12 +6211,6 @@
     opacity: 1;
   }
 }
-@keyframes off-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* === Workspace panel: Files / Git tabs ==================================== */
 .off-ws-tabs {
   display: inline-flex;

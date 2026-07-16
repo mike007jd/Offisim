@@ -3,6 +3,7 @@ import type { Group } from 'three';
 import type { ZoneDef } from '../scene-layout.js';
 import { RoundedSlab } from './RoundedSlab.js';
 import { SceneAnnotation } from './SceneAnnotation.js';
+import { ZONE_RUG_PROFILE } from './scene-art-direction.js';
 import { LIGHT_SCENE_3D } from './scene-colors.js';
 import { EmissiveMaterial, SceneMaterial } from './scene-materials.js';
 
@@ -43,8 +44,9 @@ export const ZoneCeilingLight = memo(function ZoneCeilingLight({ zone }: { zone:
   );
 });
 
-/** Thick, soft-edged zone rug and label. Furniture clusters and low dressing
- *  now define the open diorama; no glass wall survives the P6 room removal. */
+/** Soft-edged zone rug and label. The border and inset meet at one shared
+ *  surface instead of occupying the same volume, so distant views keep a
+ *  stable silhouette without depth shimmer. */
 export const ZoneRug = memo(function ZoneRug({
   zone,
   highlight = false,
@@ -66,8 +68,8 @@ export const ZoneRug = memo(function ZoneRug({
       <RoundedSlab
         width={zone.w}
         depth={zone.d}
-        height={0.018}
-        position={[0, 0.009, 0]}
+        height={ZONE_RUG_PROFILE.baseHeight}
+        position={[0, ZONE_RUG_PROFILE.baseCenterY, 0]}
         cornerRadius={0.3}
         bevelSize={0.005}
       >
@@ -80,8 +82,8 @@ export const ZoneRug = memo(function ZoneRug({
       <RoundedSlab
         width={Math.max(0.2, zone.w - 0.16)}
         depth={Math.max(0.2, zone.d - 0.16)}
-        height={0.04}
-        position={[0, 0.02, 0]}
+        height={ZONE_RUG_PROFILE.insetHeight}
+        position={[0, ZONE_RUG_PROFILE.insetCenterY, 0]}
         cornerRadius={0.24}
         bevelSize={0.012}
         receiveShadow
@@ -98,7 +100,7 @@ export const ZoneRug = memo(function ZoneRug({
       </RoundedSlab>
       {showLabel ? (
         <SceneAnnotation
-          position={[labelX, 0.14, labelZ]}
+          position={[labelX, ZONE_RUG_PROFILE.topY + 0.099, labelZ]}
           align="start"
           priority="ambient"
           exclude={rugRef}
