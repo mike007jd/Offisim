@@ -9,13 +9,7 @@ import {
   useActiveConversationRuns,
   usePendingConversationApprovals,
 } from '../runtime/conversation-run-react.js';
-
-type StageState = 'done' | 'active' | 'pending';
-
-function stageState(active: boolean, done: boolean): StageState {
-  if (active) return 'active';
-  return done ? 'done' : 'pending';
-}
+import { runPipelinePresentation } from './run-pipeline-presentation.js';
 
 /** Compact run chip for the Stage top bar. It owns the global run projection,
  * so Office and Workspace runs share one Stop control and progress surface. */
@@ -26,56 +20,48 @@ export function RunPipelinePill() {
   const runs = useActiveConversationRuns();
   const employees = useEmployees();
 
-  const run = useMemo(
+  const activeRun = useMemo(
     () =>
       runs.activeRuns.find((candidate) => candidate.threadId === selectedThreadId) ??
       runs.activeRuns[0] ??
       null,
     [runs.activeRuns, selectedThreadId],
   );
+  const terminalRun = useMemo(() => {
+    const selectedRun = runs.runs.find((candidate) => candidate.threadId === selectedThreadId);
+    return selectedRun &&
+      (selectedRun.phase === 'completed' ||
+        selectedRun.phase === 'interrupted' ||
+        selectedRun.phase === 'failed')
+      ? selectedRun
+      : null;
+  }, [runs.runs, selectedThreadId]);
+  const run = activeRun ?? terminalRun;
+  const presentation = runPipelinePresentation(run?.phase ?? 'idle', run?.source ?? null);
 
   const assignee = useMemo(
     () => employees.data?.find((e) => e.id === run?.employeeId),
     [employees.data, run?.employeeId],
   );
-
-  if (!run) return null;
-
-  const awaiting = run.phase === 'awaiting-approval';
-  const preparing = run.phase === 'preparing';
-  const running = run.phase === 'running';
-  const stages = [
-    { id: 'prepare', label: 'Prepare', state: stageState(preparing, !preparing) },
-    { id: 'work', label: 'Work', state: stageState(running, awaiting) },
-    { id: 'approval', label: 'Approval', state: stageState(awaiting, false) },
-    { id: 'response', label: 'Response', state: 'pending' as StageState },
-  ];
-  const completedStages = stages.filter((stage) => stage.state === 'done').length;
-  const progressValue = Math.min(100, Math.max(0, (completedStages / stages.length) * 100));
-  const title = awaiting
-    ? 'Waiting for approval'
-    : run.source === 'workspace'
-      ? 'Workspace reply'
-      : 'Chat reply';
+  const canStop = activeRun !== null;
 
   return (
-    <div className="off-pipe" aria-live="polite">
-      <span className="off-pipe-flow">
-        {stages.map((stage) => (
-          <span
-            key={stage.id}
-            className={cn('off-pipe-stage', `is-${stage.state}`)}
-            title={stage.state === 'active' ? undefined : stage.label}
-            aria-label={`${stage.label}: ${stage.state}`}
-          >
-            <span className="off-pipe-dot" aria-hidden="true" />
-            {stage.state === 'active' ? (
-              <span className="off-pipe-stage-label">{stage.label}</span>
-            ) : null}
-          </span>
-        ))}
+    <div
+      className={cn('off-pipe', canStop && 'is-live')}
+      data-phase={presentation.phase}
+      aria-live="polite"
+      aria-label={`${presentation.phaseLabel}: ${presentation.completedStages} of ${presentation.totalStages} stages`}
+    >
+      <span className="off-pipe-phase">
+        <span className="off-pipe-flow" aria-hidden="true">
+          {presentation.stages.map((stage) => (
+            <span key={stage.id} className={cn('off-pipe-stage', `is-${stage.state}`)}>
+              <span className="off-pipe-dot" />
+            </span>
+          ))}
+        </span>
+        <b className="off-pipe-phase-label">{presentation.phaseLabel}</b>
       </span>
-      <span className="off-pipe-div" />
       <span className="off-pipe-task">
         {assignee ? (
           <EmployeeAvatar
@@ -87,19 +73,29 @@ export function RunPipelinePill() {
             brand={assignee.kind === 'external'}
           />
         ) : null}
-        <span className="off-pipe-title">{title}</span>
+        <span className="off-pipe-title">{presentation.title}</span>
+      </span>
+      <span className="off-pipe-progress-slot">
+        <Progress
+          className="off-pipe-progress"
+          value={presentation.progressValue}
+          aria-label="Run progress"
+        />
         <span className="off-pipe-step">
-          {completedStages}/{stages.length}
+          {presentation.completedStages}/{presentation.totalStages}
         </span>
       </span>
-      <Progress className="off-pipe-progress" value={progressValue} aria-label="Run progress" />
-      <button
-        type="button"
-        className="off-pipe-stop off-focusable"
-        onClick={() => conversationRunController.stop(run.threadId)}
-      >
-        Stop
-      </button>
+      {canStop ? (
+        <button
+          type="button"
+          className="off-pipe-stop off-focusable"
+          onClick={() => conversationRunController.stop(activeRun.threadId)}
+        >
+          Stop
+        </button>
+      ) : presentation.terminalLabel ? (
+        <span className="off-pipe-status">{presentation.terminalLabel}</span>
+      ) : null}
     </div>
   );
 }

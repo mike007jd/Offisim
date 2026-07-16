@@ -7,12 +7,11 @@ import { Fragment } from 'react';
 
 /**
  * The single surface-navigation cluster. Primary surfaces render as text tabs;
- * utility surfaces follow as icon-only buttons behind a divider, sharing the
+ * utility surfaces follow behind a divider, sharing the
  * same container and `.is-active` grammar so the current surface always has a
  * visible home in this one chip-bar (utility active state used to live on a
- * far-away frameless icon bar). Utility icons get a real tooltip (not the bare
- * native title), and the active utility tab reveals its text label so the
- * current surface is always nameable at a glance.
+ * far-away frameless icon bar). All six surface names stay visible, and every
+ * tab keeps identical active/inactive geometry so navigation never jumps.
  */
 export function WorkspaceNav() {
   const surface = useUiState((s) => s.surface);
@@ -33,7 +32,7 @@ export function WorkspaceNav() {
             onClick={() => setSurface(item.key)}
           >
             <Icon icon={item.icon} size="sm" />
-            {(!isUtility || active) && <span className="off-nav-label">{item.label}</span>}
+            <span className="off-nav-label">{item.label}</span>
           </button>
         );
         return (

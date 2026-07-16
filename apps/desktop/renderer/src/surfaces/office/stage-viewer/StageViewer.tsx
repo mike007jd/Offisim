@@ -51,6 +51,8 @@ import {
   Maximize2,
   Minimize2,
   MonitorSmartphone,
+  PanelLeftClose,
+  PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   PawPrint,
@@ -122,6 +124,10 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
   const toggleStageSplitTab = useUiState((s) => s.toggleStageSplitTab);
   const stageMaximized = useUiState((s) => s.officeStageMaximized);
   const setStageMaximized = useUiState((s) => s.setOfficeStageMaximized);
+  const leftRailCollapsed = useUiState((s) => s.officeLeftRailCollapsed);
+  const setLeftRailCollapsed = useUiState((s) => s.setOfficeLeftRailCollapsed);
+  const rightRailCollapsed = useUiState((s) => s.officeRightRailCollapsed);
+  const setRightRailCollapsed = useUiState((s) => s.setOfficeRightRailCollapsed);
   const projectId = useUiState((s) => s.projectId);
   const leaseReviews = useProjectWorkspaceLeaseReviews(projectId || null);
   const pendingReviewCount = new Set(
@@ -138,6 +144,17 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
 
   return (
     <div className="off-stage-topbar">
+      <button
+        type="button"
+        className="off-stage-rail-toggle off-focusable"
+        data-rail="workspace"
+        onClick={() => setLeftRailCollapsed(!leftRailCollapsed)}
+        aria-label={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
+        aria-expanded={!leftRailCollapsed}
+        title={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
+      >
+        <Icon icon={leftRailCollapsed ? PanelLeftOpen : PanelLeftClose} size="sm" />
+      </button>
       <nav className="off-stage-tabs" aria-label="Stage views">
         <button
           type="button"
@@ -254,6 +271,17 @@ export function StageTopBar({ isRunning, tokensLabel, costLabel }: StageTopBarPr
           title={stageMaximized ? 'Restore stage' : 'Maximize stage'}
         >
           <Icon icon={stageMaximized ? Minimize2 : Maximize2} size="sm" />
+        </button>
+        <button
+          type="button"
+          className="off-stage-rail-toggle off-focusable"
+          data-rail="conversations"
+          onClick={() => setRightRailCollapsed(!rightRailCollapsed)}
+          aria-label={rightRailCollapsed ? 'Expand conversations' : 'Collapse conversations'}
+          aria-expanded={!rightRailCollapsed}
+          title={rightRailCollapsed ? 'Expand conversations' : 'Collapse conversations'}
+        >
+          <Icon icon={rightRailCollapsed ? PanelRightOpen : PanelRightClose} size="sm" />
         </button>
       </div>
     </div>

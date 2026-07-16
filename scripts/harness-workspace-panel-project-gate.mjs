@@ -44,8 +44,13 @@ assert.match(
 );
 assert.equal(
   (workspacePanel.match(/disabled=\{!project\}/gu) ?? []).length,
-  2,
-  'collapsed Files and Git actions must stay disabled without an active Project',
+  0,
+  'collapsed workspace actions must not remain mounted after the rail is removed',
+);
+assert.doesNotMatch(
+  workspacePanel,
+  /officeLeftRailCollapsed|off-rail-icon-tab|Collapse workspace|Expand workspace/u,
+  'WorkspacePanel must not retain a collapsed mini-rail or its interaction state',
 );
 
 const noProjectStart = workspacePanel.indexOf(') : !project ? (');

@@ -610,7 +610,7 @@ export function TeamDock() {
         </button>
       </div>
 
-      <div className="off-dock-tools items-start pt-3 pr-12">
+      <div className="off-dock-tools items-start pt-3">
         {showListControls ? (
           <>
             {showSearch ? (
@@ -666,7 +666,6 @@ export function TeamDock() {
           icon={collapsed ? ChevronUp : ChevronDown}
           label={collapsed ? 'Expand dock' : 'Collapse dock'}
           size="iconSm"
-          className="absolute top-3 right-3"
           onClick={() => setCollapsed((v) => !v)}
         />
       </div>

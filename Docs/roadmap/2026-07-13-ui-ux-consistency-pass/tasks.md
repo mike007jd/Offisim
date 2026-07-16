@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，10/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
+> 状态：IN PROGRESS，11/17 implemented；T05a 前置已交付，整包 final release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -20,7 +20,7 @@
 | T09 | Loops 自然语言主流程 | T00 | [x] |
 | T10 | Market 用户语言与空状态 | T00 | [x] |
 | T11 | Personnel Danger Zone | T00 | [ ] |
-| T12 | Chrome、rails、nav、run pill 稳定 | T01 | [ ] |
+| T12 | Chrome、rails、nav、run pill 稳定 | T01 | [x] |
 | T13 | Usage / Cost 单一表达 | T08 | [ ] |
 | T14 | Radius、presence、error 视觉语义 | T00 | [ ] |
 | T15 | Dead docs 与 gates 收敛 | T01-T14 | [ ] |
@@ -436,18 +436,28 @@
 
 ### Acceptance
 
-- [ ] 左右 rail toggle 只有一套，位于 Office top chrome，折叠后 rail 宽度为 0。
-- [ ] 内容 header 无重复 toggle、mini rail、32/34px/pr-12 补偿死区。
-- [ ] 六个 surface 始终有名称，active/inactive 尺寸与位置不变。
-- [ ] 1024px 时优先压缩 ScopeBar，不隐藏 nav label。
-- [ ] run pill idle/running/approval/completed/Stop 使用稳定槽位。
-- [ ] compact run pill 仍显示阶段、确定性进度和 Stop。
-- [ ] 没有真实 live run 时不显示 Stop 或幽灵占位。
+- [x] 左右 rail toggle 只有一套，位于 Office top chrome，折叠后 rail 宽度为 0。
+- [x] 内容 header 无重复 toggle、mini rail、32/34px/pr-12 补偿死区。
+- [x] 六个 surface 始终有名称，active/inactive 尺寸与位置不变。
+- [x] 1024px 时优先压缩 ScopeBar，不隐藏 nav label。
+- [x] run pill idle/running/approval/completed/Stop 使用稳定槽位。
+- [x] compact run pill 仍显示阶段、确定性进度和 Stop。
+- [x] 没有真实 live run 时不显示 Stop 或幽灵占位。
 
 ### Oracles
 
 - UI hygiene、UI drift、rail geometry gates。
 - T16 在 1440×900 与 1024×700 覆盖四种 rail 组合和 run 状态。
+
+### T12 Evidence（2026-07-16 NZST）
+
+- Workspace 与 Conversations 的唯一控制进入 Office top chrome；父级在折叠时直接卸载 rail，grid column 变为 `0`。内容 header 的浮动按钮、mini rail 和 `32/34px/pr-12` 补偿层均已删除。
+- Office、Loops、Personnel、Market、Studio、Settings 六个名称始终渲染；utility active/inactive 共用同一尺寸。窄窗只压缩 ScopeBar 与 nav gap/padding，不再隐藏 label。
+- run pill 使用独立纯展示投影覆盖 idle、preparing、running、approval、completed、interrupted、failed；紧凑态仍保留阶段与确定性进度。Stop 只取 controller-owned `activeRuns`，selected terminal snapshot 只读展示，不会制造 live control。
+- `harness:chrome-stability` 10/10、renderer production build、renderer typecheck、UI drift 和整组 `harness:review-fixes` 通过。UI hygiene 没有新增 T12 finding；当前失败仍仅来自已归入 T14 的 Terminal、Browser 与 OfficeScene2D 裸视觉值。
+- 两轮精确 release `.app` 使用独立 HOME `/private/tmp/offisim-t12-fresh-a.Nll7MB` 与 `/private/tmp/offisim-t12-fresh-b.d2Hiuh`，均直接执行 bundle 内二进制，从零创建公司并覆盖四种 rail 组合、idle/无 Stop、Settings 激活态和六个 surface 名称；未通过 LaunchServices 猜 bundle，未触达原 `~/.offisim`。
+- Computer Use 附着前核验窗口身份：`windowId=10873`、`pid=18089`、title `Offisim`、bounds `x=36 y=33 width=1440 height=888`。T16 仍按 oracle 补足精确 `1440×900`、`1024×700` 与真实 live run 状态矩阵。
+- release `.app` 可执行文件为 32,717,104 bytes，SHA-256 `e83ba5604538d900476cdd2e156c7b94ac74c7e29ef63e69b9988893c1b74aa3`；Codex sidecar SHA-256 `27d324bc906014c77e4e4286edae6b6d093ee60f49bdcf71495e0f57c31dc6fe`。
 
 ---
 
