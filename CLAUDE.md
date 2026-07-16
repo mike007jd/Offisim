@@ -29,6 +29,23 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 - Dev webviews, localhost browser checks, and bundle-id launches are not release
   verification.
 
+## Self-Hosted CI
+
+- CI runs entirely on self-hosted runners; there are no GitHub-hosted runners.
+  The node lane ("Types / harness / security gates",
+  `release-gates.mjs --lane=node`) runs on a cargo-less Linux box (Deck); the
+  rust lane ("Desktop Rust tests") runs on the mac runner.
+- Because the node runner has no cargo, nothing reachable from `pnpm validate`
+  may shell out to cargo. Rust coverage belongs in the rust lane, which runs
+  `cargo test --locked` over the whole crate.
+- Local gates are the same scripts CI runs; when GitHub is unavailable, a local
+  `node scripts/release-gates.mjs --lane=node` plus `cargo test --locked` is an
+  equivalent check. On a fresh or stale checkout run `pnpm install` (pnpm 11
+  needs `CI=true` in non-TTY shells to purge pnpm-10-era node_modules),
+  `node scripts/prepare-desktop-cargo-test.mjs` before cargo, and
+  `pnpm build:pi-agent-host` before `harness-pi-agent-host` (an inert stub
+  bundle fails its semantic assertions).
+
 ## Runtime Boundaries
 
 - Core runtime, model transport, local tools, SQLite, install contracts, and
@@ -110,7 +127,7 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (20249 symbols, 43428 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (20254 symbols, 43395 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
