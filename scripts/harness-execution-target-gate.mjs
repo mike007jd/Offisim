@@ -28,8 +28,8 @@ const expectedTarget = Object.freeze({
   accountId: `api:${provider}:${fingerprint}`,
   billingMode: 'api',
   modelId: model.id,
-  modelSource,
 });
+const officialExpectedTarget = Object.freeze({ ...expectedTarget, modelSource });
 
 const authStorage = {
   get: () => ({ type: 'api_key' }),
@@ -104,13 +104,42 @@ await rejectsBeforePrompt(
   'execution-target-mismatch',
 );
 await rejectsBeforePrompt(
-  'OAuth/subscription credential',
+  'subscription credential without native provenance',
   { oauth: true },
   'execution-target-subscription',
 );
 await rejectsBeforePrompt(
   'SDK model fallback',
   { fallback: 'selected model unavailable' },
+  'execution-target-mismatch',
+);
+await rejectsBeforePrompt(
+  'malformed official model source',
+  {
+    target: {
+      ...expectedTarget,
+      modelSource: { kind: 'official-api', sourceUrl: 'http://insecure.example/model' },
+    },
+  },
+  'execution-target-mismatch',
+);
+await rejectsBeforePrompt(
+  'API target cannot claim native model provenance',
+  { target: { ...expectedTarget, modelSource: { kind: 'native' } } },
+  'execution-target-mismatch',
+);
+await rejectsBeforePrompt(
+  'official model source with invalid checkedAt',
+  {
+    target: {
+      ...expectedTarget,
+      modelSource: {
+        kind: 'official-api',
+        sourceUrl: 'https://fixture.example/models/maker/leaf-model',
+        checkedAt: 'not-a-date',
+      },
+    },
+  },
   'execution-target-mismatch',
 );
 await rejectsBeforePrompt(
@@ -153,10 +182,19 @@ await rejectsBeforePrompt(
 {
   const { gate, session, prepare } = await prepareCase();
   const prepared = await prepare;
+  assert.equal(prepared.identity.modelSource, undefined, 'configured API models need no source');
   gate.assertPrepared(prepared, session);
   await session.prompt('allowed');
   assert.equal(session.promptCalls, 1, 'valid ACK allows exactly one prompt');
   assert.equal(session.toolCalls, 1, 'valid ACK allows model-driven work only after prompt');
+  checks += 1;
+}
+
+{
+  const { gate, session, prepare } = await prepareCase({ target: officialExpectedTarget });
+  const prepared = await prepare;
+  assert.deepEqual(prepared.identity.modelSource, modelSource);
+  gate.assertPrepared(prepared, session);
   checks += 1;
 }
 

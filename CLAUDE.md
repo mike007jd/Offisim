@@ -51,16 +51,19 @@ area; spacing belongs inside panels, rails, and toolbar regions.
   Claude support until the corresponding full engine task and release `.app`
   evidence exist.
 - Product target: `DesktopAgentRuntime` is the single production engine gateway.
-  Each task selects one complete, mutually exclusive engine. Pi/API, Codex
-  subscription, and Claude subscription are separate adapters, never provider
-  lanes mixed inside one run.
-- Settings is an engine-neutral AI Accounts surface. API accounts show tokens
-  and actual/clearly estimated cost. Subscription accounts show only native
-  Usage/remaining/reset/credits; never infer subscription cost from local tokens.
-- A model catalog is allowed and required, but every selectable model must retain
-  an exact leaf id, official/native source, checkedAt, account ownership,
-  capabilities, and availability. Friendly names lead the normal selector;
-  exact ids remain accessible as secondary detail.
+  Each task selects one complete, mutually exclusive engine. Pi/API engines and
+  Codex/Claude Code external CLI orchestration engines may coexist, but never mix
+  lanes inside one run or masquerade as Pi providers.
+- Settings is an engine-neutral AI Accounts surface with two sections. API
+  engines expose safe Pi-managed provider/model editing; orchestration engines
+  expose only CLI install/login/version status and official guidance. External
+  CLI credentials, model choice, subscription usage, and account health remain
+  CLI-owned.
+- Pi `models.json` is the dynamic API-model truth; user-configured providers and
+  models are selectable without an Offisim allowlist, and their source metadata
+  is optional. Orchestration engines do not expose an Offisim model catalog or
+  API-price projection; runs record reported tokens and duration as
+  subscription-included with no API cost.
 - Product and runtime boundaries follow
   `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. The older
   Pi-only ADR is historical implementation context, not the current target.
@@ -106,7 +109,7 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (19874 symbols, 42572 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (19652 symbols, 42085 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

@@ -213,10 +213,9 @@ export type {
   AiModelPricing,
   AiModelSource,
   AiRuntimeStatus,
-  AiSubscriptionUsageActivity,
-  AiSubscriptionUsageLimit,
-  AiSubscriptionUsageSnapshot,
-  AiSubscriptionUsageWindow,
+  OrchestrationEngineStatus,
+  RuntimeEngineCapabilityManifest,
+  RuntimeEnginePermissionMode,
   TurnExecutionProvenance,
 } from './runtime/ai-account.js';
 export {

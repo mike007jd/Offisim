@@ -177,7 +177,7 @@
 }
 
 .off-board-card.is-highlighted {
-  animation: off-board-highlight 4.5s var(--off-motion-ease) both;
+  animation: off-board-highlight var(--off-motion-highlight) var(--off-motion-ease) both;
 }
 
 @keyframes off-board-highlight {
@@ -219,14 +219,7 @@
   border-radius: var(--off-r-round);
   background: var(--off-ok);
   box-shadow: 0 0 0 4px color-mix(in oklab, var(--off-ok) 18%, transparent);
-  animation: off-board-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
-}
-
-@keyframes off-board-pulse {
-  50% {
-    opacity: 0.45;
-    transform: scale(0.78);
-  }
+  animation: off-pulse var(--off-motion-loop-slow) var(--off-motion-loop-ease) infinite;
 }
 
 .off-board-card-title {

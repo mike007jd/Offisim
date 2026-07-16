@@ -19,6 +19,16 @@ export const OFFICE_PLINTH = {
   floorY: 0.001,
 } as const;
 
+/**
+ * Keep the perspective depth range tight around the complete diorama. A
+ * bounded ratio preserves depth-buffer precision at the low, distant orbit
+ * angles where coplanar-looking surfaces used to flicker.
+ */
+export const OFFICE_CAMERA_DEPTH = {
+  near: 0.75,
+  far: 180,
+} as const;
+
 /** Default office framing — a lower, closer hero 3/4 view (not the old high
  *  top-down). The camera is now a FREE orbit (rotate + pan + zoom), so this is
  *  just the opening shot; the clamps below keep the user above the floor and
@@ -49,20 +59,41 @@ export const OFFICE_CAMERA_PRESET = {
 export const SCENE_CONTENT_SCALE = 1.18;
 
 export const SCENE_LAYER_Y = {
-  floor: 0,
-  tile: 0.012,
-  zoneRug: 0.021,
-  zoneBorder: 0.032,
-  dragGhost: 0.04,
+  floor: OFFICE_PLINTH.floorY,
+  floorOverlay: OFFICE_PLINTH.floorY,
+  zoneRug: OFFICE_PLINTH.floorY,
+  zoneBorder: 0.05,
+  dragGhost: 0.06,
 } as const;
 
+/** Physically stacked rug profile: the base top is exactly the inset bottom. */
+export const ZONE_RUG_PROFILE = {
+  baseHeight: 0.018,
+  baseCenterY: SCENE_LAYER_Y.zoneRug + 0.009,
+  insetHeight: 0.022,
+  insetCenterY: SCENE_LAYER_Y.zoneRug + 0.018 + 0.011,
+  topY: SCENE_LAYER_Y.zoneRug + 0.04,
+} as const;
+
+/** Ground-contact Y authored inside a prefab before SCENE_CONTENT_SCALE is applied. */
+export const PREFAB_LOCAL_GROUND_Y = ZONE_RUG_PROFILE.topY / SCENE_CONTENT_SCALE;
+
+/** Floor decoration is a non-depth-writing overlay, ordered after the floor. */
+export const FLOOR_RENDER_ORDER = {
+  floor: -30,
+  bands: -29,
+  minorGrid: -28,
+  majorGrid: -27,
+} as const;
+
+/** `opacity` is the color-mix weight baked into each opaque overlay; it is not
+ * runtime alpha, so the floor pass stays ahead of furniture in the render list. */
 export const FLOOR_BANDS = [
   {
     id: 'central-runway',
     widthOffset: 2.2,
     depth: 5.2,
     z: 0,
-    layerOffset: 0.003,
     colorToken: 'floorTileAlt',
     opacity: 0.34,
     roughness: 0.62,
@@ -72,7 +103,6 @@ export const FLOOR_BANDS = [
     widthOffset: 3.4,
     depth: 3.6,
     z: -8.4,
-    layerOffset: 0.004,
     colorToken: 'floorTileAlt',
     opacity: 0.22,
     roughness: 0.62,
@@ -82,7 +112,6 @@ export const FLOOR_BANDS = [
     widthOffset: 1.5,
     depth: 1.2,
     z: 13.5,
-    layerOffset: 0.005,
     colorToken: 'floorBorder',
     opacity: 0.24,
     roughness: 0.68,
@@ -92,7 +121,6 @@ export const FLOOR_BANDS = [
   widthOffset: number;
   depth: number;
   z: number;
-  layerOffset: number;
   colorToken: keyof Scene3DColors;
   opacity: number;
   roughness: number;
