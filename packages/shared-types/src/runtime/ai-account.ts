@@ -64,6 +64,8 @@ export interface OrchestrationEngineStatus {
   readonly statusReason?: string;
   readonly loginCommand: string;
   readonly docsUrl: string;
+  /** Official source used to verify this adapter's CLI orchestration contract. */
+  readonly sourceUrl?: string;
   readonly checkedAt: string;
   readonly capabilities: RuntimeEngineCapabilityManifest;
 }

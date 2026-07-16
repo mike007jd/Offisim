@@ -7,7 +7,7 @@
 - 不允许在“部分实现 / 大部分 task 勾选 / 编译通过 / harness 通过 / 找到 blocker 但未闭环”时声称完成。
 - 如果遇到凭证、外部服务、设备不可达、破坏性风险或产品决策无法合理推断等真实阻塞，必须明确标成“未完整交付”，保留未勾 task / tag gate / archive gate，不得用 known limitation 或口头解释替代验收。
 - 发现额外真实 blocker 时，先修能修的部分并记录证据；不能修的要直接 surface 根因和下一步所需条件，不要缩小 scope 后交付。
-- 当前实现事实：生产 live chat 通过 `DesktopAgentRuntimeGateway` 装配 Pi API 引擎与 Codex CLI 编排适配器；Claude Code 尚未接入，必须保持 pending，不能提前写成已支持。
+- 当前实现事实：生产 live chat 通过 `DesktopAgentRuntimeGateway` 装配 Pi API 引擎及 Codex、Claude Code CLI 编排适配器；每个 run 只走一个 lane，能力 manifest 决定可见控件。
 - 目标产品定义：Offisim 是 engine-neutral 的桌面 AI 工作台。`DesktopAgentRuntime` 是唯一 production engine gateway；Pi/API 引擎与 Codex/Claude Code 外部 CLI 编排引擎可以并存，每个 run 只由一个 engine lane 负责，不能混 lane，也不能把外部 CLI 伪装成 Pi provider。
 - Settings 的 AI Accounts 壳分两区：API 引擎区编辑 Pi 自管的 provider/model 配置并显示安全摘要；编排引擎区只显示 CLI 安装、登录、版本与官方指引。外部 CLI 的凭据、模型和订阅用量归 CLI 自管，Offisim 不复制、不校验 catalog、不核算账户健康或 API 成本。
 - API 引擎允许用户在 Pi `models.json` 中配置的动态 provider/model；用户自配模型的 source 元数据可选。外部 CLI 编排引擎不暴露 Offisim 模型选择器，任务只记录引擎实际返回的 token 数与时长，并标注“订阅内 · 无 API 成本”。
@@ -58,7 +58,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (19652 symbols, 42085 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (20249 symbols, 43428 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

@@ -831,8 +831,8 @@ assert(
 );
 assert(
   !desktopPackage.scripts['build:frontend'].includes('codex-app-server') &&
-    !desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host'),
-  'desktop build must leave external orchestration CLIs self-managed',
+    desktopPackage.scripts['build:frontend'].includes('build:claude-agent-host'),
+  'desktop build must bundle only Offisim adapters while external orchestration CLIs stay self-managed',
 );
 assert(
   tauriConfig.bundle.resources.includes('resources/pi-agent-host.mjs'),
@@ -840,8 +840,11 @@ assert(
 );
 assert(
   !('externalBin' in tauriConfig.bundle) &&
-    !tauriConfig.bundle.resources.some((resource) => /codex|claude/u.test(resource)),
-  'release bundle must not embed external orchestration engines or their credentials',
+    tauriConfig.bundle.resources.includes('resources/claude-agent-host.mjs') &&
+    !tauriConfig.bundle.resources.some((resource) =>
+      /claude-agent-sdk|claude(?:\.exe)?$/u.test(resource),
+    ),
+  'release bundle may embed its Claude adapter but never Claude CLI, SDK, or credentials',
 );
 assert(
   /pub struct PiAgentExecuteRequest[\s\S]*mcp_tools: Option<serde_json::Value>/.test(

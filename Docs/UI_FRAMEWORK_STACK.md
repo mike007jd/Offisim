@@ -11,7 +11,7 @@ only; current production code and the active task package own their behavior.
 
 Offisim UI is a dense desktop workbench, not a SaaS dashboard or marketing surface. The canonical design language is the V3 DNA in `Docs/design/.v3-dna-brief.md`: evidence-dense game HUD, unified shell, chip grammar, caps labels, compact cards, no bell-count chrome, no Office right-rail tabs, and no generic hero surfaces.
 
-The product shell is engine-neutral: Offisim owns the GUI, assistant-ui skin, 3D work theater, account/model selection, and archive surfaces. The selected native engine owns execution, credentials, native sessions, compaction, global memory, tools, and its stream protocol. API and Codex are release-verified complete engines; Claude must not appear supported until its complete engine adapter passes release verification.
+The product shell is engine-neutral: Offisim owns the GUI, assistant-ui skin, 3D work theater, account/model selection, and archive surfaces. The selected native engine owns execution, credentials, native sessions, compaction, global memory, tools, and its stream protocol. API and Claude are release verified; Codex is implemented but still awaits the unified corrected-lane release batch. All three remain mutually exclusive per Turn.
 
 ## Ownership
 

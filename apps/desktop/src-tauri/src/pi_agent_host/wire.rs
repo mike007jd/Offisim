@@ -160,7 +160,7 @@ impl PiSidecarLine {
     }
 }
 
-pub(super) fn parse_response(value: serde_json::Value) -> Result<PiAgentHostResponse, HostError> {
+pub(crate) fn parse_response(value: serde_json::Value) -> Result<PiAgentHostResponse, HostError> {
     serde_json::from_value(value)
         .map_err(|err| HostError::Protocol(format!("Decode Pi Agent response: {err}")))
 }

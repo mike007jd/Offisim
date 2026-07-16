@@ -424,7 +424,7 @@ interface RuntimeEngineAdapter extends DesktopAgentRuntime {
 }
 
 interface NativeEngineRuntimeConfig {
-  readonly engineId: 'api' | 'codex';
+  readonly engineId: 'api' | 'codex' | 'claude';
   readonly billingMode: 'api' | 'subscription';
   readonly runtimeVersion: string;
   readonly protocolVersion: number;
@@ -463,6 +463,23 @@ const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     resume: true,
     permissionModes: ['plan', 'ask', 'auto', 'full'],
     interactions: { approval: true, userInput: true },
+    processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  },
+};
+
+const CLAUDE_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
+  engineId: 'claude',
+  billingMode: 'subscription',
+  runtimeVersion: '1',
+  protocolVersion: 1,
+  requestPrefix: 'claude-agent',
+  supportsOffisimDelegation: false,
+  capabilities: {
+    stop: true,
+    steer: false,
+    resume: true,
+    permissionModes: ['plan', 'auto', 'full'],
+    interactions: { approval: false, userInput: false },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
   },
 };
@@ -1357,9 +1374,22 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
   }
 
   private invokeEnhance(args: CommandArgs<'agent_runtime_enhance'>) {
-    return this.engineId === 'codex'
-      ? this.commands.enhanceCodex(args)
-      : this.commands.enhanceApi(args);
+    if (this.engineId === 'codex' || this.engineId === 'claude') {
+      const nativeArgs = {
+        req: {
+          requestId: args.req.requestId,
+          text: args.req.text,
+          expectedTarget: args.req.expectedTarget,
+          systemPrompt: args.req.systemPrompt,
+          sourceProvenance: args.req.sourceProvenance,
+        },
+        onEvent: args.onEvent,
+      };
+      return this.engineId === 'codex'
+        ? this.commands.enhanceCodex(nativeArgs)
+        : this.commands.enhanceClaude(nativeArgs);
+    }
+    return this.commands.enhanceApi(args);
   }
 
   private invokeAbort(requestId: string): Promise<void> {
@@ -1531,7 +1561,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     // Codex validates the exact native account/model and the durable renderer
     // target inside execute/resume before it starts a turn. Pi retains its
     // separate provider ACK because its paid boundary occurs later.
-    if (this.engineId === 'codex') return;
+    if (this.engineId === 'codex' || this.engineId === 'claude') return;
     await invokeCommand('agent_runtime_confirm_execution', {
       requestId,
       prepareId: event.prepareId,
@@ -3252,6 +3282,36 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         commandResponse = await (commandName === 'agent_runtime_resume'
           ? this.commands.resumeCodex(commandArgs)
           : this.commands.executeCodex(commandArgs));
+      } else if (this.engineId === 'claude') {
+        const commandArgs: CommandArgs<'claude_agent_execute'> = {
+          req: {
+            requestId,
+            text: input.text,
+            expectedTarget: executionTarget,
+            companyId: this.companyId,
+            threadId: input.threadId,
+            projectId,
+            employeeId: input.employeeId,
+            rootRunId: runScope.runId,
+            workspaceRequirement,
+            nativeSessionMode,
+            permissionMode,
+            systemPromptAppend: systemPromptAppend ?? undefined,
+            ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
+              ? { nativeSessionId: runtimeContext.nativeSessionId }
+              : {}),
+            ...(nativeSessionMode === 'fresh'
+              ? { nativeSessionResetSourceRunId: input.nativeSessionResetSourceRunId }
+              : {}),
+            ...(commandName === 'agent_runtime_resume'
+              ? { workspaceBindingHistoryId: resumeWorkspaceBinding?.historyId }
+              : {}),
+          },
+          onEvent,
+        };
+        commandResponse = await (commandName === 'agent_runtime_resume'
+          ? this.commands.resumeClaude(commandArgs)
+          : this.commands.executeClaude(commandArgs));
       } else {
         const commandArgs: CommandArgs<'agent_runtime_execute'> = {
           req: {
@@ -4160,7 +4220,12 @@ async function assembleRuntime(companyId: string): Promise<DesktopAgentRuntime> 
   }
   const apiAdapter = new DesktopNativeAgentRuntime(companyId, repos, API_ENGINE_RUNTIME);
   const codexAdapter = new DesktopNativeAgentRuntime(companyId, repos, CODEX_ENGINE_RUNTIME);
-  return new DesktopAgentRuntimeGateway(companyId, repos, [apiAdapter, codexAdapter]);
+  const claudeAdapter = new DesktopNativeAgentRuntime(companyId, repos, CLAUDE_ENGINE_RUNTIME);
+  return new DesktopAgentRuntimeGateway(companyId, repos, [
+    apiAdapter,
+    codexAdapter,
+    claudeAdapter,
+  ]);
 }
 
 export function getDesktopAgentRuntime(companyId: string): Promise<DesktopAgentRuntime> {

@@ -29,7 +29,7 @@ cleanup is current-file rewrites plus explicit supersession.
 | Path | Disposition | Current role / replacement |
 |---|---|---|
 | `AGENTS.md` | REWRITE | Current completion, gateway, account/model, workspace, and release rules |
-| `CLAUDE.md` | REWRITE | Current AI worker guidance; Pi API and Codex orchestration implemented, Claude Code pending |
+| `CLAUDE.md` | REWRITE | Current AI worker guidance; Pi API plus Codex and Claude Code orchestration implemented |
 | `README.md` | REWRITE | Public overview and source router |
 | `SECURITY.md` | REWRITE | Current credential, native-state, workspace, and host threat model |
 | `apps/desktop/CLAUDE.md` | REWRITE | Current desktop gateway/host and release guidance |
@@ -37,7 +37,7 @@ cleanup is current-file rewrites plus explicit supersession.
 | `Docs/SYSTEM_FRAMEWORK.md` | REWRITE | Maintained architecture, four-layer persistence, and flow map |
 | `Docs/FEATURES.md` | REWRITE | Maintained product catalog, including Loops NL, Market user flow, and Office dramaturgy |
 | `Docs/CODEBASE_MAP.md` | REWRITE | Maintained ownership and documentation-routing map |
-| `Docs/HARNESS_ARCHITECTURE.md` | REWRITE | Current neutral gateway plus Pi API/Codex orchestration host gates |
+| `Docs/HARNESS_ARCHITECTURE.md` | REWRITE | Current neutral gateway plus Pi API/Codex/Claude orchestration host gates |
 | `Docs/UI_FRAMEWORK_STACK.md` | REWRITE | Approved renderer stack and current design-source precedence |
 | `Docs/design/.v3-dna-brief.md` | REWRITE | Canonical dense-HUD grammar and semantic radius roles |
 | `Docs/design/offisim-office-layout-v3-prototype.html` | REWRITE | Canonical visual-grammar specimen only; behavior/copy examples defer to current tasks and engine ADR |

@@ -1,6 +1,6 @@
 # Offisim Codex 对齐盲测收敛计划
 
-> 状态：IN PROGRESS（15/17 implemented；T07、T16 尚未闭环）
+> 状态：IN PROGRESS（16/17 implemented；仅 T16 尚未闭环）
 > 最近核对：2026-07-17 NZST（+12:00）
 > 当前 main 基线：`c009065e`
 > 执行清单：[tasks.md](./tasks.md)
@@ -40,15 +40,15 @@
 
 | 结论 | 当前事实 | 计划含义 |
 |---|---|---|
-| 当前生产 runtime | `DesktopAgentRuntimeGateway` 是唯一生产入口，已注册 Pi API engine 与 Codex CLI 编排 adapter；两者并存且每 run 单 lane | T05/T06 已交付；Claude Code 仍等待 T07，禁止冒充已支持 |
+| 当前生产 runtime | `DesktopAgentRuntimeGateway` 是唯一生产入口，已注册 Pi API engine、Codex CLI 与 Claude Code CLI 编排 adapter；三者并存且每 run 单 lane | T05/T06/T07 已交付；能力 manifest 决定可见控件，禁止伪装未声明能力 |
 | Conversation 标题 | 已有首条消息 fallback 与 `title_set_by_user` 锁 | T02 复用现有合同，补首次成功回复后的语义标题 |
 | stale approval | 旧投影可制造 active run | T01 从控制器真源修复，不在按钮层 no-op |
 | Project workspace | T03 已交付后端签发、scope 防伪、内存 capability 与安全历史投影 | T04 只负责 Project folder 缺失后的高置信恢复与明确披露 |
-| Settings | AI Accounts 同页分 API provider/model 编辑与外部 CLI 安装/登录/版本状态；Codex 不在 Offisim 重建账户用量与模型 catalog，Claude 卡片不存在 | T08 已交付已验证能力；T07 完成前不预放 Claude 空壳 |
+| Settings | AI Accounts 同页分 API provider/model 编辑与外部 CLI 安装/登录/版本状态；Codex/Claude 不在 Offisim 重建账户用量与模型 catalog | T08 已交付；T07 已补齐 Claude CLI 真实状态卡与官方指引 |
 | UI finding | 原始 15 张截图涵盖 radius、rails、cost、run pill、nav、Market、presence、error 等 | T12-T14 统一收敛并加入 deterministic gates |
 | 最终验收 | 仓库明确只认 release `.app` + Computer Use | dev server、localhost、dev webview 仅用于排查 |
 
-T05 API account 的模型、费率与 Usage 来源已按当时官方资料核对；T06/T08 在 2026-07-17 纠偏为用户 PATH 中的 Codex CLI/app-server 编排，不再维护 Codex 模型与账户 Usage 来源。T07 实施时仍须刷新 Claude Code 官方 CLI 资料。
+T05 API account 的模型、费率与 Usage 来源已按当时官方资料核对；T06/T08 在 2026-07-17 纠偏为用户 PATH 中的 Codex CLI/app-server 编排，不再维护 Codex 模型与账户 Usage 来源。T07 同日按 Claude Code 官方 CLI 文档与本机协议实测落为 `claude -p` + `stream-json` 编排，同样不维护模型与账户 Usage 来源。
 
 ## 5. 执行 Waves
 
@@ -92,7 +92,7 @@ T05 API account 的模型、费率与 Usage 来源已按当时官方资料核对
 - T02 依赖 T05a，禁止在 provenance 不可证明时用全局默认模型伪装“同一 Turn engine/account”。
 - T04 依赖 T03；T06、T07 依赖 T05；T08 依赖 T02、T05、T06，并只整合已交付 engine；T07 以后按相同账户合同扩展；T13 依赖 T08。
 - T12 依赖 T01，避免 UI 再消费幽灵 live run。
-- T15 分开记录“代码已实现”与“release `.app` 已实机证明”；T07 必须显式保持 pending，不能靠文档提前完成。
+- T15 分开记录“代码已实现”与“release `.app` 已实机证明”；T07 已用精确 worktree release `.app` 完成真实 Claude task、工具事件、Token/时长与 Stop 证明。
 - T16 是唯一 package 完成门；任何未闭环 finding 都回到所属 task。
 
 ## 7. 反过度工程边界

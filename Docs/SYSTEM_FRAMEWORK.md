@@ -12,7 +12,7 @@ Offisim is a local-first desktop product with an optional registry backend.
 
 - The desktop app is the product runtime.
 - `DesktopAgentRuntimeGateway` is the only production engine entry. The Pi API
-  engine and Codex CLI orchestration adapter are implemented; Claude Code remains pending.
+  engine plus Codex and Claude Code CLI orchestration adapters are implemented.
 - The platform API is registry/auth/install support, not the execution plane.
 - The renderer is internal to the desktop app, not a standalone web product.
 
@@ -118,8 +118,8 @@ Source of truth:
 - UI changes start from `Docs/UI_FRAMEWORK_STACK.md` and the relevant surface
   under `apps/desktop/renderer/src/surfaces`.
 - Runtime changes start from `Docs/HARNESS_ARCHITECTURE.md` and
-  `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. API and Codex
-  are shipped; Claude remains pending. No run may mix engine lanes.
+  `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. API, Codex, and
+  Claude are shipped. No run may mix engine lanes.
 - Desktop command changes must preserve Rust-side workspace containment and run
   `cargo test --locked` in `apps/desktop/src-tauri`.
 - Platform route changes must run platform migration/auth/security gates when

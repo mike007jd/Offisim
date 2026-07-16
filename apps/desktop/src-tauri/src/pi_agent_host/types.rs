@@ -230,28 +230,28 @@ pub struct PiModelSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PiAgentHostResponse {
-    pub(super) text: String,
+    pub(crate) text: String,
     #[serde(default)]
-    pub(super) reasoning: Option<String>,
+    pub(crate) reasoning: Option<String>,
     #[serde(default)]
-    pub(super) session_id: Option<String>,
+    pub(crate) session_id: Option<String>,
     #[serde(default)]
-    pub(super) session_file: Option<String>,
+    pub(crate) session_file: Option<String>,
     #[serde(default)]
-    pub(super) model: Option<PiModelSummary>,
+    pub(crate) model: Option<PiModelSummary>,
     #[serde(default)]
-    pub(super) provenance: Option<PiExecutionProvenance>,
+    pub(crate) provenance: Option<PiExecutionProvenance>,
     // Root-session token/cost usage (the Node host's `rootUsage` on the result
     // line). Carried through as an opaque JSON object so the renderer can record
     // it on the root agent_runs row — without this field serde silently drops it
     // at the IPC boundary and solo-run usage_json stays null (the VM-003 path).
     #[serde(default)]
-    pub(super) usage: Option<serde_json::Value>,
+    pub(crate) usage: Option<serde_json::Value>,
     // Root + delegated-tree usage for Mission budget enforcement only. Kept
     // separate from root `usage` so renderer persistence never double-counts
     // child rows when it reconciles the run tree.
     #[serde(default)]
-    pub(super) budget_usage: Option<serde_json::Value>,
+    pub(crate) budget_usage: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -320,16 +320,20 @@ impl<'de> Deserialize<'de> for PiExecutionTarget {
 #[serde(rename_all = "camelCase")]
 pub struct PiModelSource {
     pub(super) kind: String,
-    pub(super) source_url: String,
-    pub(super) checked_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) source_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) checked_at: Option<String>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RawPiModelSource {
     kind: String,
-    source_url: String,
-    checked_at: String,
+    #[serde(default)]
+    source_url: Option<String>,
+    #[serde(default)]
+    checked_at: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for PiModelSource {
@@ -338,12 +342,24 @@ impl<'de> Deserialize<'de> for PiModelSource {
         D: Deserializer<'de>,
     {
         let raw = RawPiModelSource::deserialize(deserializer)?;
-        let source_url = raw.source_url.trim().to_owned();
-        let checked_at = raw.checked_at.trim().to_owned();
-        let source = url::Url::parse(&source_url).map_err(D::Error::custom)?;
+        if raw.kind == "native" {
+            if raw.source_url.is_some() || raw.checked_at.is_some() {
+                return Err(D::Error::custom(
+                    "Native orchestration provenance cannot carry catalog metadata",
+                ));
+            }
+            return Ok(Self {
+                kind: raw.kind,
+                source_url: None,
+                checked_at: None,
+            });
+        }
+        let source_url = raw.source_url.as_deref().map(str::trim).unwrap_or_default();
+        let checked_at = raw.checked_at.as_deref().map(str::trim).unwrap_or_default();
+        let source = url::Url::parse(source_url).map_err(D::Error::custom)?;
         if raw.kind != "official-api"
             || source.scheme() != "https"
-            || chrono::DateTime::parse_from_rfc3339(&checked_at).is_err()
+            || chrono::DateTime::parse_from_rfc3339(checked_at).is_err()
         {
             return Err(D::Error::custom(
                 "API model source must be official-api with HTTPS sourceUrl and RFC3339 checkedAt",
@@ -351,8 +367,8 @@ impl<'de> Deserialize<'de> for PiModelSource {
         }
         Ok(Self {
             kind: raw.kind,
-            source_url,
-            checked_at,
+            source_url: Some(source_url.to_owned()),
+            checked_at: Some(checked_at.to_owned()),
         })
     }
 }

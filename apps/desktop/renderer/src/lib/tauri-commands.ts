@@ -344,6 +344,24 @@ interface CodexAgentExecuteRequest {
   nativeSessionId?: string | null;
 }
 
+interface ClaudeAgentExecuteRequest {
+  requestId: string;
+  text: string;
+  expectedTarget: AiExecutionTarget;
+  companyId: string;
+  threadId: string;
+  projectId?: string | null;
+  employeeId?: string | null;
+  rootRunId?: string | null;
+  workspaceBindingHistoryId?: string | null;
+  nativeSessionMode: 'tracked' | 'fresh';
+  nativeSessionResetSourceRunId?: string | null;
+  permissionMode?: string | null;
+  systemPromptAppend?: string | null;
+  workspaceRequirement: 'optional' | 'required';
+  nativeSessionId?: string | null;
+}
+
 interface PiAgentEnhanceRequest {
   requestId: string;
   text: string;
@@ -361,9 +379,14 @@ interface CodexAgentEnhanceRequest {
   text: string;
   expectedTarget: AiExecutionTarget;
   systemPrompt: string;
-  model?: string | null;
-  runtimeModelRef?: string | null;
-  thinkingLevel?: string | null;
+  sourceProvenance?: TurnExecutionProvenance | null;
+}
+
+interface ClaudeAgentEnhanceRequest {
+  requestId: string;
+  text: string;
+  expectedTarget: AiExecutionTarget;
+  systemPrompt: string;
   sourceProvenance?: TurnExecutionProvenance | null;
 }
 
@@ -903,6 +926,27 @@ export interface CommandMap {
     PiRunStreamSnapshot
   >;
   codex_agent_status: CommandSpec<undefined, AiRuntimeStatus>;
+  claude_agent_execute: CommandSpec<
+    AgentRuntimeArgs<ClaudeAgentExecuteRequest>,
+    PiAgentHostResponse
+  >;
+  claude_agent_enhance: CommandSpec<
+    AgentRuntimeArgs<ClaudeAgentEnhanceRequest>,
+    PiAgentHostResponse
+  >;
+  claude_agent_resume: CommandSpec<
+    AgentRuntimeArgs<ClaudeAgentExecuteRequest>,
+    PiAgentHostResponse
+  >;
+  claude_agent_abort: CommandSpec<{ requestId: string }, void>;
+  claude_agent_answer: CommandSpec<AgentUiResponseArgs, void>;
+  claude_agent_stream_snapshot: CommandSpec<{ requestId: string }, PiRunStreamSnapshot | null>;
+  claude_agent_release_stream: CommandSpec<{ requestId: string }, void>;
+  claude_agent_reattach: CommandSpec<
+    { requestId: string; afterCursor?: number | null; onEvent: Channel<PiAgentHostEvent> },
+    PiRunStreamSnapshot
+  >;
+  claude_agent_status: CommandSpec<undefined, AiRuntimeStatus>;
   agent_runtime_status: CommandSpec<{ includeUsage?: boolean }, AiRuntimeStatus>;
   computer_driver_status: CommandSpec<undefined, ComputerDriverStatus>;
   task_workspace_evaluation_lease_acquire: CommandSpec<

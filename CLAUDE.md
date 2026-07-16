@@ -47,8 +47,8 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 ## AI Runtime Policy (hard rule)
 
 - Current implementation truth: `DesktopAgentRuntimeGateway` registers the Pi
-  API engine and Codex CLI orchestration adapter. Claude Code is still pending and must not be
-  presented as supported before its full engine task and release `.app` proof.
+  API engine plus Codex and Claude Code CLI orchestration adapters. One engine
+  lane owns each run, and the capability manifest controls visible actions.
   The internal Pi host is an API-adapter implementation detail, not the product
   identity.
 - Product target: `DesktopAgentRuntime` is the single production engine gateway.
@@ -110,7 +110,7 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (19652 symbols, 42085 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (20249 symbols, 43428 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

@@ -9,7 +9,7 @@
     "prebuild": "node ../../scripts/check-platform-tauri-origin-sync.mjs && node ../../scripts/check-attachment-capabilities.mjs",
     "build": "tauri build --bundles app --target aarch64-apple-darwin",
     "build:devtools": "pnpm prebuild && tauri build --bundles app --target aarch64-apple-darwin -- --features devtools",
-    "build:frontend": "pnpm -C ../.. build:runtime-deps && pnpm -C ../.. build:pi-agent-host && pnpm -C ../.. --filter @offisim/desktop-renderer... build",
+    "build:frontend": "pnpm -C ../.. build:runtime-deps && pnpm -C ../.. build:pi-agent-host && pnpm -C ../.. build:claude-agent-host && pnpm -C ../.. --filter @offisim/desktop-renderer... build",
     "dev:renderer": "pnpm -C ../.. --filter @offisim/desktop-renderer dev",
     "typecheck": "echo 'no TS in desktop — Rust only'"
   },

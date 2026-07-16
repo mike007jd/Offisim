@@ -69,8 +69,8 @@ The release bundle for live verification is the exact worktree path
 
 ## AI runtime engines (desktop)
 
-AI execution goes through one neutral desktop gateway. The Pi API engine and
-Codex CLI orchestration adapter are implemented; Claude Code remains pending.
+AI execution goes through one neutral desktop gateway. The Pi API engine plus
+Codex and Claude Code CLI orchestration adapters are implemented.
 Each Turn binds one backend-authorized effective workspace and one engine lane.
 Pi additionally binds a configured API account/model; external CLI login, model
 choice, sessions, compaction, and global memory remain in the CLI's own home.

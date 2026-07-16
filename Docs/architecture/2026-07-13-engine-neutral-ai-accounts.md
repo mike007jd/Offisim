@@ -1,17 +1,20 @@
 # Engine-neutral AI Accounts and Native Session Boundaries
 
 Checked at: 2026-07-17 NZST
-Status: API engine and Codex orchestration adapter implemented; the corrected Codex lane still requires the later unified release-app live-verification batch; Claude is pending
+Status: API engine plus Codex and Claude Code orchestration adapters implemented; Claude release-app proof is complete, while the corrected Codex lane still requires the later unified release-app live-verification batch
 
 ## Current implementation truth
 
 Offisim routes production work through `DesktopAgentRuntimeGateway`. The gateway
-registers coexisting `api` and `codex` adapters, with one lane owning each run. `api` executes through
+registers coexisting `api`, `codex`, and `claude` adapters, with one lane owning each run. `api` executes through
 Pi-managed providers. `codex` is an external CLI orchestration adapter: it
 detects the user's Codex installation/login/version, starts `codex app-server
---stdio`, binds the task workspace, and projects process events. Claude is not a
-shipped engine adapter yet. UI wording, docs, or a settings card cannot be used
-as evidence that an engine exists.
+--stdio`, binds the task workspace, and projects process events. `claude` follows
+the same orchestration boundary: it detects the user-installed Claude Code CLI,
+starts `claude -p --output-format stream-json`, binds the backend-authorized
+workspace, and projects reasoning, tool, file-operation, terminal, token, and
+duration events. UI wording, docs, or a settings card alone cannot be used as
+evidence that an engine exists.
 
 ## Product decision
 
@@ -36,7 +39,7 @@ when the selected engine declares support.
 |---|---|---|
 | Pi API engine | User-configured provider/model executed through the Pi host | input/output/cache/reasoning tokens plus actual or clearly estimated cost |
 | Codex CLI orchestration | User-installed Codex CLI/app-server session | task token counts and duration, labelled “订阅内 · 无 API 成本” |
-| Future external CLI | Engine-owned CLI/session through its own adapter | task process metrics only; no Offisim subscription accounting |
+| Claude Code orchestration | User-installed Claude Code CLI session | task token counts and duration, labelled “订阅内 · 无 API 成本” |
 
 External CLI subscription cost is never inferred from local token counts.
 Offisim does not rebuild provider usage windows, remaining/reset/credits, model
@@ -59,8 +62,8 @@ not expose an Offisim model selector.
 ## Credentials and native state
 
 Native engines retain raw credentials and Agent Home data. Codex authentication
-is performed by `codex login`; Offisim neither accepts nor persists those
-credentials. Offisim consumes
+is performed by `codex login`, and Claude Code authentication by `claude auth
+login`; Offisim neither accepts nor persists those credentials. Offisim consumes
 safe status/protocols and stores only opaque references plus the projection
 required by its product shell.
 
@@ -86,10 +89,11 @@ path escape are rejected. The Projects catalog is not silently rewritten.
 
 ## Release rule
 
-An engine is supported only after real task execution, stream/tool/approval/stop
-and recovery behavior, credential isolation, applicable provenance/metrics contracts,
-and the exact current-worktree release `.app` have all been verified. Dev UI or
-localhost evidence is insufficient.
+An engine is supported only after real task execution, its declared stream/tool/
+interaction/Stop/recovery capabilities, credential isolation, applicable
+provenance/metrics contracts, and the exact current-worktree release `.app` have
+all been verified. Unsupported controls must remain absent. Dev UI or localhost
+evidence is insufficient.
 
 The current API-engine release proof is the exact worktree binary SHA-256
 `b62ae06de3280d332b7f5ccc0a180e59fe901b5cfaf85352b1a6ea299693f206`,
@@ -101,6 +105,12 @@ correction in `Docs/roadmap/2026-07-16-engine-lane-correction.md`; it must not b
 reused as evidence for the orchestration adapter. The corrected adapter requires
 the later unified release-app live-verification batch before it can be reported
 as release verified.
+
+The Claude Code adapter was release verified on 2026-07-17 NZST from the exact
+T07 worktree `.app`. The matched window, ready status, real CLI task, Bash tool
+event, token/duration projection, subscription no-API-cost label, and live Stop
+transition are recorded in
+`Docs/evidence/2026-07-17-claude-orchestration/README.md`.
 
 The corrected AI Accounts implementation restores Pi-owned provider editing in
 the API-engine section and keeps external CLI status in the orchestration-engine
@@ -124,6 +134,8 @@ reported as release verified here.
 - OpenAI Codex authentication: https://developers.openai.com/codex/auth
 - OpenAI Codex app-server protocol: https://developers.openai.com/codex/app-server
 - OpenAI Codex source: https://github.com/openai/codex
-- Anthropic Claude Code subscription behavior:
-  https://support.anthropic.com/en/articles/11145838-using-claude-code-with-your-max-plan
+- Anthropic Claude Code CLI reference: https://code.claude.com/docs/en/cli-usage
+- Anthropic Claude Code authentication: https://code.claude.com/docs/en/authentication
+- Anthropic Claude Code hooks: https://code.claude.com/docs/en/hooks
+- Anthropic Claude Code sandboxing: https://code.claude.com/docs/en/sandboxing
 - Cursor Team Admin API: https://docs.cursor.com/en/account/teams/admin-api

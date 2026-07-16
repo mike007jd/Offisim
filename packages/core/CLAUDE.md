@@ -2,8 +2,8 @@
 
 Core holds shared services, repositories, data contracts, tools, vault, and
 legacy helpers. It is not the product AI runtime owner. Desktop AI execution
-enters through `DesktopAgentRuntimeGateway`; the Pi API engine and Codex CLI
-orchestration adapter live at the desktop boundary, while Claude Code remains pending.
+enters through `DesktopAgentRuntimeGateway`; the Pi API engine plus Codex and
+Claude Code CLI orchestration adapters live at the desktop boundary.
 
 ## Gotchas
 

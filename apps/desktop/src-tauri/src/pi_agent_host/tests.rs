@@ -57,11 +57,12 @@ fn runtime_status_keeps_api_catalog_when_codex_inspection_fails() {
     let merged = merge_runtime_status(
         Ok(api),
         Err("secret path /Users/person/.codex/auth.json".into()),
+        Err("secret path /Users/person/.claude.json".into()),
         "2026-07-15T02:00:00Z".into(),
     );
     assert_eq!(merged.accounts.len(), 1);
     assert_eq!(merged.models.len(), 1);
-    assert_eq!(merged.orchestration_engines.len(), 1);
+    assert_eq!(merged.orchestration_engines.len(), 2);
     assert_eq!(merged.checked_at, "2026-07-15T02:00:00Z");
     let fallback = merged
         .orchestration_engines
@@ -88,12 +89,16 @@ fn runtime_status_keeps_codex_catalog_when_api_inspection_fails() {
     let merged = merge_runtime_status(
         Err("secret API_KEY=should-not-leak".into()),
         Ok(codex),
+        Err("secret CLAUDE_CODE_OAUTH_TOKEN=should-not-leak".into()),
         "2026-07-15T02:00:00Z".into(),
     );
     assert_eq!(merged.accounts.len(), 1);
     assert!(merged.models.is_empty());
-    assert_eq!(merged.orchestration_engines.len(), 1);
-    assert_eq!(merged.orchestration_engines[0]["state"], "ready");
+    assert_eq!(merged.orchestration_engines.len(), 2);
+    assert!(merged
+        .orchestration_engines
+        .iter()
+        .any(|engine| engine["engineId"] == "codex" && engine["state"] == "ready"));
     let fallback = merged
         .accounts
         .iter()
@@ -109,10 +114,11 @@ fn runtime_status_projects_both_generic_lanes_when_both_inspections_fail() {
     let merged = merge_runtime_status(
         Err("api secret".into()),
         Err("codex secret".into()),
+        Err("claude secret".into()),
         "2026-07-15T02:00:00Z".into(),
     );
     assert_eq!(merged.accounts.len(), 1);
-    assert_eq!(merged.orchestration_engines.len(), 1);
+    assert_eq!(merged.orchestration_engines.len(), 2);
     assert!(merged.models.is_empty());
     for account in &merged.accounts {
         assert_eq!(account["status"], "unavailable");
@@ -121,10 +127,14 @@ fn runtime_status_projects_both_generic_lanes_when_both_inspections_fail() {
         assert!(account["capabilities"]["usage"]["status"] == "unavailable");
         assert!(account["capabilities"]["cost"]["status"] == "unavailable");
     }
-    assert_eq!(merged.orchestration_engines[0]["state"], "unavailable");
+    assert!(merged
+        .orchestration_engines
+        .iter()
+        .all(|engine| engine["state"] == "unavailable"));
     let projection = serde_json::to_string(&merged).unwrap();
     assert!(!projection.contains("api secret"));
     assert!(!projection.contains("codex secret"));
+    assert!(!projection.contains("claude secret"));
 }
 use super::{agent_runtime_release_stream, agent_runtime_stream_snapshot};
 

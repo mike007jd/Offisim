@@ -1,8 +1,8 @@
-mod bridge;
+pub(crate) mod bridge;
 mod payload;
 mod provider;
-mod run;
-mod stream;
+pub(crate) mod run;
+pub(crate) mod stream;
 mod types;
 mod wire;
 mod workspace_files;
@@ -17,6 +17,7 @@ pub use types::{
     PiAgentProviderConfigStatus, PiAgentProviderModelConfig, PiAgentProviderStatus,
     PiAgentProviderTemplate, PiAgentStatusResponse, PiModelSummary,
 };
+pub(crate) use wire::parse_response;
 pub(crate) use wire::PI_HOST_PROTOCOL_VERSION;
 
 use bridge::{confirm_execution_impl, ui_response_impl};
@@ -193,23 +194,26 @@ pub async fn agent_runtime_status(
     app: AppHandle,
     include_usage: Option<bool>,
 ) -> Result<AiRuntimeStatusResponse, String> {
-    let (api, codex) = tokio::join!(
+    let (api, codex, claude) = tokio::join!(
         runtime_status_impl(app.clone()),
-        crate::codex_agent_host::status_impl(app, include_usage.unwrap_or(false))
+        crate::codex_agent_host::status_impl(app.clone(), include_usage.unwrap_or(false)),
+        crate::claude_agent_host::status_impl(app, include_usage.unwrap_or(false))
     );
     let checked_at = crate::codex_agent_host::checked_at_now()
         .or_else(|_| {
             api.as_ref()
                 .map(|status| status.checked_at.clone())
                 .or_else(|_| codex.as_ref().map(|status| status.checked_at.clone()))
+                .or_else(|_| claude.as_ref().map(|status| status.checked_at.clone()))
         })
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".into());
-    Ok(merge_runtime_status(api, codex, checked_at))
+    Ok(merge_runtime_status(api, codex, claude, checked_at))
 }
 
 fn merge_runtime_status(
     api: Result<AiRuntimeStatusResponse, String>,
     codex: Result<crate::codex_agent_host::CodexAgentStatusResponse, String>,
+    claude: Result<crate::claude_agent_host::ClaudeAgentStatusResponse, String>,
     checked_at: String,
 ) -> AiRuntimeStatusResponse {
     let mut accounts = Vec::new();
@@ -232,6 +236,16 @@ fn merge_runtime_status(
             }
         }
         Err(_) => orchestration_engines.push(codex_unavailable_account()),
+    }
+    match claude {
+        Ok(claude) => {
+            if let Ok(engine) = serde_json::to_value(claude) {
+                orchestration_engines.push(engine);
+            } else {
+                orchestration_engines.push(claude_unavailable_account());
+            }
+        }
+        Err(_) => orchestration_engines.push(claude_unavailable_account()),
     }
     AiRuntimeStatusResponse {
         accounts,
@@ -280,6 +294,27 @@ fn codex_unavailable_account() -> serde_json::Value {
             "resume": true,
             "permissionModes": ["plan", "ask", "auto", "full"],
             "interactions": { "approval": true, "userInput": true },
+            "processEvents": { "reasoning": true, "toolCalls": true, "fileChanges": true },
+        }
+    })
+}
+
+fn claude_unavailable_account() -> serde_json::Value {
+    serde_json::json!({
+        "engineId": "claude",
+        "displayName": "Claude",
+        "state": "unavailable",
+        "statusReason": "Claude CLI status is unavailable.",
+        "loginCommand": "claude auth login",
+        "docsUrl": "https://code.claude.com/docs/en/authentication",
+        "sourceUrl": "https://code.claude.com/docs/en/cli-usage",
+        "checkedAt": "1970-01-01T00:00:00Z",
+        "capabilities": {
+            "stop": true,
+            "steer": false,
+            "resume": true,
+            "permissionModes": ["plan", "auto", "full"],
+            "interactions": { "approval": false, "userInput": false },
             "processEvents": { "reasoning": true, "toolCalls": true, "fileChanges": true },
         }
     })

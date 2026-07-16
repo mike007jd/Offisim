@@ -66,19 +66,20 @@ Owner paths:
 - `scripts/harness-pi-agent-host.mjs`
 - `apps/desktop/src-tauri/src/pi_agent_host/`
 - `apps/desktop/src-tauri/src/codex_agent_host/`
+- `apps/desktop/src-tauri/src/claude_agent_host/`
 - `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`
 - `Docs/HARNESS_ARCHITECTURE.md`
 
 Data/contracts:
 
-- The production gateway ships the Pi API engine and Codex CLI orchestration
-  adapter; Claude Code orchestration remains pending.
+- The production gateway ships the Pi API engine plus Codex and Claude Code CLI
+  orchestration adapters.
 - Each engine owns its native auth/session/compaction/tool loop. Offisim owns
   safe account/model metadata, effective-workspace authorization, Conversation
   persistence, and neutral desktop projection.
-- API accounts show token usage plus actual or clearly estimated Cost. Codex
-  orchestration records task tokens and duration as “订阅内 · 无 API 成本”; it
-  has no Offisim account-usage projection.
+- API accounts show token usage plus actual or clearly estimated Cost. External
+  CLI orchestration records task tokens and duration as “订阅内 · 无 API 成本”;
+  it has no Offisim account-usage projection.
 - API models use the exact ids in Pi configuration. Source/checkedAt is strict
   for Offisim-owned official entries and optional for user-configured models;
   external CLIs own their model selection.
@@ -87,6 +88,7 @@ Verification:
 
 - `pnpm harness:pi-agent-host`
 - `pnpm harness:codex-app-server-contract`
+- `pnpm harness:claude-agent-host`
 - `pnpm harness:runtime-conformance`
 - `pnpm build:pi-agent-host`
 - release `.app` launch from exact worktree path

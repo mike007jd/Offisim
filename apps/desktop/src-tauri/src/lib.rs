@@ -2,6 +2,7 @@ mod agent_host_runtime;
 mod attachment_store;
 mod browser_session;
 mod builtin_tools;
+mod claude_agent_host;
 mod codex_agent_host;
 mod codex_pets;
 mod computer_driver;
@@ -245,6 +246,15 @@ pub fn run() {
             codex_agent_host::commands::codex_agent_release_stream,
             codex_agent_host::commands::codex_agent_reattach,
             codex_agent_host::commands::codex_agent_status,
+            claude_agent_host::commands::claude_agent_execute,
+            claude_agent_host::commands::claude_agent_resume,
+            claude_agent_host::commands::claude_agent_enhance,
+            claude_agent_host::commands::claude_agent_abort,
+            claude_agent_host::commands::claude_agent_answer,
+            claude_agent_host::commands::claude_agent_stream_snapshot,
+            claude_agent_host::commands::claude_agent_release_stream,
+            claude_agent_host::commands::claude_agent_reattach,
+            claude_agent_host::commands::claude_agent_status,
             pi_agent_host::pi_agent_open_config_folder,
             pi_agent_host::pi_agent_status,
             pi_agent_host::pi_agent_save_provider,

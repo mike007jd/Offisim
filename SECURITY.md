@@ -46,9 +46,8 @@ For Offisim 1.0, the highest-priority reports are:
 Offisim desktop is the 1.0 reference runtime. The webview is not trusted to pick
 credential destinations or arbitrary local execution roots.
 
-- The production gateway hosts coexisting Pi API and Codex CLI orchestration
-  adapters, with exactly one engine lane owning each run. Claude Code is not
-  shipped until its own orchestration adapter and release evidence exist.
+- The production gateway hosts coexisting Pi API plus Codex and Claude Code CLI
+  orchestration adapters, with exactly one engine lane owning each run.
 - Pi provider keys cross the narrow save command and are written to Pi-owned
   `~/.pi/agent/models.json`; the renderer receives only secret-free summaries.
   External CLIs retain native login, model choice, session files, compaction,
@@ -57,7 +56,8 @@ credential destinations or arbitrary local execution roots.
   exact ids. Official source/checkedAt metadata is strict; user-configured source
   metadata is optional. External CLI models are not an Offisim catalog.
 - Tauri binds the backend-authorized effective task workspace and routes the
-  turn to either the bundled API adapter host or native Codex app-server host.
+  turn to the bundled API adapter host, native Codex app-server host, or native
+  Claude Code print-mode host.
   Host output is projected and credential-shaped values are filtered before
   they reach the webview.
 - Local path open/save, git, and shell commands are scoped to a project

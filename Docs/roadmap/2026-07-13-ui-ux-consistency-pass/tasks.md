@@ -1,7 +1,7 @@
 # Offisim Codex 对齐盲测收敛 — Tasks
 
 > 对应计划：[plan.md](./plan.md)
-> 状态：IN PROGRESS，15/17 implemented；T07、T16 尚未闭环，整包 final release 验收统一留在 T16
+> 状态：IN PROGRESS，16/17 implemented；仅 T16 尚未闭环，整包 final release 验收统一留在 T16
 > 完成口径：真实行为 + 窄门禁 + full release + 精确 `.app`，仅文档、仅编译或 dev 预览均不算完成。
 
 ## 任务总表
@@ -15,7 +15,7 @@
 | T04 | 缺失 Project 目录自主恢复 | T03 | [x] |
 | T05 | 生产 engine gateway 与 API account | T00 | [x] |
 | T06 | Codex CLI 编排适配器 | T05 | [x] |
-| T07 | Claude Code CLI 编排适配器 | T05 | [ ] |
+| T07 | Claude Code CLI 编排适配器 | T05 | [x] |
 | T08 | AI Accounts / Models 设置整合 | T02,T05,T06 | [x] |
 | T09 | Loops 自然语言主流程 | T00 | [x] |
 | T10 | Market 用户语言与空状态 | T00 | [x] |
@@ -47,11 +47,11 @@
 
 ## T00 — 当前控制真源
 
-**结果：** 文档诚实记录 Pi API 引擎、Codex CLI 编排 adapter 与 Claude Code pending，不再用旧 Pi-only 或订阅账户叙述阻断当前架构。
+**结果：** 文档诚实记录 Pi API 引擎及 Codex、Claude Code CLI 编排 adapter，不再用旧 Pi-only 或订阅账户叙述阻断当前架构。
 
 ### Acceptance
 
-- [x] 当前真值是 production `DesktopAgentRuntimeGateway` + Pi API engine + Codex CLI 编排 adapter；Claude Code 仍为 pending。
+- [x] 当前真值是 production `DesktopAgentRuntimeGateway` + Pi API engine + Codex、Claude Code CLI 编排 adapter。
 - [x] Pi API 与外部 CLI 编排可以并存；每个 run 只走一个 engine lane，外部 CLI 不伪装成 Pi provider。
 - [x] API 显示 token/Cost；编排任务只显示 token/时长与“订阅内 · 无 API 成本”。
 - [x] Project、Conversation、Native Agent Home/Session/Memory、effective workspace 四层分离。
@@ -291,9 +291,9 @@
 
 ---
 
-## T07 — Claude Code CLI 编排适配器（pending，#69）
+## T07 — Claude Code CLI 编排适配器（completed，#69）
 
-**结果：** 尚未接入。#69 将按外部 CLI 编排口径实现，当前 UI、文档和门禁都不得写成 shipped。
+**结果：** Claude Code 已按外部 CLI 编排口径接入唯一 production gateway；凭据、模型与原生状态仍归用户安装的 Claude Code CLI。
 
 ### Scope
 
@@ -303,18 +303,26 @@
 
 ### Acceptance
 
-- [ ] 安全发现安装/登录/版本状态，未就绪时给官方指引。
-- [ ] 完成 spawn、过程事件流、tool/approval/Stop/recovery 与文件 workspace。
-- [ ] 模型选择与凭据留在 Claude Code；Offisim 不建模型 catalog、账户健康或订阅 Usage 页。
-- [ ] 任务只记录 CLI 返回的 token 与时长，并标“订阅内 · 无 API 成本”。
-- [ ] 不读取、复制、展示或持久化原始 auth secret。
-- [ ] 不可用时不静默切换其他 engine。
-- [ ] release `.app` 有真实 Claude task 证据。
+- [x] 安全发现安装/登录/版本状态，未就绪时给官方指引。
+- [x] 完成 spawn、reasoning/tool/file-operation 过程事件、Stop/resume/recovery 与文件 workspace；Claude 未声明的 approval、userInput、steer 控件不显示。
+- [x] 模型选择与凭据留在 Claude Code；Offisim 不建模型 catalog、账户健康或订阅 Usage 页。
+- [x] 任务只记录 CLI 返回的 token 与时长，并标“订阅内 · 无 API 成本”。
+- [x] 不读取、复制、展示或持久化原始 auth secret。
+- [x] 不可用时不静默切换其他 engine。
+- [x] release `.app` 有真实 Claude task、工具事件与 Stop 证据。
 
 ### Oracles
 
-- 实施时重查 Claude Code 官方 CLI / 编排协议文档。
-- live Claude task + secret scan + runtime conformance。
+- Claude Code CLI reference、authentication、hooks、sandboxing，checkedAt 2026-07-17 NZST。
+- `harness:claude-agent-host` + runtime conformance + exact release `.app` live task。
+
+### T07 Evidence（2026-07-17 NZST）
+
+- 直接启动用户 PATH 中的 Claude Code CLI 2.1.211，使用 `claude -p --output-format stream-json --verbose --include-partial-messages --include-hook-events`；不打包 CLI 或 Agent SDK。
+- renderer/Rust command lockstep harness 禁止 `model`、`runtimeModelRef`、`thinkingLevel` 回流；target 固定为 `claude / claude:local / subscription / engine-managed / native`。
+- 保留 PreToolUse workspace guard、Bash sandbox、Project-folder canonical boundary 与 symlink 逃逸拒绝；生命周期 harness 同时锁住 stdin 保持开启时 sidecar 必须自行退出。
+- 精确 worktree release `.app` 状态卡显示 Ready、版本、原生登录命令与官方指引；真实任务返回 `OFFISIM_CLAUDE_RELEASE_OK`，Bash 工具任务返回 `OFFISIM_CLAUDE_TOOL_OK`，Token/时长固定显示“订阅内 · 无 API 成本”，Stop 后持久化 run 为 `cancelled`。
+- 窗口身份、运行记录与截图见 [`Docs/evidence/2026-07-17-claude-orchestration/`](../../evidence/2026-07-17-claude-orchestration/README.md)。
 
 ---
 
@@ -334,7 +342,7 @@
 ### Oracles
 
 - dynamic catalog/provider configuration、execution target/provenance、settings coordinator、runtime capabilities gates。
-- T16 覆盖当前可交付的动态 API provider 与 Codex 编排状态；Claude 留给 T07，不在本次返工范围。
+- T16 覆盖当前可交付的动态 API provider 与 Codex、Claude 编排状态。
 
 ### T08 Corrected evidence（2026-07-17 NZST）
 
@@ -477,7 +485,7 @@
 
 - run-cost-scope 扩展 billing-mode/provenance fixture。
 - activity-data、settings coordinator gates。
-- T16 覆盖 Pi API 与 Codex；Claude Code 只核对 pending 真相，不伪造 live run。
+- T16 覆盖 Pi API 与 Codex、Claude Code 的真实 run 与计量投影。
 
 ### T13 Evidence（2026-07-17 NZST）
 
@@ -544,7 +552,7 @@
 ### T15 Evidence（2026-07-17 NZST）
 
 - [`document-truth-ledger.md`](../../document-truth-ledger.md) 对 current、scoped contract、历史 ADR/roadmap/prototype、archive、live-verify evidence 与本地产物逐份记录 `REWRITE / RETAIN / SUPERSEDE / DELETE`；五镜头加 skeptic 复核确认没有 tracked doc 或 screenshot 满足安全删除阈值，独有合同、审计链和历史证据全部保留。
-- current docs 已统一为 Pi API engine + Codex CLI 编排 adapter implemented、Claude Code pending。Pi 保留完整 provider/model 编辑；Codex 只做检测、PATH spawn、事件流、Stop/recovery，凭据/模型/订阅用量归 CLI 自管，任务标“订阅内 · 无 API 成本”。Project folder catalog、Offisim Conversation、Native Agent Home / Session / Memory、effective task workspace 四层分离。
+- current docs 已统一为 Pi API engine + Codex、Claude Code CLI 编排 adapter implemented。Pi 保留完整 provider/model 编辑；外部 CLI 只做检测、PATH spawn、事件流、Stop/recovery，凭据/模型/订阅用量归 CLI 自管，任务标“订阅内 · 无 API 成本”。Project folder catalog、Offisim Conversation、Native Agent Home / Session / Memory、effective task workspace 四层分离。
 - 25 份历史 Markdown 与 7 份非 canonical HTML prototype 均有醒目的 historical/superseded 标记和 current replacement；canonical Office prototype 明确只承载 visual grammar。所有证据截图保留；ignored 的 `.playwright-mcp/`、`.playwright-cli/`、`feedbacks/`、`output/`、`.DS_Store`、`*.log` 在本 worktree 无 tracked 残留。
 - 新增 `pnpm check:docs-truth`，覆盖全库 tracked Markdown 本地链接、current source 持久合同/旧引擎黑名单、superseded record banner/current link，并接入 `harness:review-fixes`、`pnpm validate` 与 node release lane。
 - `scripts/harness-codex-app-server-contract.mjs` 与 current docs 同步把“用户安装 CLI + 编排适配器”作为真相，并明确防止已删除的内置二进制及账户/模型/用量探测逻辑回潮。
@@ -575,7 +583,7 @@
 - [ ] stale approval / new Turn / live Stop。
 - [ ] immediate fallback / semantic title / manual rename lock。
 - [ ] normal / missing / unique / ambiguous task workspace。
-- [ ] Pi API provider/model/真实 run/Usage/Cost；Codex CLI 状态与真实编排 run/token/时长；Claude Code 明确保持 pending、无伪支持。
+- [ ] Pi API provider/model/真实 run/Usage/Cost；Codex、Claude Code CLI 状态与真实编排 run/token/时长。
 - [ ] Loops 自然语言创建、修改、审阅、运行。
 - [ ] Market、Personnel、chrome、rails、nav、run pill。
 - [ ] radius、presence、error、Office projection 与 dramaturgy。

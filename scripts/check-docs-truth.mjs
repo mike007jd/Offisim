@@ -112,10 +112,13 @@ for (const relativePath of currentDocs) {
 const currentTruth = currentDocs.map(read).join('\n');
 const durableContracts = [
   [
-    /Pi API[\s\S]{0,120}Codex CLI orchestration[\s\S]{0,120}(?:implemented|shipped)/iu,
-    'Pi API and Codex CLI orchestration implementation truth',
+    /Pi API[\s\S]{0,180}Codex[\s\S]{0,180}Claude Code[\s\S]{0,180}(?:implemented|shipped|已交付)/iu,
+    'Pi API plus Codex and Claude Code orchestration implementation truth',
   ],
-  [/Claude Code[\s\S]{0,100}(?:pending|not shipped|尚未|未接入)/iu, 'Claude Code pending truth'],
+  [
+    /Claude Code[\s\S]{0,180}(?:implemented|shipped|已交付|completed)/iu,
+    'Claude Code orchestration implementation truth',
+  ],
   [/Pi(?:'s)?[\s\S]{0,100}models\.json/iu, 'Pi dynamic provider and model truth'],
   [
     /(?:provider\/model (?:editing|配置)|(?:edit|编辑)[^\n]{0,100}provider\/model)/iu,
@@ -124,6 +127,10 @@ const durableContracts = [
   [
     /Codex[\s\S]{0,160}(?:detect|检测)[\s\S]{0,220}(?:app-server|spawn|启动)[\s\S]{0,220}(?:event|事件)[\s\S]{0,160}Stop/iu,
     'Codex detection spawn event stream and Stop',
+  ],
+  [
+    /Claude Code[\s\S]{0,180}(?:detect|检测)[\s\S]{0,260}(?:stream-json|spawn|启动)[\s\S]{0,260}(?:event|事件)[\s\S]{0,180}Stop/iu,
+    'Claude Code detection spawn event stream and Stop',
   ],
   [
     /external\s+CLI[\s\S]{0,180}(?:credentials|凭据)[\s\S]{0,180}(?:model choice|模型)[\s\S]{0,180}(?:CLI-owned|自管|own)/iu,
@@ -137,10 +144,7 @@ const durableContracts = [
   [/Offisim Conversation/iu, 'Offisim Conversation layer'],
   [/Native Agent Home \/ Session \/ Memory/iu, 'native Agent Home/session/memory layer'],
   [/effective task workspace/iu, 'effective task workspace layer'],
-  [
-    /API[\s\S]{0,160}(?:token|Usage)[\s\S]{0,160}Cost/iu,
-    'API token and Cost accounting',
-  ],
+  [/API[\s\S]{0,160}(?:token|Usage)[\s\S]{0,160}Cost/iu, 'API token and Cost accounting'],
   [
     /user-configured[\s\S]{0,160}(?:source metadata|source)[\s\S]{0,80}optional/iu,
     'user-configured API model source is optional',
