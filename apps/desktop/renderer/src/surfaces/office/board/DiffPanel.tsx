@@ -242,14 +242,15 @@ export function DiffPanel({
     setReview((current) => reconcileReviewState(document, current));
   }, [document]);
   useEffect(() => {
-    if (initialPath && document.files.some((file) => file.path === initialPath)) {
-      setSelectedPath(initialPath);
-      return;
-    }
-    if (!document.files.some((file) => file.path === selectedPath)) {
-      setSelectedPath(document.files[0]?.path ?? '');
-    }
-  }, [document.files, initialPath, selectedPath]);
+    setSelectedPath((current) => {
+      if (initialPath && document.files.some((file) => file.path === initialPath)) {
+        return initialPath;
+      }
+      return document.files.some((file) => file.path === current)
+        ? current
+        : (document.files[0]?.path ?? '');
+    });
+  }, [document.files, initialPath]);
 
   const selected =
     document.files.find((file) => file.path === selectedPath) ?? document.files[0] ?? null;
@@ -352,7 +353,10 @@ export function DiffPanel({
   const draftCount = review.annotations.filter((annotation) => annotation.state === 'draft').length;
 
   return (
-    <section className="off-diff-panel" aria-label="Review workbench">
+    <section
+      className={cn('off-diff-panel', readonly ? 'is-readonly' : 'is-actionable')}
+      aria-label="Review workbench"
+    >
       <aside className="off-review-tree" aria-label="Changed files">
         <div className="off-review-tree-summary">
           <strong>{document.files.length} files</strong>
@@ -489,72 +493,103 @@ export function DiffPanel({
         )}
       </div>
 
-      {!readonly ? (
-        <footer className="off-diff-review-actions">
-          <div className="off-review-annotation-list">
-            {review.annotations.map((annotation) => (
-              <div
-                className={cn('off-review-annotation', `is-${annotation.state}`)}
-                key={annotation.id}
-              >
-                <MessageSquare size={13} />
-                <span>
-                  <strong>{annotation.path}</strong> · {annotation.label}
-                  <br />
-                  {annotation.body}
-                </span>
-                <em>
-                  {annotation.state === 'resolved'
-                    ? 'Handled'
-                    : annotation.state === 'submitted'
-                      ? 'Steered'
-                      : 'Draft'}
-                </em>
-              </div>
-            ))}
-          </div>
-          {annotationTarget ? (
-            <div className="off-review-comment-composer">
-              <label htmlFor="review-comment">
-                Return · {annotationTarget.file.path} · {annotationTarget.label}
-              </label>
-              <textarea
-                id="review-comment"
-                value={annotationBody}
-                onChange={(event) => setAnnotationBody(event.target.value)}
-                placeholder="Describe the exact change for the employee…"
-              />
-              <div>
-                <button type="button" onClick={() => setAnnotationTarget(null)}>
-                  Cancel
-                </button>
-                <button type="button" disabled={!annotationBody.trim()} onClick={saveAnnotation}>
-                  Add annotation
-                </button>
-              </div>
+      <aside className="off-diff-review-actions" aria-label="Review notes and actions">
+        <header className="off-review-inspector-head">
+          <span>{readonly ? 'Review context' : 'Review notes'}</span>
+          <strong>{readonly ? 'Read-only' : `${summary.openAnnotations} open`}</strong>
+        </header>
+        {readonly ? (
+          <div className="off-review-readonly-summary">
+            <div>
+              <span>Files</span>
+              <strong>{document.files.length}</strong>
             </div>
-          ) : null}
-          <div className="off-review-final-actions">
-            <button type="button" disabled={busy} onClick={onDiscard}>
-              Discard task
-            </button>
-            <button
-              type="button"
-              disabled={busy || draftCount === 0}
-              onClick={() => void submitAnnotations()}
-            >
-              Steer {draftCount || ''} annotation{draftCount === 1 ? '' : 's'}
-            </button>
-            <button
-              type="button"
-              disabled={busy || !allAccepted || summary.openAnnotations > 0}
-              onClick={() => onMerge?.(summary)}
-            >
-              Merge accepted
-            </button>
+            <div>
+              <span>Hunks</span>
+              <strong>
+                {document.files.reduce((count, file) => count + file.hunks.length, 0)}
+              </strong>
+            </div>
+            <div>
+              <span>Delta</span>
+              <strong>
+                +{document.additions} −{document.deletions}
+              </strong>
+            </div>
+            <p>Inspection only. Open a pending delegated lease to annotate or accept changes.</p>
           </div>
-        </footer>
-      ) : null}
+        ) : (
+          <>
+            <div className="off-review-annotation-list">
+              {review.annotations.length === 0 ? (
+                <p className="off-review-annotation-empty">
+                  Comment on a line, hunk, or file to send an exact rework instruction.
+                </p>
+              ) : null}
+              {review.annotations.map((annotation) => (
+                <div
+                  className={cn('off-review-annotation', `is-${annotation.state}`)}
+                  key={annotation.id}
+                >
+                  <MessageSquare size={13} />
+                  <span>
+                    <strong>{annotation.path}</strong> · {annotation.label}
+                    <br />
+                    {annotation.body}
+                  </span>
+                  <em>
+                    {annotation.state === 'resolved'
+                      ? 'Handled'
+                      : annotation.state === 'submitted'
+                        ? 'Steered'
+                        : 'Draft'}
+                  </em>
+                </div>
+              ))}
+            </div>
+            {annotationTarget ? (
+              <div className="off-review-comment-composer">
+                <label htmlFor="review-comment">
+                  Return · {annotationTarget.file.path} · {annotationTarget.label}
+                </label>
+                <textarea
+                  id="review-comment"
+                  value={annotationBody}
+                  onChange={(event) => setAnnotationBody(event.target.value)}
+                  placeholder="Describe the exact change for the employee…"
+                />
+                <div>
+                  <button type="button" onClick={() => setAnnotationTarget(null)}>
+                    Cancel
+                  </button>
+                  <button type="button" disabled={!annotationBody.trim()} onClick={saveAnnotation}>
+                    Add annotation
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            <div className="off-review-final-actions">
+              <button type="button" disabled={busy} onClick={onDiscard}>
+                Discard task
+              </button>
+              <button
+                type="button"
+                disabled={busy || draftCount === 0}
+                onClick={() => void submitAnnotations()}
+              >
+                Steer {draftCount || ''} annotation{draftCount === 1 ? '' : 's'}
+              </button>
+              <button
+                type="button"
+                disabled={busy || !allAccepted || summary.openAnnotations > 0}
+                onClick={() => onMerge?.(summary)}
+              >
+                Merge accepted
+              </button>
+            </div>
+          </>
+        )}
+      </aside>
     </section>
   );
 }

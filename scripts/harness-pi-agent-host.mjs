@@ -1336,8 +1336,8 @@ assert(
     'apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx',
     'utf8',
   );
-  const workspacePanelSource = readFileSync(
-    'apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx',
+  const reviewWorkbenchStageSource = readFileSync(
+    'apps/desktop/renderer/src/surfaces/office/board/ReviewWorkbenchStage.tsx',
     'utf8',
   );
   assert(
@@ -1375,7 +1375,9 @@ assert(
       boardStageSource,
     ) &&
       /hasPendingDecision\(selectedLeases\)/.test(boardStageSource) &&
-      /pendingLeaseAction !== null/.test(workspacePanelSource),
+      /pendingAction !== null/.test(reviewWorkbenchStageSource) &&
+      /const outcome = await reviewWorkspaceLease/.test(reviewWorkbenchStageSource) &&
+      /outcome === 'discarded'/.test(reviewWorkbenchStageSource),
     'Board, compact approval, and workspace review entries must disable on shared pending state and report persisted outcomes rather than requested actions',
   );
   assert(

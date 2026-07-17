@@ -15,7 +15,6 @@ import {
   viewPullRequest,
 } from '@/data/git-workbench.js';
 import { useGitWorkbench, useProjectFiles, useProjects } from '@/data/queries.js';
-import { markReturnedReviewPatchApplied } from '@/data/review-workbench.js';
 import type { FileNode, GitFileChange, GitWorkbench, Project } from '@/data/types.js';
 import { parseUnifiedDiffFiles } from '@/data/unified-diff.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
@@ -36,21 +35,13 @@ import { Input } from '@/design-system/primitives/input.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
-import { safeErrorMessage } from '@/lib/error-message.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
-import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
+import { useReviewPrPrefill } from '@/surfaces/office/board/review-pr-prefill.js';
 import {
   useProjectWorkspaceLeaseReviews,
   useTaskBoard,
 } from '@/surfaces/office/board/task-board-data.js';
-import { useWorkspaceLeaseDecision } from '@/surfaces/office/board/use-workspace-lease-decision.js';
-import {
-  applyWorkspaceLeaseReviewPatch,
-  persistWorkspaceLeaseReview,
-  requestWorkspaceLeaseChanges,
-  reviewWorkspaceLease,
-} from '@/surfaces/office/board/workspace-lease-actions.js';
 import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -62,6 +53,7 @@ import {
   FolderGit2,
   FolderOpen,
   GitBranch,
+  GitCompareArrows,
   GitPullRequest,
   Pencil,
   Plus,
@@ -516,6 +508,7 @@ function GitTab({
   const isCurrentProjectScope = (scope: { projectId: string; generation: number }) =>
     scope.projectId === projectIdRef.current && scope.generation === projectGenerationRef.current;
   const openStageView = useUiState((s) => s.openStageView);
+  const setStageMaximized = useUiState((s) => s.setOfficeStageMaximized);
   const queryClient = useQueryClient();
   const leaseReviews = useProjectWorkspaceLeaseReviews(projectId);
   const board = useTaskBoard(companyId);
@@ -524,7 +517,6 @@ function GitTab({
   );
   const reviewable = leaseReviews.rows.filter((lease) => lease.status === 'pending_review');
   const [selectedLeaseId, setSelectedLeaseId] = useState('');
-  const [busyLeaseId, setBusyLeaseId] = useState<string | null>(null);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState('');
   const [branchName, setBranchName] = useState('');
@@ -536,6 +528,8 @@ function GitTab({
   const [prBody, setPrBody] = useState('');
   const [prBase, setPrBase] = useState('');
   const [prDraft, setPrDraft] = useState(false);
+  const prPrefill = useReviewPrPrefill(projectId);
+  const consumedPrPrefillId = useRef<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<'push' | 'create-pr' | 'view-pr' | null>(null);
   const [lastOutput, setLastOutput] = useState<{ label: string; result: CommandExecResult } | null>(
@@ -543,19 +537,21 @@ function GitTab({
   );
   const selectedLease =
     reviewable.find((lease) => lease.leaseId === selectedLeaseId) ?? reviewable[0] ?? null;
-  const pendingLeaseAction = useWorkspaceLeaseDecision(selectedLease?.leaseId ?? null);
   const task = selectedLease ? taskByRun.get(selectedLease.runId) : null;
   const selectedLeaseDocument = useMemo(
     () => parseUnifiedDiffFiles(selectedLease?.files ?? []),
     [selectedLease?.files],
   );
-  const reviewSaveChain = useRef<Promise<void>>(Promise.resolve());
-  const persistReview = (review: Parameters<typeof persistWorkspaceLeaseReview>[2]) => {
-    if (!selectedLease) return Promise.resolve();
-    reviewSaveChain.current = reviewSaveChain.current
-      .catch(() => undefined)
-      .then(() => persistWorkspaceLeaseReview(selectedLease, companyId, review));
-    return reviewSaveChain.current;
+
+  const openLeaseReview = (lease: (typeof reviewable)[number]) => {
+    openStageView({
+      kind: 'changes',
+      leaseId: lease.leaseId,
+      path: lease.files[0]?.path,
+      files: lease.files,
+      status: lease.status,
+    });
+    setStageMaximized(true);
   };
 
   useEffect(() => {
@@ -571,6 +567,20 @@ function GitTab({
       projectGenerationRef.current += 1;
     };
   }, [projectId]);
+
+  useEffect(() => {
+    if (!prPrefill || consumedPrPrefillId.current === prPrefill.id) return;
+    consumedPrPrefillId.current = prPrefill.id;
+    setPrTitle((current) => current.trim() || prPrefill.title);
+    setPrBody((current) =>
+      current.includes(prPrefill.body)
+        ? current
+        : current.trim()
+          ? `${current.trim()}\n\n${prPrefill.body}`
+          : prPrefill.body,
+    );
+    setPrDraft(true);
+  }, [prPrefill]);
 
   const refreshConnections = async () => {
     const scope = captureProjectScope();
@@ -646,29 +656,6 @@ function GitTab({
     }
   };
 
-  const act = async (action: 'merge' | 'discard') => {
-    if (!selectedLease) return;
-    const scope = captureProjectScope();
-    setBusyLeaseId(selectedLease.leaseId);
-    try {
-      const outcome = await reviewWorkspaceLease(selectedLease, companyId, action);
-      if (!isCurrentProjectScope(scope)) return;
-      await leaseReviews.refetch();
-      if (!isCurrentProjectScope(scope)) return;
-      toast.success(
-        outcome === 'merged'
-          ? 'Task merged.'
-          : outcome === 'discarded'
-            ? 'Task discarded.'
-            : 'Merge decision completed.',
-      );
-    } catch (error) {
-      if (!isCurrentProjectScope(scope)) return;
-      toast.error(error instanceof Error ? error.message : `Could not ${action} task`);
-    } finally {
-      if (isCurrentProjectScope(scope)) setBusyLeaseId(null);
-    }
-  };
   return (
     <div className="off-gw">
       <div className="off-gw-branch">
@@ -880,11 +867,12 @@ function GitTab({
           Create as draft
         </label>
         <Button
+          className="off-gw-pr-create"
           size="sm"
           disabled={!ghAuth?.ok || !prTitle.trim() || busy !== null}
           onClick={() => setConfirming('create-pr')}
         >
-          <GitPullRequest size={14} /> Review PR creation
+          <GitPullRequest size={14} /> <span>Review PR creation</span>
         </Button>
       </div>
 
@@ -894,77 +882,32 @@ function GitTab({
           <Select
             className="off-gw-task-select off-focusable"
             value={selectedLease.leaseId}
-            onChange={(event) => setSelectedLeaseId(event.target.value)}
+            onChange={(event) => {
+              const next = reviewable.find((lease) => lease.leaseId === event.target.value);
+              setSelectedLeaseId(event.target.value);
+              if (next) openLeaseReview(next);
+            }}
             aria-label="Delegated task diff"
             options={reviewable.map((lease) => ({
               value: lease.leaseId,
               label: taskByRun.get(lease.runId)?.objective ?? lease.runId,
             }))}
           />
-          <DiffPanel
-            key={selectedLease.leaseId}
-            document={selectedLeaseDocument}
-            mode="review"
-            review={selectedLease.review}
-            busy={busyLeaseId === selectedLease.leaseId || pendingLeaseAction !== null}
-            onReviewChange={(review) =>
-              persistReview(review).catch((error) => {
-                toast.error(error instanceof Error ? error.message : 'Could not save review state');
-              })
-            }
-            onMerge={(summary) => {
-              if (!prTitle.trim()) {
-                setPrTitle(
-                  task?.objective?.trim() || `Review ${selectedLease.branch ?? 'delegated work'}`,
-                );
-              }
-              setPrBody((current) =>
-                current.trim() ? `${current.trim()}\n\n${summary.markdown}` : summary.markdown,
-              );
-              setPrDraft(true);
-              void act('merge');
-            }}
-            onDiscard={() => void act('discard')}
-            onRequestChanges={async ({ feedback, review, annotations, returnedPatch }) => {
-              const employeeId = task?.employeeId;
-              if (!employeeId) {
-                const error = new Error('The original assignee is unavailable.');
-                toast.error(error.message);
-                throw error;
-              }
-              const scope = captureProjectScope();
-              setBusyLeaseId(selectedLease.leaseId);
-              try {
-                let effectiveReview = review;
-                if (returnedPatch) {
-                  await applyWorkspaceLeaseReviewPatch(selectedLease, returnedPatch);
-                  effectiveReview = markReturnedReviewPatchApplied(review);
-                  await persistReview(effectiveReview);
-                }
-                await requestWorkspaceLeaseChanges(selectedLease, {
-                  companyId,
-                  projectId: scope.projectId,
-                  employeeId,
-                  objective: task.objective ?? 'Continue the delegated task.',
-                  feedback,
-                  review: effectiveReview,
-                  annotations,
-                });
-                if (!isCurrentProjectScope(scope)) return;
-                await leaseReviews.refetch();
-                if (!isCurrentProjectScope(scope)) return;
-                toast.success('Review steer accepted in the same worktree.');
-              } catch (error) {
-                if (!isCurrentProjectScope(scope)) return;
-                await leaseReviews.refetch();
-                if (!isCurrentProjectScope(scope)) return;
-                toast.error(safeErrorMessage(error));
-                throw error;
-              } finally {
-                if (isCurrentProjectScope(scope)) setBusyLeaseId(null);
-              }
-            }}
-          />
+          <div className="off-gw-review-entry">
+            <div className="off-gw-review-entry-head">
+              <span>Pending review</span>
+              <strong>{selectedLeaseDocument.files.length} files</strong>
+            </div>
+            <p>{task?.objective ?? selectedLease.branch ?? selectedLease.leaseId}</p>
+            <div className="off-gw-review-entry-stats">
+              <span>+{selectedLeaseDocument.additions}</span>
+              <span>−{selectedLeaseDocument.deletions}</span>
+              <span>{selectedLeaseDocument.files.length} files</span>
+            </div>
+            <Button size="sm" onClick={() => openLeaseReview(selectedLease)}>
+              <GitCompareArrows size={14} /> Open review stage
+            </Button>
+          </div>
         </div>
       ) : null}
 

@@ -630,14 +630,16 @@
 }
 
 .off-diff-panel {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(176px, 22%) minmax(0, 1fr);
-  grid-template-rows: minmax(360px, 1fr) auto;
-  min-height: 420px;
-  max-height: min(72vh, 820px);
+  grid-template-columns: minmax(190px, 20%) minmax(0, 1fr) minmax(270px, 24%);
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-sm);
+  border: 0;
+  border-radius: 0;
   background: var(--off-surface-1);
 }
 
@@ -984,19 +986,61 @@
 }
 
 .off-diff-review-actions {
-  grid-column: 1 / -1;
+  min-width: 0;
+  min-height: 0;
   display: grid;
-  gap: var(--off-sp-2);
-  max-height: 260px;
-  overflow: auto;
-  padding: var(--off-sp-3);
-  border-top: 1px solid var(--off-line);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  overflow: hidden;
+  border-left: 1px solid var(--off-line);
   background: var(--off-surface-2);
 }
 
+.off-review-inspector-head {
+  min-width: 0;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-3);
+  border-bottom: 1px solid var(--off-line);
+}
+
+.off-review-inspector-head span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-review-inspector-head strong {
+  margin-left: auto;
+  color: var(--off-ink-4);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-micro);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 .off-review-annotation-list {
+  min-height: 0;
   display: grid;
+  align-content: start;
   gap: var(--off-sp-1);
+  overflow: auto;
+  padding: var(--off-sp-3);
+}
+
+.off-review-annotation-empty {
+  margin: 0;
+  padding: var(--off-sp-3);
+  border: 1px dashed var(--off-line);
+  border-radius: var(--off-r-sm);
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+  line-height: 1.45;
 }
 
 .off-review-annotation {
@@ -1029,7 +1073,8 @@
 .off-review-comment-composer {
   display: grid;
   gap: var(--off-sp-2);
-  padding: var(--off-sp-2);
+  margin: 0 var(--off-sp-3) var(--off-sp-3);
+  padding: var(--off-sp-3);
   border: 1px solid var(--off-warn);
   border-radius: var(--off-r-sm);
   background: var(--off-surface-1);
@@ -1059,7 +1104,16 @@
   gap: var(--off-sp-2);
 }
 
+.off-review-final-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  padding: var(--off-sp-3);
+  border-top: 1px solid var(--off-line);
+}
+
 .off-review-final-actions button {
+  width: 100%;
+  min-height: 32px;
   border-color: var(--off-line);
   background: var(--off-surface-1);
 }
@@ -1074,6 +1128,55 @@
   opacity: 0.45;
 }
 
+.off-review-readonly-summary {
+  grid-row: 2 / -1;
+  align-content: start;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3);
+}
+
+.off-review-readonly-summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-1);
+}
+
+.off-review-readonly-summary span,
+.off-review-readonly-summary p {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+}
+
+.off-review-readonly-summary strong {
+  overflow: hidden;
+  color: var(--off-ink-1);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-review-readonly-summary p {
+  grid-column: 1 / -1;
+  margin: var(--off-sp-2) 0 0;
+  line-height: 1.5;
+}
+
+.off-review-stage-state {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-sm);
+}
+
 .off-gw-task-select {
   width: 100%;
   margin: var(--off-sp-2) 0;
@@ -1084,18 +1187,9 @@
   color: var(--off-ink-2);
 }
 
-@container (max-width: 760px) {
+@media (max-width: 900px) {
   .off-diff-panel {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(360px, 1fr) auto;
-  }
-  .off-review-tree {
-    max-height: 220px;
-    border-right: 0;
-    border-bottom: 1px solid var(--off-line);
-  }
-  .off-review-file-actions {
-    display: none;
+    grid-template-columns: minmax(164px, 22%) minmax(0, 1fr) minmax(220px, 28%);
   }
 }
 

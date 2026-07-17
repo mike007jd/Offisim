@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primiti
 import { cn } from '@/lib/utils.js';
 import { BoardPendingReviewAutoOpen, BoardStage } from '@/surfaces/office/board/BoardStage.js';
 import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
+import { ReviewWorkbenchStage } from '@/surfaces/office/board/ReviewWorkbenchStage.js';
 import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
 import { useCodexPet } from '@/surfaces/office/scene/office-companion/CodexPetProvider.js';
@@ -1131,6 +1132,17 @@ function ChangesView({
 }: {
   target: Extract<StageViewTarget, { kind: 'changes' }>;
 }) {
+  const setStageMaximized = useUiState((state) => state.setOfficeStageMaximized);
+  useEffect(() => setStageMaximized(true), [setStageMaximized]);
+  if (target.leaseId) {
+    return (
+      <ReviewWorkbenchStage
+        leaseId={target.leaseId}
+        initialPath={target.path}
+        fallbackFiles={target.files}
+      />
+    );
+  }
   return target.files ? (
     <LeaseChangesView target={{ ...target, files: target.files }} />
   ) : (

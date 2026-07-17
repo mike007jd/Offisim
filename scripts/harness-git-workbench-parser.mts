@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   classifyNonGitWorkspace,
   isNonGitWorkspace,
@@ -347,6 +348,71 @@ const rawUnicode = parseUnifiedDiffFiles([
 ]);
 assert.equal(rawUnicode.files[0]?.path, '文件.ts', 'quoted raw Unicode paths must remain intact');
 
+const workspacePanelSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx', import.meta.url),
+  'utf8',
+);
+const stageViewerSource = readFileSync(
+  new URL(
+    '../apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
+const reviewStageSource = readFileSync(
+  new URL(
+    '../apps/desktop/renderer/src/surfaces/office/board/ReviewWorkbenchStage.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
+const reviewCssSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/surfaces/office/board/board.css', import.meta.url),
+  'utf8',
+);
+const officeCssSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/surfaces/office/office.css', import.meta.url),
+  'utf8',
+);
+const diffPanelSource = readFileSync(
+  new URL('../apps/desktop/renderer/src/surfaces/office/board/DiffPanel.tsx', import.meta.url),
+  'utf8',
+);
+const reviewPrefillSource = readFileSync(
+  new URL(
+    '../apps/desktop/renderer/src/surfaces/office/board/review-pr-prefill.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
+assert.doesNotMatch(
+  workspacePanelSource,
+  /<DiffPanel\b/u,
+  'the narrow workspace rail must never own the review diff body',
+);
+assert.match(workspacePanelSource, /Open review stage/u);
+assert.match(stageViewerSource, /<ReviewWorkbenchStage/u);
+assert.match(stageViewerSource, /setStageMaximized\(true\)/u);
+assert.match(reviewStageSource, /mode=\{actionable \? 'review' : 'readonly'\}/u);
+assert.match(reviewStageSource, /publishReviewPrPrefill/u);
+assert.match(
+  reviewPrefillSource,
+  /__offisimReviewPrPrefillStore__/u,
+  'the PR handoff must survive lazy Stage and workspace rail mount order',
+);
+assert.match(reviewPrefillSource, /globalThis/u);
+assert.doesNotMatch(
+  diffPanelSource,
+  /\[document\.files, initialPath, selectedPath\]/u,
+  'the initial file hint must not reset a user-selected file on every selection',
+);
+assert.match(
+  reviewCssSource,
+  /grid-template-columns: minmax\(190px, 20%\) minmax\(0, 1fr\) minmax\(270px, 24%\)/u,
+  'the wide review stage must keep file tree, diff, and review inspector as three peers',
+);
+assert.match(officeCssSource, /\.off-gw-pr-create[\s\S]*white-space: nowrap/u);
+
 console.log(
-  'git-workbench-parser: porcelain, unified diff structure, patch slices, and stable anchors passed',
+  'git-workbench-parser: porcelain, structured review, stage ownership, and stable anchors passed',
 );
