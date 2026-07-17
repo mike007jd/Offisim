@@ -15,7 +15,9 @@ import {
   viewPullRequest,
 } from '@/data/git-workbench.js';
 import { useGitWorkbench, useProjectFiles, useProjects } from '@/data/queries.js';
+import { markReturnedReviewPatchApplied } from '@/data/review-workbench.js';
 import type { FileNode, GitFileChange, GitWorkbench, Project } from '@/data/types.js';
+import { parseUnifiedDiffFiles } from '@/data/unified-diff.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
@@ -34,6 +36,7 @@ import { Input } from '@/design-system/primitives/input.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
+import { safeErrorMessage } from '@/lib/error-message.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
@@ -43,6 +46,8 @@ import {
 } from '@/surfaces/office/board/task-board-data.js';
 import { useWorkspaceLeaseDecision } from '@/surfaces/office/board/use-workspace-lease-decision.js';
 import {
+  applyWorkspaceLeaseReviewPatch,
+  persistWorkspaceLeaseReview,
   requestWorkspaceLeaseChanges,
   reviewWorkspaceLease,
 } from '@/surfaces/office/board/workspace-lease-actions.js';
@@ -540,6 +545,18 @@ function GitTab({
     reviewable.find((lease) => lease.leaseId === selectedLeaseId) ?? reviewable[0] ?? null;
   const pendingLeaseAction = useWorkspaceLeaseDecision(selectedLease?.leaseId ?? null);
   const task = selectedLease ? taskByRun.get(selectedLease.runId) : null;
+  const selectedLeaseDocument = useMemo(
+    () => parseUnifiedDiffFiles(selectedLease?.files ?? []),
+    [selectedLease?.files],
+  );
+  const reviewSaveChain = useRef<Promise<void>>(Promise.resolve());
+  const persistReview = (review: Parameters<typeof persistWorkspaceLeaseReview>[2]) => {
+    if (!selectedLease) return Promise.resolve();
+    reviewSaveChain.current = reviewSaveChain.current
+      .catch(() => undefined)
+      .then(() => persistWorkspaceLeaseReview(selectedLease, companyId, review));
+    return reviewSaveChain.current;
+  };
 
   useEffect(() => {
     const generation = projectGenerationRef.current;
@@ -885,39 +902,67 @@ function GitTab({
             }))}
           />
           <DiffPanel
-            files={selectedLease.files}
-            status={selectedLease.status}
+            key={selectedLease.leaseId}
+            document={selectedLeaseDocument}
+            mode="review"
+            review={selectedLease.review}
             busy={busyLeaseId === selectedLease.leaseId || pendingLeaseAction !== null}
-            onMerge={() => void act('merge')}
+            onReviewChange={(review) =>
+              persistReview(review).catch((error) => {
+                toast.error(error instanceof Error ? error.message : 'Could not save review state');
+              })
+            }
+            onMerge={(summary) => {
+              if (!prTitle.trim()) {
+                setPrTitle(
+                  task?.objective?.trim() || `Review ${selectedLease.branch ?? 'delegated work'}`,
+                );
+              }
+              setPrBody((current) =>
+                current.trim() ? `${current.trim()}\n\n${summary.markdown}` : summary.markdown,
+              );
+              setPrDraft(true);
+              void act('merge');
+            }}
             onDiscard={() => void act('discard')}
-            onRequestChanges={(feedback) => {
+            onRequestChanges={async ({ feedback, review, annotations, returnedPatch }) => {
               const employeeId = task?.employeeId;
               if (!employeeId) {
-                toast.error('The original assignee is unavailable.');
-                return;
+                const error = new Error('The original assignee is unavailable.');
+                toast.error(error.message);
+                throw error;
               }
               const scope = captureProjectScope();
               setBusyLeaseId(selectedLease.leaseId);
-              void requestWorkspaceLeaseChanges(selectedLease, {
-                companyId,
-                projectId: scope.projectId,
-                employeeId,
-                objective: task.objective ?? 'Continue the delegated task.',
-                feedback,
-              })
-                .then(async () => {
-                  if (!isCurrentProjectScope(scope)) return;
-                  await leaseReviews.refetch();
-                  if (!isCurrentProjectScope(scope)) return;
-                  toast.success('Rework delegated in the same worktree.');
-                })
-                .catch((error) => {
-                  if (!isCurrentProjectScope(scope)) return;
-                  toast.error(error instanceof Error ? error.message : 'Could not request changes');
-                })
-                .finally(() => {
-                  if (isCurrentProjectScope(scope)) setBusyLeaseId(null);
+              try {
+                let effectiveReview = review;
+                if (returnedPatch) {
+                  await applyWorkspaceLeaseReviewPatch(selectedLease, returnedPatch);
+                  effectiveReview = markReturnedReviewPatchApplied(review);
+                  await persistReview(effectiveReview);
+                }
+                await requestWorkspaceLeaseChanges(selectedLease, {
+                  companyId,
+                  projectId: scope.projectId,
+                  employeeId,
+                  objective: task.objective ?? 'Continue the delegated task.',
+                  feedback,
+                  review: effectiveReview,
+                  annotations,
                 });
+                if (!isCurrentProjectScope(scope)) return;
+                await leaseReviews.refetch();
+                if (!isCurrentProjectScope(scope)) return;
+                toast.success('Review steer accepted in the same worktree.');
+              } catch (error) {
+                if (!isCurrentProjectScope(scope)) return;
+                await leaseReviews.refetch();
+                if (!isCurrentProjectScope(scope)) return;
+                toast.error(safeErrorMessage(error));
+                throw error;
+              } finally {
+                if (isCurrentProjectScope(scope)) setBusyLeaseId(null);
+              }
             }}
           />
         </div>

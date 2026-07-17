@@ -13,8 +13,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   DefaultResourceLoader,
-  ModelRuntime,
   ModelRegistry,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
   createAgentSession,
@@ -1235,6 +1235,22 @@ assert(
     ) < nodeHostSource.indexOf("emitControlState(acceptedControl, 'accepted');") &&
     /controlId: message\.id/.test(desktopAgentRuntimeSource),
   'steer/follow-up must durably journal before ACK and use SHA-256 reattach dedupe',
+);
+assert(
+  /let activeControlSession = null/.test(nodeHostSource) &&
+    /rootControlsOpen = true;[\s\S]*?directSupervisor\.runSingleWithMetadata/.test(
+      nodeHostSource,
+    ) &&
+    /onControlSessionReady/.test(nodeHostSource) &&
+    /onControlMessage: consumeRootControlMessage/.test(nodeHostSource) &&
+    /ctx\.onControlSessionReady\?\.\(runId, session\)/.test(childSupervisorSource) &&
+    /event\.message\?\.role === 'custom'[\s\S]*?ctx\.onControlMessage/.test(
+      childSupervisorSource,
+    ) &&
+    /ctx\.onControlSessionClosed\?\.\(runId, session\)/.test(childSupervisorSource) &&
+    /activeControlSession/.test(bundledNodeHostSource) &&
+    /onControlSessionReady/.test(bundledNodeHostSource),
+  'direct delegation must bind its live child session to the existing durable steer channel in source and bundle',
 );
 assert(
   /"images": req\.images/.test(executePayloadSource) &&

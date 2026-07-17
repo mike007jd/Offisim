@@ -275,6 +275,7 @@ pub fn run() {
             gh::gh_exec,
             git::workspace_lease_list,
             git::workspace_lease_changed,
+            git::workspace_lease_apply_patch,
             git::workspace_lease_release,
             git::workspace_lease_discard,
             local_paths::open_local_path,

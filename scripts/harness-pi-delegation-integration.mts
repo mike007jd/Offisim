@@ -239,14 +239,16 @@ try {
       dispose: () => {},
     };
   };
+  const childRunEvents: Array<Record<string, unknown>> = [];
   const supervisor = createChildSupervisor({
-    emit: () => {},
+    emit: (event: Record<string, unknown>) => childRunEvents.push(event),
     authStorage: {},
     modelRegistry: {},
     cwd: '.',
     settingsManager: {},
     threadId: 'thread-model-binding',
     rootRunId: 'root-model-binding',
+    projectId: 'project-model-binding',
     roster: [
       {
         employeeId: 'employee-a',
@@ -325,6 +327,95 @@ try {
     0,
     'shared children must not call the isolated lease validation channel',
   );
+  const childStarts = childRunEvents.filter((event) => event.runType === 'run.started');
+  assert.equal(childStarts.length, 3, 'each delegated child must publish one run.started event');
+  assert.ok(
+    childStarts.every(
+      (event) =>
+        (event.payload as { projectId?: string } | undefined)?.projectId ===
+        'project-model-binding',
+    ),
+    'every delegated run.started must inherit the root Project provenance for durable lease validation',
+  );
+
+  let directControlSubscriber: ((event: unknown) => void) | undefined;
+  let directPromptStarted = false;
+  const directControlSession = {
+    model: rootModel,
+    subscribe(callback: (event: unknown) => void) {
+      directControlSubscriber = callback;
+      return () => {};
+    },
+    async prompt() {
+      directPromptStarted = true;
+      directControlSubscriber?.({
+        type: 'message_end',
+        message: { role: 'custom', customType: 'offisim.control', content: 'review steer' },
+      });
+      directControlSubscriber?.({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          stopReason: 'stop',
+          usage: { input: 1, output: 1, cost: { total: 0.001 } },
+        },
+      });
+    },
+    getLastAssistantText: () => 'Summary: direct child handled steer',
+    abort: async () => {},
+    dispose: () => {},
+  };
+  let readyControlTarget: { runId: string; session: unknown } | null = null;
+  let closedControlTarget: { runId: string; session: unknown } | null = null;
+  const consumedControlMessages: unknown[] = [];
+  const directControlSupervisor = createChildSupervisor({
+    emit: () => {},
+    authStorage: {},
+    modelRegistry: {},
+    cwd: '.',
+    settingsManager: {},
+    threadId: 'thread-direct-control',
+    rootRunId: 'root-direct-control',
+    roster: [{ employeeId: 'employee-direct' }],
+    resolveModel: () => undefined,
+    rootModel,
+    ...rootExecutionContext,
+    rootThinkingLevel: 'medium',
+    buildPermissionGate: () => null,
+    limits: createDelegationLimits({ childTimeoutMs: 0 }),
+    createResourceLoader: () => ({ reload: async () => {} }),
+    createSessionManager: () => ({}),
+    createAgentSession: async () => ({ session: directControlSession }),
+    onControlSessionReady: (runId: string, session: unknown) => {
+      assert.equal(
+        directPromptStarted,
+        true,
+        'the child steer target must not drain controls before its initial prompt starts',
+      );
+      readyControlTarget = { runId, session };
+    },
+    onControlSessionClosed: (runId: string, session: unknown) => {
+      closedControlTarget = { runId, session };
+    },
+    onControlMessage: (message: unknown) => consumedControlMessages.push(message),
+  });
+  await directControlSupervisor.runSingle({
+    employeeId: 'employee-direct',
+    objective: 'Handle the queued review steer',
+    access: 'read',
+  });
+  assert.ok(readyControlTarget, 'a direct child exposes its live session as a steer target');
+  assert.deepEqual(
+    closedControlTarget,
+    readyControlTarget,
+    'the exact direct child control target is cleared before session disposal',
+  );
+  assert.equal(
+    consumedControlMessages.length,
+    1,
+    'a child custom control message is forwarded to the durable control ledger',
+  );
+  console.log('PASS direct child exposes and consumes the outer run steer channel');
 
   let freshLeaseId = 0;
   const freshLeaseManager = createWorkspaceLeaseManager({
@@ -552,6 +643,68 @@ try {
   assert.equal(reworkSessions[0]?.cwd, originalLease.cwd);
   assert.deepEqual(reworkSessions[0]?.taskWorkspaceLease, reworkClaims[0]);
   assert.equal(resumedManager.getLease(originalLease.leaseId)?.status, 'pending_review');
+
+  const failedReworkEvents: Array<Record<string, unknown>> = [];
+  const failedReworkSupervisor = createChildSupervisor({
+    emit: (event: Record<string, unknown>) => failedReworkEvents.push(event),
+    authStorage: {},
+    modelRegistry: {},
+    cwd: '.',
+    settingsManager: {},
+    threadId: 'thread-rework-start-failure',
+    rootRunId: 'root-rework-start-failure',
+    projectId: 'project-rework',
+    roster: [{ employeeId: 'employee-a' }],
+    resolveModel: () => undefined,
+    rootModel,
+    ...rootExecutionContext,
+    rootThinkingLevel: 'medium',
+    buildPermissionGate: () => null,
+    limits: createDelegationLimits({ childTimeoutMs: 0 }),
+    createResourceLoader: () => ({
+      reload: async () => {
+        throw new Error('synthetic rework loader failure');
+      },
+    }),
+    createSessionManager: () => ({}),
+    createAgentSession: async () => ({ session: makeSession(rootModel) }),
+    leaseManager: resumedManager,
+    rootLease: resumedRoot,
+    validateLeaseCwd: async (claim: Record<string, unknown>) => ({ cwd: claim.cwd }),
+    confirmIntegration: async () => false,
+  });
+  const failedRework = await failedReworkSupervisor.runSingle({
+    employeeId: 'employee-a',
+    objective: 'Retry the review feedback',
+    access: 'write',
+    workKind: 'implement',
+    originRunId: originalLease.runId,
+    resumeLease: {
+      leaseId: originalLease.leaseId,
+      runId: originalLease.runId,
+      workspaceRoot: originalLease.workspaceRoot,
+      cwd: originalLease.cwd,
+      branch: originalLease.branch,
+      createdAt: originalLease.createdAt,
+    },
+  });
+  assert.match(failedRework, /synthetic rework loader failure/);
+  assert.equal(
+    resumedManager.getLease(originalLease.leaseId)?.status,
+    'pending_review',
+    'a failed rework startup must retain its pre-existing lease for review retry',
+  );
+  const retainedStartFailure = failedReworkEvents.find(
+    (event) =>
+      event.kind === 'agentRun' &&
+      event.runType === 'workspace.lease.snapshot' &&
+      (event.payload as Record<string, unknown>)?.phase === 'rework_start_failed',
+  );
+  assert.equal(
+    (retainedStartFailure?.payload as Record<string, unknown>)?.startError,
+    'synthetic rework loader failure',
+    'a failed rework startup must retain its actionable cause beside the retryable lease',
+  );
 
   const delegatedBoundCalls: Array<{
     command: string;

@@ -4,8 +4,8 @@ import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import {
   DefaultResourceLoader,
-  ModelRuntime,
   ModelRegistry,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
   createAgentSession,
@@ -284,6 +284,7 @@ const createTaskScopedAgentSession = createTaskScopedAgentSessionFactory(
   taskBashRegistry,
 );
 let activeRootSession = null;
+let activeControlSession = null;
 let activeExecutionTargetGate = null;
 let hostTerminating = false;
 const pendingRootControls = [];
@@ -488,10 +489,10 @@ function consumeRootControlMessage(message) {
 }
 
 function drainRootControls() {
-  if (!activeRootSession || pendingRootControls.length === 0) return;
-  const session = activeRootSession;
+  if (!activeControlSession || pendingRootControls.length === 0) return;
+  const session = activeControlSession;
   rootControlDrain = rootControlDrain.then(async () => {
-    while (activeRootSession === session && pendingRootControls.length > 0) {
+    while (activeControlSession === session && pendingRootControls.length > 0) {
       const control = pendingRootControls.shift();
       let acceptedControl = null;
       try {
@@ -526,7 +527,7 @@ function drainRootControls() {
 function resolveRuntimeControl(message) {
   if (message?.type !== 'control') return;
   if (message.action === 'reattach') {
-    if (activeRootSession) {
+    if (activeControlSession) {
       emitRootQueueState();
       for (const record of rootControlLedger.values()) {
         if (record.state !== 'pending') {
@@ -573,6 +574,30 @@ function resolveRuntimeControl(message) {
   });
   pendingRootControls.push(control);
   drainRootControls();
+}
+
+async function closeRootControls() {
+  rootControlsOpen = false;
+  await rootControlDrain.catch(() => {});
+  for (const control of pendingRootControls) {
+    emitControlState(control, 'failed', 'The Pi run ended before this instruction was accepted.');
+  }
+  for (const action of ['steer', 'followUp']) {
+    for (const control of acceptedRootControls[action]) {
+      if (rootControlLedger.get(control.controlId)?.state === 'accepted') {
+        emitControlState(
+          control,
+          'failed',
+          'The Pi run ended before this instruction was consumed.',
+        );
+      }
+    }
+    acceptedRootControls[action].length = 0;
+  }
+  activeControlSession = null;
+  activeRootRunId = null;
+  pendingRootControls.length = 0;
+  observedRootControlIds.clear();
 }
 
 function assertWorktreeOk(response, label) {
@@ -1546,6 +1571,7 @@ async function piStatus(payload) {
 async function runPrompt(payload) {
   rootControlsOpen = false;
   activeRootSession = null;
+  activeControlSession = null;
   pendingRootControls.length = 0;
   acceptedRootControls.steer.length = 0;
   acceptedRootControls.followUp.length = 0;
@@ -1816,6 +1842,21 @@ async function runPrompt(payload) {
         depth: 0,
         parentRunId: rootRunId,
         childControllers: activeChildControllers,
+        ...(directDelegation
+          ? {
+              onControlSessionReady: (_runId, session) => {
+                if (activeControlSession && activeControlSession !== session) {
+                  throw new Error('The direct run already owns another steer target.');
+                }
+                activeControlSession = session;
+                drainRootControls();
+              },
+              onControlSessionClosed: (_runId, session) => {
+                if (activeControlSession === session) activeControlSession = null;
+              },
+              onControlMessage: consumeRootControlMessage,
+            }
+          : {}),
         createAgentSession: createWorkAgentSession,
         executionTargetGate: executionGate,
         expectedTarget: payload.expectedTarget,
@@ -1900,38 +1941,43 @@ async function runPrompt(payload) {
     const objective = asNonEmptyString(directDelegation.objective);
     if (!employeeId || !objective)
       throw new Error('Direct delegation requires employeeId and objective.');
-    emit(startedLine({}));
-    const directResult = await directSupervisor.runSingleWithMetadata({
-      employeeId,
-      objective,
-      access:
-        directDelegation.access === 'read' || directDelegation.access === 'review'
-          ? directDelegation.access
-          : 'write',
-      workKind: asNonEmptyString(directDelegation.workKind) ?? undefined,
-      resumeLease: isRecord(directDelegation.resumeLease)
-        ? directDelegation.resumeLease
-        : undefined,
-    });
-    const summary = directResult.text;
-    if (directResult.completed && (!directResult.model || !directResult.provenance)) {
-      throw Object.assign(
-        new Error('Direct delegation completed without a prepared child execution identity.'),
-        { code: 'provenance-missing' },
+    rootControlsOpen = true;
+    try {
+      emit(startedLine({}));
+      const directResult = await directSupervisor.runSingleWithMetadata({
+        employeeId,
+        objective,
+        access:
+          directDelegation.access === 'read' || directDelegation.access === 'review'
+            ? directDelegation.access
+            : 'write',
+        workKind: asNonEmptyString(directDelegation.workKind) ?? undefined,
+        resumeLease: isRecord(directDelegation.resumeLease)
+          ? directDelegation.resumeLease
+          : undefined,
+      });
+      const summary = directResult.text;
+      if (directResult.completed && (!directResult.model || !directResult.provenance)) {
+        throw Object.assign(
+          new Error('Direct delegation completed without a prepared child execution identity.'),
+          { code: 'provenance-missing' },
+        );
+      }
+      emit(messageEndLine({ text: summary, stopReason: 'end_turn' }));
+      await taskBashRegistry.cleanup();
+      emit(
+        resultLine({
+          ok: true,
+          text: summary,
+          ...(directResult.model ? { model: modelSummary(directResult.model) } : {}),
+          ...(directResult.provenance ? { provenance: directResult.provenance } : {}),
+          ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
+        }),
       );
+      return;
+    } finally {
+      await closeRootControls();
     }
-    emit(messageEndLine({ text: summary, stopReason: 'end_turn' }));
-    await taskBashRegistry.cleanup();
-    emit(
-      resultLine({
-        ok: true,
-        text: summary,
-        ...(directResult.model ? { model: modelSummary(directResult.model) } : {}),
-        ...(directResult.provenance ? { provenance: directResult.provenance } : {}),
-        ...(delegationBudgetState ? { budgetUsage: delegationBudgetState.usage() } : {}),
-      }),
-    );
-    return;
   }
 
   const { session, modelFallbackMessage } = await createWorkAgentSession({
@@ -1948,6 +1994,7 @@ async function runPrompt(payload) {
     ...(resourceLoader ? { resourceLoader } : {}),
   });
   activeRootSession = session;
+  activeControlSession = session;
   rootControlsOpen = true;
   drainRootControls();
   effectiveRootModel = session.model ?? model;
@@ -1957,6 +2004,7 @@ async function runPrompt(payload) {
   ) {
     session.dispose();
     activeRootSession = null;
+    activeControlSession = null;
     throw Object.assign(
       new Error('The exact native Pi session changed before this Turn could start.'),
       { code: 'native-session-invalid' },
@@ -2240,26 +2288,7 @@ async function runPrompt(payload) {
       }),
     );
   } finally {
-    rootControlsOpen = false;
-    await rootControlDrain.catch(() => {});
-    for (const control of pendingRootControls) {
-      emitControlState(control, 'failed', 'The Pi run ended before this instruction was accepted.');
-    }
-    for (const action of ['steer', 'followUp']) {
-      for (const control of acceptedRootControls[action]) {
-        if (rootControlLedger.get(control.controlId)?.state === 'accepted') {
-          emitControlState(
-            control,
-            'failed',
-            'The Pi run ended before this instruction was consumed.',
-          );
-        }
-      }
-      acceptedRootControls[action].length = 0;
-    }
-    activeRootRunId = null;
-    pendingRootControls.length = 0;
-    observedRootControlIds.clear();
+    await closeRootControls();
     unsubscribe();
     session.dispose();
     if (activeRootSession === session) activeRootSession = null;
