@@ -316,7 +316,7 @@ async fn resume_prestart_fixture(runtime_context_json: serde_json::Value) -> Res
     std::fs::write(
         &script,
         format!(
-            "import fs from 'node:fs';\nimport {{ createInterface }} from 'node:readline';\nfs.appendFileSync({invocation_path}, 'spawned\\n');\nconsole.log(JSON.stringify({{ kind: 'ready', protocolVersion: 12 }}));\nconst input = createInterface({{ input: process.stdin }});\nfor await (const line of input) {{\n  fs.writeFileSync({payload_path}, line);\n  break;\n}}\ninput.close();\nif (fs.existsSync({failure_path})) {{\n  console.log(JSON.stringify({{ kind: 'error', code: 'fixture-upstream', message: 'injected sidecar failure after durable session reset' }}));\n}} else {{\n  console.log(JSON.stringify({{ kind: 'result', response: {{ text: 'done' }} }}));\n}}\n"
+            "import fs from 'node:fs';\nimport {{ createInterface }} from 'node:readline';\nfs.appendFileSync({invocation_path}, 'spawned\\n');\nconsole.log(JSON.stringify({{ kind: 'ready', protocolVersion: 13 }}));\nconst input = createInterface({{ input: process.stdin }});\nfor await (const line of input) {{\n  fs.writeFileSync({payload_path}, line);\n  break;\n}}\ninput.close();\nif (fs.existsSync({failure_path})) {{\n  console.log(JSON.stringify({{ kind: 'error', code: 'fixture-upstream', message: 'injected sidecar failure after durable session reset' }}));\n}} else {{\n  console.log(JSON.stringify({{ kind: 'result', response: {{ text: 'done' }} }}));\n}}\n"
         ),
     )
     .expect("write resume test sidecar");
@@ -1511,7 +1511,7 @@ async fn pi_sidecar_success_waits_for_clean_exit() {
     let sidecar = test_sidecar(
         "success-cleanup",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 12 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 13 }));
 console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
 "#,
     );
@@ -1533,7 +1533,7 @@ async fn pi_sidecar_success_reaps_same_group_background_descendant() {
 const { spawn } = await import('node:child_process');
 const descendant = spawn(process.execPath, ['-e', "setTimeout(() => require('node:fs').writeFileSync('descendant-marker', 'leaked'), 800)"], { stdio: 'ignore' });
 descendant.unref();
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 12 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 13 }));
 console.log(JSON.stringify({ kind: 'result', response: { text: 'done' } }));
 "#,
     );
@@ -1554,7 +1554,7 @@ async fn pi_sidecar_protocol_failure_kills_and_reaps_hostile_child() {
     let sidecar = test_sidecar(
         "protocol-cleanup",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 12 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 13 }));
 console.log(JSON.stringify({ kind: 'tool', status: 'started', toolCallId: 'call-1' }));
 setInterval(() => {}, 1_000);
 "#,
@@ -1647,7 +1647,7 @@ async fn unavailable_sidecar_mcp_call_is_rejected_before_the_app_bridge() {
     let sidecar = test_sidecar(
         "unavailable-mcp-isolation",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 12 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 13 }));
 console.log(JSON.stringify({ kind: 'mcpCall', id: 'mcp-1', server: 'files', tool: 'read_file', arguments: {} }));
 setInterval(() => {}, 1_000);
 "#,
@@ -1708,7 +1708,7 @@ async fn pi_sidecar_abort_kills_and_reaps_hostile_child() {
     let sidecar = test_sidecar(
         "abort-cleanup",
         r#"
-console.log(JSON.stringify({ kind: 'ready', protocolVersion: 12 }));
+console.log(JSON.stringify({ kind: 'ready', protocolVersion: 13 }));
 setInterval(() => {}, 1_000);
 "#,
     );

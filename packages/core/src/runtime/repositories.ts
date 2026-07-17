@@ -92,6 +92,107 @@ export interface AgentRunRow {
   finished_at: string | null;
 }
 
+export type CompetitiveDraftGroupStatus =
+  | 'drafting'
+  | 'reviewing'
+  | 'merging'
+  | 'merged'
+  | 'failed'
+  | 'cancelled';
+
+export interface CompetitiveDraftGroupRow {
+  group_id: string;
+  company_id: string;
+  project_id: string;
+  source_run_id: string;
+  objective: string;
+  status: CompetitiveDraftGroupStatus;
+  winner_attempt_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewCompetitiveDraftGroup = Omit<CompetitiveDraftGroupRow, 'winner_attempt_id'> & {
+  winner_attempt_id?: string | null;
+};
+
+export type CompetitiveDraftAttemptStatus =
+  | 'planned'
+  | 'running'
+  | 'ready'
+  | 'winner'
+  | 'not_selected'
+  | 'failed'
+  | 'cancelled';
+
+export interface CompetitiveDraftAttemptRow {
+  attempt_id: string;
+  group_id: string;
+  ordinal: number;
+  employee_id: string;
+  thread_id: string;
+  run_id: string;
+  lease_id: string | null;
+  status: CompetitiveDraftAttemptStatus;
+  result_summary_json: string | null;
+  usage_json: string | null;
+  verification_summary: string | null;
+  verification_passed: boolean | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export type NewCompetitiveDraftAttempt = Omit<
+  CompetitiveDraftAttemptRow,
+  | 'lease_id'
+  | 'result_summary_json'
+  | 'usage_json'
+  | 'verification_summary'
+  | 'verification_passed'
+  | 'finished_at'
+> & {
+  lease_id?: string | null;
+  result_summary_json?: string | null;
+  usage_json?: string | null;
+  verification_summary?: string | null;
+  verification_passed?: boolean | null;
+  finished_at?: string | null;
+};
+
+export interface CompetitiveDraftGroupRepository {
+  create(group: NewCompetitiveDraftGroup): Promise<CompetitiveDraftGroupRow>;
+  findById(groupId: string): Promise<CompetitiveDraftGroupRow | null>;
+  findBySourceRun(sourceRunId: string): Promise<CompetitiveDraftGroupRow | null>;
+  listByProject(projectId: string): Promise<CompetitiveDraftGroupRow[]>;
+  updateStatus(
+    groupId: string,
+    status: CompetitiveDraftGroupStatus,
+    opts?: { winnerAttemptId?: string | null; updatedAt?: string },
+  ): Promise<void>;
+}
+
+export interface CompetitiveDraftAttemptRepository {
+  create(attempt: NewCompetitiveDraftAttempt): Promise<CompetitiveDraftAttemptRow>;
+  findById(attemptId: string): Promise<CompetitiveDraftAttemptRow | null>;
+  findByLeaseId(leaseId: string): Promise<CompetitiveDraftAttemptRow | null>;
+  listByGroup(groupId: string): Promise<CompetitiveDraftAttemptRow[]>;
+  update(
+    attemptId: string,
+    patch: Partial<
+      Pick<
+        CompetitiveDraftAttemptRow,
+        | 'lease_id'
+        | 'status'
+        | 'result_summary_json'
+        | 'usage_json'
+        | 'verification_summary'
+        | 'verification_passed'
+        | 'finished_at'
+      >
+    >,
+  ): Promise<void>;
+}
+
 export interface EmployeeRow {
   employee_id: string;
   company_id: string;
@@ -2043,6 +2144,9 @@ export interface RuntimeRepositories {
   piMessages: PiMessageRepository;
   /** Multi-agent delegation run tree. */
   agentRuns: AgentRunRepository;
+  /** Best-of-N drafting groups projected over independent root agent runs. */
+  competitiveDraftGroups: CompetitiveDraftGroupRepository;
+  competitiveDraftAttempts: CompetitiveDraftAttemptRepository;
   /** Verified Missions core (PRD §17). */
   missions: MissionRepository;
   missionCriteria: MissionCriterionRepository;

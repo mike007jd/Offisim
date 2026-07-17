@@ -237,6 +237,8 @@ export interface DirectDelegationInput {
   access: 'read' | 'write' | 'review';
   workKind?: string;
   originRunId?: string;
+  /** Competitive drafts must remain isolated until the user selects a winner. */
+  deferIntegration?: boolean;
   resumeLease?: {
     leaseId: string;
     runId: string;
@@ -245,6 +247,17 @@ export interface DirectDelegationInput {
     branch: string;
     createdAt: string;
   };
+}
+
+/** Engine-neutral identity for one independently reviewable best-of-N attempt. */
+export interface CompetitiveDraftContext {
+  groupId: string;
+  sourceRunId: string;
+  /** Durable competitive-attempt row identity (distinct from the root run id). */
+  attemptId: string;
+  /** One-based position in the durable competitive draft group. */
+  attemptIndex: number;
+  totalAttempts: number;
 }
 
 export interface DesktopAgentRunInput {
@@ -276,6 +289,8 @@ export interface DesktopAgentRunInput {
   workspaceRequirement?: WorkspaceRequirement;
   /** Controller-owned run id used to isolate stream/tool/UI events per attempt. */
   runId?: string;
+  /** Durable best-of-N scope; the selected employee still owns engine selection. */
+  competitiveDraft?: CompetitiveDraftContext;
   /** Durable message-projection identity used to rebuild live UI after renderer reload. */
   conversationProjection?: ConversationRunProjectionRef;
   /**
@@ -1098,7 +1113,8 @@ interface PersistedRunContext {
   nativeSessionId?: string;
   nativeSessionPrestartErrorCode?: string;
   /** Reload recovery may reconstruct only an exact plain Conversation Turn. */
-  recoveryLane?: 'conversation' | 'direct-delegation' | 'mission';
+  recoveryLane?: 'conversation' | 'direct-delegation' | 'competitive-draft' | 'mission';
+  competitiveDraft?: CompetitiveDraftContext;
   provenance: TurnExecutionProvenance | null;
   permissionMode: string;
   thinkingLevel: string | null;
@@ -1227,11 +1243,39 @@ function resolveWorkspaceRequirement(
     commandName === 'agent_runtime_resume' ||
     input.missionId?.trim() ||
     input.missionContextJson?.trim() ||
-    input.directDelegation
+    input.directDelegation ||
+    input.competitiveDraft
   ) {
     return 'required';
   }
   return input.workspaceRequirement === 'required' ? 'required' : 'optional';
+}
+
+function validateCompetitiveDraftContext(
+  input: DesktopAgentRunInput,
+): CompetitiveDraftContext | undefined {
+  const context = input.competitiveDraft;
+  if (!context) return undefined;
+  if (!context.groupId.trim() || !context.sourceRunId.trim() || !context.attemptId.trim()) {
+    throw new Error('Competitive draft requires durable group, attempt, and source run ids.');
+  }
+  if (
+    !Number.isInteger(context.attemptIndex) ||
+    !Number.isInteger(context.totalAttempts) ||
+    context.totalAttempts < 2 ||
+    context.totalAttempts > 4 ||
+    context.attemptIndex < 1 ||
+    context.attemptIndex > context.totalAttempts
+  ) {
+    throw new Error('Competitive draft attempt index must address a group of 2 to 4 attempts.');
+  }
+  if (!input.runId?.trim() || !input.employeeId?.trim()) {
+    throw new Error('Competitive draft requires an explicit attempt run and employee.');
+  }
+  if (input.directDelegation) {
+    throw new Error('Competitive draft owns delegation routing for this run.');
+  }
+  return context;
 }
 
 function parseRunContext(raw: string | null | undefined): Partial<PersistedRunContext> | null {
@@ -1283,8 +1327,13 @@ function parseRunContext(raw: string | null | undefined): Partial<PersistedRunCo
       recoveryLane:
         parsed.recoveryLane === 'conversation' ||
         parsed.recoveryLane === 'direct-delegation' ||
+        parsed.recoveryLane === 'competitive-draft' ||
         parsed.recoveryLane === 'mission'
           ? parsed.recoveryLane
+          : undefined,
+      competitiveDraft:
+        parsed.competitiveDraft && typeof parsed.competitiveDraft === 'object'
+          ? (parsed.competitiveDraft as CompetitiveDraftContext)
           : undefined,
       provenance:
         parsed.provenance && typeof parsed.provenance === 'object'
@@ -2416,6 +2465,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       throw new Error(`Cannot resume Agent runtime run: expected interrupted, got ${row.status}.`);
     }
     const context = parseRunContext(row.runtime_context_json);
+    if (context?.recoveryLane === 'competitive-draft' || context?.competitiveDraft) {
+      throw new Error(
+        'Cannot resume a competitive draft as an ordinary task. Review or discard its isolated proposal instead.',
+      );
+    }
     const projectId = resolveAgentRunProjectId(row);
     if (!projectId) {
       throw new Error(
@@ -3198,12 +3252,13 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
   ): Promise<DesktopAgentRunResult> {
     if (this.engineId === 'api') this.acceptingControlThreads.add(input.threadId);
     throwIfRunAborted(signal);
+    const competitiveDraft = validateCompetitiveDraftContext(input);
     if (
       !this.config.supportsOffisimDelegation &&
       (input.missionId ||
         input.missionContextJson ||
         input.directDelegation ||
-        input.delegationLimits)
+        (input.delegationLimits && !competitiveDraft))
     ) {
       throw new Error(
         `${this.engineId} cannot execute Offisim Mission or delegation semantics yet. Choose an API account for this task.`,
@@ -3243,6 +3298,17 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     // office dramaturgy + run projection just like delegated work.
     const permissionMode = input.permissionMode?.trim() || resolveThreadMode(input.threadId);
     const rootAccess: 'read' | 'write' = permissionMode === 'plan' ? 'read' : 'write';
+    const effectiveDirectDelegation: DirectDelegationInput | undefined =
+      this.engineId === 'api' && competitiveDraft
+        ? {
+            employeeId: input.employeeId!,
+            objective: input.text,
+            access: rootAccess,
+            workKind: 'implement',
+            originRunId: runScope.runId,
+            deferIntegration: true,
+          }
+        : input.directDelegation;
     let resolvedModel = input.model?.trim() || undefined;
     let resolvedThinkingLevel =
       input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId);
@@ -3273,9 +3339,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       conversationProjection: input.conversationProjection ?? null,
       recoveryLane: input.missionId
         ? 'mission'
-        : input.directDelegation
-          ? 'direct-delegation'
-          : 'conversation',
+        : competitiveDraft
+          ? 'competitive-draft'
+          : input.directDelegation
+            ? 'direct-delegation'
+            : 'conversation',
+      competitiveDraft,
       createdAt: new Date().toISOString(),
     };
     const rootRun = (
@@ -3454,7 +3523,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           // conversation. Its exact execution identity comes from the prepared
           // child session below; there is no root session file/id to persist or
           // resume as plain chat.
-          if (input.directDelegation) return;
+          if (input.directDelegation || competitiveDraft) return;
           const checkpoint = this.persistQueue.enqueueTerminalCheckpoint(
             `commit native session identity for ${runScope.runId}`,
             () =>
@@ -3554,6 +3623,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             thinkingLevel: resolvedThinkingLevel,
           },
           projectId,
+          competitiveDraft ? { includeActingEmployeeInRoster: true } : undefined,
         );
       throwIfRunAborted(signal);
       // The gateway already froze the task's engine/account/model before entering
@@ -3711,6 +3781,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             ...(commandName === 'agent_runtime_resume'
               ? { workspaceBindingHistoryId: resumeWorkspaceBinding?.historyId }
               : {}),
+            competitiveDraft,
           },
           onEvent,
         };
@@ -3744,6 +3815,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             ...(commandName === 'agent_runtime_resume'
               ? { workspaceBindingHistoryId: resumeWorkspaceBinding?.historyId }
               : {}),
+            competitiveDraft,
           },
           onEvent,
         };
@@ -3784,7 +3856,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             roster: boundRoster,
             missionContextJson: input.missionContextJson?.trim() || undefined,
             mcpTools,
-            directDelegation: input.directDelegation,
+            directDelegation: effectiveDirectDelegation,
+            competitiveDraft,
             ...(input.delegationLimits !== undefined
               ? { delegationLimits: input.delegationLimits }
               : {}),
@@ -3829,9 +3902,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           // example, while adopting a review lease). The host still returns the
           // child's bounded failure summary; keep that actionable cause instead
           // of replacing it with the downstream provenance symptom.
-          const directDelegationFailure = input.directDelegation
-            ? commandResponse.text.trim()
-            : '';
+          const directDelegationFailure = input.directDelegation ? commandResponse.text.trim() : '';
           throw new Error(
             directDelegationFailure || 'Agent runtime did not prepare the exact execution target.',
           );
@@ -4178,6 +4249,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           const tx = transactionRepos ?? this.repos;
           const current = await tx.agentRuns.findById(rootRunId);
           if (!current) throw new Error(`Cannot finalize missing root agent_run ${rootRunId}.`);
+          const currentContext = parseRunContext(current.runtime_context_json);
+          const competitiveDraft = currentContext?.competitiveDraft;
           const terminalContextJson = terminalContext
             ? JSON.stringify(
                 mergeRunContextPreservingNativeIdentity(
@@ -4210,6 +4283,48 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
                 ]
               : []),
           ]);
+          if (competitiveDraft) {
+            const attempt = await tx.competitiveDraftAttempts.findById(competitiveDraft.attemptId);
+            if (
+              !attempt ||
+              attempt.group_id !== competitiveDraft.groupId ||
+              attempt.run_id !== rootRunId
+            ) {
+              throw new Error('Competitive draft terminal does not match its durable attempt.');
+            }
+            const attemptStatus =
+              status === 'completed' ? 'ready' : status === 'failed' ? 'failed' : 'cancelled';
+            const resultSummary = conversation?.terminal.text?.trim();
+            await tx.competitiveDraftAttempts.update(competitiveDraft.attemptId, {
+              status: attemptStatus,
+              result_summary_json: resultSummary
+                ? JSON.stringify({ summary: resultSummary })
+                : null,
+              usage_json: usageJson,
+              finished_at: finishedAt,
+            });
+            const attempts = await tx.competitiveDraftAttempts.listByGroup(
+              competitiveDraft.groupId,
+            );
+            const terminalAttempts = attempts.map((row) =>
+              row.attempt_id === competitiveDraft.attemptId
+                ? { ...row, status: attemptStatus }
+                : row,
+            );
+            if (
+              terminalAttempts.length > 0 &&
+              terminalAttempts.every((row) => row.status !== 'planned' && row.status !== 'running')
+            ) {
+              const allFailed = terminalAttempts.every(
+                (row) => row.status === 'failed' || row.status === 'cancelled',
+              );
+              await tx.competitiveDraftGroups.updateStatus(
+                competitiveDraft.groupId,
+                allFailed ? 'failed' : 'reviewing',
+                { updatedAt: finishedAt },
+              );
+            }
+          }
         });
         const readback = await this.repos.agentRuns.findById(rootRunId);
         if (
@@ -4266,6 +4381,27 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           status: 'running',
           runtime_context_json: payload.runtimeContextJson ?? null,
         });
+        const competitiveDraft = parseRunContext(
+          payload.runtimeContextJson ?? null,
+        )?.competitiveDraft;
+        if (competitiveDraft) {
+          const attempt = await this.repos.competitiveDraftAttempts.findById(
+            competitiveDraft.attemptId,
+          );
+          if (
+            !attempt ||
+            attempt.group_id !== competitiveDraft.groupId ||
+            attempt.run_id !== evt.runId ||
+            attempt.thread_id !== evt.threadId ||
+            attempt.employee_id !== evt.employeeId ||
+            attempt.ordinal !== competitiveDraft.attemptIndex
+          ) {
+            throw new Error('Competitive draft start does not match its durable attempt.');
+          }
+          await this.repos.competitiveDraftAttempts.update(competitiveDraft.attemptId, {
+            status: 'running',
+          });
+        }
       } else if (
         evt.type === 'run.completed' ||
         evt.type === 'run.failed' ||

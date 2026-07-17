@@ -86,6 +86,26 @@ pub(crate) struct RegisteredWorkspaceProcessClaim {
     pub(crate) branch: String,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct CompetitiveDraftContext {
+    pub(crate) group_id: String,
+    pub(crate) source_run_id: String,
+    pub(crate) attempt_id: String,
+    pub(crate) attempt_index: u32,
+    pub(crate) total_attempts: u32,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct CompetitiveDraftWorkspaceLease {
+    pub(crate) lease_id: String,
+    pub(crate) registered_run_id: String,
+    pub(crate) workspace_root: PathBuf,
+    pub(crate) cwd: PathBuf,
+    pub(crate) branch: String,
+    pub(crate) created_at: String,
+}
+
 struct NewRegisteredWorkspaceLease<'a> {
     lease_id: &'a str,
     project_id: &'a str,
@@ -3255,6 +3275,167 @@ async fn wait_for_workspace_lease_agent_run_from_pool(
     }
 }
 
+fn validate_competitive_draft_context_shape(
+    context: &CompetitiveDraftContext,
+) -> Result<(), String> {
+    if context.group_id.trim().is_empty()
+        || context.source_run_id.trim().is_empty()
+        || context.attempt_id.trim().is_empty()
+        || !(2..=4).contains(&context.total_attempts)
+        || context.attempt_index == 0
+        || context.attempt_index > context.total_attempts
+    {
+        return Err("Competitive draft workspace context is invalid".into());
+    }
+    Ok(())
+}
+
+async fn validate_competitive_draft_attempt_from_pool(
+    pool: &SqlitePool,
+    binding: &TaskWorkspaceBinding,
+    context: &CompetitiveDraftContext,
+) -> Result<bool, String> {
+    validate_competitive_draft_context_shape(context)?;
+    let row = sqlx::query(
+        r#"
+        SELECT
+          draft.company_id AS group_company_id,
+          draft.project_id AS group_project_id,
+          draft.source_run_id AS group_source_run_id,
+          draft.status AS group_status,
+          attempt.ordinal AS attempt_ordinal,
+          attempt.employee_id AS attempt_employee_id,
+          attempt.thread_id AS attempt_thread_id,
+          attempt.run_id AS attempt_run_id,
+          attempt.status AS attempt_status,
+          run.company_id AS run_company_id,
+          run.project_id AS run_project_id,
+          run.thread_id AS run_thread_id,
+          run.employee_id AS run_employee_id,
+          run.parent_run_id AS run_parent_run_id,
+          run.root_run_id AS run_root_run_id,
+          run.status AS run_status,
+          (SELECT COUNT(*) FROM competitive_draft_attempts peers WHERE peers.group_id = draft.group_id)
+            AS attempt_count
+        FROM competitive_draft_groups draft
+        JOIN competitive_draft_attempts attempt ON attempt.group_id = draft.group_id
+        LEFT JOIN agent_runs run ON run.run_id = attempt.run_id
+        WHERE draft.group_id = ? AND attempt.attempt_id = ?
+        "#,
+    )
+    .bind(&context.group_id)
+    .bind(&context.attempt_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|error| format!("Validate competitive draft workspace provenance: {error}"))?;
+    let Some(row) = row else {
+        return Ok(false);
+    };
+    let group_company_id: String = row
+        .try_get("group_company_id")
+        .map_err(|error| format!("Decode competitive draft group company provenance: {error}"))?;
+    let group_project_id: String = row
+        .try_get("group_project_id")
+        .map_err(|error| format!("Decode competitive draft group Project provenance: {error}"))?;
+    let group_source_run_id: String = row
+        .try_get("group_source_run_id")
+        .map_err(|error| format!("Decode competitive draft source run provenance: {error}"))?;
+    let group_status: String = row
+        .try_get("group_status")
+        .map_err(|error| format!("Decode competitive draft group status: {error}"))?;
+    let attempt_ordinal: i64 = row
+        .try_get("attempt_ordinal")
+        .map_err(|error| format!("Decode competitive draft attempt ordinal: {error}"))?;
+    let attempt_employee_id: String = row.try_get("attempt_employee_id").map_err(|error| {
+        format!("Decode competitive draft attempt employee provenance: {error}")
+    })?;
+    let attempt_thread_id: String = row.try_get("attempt_thread_id").map_err(|error| {
+        format!("Decode competitive draft attempt Conversation provenance: {error}")
+    })?;
+    let attempt_run_id: String = row
+        .try_get("attempt_run_id")
+        .map_err(|error| format!("Decode competitive draft attempt run provenance: {error}"))?;
+    let attempt_status: String = row
+        .try_get("attempt_status")
+        .map_err(|error| format!("Decode competitive draft attempt status: {error}"))?;
+    let run_company_id: Option<String> = row
+        .try_get("run_company_id")
+        .map_err(|error| format!("Decode competitive draft run company: {error}"))?;
+    let run_project_id: Option<String> = row
+        .try_get("run_project_id")
+        .map_err(|error| format!("Decode competitive draft run Project: {error}"))?;
+    let run_thread_id: Option<String> = row
+        .try_get("run_thread_id")
+        .map_err(|error| format!("Decode competitive draft run Conversation: {error}"))?;
+    let run_employee_id: Option<String> = row
+        .try_get("run_employee_id")
+        .map_err(|error| format!("Decode competitive draft run employee: {error}"))?;
+    let run_parent_run_id: Option<String> = row
+        .try_get("run_parent_run_id")
+        .map_err(|error| format!("Decode competitive draft run parent: {error}"))?;
+    let run_root_run_id: Option<String> = row
+        .try_get("run_root_run_id")
+        .map_err(|error| format!("Decode competitive draft root provenance: {error}"))?;
+    let run_status: Option<String> = row
+        .try_get("run_status")
+        .map_err(|error| format!("Decode competitive draft run status: {error}"))?;
+    let attempt_count: i64 = row
+        .try_get("attempt_count")
+        .map_err(|error| format!("Decode competitive draft attempt count: {error}"))?;
+
+    let exact_scope = group_company_id == binding.company_id
+        && group_project_id == binding.project_id
+        && group_source_run_id == context.source_run_id
+        && group_status == "drafting"
+        && attempt_ordinal == i64::from(context.attempt_index)
+        && attempt_thread_id == binding.thread_id
+        && attempt_run_id == binding.turn_id
+        && attempt_status == "running"
+        && attempt_count == i64::from(context.total_attempts)
+        && run_company_id.as_deref() == Some(binding.company_id.as_str())
+        && run_project_id.as_deref() == Some(binding.project_id.as_str())
+        && run_thread_id.as_deref() == Some(binding.thread_id.as_str())
+        && run_employee_id.as_deref() == Some(attempt_employee_id.as_str())
+        && run_parent_run_id.is_none()
+        && run_root_run_id.as_deref() == Some(binding.turn_id.as_str())
+        && run_status.as_deref() == Some("running");
+    if !exact_scope {
+        return Err(
+            "Competitive draft workspace provenance does not match its active durable attempt"
+                .into(),
+        );
+    }
+    Ok(true)
+}
+
+async fn wait_for_competitive_draft_attempt_from_pool(
+    pool: &SqlitePool,
+    binding: &TaskWorkspaceBinding,
+    context: &CompetitiveDraftContext,
+) -> Result<(), String> {
+    const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(2);
+    const VISIBILITY_POLL: Duration = Duration::from_millis(25);
+    let deadline = tokio::time::Instant::now() + VISIBILITY_TIMEOUT;
+    loop {
+        if validate_competitive_draft_attempt_from_pool(pool, binding, context).await? {
+            return Ok(());
+        }
+        if tokio::time::Instant::now() >= deadline {
+            return Err(
+                "Competitive draft attempt was not durably running before workspace registration timeout"
+                    .into(),
+            );
+        }
+        tokio::time::sleep(VISIBILITY_POLL).await;
+    }
+}
+
+#[derive(Clone, Copy)]
+enum WorkspaceLeaseRunProvenance<'a> {
+    DelegatedChild,
+    CompetitiveDraft(&'a CompetitiveDraftContext),
+}
+
 pub(crate) async fn register_task_workspace_lease<R: Runtime>(
     app: &tauri::AppHandle<R>,
     binding: &TaskWorkspaceBinding,
@@ -3263,11 +3444,32 @@ pub(crate) async fn register_task_workspace_lease<R: Runtime>(
     branch: &str,
     path: &Path,
 ) -> Result<PathBuf, String> {
+    register_workspace_lease(
+        app,
+        binding,
+        lease_id,
+        child_run_id,
+        branch,
+        path,
+        WorkspaceLeaseRunProvenance::DelegatedChild,
+    )
+    .await
+}
+
+async fn register_workspace_lease<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    binding: &TaskWorkspaceBinding,
+    lease_id: &str,
+    registered_run_id: &str,
+    branch: &str,
+    path: &Path,
+    provenance: WorkspaceLeaseRunProvenance<'_>,
+) -> Result<PathBuf, String> {
     let execution = GitExecutionScope::from_authority(binding, &binding.canonical_root)?;
     let requested = validate_new_workspace_lease_request(
         &binding.canonical_root,
         lease_id,
-        child_run_id,
+        registered_run_id,
         branch,
         path.to_string_lossy().as_ref(),
     )?;
@@ -3284,7 +3486,15 @@ pub(crate) async fn register_task_workspace_lease<R: Runtime>(
             .to_string();
         let now = git_now_unix_ms()?;
         let pool = crate::local_db::get_offisim_pool(app)?;
-        wait_for_workspace_lease_agent_run_from_pool(&pool, binding, child_run_id).await?;
+        match provenance {
+            WorkspaceLeaseRunProvenance::DelegatedChild => {
+                wait_for_workspace_lease_agent_run_from_pool(&pool, binding, registered_run_id)
+                    .await?;
+            }
+            WorkspaceLeaseRunProvenance::CompetitiveDraft(context) => {
+                wait_for_competitive_draft_attempt_from_pool(&pool, binding, context).await?;
+            }
+        }
         execution.verify_live()?;
         Ok::<_, String>((
             canonical_worktree,
@@ -3323,7 +3533,7 @@ pub(crate) async fn register_task_workspace_lease<R: Runtime>(
             project_id: &binding.project_id,
             binding_id: &binding.binding_id,
             root_run_id: &binding.turn_id,
-            child_run_id,
+            child_run_id: registered_run_id,
             request_id: &binding.request_id,
             branch,
             canonical_worktree: &canonical_worktree,
@@ -3331,21 +3541,204 @@ pub(crate) async fn register_task_workspace_lease<R: Runtime>(
             project_identity_json: &project_identity_json,
             created_at_unix_ms: now,
         },
+        match provenance {
+            WorkspaceLeaseRunProvenance::DelegatedChild => None,
+            WorkspaceLeaseRunProvenance::CompetitiveDraft(context) => Some(context),
+        },
     )
     .await?;
-    execution.verify_live()?;
+    if let Err(error) = execution.verify_live() {
+        let cleanup =
+            close_registered_workspace_lease(app, binding, &canonical_worktree, "discarded").await;
+        return Err(match cleanup {
+            Ok(()) => error,
+            Err(cleanup_error) => format!("{error}; cleanup failed: {cleanup_error}"),
+        });
+    }
     Ok(PathBuf::from(canonical_worktree_text))
+}
+
+pub(crate) async fn create_competitive_draft_workspace_lease<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    binding: &TaskWorkspaceBinding,
+    context: &CompetitiveDraftContext,
+) -> Result<CompetitiveDraftWorkspaceLease, String> {
+    validate_competitive_draft_context_shape(context)?;
+    let pool = crate::local_db::get_offisim_pool(app)?;
+    wait_for_competitive_draft_attempt_from_pool(&pool, binding, context).await?;
+    binding.verify_live_root()?;
+
+    let lease_id = sanitize_workspace_ref(&format!(
+        "draft-{}-{}",
+        context.attempt_index, binding.turn_id
+    ));
+    let branch = expected_workspace_lease_branch(&binding.turn_id, &lease_id);
+    let destination = binding
+        .canonical_root
+        .join(".offisim")
+        .join("worktrees")
+        .join(&lease_id);
+    validate_new_workspace_lease_request(
+        &binding.canonical_root,
+        &lease_id,
+        &binding.turn_id,
+        &branch,
+        destination.to_string_lossy().as_ref(),
+    )?;
+    let created = run_task_workspace_worktree_add(binding, &branch, &destination).await?;
+    if !created.ok {
+        return Err(workspace_lease_command_error(
+            created,
+            "Create competitive draft worktree",
+        ));
+    }
+    let cwd = register_workspace_lease(
+        app,
+        binding,
+        &lease_id,
+        &binding.turn_id,
+        &branch,
+        &destination,
+        WorkspaceLeaseRunProvenance::CompetitiveDraft(context),
+    )
+    .await?;
+    let created_at = unix_ms_to_rfc3339(git_now_unix_ms()?);
+    Ok(CompetitiveDraftWorkspaceLease {
+        lease_id,
+        registered_run_id: binding.turn_id.clone(),
+        workspace_root: binding.canonical_root.clone(),
+        cwd,
+        branch,
+        created_at,
+    })
+}
+
+pub(crate) async fn verify_competitive_draft_attempt<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    binding: &TaskWorkspaceBinding,
+    context: &CompetitiveDraftContext,
+    cwd: &Path,
+) -> Result<(), String> {
+    validate_competitive_draft_context_shape(context)?;
+    let pool = crate::local_db::get_offisim_pool(app)?;
+    if !validate_competitive_draft_attempt_from_pool(&pool, binding, context).await? {
+        return Err("Competitive draft verification lost its durable attempt authority".into());
+    }
+    let verified_cwd = require_registered_workspace_lease(app, binding, cwd).await?;
+    let (summary, passed) = match binding
+        .project_verify_command
+        .as_deref()
+        .map(str::trim)
+        .filter(|command| !command.is_empty())
+    {
+        None => (
+            "No Project verification command is configured.".to_string(),
+            None,
+        ),
+        Some(command) => {
+            let result = crate::builtin_tools::execute_trusted_verification(
+                app,
+                &binding.authorized_root(),
+                &verified_cwd,
+                command,
+                5 * 60 * 1_000,
+                Some(1024 * 1024),
+                &binding.project_id,
+                None,
+            )
+            .await;
+            match result {
+                Ok(result) => {
+                    let value = serde_json::to_value(result).map_err(|error| {
+                        format!("Encode competitive draft verification: {error}")
+                    })?;
+                    let exit_code = value
+                        .get("exitCode")
+                        .and_then(serde_json::Value::as_i64)
+                        .unwrap_or(-1);
+                    let timed_out = value
+                        .get("timedOut")
+                        .and_then(serde_json::Value::as_bool)
+                        .unwrap_or(false);
+                    let output = value
+                        .get("stdout")
+                        .and_then(serde_json::Value::as_str)
+                        .filter(|text| !text.trim().is_empty())
+                        .or_else(|| {
+                            value
+                                .get("stderr")
+                                .and_then(serde_json::Value::as_str)
+                                .filter(|text| !text.trim().is_empty())
+                        })
+                        .map(str::trim)
+                        .unwrap_or("");
+                    let output = output.chars().take(500).collect::<String>();
+                    let passed = exit_code == 0 && !timed_out;
+                    let headline = if timed_out {
+                        "Verification timed out".to_string()
+                    } else if passed {
+                        "Verification passed".to_string()
+                    } else {
+                        format!("Verification failed with exit code {exit_code}")
+                    };
+                    (
+                        if output.is_empty() {
+                            headline
+                        } else {
+                            format!("{headline}: {output}")
+                        },
+                        Some(passed),
+                    )
+                }
+                Err(error) => (format!("Verification could not run: {error}"), None),
+            }
+        }
+    };
+    let updated = sqlx::query(
+        "UPDATE competitive_draft_attempts SET verification_summary = ?, verification_passed = ? WHERE group_id = ? AND attempt_id = ? AND run_id = ? AND ordinal = ? AND status = 'running'",
+    )
+    .bind(summary)
+    .bind(passed)
+    .bind(&context.group_id)
+    .bind(&context.attempt_id)
+    .bind(&binding.turn_id)
+    .bind(i64::from(context.attempt_index))
+    .execute(&pool)
+    .await
+    .map_err(|error| format!("Persist competitive draft verification: {error}"))?;
+    if updated.rows_affected() != 1 {
+        return Err("Competitive draft changed before verification could be recorded".into());
+    }
+    Ok(())
 }
 
 async fn persist_task_workspace_lease_registration(
     pool: &SqlitePool,
     canonical_root: &Path,
     registration: NewRegisteredWorkspaceLease<'_>,
+    competitive_context: Option<&CompetitiveDraftContext>,
 ) -> Result<(), String> {
     let canonical_worktree_text = registration
         .canonical_worktree
         .to_str()
         .ok_or_else(|| "Workspace lease path is not valid UTF-8".to_string())?;
+    let mut transaction = match pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => {
+            let cause = format!("Begin workspace lease registration: {error}");
+            let rollback = rollback_created_worktree_with_expected_identity(
+                canonical_root,
+                registration.canonical_worktree,
+                registration.branch,
+                registration.project_identity_json,
+            )
+            .await;
+            return Err(match rollback {
+                Ok(()) => cause,
+                Err(rollback_error) => format!("{cause}; rollback failed: {rollback_error}"),
+            });
+        }
+    };
     let inserted = sqlx::query(
         r#"
         INSERT INTO task_workspace_lease_history (
@@ -3369,9 +3762,36 @@ async fn persist_task_workspace_lease_registration(
     .bind(registration.project_identity_json)
     .bind(registration.created_at_unix_ms)
     .bind(registration.created_at_unix_ms)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await;
-    if let Err(error) = inserted {
+    let registration_result = match inserted {
+        Ok(_) => {
+            if let Some(context) = competitive_context {
+                let updated = sqlx::query(
+                    "UPDATE competitive_draft_attempts SET lease_id = ? WHERE group_id = ? AND attempt_id = ? AND run_id = ? AND ordinal = ? AND status = 'running' AND lease_id IS NULL",
+                )
+                .bind(registration.lease_id)
+                .bind(&context.group_id)
+                .bind(&context.attempt_id)
+                .bind(registration.child_run_id)
+                .bind(i64::from(context.attempt_index))
+                .execute(&mut *transaction)
+                .await;
+                match updated {
+                    Ok(updated) if updated.rows_affected() == 1 => Ok(()),
+                    Ok(_) => Err(
+                        "Competitive draft attempt changed before atomic lease registration".into(),
+                    ),
+                    Err(error) => Err(format!("Register competitive draft attempt lease: {error}")),
+                }
+            } else {
+                Ok(())
+            }
+        }
+        Err(error) => Err(format!("Register workspace lease: {error}")),
+    };
+    if let Err(error) = registration_result {
+        let _ = transaction.rollback().await;
         let rollback = rollback_created_worktree_with_expected_identity(
             canonical_root,
             registration.canonical_worktree,
@@ -3380,10 +3800,25 @@ async fn persist_task_workspace_lease_registration(
         )
         .await;
         return Err(match rollback {
-            Ok(()) => format!("Register workspace lease: {error}"),
+            Ok(()) => error,
             Err(rollback_error) => {
-                format!("Register workspace lease: {error}; rollback failed: {rollback_error}")
+                format!("{error}; rollback failed: {rollback_error}")
             }
+        });
+    }
+    if let Err(error) = transaction.commit().await {
+        let rollback = rollback_created_worktree_with_expected_identity(
+            canonical_root,
+            registration.canonical_worktree,
+            registration.branch,
+            registration.project_identity_json,
+        )
+        .await;
+        return Err(match rollback {
+            Ok(()) => format!("Commit workspace lease registration: {error}"),
+            Err(rollback_error) => format!(
+                "Commit workspace lease registration: {error}; rollback failed: {rollback_error}"
+            ),
         });
     }
     Ok(())
@@ -5558,6 +5993,7 @@ mod tests {
                 project_identity_json: &project_identity,
                 created_at_unix_ms: 1,
             },
+            None,
         )
         .await
     }
@@ -6344,6 +6780,7 @@ mod tests {
                 project_identity_json: &project_identity,
                 created_at_unix_ms: 2,
             },
+            None,
         )
         .await
         .expect_err("duplicate durable registration must roll back Git creation");

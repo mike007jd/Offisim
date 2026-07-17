@@ -197,6 +197,111 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   started_at          TEXT NOT NULL,
   finished_at         TEXT
 );
+-- Best-of-N drafting is a product-level grouping over independent root runs.
+-- Attempts intentionally keep their own thread/run identity so each engine
+-- receives an isolated lifecycle and workspace lease.
+CREATE TABLE IF NOT EXISTS competitive_draft_groups (
+  group_id           TEXT PRIMARY KEY NOT NULL,
+  company_id         TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  project_id         TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  source_run_id      TEXT NOT NULL REFERENCES agent_runs(run_id) ON DELETE CASCADE,
+  objective          TEXT NOT NULL,
+  status             TEXT NOT NULL CHECK (status IN ('drafting', 'reviewing', 'merging', 'merged', 'failed', 'cancelled')),
+  winner_attempt_id  TEXT,
+  created_at         TEXT NOT NULL,
+  updated_at         TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS competitive_draft_attempts (
+  attempt_id          TEXT PRIMARY KEY NOT NULL,
+  group_id            TEXT NOT NULL REFERENCES competitive_draft_groups(group_id) ON DELETE CASCADE,
+  ordinal             INTEGER NOT NULL CHECK (ordinal BETWEEN 1 AND 4),
+  employee_id         TEXT NOT NULL REFERENCES employees(employee_id) ON DELETE RESTRICT,
+  thread_id           TEXT NOT NULL,
+  run_id              TEXT NOT NULL,
+  lease_id            TEXT,
+  status              TEXT NOT NULL CHECK (status IN ('planned', 'running', 'ready', 'winner', 'not_selected', 'failed', 'cancelled')),
+  result_summary_json TEXT,
+  usage_json          TEXT,
+  verification_summary TEXT,
+  verification_passed INTEGER CHECK (verification_passed IS NULL OR verification_passed IN (0, 1)),
+  started_at          TEXT NOT NULL,
+  finished_at         TEXT,
+  UNIQUE(group_id, ordinal),
+  UNIQUE(group_id, employee_id),
+  UNIQUE(run_id),
+  UNIQUE(lease_id)
+);
+CREATE INDEX IF NOT EXISTS idx_competitive_draft_groups_project
+  ON competitive_draft_groups(project_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_competitive_draft_groups_source
+  ON competitive_draft_groups(source_run_id);
+CREATE INDEX IF NOT EXISTS idx_competitive_draft_attempts_group
+  ON competitive_draft_attempts(group_id, ordinal);
+CREATE TRIGGER IF NOT EXISTS trg_competitive_draft_group_source_insert
+BEFORE INSERT ON competitive_draft_groups
+WHEN NOT EXISTS (
+  SELECT 1 FROM agent_runs AS source
+  WHERE source.run_id = NEW.source_run_id
+    AND source.company_id = NEW.company_id
+    AND source.project_id = NEW.project_id
+    AND source.run_id = source.root_run_id
+    AND source.parent_run_id IS NULL
+)
+BEGIN
+  SELECT RAISE(ABORT, 'competitive draft source card provenance does not match');
+END;
+CREATE TRIGGER IF NOT EXISTS trg_competitive_draft_group_scope_immutable
+BEFORE UPDATE OF company_id, project_id, source_run_id ON competitive_draft_groups
+WHEN NEW.company_id <> OLD.company_id
+  OR NEW.project_id <> OLD.project_id
+  OR NEW.source_run_id <> OLD.source_run_id
+BEGIN
+  SELECT RAISE(ABORT, 'competitive draft group scope is immutable');
+END;
+CREATE TRIGGER IF NOT EXISTS trg_competitive_draft_attempt_scope_insert
+BEFORE INSERT ON competitive_draft_attempts
+WHEN NOT EXISTS (
+  SELECT 1
+  FROM competitive_draft_groups AS draft
+  JOIN employees AS employee
+    ON employee.employee_id = NEW.employee_id
+   AND employee.company_id = draft.company_id
+  JOIN chat_threads AS thread
+    ON thread.thread_id = NEW.thread_id
+   AND thread.project_id = draft.project_id
+   AND thread.employee_id = NEW.employee_id
+  WHERE draft.group_id = NEW.group_id
+)
+BEGIN
+  SELECT RAISE(ABORT, 'competitive draft attempt scope does not match its group');
+END;
+CREATE TRIGGER IF NOT EXISTS trg_competitive_draft_attempt_scope_immutable
+BEFORE UPDATE OF group_id, ordinal, employee_id, thread_id, run_id
+ON competitive_draft_attempts
+WHEN NEW.group_id <> OLD.group_id
+  OR NEW.ordinal <> OLD.ordinal
+  OR NEW.employee_id <> OLD.employee_id
+  OR NEW.thread_id <> OLD.thread_id
+  OR NEW.run_id <> OLD.run_id
+BEGIN
+  SELECT RAISE(ABORT, 'competitive draft attempt scope is immutable');
+END;
+CREATE TRIGGER IF NOT EXISTS trg_competitive_draft_winner_update
+BEFORE UPDATE OF status, winner_attempt_id ON competitive_draft_groups
+WHEN (
+  NEW.winner_attempt_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM competitive_draft_attempts AS attempt
+    WHERE attempt.attempt_id = NEW.winner_attempt_id
+      AND attempt.group_id = NEW.group_id
+  )
+) OR (
+  NEW.status IN ('merging', 'merged')
+  AND NEW.winner_attempt_id IS NULL
+)
+BEGIN
+  SELECT RAISE(ABORT, 'competitive draft winner does not belong to its group');
+END;
 CREATE TABLE IF NOT EXISTS tool_calls (
   tool_call_id TEXT PRIMARY KEY NOT NULL,
   task_run_id TEXT NOT NULL REFERENCES task_runs(task_run_id) ON DELETE CASCADE,
@@ -1187,10 +1292,34 @@ WHEN NOT EXISTS (
     AND child.company_id = binding.company_id
     AND child.project_id = binding.project_id
     AND child.thread_id = binding.thread_id
-    AND child.root_run_id = NEW.created_root_run_id
-    AND child.parent_run_id IS NOT NULL
-    AND child.run_id <> NEW.created_root_run_id
-    AND child.status = 'running'
+    AND (
+      (
+        child.root_run_id = NEW.created_root_run_id
+        AND child.parent_run_id IS NOT NULL
+        AND child.run_id <> NEW.created_root_run_id
+        AND child.status = 'running'
+      )
+      OR
+      (
+        child.run_id = NEW.created_root_run_id
+        AND child.root_run_id = child.run_id
+        AND child.parent_run_id IS NULL
+        AND child.status = 'running'
+        AND EXISTS (
+          SELECT 1
+          FROM competitive_draft_attempts AS attempt
+          JOIN competitive_draft_groups AS draft ON draft.group_id = attempt.group_id
+          WHERE attempt.run_id = child.run_id
+            AND attempt.thread_id = binding.thread_id
+            AND attempt.employee_id = child.employee_id
+            AND attempt.status = 'running'
+            AND attempt.lease_id IS NULL
+            AND draft.company_id = binding.company_id
+            AND draft.project_id = binding.project_id
+            AND draft.status = 'drafting'
+        )
+      )
+    )
     AND root.company_id = binding.company_id
     AND root.project_id = binding.project_id
     AND root.thread_id = binding.thread_id
@@ -1199,7 +1328,7 @@ WHEN NOT EXISTS (
     AND root.status = 'running'
 )
 BEGIN
-  SELECT RAISE(ABORT, 'task workspace lease provenance does not match a live writable binding and child run');
+  SELECT RAISE(ABORT, 'task workspace lease provenance does not match a live writable binding and registered run');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_task_workspace_lease_provenance_immutable

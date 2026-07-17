@@ -1,6 +1,10 @@
 import {
   type AgentRunRepository,
   type AgentRunRow,
+  type CompetitiveDraftAttemptRepository,
+  type CompetitiveDraftAttemptRow,
+  type CompetitiveDraftGroupRepository,
+  type CompetitiveDraftGroupRow,
   type NewAgentRun,
   RESETTABLE_NATIVE_SESSION_PRESTART_CODES,
 } from '@offisim/core/browser';
@@ -15,6 +19,8 @@ function now(): string {
 
 export interface AgentRunsTauriRepos {
   agentRuns: AgentRunRepository;
+  competitiveDraftGroups: CompetitiveDraftGroupRepository;
+  competitiveDraftAttempts: CompetitiveDraftAttemptRepository;
 }
 
 export function createAgentRunsTauriRepos(db: TauriDrizzleDb): AgentRunsTauriRepos {
@@ -135,5 +141,96 @@ export function createAgentRunsTauriRepos(db: TauriDrizzleDb): AgentRunsTauriRep
     },
   };
 
-  return { agentRuns };
+  const competitiveDraftGroups: CompetitiveDraftGroupRepository = {
+    async create(group) {
+      const row: CompetitiveDraftGroupRow = {
+        ...group,
+        winner_attempt_id: group.winner_attempt_id ?? null,
+      };
+      await db.insert(schema.competitiveDraftGroups).values(row);
+      return row;
+    },
+    async findById(groupId) {
+      const rows = (await db
+        .select()
+        .from(schema.competitiveDraftGroups)
+        .where(eq(schema.competitiveDraftGroups.group_id, groupId))) as CompetitiveDraftGroupRow[];
+      return rows[0] ?? null;
+    },
+    async findBySourceRun(sourceRunId) {
+      const rows = (await db
+        .select()
+        .from(schema.competitiveDraftGroups)
+        .where(eq(schema.competitiveDraftGroups.source_run_id, sourceRunId))
+        .orderBy(asc(schema.competitiveDraftGroups.created_at))) as CompetitiveDraftGroupRow[];
+      return rows.at(-1) ?? null;
+    },
+    async listByProject(projectId) {
+      return (await db
+        .select()
+        .from(schema.competitiveDraftGroups)
+        .where(eq(schema.competitiveDraftGroups.project_id, projectId))
+        .orderBy(asc(schema.competitiveDraftGroups.created_at))) as CompetitiveDraftGroupRow[];
+    },
+    async updateStatus(groupId, status, opts) {
+      const patch: Partial<CompetitiveDraftGroupRow> = {
+        status,
+        updated_at: opts?.updatedAt ?? now(),
+      };
+      if (opts?.winnerAttemptId !== undefined) patch.winner_attempt_id = opts.winnerAttemptId;
+      await db
+        .update(schema.competitiveDraftGroups)
+        .set(patch)
+        .where(eq(schema.competitiveDraftGroups.group_id, groupId));
+    },
+  };
+
+  const competitiveDraftAttempts: CompetitiveDraftAttemptRepository = {
+    async create(attempt) {
+      const row: CompetitiveDraftAttemptRow = {
+        ...attempt,
+        lease_id: attempt.lease_id ?? null,
+        result_summary_json: attempt.result_summary_json ?? null,
+        usage_json: attempt.usage_json ?? null,
+        verification_summary: attempt.verification_summary ?? null,
+        verification_passed: attempt.verification_passed ?? null,
+        finished_at: attempt.finished_at ?? null,
+      };
+      await db.insert(schema.competitiveDraftAttempts).values(row);
+      return row;
+    },
+    async findById(attemptId) {
+      const rows = (await db
+        .select()
+        .from(schema.competitiveDraftAttempts)
+        .where(
+          eq(schema.competitiveDraftAttempts.attempt_id, attemptId),
+        )) as CompetitiveDraftAttemptRow[];
+      return rows[0] ?? null;
+    },
+    async findByLeaseId(leaseId) {
+      const rows = (await db
+        .select()
+        .from(schema.competitiveDraftAttempts)
+        .where(
+          eq(schema.competitiveDraftAttempts.lease_id, leaseId),
+        )) as CompetitiveDraftAttemptRow[];
+      return rows[0] ?? null;
+    },
+    async listByGroup(groupId) {
+      return (await db
+        .select()
+        .from(schema.competitiveDraftAttempts)
+        .where(eq(schema.competitiveDraftAttempts.group_id, groupId))
+        .orderBy(asc(schema.competitiveDraftAttempts.ordinal))) as CompetitiveDraftAttemptRow[];
+    },
+    async update(attemptId, patch) {
+      await db
+        .update(schema.competitiveDraftAttempts)
+        .set(patch)
+        .where(eq(schema.competitiveDraftAttempts.attempt_id, attemptId));
+    },
+  };
+
+  return { agentRuns, competitiveDraftGroups, competitiveDraftAttempts };
 }

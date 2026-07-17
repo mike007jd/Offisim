@@ -13,12 +13,17 @@ use crate::agent_host_runtime::{AgentHostLane, HostError};
 use crate::engine_skill_overlay::{
     materialize_engine_skill_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
 };
+use crate::git::{
+    create_competitive_draft_workspace_lease, verify_competitive_draft_attempt,
+    CompetitiveDraftContext,
+};
 use crate::task_workspace_binding::{
     persist_conversation_native_session_reset,
     resolve_conversation_opaque_native_session_for_execute, resolve_task_workspace_for_turn,
     revoke_task_workspace_binding, workspace_bound_event, AuthorizedProcessCwd,
     IssueTaskWorkspaceBinding, NativeSessionReference, OpaqueNativeSessionExpectation,
-    TaskWorkspaceAccess, TaskWorkspaceResolution, TaskWorkspaceTerminalStatus,
+    TaskWorkspaceAccess, TaskWorkspaceBinding, TaskWorkspaceResolution,
+    TaskWorkspaceTerminalStatus,
 };
 
 use super::protocol::{
@@ -170,6 +175,9 @@ struct ManagedRun {
     stream: Arc<RunStream>,
     binding_ref: Option<String>,
     workspace_root: Option<PathBuf>,
+    workspace_binding: Option<TaskWorkspaceBinding>,
+    competitive_draft: Option<CompetitiveDraftContext>,
+    cleanup_error: Mutex<Option<String>>,
     cleanup_done: AtomicBool,
     cleanup_notify: Notify,
     control_gate: AsyncMutex<()>,
@@ -181,12 +189,17 @@ impl ManagedRun {
         stream: Arc<RunStream>,
         binding_ref: Option<String>,
         workspace_root: Option<PathBuf>,
+        workspace_binding: Option<TaskWorkspaceBinding>,
+        competitive_draft: Option<CompetitiveDraftContext>,
     ) -> Arc<Self> {
         Arc::new(Self {
             connection,
             stream,
             binding_ref,
             workspace_root,
+            workspace_binding,
+            competitive_draft,
+            cleanup_error: Mutex::new(None),
             cleanup_done: AtomicBool::new(false),
             cleanup_notify: Notify::new(),
             control_gate: AsyncMutex::new(()),
@@ -210,12 +223,27 @@ impl ManagedRun {
         self.cleanup_done.store(true, Ordering::Release);
         self.cleanup_notify.notify_waiters();
     }
+
+    fn set_cleanup_error(&self, error: String) {
+        *self
+            .cleanup_error
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(error);
+    }
+
+    fn cleanup_error(&self) -> Option<String> {
+        self.cleanup_error
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
 }
 
 struct WorkspaceRunContext {
     process_cwd: Option<AuthorizedProcessCwd>,
     cwd: PathBuf,
     binding_ref: Option<String>,
+    binding: Option<TaskWorkspaceBinding>,
     resume_session: Option<NativeSessionReference>,
 }
 
@@ -411,6 +439,8 @@ async fn execute_claimed(
             .process_cwd
             .as_ref()
             .map(|scope| scope.cwd().to_path_buf()),
+        workspace.binding.clone(),
+        req.competitive_draft.clone(),
     );
     if let Err(error) = state.register_run(&req.request_id, Arc::clone(&run)) {
         run.stream.finish_interrupted(error.clone());
@@ -583,7 +613,7 @@ async fn enhance_claimed(
         stream.finish_interrupted("Codex request was stopped before native work started.");
         return Err("Codex request was stopped before native work started.".into());
     }
-    let run = ManagedRun::new(connection, Arc::clone(&stream), None, None);
+    let run = ManagedRun::new(connection, Arc::clone(&stream), None, None, None, None);
     if let Err(error) = state.register_run(&req.request_id, Arc::clone(&run)) {
         run.stream.finish_interrupted(error.clone());
         run.connection.terminate().await;
@@ -659,6 +689,9 @@ async fn enhance_claimed(
 async fn finish_invoke(run: &Arc<ManagedRun>) -> Result<CodexAgentHostResponse, String> {
     let outcome = run.stream.wait_outcome().await;
     run.wait_cleanup().await;
+    if let Some(error) = run.cleanup_error() {
+        return Err(error);
+    }
     match outcome {
         RunOutcome::Completed(response) => Ok(*response),
         RunOutcome::Interrupted(message) | RunOutcome::Failed(message) => Err(message),
@@ -675,6 +708,19 @@ fn spawn_terminal_cleanup(app: AppHandle, request_id: String, run: Arc<ManagedRu
             run.connection.terminate().await;
         }
         if let Some(binding_ref) = run.binding_ref.as_deref() {
+            if matches!(&outcome, RunOutcome::Completed(_)) {
+                if let (Some(binding), Some(context), Some(cwd)) = (
+                    run.workspace_binding.as_ref(),
+                    run.competitive_draft.as_ref(),
+                    run.workspace_root.as_deref(),
+                ) {
+                    if let Err(error) =
+                        verify_competitive_draft_attempt(&app, binding, context, cwd).await
+                    {
+                        run.set_cleanup_error(error);
+                    }
+                }
+            }
             let (status, reason) = match &outcome {
                 RunOutcome::Completed(_) => {
                     (TaskWorkspaceTerminalStatus::Completed, "run_completed")
@@ -737,14 +783,21 @@ async fn prepare_workspace(
             .map_err(|_| "The Project workspace declaration could not be decoded.".to_string())?;
             stream.set_workspace_declaration(event);
             let authority = binding.authorized_root();
-            let process_cwd =
-                AuthorizedProcessCwd::from_authority(&authority, &binding.canonical_root).map_err(
-                    |_| "The Project folder changed while Codex was starting.".to_string(),
-                )?;
+            let cwd = match req.competitive_draft.as_ref() {
+                Some(context) => {
+                    create_competitive_draft_workspace_lease(app, &binding, context)
+                        .await?
+                        .cwd
+                }
+                None => binding.canonical_root.clone(),
+            };
+            let process_cwd = AuthorizedProcessCwd::from_authority(&authority, &cwd)
+                .map_err(|_| "The Project folder changed while Codex was starting.".to_string())?;
             Ok(WorkspaceRunContext {
-                cwd: binding.canonical_root.clone(),
+                cwd,
                 process_cwd: Some(process_cwd),
                 binding_ref: Some(binding.binding_ref.clone()),
+                binding: Some((*binding).clone()),
                 resume_session,
             })
         }
@@ -769,6 +822,7 @@ async fn prepare_workspace(
                 process_cwd: None,
                 cwd,
                 binding_ref: None,
+                binding: None,
                 resume_session: None,
             })
         }
@@ -1762,6 +1816,9 @@ fn validate_execute_request(req: &CodexAgentExecuteRequest) -> Result<(), String
 }
 
 fn validate_execute_mode(req: &CodexAgentExecuteRequest, mode: ExecuteMode) -> Result<(), String> {
+    if mode.is_resume() && req.competitive_draft.is_some() {
+        return Err("Competitive draft attempts cannot use durable resume.".into());
+    }
     let history_id = req
         .workspace_binding_history_id
         .as_deref()
@@ -2317,6 +2374,7 @@ time.sleep(30)
             client_user_message_id: None,
             workspace_requirement: CodexWorkspaceRequirement::Required,
             native_session_id: None,
+            competitive_draft: None,
         }
     }
 

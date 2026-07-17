@@ -12,6 +12,8 @@ import { getRepos } from '@/runtime/repos.js';
 import {
   type AgentEventRow,
   type AgentRunRow,
+  type CompetitiveDraftAttemptRow,
+  type CompetitiveDraftGroupRow,
   createWorkspaceLeaseManager,
 } from '@offisim/core/browser';
 import { useQuery } from '@tanstack/react-query';
@@ -67,10 +69,23 @@ export interface TaskBoardRow {
   resultSummaryJson: string | null;
   live: boolean;
   children: TaskBoardChildRow[];
+  competitiveDrafts: CompetitiveDraftBoardGroup[];
   searchChildFiltered?: boolean;
 }
 
-type TaskBoardChildRow = Omit<TaskBoardRow, 'children'>;
+export type TaskBoardChildRow = Omit<TaskBoardRow, 'children' | 'competitiveDrafts'> & {
+  competitiveDraftAttemptId?: string;
+  competitiveDraftGroupId?: string;
+  competitiveDraftOrdinal?: number;
+};
+
+interface CompetitiveDraftBoardAttempt extends CompetitiveDraftAttemptRow {
+  task: TaskBoardChildRow | null;
+}
+
+interface CompetitiveDraftBoardGroup extends CompetitiveDraftGroupRow {
+  attempts: CompetitiveDraftBoardAttempt[];
+}
 
 export interface TaskBoardVisibleRow {
   row: TaskBoardRow | TaskBoardChildRow;
@@ -176,6 +191,7 @@ function rowFromAgentRun(row: AgentRunRow): TaskBoardRow {
     resultSummaryJson: row.result_summary_json,
     live: false,
     children: [],
+    competitiveDrafts: [],
   };
 }
 
@@ -187,7 +203,7 @@ export function buildTaskTree(rows: readonly AgentRunRow[]): TaskBoardRow[] {
     if (row.run_id === row.root_run_id) {
       byRoot.set(row.run_id, mapped);
     } else {
-      const { children: _children, ...child } = mapped;
+      const { children: _children, competitiveDrafts: _drafts, ...child } = mapped;
       const list = children.get(row.root_run_id) ?? [];
       list.push(child);
       children.set(row.root_run_id, list);
@@ -199,6 +215,54 @@ export function buildTaskTree(rows: readonly AgentRunRow[]): TaskBoardRow[] {
     root.children = list.sort(sortRows);
   }
   return [...byRoot.values()];
+}
+
+function attachCompetitiveDrafts(
+  rows: readonly AgentRunRow[],
+  groups: readonly CompetitiveDraftGroupRow[],
+  attempts: readonly CompetitiveDraftAttemptRow[],
+): TaskBoardRow[] {
+  const tree = buildTaskTree(rows);
+  const runById = new Map(rows.map((row) => [row.run_id, row]));
+  const attemptRunIds = new Set(attempts.map((attempt) => attempt.run_id));
+  const visibleRoots = tree.filter((row) => !attemptRunIds.has(row.runId));
+  const rootByContainedRun = new Map<string, TaskBoardRow>();
+  for (const root of visibleRoots) {
+    rootByContainedRun.set(root.runId, root);
+    for (const child of root.children) rootByContainedRun.set(child.runId, root);
+  }
+
+  for (const group of groups) {
+    const source = rootByContainedRun.get(group.source_run_id);
+    if (!source) continue;
+    const groupAttempts = attempts
+      .filter((attempt) => attempt.group_id === group.group_id)
+      .sort((a, b) => a.ordinal - b.ordinal)
+      .map((attempt): CompetitiveDraftBoardAttempt => {
+        const run = runById.get(attempt.run_id);
+        const mapped = run ? rowFromAgentRun(run) : null;
+        const task = mapped
+          ? (({ children: _children, competitiveDrafts: _drafts, ...child }) => ({
+            ...child,
+              employeeId: attempt.employee_id,
+              competitiveDraftAttemptId: attempt.attempt_id,
+              competitiveDraftGroupId: group.group_id,
+              competitiveDraftOrdinal: attempt.ordinal,
+            }))(mapped)
+          : null;
+        return {
+          ...attempt,
+          task,
+        };
+      });
+    source.competitiveDrafts.push({ ...group, attempts: groupAttempts });
+    for (const attempt of groupAttempts) {
+      if (!attempt.task) continue;
+      source.children.push(attempt.task);
+    }
+    source.children.sort(sortRows);
+  }
+  return visibleRoots;
 }
 
 function emptyStats(): TaskBoardStats {
@@ -269,10 +333,20 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
   const runs = useQuery({
     queryKey: ['task-board', companyId],
     queryFn: async () => {
-      if (!companyId) return [];
+      if (!companyId) return { rows: [], attemptRunIds: [] as string[] };
       const repos = await getRepos();
       const rows = await repos.agentRuns.findByStatus(companyId, [...PERSISTED_TASK_STATUSES]);
-      return buildTaskTree(rows);
+      const projectIds = [...new Set(rows.flatMap((row) => (row.project_id ? [row.project_id] : [])))];
+      const groups: CompetitiveDraftGroupRow[] = (
+        await Promise.all(projectIds.map((projectId) => repos.competitiveDraftGroups.listByProject(projectId)))
+      ).flat();
+      const attempts: CompetitiveDraftAttemptRow[] = (
+        await Promise.all(groups.map((group) => repos.competitiveDraftAttempts.listByGroup(group.group_id)))
+      ).flat();
+      return {
+        rows: attachCompetitiveDrafts(rows, groups, attempts),
+        attemptRunIds: attempts.map((attempt) => attempt.run_id),
+      };
     },
     enabled: Boolean(companyId),
     refetchInterval: live.activeRuns.length > 0 || hasLiveMissionRuns ? 2_000 : false,
@@ -280,12 +354,14 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
 
   const rows = useMemo(() => {
     const byRunId = new Map<string, TaskBoardRow>();
-    for (const row of runs.data ?? []) byRunId.set(row.runId, row);
+    for (const row of runs.data?.rows ?? []) byRunId.set(row.runId, row);
+    const competitiveAttemptRunIds = new Set(runs.data?.attemptRunIds ?? []);
 
     for (const snapshot of live.runs) {
       if (!companyId || snapshot.companyId !== companyId || !snapshot.attemptId) continue;
       const status = phaseToStatus(snapshot.phase);
       if (!status) continue;
+      if (competitiveAttemptRunIds.has(snapshot.attemptId)) continue;
       const existing = byRunId.get(snapshot.attemptId);
       byRunId.set(snapshot.attemptId, {
         runId: snapshot.attemptId,
@@ -306,7 +382,8 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
         finishedAt: existing?.finishedAt ?? null,
         usageJson: existing?.usageJson ?? null,
         resultSummaryJson: existing?.resultSummaryJson ?? null,
-        live: true,
+        live: status === 'running',
+        competitiveDrafts: existing?.competitiveDrafts ?? [],
         children: (() => {
           const childById = new Map(
             (existing?.children ?? []).map((child) => [child.runId, child]),

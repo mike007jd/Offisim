@@ -21,6 +21,7 @@ import {
   errorDetail,
 } from '@/surfaces/shared/SurfaceStates.js';
 import { useQuery } from '@tanstack/react-query';
+import type { CompetitiveDraftGroupRow } from '@offisim/core/browser';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -31,7 +32,9 @@ import {
   Link2,
   Play,
   RotateCcw,
+  Swords,
   Trash2,
+  Trophy,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -64,6 +67,8 @@ import {
   reviewWorkspaceLease,
   workspaceLeaseDecisionAction,
 } from './workspace-lease-actions.js';
+import { CompetitiveDraftDialog } from './CompetitiveDraftDialog.js';
+import { startCompetitiveDraft } from './competitive-draft-actions.js';
 
 type BoardColumnId = 'running' | 'pending_review' | 'done' | 'attention';
 
@@ -158,6 +163,11 @@ function effectiveStatus(
   row: TaskBoardRow,
   leases: readonly WorkspaceLeaseReviewRow[],
 ): TaskBoardStatus {
+  const competitive = row.competitiveDrafts.at(-1);
+  if (competitive?.status === 'drafting' || competitive?.status === 'merging') return 'running';
+  if (competitive?.status === 'reviewing') return 'pending_review';
+  if (competitive?.status === 'failed') return 'failed';
+  if (competitive?.status === 'merged') return 'merged';
   const related = leasesForRow(row, leases);
   if (related.some((lease) => lease.status === 'pending_review')) return 'pending_review';
   if (related.some((lease) => lease.status === 'failed')) return 'failed';
@@ -165,6 +175,15 @@ function effectiveStatus(
     return 'running';
   if (related.length > 0 && related.every((lease) => lease.status === 'merged')) return 'merged';
   return row.status;
+}
+
+function competitiveHistoryStatus(status: CompetitiveDraftGroupRow['status']): string {
+  if (status === 'drafting') return 'Drafting in parallel';
+  if (status === 'reviewing') return 'Ready to compare';
+  if (status === 'merging') return 'Merging winner and cleaning up';
+  if (status === 'merged') return 'Winner merged · losing drafts retained in history';
+  if (status === 'failed') return 'Needs attention · open comparison for details';
+  return 'Cancelled';
 }
 
 function countDiffLines(files: readonly { diff: string }[]) {
@@ -219,6 +238,7 @@ export function BoardStage() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
+  const [draftRow, setDraftRow] = useState<TaskBoardRow | null>(null);
 
   useEffect(() => {
     void recovery.refetch();
@@ -269,6 +289,37 @@ export function BoardStage() {
   const refresh = useCallback(async () => {
     await Promise.all([board.refetch(), leaseQuery.refetch(), recovery.refetch()]);
   }, [board, leaseQuery, recovery]);
+
+  const launchCompetitiveDraft = useCallback(
+    async (employeeIds: string[]) => {
+      if (!companyId || !draftRow?.projectId || !draftRow.objective) return;
+      setBusyId(draftRow.runId);
+      try {
+        const result = await startCompetitiveDraft({
+          companyId,
+          projectId: draftRow.projectId,
+          sourceRunId: draftRow.runId,
+          objective: draftRow.objective,
+          employeeIds,
+        });
+        setDraftRow(null);
+        await refresh();
+        openStageView({ kind: 'changes', comparisonGroupId: result.groupId });
+        if (result.failedCount > 0) {
+          toast.warning(
+            `${result.launchedCount} drafts started; ${result.failedCount} could not start and are recorded in the comparison.`,
+          );
+        } else {
+          toast.success(`${result.launchedCount} independent drafts started.`);
+        }
+      } catch (error) {
+        toast.error(errorDetail(error, 'Could not start competitive drafting.'));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [companyId, draftRow, openStageView, refresh],
+  );
 
   const retry = useCallback(
     async (row: TaskBoardRow) => {
@@ -532,6 +583,10 @@ export function BoardStage() {
                         }}
                         onRetry={() => void retry(row)}
                         onDiscard={() => void discard(row)}
+                        onCompetitiveDraft={() => setDraftRow(row)}
+                        onOpenComparison={(groupId) =>
+                          openStageView({ kind: 'changes', comparisonGroupId: groupId })
+                        }
                       />
                     ))}
                   </div>
@@ -560,10 +615,23 @@ export function BoardStage() {
               onMerge={() => void decideLeases('merge')}
               onRequestChanges={() => void requestChanges()}
               onDiscard={() => void decideLeases('discard')}
+              onOpenComparison={(groupId) =>
+                openStageView({ kind: 'changes', comparisonGroupId: groupId })
+              }
             />
           ) : null}
         </div>
       )}
+      <CompetitiveDraftDialog
+        open={draftRow !== null}
+        employees={employees.data ?? []}
+        objective={taskTitle(draftRow?.objective ?? null)}
+        busy={Boolean(draftRow && busyId === draftRow.runId)}
+        onOpenChange={(open) => {
+          if (!open) setDraftRow(null);
+        }}
+        onSubmit={(employeeIds) => void launchCompetitiveDraft(employeeIds)}
+      />
     </div>
   );
 }
@@ -613,6 +681,8 @@ function BoardCard({
   onThread,
   onRetry,
   onDiscard,
+  onCompetitiveDraft,
+  onOpenComparison,
 }: {
   row: TaskBoardRow;
   leases: readonly WorkspaceLeaseReviewRow[];
@@ -624,6 +694,8 @@ function BoardCard({
   onThread: () => void;
   onRetry: () => void;
   onDiscard: () => void;
+  onCompetitiveDraft: () => void;
+  onOpenComparison: (groupId: string) => void;
 }) {
   const employeeIds = [
     ...new Set(
@@ -634,6 +706,7 @@ function BoardCard({
   ].slice(0, 4);
   const isAttention = ['failed', 'cancelled', 'interrupted'].includes(row.status);
   const hasActiveLease = leases.some((lease) => lease.status === 'active');
+  const latestDraft = row.competitiveDrafts.at(-1);
   return (
     <article
       className={cn(
@@ -704,6 +777,28 @@ function BoardCard({
           </button>
         </div>
       ) : null}
+      <div className="off-board-card-actions is-competitive">
+        {latestDraft ? (
+          <button
+            type="button"
+            className="off-focusable"
+            onClick={() => onOpenComparison(latestDraft.group_id)}
+          >
+            <Icon icon={GitCompareArrows} size="sm" />
+            Compare {latestDraft.attempts.length}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="off-focusable"
+            disabled={busy || row.live || !row.projectId || !row.objective}
+            onClick={onCompetitiveDraft}
+          >
+            <Icon icon={Swords} size="sm" />
+            Competitive draft
+          </button>
+        )}
+      </div>
     </article>
   );
 }
@@ -720,6 +815,7 @@ function BoardDrawer({
   onMerge,
   onRequestChanges,
   onDiscard,
+  onOpenComparison,
 }: {
   row: TaskBoardRow;
   leases: readonly WorkspaceLeaseReviewRow[];
@@ -732,6 +828,7 @@ function BoardDrawer({
   onMerge: () => void;
   onRequestChanges: () => void;
   onDiscard: () => void;
+  onOpenComparison: (groupId: string) => void;
 }) {
   const pending = leases.filter((lease) => lease.status === 'pending_review');
   const files = leases.flatMap((lease) => lease.files);
@@ -867,6 +964,36 @@ function BoardDrawer({
             </span>
           </div>
         </section>
+        {row.competitiveDrafts.length > 0 ? (
+          <section>
+            <h3>Competitive draft history</h3>
+            <div className="off-board-draft-history">
+              {row.competitiveDrafts.map((group) => (
+                <button
+                  type="button"
+                  className="off-focusable"
+                  key={group.group_id}
+                  onClick={() => onOpenComparison(group.group_id)}
+                >
+                  <Icon icon={group.winner_attempt_id ? Trophy : Swords} size="sm" />
+                  <span>
+                    <b>{group.attempts.length} employees participated</b>
+                    <small>
+                      {group.attempts
+                        .map((attempt) => employeeById.get(attempt.employee_id)?.name)
+                        .filter(Boolean)
+                        .join(' · ') || 'Participant roster retained'}
+                    </small>
+                    <small>
+                      {competitiveHistoryStatus(group.status)}
+                    </small>
+                  </span>
+                  <ChevronRight aria-hidden />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
         {pending.length > 0 ? (
           <section>
             <h3>Review decision</h3>
@@ -879,7 +1006,7 @@ function BoardDrawer({
           </section>
         ) : null}
       </div>
-      {pending.length > 0 ? (
+      {pending.length > 0 && row.competitiveDrafts.length === 0 ? (
         <footer>
           <button
             type="button"
