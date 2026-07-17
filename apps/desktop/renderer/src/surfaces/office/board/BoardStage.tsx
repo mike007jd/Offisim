@@ -11,8 +11,8 @@ import {
 } from '@/data/usage-token-coverage.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { cn } from '@/lib/utils.js';
 import type { WorkspaceCheckpointRow } from '@/lib/tauri-commands.js';
+import { cn } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
 import {
   EmptyState,
@@ -38,6 +38,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   type ActivityRecord,
+  checkpointPathForDisplay,
   collapseReroutes,
   domainIcon,
   formatRelativeTimestamp,
@@ -55,6 +56,7 @@ import {
   workspaceLeaseReviewsQueryOptions,
 } from './task-board-data.js';
 import { useWorkspaceLeaseDecisionVersion } from './use-workspace-lease-decision.js';
+import { rewindWorkspaceCheckpoint } from './workspace-checkpoint-actions.js';
 import {
   type WorkspaceLeaseReviewOutcome,
   appendWorkspaceLeaseAction,
@@ -62,7 +64,6 @@ import {
   reviewWorkspaceLease,
   workspaceLeaseDecisionAction,
 } from './workspace-lease-actions.js';
-import { rewindWorkspaceCheckpoint } from './workspace-checkpoint-actions.js';
 
 type BoardColumnId = 'running' | 'pending_review' | 'done' | 'attention';
 
@@ -946,7 +947,7 @@ function BoardTimeline({
       try {
         await rewindWorkspaceCheckpoint(checkpoint, companyId);
         setConfirmState(null);
-        toast.success(`Workspace restored to Step ${checkpoint.step}.`);
+        toast.success(`Workspace rewound to Step ${checkpoint.step}.`);
         await records.refetch();
       } catch (error) {
         toast.error(errorDetail(error, 'Could not rewind this workspace.'));
@@ -994,6 +995,11 @@ function BoardTimeline({
                 attentionRootRunIds.has(checkpoint.rootRunId),
             );
             const confirmTarget = confirmState?.anchorId === record.id ? confirmState.target : null;
+            const machineDetails = checkpoint
+              ? `Run ID: ${checkpoint.runId}\nCheckpoint ID: ${checkpoint.checkpointId}`
+              : record.rollback
+                ? `Rollback ID: ${record.rollback.rollbackId}\nCheckpoint ID: ${record.rollback.checkpointId}`
+                : undefined;
             return (
               <div
                 className={cn(
@@ -1004,7 +1010,7 @@ function BoardTimeline({
                 key={record.id}
               >
                 <Icon icon={icon} size="sm" className={`is-${color}`} />
-                <span>
+                <span title={machineDetails}>
                   {summary.actor ? <b>{summary.actor} · </b> : null}
                   {summary.label}
                   {collapsedCount ? <em> ×{collapsedCount}</em> : null}
@@ -1017,7 +1023,9 @@ function BoardTimeline({
                       className="off-focusable"
                       onClick={() => setExpandedId(expanded ? null : record.id)}
                     >
-                      {expanded ? 'Hide files' : `${checkpoint.changedPaths.length} files`}
+                      {expanded
+                        ? 'Hide changed files'
+                        : `Show ${checkpoint.changedPaths.length} changed ${checkpoint.changedPaths.length === 1 ? 'file' : 'files'}`}
                     </button>
                     <button
                       type="button"
@@ -1042,17 +1050,21 @@ function BoardTimeline({
                     {expanded ? (
                       <ul>
                         {checkpoint.changedPaths.length > 0 ? (
-                          checkpoint.changedPaths.map((path) => <li key={path}>{path}</li>)
+                          checkpoint.changedPaths.map((path) => (
+                            <li key={path}>
+                              {checkpointPathForDisplay(path, checkpoint.workspaceRoot)}
+                            </li>
+                          ))
                         ) : (
-                          <li>Baseline · no changed files</li>
+                          <li>No files changed — this is the run starting point.</li>
                         )}
                       </ul>
                     ) : null}
                     {confirmTarget ? (
                       <div className="off-board-checkpoint-confirm" role="alert">
                         <span>
-                          Restore this isolated worktree to Step {confirmTarget.step}? The Project
-                          checkout is not affected.
+                          Rewind this isolated workspace to Step {confirmTarget.step}? Your Project
+                          files stay untouched.
                         </span>
                         <button
                           type="button"
@@ -1060,7 +1072,7 @@ function BoardTimeline({
                           disabled={rewindingId !== null}
                           onClick={() => void rewind(confirmTarget)}
                         >
-                          {rewindingId ? 'Rewinding…' : 'Confirm rewind'}
+                          {rewindingId ? 'Rewinding…' : `Rewind to Step ${confirmTarget.step}`}
                         </button>
                         <button
                           type="button"
@@ -1068,7 +1080,7 @@ function BoardTimeline({
                           disabled={rewindingId !== null}
                           onClick={() => setConfirmState(null)}
                         >
-                          Cancel
+                          Keep current work
                         </button>
                       </div>
                     ) : null}
