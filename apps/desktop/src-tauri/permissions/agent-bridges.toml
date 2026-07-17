@@ -43,6 +43,7 @@ commands.allow = [
   "git_exec",
   "workspace_lease_list",
   "workspace_lease_changed",
+  "workspace_lease_apply_patch",
   "workspace_lease_release",
   "workspace_lease_discard",
   "workspace_checkpoint_timeline",

@@ -1,5 +1,10 @@
 import type { ConversationRunPhase } from '@/assistant/runtime/conversation-run-controller.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
+import type {
+  ReviewAnnotation,
+  ReviewDecision,
+  ReviewWorkbenchState,
+} from '@/data/review-workbench.js';
 import { type WorkspaceLeaseLifecycleRow, invokeCommand } from '@/lib/tauri-commands.js';
 import { missionRunManager } from '@/runtime/mission/mission-run-manager.js';
 import { createTauriGitWorktreeOps } from '@/runtime/mission/workspace/git-worktree-ops.js';
@@ -105,6 +110,7 @@ export interface WorkspaceLeaseReviewRow {
   createdAt: string;
   lastAction: string | null;
   lastActionError: string | null;
+  review: ReviewWorkbenchState | null;
 }
 
 interface TaskBoardStats {
@@ -422,6 +428,58 @@ function asDiffFiles(value: unknown): Array<{ path: string; diff: string }> {
   });
 }
 
+function asReviewWorkbenchState(value: unknown): ReviewWorkbenchState | null {
+  const record = asRecord(value);
+  const revision = record ? asString(record.revision) : null;
+  const decisionsRecord = asRecord(record?.decisions);
+  if (!revision || !decisionsRecord || !Array.isArray(record?.annotations)) return null;
+  const decisions: Record<string, ReviewDecision> = {};
+  for (const [key, decision] of Object.entries(decisionsRecord)) {
+    if (decision === 'pending' || decision === 'accepted' || decision === 'returned') {
+      decisions[key] = decision;
+    }
+  }
+  const annotations = record.annotations.flatMap((value): ReviewAnnotation[] => {
+    const annotation = asRecord(value);
+    const id = asString(annotation?.id);
+    const fileId = asString(annotation?.fileId);
+    const hunkId = asString(annotation?.hunkId);
+    const path = asString(annotation?.path);
+    const label = asString(annotation?.label);
+    const body = asString(annotation?.body);
+    const state = annotation?.state;
+    if (
+      !id ||
+      !fileId ||
+      !hunkId ||
+      !path ||
+      !label ||
+      !body ||
+      (state !== 'draft' && state !== 'submitted' && state !== 'resolved')
+    ) {
+      return [];
+    }
+    return [
+      {
+        id,
+        fileId,
+        hunkId,
+        lineId: asString(annotation?.lineId),
+        path,
+        label,
+        body,
+        state,
+      },
+    ];
+  });
+  return {
+    revision,
+    decisions,
+    annotations,
+    appliedReturnAnchors: asStringArray(record.appliedReturnAnchors),
+  };
+}
+
 function parsePayload(row: AgentEventRow): Record<string, unknown> | null {
   try {
     return asRecord(JSON.parse(row.payload_json));
@@ -469,6 +527,7 @@ function rowFromLifecycle(row: WorkspaceLeaseLifecycleRow): WorkspaceLeaseReview
     createdAt: row.createdAt,
     lastAction: null,
     lastActionError: null,
+    review: null,
   };
 }
 
@@ -733,6 +792,7 @@ function buildWorkspaceLeaseRows(
     }
     if (event.event_type === WORKSPACE_LEASE_ACTION_EVENT) {
       const action = asString(payload.action);
+      const review = asReviewWorkbenchState(payload.review);
       byLease.set(leaseId, {
         ...current,
         relatedRunIds,
@@ -747,6 +807,7 @@ function buildWorkspaceLeaseRows(
         reason: asString(payload.reason) ?? current.reason,
         lastAction: action,
         lastActionError: asString(payload.error),
+        review: review ?? current.review,
       });
     }
   }
@@ -772,7 +833,13 @@ function workspaceLeaseStatusFromEvent(
   const phase = asString(payload.phase);
   const eventStatus = asString(payload.status);
   if (action?.endsWith('_failed') || eventStatus === 'failed') return 'failed';
-  if (phase === 'pending_review' || phase === 'verification_terminated') return 'pending_review';
+  if (
+    phase === 'planned' ||
+    phase === 'pending_review' ||
+    phase === 'verification_terminated'
+  ) {
+    return 'pending_review';
+  }
   if (
     eventStatus === 'active' ||
     eventStatus === 'pending_review' ||

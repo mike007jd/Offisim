@@ -3450,6 +3450,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           void abortRejectedBinding();
         },
         onStarted: (startedEvent) => {
+          // A direct-delegation root is an orchestration shell, not a native Pi
+          // conversation. Its exact execution identity comes from the prepared
+          // child session below; there is no root session file/id to persist or
+          // resume as plain chat.
+          if (input.directDelegation) return;
           const checkpoint = this.persistQueue.enqueueTerminalCheckpoint(
             `commit native session identity for ${runScope.runId}`,
             () =>
@@ -3801,6 +3806,10 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         }
         throw error;
       }
+      // A host error is the primary failure. Surface it before the downstream
+      // absence of an execution-prepared checkpoint can replace the cause with
+      // a generic provenance symptom.
+      if (channelError) throw channelError;
       if (executionPreparations.size === 0) {
         const abortDecision = this.abortDecisionByRequest.get(requestId);
         if (abortDecision) {
@@ -3811,12 +3820,20 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           }
         }
         if (!this.abortedRequests.has(requestId)) {
-          throw new Error('Agent runtime did not prepare the exact execution target.');
+          // Direct delegation can fail before the child prepares a model (for
+          // example, while adopting a review lease). The host still returns the
+          // child's bounded failure summary; keep that actionable cause instead
+          // of replacing it with the downstream provenance symptom.
+          const directDelegationFailure = input.directDelegation
+            ? commandResponse.text.trim()
+            : '';
+          throw new Error(
+            directDelegationFailure || 'Agent runtime did not prepare the exact execution target.',
+          );
         }
       }
       await Promise.all([...executionPreparations.values()].map((entry) => entry.promise));
       await Promise.all(startedIdentityCheckpoints);
-      if (channelError) throw channelError;
       // The sidecar may resolve its command response as soon as the retained
       // stream aborts, while Stop is still polling Rust for the authoritative
       // terminal snapshot. Join that decision before validating success-only
@@ -4009,10 +4026,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           ? err.failureKind
           : classifyRunFailure(message);
       this.flushRunStreamCursor(runScope.runId);
+      const terminalText = finalText.trim() ? finalText : message;
       const terminal: LiveConversationTerminalPayload = {
         runId: runScope.runId,
         status,
-        text: finalText,
+        text: terminalText,
         ...(reasoningText.trim() ? { reasoning: reasoningText.trim() } : {}),
         ...(failureKind ? { failureKind } : {}),
       };

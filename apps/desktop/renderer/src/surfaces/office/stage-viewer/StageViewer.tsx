@@ -10,13 +10,15 @@ import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-
 import { workbenchOf } from '@/data/git-workbench.js';
 import { useDeliverables, useGitWorkbench } from '@/data/queries.js';
 import type { TaskAccountingPresentation } from '@/data/task-accounting-presentation.js';
-import type { Deliverable, GitFileChange } from '@/data/types.js';
+import type { Deliverable } from '@/data/types.js';
+import { parseUnifiedDiffFiles } from '@/data/unified-diff.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
 import { BoardPendingReviewAutoOpen, BoardStage } from '@/surfaces/office/board/BoardStage.js';
 import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
+import { ReviewWorkbenchStage } from '@/surfaces/office/board/ReviewWorkbenchStage.js';
 import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
 import { useCodexPet } from '@/surfaces/office/scene/office-companion/CodexPetProvider.js';
@@ -64,7 +66,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
 interface StageMenuItem {
@@ -1130,6 +1132,17 @@ function ChangesView({
 }: {
   target: Extract<StageViewTarget, { kind: 'changes' }>;
 }) {
+  const setStageMaximized = useUiState((state) => state.setOfficeStageMaximized);
+  useEffect(() => setStageMaximized(true), [setStageMaximized]);
+  if (target.leaseId) {
+    return (
+      <ReviewWorkbenchStage
+        leaseId={target.leaseId}
+        initialPath={target.path}
+        fallbackFiles={target.files}
+      />
+    );
+  }
   return target.files ? (
     <LeaseChangesView target={{ ...target, files: target.files }} />
   ) : (
@@ -1144,9 +1157,10 @@ function LeaseChangesView({
     files: NonNullable<Extract<StageViewTarget, { kind: 'changes' }>['files']>;
   };
 }) {
+  const document = useMemo(() => parseUnifiedDiffFiles(target.files), [target.files]);
   return (
     <div className="off-stage-changes is-lease-review">
-      <DiffPanel files={target.files} status={target.status} initialPath={target.path} />
+      <DiffPanel document={document} mode="readonly" initialPath={target.path} />
     </div>
   );
 }
@@ -1157,35 +1171,19 @@ function WorkspaceChangesView({
   target: Extract<StageViewTarget, { kind: 'changes' }>;
 }) {
   const projectId = useUiState((s) => s.projectId);
-  const openStageView = useUiState((s) => s.openStageView);
   const git = useGitWorkbench(projectId);
   const workbench = workbenchOf(git.data);
+  const document = useMemo(
+    () => parseUnifiedDiffFiles(workbench?.diffFiles ?? []),
+    [workbench?.diffFiles],
+  );
   if (git.isLoading)
     return <StageEmpty title="Loading changes" detail="Reading workspace status." />;
   if (!workbench)
     return <StageEmpty title="No changes" detail="This project has no git workbench data." />;
   return (
     <div className="off-stage-changes">
-      <div className="off-stage-change-list">
-        {workbench.changes.map((change) => (
-          <button
-            key={change.path}
-            type="button"
-            className={cn(
-              'off-stage-change-row off-focusable',
-              target.path === change.path && 'is-active',
-            )}
-            onClick={() => openStageView({ kind: 'changes', path: change.path })}
-          >
-            <ChangeStatus change={change} />
-            <span className="off-stage-change-path">{change.path}</span>
-            <span className="off-stage-change-stat">
-              +{change.added} -{change.removed}
-            </span>
-          </button>
-        ))}
-      </div>
-      <DiffPanel files={workbench.diffFiles} status="workspace" initialPath={target.path} />
+      <DiffPanel document={document} mode="readonly" initialPath={target.path} />
     </div>
   );
 }
@@ -1203,19 +1201,5 @@ function LogsView({
     <div className="off-stage-logs">
       <WorkBench detail={target.detail} status={target.status ?? 'done'} />
     </div>
-  );
-}
-
-function ChangeStatus({ change }: { change: GitFileChange }) {
-  const glyph: Record<GitFileChange['status'], string> = {
-    added: 'A',
-    modified: 'M',
-    deleted: 'D',
-    renamed: 'R',
-  };
-  return (
-    <span className={cn('off-stage-change-status', `is-${change.status}`)}>
-      {glyph[change.status]}
-    </span>
   );
 }

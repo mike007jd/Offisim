@@ -1507,6 +1507,22 @@ assert(
   'steer/follow-up must durably journal before ACK and use SHA-256 reattach dedupe',
 );
 assert(
+  /let activeControlSession = null/.test(nodeHostSource) &&
+    /rootControlsOpen = true;[\s\S]*?directSupervisor\.runSingleWithMetadata/.test(
+      nodeHostSource,
+    ) &&
+    /onControlSessionReady/.test(nodeHostSource) &&
+    /onControlMessage: consumeRootControlMessage/.test(nodeHostSource) &&
+    /ctx\.onControlSessionReady\?\.\(runId, session\)/.test(childSupervisorSource) &&
+    /event\.message\?\.role === 'custom'[\s\S]*?ctx\.onControlMessage/.test(
+      childSupervisorSource,
+    ) &&
+    /ctx\.onControlSessionClosed\?\.\(runId, session\)/.test(childSupervisorSource) &&
+    /activeControlSession/.test(bundledNodeHostSource) &&
+    /onControlSessionReady/.test(bundledNodeHostSource),
+  'direct delegation must bind its live child session to the existing durable steer channel in source and bundle',
+);
+assert(
   /"images": req\.images/.test(executePayloadSource) &&
     /images: input\.images\?\.length \? input\.images : null/.test(desktopAgentRuntimeSource) &&
     /session\.prompt\(text, promptImages\.length > 0 \? \{ images: promptImages \}/.test(
@@ -1590,8 +1606,8 @@ assert(
     'apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx',
     'utf8',
   );
-  const workspacePanelSource = readFileSync(
-    'apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx',
+  const reviewWorkbenchStageSource = readFileSync(
+    'apps/desktop/renderer/src/surfaces/office/board/ReviewWorkbenchStage.tsx',
     'utf8',
   );
   assert(
@@ -1629,7 +1645,9 @@ assert(
       boardStageSource,
     ) &&
       /hasPendingDecision\(selectedLeases\)/.test(boardStageSource) &&
-      /pendingLeaseAction !== null/.test(workspacePanelSource),
+      /pendingAction !== null/.test(reviewWorkbenchStageSource) &&
+      /const outcome = await reviewWorkspaceLease/.test(reviewWorkbenchStageSource) &&
+      /outcome === 'discarded'/.test(reviewWorkbenchStageSource),
     'Board, compact approval, and workspace review entries must disable on shared pending state and report persisted outcomes rather than requested actions',
   );
   assert(

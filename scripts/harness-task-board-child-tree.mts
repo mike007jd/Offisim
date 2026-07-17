@@ -323,6 +323,30 @@ assert.equal(leases[0]?.terminationReason, 'stuck', 'termination reason remains 
 }
 
 {
+  const planned = buildProjectWorkspaceLeaseReviewRows(
+    [lifecycle({ leaseId: 'lease-planned' })],
+    [
+      {
+        ...(leaseEvents[0] as AgentEventRow),
+        event_id: 'evt-planned-active-owner',
+        payload_json: JSON.stringify({
+          rootRunId: 'root-a',
+          runId: 'child-a1',
+          leaseId: 'lease-planned',
+          status: 'active',
+          phase: 'planned',
+        }),
+      },
+    ],
+  );
+  assert.equal(
+    planned[0]?.status,
+    'pending_review',
+    'a completed integration plan makes an active durable lease reviewable',
+  );
+}
+
+{
   const failedAction = buildProjectWorkspaceLeaseReviewRows(
     [lifecycle({ leaseId: 'lease-action-failed' })],
     [
@@ -343,6 +367,37 @@ assert.equal(leases[0]?.terminationReason, 'stuck', 'termination reason remains 
   );
   assert.equal(failedAction[0]?.status, 'failed', 'failed review action remains Board-visible');
   assert.equal(failedAction[0]?.lastActionError, 'conflict');
+}
+
+{
+  const replayedReview = buildProjectWorkspaceLeaseReviewRows(
+    [lifecycle({ leaseId: 'lease-review-replay' })],
+    [
+      {
+        ...(leaseEvents[0] as AgentEventRow),
+        event_id: 'evt-review-replay',
+        event_type: WORKSPACE_LEASE_ACTION_EVENT,
+        payload_json: JSON.stringify({
+          rootRunId: 'root-a',
+          runId: 'child-a1',
+          leaseId: 'lease-review-replay',
+          action: 'review_steer_error',
+          status: 'pending_review',
+          review: {
+            revision: 'diff-review-replay',
+            decisions: { 'hunk-returned': 'returned' },
+            annotations: [],
+            appliedReturnAnchors: ['hunk-returned'],
+          },
+        }),
+      },
+    ],
+  );
+  assert.deepEqual(
+    replayedReview[0]?.review?.appliedReturnAnchors,
+    ['hunk-returned'],
+    'app restart must retain returned patch anchors already applied before a failed steer',
+  );
 }
 
 const crossRootReworkEvents: AgentEventRow[] = [

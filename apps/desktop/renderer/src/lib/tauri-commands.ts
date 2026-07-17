@@ -1056,6 +1056,10 @@ export interface CommandMap {
     { projectId: string; leaseId: string; path: string },
     boolean
   >;
+  workspace_lease_apply_patch: CommandSpec<
+    { projectId: string; leaseId: string; path: string; patch: string; reverse: true },
+    void
+  >;
   workspace_lease_release: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
   workspace_lease_discard: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
   workspace_checkpoint_timeline: CommandSpec<{ projectId: string }, WorkspaceCheckpointTimeline>;
