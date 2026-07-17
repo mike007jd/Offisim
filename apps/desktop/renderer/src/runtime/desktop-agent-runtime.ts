@@ -16,6 +16,7 @@ import {
 import { requireProjectWorkspaceForRun } from '@/runtime/require-project-workspace.js';
 import {
   agentRunEvent,
+  engineActivity,
   isResettableNativeSessionPrestartCode,
   llmStreamChunk,
   toolExecutionTelemetry,
@@ -34,6 +35,9 @@ import {
   type RunFailureKind,
   type RuntimeEngineCapabilityManifest,
   type RuntimeEvent,
+  WORKSPACE_DIAGNOSTICS_UPDATED_EVENT,
+  type WorkspaceDiagnostic,
+  type WorkspaceDiagnosticsUpdatedPayload,
   type WorkspaceProvenance,
   classifyRunFailure,
 } from '@offisim/shared-types';
@@ -636,6 +640,101 @@ function agentLifecycleEvent(
   return {
     type: AGENT_LIFECYCLE_EVENT,
     entityId: payload.runId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
+function parseWorkspaceDiagnosticsPayload(
+  value: unknown,
+): Omit<WorkspaceDiagnosticsUpdatedPayload, 'requestId' | 'runId' | 'childRunId'> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const path = typeof raw.path === 'string' ? raw.path.trim() : '';
+  if (!path || path.startsWith('/') || path.includes('\\') || path.split('/').includes('..')) {
+    return null;
+  }
+  if (
+    typeof raw.languageId !== 'string' ||
+    typeof raw.serverId !== 'string' ||
+    raw.source !== 'lsp' ||
+    !Number.isSafeInteger(raw.version) ||
+    Number(raw.version) < 1 ||
+    !Array.isArray(raw.diagnostics) ||
+    raw.diagnostics.length > 50 ||
+    typeof raw.message !== 'string' ||
+    typeof raw.capturedAt !== 'string'
+  ) {
+    return null;
+  }
+  const diagnostics: WorkspaceDiagnostic[] = [];
+  for (const candidate of raw.diagnostics) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+    const diagnostic = candidate as Record<string, unknown>;
+    const severity = diagnostic.severity;
+    const range = diagnostic.range;
+    if (
+      (severity !== 'error' &&
+        severity !== 'warning' &&
+        severity !== 'information' &&
+        severity !== 'hint') ||
+      typeof diagnostic.message !== 'string' ||
+      !range ||
+      typeof range !== 'object' ||
+      Array.isArray(range)
+    ) {
+      return null;
+    }
+    const typedRange = range as Record<string, unknown>;
+    const start = typedRange.start as Record<string, unknown> | undefined;
+    const end = typedRange.end as Record<string, unknown> | undefined;
+    if (
+      !start ||
+      !end ||
+      !Number.isSafeInteger(start.line) ||
+      !Number.isSafeInteger(start.column) ||
+      !Number.isSafeInteger(end.line) ||
+      !Number.isSafeInteger(end.column)
+    ) {
+      return null;
+    }
+    diagnostics.push({
+      severity,
+      message: diagnostic.message.slice(0, 1_200),
+      ...(typeof diagnostic.code === 'string' ? { code: diagnostic.code.slice(0, 120) } : {}),
+      ...(typeof diagnostic.source === 'string' ? { source: diagnostic.source.slice(0, 80) } : {}),
+      range: {
+        start: { line: Number(start.line), column: Number(start.column) },
+        end: { line: Number(end.line), column: Number(end.column) },
+      },
+    });
+  }
+  const counts = { error: 0, warning: 0, information: 0, hint: 0 };
+  for (const diagnostic of diagnostics) counts[diagnostic.severity] += 1;
+  return {
+    path,
+    languageId: raw.languageId.slice(0, 80),
+    serverId: raw.serverId.slice(0, 80),
+    source: 'lsp',
+    version: Number(raw.version),
+    diagnostics,
+    counts,
+    message: raw.message.slice(0, 1_200),
+    capturedAt: raw.capturedAt,
+  };
+}
+
+function workspaceDiagnosticsUpdatedEvent(
+  companyId: string,
+  threadId: string,
+  payload: WorkspaceDiagnosticsUpdatedPayload,
+): RuntimeEvent<WorkspaceDiagnosticsUpdatedPayload> {
+  return {
+    type: WORKSPACE_DIAGNOSTICS_UPDATED_EVENT,
+    entityId: `${payload.runId}:${payload.path}`,
     entityType: 'runtime',
     companyId,
     threadId,
@@ -1957,6 +2056,29 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       return true;
     }
     if (event.kind === 'agentRun') {
+      if (event.runType === WORKSPACE_DIAGNOSTICS_UPDATED_EVENT) {
+        const diagnostics = parseWorkspaceDiagnosticsPayload(event.payload);
+        if (!diagnostics) return true;
+        const payload: WorkspaceDiagnosticsUpdatedPayload = {
+          ...diagnostics,
+          requestId: expectedWorkspace.requestId,
+          runId: event.rootRunId,
+          ...(event.runId !== event.rootRunId ? { childRunId: event.runId } : {}),
+        };
+        this.enqueuePersist(async () => {
+          const persisted = await this.persistWorkspaceDiagnostics(
+            event,
+            expectedWorkspace.projectId,
+            payload,
+          );
+          if (persisted) {
+            runtimeEventBus.emit(
+              workspaceDiagnosticsUpdatedEvent(this.companyId, event.threadId, payload),
+            );
+          }
+        });
+        return true;
+      }
       if (event.runType === 'mcp.tool.called') {
         this.enqueuePersist(() => this.persistMcpToolCall(event, employeeId));
         return true;
@@ -1964,6 +2086,44 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       if (event.runType === 'workspace.lease.snapshot') {
         this.enqueuePersist(() =>
           this.persistWorkspaceLeaseSnapshot(event, expectedWorkspace.projectId),
+        );
+        return true;
+      }
+      if (event.runType === 'workspace.checkpoint') {
+        const payload =
+          event.payload && typeof event.payload === 'object'
+            ? (event.payload as Record<string, unknown>)
+            : {};
+        const checkpointId =
+          typeof payload.checkpointId === 'string' ? payload.checkpointId : event.runId;
+        const step = typeof payload.step === 'number' ? payload.step : null;
+        const changedPaths = Array.isArray(payload.changedPaths)
+          ? payload.changedPaths.filter((path): path is string => typeof path === 'string')
+          : [];
+        runtimeEventBus.emit(
+          engineActivity(this.companyId, event.threadId, {
+            runId: event.runId,
+            engineId:
+              this.engineId === 'codex'
+                ? 'codex-engine'
+                : this.engineId === 'claude'
+                  ? 'claude-engine'
+                  : 'openai-engine',
+            employeeId: event.employeeId ?? event.runId,
+            employeeName: event.employeeId ?? event.runId,
+            taskRunId: event.rootRunId,
+            kind: 'checkpoint',
+            status: 'completed',
+            activityId: checkpointId,
+            label: step === null ? 'Workspace checkpoint' : `Workspace checkpoint · Step ${step}`,
+            detail:
+              changedPaths.length > 0
+                ? `${changedPaths.length} changed file${changedPaths.length === 1 ? '' : 's'}`
+                : 'Workspace baseline',
+          }),
+        );
+        this.enqueuePersist(() =>
+          this.persistWorkspaceCheckpoint(event, expectedWorkspace.projectId),
         );
         return true;
       }
@@ -1989,6 +2149,16 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         return true;
       }
       if (event.runType === 'mission_state_query') return true;
+      const agentPayload =
+        event.runType === 'run.started'
+          ? {
+              ...(event.payload && typeof event.payload === 'object' ? event.payload : {}),
+              // Child run events do not carry Project identity over the Pi wire.
+              // The accepted workspace binding is the backend-verified authority
+              // used by lease registration, so persist that exact Project here.
+              projectId: expectedWorkspace.projectId,
+            }
+          : event.payload;
       const agentEvent = {
         threadId: event.threadId,
         rootRunId: event.rootRunId,
@@ -1998,7 +2168,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         ...(event.relation ? { relation: event.relation } : {}),
         ...(event.workKind ? { workKind: event.workKind } : {}),
         type: event.runType,
-        payload: event.payload,
+        payload: agentPayload,
       } as AgentRunEvent;
       if (event.runType === 'artifact.created') {
         this.enqueuePersist(() => this.persistArtifact(agentEvent, state.workspaceGate.claim));
@@ -3280,6 +3450,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           void abortRejectedBinding();
         },
         onStarted: (startedEvent) => {
+          // A direct-delegation root is an orchestration shell, not a native Pi
+          // conversation. Its exact execution identity comes from the prepared
+          // child session below; there is no root session file/id to persist or
+          // resume as plain chat.
+          if (input.directDelegation) return;
           const checkpoint = this.persistQueue.enqueueTerminalCheckpoint(
             `commit native session identity for ${runScope.runId}`,
             () =>
@@ -3636,6 +3811,10 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         }
         throw error;
       }
+      // A host error is the primary failure. Surface it before the downstream
+      // absence of an execution-prepared checkpoint can replace the cause with
+      // a generic provenance symptom.
+      if (channelError) throw channelError;
       if (executionPreparations.size === 0) {
         const abortDecision = this.abortDecisionByRequest.get(requestId);
         if (abortDecision) {
@@ -3646,12 +3825,20 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           }
         }
         if (!this.abortedRequests.has(requestId)) {
-          throw new Error('Agent runtime did not prepare the exact execution target.');
+          // Direct delegation can fail before the child prepares a model (for
+          // example, while adopting a review lease). The host still returns the
+          // child's bounded failure summary; keep that actionable cause instead
+          // of replacing it with the downstream provenance symptom.
+          const directDelegationFailure = input.directDelegation
+            ? commandResponse.text.trim()
+            : '';
+          throw new Error(
+            directDelegationFailure || 'Agent runtime did not prepare the exact execution target.',
+          );
         }
       }
       await Promise.all([...executionPreparations.values()].map((entry) => entry.promise));
       await Promise.all(startedIdentityCheckpoints);
-      if (channelError) throw channelError;
       // The sidecar may resolve its command response as soon as the retained
       // stream aborts, while Stop is still polling Rust for the authoritative
       // terminal snapshot. Join that decision before validating success-only
@@ -3844,10 +4031,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           ? err.failureKind
           : classifyRunFailure(message);
       this.flushRunStreamCursor(runScope.runId);
+      const terminalText = finalText.trim() ? finalText : message;
       const terminal: LiveConversationTerminalPayload = {
         runId: runScope.runId,
         status,
-        text: finalText,
+        text: terminalText,
         ...(reasoningText.trim() ? { reasoning: reasoningText.trim() } : {}),
         ...(failureKind ? { failureKind } : {}),
       };
@@ -4132,6 +4320,72 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         runId: event.runId,
         err,
       });
+    }
+  }
+
+  private async persistWorkspaceCheckpoint(
+    event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+    fallbackProjectId: string | null,
+  ): Promise<void> {
+    const payload =
+      event.payload && typeof event.payload === 'object'
+        ? (event.payload as Record<string, unknown>)
+        : {};
+    const projectId =
+      typeof payload.projectId === 'string' && payload.projectId.trim()
+        ? payload.projectId
+        : fallbackProjectId;
+    try {
+      await this.repos.agentEvents.append({
+        event_id:
+          typeof payload.checkpointId === 'string' ? payload.checkpointId : crypto.randomUUID(),
+        project_id: projectId,
+        thread_id: event.threadId,
+        company_id: this.companyId,
+        agent_name: event.employeeId ?? event.runId,
+        event_type: 'workspace.checkpoint',
+        payload_json: JSON.stringify({
+          ...payload,
+          rootRunId: event.rootRunId,
+          runId: event.runId,
+          parentRunId: event.parentRunId ?? null,
+        }),
+        parent_event_id: null,
+      });
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] persist workspace checkpoint failed', {
+        runId: event.runId,
+        err,
+      });
+    }
+  }
+
+  private async persistWorkspaceDiagnostics(
+    event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+    projectId: string | null,
+    payload: WorkspaceDiagnosticsUpdatedPayload,
+  ): Promise<boolean> {
+    const level =
+      payload.counts.error > 0 ? 'error' : payload.counts.warning > 0 ? 'warning' : 'clear';
+    try {
+      await this.repos.agentEvents.append({
+        event_id: crypto.randomUUID(),
+        project_id: projectId,
+        thread_id: event.threadId,
+        company_id: this.companyId,
+        agent_name: event.employeeId ?? event.runId,
+        event_type: `${WORKSPACE_DIAGNOSTICS_UPDATED_EVENT}.${level}`,
+        payload_json: JSON.stringify(payload),
+        parent_event_id: null,
+      });
+      return true;
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] persist workspace diagnostics failed', {
+        runId: event.runId,
+        path: payload.path,
+        err,
+      });
+      return false;
     }
   }
 
@@ -4481,10 +4735,16 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
       );
       let requestedModel = input.model?.trim() || undefined;
       if (!requestedModel && !durableAuthority && input.employeeId && !input.executionTarget) {
-        const context = await buildDelegationContext(this.repos, this.companyId, input.employeeId, {
-          model: undefined,
-          thinkingLevel: input.thinkingLevel,
-        });
+        const context = await buildDelegationContext(
+          this.repos,
+          this.companyId,
+          input.employeeId,
+          {
+            model: undefined,
+            thinkingLevel: input.thinkingLevel,
+          },
+          input.projectId,
+        );
         requestedModel = context.runtimeSelection.model?.trim() || undefined;
       }
       const initialSelector = input.runtimeModelRef?.trim() || input.model?.trim() || undefined;

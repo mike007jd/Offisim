@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
+use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::Runtime;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
 use crate::task_workspace_binding::{
@@ -29,6 +30,10 @@ const ALLOWED_SUBCOMMANDS: &[&str] = &[
     "clone",
     "worktree",
     "merge",
+    "read-tree",
+    "write-tree",
+    "commit-tree",
+    "update-ref",
 ];
 
 /// Blocked flags that could cause destructive operations.
@@ -40,6 +45,9 @@ const MAX_GIT_OUTPUT_BYTES: usize = 1024 * 1024;
 /// credential prompt despite GIT_TERMINAL_PROMPT=0) is killed instead of blocking
 /// the IPC handler forever.
 const GIT_EXEC_TIMEOUT: Duration = Duration::from_secs(120);
+const WORKSPACE_LEASE_PATCH_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_WORKSPACE_LEASE_PATCH_BYTES: usize = 1024 * 1024;
+const MAX_WORKSPACE_LEASE_CANONICAL_DIFF_BYTES: usize = 32 * 1024 * 1024;
 static WORKSPACE_LEASE_MUTATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 async fn lock_workspace_lease_mutation() -> tokio::sync::MutexGuard<'static, ()> {
@@ -672,6 +680,48 @@ pub struct WorkspaceLeaseLifecycleRow {
     owner_binding_status: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceCheckpointRow {
+    checkpoint_id: String,
+    lease_id: String,
+    project_id: String,
+    run_id: String,
+    thread_id: Option<String>,
+    root_run_id: String,
+    workspace_root: String,
+    cwd: String,
+    branch: String,
+    step: i64,
+    #[serde(rename = "ref")]
+    checkpoint_ref: String,
+    trigger_tool: String,
+    trigger_tool_call_id: Option<String>,
+    created_at: String,
+    changed_paths: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceCheckpointRollbackRow {
+    rollback_id: String,
+    lease_id: String,
+    project_id: String,
+    checkpoint_id: String,
+    target_step: i64,
+    target_ref: String,
+    actor: String,
+    rolled_back_at: String,
+    changed_paths: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceCheckpointTimeline {
+    checkpoints: Vec<WorkspaceCheckpointRow>,
+    rollbacks: Vec<WorkspaceCheckpointRollbackRow>,
+}
+
 const MAX_WORKSPACE_LEASE_TERMINAL_PROJECTION_ROWS: i64 = 100;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -702,7 +752,13 @@ fn is_allowed(args: &[String], root: &Path) -> Result<(), String> {
 
     match subcommand.as_str() {
         "status" => validate_status(args),
-        "add" => validate_pathspec_command(args, root, "git add"),
+        "add" => {
+            if is_checkpoint_add(args) {
+                Ok(())
+            } else {
+                validate_pathspec_command(args, root, "git add")
+            }
+        }
         "commit" => validate_commit(args, root),
         "diff" => validate_diff(args, root),
         "log" => validate_log(args, root),
@@ -724,8 +780,89 @@ fn is_allowed(args: &[String], root: &Path) -> Result<(), String> {
         }
         "worktree" => validate_worktree(args, root),
         "merge" => validate_merge(args),
+        "read-tree" => validate_checkpoint_read_tree(args),
+        "write-tree" => validate_checkpoint_write_tree(args),
+        "commit-tree" => validate_checkpoint_commit_tree(args),
+        "update-ref" => validate_checkpoint_update_ref(args),
         _ => Err(format!("Git subcommand '{}' is not allowed", subcommand)),
     }
+}
+
+const CHECKPOINT_REF_PREFIX: &str = "refs/offisim/checkpoints/";
+
+fn validate_checkpoint_ref(value: &str) -> Result<(), String> {
+    validate_git_ref(value, "checkpoint ref")?;
+    if !value.starts_with(CHECKPOINT_REF_PREFIX) {
+        return Err(format!(
+            "checkpoint ref must start with {CHECKPOINT_REF_PREFIX}"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_checkpoint_read_tree(args: &[String]) -> Result<(), String> {
+    let tail: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    match tail.as_slice() {
+        [revision] if *revision == "HEAD" || is_full_git_sha(revision) => Ok(()),
+        ["--reset", "-u", revision] if is_full_git_sha(revision) => Ok(()),
+        _ => Err(
+            "git read-tree is restricted to checkpoint tree load/reset with HEAD or a full commit id"
+                .into(),
+        ),
+    }
+}
+
+fn validate_checkpoint_write_tree(args: &[String]) -> Result<(), String> {
+    if args.len() == 1 {
+        Ok(())
+    } else {
+        Err("git write-tree does not accept arguments in the checkpoint lane".into())
+    }
+}
+
+fn validate_checkpoint_commit_tree(args: &[String]) -> Result<(), String> {
+    if args.len() != 6
+        || !is_full_git_sha(&args[1])
+        || args.get(2).map(String::as_str) != Some("-p")
+        || !is_full_git_sha(&args[3])
+        || args.get(4).map(String::as_str) != Some("-m")
+    {
+        return Err(
+            "git commit-tree is restricted to: commit-tree <tree> -p <parent> -m <message>".into(),
+        );
+    }
+    reject_option_like_value(&args[5], "checkpoint commit message")
+}
+
+fn validate_checkpoint_update_ref(args: &[String]) -> Result<(), String> {
+    let tail: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    match tail.as_slice() {
+        [reference, object_id] if is_full_git_sha(object_id) => validate_checkpoint_ref(reference),
+        [reference, object_id, old_object_id]
+            if is_full_git_sha(object_id) && is_full_git_sha(old_object_id) =>
+        {
+            validate_checkpoint_ref(reference)
+        }
+        ["-d", reference, old_object_id] if is_full_git_sha(old_object_id) => {
+            validate_checkpoint_ref(reference)
+        }
+        _ => Err(
+            "git update-ref is restricted to create/CAS/delete below refs/offisim/checkpoints/"
+                .into(),
+        ),
+    }
+}
+
+fn is_checkpoint_plumbing(args: &[String]) -> bool {
+    is_checkpoint_add(args)
+        || matches!(
+            args.first().map(String::as_str),
+            Some("read-tree" | "write-tree" | "commit-tree" | "update-ref")
+        )
+}
+
+fn is_checkpoint_add(args: &[String]) -> bool {
+    args.iter().map(String::as_str).collect::<Vec<_>>() == ["add", "--all", "--", "."]
 }
 
 fn git_target_parent_scope(
@@ -931,6 +1068,11 @@ pub async fn git_exec<R: Runtime>(
             "git worktree lifecycle requires a backend-registered workspace lease command".into(),
         );
     }
+    if is_checkpoint_plumbing(&args) {
+        return Err(
+            "git checkpoint plumbing requires a backend-registered workspace lease command".into(),
+        );
+    }
     let root_authority = if binding_claim.is_some() || evaluation_lease.is_some() {
         validate_binding_git_args(&args)?;
         if cwd.as_deref().is_some_and(|value| !value.is_empty()) {
@@ -1031,6 +1173,660 @@ pub async fn workspace_lease_changed<R: Runtime>(
 ) -> Result<bool, String> {
     registered_workspace_lease_changed_for_project(&app, &project_id, &lease_id, Path::new(&path))
         .await
+}
+
+#[tauri::command]
+pub async fn workspace_lease_apply_patch<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+    lease_id: String,
+    path: String,
+    patch: String,
+    reverse: bool,
+) -> Result<(), String> {
+    validate_workspace_lease_patch_input(&lease_id, &patch, reverse)?;
+    let _mutation_guard = lock_workspace_lease_mutation().await;
+    let root = match project_workspace_root(&app, &project_id).await {
+        Ok(root) => root,
+        Err(error) => {
+            let pool = crate::local_db::get_offisim_pool(&app)?;
+            return Err(invalidate_registered_workspace_lease(
+                &pool,
+                &project_id,
+                &lease_id,
+                format!("Resolve registered workspace lease Project: {error}"),
+            )
+            .await);
+        }
+    };
+    let pool = crate::local_db::get_offisim_pool(&app)?;
+    apply_workspace_lease_patch_from_pool(
+        &pool,
+        &project_id,
+        root.git_root(),
+        &lease_id,
+        Path::new(&path),
+        &patch,
+        reverse,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn workspace_checkpoint_timeline<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+) -> Result<WorkspaceCheckpointTimeline, String> {
+    if project_id.trim().is_empty() {
+        return Err("workspace_checkpoint_timeline requires a Project id".into());
+    }
+    let pool = crate::local_db::get_offisim_pool(&app)?;
+    workspace_checkpoint_timeline_from_pool(&pool, &project_id).await
+}
+
+#[tauri::command]
+pub async fn workspace_checkpoint_rollback<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+    lease_id: String,
+    path: String,
+    checkpoint_id: String,
+    actor: String,
+) -> Result<WorkspaceCheckpointRollbackRow, String> {
+    rollback_registered_workspace_checkpoint_for_project(
+        &app,
+        &project_id,
+        &lease_id,
+        Path::new(&path),
+        &checkpoint_id,
+        &actor,
+    )
+    .await
+}
+
+struct CheckpointIndexDir {
+    dir: PathBuf,
+    index: PathBuf,
+}
+
+impl CheckpointIndexDir {
+    fn create() -> Result<Self, String> {
+        for _ in 0..8 {
+            let dir = std::env::temp_dir().join(format!(
+                "offisim-checkpoint-index-{}-{:032x}",
+                std::process::id(),
+                rand::random::<u128>()
+            ));
+            match std::fs::create_dir(&dir) {
+                Ok(()) => {
+                    return Ok(Self {
+                        index: dir.join("index"),
+                        dir,
+                    });
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(format!("Create checkpoint index directory: {error}")),
+            }
+        }
+        Err("Could not reserve a checkpoint index directory".into())
+    }
+}
+
+impl Drop for CheckpointIndexDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+fn checkpoint_ref(lease_id: &str, step: i64) -> Result<String, String> {
+    if lease_id.is_empty() || sanitize_workspace_ref(lease_id) != lease_id || step < 0 {
+        return Err("Checkpoint requires a valid lease id and non-negative step".into());
+    }
+    let reference = format!("{CHECKPOINT_REF_PREFIX}{lease_id}/{step}");
+    validate_checkpoint_ref(&reference)?;
+    Ok(reference)
+}
+
+fn checkpoint_git_error(result: GitResult, action: &str) -> String {
+    let detail = if result.stderr.trim().is_empty() {
+        result.stdout.trim()
+    } else {
+        result.stderr.trim()
+    };
+    if detail.is_empty() {
+        format!("{action} failed")
+    } else {
+        format!("{action} failed: {detail}")
+    }
+}
+
+fn checkpoint_oid(result: GitResult, action: &str) -> Result<String, String> {
+    if !result.ok {
+        return Err(checkpoint_git_error(result, action));
+    }
+    let oid = result.stdout.trim();
+    if !is_full_git_sha(oid) {
+        return Err(format!("{action} returned an invalid object id"));
+    }
+    Ok(oid.to_string())
+}
+
+async fn run_checkpoint_git(
+    execution: &GitExecutionScope,
+    args: Vec<String>,
+    index: Option<&Path>,
+    commit_date: Option<&str>,
+) -> Result<GitResult, String> {
+    is_allowed(&args, &execution.root_path)?;
+    let mut command = Command::new("git");
+    command.args(&args).env_clear().envs(scrubbed_git_env());
+    if let Some(index) = index {
+        command.env("GIT_INDEX_FILE", index);
+    }
+    if let Some(date) = commit_date {
+        command
+            .env("GIT_AUTHOR_NAME", "Offisim Checkpoint")
+            .env("GIT_AUTHOR_EMAIL", "checkpoint@offisim.local")
+            .env("GIT_COMMITTER_NAME", "Offisim Checkpoint")
+            .env("GIT_COMMITTER_EMAIL", "checkpoint@offisim.local")
+            .env("GIT_AUTHOR_DATE", date)
+            .env("GIT_COMMITTER_DATE", date);
+    }
+    execution.bind_command(&mut command)?;
+    let result = run_git_capped_machine(command, GIT_EXEC_TIMEOUT, MAX_GIT_OUTPUT_BYTES).await?;
+    execution.verify_live()?;
+    Ok(result)
+}
+
+async fn checkpoint_index_tree(
+    execution: &GitExecutionScope,
+    index: &Path,
+) -> Result<String, String> {
+    let read = run_checkpoint_git(
+        execution,
+        vec!["read-tree".into(), "HEAD".into()],
+        Some(index),
+        None,
+    )
+    .await?;
+    if !read.ok {
+        return Err(checkpoint_git_error(read, "Initialize checkpoint index"));
+    }
+    let add = run_checkpoint_git(
+        execution,
+        vec!["add".into(), "--all".into(), "--".into(), ".".into()],
+        Some(index),
+        None,
+    )
+    .await?;
+    if !add.ok {
+        return Err(checkpoint_git_error(add, "Stage checkpoint tree"));
+    }
+    checkpoint_oid(
+        run_checkpoint_git(execution, vec!["write-tree".into()], Some(index), None).await?,
+        "Write checkpoint tree",
+    )
+}
+
+fn nul_paths(output: &str) -> Vec<String> {
+    output
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+async fn diff_checkpoint_paths(
+    execution: &GitExecutionScope,
+    from: &str,
+    to: &str,
+) -> Result<Vec<String>, String> {
+    let result = run_checkpoint_git(
+        execution,
+        vec![
+            "diff".into(),
+            "--name-only".into(),
+            "-z".into(),
+            from.into(),
+            to.into(),
+        ],
+        None,
+        None,
+    )
+    .await?;
+    if !result.ok {
+        return Err(checkpoint_git_error(result, "Compare checkpoint trees"));
+    }
+    Ok(nul_paths(&result.stdout))
+}
+
+async fn resolve_checkpoint_ref(
+    execution: &GitExecutionScope,
+    reference: &str,
+) -> Result<String, String> {
+    validate_checkpoint_ref(reference)?;
+    checkpoint_oid(
+        run_checkpoint_git(
+            execution,
+            vec!["rev-parse".into(), "--verify".into(), reference.into()],
+            None,
+            None,
+        )
+        .await?,
+        "Resolve checkpoint ref",
+    )
+}
+
+fn decode_changed_paths(json: String) -> Result<Vec<String>, String> {
+    serde_json::from_str::<Vec<String>>(&json)
+        .map_err(|error| format!("Decode checkpoint changed paths: {error}"))
+}
+
+async fn workspace_checkpoint_timeline_from_pool(
+    pool: &SqlitePool,
+    project_id: &str,
+) -> Result<WorkspaceCheckpointTimeline, String> {
+    let checkpoint_rows = sqlx::query(
+        r#"
+        SELECT checkpoint.checkpoint_id, checkpoint.lease_id, lease.project_id,
+               checkpoint.run_id, binding.thread_id, lease.created_root_run_id,
+               binding.canonical_root, lease.canonical_worktree, lease.branch,
+               checkpoint.step, checkpoint.checkpoint_ref, checkpoint.trigger_tool,
+               checkpoint.trigger_tool_call_id, checkpoint.created_at,
+               checkpoint.changed_paths_json
+        FROM workspace_checkpoints AS checkpoint
+        JOIN task_workspace_lease_history AS lease ON lease.lease_id = checkpoint.lease_id
+        JOIN task_workspace_binding_history AS binding ON binding.binding_id = lease.created_binding_id
+        WHERE lease.project_id = ?
+        ORDER BY checkpoint.created_at DESC, checkpoint.step DESC
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| format!("Read workspace checkpoints: {error}"))?;
+    let mut checkpoints = Vec::with_capacity(checkpoint_rows.len());
+    for row in checkpoint_rows {
+        checkpoints.push(WorkspaceCheckpointRow {
+            checkpoint_id: row.try_get("checkpoint_id").map_err(|e| e.to_string())?,
+            lease_id: row.try_get("lease_id").map_err(|e| e.to_string())?,
+            project_id: row.try_get("project_id").map_err(|e| e.to_string())?,
+            run_id: row.try_get("run_id").map_err(|e| e.to_string())?,
+            thread_id: row.try_get("thread_id").map_err(|e| e.to_string())?,
+            root_run_id: row
+                .try_get("created_root_run_id")
+                .map_err(|e| e.to_string())?,
+            workspace_root: row.try_get("canonical_root").map_err(|e| e.to_string())?,
+            cwd: row
+                .try_get("canonical_worktree")
+                .map_err(|e| e.to_string())?,
+            branch: row.try_get("branch").map_err(|e| e.to_string())?,
+            step: row.try_get("step").map_err(|e| e.to_string())?,
+            checkpoint_ref: row.try_get("checkpoint_ref").map_err(|e| e.to_string())?,
+            trigger_tool: row.try_get("trigger_tool").map_err(|e| e.to_string())?,
+            trigger_tool_call_id: row
+                .try_get("trigger_tool_call_id")
+                .map_err(|e| e.to_string())?,
+            created_at: row.try_get("created_at").map_err(|e| e.to_string())?,
+            changed_paths: decode_changed_paths(
+                row.try_get("changed_paths_json")
+                    .map_err(|e| e.to_string())?,
+            )?,
+        });
+    }
+    let rollback_rows = sqlx::query(
+        r#"
+        SELECT rollback.rollback_id, rollback.lease_id, lease.project_id,
+               rollback.checkpoint_id, rollback.target_step, rollback.target_ref,
+               rollback.actor, rollback.rolled_back_at, rollback.changed_paths_json
+        FROM workspace_checkpoint_rollbacks AS rollback
+        JOIN task_workspace_lease_history AS lease ON lease.lease_id = rollback.lease_id
+        WHERE lease.project_id = ? AND rollback.status = 'completed'
+        ORDER BY rollback.rolled_back_at DESC
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| format!("Read workspace checkpoint rollbacks: {error}"))?;
+    let mut rollbacks = Vec::with_capacity(rollback_rows.len());
+    for row in rollback_rows {
+        rollbacks.push(WorkspaceCheckpointRollbackRow {
+            rollback_id: row.try_get("rollback_id").map_err(|e| e.to_string())?,
+            lease_id: row.try_get("lease_id").map_err(|e| e.to_string())?,
+            project_id: row.try_get("project_id").map_err(|e| e.to_string())?,
+            checkpoint_id: row.try_get("checkpoint_id").map_err(|e| e.to_string())?,
+            target_step: row.try_get("target_step").map_err(|e| e.to_string())?,
+            target_ref: row.try_get("target_ref").map_err(|e| e.to_string())?,
+            actor: row.try_get("actor").map_err(|e| e.to_string())?,
+            rolled_back_at: row.try_get("rolled_back_at").map_err(|e| e.to_string())?,
+            changed_paths: decode_changed_paths(
+                row.try_get("changed_paths_json")
+                    .map_err(|e| e.to_string())?,
+            )?,
+        });
+    }
+    Ok(WorkspaceCheckpointTimeline {
+        checkpoints,
+        rollbacks,
+    })
+}
+
+pub(crate) async fn create_registered_workspace_checkpoint<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    binding: &TaskWorkspaceBinding,
+    path: &Path,
+    run_id: &str,
+    trigger_tool: &str,
+    trigger_tool_call_id: Option<&str>,
+    created_at: &str,
+) -> Result<Option<WorkspaceCheckpointRow>, String> {
+    let _guard = lock_workspace_lease_mutation().await;
+    let lease_id = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| "Workspace checkpoint path has no lease id".to_string())?;
+    let run_id = run_id.trim();
+    let trigger_tool = trigger_tool.trim();
+    let created_at = created_at.trim();
+    if run_id.is_empty() || run_id.len() > 256 {
+        return Err("Workspace checkpoint requires a bounded run id".into());
+    }
+    if trigger_tool.is_empty() || trigger_tool.len() > 128 {
+        return Err("Workspace checkpoint requires a bounded trigger tool".into());
+    }
+    if created_at.is_empty() || created_at.len() > 64 {
+        return Err("Workspace checkpoint requires a bounded timestamp".into());
+    }
+    if trigger_tool_call_id.is_some_and(|value| value.trim().is_empty() || value.len() > 256) {
+        return Err("Workspace checkpoint tool call id is invalid".into());
+    }
+
+    let pool = crate::local_db::get_offisim_pool(app)?;
+    let lease = load_registered_workspace_lease_from_pool(
+        &pool,
+        &binding.project_id,
+        &binding.canonical_root,
+        lease_id,
+        Some(path),
+        None,
+        Some(&binding.binding_id),
+    )
+    .await?;
+    let (_, execution) = registered_workspace_lease_scopes(
+        &pool,
+        &binding.project_id,
+        &binding.canonical_root,
+        &lease,
+    )
+    .await?;
+    let latest = sqlx::query(
+        "SELECT step, checkpoint_ref FROM workspace_checkpoints WHERE lease_id = ? ORDER BY step DESC LIMIT 1",
+    )
+    .bind(lease_id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|error| format!("Read latest workspace checkpoint: {error}"))?;
+    let (step, parent) = if let Some(row) = latest {
+        let step: i64 = row
+            .try_get("step")
+            .map_err(|error| format!("Decode latest checkpoint step: {error}"))?;
+        let reference: String = row
+            .try_get("checkpoint_ref")
+            .map_err(|error| format!("Decode latest checkpoint ref: {error}"))?;
+        (
+            step + 1,
+            resolve_checkpoint_ref(&execution, &reference).await?,
+        )
+    } else {
+        let head = checkpoint_oid(
+            run_checkpoint_git(
+                &execution,
+                vec!["rev-parse".into(), "HEAD".into()],
+                None,
+                None,
+            )
+            .await?,
+            "Resolve checkpoint baseline",
+        )?;
+        (0, head)
+    };
+    let index = CheckpointIndexDir::create()?;
+    let tree = checkpoint_index_tree(&execution, &index.index).await?;
+    let message = format!("offisim checkpoint {lease_id} step {step} ({trigger_tool})");
+    let commit = checkpoint_oid(
+        run_checkpoint_git(
+            &execution,
+            vec![
+                "commit-tree".into(),
+                tree,
+                "-p".into(),
+                parent.clone(),
+                "-m".into(),
+                message,
+            ],
+            Some(&index.index),
+            Some(created_at),
+        )
+        .await?,
+        "Create checkpoint commit",
+    )?;
+    let changed_paths = diff_checkpoint_paths(&execution, &parent, &commit).await?;
+    if step > 0 && changed_paths.is_empty() {
+        return Ok(None);
+    }
+    let reference = checkpoint_ref(lease_id, step)?;
+    let update = run_checkpoint_git(
+        &execution,
+        vec!["update-ref".into(), reference.clone(), commit.clone()],
+        None,
+        None,
+    )
+    .await?;
+    if !update.ok {
+        return Err(checkpoint_git_error(update, "Create checkpoint ref"));
+    }
+    let checkpoint_id = format!("checkpoint:{lease_id}:{step}");
+    let changed_paths_json = serde_json::to_string(&changed_paths)
+        .map_err(|error| format!("Encode checkpoint changed paths: {error}"))?;
+    if let Err(error) = sqlx::query(
+        r#"INSERT INTO workspace_checkpoints
+           (checkpoint_id, lease_id, run_id, step, checkpoint_ref, trigger_tool,
+            trigger_tool_call_id, changed_paths_json, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+    )
+    .bind(&checkpoint_id)
+    .bind(lease_id)
+    .bind(run_id)
+    .bind(step)
+    .bind(&reference)
+    .bind(trigger_tool)
+    .bind(trigger_tool_call_id)
+    .bind(&changed_paths_json)
+    .bind(created_at)
+    .execute(&pool)
+    .await
+    {
+        let _ = run_checkpoint_git(
+            &execution,
+            vec!["update-ref".into(), "-d".into(), reference.clone(), commit],
+            None,
+            None,
+        )
+        .await;
+        return Err(format!("Persist workspace checkpoint: {error}"));
+    }
+    let timeline = workspace_checkpoint_timeline_from_pool(&pool, &binding.project_id).await?;
+    timeline
+        .checkpoints
+        .into_iter()
+        .find(|checkpoint| checkpoint.checkpoint_id == checkpoint_id)
+        .map(Some)
+        .ok_or_else(|| "Persisted workspace checkpoint could not be read back".to_string())
+}
+
+pub(crate) async fn list_registered_workspace_checkpoints<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    binding: &TaskWorkspaceBinding,
+    path: &Path,
+) -> Result<Vec<WorkspaceCheckpointRow>, String> {
+    let lease_id = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| "Workspace checkpoint path has no lease id".to_string())?;
+    let pool = crate::local_db::get_offisim_pool(app)?;
+    let lease = load_registered_workspace_lease_from_pool(
+        &pool,
+        &binding.project_id,
+        &binding.canonical_root,
+        lease_id,
+        Some(path),
+        None,
+        Some(&binding.binding_id),
+    )
+    .await?;
+    let (_, execution) = registered_workspace_lease_scopes(
+        &pool,
+        &binding.project_id,
+        &binding.canonical_root,
+        &lease,
+    )
+    .await?;
+    let timeline = workspace_checkpoint_timeline_from_pool(&pool, &binding.project_id).await?;
+    let checkpoints: Vec<_> = timeline
+        .checkpoints
+        .into_iter()
+        .filter(|checkpoint| checkpoint.lease_id == lease_id)
+        .collect();
+    for checkpoint in &checkpoints {
+        resolve_checkpoint_ref(&execution, &checkpoint.checkpoint_ref).await?;
+    }
+    Ok(checkpoints)
+}
+
+async fn rollback_registered_workspace_checkpoint_for_project<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    project_id: &str,
+    lease_id: &str,
+    path: &Path,
+    checkpoint_id: &str,
+    actor: &str,
+) -> Result<WorkspaceCheckpointRollbackRow, String> {
+    let _guard = lock_workspace_lease_mutation().await;
+    let actor = actor.trim();
+    if actor.is_empty() || actor.len() > 128 {
+        return Err("Workspace checkpoint rollback requires a bounded actor".into());
+    }
+    let root = project_workspace_root(app, project_id).await?;
+    let pool = crate::local_db::get_offisim_pool(app)?;
+    let lease = load_registered_workspace_lease_from_pool(
+        &pool,
+        project_id,
+        root.git_root(),
+        lease_id,
+        Some(path),
+        None,
+        None,
+    )
+    .await?;
+    let (_, execution) =
+        registered_workspace_lease_scopes(&pool, project_id, root.git_root(), &lease).await?;
+    let target = sqlx::query(
+        "SELECT checkpoint_id, step, checkpoint_ref FROM workspace_checkpoints WHERE checkpoint_id = ? AND lease_id = ?",
+    )
+    .bind(checkpoint_id)
+    .bind(lease_id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|error| format!("Read rollback checkpoint: {error}"))?
+    .ok_or_else(|| "The selected checkpoint does not belong to this workspace lease".to_string())?;
+    let target_step: i64 = target
+        .try_get("step")
+        .map_err(|error| format!("Decode rollback checkpoint step: {error}"))?;
+    let target_ref: String = target
+        .try_get("checkpoint_ref")
+        .map_err(|error| format!("Decode rollback checkpoint ref: {error}"))?;
+    if checkpoint_ref(lease_id, target_step)? != target_ref {
+        return Err("The selected checkpoint ref does not match its durable step".into());
+    }
+    let target_oid = resolve_checkpoint_ref(&execution, &target_ref).await?;
+    let index = CheckpointIndexDir::create()?;
+    let current_tree = checkpoint_index_tree(&execution, &index.index).await?;
+    let changed_paths = diff_checkpoint_paths(&execution, &target_oid, &current_tree).await?;
+    let changed_paths_json = serde_json::to_string(&changed_paths)
+        .map_err(|error| format!("Encode rollback changed paths: {error}"))?;
+    let rolled_back_at = unix_ms_to_rfc3339(git_now_unix_ms()?);
+    let rollback_id = format!(
+        "rollback:{lease_id}:{}:{:016x}",
+        git_now_unix_ms()?,
+        rand::random::<u64>()
+    );
+    sqlx::query(
+        r#"INSERT INTO workspace_checkpoint_rollbacks
+           (rollback_id, lease_id, checkpoint_id, target_step, target_ref, actor,
+            changed_paths_json, rolled_back_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')"#,
+    )
+    .bind(&rollback_id)
+    .bind(lease_id)
+    .bind(checkpoint_id)
+    .bind(target_step)
+    .bind(&target_ref)
+    .bind(actor)
+    .bind(&changed_paths_json)
+    .bind(&rolled_back_at)
+    .execute(&pool)
+    .await
+    .map_err(|error| format!("Prepare workspace checkpoint rollback audit: {error}"))?;
+    let reset = run_checkpoint_git(
+        &execution,
+        vec![
+            "read-tree".into(),
+            "--reset".into(),
+            "-u".into(),
+            target_oid,
+        ],
+        Some(&index.index),
+        None,
+    )
+    .await;
+    if let Err(error) = reset.and_then(|result| {
+        if result.ok {
+            Ok(result)
+        } else {
+            Err(checkpoint_git_error(result, "Restore checkpoint tree"))
+        }
+    }) {
+        let _ = sqlx::query(
+            "UPDATE workspace_checkpoint_rollbacks SET status = 'failed' WHERE rollback_id = ? AND status = 'pending'",
+        )
+        .bind(&rollback_id)
+        .execute(&pool)
+        .await;
+        return Err(error);
+    }
+    execution.verify_live()?;
+    let updated = sqlx::query(
+        "UPDATE workspace_checkpoint_rollbacks SET status = 'completed' WHERE rollback_id = ? AND status = 'pending'",
+    )
+    .bind(&rollback_id)
+    .execute(&pool)
+    .await
+    .map_err(|error| format!("Complete workspace checkpoint rollback audit: {error}"))?;
+    if updated.rows_affected() != 1 {
+        return Err("Workspace checkpoint rollback audit changed concurrently".into());
+    }
+    Ok(WorkspaceCheckpointRollbackRow {
+        rollback_id,
+        lease_id: lease_id.to_string(),
+        project_id: project_id.to_string(),
+        checkpoint_id: checkpoint_id.to_string(),
+        target_step,
+        target_ref,
+        actor: actor.to_string(),
+        rolled_back_at,
+        changed_paths,
+    })
 }
 
 /// G3: spawn git, stream stdout/stderr each capped at `max_bytes` (so a flood
@@ -1192,6 +1988,112 @@ async fn run_git_capped_with_stdout_policy(
         ok: status.success(),
         stdout,
         stderr: finalize_git_output(&err_bytes, err_trunc),
+    })
+}
+
+/// Dedicated bounded stdin lane for `git apply`. The public Git runner keeps
+/// stdin closed, so patch bytes can never leak into its broader command surface.
+async fn run_git_patch_capped(
+    mut command: Command,
+    patch: Vec<u8>,
+    stdout_policy: GitStdoutPolicy,
+) -> Result<GitResult, String> {
+    configure_git_process_group(&mut command);
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("Failed to execute workspace lease patch command: {error}"))?;
+    let process_group_id = child.id();
+    let mut process_group_guard = GitProcessGroupGuard(process_group_id);
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| "git apply stdin pipe unavailable".to_string())?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "git apply stdout pipe unavailable".to_string())?;
+    let mut stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| "git apply stderr pipe unavailable".to_string())?;
+
+    let stdin_task = tokio::spawn(async move {
+        stdin.write_all(&patch).await?;
+        stdin.shutdown().await
+    });
+    let stdout_task =
+        tokio::spawn(async move { read_capped(&mut stdout, MAX_GIT_OUTPUT_BYTES).await });
+    let stderr_task =
+        tokio::spawn(async move { read_capped(&mut stderr, MAX_GIT_OUTPUT_BYTES).await });
+
+    let status = match tokio::time::timeout(WORKSPACE_LEASE_PATCH_TIMEOUT, child.wait()).await {
+        Ok(result) => result.map_err(|error| format!("git apply wait failed: {error}"))?,
+        Err(_) => {
+            stdin_task.abort();
+            stdout_task.abort();
+            stderr_task.abort();
+            terminate_git_process_group(&mut child, process_group_id).await;
+            process_group_guard.disarm();
+            return Err(format!(
+                "git apply timed out after {}s",
+                WORKSPACE_LEASE_PATCH_TIMEOUT.as_secs()
+            ));
+        }
+    };
+
+    let stdin_result = stdin_task
+        .await
+        .map_err(|error| format!("git apply stdin task failed: {error}"))?;
+    if status.success() {
+        stdin_result.map_err(|error| format!("Write git apply patch: {error}"))?;
+    }
+
+    let mut drain_task = tokio::spawn(async move { tokio::join!(stdout_task, stderr_task) });
+    let drained = tokio::time::timeout(Duration::from_millis(100), &mut drain_task).await;
+    let (out_join, err_join) = match drained {
+        Ok(results) => {
+            terminate_git_process_group(&mut child, process_group_id).await;
+            results.map_err(|error| format!("git apply output drain task failed: {error}"))?
+        }
+        Err(_) => {
+            terminate_git_process_group(&mut child, process_group_id).await;
+            match tokio::time::timeout(Duration::from_secs(1), &mut drain_task).await {
+                Ok(result) => result
+                    .map_err(|error| format!("git apply output drain task failed: {error}"))?,
+                Err(_) => {
+                    drain_task.abort();
+                    let _ = drain_task.await;
+                    return Err(
+                        "git apply output pipes did not close after process-group termination"
+                            .into(),
+                    );
+                }
+            }
+        }
+    };
+    process_group_guard.disarm();
+    let (out_bytes, out_truncated) = out_join
+        .map_err(|error| format!("git apply stdout reader task failed: {error}"))?
+        .map_err(|error| format!("git apply stdout read failed: {error}"))?;
+    let (err_bytes, err_truncated) = err_join
+        .map_err(|error| format!("git apply stderr reader task failed: {error}"))?
+        .map_err(|error| format!("git apply stderr read failed: {error}"))?;
+    if stdout_policy == GitStdoutPolicy::MachineExact && out_truncated {
+        return Err("Git apply machine output exceeded its byte limit".into());
+    }
+    let stdout = match (stdout_policy, status.success()) {
+        (GitStdoutPolicy::MachineExact, true) => finalize_git_machine_output(&out_bytes, false)?,
+        _ => finalize_git_output(&out_bytes, out_truncated),
+    };
+    Ok(GitResult {
+        ok: status.success(),
+        stdout,
+        stderr: finalize_git_output(&err_bytes, err_truncated),
     })
 }
 
@@ -1700,6 +2602,12 @@ fn validate_diff(args: &[String], root: &Path) -> Result<(), String> {
         }
         return Err("git diff base revision must be a full hex commit id".into());
     }
+    if let ["--name-only", "-z", base, target] = tail.as_slice() {
+        if is_full_git_sha(base) && is_full_git_sha(target) {
+            return Ok(());
+        }
+        return Err("git diff checkpoint revisions must be full hex commit ids".into());
+    }
     if tail.len() >= 5
         && tail[0].starts_with("--unified=")
         && is_full_git_sha(tail[1])
@@ -1810,6 +2718,7 @@ fn validate_rev_parse(args: &[String]) -> Result<(), String> {
         | ["--show-toplevel"]
         | ["--short", "HEAD"]
         | ["HEAD"] => Ok(()),
+        ["--verify", reference] => validate_checkpoint_ref(reference),
         _ => Err("git rev-parse arguments are not allowed".into()),
     }
 }
@@ -3169,6 +4078,529 @@ async fn registered_workspace_lease_scopes(
     }
 }
 
+fn validate_workspace_lease_patch_input(
+    lease_id: &str,
+    patch: &str,
+    reverse: bool,
+) -> Result<(), String> {
+    if lease_id.trim().is_empty() || sanitize_workspace_ref(lease_id) != lease_id {
+        return Err("Invalid workspace lease id".into());
+    }
+    if !reverse {
+        return Err(
+            "Workspace review patches only support reverse application inside the lease worktree"
+                .into(),
+        );
+    }
+    if patch.trim().is_empty() {
+        return Err("Workspace review patch is empty".into());
+    }
+    if patch.len() > MAX_WORKSPACE_LEASE_PATCH_BYTES {
+        return Err(format!(
+            "Workspace review patch exceeds the {} byte limit",
+            MAX_WORKSPACE_LEASE_PATCH_BYTES
+        ));
+    }
+    if patch.as_bytes().contains(&0) {
+        return Err("Workspace review patch contains a NUL byte".into());
+    }
+    Ok(())
+}
+
+fn validate_workspace_lease_patch_path(path: &str) -> Result<(), String> {
+    if path.is_empty() {
+        return Err("Workspace review patch contains an empty path".into());
+    }
+    let path = Path::new(path);
+    if path.is_absolute() {
+        return Err("Workspace review patch paths must be relative".into());
+    }
+    for component in path.components() {
+        let Component::Normal(segment) = component else {
+            return Err("Workspace review patch paths cannot contain '.' or '..' segments".into());
+        };
+        if segment.to_str().is_some_and(|segment| {
+            segment.eq_ignore_ascii_case(".git") || segment.eq_ignore_ascii_case(".offisim")
+        }) {
+            return Err("Workspace review patch cannot modify .git or .offisim".into());
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+struct WorkspaceReviewPatchSection {
+    full: String,
+    headers: String,
+    hunks: Vec<String>,
+}
+
+fn trim_workspace_patch(value: &str) -> &str {
+    value.trim_end_matches(&['\r', '\n'][..])
+}
+
+fn workspace_review_patch_sections(
+    patch: &str,
+) -> Result<Vec<WorkspaceReviewPatchSection>, String> {
+    let mut starts = Vec::new();
+    let mut offset = 0;
+    for line in patch.split_inclusive('\n') {
+        if line.starts_with("diff --git ") {
+            starts.push(offset);
+        }
+        offset += line.len();
+    }
+    if starts.first().copied() != Some(0) {
+        return Err("Workspace review patch must start with a git diff section".into());
+    }
+    starts.push(patch.len());
+    let mut sections = Vec::new();
+    for range in starts.windows(2) {
+        let section = &patch[range[0]..range[1]];
+        let mut hunk_starts = Vec::new();
+        let mut section_offset = 0;
+        for line in section.split_inclusive('\n') {
+            if line.starts_with("@@ ") {
+                hunk_starts.push(section_offset);
+            }
+            section_offset += line.len();
+        }
+        let header_end = hunk_starts.first().copied().unwrap_or(section.len());
+        hunk_starts.push(section.len());
+        let hunks = hunk_starts
+            .windows(2)
+            .filter_map(|range| {
+                let hunk = trim_workspace_patch(&section[range[0]..range[1]]);
+                (!hunk.is_empty()).then(|| hunk.to_string())
+            })
+            .collect();
+        sections.push(WorkspaceReviewPatchSection {
+            full: trim_workspace_patch(section).to_string(),
+            headers: trim_workspace_patch(&section[..header_end]).to_string(),
+            hunks,
+        });
+    }
+    if sections.is_empty() {
+        return Err("Workspace review patch has no git diff sections".into());
+    }
+    Ok(sections)
+}
+
+fn workspace_review_headers_support_partial(headers: &str) -> bool {
+    !headers.lines().any(|line| {
+        matches!(
+            line.split_whitespace()
+                .take(3)
+                .collect::<Vec<_>>()
+                .as_slice(),
+            ["new", "file", "mode"]
+                | ["deleted", "file", "mode"]
+                | ["old", "mode", _]
+                | ["new", "mode", _]
+                | ["similarity", "index", _]
+                | ["dissimilarity", "index", _]
+                | ["rename", "from", _]
+                | ["rename", "to", _]
+                | ["copy", "from", _]
+                | ["copy", "to", _]
+        )
+    })
+}
+
+fn workspace_review_patch_is_canonical_subset(
+    patch: &str,
+    canonical_diff: &str,
+) -> Result<bool, String> {
+    let submitted = workspace_review_patch_sections(patch)?;
+    let canonical = workspace_review_patch_sections(canonical_diff)?;
+    Ok(submitted.iter().all(|section| {
+        canonical.iter().any(|candidate| {
+            if section.full == candidate.full {
+                return true;
+            }
+            section.headers == candidate.headers
+                && workspace_review_headers_support_partial(&section.headers)
+                && !section.hunks.is_empty()
+                && section.hunks.iter().all(|hunk| {
+                    candidate
+                        .hunks
+                        .iter()
+                        .any(|candidate_hunk| candidate_hunk == hunk)
+                })
+        })
+    }))
+}
+
+fn workspace_lease_patch_numstat_paths(output: &str) -> Result<HashSet<String>, String> {
+    if !output.ends_with('\0') {
+        return Err("Workspace review patch numstat is not NUL terminated".into());
+    }
+    let records = output
+        .strip_suffix('\0')
+        .unwrap_or(output)
+        .split('\0')
+        .collect::<Vec<_>>();
+    let mut paths = HashSet::new();
+    let mut index = 0;
+    while index < records.len() {
+        let mut fields = records[index].splitn(3, '\t');
+        let added = fields
+            .next()
+            .ok_or_else(|| "Workspace review patch numstat is malformed".to_string())?;
+        let deleted = fields
+            .next()
+            .ok_or_else(|| "Workspace review patch numstat is malformed".to_string())?;
+        let path = fields
+            .next()
+            .ok_or_else(|| "Workspace review patch numstat is malformed".to_string())?;
+        let valid_count = |value: &str| value == "-" || value.parse::<u64>().is_ok();
+        if !valid_count(added) || !valid_count(deleted) {
+            return Err("Workspace review patch numstat has invalid line counts".into());
+        }
+        if path.is_empty() {
+            let old_path = records
+                .get(index + 1)
+                .ok_or_else(|| "Workspace review rename is missing its source path".to_string())?;
+            let new_path = records
+                .get(index + 2)
+                .ok_or_else(|| "Workspace review rename is missing its target path".to_string())?;
+            for renamed_path in [old_path, new_path] {
+                validate_workspace_lease_patch_path(renamed_path)?;
+                paths.insert((*renamed_path).to_string());
+            }
+            index += 3;
+        } else {
+            validate_workspace_lease_patch_path(path)?;
+            paths.insert(path.to_string());
+            index += 1;
+        }
+    }
+    if paths.is_empty() {
+        return Err("Workspace review patch must target at least one file".into());
+    }
+    Ok(paths)
+}
+
+fn workspace_lease_nul_paths(output: &str, label: &str) -> Result<HashSet<String>, String> {
+    if output.is_empty() {
+        return Ok(HashSet::new());
+    }
+    if !output.ends_with('\0') {
+        return Err(format!("{label} is not NUL terminated"));
+    }
+    let mut paths = HashSet::new();
+    for path in output.strip_suffix('\0').unwrap_or(output).split('\0') {
+        validate_workspace_lease_patch_path(path)?;
+        paths.insert(path.to_string());
+    }
+    Ok(paths)
+}
+
+async fn run_workspace_lease_machine_command(
+    execution: &GitExecutionScope,
+    args: &[&str],
+) -> Result<GitResult, String> {
+    execution.verify_live()?;
+    let mut command = Command::new("git");
+    command.args(args).env_clear().envs(scrubbed_git_env());
+    execution.bind_command(&mut command)?;
+    let result = run_git_capped_machine(command, GIT_EXEC_TIMEOUT, MAX_GIT_OUTPUT_BYTES).await?;
+    execution.verify_live()?;
+    Ok(result)
+}
+
+async fn run_workspace_lease_machine_command_owned(
+    execution: &GitExecutionScope,
+    args: &[String],
+) -> Result<GitResult, String> {
+    execution.verify_live()?;
+    let mut command = Command::new("git");
+    command.args(args).env_clear().envs(scrubbed_git_env());
+    execution.bind_command(&mut command)?;
+    let result = run_git_capped_machine(
+        command,
+        GIT_EXEC_TIMEOUT,
+        MAX_WORKSPACE_LEASE_CANONICAL_DIFF_BYTES,
+    )
+    .await?;
+    execution.verify_live()?;
+    Ok(result)
+}
+
+async fn current_workspace_lease_canonical_diff(
+    root_execution: &GitExecutionScope,
+    worktree_execution: &GitExecutionScope,
+    paths: &HashSet<String>,
+) -> Result<String, String> {
+    let root_head =
+        run_workspace_lease_machine_command(root_execution, &["rev-parse", "--verify", "HEAD"])
+            .await?;
+    if !root_head.ok {
+        return Err(workspace_lease_command_error(
+            root_head,
+            "Resolve Project HEAD for canonical workspace review diff",
+        ));
+    }
+    let root_head = root_head.stdout.trim();
+    if !matches!(root_head.len(), 40 | 64)
+        || !root_head
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err("Project HEAD is not an exact object id".into());
+    }
+    let mut sorted_paths = paths.iter().cloned().collect::<Vec<_>>();
+    sorted_paths.sort();
+    let mut args = vec![
+        "diff".to_string(),
+        "--binary".to_string(),
+        "--unified=3".to_string(),
+        root_head.to_string(),
+        "--".to_string(),
+    ];
+    args.extend(sorted_paths);
+    let canonical = run_workspace_lease_machine_command_owned(worktree_execution, &args).await?;
+    if !canonical.ok {
+        return Err(workspace_lease_command_error(
+            canonical,
+            "Build canonical workspace review diff",
+        ));
+    }
+    if canonical.stdout.trim().is_empty() {
+        return Err("Canonical workspace review diff is empty".into());
+    }
+    Ok(canonical.stdout)
+}
+
+async fn current_workspace_lease_diff_paths(
+    root_execution: &GitExecutionScope,
+    worktree_execution: &GitExecutionScope,
+) -> Result<HashSet<String>, String> {
+    let root_head =
+        run_workspace_lease_machine_command(root_execution, &["rev-parse", "--verify", "HEAD"])
+            .await?;
+    if !root_head.ok {
+        return Err(workspace_lease_command_error(
+            root_head,
+            "Resolve Project HEAD for workspace review",
+        ));
+    }
+    let root_head = root_head.stdout.trim();
+    if !matches!(root_head.len(), 40 | 64)
+        || !root_head
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err("Project HEAD is not an exact object id".into());
+    }
+
+    let tracked = run_workspace_lease_machine_command(
+        worktree_execution,
+        &["diff", "--name-only", "--no-renames", "-z", root_head],
+    )
+    .await?;
+    if !tracked.ok {
+        return Err(workspace_lease_command_error(
+            tracked,
+            "Inspect tracked workspace lease diff",
+        ));
+    }
+    let untracked = run_workspace_lease_machine_command(
+        worktree_execution,
+        &["ls-files", "--others", "--exclude-standard", "-z"],
+    )
+    .await?;
+    if !untracked.ok {
+        return Err(workspace_lease_command_error(
+            untracked,
+            "Inspect untracked workspace lease diff",
+        ));
+    }
+    let mut paths = workspace_lease_nul_paths(&tracked.stdout, "Tracked workspace lease paths")?;
+    paths.extend(workspace_lease_nul_paths(
+        &untracked.stdout,
+        "Untracked workspace lease paths",
+    )?);
+    Ok(paths)
+}
+
+async fn run_workspace_lease_patch_command(
+    execution: &GitExecutionScope,
+    args: &[&str],
+    patch: &str,
+    stdout_policy: GitStdoutPolicy,
+) -> Result<GitResult, String> {
+    execution.verify_live()?;
+    let mut command = Command::new("git");
+    command.args(args).env_clear().envs(scrubbed_git_env());
+    execution.bind_command(&mut command)?;
+    let result = run_git_patch_capped(command, patch.as_bytes().to_vec(), stdout_policy).await?;
+    execution.verify_live()?;
+    Ok(result)
+}
+
+async fn run_workspace_lease_patch_command_checked(
+    pool: &SqlitePool,
+    project_id: &str,
+    lease: &RegisteredWorkspaceLease,
+    root_execution: &GitExecutionScope,
+    worktree_execution: &GitExecutionScope,
+    args: &[&str],
+    patch: &str,
+    stdout_policy: GitStdoutPolicy,
+) -> Result<GitResult, String> {
+    match run_workspace_lease_patch_command(worktree_execution, args, patch, stdout_policy).await {
+        Ok(result) => Ok(result),
+        Err(error) => match root_execution
+            .verify_live()
+            .and_then(|_| worktree_execution.verify_live())
+        {
+            Ok(()) => Err(error),
+            Err(authority_error) => Err(invalidate_registered_workspace_lease(
+                pool,
+                project_id,
+                &lease.lease_id,
+                format!(
+                    "Workspace lease authority changed during patch application: {authority_error}; {error}"
+                ),
+            )
+            .await),
+        },
+    }
+}
+
+async fn apply_workspace_lease_patch_from_pool(
+    pool: &SqlitePool,
+    project_id: &str,
+    canonical_root: &Path,
+    lease_id: &str,
+    expected_path: &Path,
+    patch: &str,
+    reverse: bool,
+) -> Result<(), String> {
+    validate_workspace_lease_patch_input(lease_id, patch, reverse)?;
+    let lease = load_registered_workspace_lease_from_pool(
+        pool,
+        project_id,
+        canonical_root,
+        lease_id,
+        Some(expected_path),
+        None,
+        None,
+    )
+    .await?;
+    let (root_execution, worktree_execution) =
+        registered_workspace_lease_scopes(pool, project_id, canonical_root, &lease).await?;
+
+    let numstat = run_workspace_lease_patch_command_checked(
+        pool,
+        project_id,
+        &lease,
+        &root_execution,
+        &worktree_execution,
+        &["apply", "--numstat", "-z", "--reverse", "--recount", "-"],
+        patch,
+        GitStdoutPolicy::MachineExact,
+    )
+    .await?;
+    if !numstat.ok {
+        return Err(workspace_lease_command_error(
+            numstat,
+            "Inspect workspace review patch",
+        ));
+    }
+    let patch_paths = workspace_lease_patch_numstat_paths(&numstat.stdout)?;
+    let current_paths = current_workspace_lease_diff_paths(&root_execution, &worktree_execution)
+        .await
+        .map_err(|error| format!("Verify workspace review patch paths: {error}"))?;
+    if !patch_paths.is_subset(&current_paths) {
+        return Err("Workspace review patch includes a path outside the current lease diff".into());
+    }
+    let canonical_diff =
+        current_workspace_lease_canonical_diff(&root_execution, &worktree_execution, &patch_paths)
+            .await
+            .map_err(|error| format!("Verify canonical workspace review patch: {error}"))?;
+    if !workspace_review_patch_is_canonical_subset(patch, &canonical_diff)? {
+        return Err(
+            "Workspace review patch is not an exact subset of the current lease diff".into(),
+        );
+    }
+
+    let checked = run_workspace_lease_patch_command_checked(
+        pool,
+        project_id,
+        &lease,
+        &root_execution,
+        &worktree_execution,
+        &[
+            "apply",
+            "--check",
+            "--reverse",
+            "--recount",
+            "--whitespace=nowarn",
+            "-",
+        ],
+        patch,
+        GitStdoutPolicy::HumanRedacted,
+    )
+    .await?;
+    if !checked.ok {
+        return Err(workspace_lease_command_error(
+            checked,
+            "Check workspace review patch",
+        ));
+    }
+
+    let applied = run_workspace_lease_patch_command_checked(
+        pool,
+        project_id,
+        &lease,
+        &root_execution,
+        &worktree_execution,
+        &[
+            "apply",
+            "--reverse",
+            "--recount",
+            "--whitespace=nowarn",
+            "-",
+        ],
+        patch,
+        GitStdoutPolicy::HumanRedacted,
+    )
+    .await?;
+    if !applied.ok {
+        return Err(workspace_lease_command_error(
+            applied,
+            "Apply workspace review patch",
+        ));
+    }
+    root_execution.verify_live()?;
+    worktree_execution.verify_live()?;
+
+    let worktree_identity_json = serde_json::to_string(&lease.worktree_identity)
+        .map_err(|error| format!("Encode workspace lease identity: {error}"))?;
+    let project_identity_json = serde_json::to_string(&lease.project_identity)
+        .map_err(|error| format!("Encode workspace lease Project identity: {error}"))?;
+    let updated = sqlx::query(
+        "UPDATE task_workspace_lease_history SET updated_at_unix_ms = ? WHERE lease_id = ? AND project_id = ? AND active_binding_id = ? AND branch = ? AND canonical_worktree = ? AND worktree_identity_json = ? AND project_root_identity_json = ? AND status = 'active'",
+    )
+    .bind(git_now_unix_ms()?)
+    .bind(&lease.lease_id)
+    .bind(project_id)
+    .bind(&lease.active_binding_id)
+    .bind(&lease.branch)
+    .bind(lease.canonical_worktree.to_string_lossy().as_ref())
+    .bind(worktree_identity_json)
+    .bind(project_identity_json)
+    .execute(pool)
+    .await
+    .map_err(|error| format!("Update workspace lease review timestamp: {error}"))?;
+    if updated.rows_affected() != 1 {
+        return Err("Workspace lease registration changed during patch application".into());
+    }
+    Ok(())
+}
+
 async fn registered_workspace_lease_changed_scope<R: Runtime>(
     app: &tauri::AppHandle<R>,
     project_id: &str,
@@ -4136,6 +5568,249 @@ mod tests {
             .fetch_one(pool)
             .await
             .expect("read fixture lease status")
+    }
+
+    #[tokio::test]
+    async fn workspace_review_patch_atomically_reverses_multiple_files_and_updates_lease() {
+        let root = git_root();
+        std::fs::write(root.join("review.txt"), "before\n").expect("write reviewed fixture");
+        std::fs::write(root.join("second.txt"), "second before\n")
+            .expect("write second reviewed fixture");
+        fixture_git_ok(&root, &["add", "review.txt", "second.txt"]);
+        fixture_git_ok(&root, &["commit", "-m", "add reviewed fixture"]);
+        let lease_id = "lease-review-patch";
+        let (worktree, branch) = fixture_worktree(&root, lease_id, "run-review-patch");
+        let pool = lease_pool().await;
+        persist_fixture_lease(&pool, &root, &worktree, lease_id, &branch, None)
+            .await
+            .expect("persist review lease");
+
+        std::fs::write(worktree.join("review.txt"), "after\n").expect("change reviewed fixture");
+        std::fs::write(worktree.join("second.txt"), "second after\n")
+            .expect("change second reviewed fixture");
+        let diff = fixture_git(&worktree, &["diff", "--", "review.txt", "second.txt"]);
+        assert!(diff.status.success());
+        let patch = String::from_utf8(diff.stdout).expect("utf8 review patch");
+
+        apply_workspace_lease_patch_from_pool(
+            &pool,
+            "project-1",
+            &root,
+            lease_id,
+            &worktree,
+            &patch,
+            true,
+        )
+        .await
+        .expect("reverse reviewed file patch");
+
+        assert_eq!(
+            std::fs::read_to_string(worktree.join("review.txt")).expect("read reviewed fixture"),
+            "before\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(worktree.join("second.txt"))
+                .expect("read second reviewed fixture"),
+            "second before\n"
+        );
+        let remaining = fixture_git(&worktree, &["diff", "--", "review.txt", "second.txt"]);
+        assert!(remaining.status.success());
+        assert!(remaining.stdout.is_empty());
+        let updated_at: i64 = sqlx::query_scalar(
+            "SELECT updated_at_unix_ms FROM task_workspace_lease_history WHERE lease_id = ?",
+        )
+        .bind(lease_id)
+        .fetch_one(&pool)
+        .await
+        .expect("read review timestamp");
+        assert!(updated_at > 1);
+        cleanup_root(root);
+    }
+
+    #[tokio::test]
+    async fn workspace_review_patch_accepts_small_hunk_from_large_canonical_diff() {
+        let root = git_root();
+        let filler = (0..12)
+            .map(|index| format!("unchanged {index}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let large_before = "a".repeat(600_000);
+        let large_after = "b".repeat(600_000);
+        let before = format!("small before\n{filler}\n{large_before}\n");
+        let after = format!("small after\n{filler}\n{large_after}\n");
+        std::fs::write(root.join("large-review.txt"), &before).expect("write large base fixture");
+        fixture_git_ok(&root, &["add", "large-review.txt"]);
+        fixture_git_ok(&root, &["commit", "-m", "add large review fixture"]);
+        let lease_id = "lease-large-review-patch";
+        let (worktree, branch) = fixture_worktree(&root, lease_id, "run-large-review-patch");
+        let pool = lease_pool().await;
+        persist_fixture_lease(&pool, &root, &worktree, lease_id, &branch, None)
+            .await
+            .expect("persist large review lease");
+        std::fs::write(worktree.join("large-review.txt"), &after)
+            .expect("write large reviewed fixture");
+        let diff = fixture_git(
+            &worktree,
+            &["diff", "--unified=3", "--", "large-review.txt"],
+        );
+        assert!(diff.status.success());
+        let canonical = String::from_utf8(diff.stdout).expect("utf8 large review diff");
+        assert!(canonical.len() > MAX_GIT_OUTPUT_BYTES);
+        let sections =
+            workspace_review_patch_sections(&canonical).expect("parse large review diff");
+        assert_eq!(sections.len(), 1);
+        assert_eq!(sections[0].hunks.len(), 2);
+        let patch = format!("{}\n{}\n", sections[0].headers, sections[0].hunks[0]);
+        assert!(patch.len() < MAX_WORKSPACE_LEASE_PATCH_BYTES);
+
+        apply_workspace_lease_patch_from_pool(
+            &pool,
+            "project-1",
+            &root,
+            lease_id,
+            &worktree,
+            &patch,
+            true,
+        )
+        .await
+        .expect("reverse a small hunk from a large canonical diff");
+
+        let current = std::fs::read_to_string(worktree.join("large-review.txt"))
+            .expect("read large reviewed fixture");
+        assert!(current.starts_with("small before\n"));
+        assert!(current.ends_with(&format!("{large_after}\n")));
+        cleanup_root(root);
+    }
+
+    #[tokio::test]
+    async fn workspace_review_patch_rejects_forward_and_internal_paths() {
+        let root = git_root();
+        std::fs::write(root.join("review.txt"), "before\n").expect("write reviewed fixture");
+        fixture_git_ok(&root, &["add", "review.txt"]);
+        fixture_git_ok(&root, &["commit", "-m", "add reviewed fixture"]);
+        let lease_id = "lease-review-guard";
+        let (worktree, branch) = fixture_worktree(&root, lease_id, "run-review-guard");
+        let pool = lease_pool().await;
+        persist_fixture_lease(&pool, &root, &worktree, lease_id, &branch, None)
+            .await
+            .expect("persist guarded review lease");
+        std::fs::write(worktree.join("review.txt"), "after\n").expect("change reviewed fixture");
+        let diff = fixture_git(&worktree, &["diff", "--", "review.txt"]);
+        let patch = String::from_utf8(diff.stdout).expect("utf8 review patch");
+
+        let forward_error = apply_workspace_lease_patch_from_pool(
+            &pool,
+            "project-1",
+            &root,
+            lease_id,
+            &worktree,
+            &patch,
+            false,
+        )
+        .await
+        .expect_err("forward workspace review patch must fail closed");
+        assert!(forward_error.contains("only support reverse"));
+        assert_eq!(
+            std::fs::read_to_string(worktree.join("review.txt")).expect("read guarded fixture"),
+            "after\n"
+        );
+
+        let forged_same_path_patch = "diff --git a/review.txt b/review.txt\n--- a/review.txt\n+++ b/review.txt\n@@ -1 +1 @@\n-owned by forged patch\n+after\n";
+        let forged_error = apply_workspace_lease_patch_from_pool(
+            &pool,
+            "project-1",
+            &root,
+            lease_id,
+            &worktree,
+            forged_same_path_patch,
+            true,
+        )
+        .await
+        .expect_err("same-path forged patch must not mutate the lease");
+        assert!(
+            forged_error.contains("not an exact subset"),
+            "{forged_error}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(worktree.join("review.txt")).expect("read guarded fixture"),
+            "after\n"
+        );
+
+        let internal_patch = "diff --git a/.offisim/private.txt b/.offisim/private.txt\nnew file mode 100644\n--- /dev/null\n+++ b/.offisim/private.txt\n@@ -0,0 +1 @@\n+private\n";
+        let internal_error = apply_workspace_lease_patch_from_pool(
+            &pool,
+            "project-1",
+            &root,
+            lease_id,
+            &worktree,
+            internal_patch,
+            true,
+        )
+        .await
+        .expect_err("internal workspace path must fail closed");
+        assert!(
+            internal_error.contains(".git or .offisim"),
+            "{internal_error}"
+        );
+
+        let unrelated_patch = "diff --git a/unrelated.txt b/unrelated.txt\nnew file mode 100644\n--- /dev/null\n+++ b/unrelated.txt\n@@ -0,0 +1 @@\n+unrelated\n";
+        let unrelated_error = apply_workspace_lease_patch_from_pool(
+            &pool,
+            "project-1",
+            &root,
+            lease_id,
+            &worktree,
+            unrelated_patch,
+            true,
+        )
+        .await
+        .expect_err("path outside the current lease diff must fail closed");
+        assert!(
+            unrelated_error.contains("outside the current lease diff"),
+            "{unrelated_error}"
+        );
+        cleanup_root(root);
+    }
+
+    #[test]
+    fn workspace_review_patch_rejects_unbounded_or_unsafe_input() {
+        assert!(validate_workspace_lease_patch_input("lease-1", "", true).is_err());
+        assert!(validate_workspace_lease_patch_input("lease-1", "patch\0data", true).is_err());
+        assert!(validate_workspace_lease_patch_input(
+            "lease-1",
+            &"x".repeat(MAX_WORKSPACE_LEASE_PATCH_BYTES + 1),
+            true,
+        )
+        .is_err());
+        assert!(validate_workspace_lease_patch_path("../outside.txt").is_err());
+        assert!(validate_workspace_lease_patch_path("/absolute.txt").is_err());
+        assert!(validate_workspace_lease_patch_path("src/.git/config").is_err());
+        assert!(validate_workspace_lease_patch_path("src/.GIT/config").is_err());
+        assert!(validate_workspace_lease_patch_path("src/.offisim/state").is_err());
+    }
+
+    #[test]
+    fn workspace_review_patch_accepts_only_exact_safe_hunk_subsets() {
+        let canonical = "diff --git a/src/file.ts b/src/file.ts\nindex 1111111..2222222 100644\n--- a/src/file.ts\n+++ b/src/file.ts\n@@ -1,3 +1,3 @@\n one\n-old\n+new\n three\n@@ -20,3 +20,3 @@\n twenty\n-before\n+after\n end\n";
+        let safe_subset = "diff --git a/src/file.ts b/src/file.ts\nindex 1111111..2222222 100644\n--- a/src/file.ts\n+++ b/src/file.ts\n@@ -20,3 +20,3 @@\n twenty\n-before\n+after\n end\n";
+        let forged_subset = "diff --git a/src/file.ts b/src/file.ts\nindex 1111111..2222222 100644\n--- a/src/file.ts\n+++ b/src/file.ts\n@@ -20,3 +20,3 @@\n twenty\n-owned\n+after\n end\n";
+        assert!(
+            workspace_review_patch_is_canonical_subset(safe_subset, canonical)
+                .expect("validate safe subset")
+        );
+        assert!(
+            !workspace_review_patch_is_canonical_subset(forged_subset, canonical)
+                .expect("reject forged subset")
+        );
+
+        let renamed = "diff --git a/src/old.ts b/src/new.ts\nsimilarity index 88%\nrename from src/old.ts\nrename to src/new.ts\n--- a/src/old.ts\n+++ b/src/new.ts\n@@ -1 +1 @@\n-old\n+new\n@@ -10 +10 @@\n-before\n+after\n";
+        let renamed_hunk = "diff --git a/src/old.ts b/src/new.ts\nsimilarity index 88%\nrename from src/old.ts\nrename to src/new.ts\n--- a/src/old.ts\n+++ b/src/new.ts\n@@ -10 +10 @@\n-before\n+after\n";
+        assert!(
+            !workspace_review_patch_is_canonical_subset(renamed_hunk, renamed)
+                .expect("reject partial rename")
+        );
+        assert!(workspace_review_patch_is_canonical_subset(renamed, renamed)
+            .expect("accept exact rename"));
     }
 
     #[tokio::test]
@@ -5636,6 +7311,139 @@ mod tests {
             "-z".to_string(),
         ];
         assert!(is_allowed(&args, &root).is_ok());
+        cleanup_root(root);
+    }
+
+    #[test]
+    fn checkpoint_allowlist_accepts_only_exact_plumbing_shapes_and_ref_prefix() {
+        let root = temp_root();
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        let tree = "89abcdef0123456789abcdef0123456789abcdef";
+        let reference = "refs/offisim/checkpoints/lease-0001/3";
+        let accepted = [
+            vec!["add", "--all", "--", "."],
+            vec!["read-tree", "HEAD"],
+            vec!["read-tree", "--reset", "-u", sha],
+            vec!["write-tree"],
+            vec!["commit-tree", tree, "-p", sha, "-m", "Offisim checkpoint"],
+            vec!["update-ref", reference, sha],
+            vec!["update-ref", reference, sha, tree],
+            vec!["update-ref", "-d", reference, sha],
+            vec!["rev-parse", "--verify", reference],
+        ];
+        for args in accepted {
+            let owned = args.into_iter().map(String::from).collect::<Vec<_>>();
+            is_allowed(&owned, &root).unwrap();
+        }
+        cleanup_root(root);
+    }
+
+    #[test]
+    fn checkpoint_allowlist_rejects_branch_refs_and_unsafe_plumbing_shapes() {
+        let root = temp_root();
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        let rejected = [
+            vec!["add", "--all"],
+            vec!["read-tree", "--reset", "-u", "HEAD"],
+            vec!["read-tree", "main"],
+            vec!["write-tree", "--missing-ok"],
+            vec!["commit-tree", sha, "-m", "missing parent"],
+            vec!["update-ref", "refs/heads/main", sha],
+            vec!["update-ref", "refs/offisim/checkpoints/../main", sha],
+            vec!["update-ref", "refs/offisim/checkpoints/lease/1", "HEAD"],
+            vec!["rev-parse", "--verify", "refs/heads/main"],
+        ];
+        for args in rejected {
+            let owned = args.into_iter().map(String::from).collect::<Vec<_>>();
+            assert!(is_allowed(&owned, &root).is_err(), "accepted {owned:?}");
+        }
+        cleanup_root(root);
+    }
+
+    #[tokio::test]
+    async fn checkpoint_plumbing_snapshots_and_restores_without_moving_branch_head() {
+        let root = git_root();
+        let execution = git_execution(&root);
+        let original_head =
+            String::from_utf8_lossy(&fixture_git(&root, &["rev-parse", "HEAD"]).stdout)
+                .trim()
+                .to_string();
+        std::fs::write(root.join("one.txt"), "one checkpoint\n").unwrap();
+        std::fs::write(root.join("two.txt"), "two checkpoint\n").unwrap();
+        std::fs::write(root.join("three.txt"), "three checkpoint\n").unwrap();
+
+        let snapshot_index = CheckpointIndexDir::create().unwrap();
+        let tree = checkpoint_index_tree(&execution, &snapshot_index.index)
+            .await
+            .unwrap();
+        let commit = checkpoint_oid(
+            run_checkpoint_git(
+                &execution,
+                vec![
+                    "commit-tree".into(),
+                    tree,
+                    "-p".into(),
+                    original_head.clone(),
+                    "-m".into(),
+                    "Offisim checkpoint integration test".into(),
+                ],
+                Some(&snapshot_index.index),
+                Some("2026-07-17T00:00:00Z"),
+            )
+            .await
+            .unwrap(),
+            "Create test checkpoint",
+        )
+        .unwrap();
+        let reference = "refs/offisim/checkpoints/lease-test/1";
+        let updated = run_checkpoint_git(
+            &execution,
+            vec!["update-ref".into(), reference.into(), commit.clone()],
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(updated.ok);
+        assert_eq!(
+            String::from_utf8_lossy(&fixture_git(&root, &["rev-parse", "HEAD"]).stdout).trim(),
+            original_head,
+            "hidden checkpoint must not move branch HEAD"
+        );
+
+        std::fs::write(root.join("one.txt"), "wrong\n").unwrap();
+        std::fs::remove_file(root.join("two.txt")).unwrap();
+        std::fs::write(root.join("later.txt"), "remove me\n").unwrap();
+        let rollback_index = CheckpointIndexDir::create().unwrap();
+        checkpoint_index_tree(&execution, &rollback_index.index)
+            .await
+            .unwrap();
+        let restored = run_checkpoint_git(
+            &execution,
+            vec!["read-tree".into(), "--reset".into(), "-u".into(), commit],
+            Some(&rollback_index.index),
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(restored.ok);
+        assert_eq!(
+            std::fs::read_to_string(root.join("one.txt")).unwrap(),
+            "one checkpoint\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("two.txt")).unwrap(),
+            "two checkpoint\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("three.txt")).unwrap(),
+            "three checkpoint\n"
+        );
+        assert!(!root.join("later.txt").exists());
+        assert_eq!(
+            String::from_utf8_lossy(&fixture_git(&root, &["rev-parse", reference]).stdout).trim(),
+            resolve_checkpoint_ref(&execution, reference).await.unwrap()
+        );
         cleanup_root(root);
     }
 

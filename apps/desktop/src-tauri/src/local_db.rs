@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use sqlx::{
     query::Query,
@@ -26,7 +26,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// Any existing local database with another version is a disposable dev artifact.
 /// Startup preserves one overwrite-only `.stale` backup, then rebuilds the
 /// current baseline automatically.
-const LOCAL_SCHEMA_VERSION: i64 = 14;
+const LOCAL_SCHEMA_VERSION: i64 = 16;
 
 pub struct OffisimDbState {
     pool: SqlitePool,
@@ -127,6 +127,157 @@ pub async fn local_db_select<R: Runtime>(
 ) -> Result<Vec<Value>, String> {
     let pool = get_offisim_pool(&app)?;
     select_rows(&pool, &sql, params).await
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalSearchResult {
+    category: String,
+    entity_id: String,
+    company_id: Option<String>,
+    company_name: Option<String>,
+    project_id: Option<String>,
+    project_name: Option<String>,
+    thread_id: Option<String>,
+    message_id: Option<String>,
+    title: String,
+    snippet: String,
+    path: Option<String>,
+    updated_at: Option<String>,
+}
+
+/// Local-only global search. The renderer supplies text, never SQL or a path;
+/// tokenization and the fixed query remain on the trusted Rust side.
+#[tauri::command]
+pub async fn global_search<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    query: String,
+) -> Result<Vec<GlobalSearchResult>, String> {
+    let pool = get_offisim_pool(&app)?;
+    search_global_index(&pool, &query).await
+}
+
+fn global_search_match_query(input: &str) -> Result<Option<String>, String> {
+    if input.chars().count() > 200 {
+        return Err("global search query exceeds 200 characters".to_string());
+    }
+
+    let mut tokens = Vec::new();
+    let mut token = String::new();
+    for ch in input.trim().chars() {
+        if ch.is_alphanumeric() || ch == '_' {
+            token.push(ch);
+        } else if !token.is_empty() {
+            tokens.push(std::mem::take(&mut token));
+        }
+    }
+    if !token.is_empty() {
+        tokens.push(token);
+    }
+    if tokens.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(
+        tokens
+            .into_iter()
+            .take(12)
+            .map(|token| format!("\"{token}\"*"))
+            .collect::<Vec<_>>()
+            .join(" AND "),
+    ))
+}
+
+async fn search_global_index(
+    pool: &SqlitePool,
+    input: &str,
+) -> Result<Vec<GlobalSearchResult>, String> {
+    let Some(match_query) = global_search_match_query(input)? else {
+        return Ok(Vec::new());
+    };
+    let rows = sqlx::query(
+        r#"
+        SELECT
+          search.category,
+          search.entity_id,
+          NULLIF(search.company_id, '') AS company_id,
+          company.name AS company_name,
+          NULLIF(search.project_id, '') AS project_id,
+          project.name AS project_name,
+          NULLIF(search.thread_id, '') AS thread_id,
+          NULLIF(search.message_id, '') AS message_id,
+          COALESCE(
+            NULLIF(search.title, ''),
+            NULLIF(thread.title, ''),
+            NULLIF(search.path, ''),
+            search.entity_id
+          ) AS result_title,
+          CASE
+            WHEN length(trim(search.content)) > 0
+              THEN snippet(global_search_fts, 7, '[', ']', ' … ', 18)
+            WHEN length(trim(search.path)) > 0
+              THEN highlight(global_search_fts, 8, '[', ']')
+            ELSE highlight(global_search_fts, 6, '[', ']')
+          END AS result_snippet,
+          NULLIF(search.path, '') AS result_path,
+          NULLIF(search.updated_at, '') AS updated_at
+        FROM global_search_fts AS search
+        LEFT JOIN companies AS company ON company.company_id = search.company_id
+        LEFT JOIN projects AS project ON project.project_id = search.project_id
+        LEFT JOIN chat_threads AS thread ON thread.thread_id = search.thread_id
+        WHERE global_search_fts MATCH ?1
+        ORDER BY bm25(global_search_fts, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 2.0, 4.0, 0.0),
+                 search.updated_at DESC
+        LIMIT 60
+        "#,
+    )
+    .bind(match_query)
+    .fetch_all(pool)
+    .await
+    .map_err(|err| format!("query global search index: {err}"))?;
+
+    rows.into_iter()
+        .map(|row| {
+            Ok(GlobalSearchResult {
+                category: row
+                    .try_get("category")
+                    .map_err(|err| format!("decode global search category: {err}"))?,
+                entity_id: row
+                    .try_get("entity_id")
+                    .map_err(|err| format!("decode global search entity id: {err}"))?,
+                company_id: row
+                    .try_get("company_id")
+                    .map_err(|err| format!("decode global search company id: {err}"))?,
+                company_name: row
+                    .try_get("company_name")
+                    .map_err(|err| format!("decode global search company name: {err}"))?,
+                project_id: row
+                    .try_get("project_id")
+                    .map_err(|err| format!("decode global search project id: {err}"))?,
+                project_name: row
+                    .try_get("project_name")
+                    .map_err(|err| format!("decode global search project name: {err}"))?,
+                thread_id: row
+                    .try_get("thread_id")
+                    .map_err(|err| format!("decode global search thread id: {err}"))?,
+                message_id: row
+                    .try_get("message_id")
+                    .map_err(|err| format!("decode global search message id: {err}"))?,
+                title: row
+                    .try_get("result_title")
+                    .map_err(|err| format!("decode global search title: {err}"))?,
+                snippet: row
+                    .try_get("result_snippet")
+                    .map_err(|err| format!("decode global search snippet: {err}"))?,
+                path: row
+                    .try_get("result_path")
+                    .map_err(|err| format!("decode global search path: {err}"))?,
+                updated_at: row
+                    .try_get("updated_at")
+                    .map_err(|err| format!("decode global search timestamp: {err}"))?,
+            })
+        })
+        .collect()
 }
 
 async fn execute_statement(
@@ -230,6 +381,8 @@ fn validate_statement_sql(sql: &str) -> Result<(), String> {
         "project_workspace_authority",
         "task_workspace_binding_history",
         "task_workspace_lease_history",
+        "workspace_checkpoints",
+        "workspace_checkpoint_rollbacks",
     ];
     let identifiers = sql_identifier_tokens(sql)?;
     for identifier in &identifiers {
@@ -928,6 +1081,153 @@ mod tests {
         )
         .await
         .expect("idempotent re-run");
+    }
+
+    #[test]
+    fn global_search_query_is_tokenized_not_executed_as_fts_syntax() {
+        assert_eq!(
+            global_search_match_query("createAgentSession repo/path.ts").unwrap(),
+            Some("\"createAgentSession\"* AND \"repo\"* AND \"path\"* AND \"ts\"*".into())
+        );
+        assert_eq!(global_search_match_query("  ---  ").unwrap(), None);
+        assert!(global_search_match_query(&"x".repeat(201)).is_err());
+    }
+
+    #[tokio::test]
+    async fn global_search_indexes_visible_conversations_cards_and_output_metadata() {
+        let pool = memory_pool().await;
+        let pool = ensure_schema(
+            pool,
+            Path::new("unused-memory-database"),
+            "sqlite::memory:",
+            LOCAL_SCHEMA_VERSION,
+            LOCAL_SCHEMA_SQL,
+        )
+        .await
+        .expect("fresh bootstrap");
+
+        raw_sql(
+            r#"
+            INSERT INTO companies (
+              company_id, name, status, created_at, updated_at
+            ) VALUES ('company-search', 'Search Co', 'active', '2026-07-17T00:00:00Z', '2026-07-17T00:00:00Z');
+            INSERT INTO projects (
+              project_id, company_id, name, status, workspace_root, created_at, updated_at
+            ) VALUES (
+              'project-search', 'company-search', 'Search Project', 'active', '/tmp/search-project',
+              '2026-07-17T00:00:00Z', '2026-07-17T00:00:00Z'
+            );
+            INSERT INTO chat_threads (
+              thread_id, project_id, title, created_at, updated_at
+            ) VALUES (
+              'thread-search', 'project-search', 'Renderer indexing discussion',
+              '2026-07-17T00:00:00Z', '2026-07-17T00:00:00Z'
+            );
+            INSERT INTO agent_events (
+              event_id, project_id, thread_id, company_id, agent_name, event_type,
+              payload_json, created_at
+            ) VALUES (
+              'event-search', 'project-search', 'thread-search', 'company-search', 'boss',
+              'direct_chat.message',
+              '{"message":{"id":"message-search","body":"Discuss createAgentSession ownership"}}',
+              '2026-07-17T00:01:00Z'
+            );
+            INSERT INTO pi_messages (
+              message_id, thread_id, company_id, employee_id, seq, role, message_json, created_at
+            ) VALUES (
+              'pi-message-search', 'thread-search', 'company-search', NULL, 0, 'assistant',
+              '{"content":"Pi kernel checkpoint needle"}', '2026-07-17T00:02:00Z'
+            );
+            INSERT INTO agent_runs (
+              run_id, thread_id, company_id, project_id, parent_run_id, root_run_id,
+              employee_id, relation, work_kind, objective, access, failure_kind, status,
+              usage_json, result_summary_json, session_file, runtime_context_json,
+              started_at, finished_at
+            ) VALUES (
+              'run-search', 'thread-search', 'company-search', 'project-search', NULL,
+              'run-search', NULL, NULL, 'implementation', 'Build searchable request cards',
+              'write', NULL, 'completed', NULL, NULL, NULL, NULL,
+              '2026-07-17T00:03:00Z', '2026-07-17T00:04:00Z'
+            );
+            INSERT INTO deliverables (
+              deliverable_id, company_id, thread_id, chat_thread_id, title, content, kind,
+              file_name, mime_type, contributors_json, created_at
+            ) VALUES (
+              'deliverable-search', 'company-search', 'thread-search', 'thread-search',
+              'Search evidence manifest', 'hiddenDiffNeedle must not be indexed', 'document',
+              'reports/global-search-manifest.md', 'text/markdown', '[]',
+              '2026-07-17T00:05:00Z'
+            );
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("seed searchable rows");
+
+        let conversations = search_global_index(&pool, "createAgentSession")
+            .await
+            .expect("search conversation");
+        assert_eq!(conversations.len(), 1);
+        assert_eq!(conversations[0].category, "conversation");
+        assert_eq!(
+            conversations[0].message_id.as_deref(),
+            Some("message-search")
+        );
+
+        let pi_messages = search_global_index(&pool, "checkpoint needle")
+            .await
+            .expect("search Pi transcript");
+        assert_eq!(pi_messages.len(), 1);
+        assert_eq!(
+            pi_messages[0].message_id.as_deref(),
+            Some("pi-message-search")
+        );
+
+        let cards = search_global_index(&pool, "searchable request")
+            .await
+            .expect("search request card");
+        assert_eq!(cards.len(), 1);
+        assert_eq!(cards[0].category, "card");
+        assert_eq!(cards[0].entity_id, "run-search");
+
+        let outputs = search_global_index(&pool, "global search manifest")
+            .await
+            .expect("search output metadata");
+        assert_eq!(outputs.len(), 1);
+        assert_eq!(outputs[0].category, "output");
+        assert_eq!(outputs[0].entity_id, "deliverable-search");
+        assert_eq!(
+            outputs[0].path.as_deref(),
+            Some("reports/global-search-manifest.md")
+        );
+        assert!(
+            search_global_index(&pool, "hiddenDiffNeedle")
+                .await
+                .expect("search excluded output body")
+                .is_empty(),
+            "deliverable bodies and full diffs must stay out of the first-version index"
+        );
+
+        sqlx::query(
+            "UPDATE agent_events SET payload_json = ?1, created_at = ?2 WHERE event_id = ?3",
+        )
+        .bind("{\"message\":{\"id\":\"message-search\",\"body\":\"UpdatedMessageNeedle\"}}")
+        .bind("2026-07-17T00:06:00Z")
+        .bind("event-search")
+        .execute(&pool)
+        .await
+        .expect("update conversation projection");
+        assert!(search_global_index(&pool, "createAgentSession")
+            .await
+            .expect("search removed text")
+            .is_empty());
+        assert_eq!(
+            search_global_index(&pool, "UpdatedMessageNeedle")
+                .await
+                .expect("search updated text")
+                .len(),
+            1
+        );
     }
 
     #[tokio::test]

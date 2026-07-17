@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   globSync,
   mkdirSync,
@@ -21,6 +22,10 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import stripJsonComments from 'strip-json-comments';
 import { Type } from 'typebox';
+import {
+  LanguageServerManager,
+  createLspDiagnosticsExtensionFactory,
+} from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
 import { RUN_FAILURE_KINDS, classifyRunFailure } from './pi-agent-host-wire.mjs';
 import { childToolsForPermissionMode } from './pi-child-supervisor.mjs';
 import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
@@ -124,7 +129,248 @@ async function verifyWorktreeCallChannel() {
   );
 }
 
+async function verifyLspDiagnosticsExtension() {
+  const workspace = mkdtempSync(join(tmpdir(), 'offisim-lsp-diagnostics-'));
+  const executable = join(workspace, 'node_modules', '.bin', 'typescript-language-server');
+  const tsserver = join(workspace, 'node_modules', 'typescript', 'lib', 'tsserver.js');
+  const sourcePath = join(workspace, 'src', 'diagnostic.ts');
+  mkdirSync(join(workspace, 'node_modules', '.bin'), { recursive: true });
+  mkdirSync(join(workspace, 'node_modules', 'typescript', 'lib'), { recursive: true });
+  mkdirSync(join(workspace, 'src'), { recursive: true });
+  writeFileSync(join(workspace, 'package.json'), '{"private":true}');
+  writeFileSync(tsserver, '// local TypeScript marker used by the LSP resolver\n');
+  writeFileSync(
+    executable,
+    String.raw`#!/usr/bin/env node
+const { existsSync, writeFileSync } = require('node:fs');
+let buffer = Buffer.alloc(0);
+process.on('SIGTERM', () => {
+  if (existsSync('.malformed-active')) writeFileSync('.malformed-terminated', '1');
+  process.exit(0);
+});
+function send(message) {
+  const body = Buffer.from(JSON.stringify({ jsonrpc: '2.0', ...message }));
+  process.stdout.write('Content-Length: ' + body.length + '\r\n\r\n');
+  process.stdout.write(body);
+}
+function publish(params) {
+  const document = params.textDocument || {};
+  const text = document.text || params.contentChanges?.[0]?.text || '';
+  if (text.includes('CRASH_ONCE') && !existsSync('.lsp-crashed')) {
+    writeFileSync('.lsp-crashed', '1');
+    process.exit(1);
+  }
+  if (text.includes('MALFORMED')) {
+    writeFileSync('.malformed-active', '1');
+    process.stdout.write('Broken-LSP-Frame\r\n\r\n{}');
+    setInterval(() => undefined, 1_000);
+    return;
+  }
+  send({ method: 'textDocument/publishDiagnostics', params: {
+    uri: document.uri,
+    version: document.version,
+    diagnostics: [],
+  }});
+  if (text.includes('TYPE_ERROR')) setTimeout(() => send({ method: 'textDocument/publishDiagnostics', params: {
+    uri: document.uri,
+    version: document.version,
+    diagnostics: [{
+      severity: 1,
+      code: 2322,
+      source: 'ts',
+      message: 'Type string is not assignable to type number.',
+      range: { start: { line: 0, character: 6 }, end: { line: 0, character: 12 } },
+    }],
+  }}), 250);
+}
+function receive(message) {
+  if (message.method === 'initialize') send({ id: message.id, result: { capabilities: { textDocumentSync: 1 } } });
+  else if (message.method === 'shutdown') send({ id: message.id, result: null });
+  else if (message.method === 'exit') process.exit(0);
+  else if (message.method === 'textDocument/didOpen') publish(message.params);
+  else if (message.method === 'textDocument/didChange') publish(message.params);
+}
+process.stdin.on('data', (chunk) => {
+  buffer = Buffer.concat([buffer, chunk]);
+  for (;;) {
+    const headerEnd = buffer.indexOf('\r\n\r\n');
+    if (headerEnd < 0) return;
+    const header = buffer.subarray(0, headerEnd).toString('ascii');
+    const length = Number(/Content-Length:\s*(\d+)/i.exec(header)?.[1]);
+    const end = headerEnd + 4 + length;
+    if (!Number.isFinite(length) || buffer.length < end) return;
+    const body = buffer.subarray(headerEnd + 4, end).toString('utf8');
+    buffer = buffer.subarray(end);
+    receive(JSON.parse(body));
+  }
+});
+`,
+  );
+  chmodSync(executable, 0o755);
+
+  const install = (factory) => {
+    const handlers = new Map();
+    const messages = [];
+    factory({
+      on: (name, handler) => handlers.set(name, handler),
+      sendMessage: (...args) => messages.push(args),
+    });
+    return { factory, handlers, messages };
+  };
+  const executeWrite = async (
+    handlers,
+    toolCallId,
+    path = '/__offisim_workspace__/src/diagnostic.ts',
+  ) => {
+    await handlers.get('tool_execution_start')({
+      toolCallId,
+      toolName: 'edit',
+      args: { path },
+    });
+    await handlers.get('tool_execution_end')({
+      toolCallId,
+      toolName: 'edit',
+      isError: false,
+    });
+  };
+
+  try {
+    writeFileSync(sourcePath, 'const answer: number = "TYPE_ERROR";\n');
+    const emitted = [];
+    const lspManager = new LanguageServerManager({
+      cwd: workspace,
+      env: { ...process.env, PATH: '' },
+    });
+    const lsp = install(
+      createLspDiagnosticsExtensionFactory({
+        cwd: workspace,
+        emitDiagnostics: (payload) => emitted.push(payload),
+        manager: lspManager,
+      }),
+    );
+    await executeWrite(lsp.handlers, 'write-red');
+    assert(
+      emitted[0]?.path === 'src/diagnostic.ts' &&
+        emitted[0]?.counts?.error === 1 &&
+        emitted[0]?.diagnostics?.[0]?.code === '2322',
+      'a successful file edit must pull bounded, workspace-relative LSP diagnostics',
+    );
+    assert(
+      lsp.messages[0]?.[0]?.display === false &&
+        lsp.messages[0]?.[1]?.deliverAs === 'followUp' &&
+        lsp.messages[0]?.[1]?.triggerTurn === true,
+      'LSP errors must enter the next Pi turn as invisible follow-up feedback',
+    );
+
+    writeFileSync(sourcePath, 'const answer: number = 42;\n');
+    await executeWrite(lsp.handlers, 'write-green');
+    assert(
+      emitted[1]?.counts?.error === 0 && emitted[1]?.diagnostics?.length === 0,
+      'the next file edit must emit an explicit diagnostics-clear marker',
+    );
+    assert(lsp.messages.length === 1, 'a clear diagnostics update must not trigger another turn');
+    await lsp.factory.dispose();
+    assert(
+      lspManager.sessions.size === 0,
+      'the host-owned extension teardown must dispose every session-scoped language server',
+    );
+
+    writeFileSync(sourcePath, 'const answer: number = "CRASH_ONCE TYPE_ERROR";\n');
+    const restartManager = new LanguageServerManager({
+      cwd: workspace,
+      env: { ...process.env, PATH: '' },
+      initializeTimeoutMs: 500,
+      diagnosticTimeoutMs: 1_200,
+    });
+    assert(
+      (await restartManager.diagnoseFile(sourcePath)).status === 'unavailable',
+      'a language server exit during diagnostics must degrade silently for that edit',
+    );
+    const recovered = await restartManager.diagnoseFile(sourcePath);
+    assert(
+      recovered.status === 'available' && recovered.payload.counts.error === 1,
+      'a restarted language server must receive didOpen and recover diagnostics for the same file',
+    );
+    await restartManager.dispose();
+
+    writeFileSync(sourcePath, 'const malformed = "MALFORMED";\n');
+    const malformedManager = new LanguageServerManager({
+      cwd: workspace,
+      env: { ...process.env, PATH: '' },
+      initializeTimeoutMs: 500,
+      diagnosticTimeoutMs: 1_200,
+    });
+    assert(
+      (await malformedManager.diagnoseFile(sourcePath)).status === 'unavailable',
+      'a malformed language-server frame must degrade silently',
+    );
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+    assert(
+      existsSync(join(workspace, '.malformed-terminated')),
+      'a malformed but still-live language server must be terminated instead of orphaned',
+    );
+    await malformedManager.dispose();
+
+    renameSync(tsserver, `${tsserver}.disabled`);
+    writeFileSync(sourcePath, 'const answer: number = "TYPE_ERROR";\n');
+    const bundledTypeScriptFallback = new LanguageServerManager({
+      cwd: workspace,
+      env: { ...process.env, PATH: '' },
+    });
+    const fallbackTypeScriptResult = await bundledTypeScriptFallback.diagnoseFile(sourcePath);
+    assert(
+      fallbackTypeScriptResult.status === 'available',
+      'a usable TypeScript language server must remain available when no workspace-local tsserver exists',
+    );
+    await bundledTypeScriptFallback.dispose();
+
+    renameSync(executable, `${executable}.disabled`);
+    let fallbackCalls = 0;
+    const fallback = install(
+      createLspDiagnosticsExtensionFactory({
+        cwd: workspace,
+        emitDiagnostics: () => undefined,
+        manager: new LanguageServerManager({
+          cwd: workspace,
+          env: { ...process.env, PATH: '' },
+          initializeTimeoutMs: 200,
+          diagnosticTimeoutMs: 300,
+        }),
+        runFallbackVerification: async () => {
+          fallbackCalls += 1;
+          return {
+            ok: true,
+            result: { exitCode: 2, stdout: 'tsc: fixture typecheck failed', stderr: '' },
+          };
+        },
+      }),
+    );
+    writeFileSync(sourcePath, 'const answer: number = "TYPE_ERROR";\n');
+    await executeWrite(fallback.handlers, 'write-without-lsp');
+    assert(
+      fallbackCalls === 1 &&
+        fallback.messages[0]?.[0]?.content?.includes('source="full-verification"') &&
+        fallback.messages[0]?.[1]?.deliverAs === 'followUp',
+      'an unavailable language server must silently use the existing full-project verification callback',
+    );
+    writeFileSync(join(workspace, 'README.md'), '# fixture\n');
+    await executeWrite(
+      fallback.handlers,
+      'write-unsupported-source',
+      '/__offisim_workspace__/README.md',
+    );
+    assert(
+      fallbackCalls === 2 && fallback.messages.length === 2,
+      'a changed file with no supported language server must use full-project verification fallback',
+    );
+    await fallback.factory.dispose();
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+}
+
 await verifyWorktreeCallChannel();
+await verifyLspDiagnosticsExtension();
 
 async function verifyExplicitProjectSkillLoading() {
   const root = mkdtempSync(join(tmpdir(), 'offisim-project-skill-'));
@@ -885,6 +1131,30 @@ const desktopAgentRuntimeSource = readFileSync(
   'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
   'utf8',
 );
+const activityDataSource = readFileSync(
+  'apps/desktop/renderer/src/surfaces/office/board/activity-data.ts',
+  'utf8',
+);
+
+assert(
+  /createLspDiagnosticsExtensionFactory/.test(nodeHostSource) &&
+    /createLspDiagnosticsExtensionFactory/.test(childSupervisorSource) &&
+    /lspDiagnosticsFactory\?\.dispose/.test(nodeHostSource) &&
+    /lspDiagnosticsFactory\?\.dispose/.test(childSupervisorSource) &&
+    /workspace\.diagnostics\.updated/.test(bundledNodeHostSource),
+  'root, delegated child, and rebuilt bundled Pi hosts must install and explicitly dispose the LSP diagnostics extension',
+);
+assert(
+  /runFallbackVerification/.test(nodeHostSource) &&
+    /source=["']full-verification["']/.test(bundledNodeHostSource),
+  'the bundled root host must preserve silent full-project verification fallback when LSP is unavailable',
+);
+assert(
+  /WORKSPACE_DIAGNOSTICS_UPDATED_EVENT/.test(desktopAgentRuntimeSource) &&
+    /const persisted = await this\.persistWorkspaceDiagnostics/.test(desktopAgentRuntimeSource) &&
+    /runtimeEventBus\.on\(WORKSPACE_DIAGNOSTICS_UPDATED_EVENT/.test(activityDataSource),
+  'DesktopAgentRuntime must persist before emitting the neutral diagnostics event that refreshes the existing timeline',
+);
 
 assert(
   rootPackage.scripts['build:pi-agent-host'] === 'node scripts/build-pi-agent-host.mjs',
@@ -1319,6 +1589,22 @@ assert(
   'steer/follow-up must durably journal before ACK and use SHA-256 reattach dedupe',
 );
 assert(
+  /let activeControlSession = null/.test(nodeHostSource) &&
+    /rootControlsOpen = true;[\s\S]*?directSupervisor\.runSingleWithMetadata/.test(
+      nodeHostSource,
+    ) &&
+    /onControlSessionReady/.test(nodeHostSource) &&
+    /onControlMessage: consumeRootControlMessage/.test(nodeHostSource) &&
+    /ctx\.onControlSessionReady\?\.\(runId, session\)/.test(childSupervisorSource) &&
+    /event\.message\?\.role === 'custom'[\s\S]*?ctx\.onControlMessage/.test(
+      childSupervisorSource,
+    ) &&
+    /ctx\.onControlSessionClosed\?\.\(runId, session\)/.test(childSupervisorSource) &&
+    /activeControlSession/.test(bundledNodeHostSource) &&
+    /onControlSessionReady/.test(bundledNodeHostSource),
+  'direct delegation must bind its live child session to the existing durable steer channel in source and bundle',
+);
+assert(
   /"images": req\.images/.test(executePayloadSource) &&
     /images: input\.images\?\.length \? input\.images : null/.test(desktopAgentRuntimeSource) &&
     /session\.prompt\(text, promptImages\.length > 0 \? \{ images: promptImages \}/.test(
@@ -1402,8 +1688,8 @@ assert(
     'apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx',
     'utf8',
   );
-  const workspacePanelSource = readFileSync(
-    'apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx',
+  const reviewWorkbenchStageSource = readFileSync(
+    'apps/desktop/renderer/src/surfaces/office/board/ReviewWorkbenchStage.tsx',
     'utf8',
   );
   assert(
@@ -1441,7 +1727,9 @@ assert(
       boardStageSource,
     ) &&
       /hasPendingDecision\(selectedLeases\)/.test(boardStageSource) &&
-      /pendingLeaseAction !== null/.test(workspacePanelSource),
+      /pendingAction !== null/.test(reviewWorkbenchStageSource) &&
+      /const outcome = await reviewWorkspaceLease/.test(reviewWorkbenchStageSource) &&
+      /outcome === 'discarded'/.test(reviewWorkbenchStageSource),
     'Board, compact approval, and workspace review entries must disable on shared pending state and report persisted outcomes rather than requested actions',
   );
   assert(

@@ -1,4 +1,5 @@
 import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
+import type { ReviewAnnotation, ReviewWorkbenchState } from '@/data/review-workbench.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { createTauriGitWorktreeOps } from '@/runtime/mission/workspace/git-worktree-ops.js';
 import { getRepos } from '@/runtime/repos.js';
@@ -226,6 +227,8 @@ export async function requestWorkspaceLeaseChanges(
     employeeId: string;
     objective: string;
     feedback: string;
+    review?: ReviewWorkbenchState;
+    annotations?: ReviewAnnotation[];
   },
 ): Promise<void> {
   const approval = conversationRunController.getSnapshot(row.threadId).approval;
@@ -247,7 +250,7 @@ export async function requestWorkspaceLeaseChanges(
     employee_id: null,
     title: 'Task Board rework',
   });
-  const objective = `${input.objective}\n\nReview feedback:\n${input.feedback}\n\nContinue in the existing worktree and address every point.`;
+  const objective = `${input.objective}\n\nResume the existing worktree. A structured review steer follows immediately; address every point before returning the lease for review.`;
   const handle = await conversationRunController.submit({
     companyId: input.companyId,
     projectId: input.projectId,
@@ -265,9 +268,90 @@ export async function requestWorkspaceLeaseChanges(
       resumeLease: resumeLeasePacket(row),
     },
   });
-  await appendWorkspaceLeaseAction(row, input.companyId, 'changes_requested', 'active', {
-    feedback: input.feedback,
-    originRunId: row.runId,
-    reworkRootRunId: handle.attemptId,
+  const reviewBatchId = crypto.randomUUID();
+  const annotations = input.annotations ?? [];
+  const reviewPoints =
+    annotations.length > 0
+      ? annotations.map(
+          (annotation, index) =>
+            `${index + 1}. ${annotation.path} · ${annotation.label}\n   ${annotation.body}`,
+        )
+      : [input.feedback];
+  const steerText = [
+    `Review steer ${reviewBatchId}`,
+    `Employee: ${input.employeeId}`,
+    `Lease: ${row.leaseId}`,
+    '',
+    ...reviewPoints,
+    '',
+    'Continue in the existing worktree, address every review annotation, run the relevant checks, and return the lease for review.',
+  ].join('\n');
+  try {
+    const control = await conversationRunController.enqueue(
+      {
+        companyId: input.companyId,
+        projectId: input.projectId,
+        threadId,
+        employeeId: null,
+        text: steerText,
+        stagedAttachments: [],
+        source: 'workspace',
+      },
+      'steer',
+    );
+    await appendWorkspaceLeaseAction(row, input.companyId, 'review_steered', 'active', {
+      feedback: input.feedback,
+      ...(input.review ? { review: input.review } : {}),
+      reviewBatchId,
+      commentIds: annotations.map((annotation) => annotation.id),
+      controlMessageId: control.userMessageId,
+      originRunId: row.runId,
+      reworkRootRunId: handle.attemptId,
+    });
+  } catch (error) {
+    await conversationRunController.stopAndWait(threadId);
+    const failedCommentIds = new Set(annotations.map((annotation) => annotation.id));
+    const retryableReview = input.review
+      ? {
+          ...input.review,
+          annotations: input.review.annotations.map((annotation) =>
+            failedCommentIds.has(annotation.id) && annotation.state === 'submitted'
+              ? { ...annotation, state: 'draft' as const }
+              : annotation,
+          ),
+        }
+      : undefined;
+    await appendWorkspaceLeaseAction(row, input.companyId, 'review_steer_error', 'pending_review', {
+      ...(retryableReview ? { review: retryableReview } : {}),
+      reviewBatchId,
+      originRunId: row.runId,
+      reworkRootRunId: handle.attemptId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+export async function persistWorkspaceLeaseReview(
+  row: WorkspaceLeaseReviewRow,
+  companyId: string,
+  review: ReviewWorkbenchState,
+): Promise<void> {
+  await appendWorkspaceLeaseAction(row, companyId, 'review_updated', 'pending_review', {
+    review,
+  });
+}
+
+export async function applyWorkspaceLeaseReviewPatch(
+  row: WorkspaceLeaseReviewRow,
+  patch: string,
+): Promise<void> {
+  if (!row.projectId || !row.cwd) throw new Error('The lease has no Project or worktree path.');
+  await invokeCommand('workspace_lease_apply_patch', {
+    projectId: row.projectId,
+    leaseId: row.leaseId,
+    path: row.cwd,
+    patch,
+    reverse: true,
   });
 }

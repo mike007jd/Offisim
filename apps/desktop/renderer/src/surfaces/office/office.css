@@ -3877,6 +3877,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-2);
+  border-radius: var(--off-r-md);
+  outline: 0 solid transparent;
+  transition: background-color var(--off-motion-base) var(--off-motion-ease), outline-color
+    var(--off-motion-base) var(--off-motion-ease);
+}
+
+.off-msg.is-search-target {
+  background: var(--off-accent-surface);
+  outline: 2px solid var(--off-accent);
+  outline-offset: var(--off-sp-2);
 }
 
 .off-msg-head {
@@ -6334,6 +6344,74 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--off-sp-2);
+}
+.off-gw-pr-create {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.off-gw-pr-create > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.off-gw-review-entry {
+  min-width: 0;
+  display: grid;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+}
+.off-gw-review-entry-head,
+.off-gw-review-entry-stats {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+}
+.off-gw-review-entry-head span {
+  color: var(--off-warn);
+  font-size: var(--off-fs-micro);
+  font-weight: 760;
+  text-transform: uppercase;
+}
+.off-gw-review-entry-head strong {
+  margin-left: auto;
+  color: var(--off-ink-2);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-micro);
+}
+.off-gw-review-entry > p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.off-gw-review-entry-stats {
+  color: var(--off-ink-4);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-micro);
+}
+.off-gw-review-entry-stats span:first-child {
+  color: var(--off-ok);
+}
+.off-gw-review-entry-stats span:nth-child(2) {
+  color: var(--off-danger);
+}
+.off-gw-review-entry-stats span:last-child {
+  margin-left: auto;
+}
+.off-gw-review-entry > button {
+  width: 100%;
 }
 .off-gw-stage-row,
 .off-gw-check-row {

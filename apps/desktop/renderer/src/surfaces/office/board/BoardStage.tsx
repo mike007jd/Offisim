@@ -11,6 +11,7 @@ import {
 } from '@/data/usage-token-coverage.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import type { WorkspaceCheckpointRow } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
 import {
@@ -37,6 +38,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   type ActivityRecord,
+  checkpointPathForDisplay,
   collapseReroutes,
   domainIcon,
   formatRelativeTimestamp,
@@ -54,6 +56,7 @@ import {
   workspaceLeaseReviewsQueryOptions,
 } from './task-board-data.js';
 import { useWorkspaceLeaseDecisionVersion } from './use-workspace-lease-decision.js';
+import { rewindWorkspaceCheckpoint } from './workspace-checkpoint-actions.js';
 import {
   type WorkspaceLeaseReviewOutcome,
   appendWorkspaceLeaseAction,
@@ -247,6 +250,16 @@ export function BoardStage() {
         .map((row) => ({ ...row, status: effectiveStatus(row, allLeases) }))
         .filter((row) => row.status !== 'discarded'),
     [allLeases, board.rows, projectId],
+  );
+  const attentionRootRunIds = useMemo(
+    () =>
+      new Set(
+        board.rows
+          .map((row) => ({ row, status: effectiveStatus(row, allLeases) }))
+          .filter(({ status }) => ['failed', 'cancelled', 'interrupted'].includes(status))
+          .map(({ row }) => row.rootRunId),
+      ),
+    [allLeases, board.rows],
   );
   const selectedRow = scopedRows.find((row) => row.runId === selectedRunId) ?? null;
   const selectedLeases = selectedRow ? leasesForRow(selectedRow, allLeases) : [];
@@ -466,7 +479,11 @@ export function BoardStage() {
       </header>
 
       {lens === 'timeline' ? (
-        <BoardTimeline companyId={companyId} />
+        <BoardTimeline
+          companyId={companyId}
+          projectIds={projectIds}
+          attentionRootRunIds={attentionRootRunIds}
+        />
       ) : board.isError && scopedRows.length === 0 ? (
         <ErrorState
           title="Couldn't load the board"
@@ -894,13 +911,52 @@ function BoardDrawer({
   );
 }
 
-function BoardTimeline({ companyId }: { companyId: string }) {
-  const records = useActivityRecords(companyId);
+function BoardTimeline({
+  companyId,
+  projectIds,
+  attentionRootRunIds,
+}: {
+  companyId: string;
+  projectIds: readonly string[];
+  attentionRootRunIds: ReadonlySet<string>;
+}) {
+  const records = useActivityRecords(companyId, projectIds);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    anchorId: string;
+    target: WorkspaceCheckpointRow;
+  } | null>(null);
+  const [rewindingId, setRewindingId] = useState<string | null>(null);
   const allRecords = useMemo<ActivityRecord[]>(
     () => records.data?.pages.flatMap((page) => page.records) ?? [],
     [records.data],
   );
+  const baselineByRootRun = useMemo(() => {
+    const baselines = new Map<string, WorkspaceCheckpointRow>();
+    for (const record of allRecords) {
+      if (record.checkpoint?.step === 0) {
+        baselines.set(record.checkpoint.rootRunId, record.checkpoint);
+      }
+    }
+    return baselines;
+  }, [allRecords]);
   const groups = useMemo(() => groupByTime(allRecords), [allRecords]);
+  const rewind = useCallback(
+    async (checkpoint: WorkspaceCheckpointRow) => {
+      setRewindingId(checkpoint.checkpointId);
+      try {
+        await rewindWorkspaceCheckpoint(checkpoint, companyId);
+        setConfirmState(null);
+        toast.success(`Workspace rewound to Step ${checkpoint.step}.`);
+        await records.refetch();
+      } catch (error) {
+        toast.error(errorDetail(error, 'Could not rewind this workspace.'));
+      } finally {
+        setRewindingId(null);
+      }
+    },
+    [companyId, records],
+  );
   if (records.isError && allRecords.length === 0)
     return (
       <ErrorState
@@ -929,18 +985,107 @@ function BoardTimeline({ companyId }: { companyId: string }) {
           {collapseReroutes(group.records).map(({ record, collapsedCount }) => {
             const summary = getDisplaySummary(record);
             const { icon, color } = domainIcon(record.type);
+            const checkpoint = record.checkpoint;
+            const expanded = expandedId === record.id;
+            const baseline = checkpoint ? baselineByRootRun.get(checkpoint.rootRunId) : undefined;
+            const showRunStart = Boolean(
+              checkpoint &&
+                checkpoint.step !== 0 &&
+                baseline &&
+                attentionRootRunIds.has(checkpoint.rootRunId),
+            );
+            const confirmTarget = confirmState?.anchorId === record.id ? confirmState.target : null;
+            const machineDetails = checkpoint
+              ? `Run ID: ${checkpoint.runId}\nCheckpoint ID: ${checkpoint.checkpointId}`
+              : record.rollback
+                ? `Rollback ID: ${record.rollback.rollbackId}\nCheckpoint ID: ${record.rollback.checkpointId}`
+                : undefined;
             return (
               <div
-                className={cn('off-board-event', `is-${getEventLevel(record.type)}`)}
+                className={cn(
+                  'off-board-event',
+                  `is-${getEventLevel(record.type)}`,
+                  checkpoint && 'is-checkpoint',
+                )}
                 key={record.id}
               >
                 <Icon icon={icon} size="sm" className={`is-${color}`} />
-                <span>
+                <span title={machineDetails}>
                   {summary.actor ? <b>{summary.actor} · </b> : null}
                   {summary.label}
                   {collapsedCount ? <em> ×{collapsedCount}</em> : null}
                 </span>
                 <time>{formatRelativeTimestamp(record.at)}</time>
+                {checkpoint ? (
+                  <div className="off-board-checkpoint-actions">
+                    <button
+                      type="button"
+                      className="off-focusable"
+                      onClick={() => setExpandedId(expanded ? null : record.id)}
+                    >
+                      {expanded
+                        ? 'Hide changed files'
+                        : `Show ${checkpoint.changedPaths.length} changed ${checkpoint.changedPaths.length === 1 ? 'file' : 'files'}`}
+                    </button>
+                    <button
+                      type="button"
+                      className="off-focusable"
+                      disabled={rewindingId !== null}
+                      onClick={() => setConfirmState({ anchorId: record.id, target: checkpoint })}
+                    >
+                      Rewind to Step {checkpoint.step}
+                    </button>
+                    {showRunStart ? (
+                      <button
+                        type="button"
+                        className="off-focusable is-run-start"
+                        disabled={rewindingId !== null}
+                        onClick={() =>
+                          baseline && setConfirmState({ anchorId: record.id, target: baseline })
+                        }
+                      >
+                        撤到本轮开始前
+                      </button>
+                    ) : null}
+                    {expanded ? (
+                      <ul>
+                        {checkpoint.changedPaths.length > 0 ? (
+                          checkpoint.changedPaths.map((path) => (
+                            <li key={path}>
+                              {checkpointPathForDisplay(path, checkpoint.workspaceRoot)}
+                            </li>
+                          ))
+                        ) : (
+                          <li>No files changed — this is the run starting point.</li>
+                        )}
+                      </ul>
+                    ) : null}
+                    {confirmTarget ? (
+                      <div className="off-board-checkpoint-confirm" role="alert">
+                        <span>
+                          Rewind this isolated workspace to Step {confirmTarget.step}? Your Project
+                          files stay untouched.
+                        </span>
+                        <button
+                          type="button"
+                          className="off-focusable is-danger"
+                          disabled={rewindingId !== null}
+                          onClick={() => void rewind(confirmTarget)}
+                        >
+                          {rewindingId ? 'Rewinding…' : `Rewind to Step ${confirmTarget.step}`}
+                        </button>
+                        <button
+                          type="button"
+                          className="off-focusable"
+                          disabled={rewindingId !== null}
+                          onClick={() => setConfirmState(null)}
+                        >
+                          Keep current work
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             );
           })}

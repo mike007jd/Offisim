@@ -353,10 +353,12 @@ pub(super) async fn handle_worktree_call<R: tauri::Runtime>(
 
 fn worktree_operation_access(op: &str) -> Result<TaskWorkspaceAccess, String> {
     match op {
-        "isGitRepo" | "validateCwd" | "worktreeChanged" | "diff" | "diffText" | "fileRead"
-        | "fileStat" | "fileList" | "fileFind" | "fileGrep" => Ok(TaskWorkspaceAccess::Read),
+        "isGitRepo" | "validateCwd" | "worktreeChanged" | "diff" | "diffText"
+        | "listCheckpoints" | "fileRead" | "fileStat" | "fileList" | "fileFind" | "fileGrep" => {
+            Ok(TaskWorkspaceAccess::Read)
+        }
         "addWorktree" | "removeWorktree" | "discardWorktree" | "executeBash" | "commitAll"
-        | "merge" | "fileWrite" => Ok(TaskWorkspaceAccess::Write),
+        | "createCheckpoint" | "merge" | "fileWrite" => Ok(TaskWorkspaceAccess::Write),
         other => Err(format!("unknown worktree operation '{other}'")),
     }
 }
@@ -630,6 +632,49 @@ async fn run_worktree_op<R: tauri::Runtime>(
                 return Err(nonzero_git_error(commit));
             }
             Ok(serde_json::json!({ "ok": true, "committed": true }))
+        }
+        "createCheckpoint" => {
+            let path = worktree_arg(&args, "path")?;
+            let lease_id = worktree_arg(&args, "leaseId")?;
+            let run_id = worktree_arg(&args, "runId")?;
+            let trigger_tool = worktree_arg(&args, "triggerTool")?;
+            let created_at = worktree_arg(&args, "createdAt")?;
+            let trigger_tool_call_id = args
+                .get("triggerToolCallId")
+                .and_then(serde_json::Value::as_str);
+            let cwd =
+                crate::git::require_registered_workspace_lease(app, binding, Path::new(&path))
+                    .await?;
+            if cwd.file_name().and_then(|value| value.to_str()) != Some(lease_id.as_str()) {
+                return Err("Checkpoint lease id does not match its registered path".into());
+            }
+            serde_json::to_value(
+                crate::git::create_registered_workspace_checkpoint(
+                    app,
+                    binding,
+                    &cwd,
+                    &run_id,
+                    &trigger_tool,
+                    trigger_tool_call_id,
+                    &created_at,
+                )
+                .await?,
+            )
+            .map_err(|error| format!("Serialize workspace checkpoint: {error}"))
+        }
+        "listCheckpoints" => {
+            let path = worktree_arg(&args, "path")?;
+            let lease_id = worktree_arg(&args, "leaseId")?;
+            let cwd =
+                crate::git::require_registered_workspace_lease(app, binding, Path::new(&path))
+                    .await?;
+            if cwd.file_name().and_then(|value| value.to_str()) != Some(lease_id.as_str()) {
+                return Err("Checkpoint lease id does not match its registered path".into());
+            }
+            serde_json::to_value(
+                crate::git::list_registered_workspace_checkpoints(app, binding, &cwd).await?,
+            )
+            .map_err(|error| format!("Serialize workspace checkpoints: {error}"))
         }
         "diff" => {
             let path = worktree_arg(&args, "path")?;

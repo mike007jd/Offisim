@@ -37,7 +37,9 @@ export function ChatRail() {
   const markDraftPersisted = useUiState((s) => s.markDraftPersisted);
   const closeThread = useUiState((s) => s.closeThread);
   const pendingThreadFocus = useUiState((s) => s.pendingThreadFocus);
+  const focusedMessageId = useUiState((s) => s.focusedMessageId);
   const consumePendingThreadFocus = useUiState((s) => s.consumePendingThreadFocus);
+  const clearFocusedMessage = useUiState((s) => s.clearFocusedMessage);
   const openThread = useUiState((s) => s.openThread);
   const openCompanyThread = useUiState((s) => s.openCompanyThread);
   const openCompanyDraft = useUiState((s) => s.openCompanyDraft);
@@ -60,7 +62,7 @@ export function ChatRail() {
     const intent = consumePendingThreadFocus();
     if (!intent) return;
     if (threads.data?.some((thread) => thread.id === intent.threadId)) {
-      openThread(intent.threadId);
+      openThread(intent.threadId, intent.messageId);
       return;
     }
     toast.error('The source conversation no longer exists in this project.');
@@ -228,6 +230,8 @@ export function ChatRail() {
           isDraft={isDraft}
           projectName={projectName}
           materializeThread={isDraft ? materializeThread : undefined}
+          focusedMessageId={focusedMessageId}
+          onMessageFocusConsumed={clearFocusedMessage}
         />
       )}
     </section>

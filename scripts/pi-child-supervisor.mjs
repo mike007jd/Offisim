@@ -21,6 +21,7 @@ import {
   SessionManager,
   createAgentSession,
 } from '@earendil-works/pi-coding-agent';
+import { createLspDiagnosticsExtensionFactory } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
 import {
   OneShotBudgetNudge,
   decideBoundedLoop,
@@ -535,6 +536,9 @@ async function mapWithConcurrencyLimit(items, limit, fn) {
  * @param {string|undefined} [ctx.permissionMode] root conversation permission mode inherited by every child
  * @param {(mode: string) => ((pi: unknown) => void)|null} ctx.buildPermissionGate
  * @param {(session: object) => Promise<void>} [ctx.bindChildUi] binds the existing renderer approval channel for Ask children
+ * @param {(runId: string, session: object) => void} [ctx.onControlSessionReady] exposes a direct child as the outer run's steer target
+ * @param {(runId: string, session: object) => void} [ctx.onControlSessionClosed] clears a previously exposed steer target
+ * @param {(message: object) => void} [ctx.onControlMessage] observes durable control custom messages consumed by a child
  * @param {typeof createAgentSession} [ctx.createAgentSession] deterministic harness seam
  * @param {(options: object) => {reload: () => Promise<void>}} [ctx.createResourceLoader]
  * @param {(cwd: string) => object} [ctx.createSessionManager]
@@ -611,6 +615,17 @@ export function createChildSupervisor(ctx) {
         payload: await workspaceLeaseSnapshotPayload(lease, phase, extra),
       }),
     );
+  }
+
+  function emitWorkspaceCheckpoint(emit, lease, checkpoint) {
+    emit('workspace.checkpoint', {
+      ...checkpoint,
+      projectId: typeof ctx.projectId === 'string' ? ctx.projectId : null,
+      runId: lease.runId,
+      workspaceRoot: lease.workspaceRoot,
+      cwd: lease.cwd,
+      branch: lease.branch,
+    });
   }
 
   /** Build a per-run emitter that stamps this run's scope + relation + workKind
@@ -691,6 +706,7 @@ export function createChildSupervisor(ctx) {
       emit('run.started', {
         objective,
         access,
+        projectId: ctx.projectId ?? null,
         ...(asNonEmptyString(task.originRunId) ? { originRunId: task.originRunId } : {}),
       });
       const message = error instanceof Error ? error.message : String(error);
@@ -700,6 +716,7 @@ export function createChildSupervisor(ctx) {
     emit('run.started', {
       objective,
       access,
+      projectId: ctx.projectId ?? null,
       ...(asNonEmptyString(task.originRunId) ? { originRunId: task.originRunId } : {}),
       runtimeContextJson: JSON.stringify({
         runtime: 'api',
@@ -879,6 +896,7 @@ export function createChildSupervisor(ctx) {
     });
     const childDelegationFactory = createDelegationExtensionFactory(childSupervisor);
     const extensionFactories = [gateFactory, childDelegationFactory].filter(Boolean);
+    let lspDiagnosticsFactory = null;
     let lease = null;
     let taskWorkspaceLease = null;
     let childCwd = ctx.cwd;
@@ -946,14 +964,34 @@ export function createChildSupervisor(ctx) {
             ...(asNonEmptyString(resumeLease?.runId) ? { originRunId: resumeLease.runId } : {}),
           });
         }
-      } catch (error) {
-        if (lease) {
-          const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
-          if (released) {
-            await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_authority_failure');
+        if (lease?.isolated && access === 'write' && ctx.checkpointManager) {
+          const existing = await ctx.checkpointManager.list(lease);
+          const checkpoints =
+            existing.length > 0 ? existing : await ctx.checkpointManager.open(lease);
+          if (existing.length === 0 && checkpoints[0]) {
+            emitWorkspaceCheckpoint(emit, lease, checkpoints[0]);
           }
         }
+      } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        if (lease) {
+          if (resumeLease) {
+            const retained = ctx.leaseManager?.adoptLease?.({
+              ...lease,
+              status: 'pending_review',
+            });
+            if (retained) {
+              await emitWorkspaceLeaseSnapshot(emit, retained, 'rework_start_failed', {
+                startError: message,
+              });
+            }
+          } else {
+            const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
+            if (released) {
+              await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_authority_failure');
+            }
+          }
+        }
         return {
           summary: blocked(emit, `Workspace lease failed: ${message}`, 'runtime'),
           completed: false,
@@ -974,6 +1012,11 @@ export function createChildSupervisor(ctx) {
           .map((path) => resolve(childCwd, path))
       : [];
     skillPaths.push(...projectSkillPaths);
+    lspDiagnosticsFactory = createLspDiagnosticsExtensionFactory({
+      cwd: childCwd,
+      emitDiagnostics: (diagnostics) => emit('workspace.diagnostics.updated', diagnostics),
+    });
+    extensionFactories.push(lspDiagnosticsFactory);
     const effectiveObjective =
       lease?.isolated && access === 'write'
         ? [
@@ -1050,9 +1093,18 @@ export function createChildSupervisor(ctx) {
       session?.dispose?.();
       const message = error instanceof Error ? error.message : String(error);
       if (lease) {
-        const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
-        if (released)
-          await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_start_failure');
+        if (resumeLease) {
+          const retained = ctx.leaseManager?.adoptLease?.({ ...lease, status: 'pending_review' });
+          if (retained) {
+            await emitWorkspaceLeaseSnapshot(emit, retained, 'rework_start_failed', {
+              startError: message,
+            });
+          }
+        } else {
+          const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
+          if (released)
+            await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_start_failure');
+        }
       }
       failed(emit, 'runtime', `Failed to start: ${message}`);
       return { summary: `Delegation failed: ${message}`, completed: false };
@@ -1068,7 +1120,35 @@ export function createChildSupervisor(ctx) {
         modelRegistry: ctx.modelRegistry,
       }).catch(() => undefined);
     let finalAssistant;
+    let checkpointTail = Promise.resolve();
+    let checkpointError = null;
+    const queueCheckpoint = (toolName, toolCallId) => {
+      if (!lease?.isolated || access !== 'write' || !ctx.checkpointManager) return;
+      checkpointTail = checkpointTail
+        .then(async () => {
+          const checkpoint = await ctx.checkpointManager.captureAfterTool(lease, {
+            toolName,
+            toolCallId,
+          });
+          if (checkpoint) emitWorkspaceCheckpoint(emit, lease, checkpoint);
+        })
+        .catch((error) => {
+          checkpointError = error;
+        });
+    };
+    const flushCheckpoints = async () => {
+      await checkpointTail;
+      if (checkpointError) {
+        const error = checkpointError;
+        checkpointError = null;
+        throw error;
+      }
+    };
     const unsubscribe = session.subscribe((event) => {
+      if (event.type === 'message_end' && event.message?.role === 'custom') {
+        ctx.onControlMessage?.(event.message);
+        return;
+      }
       if (event.type === 'tool_execution_start') {
         emit('tool.started', {
           toolCallId: event.toolCallId,
@@ -1083,6 +1163,7 @@ export function createChildSupervisor(ctx) {
           toolName: event.toolName,
           status: event.isError ? 'failed' : 'completed',
         });
+        if (!event.isError) queueCheckpoint(event.toolName, event.toolCallId);
         return;
       }
       if (event.type === 'message_end' && event.message?.role === 'assistant') {
@@ -1117,6 +1198,7 @@ export function createChildSupervisor(ctx) {
           }, limits.childTimeoutMs)
         : null;
     timer?.unref?.();
+    let controlSessionExposed = false;
 
     try {
       const verifyConfig = access === 'write' ? ctx.verifyConfig : undefined;
@@ -1150,7 +1232,17 @@ export function createChildSupervisor(ctx) {
         attemptNumber += 1;
         finalAssistant = undefined;
         ctx.executionTargetGate.assertPrepared(binding.preparedExecution, session);
-        await session.prompt(prompt);
+        const promptRun = session.prompt(prompt);
+        if (!controlSessionExposed) {
+          // A queued steer may trigger a turn as soon as the outer control
+          // ledger sees a session. Start the child's objective first so the
+          // queued review instruction joins that live turn instead of racing it
+          // and causing Pi to reject a second concurrent prompt.
+          ctx.onControlSessionReady?.(runId, session);
+          controlSessionExposed = true;
+        }
+        await promptRun;
+        await flushCheckpoints();
         const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
         if (finalAssistant?.stopReason === 'error' || assistantError) {
           const message =
@@ -1326,8 +1418,11 @@ export function createChildSupervisor(ctx) {
     } finally {
       if (timer) clearTimeout(timer);
       unsubscribe();
+      if (controlSessionExposed) ctx.onControlSessionClosed?.(runId, session);
+      await lspDiagnosticsFactory?.dispose?.();
       session.dispose();
       if (signal) signal.removeEventListener('abort', onAbort);
+      await ctx.checkpointManager?.waitForIdle?.(lease?.leaseId).catch(() => undefined);
       if (lease && !(lease.isolated && access === 'write')) {
         const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
         if (released) await emitWorkspaceLeaseSnapshot(emit, released, 'released');
