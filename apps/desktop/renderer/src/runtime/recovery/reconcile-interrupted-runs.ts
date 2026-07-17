@@ -88,7 +88,7 @@ interface InterruptedRunCardOptions {
   currentWireProtocolVersion?: number;
 }
 
-export const PI_HOST_PROTOCOL_VERSION = 13;
+export const PI_HOST_PROTOCOL_VERSION = 14;
 export const CODEX_APP_SERVER_PROTOCOL_VERSION = 2;
 export const CLAUDE_AGENT_HOST_PROTOCOL_VERSION = 1;
 
@@ -392,7 +392,11 @@ export function buildInterruptedRunCard(
     !workspaceBindingMatchesRun ||
     (options.resumeCompatibility !== undefined && options.resumeCompatibility.status !== 'same');
   const classification: RecoveryClassification =
-    competitiveDraftRun || !supportedEngine || protocolMismatch || workspaceBlocked || !hasNativeSession
+    competitiveDraftRun ||
+    !supportedEngine ||
+    protocolMismatch ||
+    workspaceBlocked ||
+    !hasNativeSession
       ? 'incompatible'
       : 'resumable';
   const workspaceName = workspaceBinding?.displayPath || 'the original Project folder';

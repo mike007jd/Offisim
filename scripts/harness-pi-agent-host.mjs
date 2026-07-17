@@ -1560,8 +1560,8 @@ assert(
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 assert(
-  /PI_HOST_PROTOCOL_VERSION = 13/.test(wireSource) &&
-    /PI_HOST_PROTOCOL_VERSION: u32 = 13/.test(rustHostSource) &&
+  /PI_HOST_PROTOCOL_VERSION = 14/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 14/.test(rustHostSource) &&
     /'worktreeCall'/.test(wireSource) &&
     /WorktreeCall/.test(rustHostSource) &&
     /'verifyCall'/.test(wireSource) &&

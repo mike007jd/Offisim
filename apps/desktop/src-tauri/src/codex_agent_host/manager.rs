@@ -11,7 +11,7 @@ use tokio::sync::{Mutex as AsyncMutex, Notify};
 
 use crate::agent_host_runtime::{AgentHostLane, HostError};
 use crate::engine_skill_overlay::{
-    materialize_engine_skill_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
+    materialize_engine_context_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
 };
 use crate::git::{
     create_competitive_draft_workspace_lease, verify_competitive_draft_attempt,
@@ -390,7 +390,11 @@ async fn execute_claimed(
             req.project_skill_paths.as_deref(),
         )
         .and_then(|paths| {
-            materialize_engine_skill_overlay(&paths, EngineSkillOverlayKind::CodexHome)
+            materialize_engine_context_overlay(
+                &paths,
+                EngineSkillOverlayKind::CodexHome,
+                req.project_experience.as_deref(),
+            )
         }) {
             Ok(overlay) => overlay,
             Err(message) => {
@@ -450,6 +454,12 @@ async fn execute_claimed(
     }
     spawn_terminal_cleanup(app, req.request_id.clone(), Arc::clone(&run));
 
+    let developer_instructions = skill_overlay
+        .as_ref()
+        .and_then(|overlay| {
+            overlay.system_prompt_with_project_experience(req.system_prompt_append.as_deref())
+        })
+        .or_else(|| req.system_prompt_append.clone());
     let setup = start_native_thread(
         &run.connection,
         NativeThreadStart {
@@ -457,7 +467,7 @@ async fn execute_claimed(
             continuation: continuation.as_ref(),
             ephemeral: false,
             policy: &policy,
-            developer_instructions: req.system_prompt_append.as_deref(),
+            developer_instructions: developer_instructions.as_deref(),
         },
     )
     .await;
@@ -2369,6 +2379,7 @@ time.sleep(30)
             native_session_reset_source_run_id: None,
             permission_mode: Some("auto".into()),
             system_prompt_append: None,
+            project_experience: None,
             skill_paths: None,
             project_skill_paths: None,
             client_user_message_id: None,

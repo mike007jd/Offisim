@@ -16,7 +16,11 @@
  * instruction. The three are frozen with the contract; new surfaces reuse one of
  * these or add a new profile in a follow-up.
  */
-export type PromptEnhanceProfile = 'office_instruction' | 'collaboration_message' | 'loop_design';
+export type PromptEnhanceProfile =
+  | 'office_instruction'
+  | 'collaboration_message'
+  | 'loop_design'
+  | 'employee_memory_distill';
 
 /**
  * A span of the original text that MUST survive enhancement byte-for-byte. The

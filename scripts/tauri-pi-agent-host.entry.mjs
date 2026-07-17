@@ -1667,6 +1667,7 @@ async function runPrompt(payload) {
   // DefaultResourceLoader whenever there's a permission gate OR a persona, and
   // merge both into it so Pi receives a single loader.
   const systemPromptAppend = asNonEmptyString(payload.systemPromptAppend);
+  const projectExperience = asNonEmptyString(payload.projectExperience);
   // Vault skills and repository-owned skills converge only after Rust has
   // resolved each source against its own authority root. Pi receives absolute
   // SKILL.md paths and keeps the open-standard files unchanged.
@@ -1962,6 +1963,7 @@ async function runPrompt(payload) {
     // guidance — both are generic appended system prompts (Pi's official option).
     const appendSystemPrompt = [];
     if (systemPromptAppend) appendSystemPrompt.push(systemPromptAppend);
+    if (projectExperience) appendSystemPrompt.push(projectExperience);
     if (delegationEnabled) appendSystemPrompt.push(DELEGATION_FLOW_GUIDANCE);
     if (workspaceUnavailable) {
       appendSystemPrompt.push(workspaceUnavailableSystemPrompt(workspaceState.reasonCode));

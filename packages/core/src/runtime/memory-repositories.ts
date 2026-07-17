@@ -5,6 +5,7 @@ import { createCollaborationMemoryRepos } from './repos/collaboration/memory.js'
 import { createConversationsMemoryRepos } from './repos/conversations/memory.js';
 import type { DeliverableContentLoader } from './repos/deliverables/memory.js';
 import { createDeliverablesMemoryRepos } from './repos/deliverables/memory.js';
+import { MemoryEmployeeProjectMemoryRepository } from './repos/employee-project-memories/memory.js';
 import { createEmployeesMemoryRepos } from './repos/employees/memory.js';
 import { createFilesMemoryRepos } from './repos/files/memory.js';
 import { createMemoryInstallRepositories } from './repos/install/memory.js';
@@ -149,6 +150,7 @@ export function createMemoryRepositories(
     ...projectsFamily,
     ...agentEventsFamily,
     ...agentRunsFamily,
+    employeeProjectMemories: new MemoryEmployeeProjectMemoryRepository(),
     ...deliverablesFamily,
     ...skillsFamily,
     ...missionFamily,

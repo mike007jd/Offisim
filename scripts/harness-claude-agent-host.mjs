@@ -249,7 +249,7 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
 
   const status = await runHost({ cwd: workspace, env, payload: { mode: 'status' } });
   assert.equal(status.code, 0, status.errorOutput || status.output);
-  assert.deepEqual(status.frames[0], { kind: 'ready', protocolVersion: 13 });
+  assert.deepEqual(status.frames[0], { kind: 'ready', protocolVersion: 14 });
   const projection = status.frames.at(-1)?.response;
   assert.equal(projection.engineId, 'claude');
   assert.equal(projection.state, 'ready');

@@ -119,6 +119,7 @@ pub(super) fn sidecar_payload(
         "permissionMode": req.permission_mode,
         "thinkingLevel": req.thinking_level,
         "systemPromptAppend": req.system_prompt_append,
+        "projectExperience": req.project_experience,
         "skillPaths": skill_paths,
         "projectSkillPaths": project_skill_paths,
         // Delegation scope (Phase 1): the root run id + thread id let the host's

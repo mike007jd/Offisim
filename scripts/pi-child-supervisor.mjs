@@ -529,7 +529,7 @@ async function mapWithConcurrencyLimit(items, limit, fn) {
  * @param {object} ctx.settingsManager
  * @param {string} ctx.threadId
  * @param {string} ctx.rootRunId
- * @param {Array<{employeeId:string,name?:string,roleSlug?:string,persona?:string,model?:string,executionTarget?:object,runtimeModelRef?:string,thinkingLevel?:string}>} ctx.roster
+ * @param {Array<{employeeId:string,name?:string,roleSlug?:string,persona?:string,projectExperience?:string,model?:string,executionTarget?:object,runtimeModelRef?:string,thinkingLevel?:string}>} ctx.roster
  * @param {(modelId?: string) => object|undefined} ctx.resolveModel
  * @param {object|undefined} [ctx.rootModel] model explicitly selected for the parent run
  * @param {string|undefined} [ctx.rootThinkingLevel] thinking level selected for the parent run
@@ -879,6 +879,11 @@ export function createChildSupervisor(ctx) {
       typeof employee.persona === 'string' && employee.persona.trim()
         ? employee.persona.trim()
         : undefined;
+    const projectExperience =
+      typeof employee.projectExperience === 'string' && employee.projectExperience.trim()
+        ? employee.projectExperience.trim()
+        : undefined;
+    const appendSystemPrompt = [persona, projectExperience, CHILD_RESULT_GUIDANCE].filter(Boolean);
     const { model, thinkingLevel } = binding;
     const skillPaths = Array.isArray(employee.skillPaths)
       ? employee.skillPaths.filter((path) => typeof path === 'string' && path.trim())
@@ -1041,9 +1046,7 @@ export function createChildSupervisor(ctx) {
             agentDir: ctx.agentDir,
             settingsManager: ctx.settingsManager,
             extensionFactories,
-            appendSystemPrompt: persona
-              ? [persona, CHILD_RESULT_GUIDANCE]
-              : [CHILD_RESULT_GUIDANCE],
+            appendSystemPrompt,
             ...(skillPaths.length > 0 ? { additionalSkillPaths: skillPaths } : {}),
           })
         : new DefaultResourceLoader({
@@ -1052,9 +1055,7 @@ export function createChildSupervisor(ctx) {
             settingsManager: ctx.settingsManager,
             extensionFactories,
             // Persona (if any) + the structured-result format the child should end on.
-            appendSystemPrompt: persona
-              ? [persona, CHILD_RESULT_GUIDANCE]
-              : [CHILD_RESULT_GUIDANCE],
+            appendSystemPrompt,
             ...(skillPaths.length > 0 ? { additionalSkillPaths: skillPaths } : {}),
           });
       await resourceLoader.reload();

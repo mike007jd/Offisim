@@ -73,6 +73,16 @@ const LOOP_DESIGN_PROMPT = [
   '- If a material detail is genuinely missing, ask AT MOST 3 high-impact questions with recommended defaults.',
 ].join('\n');
 
+const EMPLOYEE_MEMORY_DISTILL_PROMPT = [
+  'You extract durable project experience for one AI employee.',
+  'Return ONLY a JSON array with 0 to 3 objects. Never use Markdown fences or prose.',
+  'Each object must be {"type":"pitfall|repository_preference|convention|retrospective","content":"one concise reusable lesson","mergeIndex":number|null}.',
+  'mergeIndex is the 1-based index of an existing memory to replace when the new lesson duplicates or corrects it; otherwise null.',
+  'Return [] when the outcome adds no reusable knowledge. Do not invent lessons.',
+  'Preserve any protected span exactly if one is supplied.',
+  'Never include credentials, secrets, personal information, long transcript excerpts, or unrelated conversation.',
+].join('\n');
+
 const DEFINITIONS: Record<PromptEnhanceProfile, EnhanceProfileDefinition> = {
   office_instruction: {
     profile: 'office_instruction',
@@ -91,6 +101,12 @@ const DEFINITIONS: Record<PromptEnhanceProfile, EnhanceProfileDefinition> = {
     version: 'loop_design@2',
     wantsStructuredHints: true,
     systemPrompt: LOOP_DESIGN_PROMPT,
+  },
+  employee_memory_distill: {
+    profile: 'employee_memory_distill',
+    version: 'employee_memory_distill@1',
+    wantsStructuredHints: false,
+    systemPrompt: EMPLOYEE_MEMORY_DISTILL_PROMPT,
   },
 };
 

@@ -237,6 +237,75 @@ CREATE INDEX IF NOT EXISTS idx_competitive_draft_groups_source
   ON competitive_draft_groups(source_run_id);
 CREATE INDEX IF NOT EXISTS idx_competitive_draft_attempts_group
   ON competitive_draft_attempts(group_id, ordinal);
+-- Durable project experience owned by one employee. This is intentionally
+-- separate from the generic `memories` table: these rows are injected into
+-- employee runs, edited from Personnel, and capped per employee × project.
+CREATE TABLE IF NOT EXISTS employee_project_memories (
+  memory_id      TEXT PRIMARY KEY NOT NULL,
+  company_id     TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  employee_id    TEXT NOT NULL REFERENCES employees(employee_id) ON DELETE CASCADE,
+  project_id     TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  memory_type    TEXT NOT NULL CHECK (
+    memory_type IN ('pitfall', 'repository_preference', 'convention', 'retrospective')
+  ),
+  content        TEXT NOT NULL CHECK (length(trim(content)) BETWEEN 1 AND 1600),
+  source_run_id  TEXT REFERENCES agent_runs(run_id) ON DELETE SET NULL,
+  created_at     TEXT NOT NULL,
+  updated_at     TEXT NOT NULL,
+  pinned         INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1)),
+  hit_count      INTEGER NOT NULL DEFAULT 0 CHECK (hit_count >= 0),
+  last_hit_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_employee_project_memories_employee_project
+  ON employee_project_memories(employee_id, project_id, pinned, hit_count, updated_at);
+CREATE INDEX IF NOT EXISTS idx_employee_project_memories_source
+  ON employee_project_memories(source_run_id);
+CREATE TRIGGER IF NOT EXISTS trg_employee_project_memory_scope_insert
+BEFORE INSERT ON employee_project_memories
+WHEN NOT EXISTS (
+  SELECT 1
+  FROM employees AS employee
+  JOIN projects AS project
+    ON project.project_id = NEW.project_id
+   AND project.company_id = NEW.company_id
+  WHERE employee.employee_id = NEW.employee_id
+    AND employee.company_id = NEW.company_id
+)
+OR (
+  NEW.source_run_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM agent_runs AS source
+    WHERE source.run_id = NEW.source_run_id
+      AND source.company_id = NEW.company_id
+      AND source.project_id = NEW.project_id
+      AND source.employee_id = NEW.employee_id
+  )
+)
+BEGIN
+  SELECT RAISE(ABORT, 'employee project memory scope does not match');
+END;
+CREATE TRIGGER IF NOT EXISTS trg_employee_project_memory_scope_immutable
+BEFORE UPDATE OF company_id, employee_id, project_id
+ON employee_project_memories
+WHEN NEW.company_id <> OLD.company_id
+  OR NEW.employee_id <> OLD.employee_id
+  OR NEW.project_id <> OLD.project_id
+BEGIN
+  SELECT RAISE(ABORT, 'employee project memory scope is immutable');
+END;
+CREATE TRIGGER IF NOT EXISTS trg_employee_project_memory_source_update
+BEFORE UPDATE OF source_run_id ON employee_project_memories
+WHEN NEW.source_run_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM agent_runs AS source
+    WHERE source.run_id = NEW.source_run_id
+      AND source.company_id = NEW.company_id
+      AND source.project_id = NEW.project_id
+      AND source.employee_id = NEW.employee_id
+  )
+BEGIN
+  SELECT RAISE(ABORT, 'employee project memory source does not match');
+END;
 CREATE TRIGGER IF NOT EXISTS trg_competitive_draft_group_source_insert
 BEFORE INSERT ON competitive_draft_groups
 WHEN NOT EXISTS (

@@ -62,6 +62,14 @@ export function createAgentRunsDrizzleRepos(db: Db): AgentRunsDrizzleRepos {
         .orderBy(asc(schema.agentRuns.started_at))
         .all() as AgentRunRow[];
     },
+    async findByEmployee(employeeId) {
+      return db
+        .select()
+        .from(schema.agentRuns)
+        .where(eq(schema.agentRuns.employee_id, employeeId))
+        .orderBy(asc(schema.agentRuns.started_at))
+        .all() as AgentRunRow[];
+    },
     async findByRoot(rootRunId) {
       return db
         .select()
@@ -230,6 +238,14 @@ export function createAgentRunsDrizzleRepos(db: Db): AgentRunsDrizzleRepos {
         .from(schema.competitiveDraftAttempts)
         .where(eq(schema.competitiveDraftAttempts.group_id, groupId))
         .orderBy(asc(schema.competitiveDraftAttempts.ordinal))
+        .all() as CompetitiveDraftAttemptRow[];
+    },
+    async listByEmployee(employeeId) {
+      return db
+        .select()
+        .from(schema.competitiveDraftAttempts)
+        .where(eq(schema.competitiveDraftAttempts.employee_id, employeeId))
+        .orderBy(asc(schema.competitiveDraftAttempts.started_at))
         .all() as CompetitiveDraftAttemptRow[];
     },
     async update(attemptId, patch) {
