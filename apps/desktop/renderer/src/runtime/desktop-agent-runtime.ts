@@ -54,6 +54,11 @@ import {
   type NativeAgentCommandTransport,
   createNativeAgentCommandTransport,
 } from './native-agent-command-transport.js';
+import {
+  DEFAULT_NATIVE_STREAM_IDLE_TIMEOUT_MS,
+  NativeStreamIdleTimeoutError,
+  NativeStreamProgressWatchdog,
+} from './native-stream-progress-watchdog.js';
 import type {
   PiAgentHostEvent,
   PiAgentHostResponse,
@@ -456,6 +461,7 @@ interface NativeEngineRuntimeConfig {
   readonly runtimeVersion: string;
   readonly protocolVersion: number;
   readonly requestPrefix: string;
+  readonly streamIdleTimeoutMs: number;
   readonly supportsOffisimDelegation: boolean;
   readonly capabilities: RuntimeEngineCapabilityManifest;
 }
@@ -466,6 +472,7 @@ const API_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
   runtimeVersion: PI_SDK_VERSION,
   protocolVersion: PI_HOST_PROTOCOL_VERSION,
   requestPrefix: 'pi-agent',
+  streamIdleTimeoutMs: DEFAULT_NATIVE_STREAM_IDLE_TIMEOUT_MS,
   supportsOffisimDelegation: true,
   capabilities: {
     stop: true,
@@ -483,6 +490,7 @@ const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
   runtimeVersion: '0.144.4',
   protocolVersion: 2,
   requestPrefix: 'codex-agent',
+  streamIdleTimeoutMs: DEFAULT_NATIVE_STREAM_IDLE_TIMEOUT_MS,
   supportsOffisimDelegation: false,
   capabilities: {
     stop: true,
@@ -500,6 +508,7 @@ const CLAUDE_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
   runtimeVersion: '1',
   protocolVersion: 1,
   requestPrefix: 'claude-agent',
+  streamIdleTimeoutMs: DEFAULT_NATIVE_STREAM_IDLE_TIMEOUT_MS,
   supportsOffisimDelegation: false,
   capabilities: {
     stop: true,
@@ -975,6 +984,7 @@ export function resolveApiExecutionSelection(
 interface PersistedRunContext {
   requestId?: string | null;
   streamCursor?: number | null;
+  inFlightToolCallIds?: string[];
   workspaceBinding: TaskWorkspaceBindingProjection | null;
   workspaceRequirement: WorkspaceRequirement;
   workspaceAvailability: 'pending' | 'bound' | 'unavailable';
@@ -1004,6 +1014,7 @@ interface SharedHostStreamState {
   contentText: string;
   reasoningText: string;
   readonly startedAtByTool: Map<string, number>;
+  readonly inFlightToolCallIds: Set<string>;
 }
 
 interface SharedHostEventConsumer {
@@ -1141,6 +1152,12 @@ function parseRunContext(raw: string | null | undefined): Partial<PersistedRunCo
     return {
       requestId: typeof parsed.requestId === 'string' ? parsed.requestId : null,
       streamCursor: typeof parsed.streamCursor === 'number' ? parsed.streamCursor : null,
+      inFlightToolCallIds: Array.isArray(parsed.inFlightToolCallIds)
+        ? parsed.inFlightToolCallIds.filter(
+            (toolCallId): toolCallId is string =>
+              typeof toolCallId === 'string' && Boolean(toolCallId.trim()),
+          )
+        : [],
       workspaceBinding,
       workspaceRequirement: parsed.workspaceRequirement === 'optional' ? 'optional' : 'required',
       workspaceAvailability,
@@ -1399,6 +1416,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
   // race itself through the host's interrupt and cleanup gates.
   private readonly abortInFlight = new Map<string, Promise<void>>();
   private readonly abortDecisionByRequest = new Map<string, Promise<void>>();
+  private readonly progressWatchdogByRequest = new Map<string, NativeStreamProgressWatchdog>();
   private readonly controlReadyByThread = new Map<string, string>();
   private readonly acceptingControlThreads = new Set<string>();
   private readonly pendingControlsByThread = new Map<string, AgentQueuedMessage[]>();
@@ -1470,7 +1488,9 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       value: answer.answers ? JSON.stringify({ answers: answer.answers }) : answer.value,
       cancelled: answer.cancelled,
     };
-    return this.commands.answer(this.config.engineId, args);
+    return this.commands.answer(this.config.engineId, args).then(() => {
+      this.progressWatchdogByRequest.get(answer.requestId)?.resume();
+    });
   }
 
   private invokeStreamSnapshot(requestId: string) {
@@ -1839,6 +1859,16 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       return true;
     }
     if (event.kind === 'tool') {
+      const wasInFlight = state.inFlightToolCallIds.has(event.toolCallId);
+      if (event.status === 'started' || event.status === 'running') {
+        state.inFlightToolCallIds.add(event.toolCallId);
+      } else {
+        state.inFlightToolCallIds.delete(event.toolCallId);
+      }
+      if (wasInFlight !== state.inFlightToolCallIds.has(event.toolCallId)) {
+        state.runtimeContext.inFlightToolCallIds = [...state.inFlightToolCallIds];
+        input.persistContext();
+      }
       const startedAt = state.startedAtByTool.get(event.toolCallId) ?? Date.now();
       if (event.status === 'started') state.startedAtByTool.set(event.toolCallId, startedAt);
       const completedAt =
@@ -2376,6 +2406,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       const workspaceRequirement: WorkspaceRequirement =
         context?.workspaceRequirement === 'optional' ? 'optional' : 'required';
       const startedAtByTool = new Map<string, number>();
+      const inFlightToolCallIds = new Set(runtimeContext.inFlightToolCallIds ?? []);
       let workspaceBindingGate = createWorkspaceBindingGate<
         TaskWorkspaceBindingClaim,
         WorkspaceUnavailableEvent
@@ -2386,7 +2417,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         contentText: accumulatedContentText,
         reasoningText: accumulatedReasoningText,
         startedAtByTool,
+        inFlightToolCallIds,
       };
+      let progressWatchdog: NativeStreamProgressWatchdog | null = null;
+      let streamAwaitingUser = false;
+      let lastObservedStreamCursor = normalizeStreamCursor(runtimeContext.streamCursor);
       let bindingFailurePersisted = false;
       let bindingAbortPromise: Promise<void> | null = null;
       const executionPreparations = new Map<string, ExecutionPreparationRecord>();
@@ -2502,6 +2537,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       const failReattachedBinding = (message: string): void => {
         if (bindingFailurePersisted) return;
         bindingFailurePersisted = true;
+        progressWatchdog?.stop();
+        this.progressWatchdogByRequest.delete(requestId);
         void abortRejectedBinding();
         this.flushRunStreamCursor(row.run_id);
         const conversationTerminal: LiveConversationTerminalPayload = {
@@ -2527,7 +2564,13 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         event: PiAgentHostEvent,
         consumptionPolicy: 'bound-required' | 'workspace-optional' | 'terminal-reconcile',
       ): void => {
+        progressWatchdog?.recordProgress();
+        if (event.kind === 'uiRequest') {
+          streamAwaitingUser = true;
+          progressWatchdog?.pause();
+        }
         if (event.kind === 'streamCursor') {
+          lastObservedStreamCursor = Math.max(lastObservedStreamCursor, event.cursor);
           if (pendingTerminalCheckpoint) {
             const terminal = pendingTerminalCheckpoint;
             pendingTerminalCheckpoint = undefined;
@@ -2644,6 +2687,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         accumulatedReasoningText = sharedHostState.reasoningText;
         if (sharedHandled) return;
         if (event.kind === 'result') {
+          progressWatchdog?.stop();
+          this.progressWatchdogByRequest.delete(requestId);
           terminalEventSeen = true;
           if (this.abortedRequests.delete(requestId)) {
             this.flushRunStreamCursor(row.run_id);
@@ -2721,6 +2766,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           return;
         }
         if (event.kind === 'error') {
+          progressWatchdog?.stop();
+          this.progressWatchdogByRequest.delete(requestId);
           terminalEventSeen = true;
           this.flushRunStreamCursor(row.run_id);
           if (this.abortedRequests.delete(requestId)) {
@@ -2877,6 +2924,28 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             : 'terminal-reconcile';
         for (const event of bufferedEvents) consumeEvent(event, consumptionPolicy);
         bufferedEvents.length = 0;
+        if (reattachSnapshot.running && !bindingFailurePersisted && !terminalEventSeen) {
+          progressWatchdog = new NativeStreamProgressWatchdog({
+            requestId,
+            timeoutMs: this.config.streamIdleTimeoutMs,
+            onRecover: async (allowReattach) => {
+              const recoverySnapshot = await this.invokeStreamSnapshot(requestId);
+              if (!recoverySnapshot?.running) return 'failed';
+              if (recoverySnapshot.cursor > lastObservedStreamCursor) {
+                if (!allowReattach) return 'failed';
+                await this.invokeReattach(requestId, lastObservedStreamCursor, onEvent);
+                return 'recovered';
+              }
+              return inFlightToolCallIds.size > 0 ? 'still-running' : 'failed';
+            },
+          });
+          this.progressWatchdogByRequest.set(requestId, progressWatchdog);
+          void progressWatchdog.start().catch((error: unknown) => {
+            if (!(error instanceof NativeStreamIdleTimeoutError)) return;
+            failReattachedBinding(error.message);
+          });
+          if (streamAwaitingUser) progressWatchdog.pause();
+        }
         if (pendingTerminalCheckpoint) {
           const terminal = pendingTerminalCheckpoint;
           pendingTerminalCheckpoint = undefined;
@@ -2927,6 +2996,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         bootstrapSettled = true;
         handledRootRunIds.add(row.run_id);
       } catch (err: unknown) {
+        progressWatchdog?.stop();
+        this.progressWatchdogByRequest.delete(requestId);
         complete = false;
         if (bindingAbortPromise) await bindingAbortPromise;
         if (this.inFlightByThread.get(row.thread_id) === requestId) {
@@ -2983,9 +3054,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     const requestId = newRequestId(this.config.requestPrefix);
     const workspaceRequirement = resolveWorkspaceRequirement(input, commandName);
     const startedAtByTool = new Map<string, number>();
+    const inFlightToolCallIds = new Set<string>();
     let finalText = '';
     let reasoningText = '';
     let channelError: Error | null = null;
+    let progressWatchdog: NativeStreamProgressWatchdog | null = null;
+    let lastObservedStreamCursor = 0;
     const startedIdentityCheckpoints: Promise<void>[] = [];
     const executionPreparations = new Map<string, ExecutionPreparationRecord>();
     let executionTarget = input.executionTarget ?? null;
@@ -3005,6 +3079,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     const runtimeContext: PersistedRunContext = {
       requestId,
       streamCursor: 0,
+      inFlightToolCallIds: [],
       workspaceBinding:
         commandName === 'agent_runtime_resume' ? (resumeWorkspaceBinding ?? null) : null,
       workspaceRequirement,
@@ -3091,6 +3166,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       contentText: finalText,
       reasoningText,
       startedAtByTool,
+      inFlightToolCallIds,
     };
     let bindingAbortPromise: Promise<void> | null = null;
     const abortRejectedBinding = (): Promise<void> => {
@@ -3106,7 +3182,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     };
     const onEvent = new Channel<PiAgentHostEvent>();
     onEvent.onmessage = (event) => {
+      progressWatchdog?.recordProgress();
+      if (event.kind === 'uiRequest') {
+        progressWatchdog?.pause();
+      }
       if (event.kind === 'streamCursor') {
+        lastObservedStreamCursor = Math.max(lastObservedStreamCursor, event.cursor);
         this.queueRunStreamCursor(
           runScope.runId,
           runtimeContext,
@@ -3254,6 +3335,16 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         this.flushRunStreamCursor(runScope.runId);
         channelError = nonAuthorizingAgentHostError(event.message);
       }
+    };
+    const recoverStalledStream = async (allowReattach: boolean) => {
+      const snapshot = await this.invokeStreamSnapshot(requestId);
+      if (!snapshot?.running) return 'failed' as const;
+      if (snapshot.cursor > lastObservedStreamCursor) {
+        if (!allowReattach) return 'failed' as const;
+        await this.invokeReattach(requestId, lastObservedStreamCursor, onEvent);
+        return 'recovered' as const;
+      }
+      return inFlightToolCallIds.size > 0 ? ('still-running' as const) : ('failed' as const);
     };
 
     // A new run must exist before child events can reference it. Resume already
@@ -3405,7 +3496,13 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
 
       throwIfRunAborted(signal);
       hostCommandStarted = true;
-      let commandResponse: PiAgentHostResponse;
+      progressWatchdog = new NativeStreamProgressWatchdog({
+        requestId,
+        timeoutMs: this.config.streamIdleTimeoutMs,
+        onRecover: recoverStalledStream,
+      });
+      this.progressWatchdogByRequest.set(requestId, progressWatchdog);
+      let commandExecution: Promise<PiAgentHostResponse>;
       if (this.engineId === 'codex') {
         const commandArgs: CommandArgs<'codex_agent_execute'> = {
           req: {
@@ -3434,9 +3531,10 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           },
           onEvent,
         };
-        commandResponse = await (commandName === 'agent_runtime_resume'
-          ? this.commands.resumeCodex(commandArgs)
-          : this.commands.executeCodex(commandArgs));
+        commandExecution =
+          commandName === 'agent_runtime_resume'
+            ? this.commands.resumeCodex(commandArgs)
+            : this.commands.executeCodex(commandArgs);
       } else if (this.engineId === 'claude') {
         const commandArgs: CommandArgs<'claude_agent_execute'> = {
           req: {
@@ -3464,9 +3562,10 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           },
           onEvent,
         };
-        commandResponse = await (commandName === 'agent_runtime_resume'
-          ? this.commands.resumeClaude(commandArgs)
-          : this.commands.executeClaude(commandArgs));
+        commandExecution =
+          commandName === 'agent_runtime_resume'
+            ? this.commands.resumeClaude(commandArgs)
+            : this.commands.executeClaude(commandArgs);
       } else {
         const commandArgs: CommandArgs<'agent_runtime_execute'> = {
           req: {
@@ -3506,9 +3605,25 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           },
           onEvent,
         };
-        commandResponse = await (commandName === 'agent_runtime_resume'
-          ? this.commands.resumeApi(commandArgs)
-          : this.commands.executeApi(commandArgs));
+        commandExecution =
+          commandName === 'agent_runtime_resume'
+            ? this.commands.resumeApi(commandArgs)
+            : this.commands.executeApi(commandArgs);
+      }
+      let commandResponse: PiAgentHostResponse;
+      try {
+        commandResponse = await progressWatchdog.watch(commandExecution);
+      } catch (error) {
+        if (error instanceof NativeStreamIdleTimeoutError) {
+          await this.invokeAbortOnce(requestId).catch((abortError: unknown) => {
+            console.warn('[desktop-agent-runtime] stalled native stream abort failed', {
+              engineId: this.engineId,
+              requestId,
+              abortError,
+            });
+          });
+        }
+        throw error;
       }
       if (executionPreparations.size === 0) {
         const abortDecision = this.abortDecisionByRequest.get(requestId);
@@ -3712,7 +3827,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       // A thrown invoke / channel error carries this lane's origin free text —
       // classify the typed kind from it (provider messages surface here too);
       // a cancel never carries a failureKind.
-      const failureKind = aborted ? undefined : classifyRunFailure(message);
+      const failureKind = aborted
+        ? undefined
+        : err instanceof NativeStreamIdleTimeoutError
+          ? err.failureKind
+          : classifyRunFailure(message);
       this.flushRunStreamCursor(runScope.runId);
       const terminal: LiveConversationTerminalPayload = {
         runId: runScope.runId,
@@ -3789,6 +3908,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       );
       throw err;
     } finally {
+      progressWatchdog?.stop();
+      this.progressWatchdogByRequest.delete(requestId);
       signal?.removeEventListener('abort', abortFromSignal);
       this.abortedRequests.delete(requestId);
       this.controlReadyByThread.delete(input.threadId);
