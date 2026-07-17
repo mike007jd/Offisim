@@ -13,8 +13,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   DefaultResourceLoader,
-  ModelRuntime,
   ModelRegistry,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
   createAgentSession,
@@ -620,6 +620,17 @@ async function verifyBoundWorkspaceTools() {
       'a tilde-leading filename must remain readable and writable through the bridge',
     );
 
+    const absoluteProjectRead = await executeTool(tools, 'read', {
+      path: join(boundRoot, 'docs', 'read.txt'),
+    });
+    assert(
+      absoluteProjectRead.content?.[0]?.text === 'bridge read needle\n' &&
+        calls.some(
+          (call) => call.op === 'fileRead' && call.args.path === `${virtualRoot}/docs/read.txt`,
+        ),
+      'Pi skill activation must translate an absolute in-Project read back through the workspace bridge',
+    );
+
     const editWrite = calls.find(
       (call) => call.op === 'fileWrite' && call.args.path === `${virtualRoot}/docs/edit.txt`,
     );
@@ -675,6 +686,19 @@ async function verifyBoundWorkspaceTools() {
           `${toolName} ${caseName} must be rejected before any backend or native filesystem call`,
         );
       }
+    }
+    for (const toolName of ['write', 'edit', 'grep', 'find', 'ls']) {
+      const callsBefore = calls.length;
+      await expectCode(
+        () =>
+          executeTool(tools, toolName, inputForPath(toolName, join(boundRoot, 'docs', 'read.txt'))),
+        'workspace-out-of-bounds',
+        `${toolName} absolute Project path`,
+      );
+      assert(
+        calls.length === callsBefore,
+        `${toolName} must continue rejecting an absolute Project path before bridge access`,
+      );
     }
     assert(
       readFileSync(siblingPath, 'utf8') === siblingSentinel,
