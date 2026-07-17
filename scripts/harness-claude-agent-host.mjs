@@ -216,9 +216,10 @@ function runHost({ cwd, env, payload, stopAfterMs }) {
 const fixtureRoot = await mkdtemp(join(tmpdir(), 'offisim-claude-host-harness-'));
 try {
   const workspace = join(fixtureRoot, 'workspace');
+  const skillPluginDir = join(fixtureRoot, 'offisim-skills-plugin');
   const fakeClaude = join(fixtureRoot, 'claude');
   const argsLog = join(fixtureRoot, 'args.json');
-  await mkdir(workspace);
+  await Promise.all([mkdir(workspace), mkdir(skillPluginDir)]);
   await writeFile(
     fakeClaude,
     `#!/usr/bin/env node
@@ -248,7 +249,7 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
 
   const status = await runHost({ cwd: workspace, env, payload: { mode: 'status' } });
   assert.equal(status.code, 0, status.errorOutput || status.output);
-  assert.deepEqual(status.frames[0], { kind: 'ready', protocolVersion: 11 });
+  assert.deepEqual(status.frames[0], { kind: 'ready', protocolVersion: 12 });
   const projection = status.frames.at(-1)?.response;
   assert.equal(projection.engineId, 'claude');
   assert.equal(projection.state, 'ready');
@@ -281,6 +282,7 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
       workspaceAvailability: 'bound',
       permissionMode: 'auto',
       systemPromptAppend: null,
+      skillPluginDir,
       rootRunId: 'run-1',
       nativeSessionId: null,
       expectedTarget: target,
@@ -314,6 +316,7 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   assert.ok(invokedArgs.includes('stream-json'));
   assert.ok(invokedArgs.includes('--settings'));
   assert.ok(invokedArgs.includes('--session-id'));
+  assert.equal(invokedArgs[invokedArgs.indexOf('--plugin-dir') + 1], skillPluginDir);
   assert.ok(!invokedArgs.includes('--model'));
   assert.ok(!invokedArgs.includes('--dangerously-skip-permissions'));
   const settings = JSON.parse(invokedArgs[invokedArgs.indexOf('--settings') + 1]);

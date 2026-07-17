@@ -7,6 +7,7 @@ mod codex_agent_host;
 mod codex_pets;
 mod computer_driver;
 mod deep_link;
+mod engine_skill_overlay;
 #[cfg(target_os = "macos")]
 mod escape_forwarder;
 #[cfg(target_os = "macos")]

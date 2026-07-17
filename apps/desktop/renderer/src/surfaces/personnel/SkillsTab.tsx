@@ -10,6 +10,8 @@ interface SkillsTabProps {
 
 export function SkillsTab({ employeeId }: SkillsTabProps) {
   const skills = useEmployeeSkills(employeeId);
+  const sourceLabel = (scope: 'company' | 'employee' | 'project') =>
+    scope === 'employee' ? 'employee' : scope;
 
   return (
     <div className="off-pers-tab-shell">
@@ -38,11 +40,14 @@ export function SkillsTab({ employeeId }: SkillsTabProps) {
               <div className="off-pers-skrow-main">
                 <div className="off-pers-skrow-top">
                   <span className="off-pers-skrow-name">{skill.name}</span>
-                  <span className="off-pers-scope-tag">
-                    {skill.scope === 'employee' ? 'personal' : skill.scope}
-                  </span>
+                  <span className="off-pers-scope-tag">{sourceLabel(skill.scope)}</span>
                 </div>
                 <p className="off-pers-skrow-desc">{skill.description}</p>
+                {skill.readOnly ? (
+                  <span className="off-pers-sk-location" title={skill.location}>
+                    Read-only · project repository{skill.source ? ` · ${skill.source}` : ''}
+                  </span>
+                ) : null}
                 <span
                   className={
                     skill.runtimeInjected

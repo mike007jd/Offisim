@@ -3,6 +3,7 @@ import { titleizeSlug } from '@/lib/utils.js';
 import type { EmployeeRow, McpToolGrantRow, RuntimeRepositories } from '@offisim/core/browser';
 import type { DelegationRosterEntry } from '@offisim/shared-types';
 import { inferMcpGrantRiskClass } from './mcp-risk.js';
+import { discoverProjectSkills } from './project-skills.js';
 
 /**
  * Canonical employee system prompt.
@@ -105,6 +106,8 @@ export interface DelegationContext {
   systemPromptAppend: string | null;
   /** Acting employee's effective company + personal SKILL.md paths. */
   skillPaths: string[];
+  /** Repository-relative SKILL.md paths discovered through the Project sandbox. */
+  projectSkillPaths: string[];
   /** Effective model/effort for this acting employee after stale-binding fallback. */
   runtimeSelection: EmployeeRuntimeSelection;
   roster: DelegationRosterEntry[];
@@ -196,16 +199,20 @@ export async function buildDelegationContext(
   companyId: string,
   actingEmployeeId: string | null,
   inheritedRuntime: EmployeeRuntimeSelection = {},
+  projectId: string | null = null,
 ): Promise<DelegationContext> {
-  const [employees, company, skills, vaultStatus, runtimeStatus] = await Promise.all([
-    repos.employees.findByCompany(companyId),
-    repos.companies.findById(companyId).catch(() => null),
-    repos.skills.listByCompany(companyId),
-    invokeCommand('runtime_vault_status'),
-    actingEmployeeId
-      ? invokeCommand('agent_runtime_status', { includeUsage: false }).catch(() => null)
-      : Promise.resolve(null),
-  ]);
+  const [employees, company, skills, vaultStatus, runtimeStatus, projectSkills] = await Promise.all(
+    [
+      repos.employees.findByCompany(companyId),
+      repos.companies.findById(companyId).catch(() => null),
+      repos.skills.listByCompany(companyId),
+      invokeCommand('runtime_vault_status'),
+      actingEmployeeId
+        ? invokeCommand('agent_runtime_status', { includeUsage: false }).catch(() => null)
+        : Promise.resolve(null),
+      projectId ? discoverProjectSkills(projectId) : Promise.resolve([]),
+    ],
+  );
   const vaultRoot = vaultStatus.path;
   const companySkillPaths = skills
     .filter((skill) => skill.employee_id === null)
@@ -216,6 +223,7 @@ export async function buildDelegationContext(
       .filter((skill) => skill.employee_id === employeeId)
       .map((skill) => absoluteVaultSkillPath(vaultRoot, skill.vault_path)),
   ];
+  const projectSkillPaths = projectSkills.map((skill) => skill.relativePath);
   const companyName = company?.name ?? '';
   const acting = actingEmployeeId
     ? (employees.find((e) => e.employee_id === actingEmployeeId) ?? null)
@@ -235,11 +243,13 @@ export async function buildDelegationContext(
         ...(model ? { model } : {}),
         ...(model && thinkingLevel ? { thinkingLevel } : {}),
         skillPaths: skillPathsForEmployee(e.employee_id),
+        projectSkillPaths,
       };
     });
   return {
     systemPromptAppend: acting ? personaFromRow(acting, companyName) : null,
     skillPaths: acting ? skillPathsForEmployee(acting.employee_id) : companySkillPaths,
+    projectSkillPaths,
     runtimeSelection: resolveEmployeeRuntimeSelection(
       acting,
       runtimeStatus?.models ?? [],

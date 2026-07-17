@@ -15,6 +15,7 @@
 // the renderer. The delegate tool (pi-delegation-extension.mjs) is its caller.
 
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
 import {
   DefaultResourceLoader,
   SessionManager,
@@ -959,6 +960,20 @@ export function createChildSupervisor(ctx) {
         };
       }
     }
+    const projectSkillPaths = Array.isArray(employee.projectSkillPaths)
+      ? employee.projectSkillPaths
+          .filter(
+            (path) =>
+              typeof path === 'string' &&
+              path.endsWith('/SKILL.md') &&
+              ['.claude/skills/', '.agents/skills/', '.opencode/skills/'].some((prefix) =>
+                path.startsWith(prefix),
+              ) &&
+              !path.split('/').some((segment) => segment === '..' || segment === ''),
+          )
+          .map((path) => resolve(childCwd, path))
+      : [];
+    skillPaths.push(...projectSkillPaths);
     const effectiveObjective =
       lease?.isolated && access === 'write'
         ? [

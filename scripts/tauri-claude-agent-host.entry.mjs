@@ -326,6 +326,8 @@ function cliArgs(payload, sessionId) {
     args.push('--settings', hookSettings(payload.cwd));
     const systemPrompt = nonEmpty(payload.systemPromptAppend);
     if (systemPrompt) args.push('--append-system-prompt', systemPrompt);
+    const skillPluginDir = nonEmpty(payload.skillPluginDir);
+    if (skillPluginDir) args.push('--plugin-dir', skillPluginDir);
   } else {
     args.push('--permission-mode', 'plan', '--tools', '');
   }

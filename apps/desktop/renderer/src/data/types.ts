@@ -306,9 +306,12 @@ export interface Skill {
   id: string;
   name: string;
   description: string;
-  scope: 'global' | 'company' | 'employee';
-  /** True only when the vault-authoritative SKILL.md exists and will be passed
-   * to Pi's native resource loader at session creation. */
+  scope: 'company' | 'employee' | 'project';
+  source?: 'claude' | 'agents' | 'opencode';
+  location?: string;
+  readOnly?: boolean;
+  /** True only when the authoritative SKILL.md exists and will be passed to the
+   * selected engine at session creation. */
   runtimeInjected: boolean;
 }
 

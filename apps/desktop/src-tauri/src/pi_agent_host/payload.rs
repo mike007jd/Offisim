@@ -65,7 +65,7 @@ pub(super) fn sidecar_payload(
     authorized_direct_delegation: Option<&serde_json::Value>,
     exact_session_file: Option<&Path>,
     exact_session_id: Option<&str>,
-) -> serde_json::Value {
+) -> Result<serde_json::Value, HostError> {
     let (binding, workspace_availability, workspace_unavailable_reason_code) = match workspace {
         ExecuteWorkspacePayload::Bound(binding) => (Some(binding), "bound", None),
         ExecuteWorkspacePayload::Unavailable { reason_code } => {
@@ -77,6 +77,19 @@ pub(super) fn sidecar_payload(
         .map(|binding| binding.project_id.as_str())
         .or(req.project_id.as_deref());
     let skill_paths = has_workspace.then_some(req.skill_paths.as_ref()).flatten();
+    let project_skill_paths = match (binding, req.project_skill_paths.as_deref()) {
+        (Some(binding), Some(paths)) => Some(
+            crate::engine_skill_overlay::resolve_project_skill_paths(
+                &binding.canonical_root,
+                Some(paths),
+            )
+            .map_err(HostError::Request)?
+            .into_iter()
+            .map(|path| path.to_string_lossy().to_string())
+            .collect::<Vec<_>>(),
+        ),
+        _ => None,
+    };
     let roster = has_workspace.then_some(req.roster.as_ref()).flatten();
     let mission_context_json = has_workspace
         .then_some(req.mission_context_json.as_ref())
@@ -107,6 +120,7 @@ pub(super) fn sidecar_payload(
         "thinkingLevel": req.thinking_level,
         "systemPromptAppend": req.system_prompt_append,
         "skillPaths": skill_paths,
+        "projectSkillPaths": project_skill_paths,
         // Delegation scope (Phase 1): the root run id + thread id let the host's
         // supervisor stamp child agentRun events, and the roster tells it which
         // employees the root agent may delegate to.
@@ -143,7 +157,7 @@ pub(super) fn sidecar_payload(
                 .insert("delegationLimits".into(), delegation_limits.clone());
         }
     }
-    payload
+    Ok(payload)
 }
 
 /// Build the Prompt Enhance sidecar payload (PR-06). `mode:'enhance'` routes the

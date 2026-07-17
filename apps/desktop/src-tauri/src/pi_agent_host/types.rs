@@ -98,6 +98,10 @@ pub struct PiAgentExecuteRequest {
     /// resolves company + employee scope; Rust forwards them opaquely.
     #[serde(default)]
     pub(super) skill_paths: Option<Vec<String>>,
+    /// Project-root-relative SKILL.md paths discovered through sandboxed
+    /// renderer commands. Rust resolves them against the bound workspace.
+    #[serde(default)]
+    pub(super) project_skill_paths: Option<Vec<String>>,
     /// Root run id for this user turn (the renderer's controller attemptId). The
     /// delegation supervisor stamps every child `agentRun` event with it so the
     /// renderer can graft children under the root. Absent → no delegation scope.

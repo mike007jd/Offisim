@@ -126,6 +126,48 @@ async function verifyWorktreeCallChannel() {
 
 await verifyWorktreeCallChannel();
 
+async function verifyExplicitProjectSkillLoading() {
+  const root = mkdtempSync(join(tmpdir(), 'offisim-project-skill-'));
+  const skillFile = join(root, '.claude', 'skills', 'w7-live', 'SKILL.md');
+  const agentDir = join(root, 'agent-home');
+  try {
+    mkdirSync(join(root, '.claude', 'skills', 'w7-live'), { recursive: true });
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(
+      skillFile,
+      '---\nname: w7-live\ndescription: Project skill fixture\n---\nExact project instructions.\n',
+    );
+    const settingsManager = SettingsManager.create(root, agentDir);
+    const resourceLoader = new DefaultResourceLoader({
+      cwd: root,
+      agentDir,
+      settingsManager,
+      additionalSkillPaths: [skillFile],
+      noExtensions: true,
+      noPromptTemplates: true,
+      noThemes: true,
+      noContextFiles: true,
+    });
+    await resourceLoader.reload();
+    const loaded = resourceLoader.getSkills();
+    assert(
+      loaded.diagnostics.length === 0 &&
+        loaded.skills.some(
+          (skill) =>
+            skill.name === 'w7-live' &&
+            skill.description === 'Project skill fixture' &&
+            skill.filePath === skillFile,
+        ),
+      'Pi DefaultResourceLoader must load the exact sandbox-resolved Project SKILL.md',
+    );
+    console.log('PASS Project SKILL.md reaches the Pi DefaultResourceLoader unchanged');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+await verifyExplicitProjectSkillLoading();
+
 function verifyExactNativeSessionSemantics() {
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'offisim-pi-exact-session-'));
   const sessionDir = join(fixtureRoot, 'sessions');
@@ -811,6 +853,10 @@ const desktopRuntimeScopeSource = readFileSync(
   'apps/desktop/renderer/src/data/employee-persona.ts',
   'utf8',
 );
+const projectSkillsSource = readFileSync(
+  'apps/desktop/renderer/src/data/project-skills.ts',
+  'utf8',
+);
 const desktopAgentRuntimeSource = readFileSync(
   'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
   'utf8',
@@ -900,14 +946,26 @@ assert(
   'optional delegationLimits must cross renderer → opaque Rust → Node without appearing on absent plain-chat requests',
 );
 assert(
+  /'\.claude\/skills'/.test(projectSkillsSource) &&
+    /'\.agents\/skills'/.test(projectSkillsSource) &&
+    /'\.opencode\/skills'/.test(projectSkillsSource) &&
+    /invokeCommand\('project_list_dir'/.test(projectSkillsSource) &&
+    /invokeCommand\('project_read_file'/.test(projectSkillsSource) &&
+    !/~\/\.claude\/skills|home_dir|runtime_vault/.test(projectSkillsSource),
+  'Project skill discovery must use only the three repository roots through sandboxed Project commands',
+);
+assert(
   /let skill_paths = has_workspace/.test(executePayloadSource) &&
     /"skillPaths": skill_paths/.test(executePayloadSource) &&
+    /resolve_project_skill_paths/.test(executePayloadSource) &&
+    /"projectSkillPaths": project_skill_paths/.test(executePayloadSource) &&
     /additionalSkillPaths: skillPaths/.test(nodeHostSource) &&
     /additionalSkillPaths: skillPaths/.test(childSupervisorSource) &&
     /additionalSkillPaths: skillPaths/.test(bundledNodeHostSource) &&
     /repos\.skills\.listByCompany\(companyId\)/.test(desktopRuntimeScopeSource) &&
-    /skillPaths: skillPathsForEmployee\(e\.employee_id\)/.test(desktopRuntimeScopeSource),
-  'vault-authoritative company + employee skills must cross the renderer/Rust wire and reach Pi native resource loaders for root and child sessions',
+    /skillPaths: skillPathsForEmployee\(e\.employee_id\)/.test(desktopRuntimeScopeSource) &&
+    /projectSkillPaths/.test(desktopRuntimeScopeSource),
+  'vault-authoritative company + employee skills and sandbox-resolved Project skills must cross the renderer/Rust wire and reach Pi native resource loaders for root and child sessions',
 );
 assert(
   !/"companyId": req\.company_id/.test(executePayloadSource),
@@ -1208,8 +1266,8 @@ assert(
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 assert(
-  /PI_HOST_PROTOCOL_VERSION = 11/.test(wireSource) &&
-    /PI_HOST_PROTOCOL_VERSION: u32 = 11/.test(rustHostSource) &&
+  /PI_HOST_PROTOCOL_VERSION = 12/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 12/.test(rustHostSource) &&
     /'worktreeCall'/.test(wireSource) &&
     /WorktreeCall/.test(rustHostSource) &&
     /'verifyCall'/.test(wireSource) &&

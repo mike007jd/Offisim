@@ -37,15 +37,9 @@ import {
 } from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
 import { loadRunCost } from './run-cost.js';
+import { discoverProjectSkills } from './project-skills.js';
 import { computeTokenBudgetAlerts, loadTokenBudgets } from './token-budgets.js';
-import type {
-  ChatMessage,
-  Deliverable,
-  Employee,
-  FileNode,
-  GitRepoState,
-  Skill,
-} from './types.js';
+import type { ChatMessage, Deliverable, Employee, FileNode, GitRepoState, Skill } from './types.js';
 
 /**
  * Query hooks over the renderer data source. Release Tauri builds must use
@@ -323,8 +317,9 @@ export function useUpdateEmployeeEnabled() {
 
 export function useEmployeeSkills(employeeId: string | null) {
   const companyId = useUiState((s) => s.companyId);
+  const projectId = useUiState((s) => s.projectId) || null;
   return useQuery({
-    queryKey: ['employee-skills', companyId, employeeId],
+    queryKey: ['employee-skills', companyId, projectId, employeeId],
     queryFn: async () => {
       if (!employeeId) return [] as Skill[];
       const repos = await reposOrNull();
@@ -332,22 +327,34 @@ export function useEmployeeSkills(employeeId: string | null) {
       // An employee's effective skill set = the company-global skills that apply
       // to everyone plus this employee's own (employee-scoped) skills. The two
       // queries are disjoint (employee_id IS NULL vs = id), so no dedup needed.
-      const [companyScoped, personal] = await Promise.all([
+      const [companyScoped, personal, projectSkills] = await Promise.all([
         repos.skills.listByCompanyScope(companyId ?? ''),
         repos.skills.listByEmployee(companyId ?? '', employeeId),
+        projectId ? discoverProjectSkills(projectId) : Promise.resolve([]),
       ]);
       const vault = createTauriVaultFileSystem();
-      return Promise.all(
+      const vaultSkills = await Promise.all(
         [...companyScoped, ...personal].map<Promise<Skill>>(async (row) => ({
           id: row.skill_id,
           name: row.name,
           description: row.description,
-          // DB scope is only 'company' | 'employee'; the view-model's 'global'
-          // tier is never produced by the real source.
           scope: row.scope === 'employee' ? 'employee' : 'company',
           runtimeInjected: (await vault.stat(row.vault_path).catch(() => null)) !== null,
         })),
       );
+      return [
+        ...vaultSkills,
+        ...projectSkills.map<Skill>((skill) => ({
+          id: skill.id,
+          name: skill.name,
+          description: skill.description,
+          scope: 'project',
+          source: skill.source,
+          location: skill.relativePath,
+          readOnly: true,
+          runtimeInjected: true,
+        })),
+      ];
     },
     enabled: employeeId !== null,
   });

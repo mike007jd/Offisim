@@ -33,6 +33,7 @@
         "thinkingLevel": "high",
         "systemPromptAppend": "You are the fixture employee.",
         "skillPaths": ["/fixture/vault/companies/company-1/skills/review/SKILL.md"],
+        "projectSkillPaths": null,
         "rootRunId": "root-run-1",
         "roster": [
           {
@@ -108,6 +109,7 @@
         "thinkingLevel": "high",
         "systemPromptAppend": "You are the fixture employee.",
         "skillPaths": ["/fixture/vault/companies/company-1/skills/review/SKILL.md"],
+        "projectSkillPaths": null,
         "threadId": "thread-1",
         "projectId": "project-1",
         "projectVerifyCommand": "pnpm typecheck",
@@ -184,6 +186,7 @@
         "thinkingLevel": "high",
         "systemPromptAppend": "You are the fixture employee.",
         "skillPaths": ["/fixture/vault/companies/company-1/skills/review/SKILL.md"],
+        "projectSkillPaths": null,
         "threadId": "thread-1",
         "projectId": "project-1",
         "projectVerifyCommand": "pnpm typecheck",
