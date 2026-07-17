@@ -1,9 +1,7 @@
 import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
+import { distillCompetitiveDraftLoserMemory } from '@/runtime/employee-project-memory.js';
 import { getRepos } from '@/runtime/repos.js';
-import type {
-  CompetitiveDraftAttemptRow,
-  CompetitiveDraftGroupRow,
-} from '@offisim/core/browser';
+import type { CompetitiveDraftAttemptRow, CompetitiveDraftGroupRow } from '@offisim/core/browser';
 import type { WorkspaceLeaseReviewRow } from './task-board-data.js';
 import { reviewWorkspaceLease } from './workspace-lease-actions.js';
 
@@ -167,19 +165,14 @@ export async function selectCompetitiveDraftWinner(input: {
   onWinnerMerged?: (lease: WorkspaceLeaseReviewRow) => void | Promise<void>;
 }): Promise<void> {
   if (input.group.status === 'merged') return;
-  if (
-    input.group.winner_attempt_id &&
-    input.group.winner_attempt_id !== input.winnerAttemptId
-  ) {
+  if (input.group.winner_attempt_id && input.group.winner_attempt_id !== input.winnerAttemptId) {
     throw new Error('A winner was already merged. Finish cleaning up the losing drafts.');
   }
   const retryingCleanup = input.group.winner_attempt_id === input.winnerAttemptId;
   if (!retryingCleanup && input.group.status !== 'reviewing') {
     throw new Error('Wait for every draft to finish before selecting a winner.');
   }
-  const winner = input.attempts.find(
-    (attempt) => attempt.attempt_id === input.winnerAttemptId,
-  );
+  const winner = input.attempts.find((attempt) => attempt.attempt_id === input.winnerAttemptId);
   if (!winner) throw new Error('The selected draft is no longer part of this comparison.');
   const winnerLease = leaseForAttempt(winner, input.leases);
   if (!winnerLease) {
@@ -224,7 +217,12 @@ export async function selectCompetitiveDraftWinner(input: {
       .filter((attempt) => attempt.attempt_id !== winner.attempt_id)
       .map(async (attempt) => {
         const lease = leaseForAttempt(attempt, input.leases);
-        if (!lease && (attempt.status === 'planned' || attempt.status === 'running' || attempt.status === 'ready')) {
+        if (
+          !lease &&
+          (attempt.status === 'planned' ||
+            attempt.status === 'running' ||
+            attempt.status === 'ready')
+        ) {
           throw new Error(`Option ${attempt.ordinal} has not released its active workspace yet.`);
         }
         if (lease && lease.status !== 'discarded' && lease.status !== 'merged') {
@@ -254,4 +252,21 @@ export async function selectCompetitiveDraftWinner(input: {
   await repos.competitiveDraftGroups.updateStatus(input.group.group_id, 'merged', {
     winnerAttemptId: winner.attempt_id,
   });
+  const retrospectiveResults = await Promise.allSettled(
+    input.attempts
+      .filter((attempt) => attempt.attempt_id !== winner.attempt_id)
+      .map((loser) =>
+        distillCompetitiveDraftLoserMemory({
+          repos,
+          group: input.group,
+          winner,
+          loser,
+        }),
+      ),
+  );
+  for (const result of retrospectiveResults) {
+    if (result.status === 'rejected') {
+      console.warn('Competitive draft retrospective distillation failed.', result.reason);
+    }
+  }
 }

@@ -338,6 +338,7 @@ interface PiAgentExecuteRequest {
   permissionMode?: string | null;
   thinkingLevel?: string | null;
   systemPromptAppend?: string | null;
+  projectExperience?: string | null;
   skillPaths?: string[] | null;
   projectSkillPaths?: string[] | null;
   rootRunId: string;
@@ -365,6 +366,7 @@ interface CodexAgentExecuteRequest {
   nativeSessionResetSourceRunId?: string | null;
   permissionMode?: string | null;
   systemPromptAppend?: string | null;
+  projectExperience?: string | null;
   skillPaths?: string[] | null;
   projectSkillPaths?: string[] | null;
   clientUserMessageId?: string | null;
@@ -387,6 +389,7 @@ interface ClaudeAgentExecuteRequest {
   nativeSessionResetSourceRunId?: string | null;
   permissionMode?: string | null;
   systemPromptAppend?: string | null;
+  projectExperience?: string | null;
   skillPaths?: string[] | null;
   projectSkillPaths?: string[] | null;
   workspaceRequirement: 'optional' | 'required';

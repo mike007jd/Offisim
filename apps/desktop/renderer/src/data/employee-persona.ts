@@ -2,6 +2,7 @@ import { invokeCommand } from '@/lib/tauri-commands.js';
 import { titleizeSlug } from '@/lib/utils.js';
 import type { EmployeeRow, McpToolGrantRow, RuntimeRepositories } from '@offisim/core/browser';
 import type { DelegationRosterEntry } from '@offisim/shared-types';
+import { buildProjectExperienceSection } from './employee-project-memory-format.js';
 import { inferMcpGrantRiskClass } from './mcp-risk.js';
 import { discoverProjectSkills } from './project-skills.js';
 
@@ -126,6 +127,8 @@ export interface DelegationContext {
   skillPaths: string[];
   /** Repository-relative SKILL.md paths discovered through the Project sandbox. */
   projectSkillPaths: string[];
+  /** Bounded employee × Project experience, carried separately from persona. */
+  projectExperience: string | null;
   /** Effective model/effort for this acting employee after stale-binding fallback. */
   runtimeSelection: EmployeeRuntimeSelection;
   roster: DelegationRosterEntry[];
@@ -228,19 +231,23 @@ export async function buildDelegationContext(
     runtimeStatus,
     projectSkills,
     projectInstructions,
+    projectMemories,
   ] = await Promise.all([
-      repos.employees.findByCompany(companyId),
-      repos.companies.findById(companyId).catch(() => null),
-      repos.skills.listByCompany(companyId),
-      invokeCommand('runtime_vault_status'),
-      actingEmployeeId
-        ? invokeCommand('agent_runtime_status', { includeUsage: false }).catch(() => null)
-        : Promise.resolve(null),
-      projectId ? discoverProjectSkills(projectId) : Promise.resolve([]),
-      projectId
-        ? invokeCommand('project_read_file', { projectId, path: 'AGENTS.md' }).catch(() => null)
-        : Promise.resolve(null),
-    ]);
+    repos.employees.findByCompany(companyId),
+    repos.companies.findById(companyId).catch(() => null),
+    repos.skills.listByCompany(companyId),
+    invokeCommand('runtime_vault_status'),
+    actingEmployeeId
+      ? invokeCommand('agent_runtime_status', { includeUsage: false }).catch(() => null)
+      : Promise.resolve(null),
+    projectId ? discoverProjectSkills(projectId) : Promise.resolve([]),
+    projectId
+      ? invokeCommand('project_read_file', { projectId, path: 'AGENTS.md' }).catch(() => null)
+      : Promise.resolve(null),
+    projectId
+      ? repos.employeeProjectMemories.listByProjectScope(companyId, projectId)
+      : Promise.resolve([]),
+  ]);
   const vaultRoot = vaultStatus.path;
   const companySkillPaths = skills
     .filter((skill) => skill.employee_id === null)
@@ -256,6 +263,14 @@ export async function buildDelegationContext(
   const acting = actingEmployeeId
     ? (employees.find((e) => e.employee_id === actingEmployeeId) ?? null)
     : null;
+  const experienceForEmployee = (employeeId: string) =>
+    buildProjectExperienceSection(
+      projectMemories.filter((memory) => memory.employee_id === employeeId),
+    );
+  const projectExperience = actingEmployeeId
+    ? experienceForEmployee(actingEmployeeId)
+    : { text: null, memoryIds: [] };
+  const injectedMemoryIds = new Set(projectExperience.memoryIds);
   const roster = employees
     .filter(
       (e) =>
@@ -267,11 +282,14 @@ export async function buildDelegationContext(
       const model = e.model?.trim();
       const thinkingLevel = e.thinking_level?.trim();
       const displayTitle = readDisplayTitle(e.persona_json);
+      const teammateExperience = experienceForEmployee(e.employee_id);
+      for (const memoryId of teammateExperience.memoryIds) injectedMemoryIds.add(memoryId);
       return {
         employeeId: e.employee_id,
         name: e.name ?? e.employee_id,
         roleSlug: e.role_slug,
         persona: personaFromRow(e, companyName, projectInstructions ?? undefined),
+        ...(teammateExperience.text ? { projectExperience: teammateExperience.text } : {}),
         ...(displayTitle ? { displayTitle } : {}),
         ...(model ? { model } : {}),
         ...(model && thinkingLevel ? { thinkingLevel } : {}),
@@ -279,12 +297,19 @@ export async function buildDelegationContext(
         projectSkillPaths,
       };
     });
+  if (injectedMemoryIds.size > 0) {
+    await repos.employeeProjectMemories.incrementHits(
+      [...injectedMemoryIds],
+      new Date().toISOString(),
+    );
+  }
   return {
     systemPromptAppend: acting
       ? personaFromRow(acting, companyName, projectInstructions ?? undefined)
       : null,
     skillPaths: acting ? skillPathsForEmployee(acting.employee_id) : companySkillPaths,
     projectSkillPaths,
+    projectExperience: projectExperience.text,
     runtimeSelection: resolveEmployeeRuntimeSelection(
       acting,
       [

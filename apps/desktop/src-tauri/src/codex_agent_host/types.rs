@@ -113,6 +113,8 @@ pub struct CodexAgentExecuteRequest {
     #[serde(default)]
     pub system_prompt_append: Option<String>,
     #[serde(default)]
+    pub project_experience: Option<String>,
+    #[serde(default)]
     pub skill_paths: Option<Vec<String>>,
     #[serde(default)]
     pub project_skill_paths: Option<Vec<String>>,

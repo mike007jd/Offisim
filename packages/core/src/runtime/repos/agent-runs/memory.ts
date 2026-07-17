@@ -6,9 +6,9 @@ import type {
   CompetitiveDraftAttemptRow,
   CompetitiveDraftGroupRepository,
   CompetitiveDraftGroupRow,
+  NewAgentRun,
   NewCompetitiveDraftAttempt,
   NewCompetitiveDraftGroup,
-  NewAgentRun,
 } from '../../repositories.js';
 import { decodeFreshSessionContext } from '../../repositories.js';
 
@@ -51,6 +51,12 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
     return [...this.store.values()]
       .filter((r) => r.thread_id === threadId)
       .sort((a, b) => a.started_at.localeCompare(b.started_at));
+  }
+
+  async findByEmployee(employeeId: string): Promise<AgentRunRow[]> {
+    return [...this.store.values()]
+      .filter((row) => row.employee_id === employeeId)
+      .sort((left, right) => left.started_at.localeCompare(right.started_at));
   }
 
   async findByRoot(rootRunId: string): Promise<AgentRunRow[]> {
@@ -176,9 +182,11 @@ export class MemoryCompetitiveDraftGroupRepository implements CompetitiveDraftGr
   }
 
   async findBySourceRun(sourceRunId: string): Promise<CompetitiveDraftGroupRow | null> {
-    return [...this.store.values()]
-      .filter((row) => row.source_run_id === sourceRunId)
-      .sort((left, right) => right.created_at.localeCompare(left.created_at))[0] ?? null;
+    return (
+      [...this.store.values()]
+        .filter((row) => row.source_run_id === sourceRunId)
+        .sort((left, right) => right.created_at.localeCompare(left.created_at))[0] ?? null
+    );
   }
 
   async listByProject(projectId: string): Promise<CompetitiveDraftGroupRow[]> {
@@ -235,10 +243,13 @@ export class MemoryCompetitiveDraftAttemptRepository implements CompetitiveDraft
       .sort((left, right) => left.ordinal - right.ordinal);
   }
 
-  async update(
-    attemptId: string,
-    patch: Partial<CompetitiveDraftAttemptRow>,
-  ): Promise<void> {
+  async listByEmployee(employeeId: string): Promise<CompetitiveDraftAttemptRow[]> {
+    return [...this.store.values()]
+      .filter((row) => row.employee_id === employeeId)
+      .sort((left, right) => left.started_at.localeCompare(right.started_at));
+  }
+
+  async update(attemptId: string, patch: Partial<CompetitiveDraftAttemptRow>): Promise<void> {
     const row = this.store.get(attemptId);
     if (!row) return;
     this.store.set(attemptId, { ...row, ...patch });

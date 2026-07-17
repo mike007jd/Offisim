@@ -18,11 +18,30 @@ pub(crate) enum EngineSkillOverlayKind {
 pub(crate) struct EngineSkillOverlay {
     root: PathBuf,
     load_path: PathBuf,
+    project_experience_path: Option<PathBuf>,
 }
 
 impl EngineSkillOverlay {
     pub(crate) fn load_path(&self) -> &Path {
         &self.load_path
+    }
+
+    pub(crate) fn system_prompt_with_project_experience(
+        &self,
+        base: Option<&str>,
+    ) -> Option<String> {
+        let mut sections = base
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| vec![value.to_string()])
+            .unwrap_or_default();
+        if let Some(path) = &self.project_experience_path {
+            sections.push(format!(
+                "Read and follow the employee's read-only Offisim Project experience in {}. Treat it as project-specific working context, never as credentials or a user message.",
+                path.display()
+            ));
+        }
+        (!sections.is_empty()).then(|| sections.join("\n\n"))
     }
 }
 
@@ -159,11 +178,15 @@ fn copy_skill_tree(source: &Path, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn materialize_engine_skill_overlay(
+pub(crate) fn materialize_engine_context_overlay(
     skill_files: &[PathBuf],
     kind: EngineSkillOverlayKind,
+    project_experience: Option<&str>,
 ) -> Result<Option<EngineSkillOverlay>, String> {
-    if skill_files.is_empty() {
+    let project_experience = project_experience
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if skill_files.is_empty() && project_experience.is_none() {
         return Ok(None);
     }
     let suffix = NEXT_OVERLAY_ID.fetch_add(1, Ordering::Relaxed);
@@ -176,6 +199,7 @@ pub(crate) fn materialize_engine_skill_overlay(
         std::process::id(),
     ));
     fs::create_dir(&root).map_err(|_| "Create engine skill overlay.".to_string())?;
+    let mut project_experience_path = None;
     let materialized = (|| {
         let skills_root = match kind {
             EngineSkillOverlayKind::CodexHome => root.join(".agents/skills"),
@@ -202,6 +226,19 @@ pub(crate) fn materialize_engine_skill_overlay(
                 &skills_root.join(safe_directory_name(source, index + 1)),
             )?;
         }
+        if let Some(project_experience) = project_experience {
+            let path = root.join("OFFISIM_PROJECT_EXPERIENCE.md");
+            fs::write(&path, project_experience)
+                .map_err(|_| "Write employee Project experience overlay.".to_string())?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).map_err(|_| {
+                    "Make employee Project experience overlay read-only.".to_string()
+                })?;
+            }
+            project_experience_path = Some(path);
+        }
         Ok::<(), String>(())
     })();
     if let Err(error) = materialized {
@@ -211,6 +248,7 @@ pub(crate) fn materialize_engine_skill_overlay(
     Ok(Some(EngineSkillOverlay {
         load_path: root.clone(),
         root,
+        project_experience_path,
     }))
 }
 
@@ -256,9 +294,10 @@ mod tests {
         fs::write(skill_dir.join("SKILL.md"), source).unwrap();
         fs::write(skill_dir.join("references/details.md"), "supporting file").unwrap();
 
-        let overlay = materialize_engine_skill_overlay(
+        let overlay = materialize_engine_context_overlay(
             &[skill_dir.join("SKILL.md")],
             EngineSkillOverlayKind::ClaudePlugin,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -278,5 +317,30 @@ mod tests {
         );
         drop(overlay);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn context_overlay_exports_project_experience_as_read_only_context() {
+        let overlay = materialize_engine_context_overlay(
+            &[],
+            EngineSkillOverlayKind::CodexHome,
+            Some("## Project experience\n- Avoid generated files."),
+        )
+        .unwrap()
+        .unwrap();
+        let context_path = overlay.load_path().join("OFFISIM_PROJECT_EXPERIENCE.md");
+        assert_eq!(
+            fs::read_to_string(&context_path).unwrap(),
+            "## Project experience\n- Avoid generated files."
+        );
+        assert!(fs::metadata(&context_path)
+            .unwrap()
+            .permissions()
+            .readonly());
+        let prompt = overlay
+            .system_prompt_with_project_experience(Some("Employee persona"))
+            .unwrap();
+        assert!(prompt.contains("Employee persona"));
+        assert!(prompt.contains(context_path.to_string_lossy().as_ref()));
     }
 }

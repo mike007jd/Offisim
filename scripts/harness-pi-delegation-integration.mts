@@ -252,6 +252,8 @@ try {
     roster: [
       {
         employeeId: 'employee-a',
+        persona: 'Employee A persona',
+        projectExperience: '## Project experience\n- [Pitfall] Keep the fixture deterministic.',
         model: 'fixture/employee-a',
         executionTarget: targetFor(modelA),
         runtimeModelRef: 'fixture/employee-a',
@@ -313,6 +315,10 @@ try {
   assert.deepEqual(resourceLoaderOptions[0]?.additionalSkillPaths, [
     '/fixture/vault/company/SKILL.md',
     '/fixture/vault/employee-a/SKILL.md',
+  ]);
+  assert.deepEqual((resourceLoaderOptions[0]?.appendSystemPrompt as string[]).slice(0, 2), [
+    'Employee A persona',
+    '## Project experience\n- [Pitfall] Keep the fixture deterministic.',
   ]);
   assert.deepEqual(inheritedPermissionModes, ['ask', 'ask', 'ask']);
   assert.equal(askUiBindings, 3, 'every Ask child binds the renderer approval channel');

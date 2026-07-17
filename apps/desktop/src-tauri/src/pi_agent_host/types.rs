@@ -96,6 +96,9 @@ pub struct PiAgentExecuteRequest {
     /// host hands it to the resource loader. Absent → Pi uses its base prompt.
     #[serde(default)]
     pub(super) system_prompt_append: Option<String>,
+    /// Bounded employee × Project experience, injected separately from persona.
+    #[serde(default)]
+    pub(super) project_experience: Option<String>,
     /// Absolute vault SKILL.md paths for the acting employee. The renderer
     /// resolves company + employee scope; Rust forwards them opaquely.
     #[serde(default)]

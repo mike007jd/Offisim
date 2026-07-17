@@ -10,6 +10,7 @@ import { createAgentRunsTauriRepos } from './tauri-repos/agent-runs';
 import { createCollaborationTauriRepos } from './tauri-repos/collaboration';
 import { createConversationsTauriRepos } from './tauri-repos/conversations';
 import { createDeliverablesTauriRepos } from './tauri-repos/deliverables';
+import { createEmployeeProjectMemoriesTauriRepo } from './tauri-repos/employee-project-memories';
 import { createEmployeesTauriRepos } from './tauri-repos/employees';
 import { createFilesTauriRepos } from './tauri-repos/files';
 import { createInstallTauriRepos } from './tauri-repos/install';
@@ -53,6 +54,7 @@ export function createTauriRepositories(
     ...createProjectsTauriRepos(db),
     ...createAgentEventsTauriRepos(db),
     ...createAgentRunsTauriRepos(db),
+    employeeProjectMemories: createEmployeeProjectMemoriesTauriRepo(db),
     ...createDeliverablesTauriRepos(db),
     ...createSkillsTauriRepos(db),
     ...createMissionTauriRepos(db),

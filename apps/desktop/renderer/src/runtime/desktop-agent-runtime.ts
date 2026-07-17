@@ -13,6 +13,7 @@ import {
   invokeCommand,
   parseTaskWorkspaceBindingProjection,
 } from '@/lib/tauri-commands.js';
+import { distillTerminalRunMemory } from '@/runtime/employee-project-memory.js';
 import { requireProjectWorkspaceForRun } from '@/runtime/require-project-workspace.js';
 import {
   agentRunEvent,
@@ -3613,18 +3614,24 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       // `appendSystemPrompt`) plus the delegation roster. If this fails, the run
       // fails visibly instead of silently becoming a base Pi run with no employee
       // identity. MCP scope remains a separate safe degradation below.
-      const { systemPromptAppend, skillPaths, projectSkillPaths, runtimeSelection, roster } =
-        await buildDelegationContext(
-          this.repos,
-          this.companyId,
-          input.employeeId,
-          {
-            model: resolvedModel,
-            thinkingLevel: resolvedThinkingLevel,
-          },
-          projectId,
-          competitiveDraft ? { includeActingEmployeeInRoster: true } : undefined,
-        );
+      const {
+        systemPromptAppend,
+        skillPaths,
+        projectSkillPaths,
+        projectExperience,
+        runtimeSelection,
+        roster,
+      } = await buildDelegationContext(
+        this.repos,
+        this.companyId,
+        input.employeeId,
+        {
+          model: resolvedModel,
+          thinkingLevel: resolvedThinkingLevel,
+        },
+        projectId,
+        competitiveDraft ? { includeActingEmployeeInRoster: true } : undefined,
+      );
       throwIfRunAborted(signal);
       // The gateway already froze the task's engine/account/model before entering
       // this adapter. Employee settings may still supply a thinking level, but
@@ -3769,6 +3776,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             nativeSessionMode,
             permissionMode,
             systemPromptAppend: systemPromptAppend ?? undefined,
+            projectExperience: projectExperience ?? undefined,
             skillPaths,
             projectSkillPaths,
             clientUserMessageId: input.conversationProjection?.userMessageId,
@@ -3804,6 +3812,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             nativeSessionMode,
             permissionMode,
             systemPromptAppend: systemPromptAppend ?? undefined,
+            projectExperience: projectExperience ?? undefined,
             skillPaths,
             projectSkillPaths,
             ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
@@ -3840,6 +3849,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             permissionMode,
             thinkingLevel: resolvedThinkingLevel,
             systemPromptAppend: systemPromptAppend ?? undefined,
+            projectExperience: projectExperience ?? undefined,
             skillPaths,
             projectSkillPaths,
             rootRunId: runScope.runId,
@@ -4352,6 +4362,18 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     if (shouldPersistTerminalCursor && conversation) {
       conversation.context.streamCursor = terminalCursor;
     }
+    if (status !== 'cancelled' && root.employee_id && root.project_id) {
+      try {
+        await distillTerminalRunMemory({
+          repos: this.repos,
+          run: root,
+          status,
+          summary: conversation?.terminal.text ?? root.result_summary_json,
+        });
+      } catch (error) {
+        console.warn('Employee Project experience distillation failed after run terminal.', error);
+      }
+    }
   }
 
   /** Persist a delegation run's lifecycle to agent_runs. Runs on the serialized
@@ -4416,6 +4438,24 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           // completed/cancelled runs never carry one.
           ...(evt.type === 'run.failed' ? { failureKind: payload.failureKind ?? null } : {}),
         });
+        if (evt.type !== 'run.cancelled' && evt.runId !== evt.rootRunId) {
+          const run = await repo.findById(evt.runId);
+          if (run?.employee_id && run.project_id) {
+            try {
+              await distillTerminalRunMemory({
+                repos: this.repos,
+                run,
+                status: evt.type === 'run.completed' ? 'completed' : 'failed',
+                summary: payload.summary,
+              });
+            } catch (error) {
+              console.warn(
+                'Employee Project experience distillation failed after delegated run terminal.',
+                error,
+              );
+            }
+          }
+        }
       }
     } catch (err) {
       console.warn('[desktop-agent-runtime] persist agent_run failed', { runId: evt.runId, err });

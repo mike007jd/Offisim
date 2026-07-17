@@ -60,6 +60,7 @@ import { useForm } from 'react-hook-form';
 import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { toast } from 'sonner';
 import { AppearanceTab, CompactAppearanceEditor } from './AppearanceTab.js';
+import { ExperienceTab } from './ExperienceTab.js';
 import { HistoryTab } from './HistoryTab.js';
 import { McpToolsTab } from './McpToolsTab.js';
 import { MemoryTab } from './MemoryTab.js';
@@ -83,6 +84,7 @@ const INSPECTOR_TABS = [
   { key: 'skills', label: 'Skills' },
   { key: 'tools', label: 'Tools' },
   { key: 'memory', label: 'Memory' },
+  { key: 'experience', label: 'Experience' },
   { key: 'appearance', label: 'Appearance' },
   { key: 'runtime', label: 'Runtime' },
   { key: 'history', label: 'History' },
@@ -626,6 +628,9 @@ function EmployeeDetail({
         {tab === 'skills' ? <SkillsTab employeeId={employee.id} /> : null}
         {tab === 'tools' ? <McpToolsTab employeeId={employee.id} /> : null}
         {tab === 'memory' ? <MemoryTab employeeId={employee.id} /> : null}
+        {tab === 'experience' ? (
+          <ExperienceTab employeeId={employee.id} companyId={companyId} />
+        ) : null}
         {tab === 'appearance' ? (
           <AppearanceTab employee={employee} draft={appearance} onChange={setAppearance} />
         ) : null}

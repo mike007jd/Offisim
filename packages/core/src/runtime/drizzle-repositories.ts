@@ -6,6 +6,7 @@ import { createAgentRunsDrizzleRepos } from './repos/agent-runs/drizzle.js';
 import { createCollaborationDrizzleRepos } from './repos/collaboration/drizzle.js';
 import { createConversationsDrizzleRepos } from './repos/conversations/drizzle.js';
 import { createDeliverablesDrizzleRepos } from './repos/deliverables/drizzle.js';
+import { createEmployeeProjectMemoriesDrizzleRepo } from './repos/employee-project-memories/drizzle.js';
 import { createEmployeesDrizzleRepos } from './repos/employees/drizzle.js';
 import { createFilesDrizzleRepos } from './repos/files/drizzle.js';
 import { createInstallDrizzleRepos } from './repos/install/drizzle.js';
@@ -65,6 +66,7 @@ export function createDrizzleRepositories(db: Db, _eventBus?: EventBus): Runtime
     ...createProjectsDrizzleRepos(db),
     ...createAgentEventsDrizzleRepos(db),
     ...createAgentRunsDrizzleRepos(db),
+    employeeProjectMemories: createEmployeeProjectMemoriesDrizzleRepo(db),
     ...createDeliverablesDrizzleRepos(db),
     ...createSkillsDrizzleRepos(db),
     ...createMissionDrizzleRepos(db),

@@ -12,7 +12,7 @@ use crate::agent_host_runtime::{
     AgentHostLane, HostError, SidecarAudit,
 };
 use crate::engine_skill_overlay::{
-    materialize_engine_skill_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
+    materialize_engine_context_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
 };
 use crate::git::{
     create_competitive_draft_workspace_lease, verify_competitive_draft_attempt,
@@ -106,6 +106,8 @@ pub(crate) struct ClaudeAgentExecuteRequest {
     native_session_reset_source_run_id: Option<String>,
     permission_mode: Option<String>,
     system_prompt_append: Option<String>,
+    #[serde(default)]
+    project_experience: Option<String>,
     #[serde(default)]
     skill_paths: Option<Vec<String>>,
     #[serde(default)]
@@ -317,6 +319,7 @@ fn execute_payload(
     workspace_availability: &str,
     native_session_id: Option<&str>,
     skill_plugin_dir: Option<&std::path::Path>,
+    system_prompt_append: Option<&str>,
 ) -> serde_json::Value {
     serde_json::json!({
         "mode": "execute",
@@ -326,7 +329,7 @@ fn execute_payload(
         "workspaceAvailability": workspace_availability,
         "nativeSessionId": native_session_id,
         "permissionMode": req.permission_mode,
-        "systemPromptAppend": req.system_prompt_append,
+        "systemPromptAppend": system_prompt_append,
         "skillPluginDir": skill_plugin_dir.map(|path| path.to_string_lossy().to_string()),
         "rootRunId": req.root_run_id,
         "expectedTarget": req.expected_target,
@@ -516,17 +519,28 @@ async fn do_execute<R: tauri::Runtime>(
             req.project_skill_paths.as_deref(),
         )
         .map_err(HostError::Request)?;
-        materialize_engine_skill_overlay(&paths, EngineSkillOverlayKind::ClaudePlugin)
-            .map_err(HostError::Request)?
+        materialize_engine_context_overlay(
+            &paths,
+            EngineSkillOverlayKind::ClaudePlugin,
+            req.project_experience.as_deref(),
+        )
+        .map_err(HostError::Request)?
     } else {
         None
     };
+    let system_prompt_append = skill_overlay
+        .as_ref()
+        .and_then(|overlay| {
+            overlay.system_prompt_with_project_experience(req.system_prompt_append.as_deref())
+        })
+        .or_else(|| req.system_prompt_append.clone());
     let payload = execute_payload(
         &req,
         &cwd,
         availability,
         native_session.as_deref(),
         skill_overlay.as_ref().map(|overlay| overlay.load_path()),
+        system_prompt_append.as_deref(),
     );
     let raw = if let Some(binding) = binding.as_deref() {
         run_bound_sidecar(
@@ -864,6 +878,7 @@ mod tests {
             native_session_reset_source_run_id: None,
             permission_mode: Some("auto".into()),
             system_prompt_append: None,
+            project_experience: None,
             skill_paths: None,
             project_skill_paths: None,
             workspace_requirement: ClaudeWorkspaceRequirement::Required,
@@ -876,6 +891,7 @@ mod tests {
             "bound",
             request.native_session_id.as_deref(),
             Some(std::path::Path::new("/tmp/offisim-skills-plugin")),
+            None,
         );
         assert_eq!(payload["nativeSessionId"], "opaque-session");
         assert!(payload.get("sessionFile").is_none());

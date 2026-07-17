@@ -720,6 +720,44 @@ export const competitiveDraftAttempts = sqliteTable(
   ],
 );
 
+export const employeeProjectMemories = sqliteTable(
+  'employee_project_memories',
+  {
+    memory_id: text('memory_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.employee_id, { onDelete: 'cascade' }),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.project_id, { onDelete: 'cascade' }),
+    memory_type: text('memory_type')
+      .$type<'pitfall' | 'repository_preference' | 'convention' | 'retrospective'>()
+      .notNull(),
+    content: text('content').notNull(),
+    source_run_id: text('source_run_id').references(() => agentRuns.run_id, {
+      onDelete: 'set null',
+    }),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+    pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
+    hit_count: integer('hit_count').notNull().default(0),
+    last_hit_at: text('last_hit_at'),
+  },
+  (table) => [
+    index('idx_employee_project_memories_employee_project').on(
+      table.employee_id,
+      table.project_id,
+      table.pinned,
+      table.hit_count,
+      table.updated_at,
+    ),
+    index('idx_employee_project_memories_source').on(table.source_run_id),
+  ],
+);
+
 export const toolCalls = sqliteTable(
   'tool_calls',
   {

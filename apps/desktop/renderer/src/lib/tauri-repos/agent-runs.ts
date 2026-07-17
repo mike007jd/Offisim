@@ -55,6 +55,13 @@ export function createAgentRunsTauriRepos(db: TauriDrizzleDb): AgentRunsTauriRep
         .where(eq(schema.agentRuns.thread_id, threadId))
         .orderBy(asc(schema.agentRuns.started_at))) as AgentRunRow[];
     },
+    async findByEmployee(employeeId) {
+      return (await db
+        .select()
+        .from(schema.agentRuns)
+        .where(eq(schema.agentRuns.employee_id, employeeId))
+        .orderBy(asc(schema.agentRuns.started_at))) as AgentRunRow[];
+    },
     async findByRoot(rootRunId) {
       return (await db
         .select()
@@ -223,6 +230,13 @@ export function createAgentRunsTauriRepos(db: TauriDrizzleDb): AgentRunsTauriRep
         .from(schema.competitiveDraftAttempts)
         .where(eq(schema.competitiveDraftAttempts.group_id, groupId))
         .orderBy(asc(schema.competitiveDraftAttempts.ordinal))) as CompetitiveDraftAttemptRow[];
+    },
+    async listByEmployee(employeeId) {
+      return (await db
+        .select()
+        .from(schema.competitiveDraftAttempts)
+        .where(eq(schema.competitiveDraftAttempts.employee_id, employeeId))
+        .orderBy(asc(schema.competitiveDraftAttempts.started_at))) as CompetitiveDraftAttemptRow[];
     },
     async update(attemptId, patch) {
       await db

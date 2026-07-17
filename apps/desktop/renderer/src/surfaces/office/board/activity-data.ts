@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@/data/adapters.js';
+import { redactSecrets } from '@/data/redact-secrets.js';
 import {
   type WorkspaceCheckpointRollbackRow,
   type WorkspaceCheckpointRow,
@@ -207,29 +208,6 @@ function commandFromMcpArguments(args: Record<string, ActivityPayloadValue>): st
 /** Hard cap on the serialized size of a sanitized MCP arg/result value. */
 export const MAX_MCP_VALUE_CHARS = 4000;
 
-const SECRET_TOKEN_PATTERNS: ReadonlyArray<RegExp> = [
-  // Provider secret/restricted keys: sk-…, rk-… (>=16 chars after the prefix).
-  /\b[sr]k-[A-Za-z0-9_-]{16,}/g,
-  // GitHub PATs / OAuth tokens: ghp_/gho_/ghu_/ghs_/ghr_ + 20+ chars.
-  /\bgh[pohsr]_[A-Za-z0-9]{20,}/g,
-  // GitHub fine-grained PAT: github_pat_ + 20+ chars.
-  /\bgithub_pat_[A-Za-z0-9_]{20,}/g,
-  // Slack tokens: xoxb-/xoxa-/xoxp-/xoxr-/xoxs-…
-  /\bxox[baprs]-[A-Za-z0-9-]{10,}/g,
-  // AWS access key id.
-  /\bAKIA[0-9A-Z]{16}\b/g,
-  // JWTs: three base64url segments joined by dots, leading `ey…`.
-  /\bey[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
-];
-
-// https://user:pass@host → https://[REDACTED]@host (keep scheme + host).
-const URL_CREDENTIALS_RE = /\b([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]+:[^/\s@]+@/gi;
-
-// key: value / key=value where the key names a credential. Capture the key +
-// separator so we keep the field name and only mask the value.
-const SECRET_ASSIGNMENT_RE =
-  /\b(authorization|bearer|token|api[_-]?key|secret|password|access[_-]?token)(\s*[:=]\s*)("?)([^"\s,;}]+)\3/gi;
-
 // An object key that names a credential — its VALUE is masked whole, regardless
 // of the value's shape, so a secret in a `password`/`token`/… field is caught
 // even when it's a plain word, a bare hex/base64 string, or a number that no
@@ -237,16 +215,7 @@ const SECRET_ASSIGNMENT_RE =
 const SECRET_KEY_NAME_RE =
   /^(?:authorization|bearer|tokens?|api[_-]?keys?|secrets?|passwo?r?d|access[_-]?tokens?|client[_-]?secrets?|private[_-]?keys?|credentials?)$/i;
 
-/** Replace provider/secret tokens, URL creds, and key:value secrets in a string. */
-export function redactSecrets(text: string): string {
-  let out = text;
-  out = out.replace(URL_CREDENTIALS_RE, '$1[REDACTED]@');
-  out = out.replace(SECRET_ASSIGNMENT_RE, '$1$2[REDACTED]');
-  for (const pattern of SECRET_TOKEN_PATTERNS) {
-    out = out.replace(pattern, '[REDACTED]');
-  }
-  return out;
-}
+export { redactSecrets } from '@/data/redact-secrets.js';
 
 /** Recursively redact string leaves of a structured value (objects/arrays
  *  recurse; non-strings pass through untouched) so JSON shape is preserved. */

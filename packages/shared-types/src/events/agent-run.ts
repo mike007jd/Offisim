@@ -185,6 +185,8 @@ export interface DelegationRosterEntry {
   readonly name: string;
   readonly roleSlug: string;
   readonly persona: string;
+  /** Bounded employee × Project experience for this delegated child. */
+  readonly projectExperience?: string;
   /** Human role title from the employee's persona (e.g. "Orchestrator");
    *  shown to the root agent in the teammate roster instead of the raw slug. */
   readonly displayTitle?: string;

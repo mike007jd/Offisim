@@ -176,6 +176,7 @@ export interface CompetitiveDraftAttemptRepository {
   findById(attemptId: string): Promise<CompetitiveDraftAttemptRow | null>;
   findByLeaseId(leaseId: string): Promise<CompetitiveDraftAttemptRow | null>;
   listByGroup(groupId: string): Promise<CompetitiveDraftAttemptRow[]>;
+  listByEmployee(employeeId: string): Promise<CompetitiveDraftAttemptRow[]>;
   update(
     attemptId: string,
     patch: Partial<
@@ -191,6 +192,59 @@ export interface CompetitiveDraftAttemptRepository {
       >
     >,
   ): Promise<void>;
+}
+
+export type EmployeeProjectMemoryType =
+  | 'pitfall'
+  | 'repository_preference'
+  | 'convention'
+  | 'retrospective';
+
+/** One durable lesson owned by an employee inside a single Project. */
+export interface EmployeeProjectMemoryRow {
+  memory_id: string;
+  company_id: string;
+  employee_id: string;
+  project_id: string;
+  memory_type: EmployeeProjectMemoryType;
+  content: string;
+  source_run_id: string | null;
+  created_at: string;
+  updated_at: string;
+  pinned: boolean;
+  hit_count: number;
+  last_hit_at: string | null;
+}
+
+export type NewEmployeeProjectMemory = Omit<
+  EmployeeProjectMemoryRow,
+  'source_run_id' | 'pinned' | 'hit_count' | 'last_hit_at'
+> & {
+  source_run_id?: string | null;
+  pinned?: boolean;
+  hit_count?: number;
+  last_hit_at?: string | null;
+};
+
+export type EmployeeProjectMemoryPatch = Partial<
+  Pick<
+    EmployeeProjectMemoryRow,
+    'memory_type' | 'content' | 'source_run_id' | 'pinned' | 'updated_at'
+  >
+>;
+
+export interface EmployeeProjectMemoryRepository {
+  create(row: NewEmployeeProjectMemory): Promise<EmployeeProjectMemoryRow>;
+  findById(memoryId: string): Promise<EmployeeProjectMemoryRow | null>;
+  /** Personnel view: every project, newest semantic update first. */
+  listByEmployee(employeeId: string): Promise<EmployeeProjectMemoryRow[]>;
+  /** Injection view: pinned → hit count → semantic recency. */
+  listByProject(employeeId: string, projectId: string): Promise<EmployeeProjectMemoryRow[]>;
+  /** One Project's rows for all employees, used to build the acting prompt and opaque Pi roster in one read. */
+  listByProjectScope(companyId: string, projectId: string): Promise<EmployeeProjectMemoryRow[]>;
+  update(memoryId: string, patch: EmployeeProjectMemoryPatch): Promise<void>;
+  delete(memoryId: string): Promise<void>;
+  incrementHits(memoryIds: readonly string[], hitAt: string): Promise<void>;
 }
 
 export interface EmployeeRow {
@@ -499,6 +553,7 @@ export interface AgentRunRepository {
   create(run: NewAgentRun): Promise<AgentRunRow>;
   findById(runId: string): Promise<AgentRunRow | null>;
   findByThread(threadId: string): Promise<AgentRunRow[]>;
+  findByEmployee(employeeId: string): Promise<AgentRunRow[]>;
   /** All runs under a root (the children of one user turn). */
   findByRoot(rootRunId: string): Promise<AgentRunRow[]>;
   /** Company-scoped runs filtered to the given statuses, oldest first. Used by
@@ -2147,6 +2202,8 @@ export interface RuntimeRepositories {
   /** Best-of-N drafting groups projected over independent root agent runs. */
   competitiveDraftGroups: CompetitiveDraftGroupRepository;
   competitiveDraftAttempts: CompetitiveDraftAttemptRepository;
+  /** Employee × Project experience used by W6 distillation and injection. */
+  employeeProjectMemories: EmployeeProjectMemoryRepository;
   /** Verified Missions core (PRD §17). */
   missions: MissionRepository;
   missionCriteria: MissionCriterionRepository;
