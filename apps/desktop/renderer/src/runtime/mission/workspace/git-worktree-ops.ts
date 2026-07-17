@@ -29,6 +29,30 @@ export interface TauriGitWorktreeOpsInput {
   projectId: string;
 }
 
+function quoteGitDiffPath(path: string): string {
+  return /[\\"\t\n\r]/u.test(path) ? JSON.stringify(path) : path;
+}
+
+function untrackedTextDiff(path: string, content: string): string {
+  const normalized = content.replace(/\r\n?/gu, '\n');
+  const lines = normalized.split('\n');
+  if (lines.at(-1) === '') lines.pop();
+  const oldPath = quoteGitDiffPath(`a/${path}`);
+  const newPath = quoteGitDiffPath(`b/${path}`);
+  const headers = [
+    `diff --git ${oldPath} ${newPath}`,
+    'new file mode 100644',
+    '--- /dev/null',
+    `+++ ${newPath}`,
+  ];
+  if (lines.length === 0) return `${headers.join('\n')}\n`;
+  const body = lines.map((line) => `+${line}`).join('\n');
+  const missingFinalNewline = normalized.endsWith('\n')
+    ? ''
+    : '\n\\ No newline at end of file';
+  return `${headers.join('\n')}\n@@ -0,0 +1,${lines.length} @@\n${body}${missingFinalNewline}\n`;
+}
+
 /**
  * Build the production GitWorktreeOps for a project. The `path` arguments the
  * manager passes are absolute worktree paths under the project's jailed
@@ -118,10 +142,22 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
       ]);
       const failed = results.find((result) => !result.ok);
       if (failed) throw new Error(`git diff failed: ${failed.stderr.trim()}`);
-      return results
+      const trackedDiff = results
         .map((result) => result.stdout.trimEnd())
         .filter(Boolean)
         .join('\n');
+      if (trackedDiff) return trackedDiff;
+      try {
+        const content = await invokeCommand('project_read_file', {
+          projectId,
+          path: `${path.replace(/\/+$/u, '')}/${changedPath}`,
+        });
+        return untrackedTextDiff(changedPath, content);
+      } catch {
+        // Binary, oversized, or concurrently removed untracked files remain in
+        // changedPaths but do not make the whole review surface unavailable.
+        return '';
+      }
     },
 
     async commitAll(path: string, message: string): Promise<void> {

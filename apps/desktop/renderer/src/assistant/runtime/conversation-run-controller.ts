@@ -19,6 +19,8 @@ import {
   type AgentQueueBehavior,
   type AgentUiRequestPayload,
   type AgentUiRequestResolvedPayload,
+  type CompetitiveDraftContext,
+  type DesktopAgentRunInput,
   type DesktopAgentRuntime,
   type DirectDelegationInput,
   LIVE_CONVERSATION_TERMINAL_EVENT,
@@ -284,6 +286,8 @@ export interface SubmitConversationRun {
   companyId: string;
   projectId: string | null;
   threadId: string;
+  /** Optional caller-owned root run id; competitive attempts use this as attemptId. */
+  runId?: string;
   employeeId: string | null;
   text: string;
   stagedAttachments: readonly StagedAttachment[];
@@ -309,6 +313,8 @@ export interface SubmitConversationRun {
     materialize: (messageId: string) => Promise<PreparedLoopExecution>;
   };
   directDelegation?: DirectDelegationInput;
+  delegationLimits?: DesktopAgentRunInput['delegationLimits'];
+  competitiveDraft?: CompetitiveDraftContext;
 }
 
 interface PreparedLoopExecution {
@@ -686,7 +692,11 @@ export class ConversationRunController {
     const restoredApproval = this.currentSnapshot(input.threadId).approval;
     const clearRestoredApproval = restoredApproval !== null && restoredApproval.state !== 'live';
 
-    const attemptId = `attempt-${this.deps.randomUUID()}`;
+    const requestedRunId = input.runId?.trim();
+    if (input.runId !== undefined && !requestedRunId) {
+      throw new Error('Conversation runId cannot be empty.');
+    }
+    const attemptId = requestedRunId ?? `attempt-${this.deps.randomUUID()}`;
     const userMessage: ChatMessage = {
       id: newDraftId('boss'),
       threadId: input.threadId,
@@ -1989,6 +1999,8 @@ export class ConversationRunController {
               }
             : {}),
           directDelegation: run.input.directDelegation,
+          delegationLimits: run.input.delegationLimits,
+          competitiveDraft: run.input.competitiveDraft,
         },
         run.executionAbortController.signal,
       );
@@ -2533,6 +2545,66 @@ export class ConversationRunController {
   private async failRun(run: ActiveRun, error: unknown): Promise<void> {
     if (!this.isActiveRun(run) || run.stopped) return;
     const messageText = safeErrorMessage(error);
+    const competitiveDraft = run.input.competitiveDraft;
+    if (competitiveDraft) {
+      try {
+        const repos = await this.deps.reposFactory();
+        const finishedAt = new Date(this.deps.now()).toISOString();
+        await repos.asyncTransact(async (transactionRepos) => {
+          if (!transactionRepos) {
+            throw new Error('Competitive draft failure convergence requires transaction repositories.');
+          }
+          const attempt = await transactionRepos.competitiveDraftAttempts.findById(
+            competitiveDraft.attemptId,
+          );
+          if (
+            !attempt ||
+            attempt.group_id !== competitiveDraft.groupId ||
+            attempt.run_id !== run.attemptId ||
+            attempt.thread_id !== run.threadId ||
+            attempt.employee_id !== run.input.employeeId ||
+            attempt.ordinal !== competitiveDraft.attemptIndex
+          ) {
+            throw new Error('Competitive draft failure does not match its durable attempt.');
+          }
+          if (attempt.status === 'planned' || attempt.status === 'running') {
+            await transactionRepos.competitiveDraftAttempts.update(attempt.attempt_id, {
+              status: 'failed',
+              result_summary_json: JSON.stringify({ error: messageText }),
+              finished_at: finishedAt,
+            });
+          }
+          const attempts = await transactionRepos.competitiveDraftAttempts.listByGroup(
+            competitiveDraft.groupId,
+          );
+          const terminalAttempts = attempts.map((row) =>
+            row.attempt_id === attempt.attempt_id &&
+            (row.status === 'planned' || row.status === 'running')
+              ? { ...row, status: 'failed' as const }
+              : row,
+          );
+          if (
+            terminalAttempts.length > 0 &&
+            terminalAttempts.every((row) => row.status !== 'planned' && row.status !== 'running')
+          ) {
+            const allFailed = terminalAttempts.every(
+              (row) => row.status === 'failed' || row.status === 'cancelled',
+            );
+            await transactionRepos.competitiveDraftGroups.updateStatus(
+              competitiveDraft.groupId,
+              allFailed ? 'failed' : 'reviewing',
+              { updatedAt: finishedAt },
+            );
+          }
+        });
+      } catch (competitiveDraftError) {
+        console.warn('[conversation-run] competitive draft failure convergence failed', {
+          threadId: run.threadId,
+          attemptId: run.attemptId,
+          competitiveDraftError,
+        });
+      }
+    }
     this.cleanupRun(run);
     this.activeRuns.delete(run.threadId);
     let messages: ChatMessage[] = [run.userMessage];

@@ -79,6 +79,8 @@ interface RunContextSnapshot {
   permissionMode?: unknown;
   thinkingLevel?: unknown;
   projectId?: unknown;
+  recoveryLane?: unknown;
+  competitiveDraft?: unknown;
 }
 
 interface InterruptedRunCardOptions {
@@ -86,7 +88,7 @@ interface InterruptedRunCardOptions {
   currentWireProtocolVersion?: number;
 }
 
-export const PI_HOST_PROTOCOL_VERSION = 12;
+export const PI_HOST_PROTOCOL_VERSION = 13;
 export const CODEX_APP_SERVER_PROTOCOL_VERSION = 2;
 export const CLAUDE_AGENT_HOST_PROTOCOL_VERSION = 1;
 
@@ -207,6 +209,8 @@ export interface ReconcileInterruptedRunsInput {
   candidateRootRunIds?: ReadonlySet<string>;
   /** Injected clock for the `finished_at` stamp on cancelled children (determinism). */
   now: () => string;
+  /** Optional product-state convergence that must succeed before a root is parked. */
+  onRootInterrupted?: (root: AgentRunRow, finishedAt: string) => Promise<void>;
 }
 
 /**
@@ -242,6 +246,7 @@ export async function reconcileInterruptedRuns(
         parseUsage(root.usage_json, root.run_id),
       );
       const finishedAt = now();
+      await input.onRootInterrupted?.(root, finishedAt);
       // Park the root `interrupted` (NOT cancelled — it can be resumed). Do NOT set
       // finished_at: an interrupted run is paused, not finished; a later resume that
       // completes will stamp it then. Roll the partial subtree usage onto the root.
@@ -329,6 +334,14 @@ export function buildInterruptedRunCard(
     typeof context?.nativeProtocolVersion === 'number' ? context.nativeProtocolVersion : null;
   const currentWireProtocolVersion = options.currentWireProtocolVersion ?? PI_HOST_PROTOCOL_VERSION;
   const classificationReasons: string[] = [];
+  const competitiveDraftRun =
+    context?.recoveryLane === 'competitive-draft' ||
+    (context?.competitiveDraft !== null && typeof context?.competitiveDraft === 'object');
+  if (competitiveDraftRun) {
+    classificationReasons.push(
+      'This competitive draft stopped before completion. Its isolated proposal can be reviewed or discarded, but cannot resume as an ordinary task.',
+    );
+  }
   if (!projectId) {
     classificationReasons.push('The original Project is no longer available.');
   }
@@ -379,7 +392,7 @@ export function buildInterruptedRunCard(
     !workspaceBindingMatchesRun ||
     (options.resumeCompatibility !== undefined && options.resumeCompatibility.status !== 'same');
   const classification: RecoveryClassification =
-    !supportedEngine || protocolMismatch || workspaceBlocked || !hasNativeSession
+    competitiveDraftRun || !supportedEngine || protocolMismatch || workspaceBlocked || !hasNativeSession
       ? 'incompatible'
       : 'resumable';
   const workspaceName = workspaceBinding?.displayPath || 'the original Project folder';

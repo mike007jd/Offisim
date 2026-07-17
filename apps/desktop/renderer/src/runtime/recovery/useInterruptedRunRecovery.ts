@@ -10,6 +10,7 @@ import type { LiveRunReattachResult } from '../desktop-agent-runtime.js';
 import { getRepos } from '../repos.js';
 import {
   type InterruptedRunCard,
+  type ReconcileInterruptedRunsInput,
   buildInterruptedRunCard,
   reconcileInterruptedRuns,
   resolveAgentRunResumeCompatibilityArgs,
@@ -118,6 +119,7 @@ export async function loadInterruptedRunRecovery(input: {
     args: TaskWorkspaceResumeCompatibilityArgs,
   ) => Promise<TaskWorkspaceResumeCompatibility>;
   bootstrapLiveRuns?: (companyId: string) => Promise<LiveRunReattachResult>;
+  onRootInterrupted?: ReconcileInterruptedRunsInput['onRootInterrupted'];
 }): Promise<InterruptedRunRecoveryLoad> {
   let bootstrap: LiveRunReattachResult | null = null;
   let bootstrapFailed = false;
@@ -268,6 +270,57 @@ export function useInterruptedRunRecovery(
           now: () => new Date().toISOString(),
           skipReconcile,
           bootstrapLiveRuns: (id) => conversationRunController.bootstrapLiveRuns(id),
+          onRootInterrupted: async (root, finishedAt) => {
+            let competitiveDraft: { groupId?: unknown; attemptId?: unknown } | null = null;
+            try {
+              const context = root.runtime_context_json
+                ? (JSON.parse(root.runtime_context_json) as Record<string, unknown>)
+                : null;
+              competitiveDraft =
+                context?.competitiveDraft && typeof context.competitiveDraft === 'object'
+                  ? (context.competitiveDraft as { groupId?: unknown; attemptId?: unknown })
+                  : null;
+            } catch {
+              competitiveDraft = null;
+            }
+            const groupId =
+              typeof competitiveDraft?.groupId === 'string'
+                ? competitiveDraft.groupId.trim()
+                : '';
+            const attemptId =
+              typeof competitiveDraft?.attemptId === 'string'
+                ? competitiveDraft.attemptId.trim()
+                : '';
+            if (!groupId || !attemptId) return;
+            await repos.asyncTransact(async (transactionRepos) => {
+              const tx = transactionRepos ?? repos;
+              const attempt = await tx.competitiveDraftAttempts.findById(attemptId);
+              if (!attempt || attempt.group_id !== groupId || attempt.run_id !== root.run_id) {
+                throw new Error('Interrupted competitive draft does not match its durable attempt.');
+              }
+              await tx.competitiveDraftAttempts.update(attemptId, {
+                status: 'failed',
+                result_summary_json: JSON.stringify({
+                  summary: 'The app stopped before this proposal completed.',
+                }),
+                finished_at: finishedAt,
+              });
+              const attempts = await tx.competitiveDraftAttempts.listByGroup(groupId);
+              const converged = attempts.map((row) =>
+                row.attempt_id === attemptId ? { ...row, status: 'failed' as const } : row,
+              );
+              if (converged.every((row) => row.status !== 'planned' && row.status !== 'running')) {
+                const allFailed = converged.every(
+                  (row) => row.status === 'failed' || row.status === 'cancelled',
+                );
+                await tx.competitiveDraftGroups.updateStatus(
+                  groupId,
+                  allFailed ? 'failed' : 'reviewing',
+                  { updatedAt: finishedAt },
+                );
+              }
+            });
+          },
         });
         loadGeneration.commit(generation, () => {
           if (recovery.complete) {

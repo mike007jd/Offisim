@@ -34,6 +34,8 @@ export interface DiffPanelProps {
   onMerge?: (summary: ReviewSummary) => void;
   onDiscard?: () => void;
   onRequestChanges?: (request: ReviewChangeRequest) => void | Promise<void>;
+  mergeLabel?: string;
+  discardLabel?: string;
 }
 
 interface AnnotationTarget {
@@ -228,6 +230,8 @@ export function DiffPanel({
   onMerge,
   onDiscard,
   onRequestChanges,
+  mergeLabel = 'Merge accepted',
+  discardLabel = 'Discard task',
 }: DiffPanelProps) {
   const readonly = mode === 'readonly';
   const [selectedPath, setSelectedPath] = useState(initialPath ?? document.files[0]?.path ?? '');
@@ -570,7 +574,7 @@ export function DiffPanel({
             ) : null}
             <div className="off-review-final-actions">
               <button type="button" disabled={busy} onClick={onDiscard}>
-                Discard task
+                {discardLabel}
               </button>
               <button
                 type="button"
@@ -584,7 +588,7 @@ export function DiffPanel({
                 disabled={busy || !allAccepted || summary.openAnnotations > 0}
                 onClick={() => onMerge?.(summary)}
               >
-                Merge accepted
+                {mergeLabel}
               </button>
             </div>
           </>

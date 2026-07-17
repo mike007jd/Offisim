@@ -661,6 +661,65 @@ export const agentRuns = sqliteTable(
   ],
 );
 
+export const competitiveDraftGroups = sqliteTable(
+  'competitive_draft_groups',
+  {
+    group_id: text('group_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.project_id, { onDelete: 'cascade' }),
+    source_run_id: text('source_run_id')
+      .notNull()
+      .references(() => agentRuns.run_id, { onDelete: 'cascade' }),
+    objective: text('objective').notNull(),
+    status: text('status').notNull(),
+    winner_attempt_id: text('winner_attempt_id'),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_competitive_draft_groups_project').on(table.project_id, table.created_at),
+    index('idx_competitive_draft_groups_source').on(table.source_run_id),
+  ],
+);
+
+export const competitiveDraftAttempts = sqliteTable(
+  'competitive_draft_attempts',
+  {
+    attempt_id: text('attempt_id').primaryKey(),
+    group_id: text('group_id')
+      .notNull()
+      .references(() => competitiveDraftGroups.group_id, { onDelete: 'cascade' }),
+    ordinal: integer('ordinal').notNull(),
+    employee_id: text('employee_id')
+      .notNull()
+      .references(() => employees.employee_id, { onDelete: 'restrict' }),
+    thread_id: text('thread_id').notNull(),
+    run_id: text('run_id').notNull(),
+    lease_id: text('lease_id'),
+    status: text('status').notNull(),
+    result_summary_json: text('result_summary_json'),
+    usage_json: text('usage_json'),
+    verification_summary: text('verification_summary'),
+    verification_passed: integer('verification_passed', { mode: 'boolean' }),
+    started_at: text('started_at').notNull(),
+    finished_at: text('finished_at'),
+  },
+  (table) => [
+    uniqueIndex('idx_competitive_draft_attempts_group_ordinal').on(table.group_id, table.ordinal),
+    uniqueIndex('idx_competitive_draft_attempts_group_employee').on(
+      table.group_id,
+      table.employee_id,
+    ),
+    uniqueIndex('idx_competitive_draft_attempts_run').on(table.run_id),
+    uniqueIndex('idx_competitive_draft_attempts_lease').on(table.lease_id),
+    index('idx_competitive_draft_attempts_group').on(table.group_id, table.ordinal),
+  ],
+);
+
 export const toolCalls = sqliteTable(
   'tool_calls',
   {

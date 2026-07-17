@@ -11,7 +11,7 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 12;
+export const PI_HOST_PROTOCOL_VERSION = 13;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',

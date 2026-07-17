@@ -14,6 +14,10 @@ use crate::agent_host_runtime::{
 use crate::engine_skill_overlay::{
     materialize_engine_skill_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
 };
+use crate::git::{
+    create_competitive_draft_workspace_lease, verify_competitive_draft_attempt,
+    CompetitiveDraftContext,
+};
 use crate::in_flight::InFlightRegistry;
 use crate::pi_agent_host::run::{neutral_cwd, run_pi_sidecar_jsonl, PiSidecarRun};
 use crate::pi_agent_host::stream::{
@@ -109,6 +113,8 @@ pub(crate) struct ClaudeAgentExecuteRequest {
     #[serde(default)]
     workspace_requirement: ClaudeWorkspaceRequirement,
     native_session_id: Option<String>,
+    #[serde(default)]
+    competitive_draft: Option<CompetitiveDraftContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -334,6 +340,7 @@ async fn run_bound_sidecar<R: tauri::Runtime>(
     token: CancellationToken,
     scope: IssueTaskWorkspaceBinding<'_>,
     binding: &TaskWorkspaceBinding,
+    cwd: &std::path::Path,
     script_path: &std::path::Path,
     payload: serde_json::Value,
     env: HashMap<String, String>,
@@ -345,7 +352,7 @@ async fn run_bound_sidecar<R: tauri::Runtime>(
         app,
         PiSidecarRun {
             script_path,
-            cwd: &binding.canonical_root,
+            cwd,
             workspace_binding: Some(binding),
             env,
             payload,
@@ -401,6 +408,11 @@ async fn do_execute<R: tauri::Runtime>(
     }
     let resume_history_id =
         validate_history_mode(is_resume, req.workspace_binding_history_id.as_deref())?;
+    if is_resume && req.competitive_draft.is_some() {
+        return Err(HostError::Request(
+            "Competitive draft attempts cannot use durable resume.".into(),
+        ));
+    }
     let scope = IssueTaskWorkspaceBinding {
         company_id: &req.company_id,
         project_id,
@@ -453,7 +465,16 @@ async fn do_execute<R: tauri::Runtime>(
             workspace_bound_event(binding)?,
             "Send Claude workspace binding event",
         )?;
-        (binding.canonical_root.clone(), "bound")
+        let cwd = match req.competitive_draft.as_ref() {
+            Some(context) => {
+                create_competitive_draft_workspace_lease(app, binding, context)
+                    .await
+                    .map_err(HostError::Request)?
+                    .cwd
+            }
+            None => binding.canonical_root.clone(),
+        };
+        (cwd, "bound")
     } else {
         let unavailable = unavailable
             .as_ref()
@@ -515,6 +536,7 @@ async fn do_execute<R: tauri::Runtime>(
             token.clone(),
             scope,
             binding,
+            &cwd,
             &script_path,
             payload,
             claude_env(dev_root.as_ref()),
@@ -536,6 +558,23 @@ async fn do_execute<R: tauri::Runtime>(
             },
         )
         .await
+    };
+
+    let verification_error = if raw.is_ok() {
+        match (binding.as_deref(), req.competitive_draft.as_ref()) {
+            (Some(binding), Some(context)) => {
+                verify_competitive_draft_attempt(app, binding, context, &cwd)
+                    .await
+                    .err()
+            }
+            _ => None,
+        }
+    } else {
+        None
+    };
+    let raw = match verification_error {
+        Some(error) => Err(HostError::Request(error)),
+        None => raw,
     };
 
     let raw = if let Some(binding) = binding.as_deref() {
@@ -829,6 +868,7 @@ mod tests {
             project_skill_paths: None,
             workspace_requirement: ClaudeWorkspaceRequirement::Required,
             native_session_id: Some("opaque-session".into()),
+            competitive_draft: None,
         };
         let payload = execute_payload(
             &request,

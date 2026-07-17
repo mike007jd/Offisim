@@ -814,12 +814,13 @@ export function createChildSupervisor(ctx) {
     }
   }
 
-  async function runSingleWithMetadata(task, signal) {
+  async function runSingleWithMetadata(task, signal, options = {}) {
     return withParentConcurrencySuspended(signal, async () => {
       const result = await runTask(task, signal);
-      const integration = result.completed
-        ? await maybeIntegrateWrites([task], [result.runId])
-        : '';
+      const integration =
+        result.completed && options.deferIntegration !== true
+          ? await maybeIntegrateWrites([task], [result.runId])
+          : '';
       return {
         text: capBytes(
           [result.summary, integration ? `Integration:\n${integration}` : '']
@@ -986,7 +987,9 @@ export function createChildSupervisor(ctx) {
               });
             }
           } else {
-            const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
+            const released = await ctx.leaseManager
+              ?.releaseLease?.(lease.leaseId)
+              .catch(() => null);
             if (released) {
               await emitWorkspaceLeaseSnapshot(emit, released, 'released_after_authority_failure');
             }

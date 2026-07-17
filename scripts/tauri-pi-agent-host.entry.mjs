@@ -1995,23 +1995,33 @@ async function runPrompt(payload) {
     rootControlsOpen = true;
     try {
       emit(startedLine({}));
-      const directResult = await directSupervisor.runSingleWithMetadata({
-        employeeId,
-        objective,
-        access:
-          directDelegation.access === 'read' || directDelegation.access === 'review'
-            ? directDelegation.access
-            : 'write',
-        workKind: asNonEmptyString(directDelegation.workKind) ?? undefined,
-        resumeLease: isRecord(directDelegation.resumeLease)
-          ? directDelegation.resumeLease
-          : undefined,
-      });
+      const directResult = await directSupervisor.runSingleWithMetadata(
+        {
+          employeeId,
+          objective,
+          access:
+            directDelegation.access === 'read' || directDelegation.access === 'review'
+              ? directDelegation.access
+              : 'write',
+          workKind: asNonEmptyString(directDelegation.workKind) ?? undefined,
+          resumeLease: isRecord(directDelegation.resumeLease)
+            ? directDelegation.resumeLease
+            : undefined,
+        },
+        undefined,
+        { deferIntegration: directDelegation.deferIntegration === true },
+      );
       const summary = directResult.text;
       if (directResult.completed && (!directResult.model || !directResult.provenance)) {
         throw Object.assign(
           new Error('Direct delegation completed without a prepared child execution identity.'),
           { code: 'provenance-missing' },
+        );
+      }
+      if (!directResult.completed) {
+        throw Object.assign(
+          new Error(summary || 'Direct delegation did not complete successfully.'),
+          { code: 'direct-delegation-failed' },
         );
       }
       emit(messageEndLine({ text: summary, stopReason: 'end_turn' }));

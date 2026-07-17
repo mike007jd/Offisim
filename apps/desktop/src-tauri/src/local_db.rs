@@ -26,7 +26,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// Any existing local database with another version is a disposable dev artifact.
 /// Startup preserves one overwrite-only `.stale` backup, then rebuilds the
 /// current baseline automatically.
-const LOCAL_SCHEMA_VERSION: i64 = 16;
+const LOCAL_SCHEMA_VERSION: i64 = 17;
 
 pub struct OffisimDbState {
     pool: SqlitePool,

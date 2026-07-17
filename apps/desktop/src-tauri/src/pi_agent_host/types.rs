@@ -1,5 +1,7 @@
 use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 
+use crate::git::CompetitiveDraftContext;
+
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub(super) enum TaskWorkspaceRequirement {
@@ -137,6 +139,11 @@ pub struct PiAgentExecuteRequest {
     /// opaque; the Node host validates every field and clamps it to host policy.
     #[serde(default)]
     pub(super) delegation_limits: Option<serde_json::Value>,
+    /// Engine-neutral best-of-N workspace isolation authority. Rust consumes
+    /// this before native work starts; only Pi's derived direct-delegation
+    /// packet crosses the Node wire.
+    #[serde(default)]
+    pub(super) competitive_draft: Option<CompetitiveDraftContext>,
 }
 
 /// Prompt Enhance request (PR-06). A DEDICATED, isolated one-shot — never a work

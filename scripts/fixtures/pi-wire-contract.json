@@ -1,5 +1,5 @@
 [
-  { "kind": "ready", "protocolVersion": 12 },
+  { "kind": "ready", "protocolVersion": 13 },
   {
     "kind": "executionPrepared",
     "prepareId": "prepare-1",

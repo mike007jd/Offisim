@@ -1560,8 +1560,8 @@ assert(
   'desktop buildMcpScope must connect registered MCP servers with their approved surface and expose only ready tools',
 );
 assert(
-  /PI_HOST_PROTOCOL_VERSION = 12/.test(wireSource) &&
-    /PI_HOST_PROTOCOL_VERSION: u32 = 12/.test(rustHostSource) &&
+  /PI_HOST_PROTOCOL_VERSION = 13/.test(wireSource) &&
+    /PI_HOST_PROTOCOL_VERSION: u32 = 13/.test(rustHostSource) &&
     /'worktreeCall'/.test(wireSource) &&
     /WorktreeCall/.test(rustHostSource) &&
     /'verifyCall'/.test(wireSource) &&
@@ -1603,6 +1603,14 @@ assert(
     /activeControlSession/.test(bundledNodeHostSource) &&
     /onControlSessionReady/.test(bundledNodeHostSource),
   'direct delegation must bind its live child session to the existing durable steer channel in source and bundle',
+);
+assert(
+  /deferIntegration: directDelegation\.deferIntegration === true/.test(nodeHostSource) &&
+    /options\.deferIntegration !== true/.test(childSupervisorSource) &&
+    /deferIntegration/.test(bundledNodeHostSource) &&
+    /if \(!directResult\.completed\)/.test(nodeHostSource) &&
+    /direct-delegation-failed/.test(nodeHostSource),
+  'competitive Pi direct delegation must retain its isolated lease and reject failed child terminals',
 );
 assert(
   /"images": req\.images/.test(executePayloadSource) &&

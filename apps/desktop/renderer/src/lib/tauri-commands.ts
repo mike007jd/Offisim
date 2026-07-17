@@ -308,6 +308,14 @@ export interface BrowserSessionSnapshot {
   error?: string | null;
 }
 
+interface CompetitiveDraftContext {
+  groupId: string;
+  sourceRunId: string;
+  attemptId: string;
+  attemptIndex: number;
+  totalAttempts: number;
+}
+
 interface PiAgentExecuteRequest {
   requestId: string;
   text: string;
@@ -339,6 +347,7 @@ interface PiAgentExecuteRequest {
   missionContextJson?: string | null;
   mcpTools?: unknown;
   directDelegation?: unknown;
+  competitiveDraft?: CompetitiveDraftContext;
 }
 
 /** Closed renderer mirror of Rust's `#[serde(deny_unknown_fields)]` Codex request. */
@@ -361,6 +370,7 @@ interface CodexAgentExecuteRequest {
   clientUserMessageId?: string | null;
   workspaceRequirement: 'optional' | 'required';
   nativeSessionId?: string | null;
+  competitiveDraft?: CompetitiveDraftContext;
 }
 
 interface ClaudeAgentExecuteRequest {
@@ -381,6 +391,7 @@ interface ClaudeAgentExecuteRequest {
   projectSkillPaths?: string[] | null;
   workspaceRequirement: 'optional' | 'required';
   nativeSessionId?: string | null;
+  competitiveDraft?: CompetitiveDraftContext;
 }
 
 interface PiAgentEnhanceRequest {

@@ -2,6 +2,12 @@ import type {
   AgentRunRepository,
   AgentRunRow,
   AgentRunStatusUpdateOptions,
+  CompetitiveDraftAttemptRepository,
+  CompetitiveDraftAttemptRow,
+  CompetitiveDraftGroupRepository,
+  CompetitiveDraftGroupRow,
+  NewCompetitiveDraftAttempt,
+  NewCompetitiveDraftGroup,
   NewAgentRun,
 } from '../../repositories.js';
 import { decodeFreshSessionContext } from '../../repositories.js';
@@ -153,10 +159,102 @@ export class MemoryAgentRunRepository implements AgentRunRepository {
   }
 }
 
+export class MemoryCompetitiveDraftGroupRepository implements CompetitiveDraftGroupRepository {
+  private readonly store = new Map<string, CompetitiveDraftGroupRow>();
+
+  async create(group: NewCompetitiveDraftGroup): Promise<CompetitiveDraftGroupRow> {
+    const row: CompetitiveDraftGroupRow = {
+      ...group,
+      winner_attempt_id: group.winner_attempt_id ?? null,
+    };
+    this.store.set(row.group_id, row);
+    return row;
+  }
+
+  async findById(groupId: string): Promise<CompetitiveDraftGroupRow | null> {
+    return this.store.get(groupId) ?? null;
+  }
+
+  async findBySourceRun(sourceRunId: string): Promise<CompetitiveDraftGroupRow | null> {
+    return [...this.store.values()]
+      .filter((row) => row.source_run_id === sourceRunId)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))[0] ?? null;
+  }
+
+  async listByProject(projectId: string): Promise<CompetitiveDraftGroupRow[]> {
+    return [...this.store.values()]
+      .filter((row) => row.project_id === projectId)
+      .sort((left, right) => left.created_at.localeCompare(right.created_at));
+  }
+
+  async updateStatus(
+    groupId: string,
+    status: CompetitiveDraftGroupRow['status'],
+    opts?: { winnerAttemptId?: string | null; updatedAt?: string },
+  ): Promise<void> {
+    const row = this.store.get(groupId);
+    if (!row) return;
+    this.store.set(groupId, {
+      ...row,
+      status,
+      winner_attempt_id:
+        opts?.winnerAttemptId !== undefined ? opts.winnerAttemptId : row.winner_attempt_id,
+      updated_at: opts?.updatedAt ?? new Date().toISOString(),
+    });
+  }
+}
+
+export class MemoryCompetitiveDraftAttemptRepository implements CompetitiveDraftAttemptRepository {
+  private readonly store = new Map<string, CompetitiveDraftAttemptRow>();
+
+  async create(attempt: NewCompetitiveDraftAttempt): Promise<CompetitiveDraftAttemptRow> {
+    const row: CompetitiveDraftAttemptRow = {
+      ...attempt,
+      lease_id: attempt.lease_id ?? null,
+      result_summary_json: attempt.result_summary_json ?? null,
+      usage_json: attempt.usage_json ?? null,
+      verification_summary: attempt.verification_summary ?? null,
+      verification_passed: attempt.verification_passed ?? null,
+      finished_at: attempt.finished_at ?? null,
+    };
+    this.store.set(row.attempt_id, row);
+    return row;
+  }
+
+  async findById(attemptId: string): Promise<CompetitiveDraftAttemptRow | null> {
+    return this.store.get(attemptId) ?? null;
+  }
+
+  async findByLeaseId(leaseId: string): Promise<CompetitiveDraftAttemptRow | null> {
+    return [...this.store.values()].find((row) => row.lease_id === leaseId) ?? null;
+  }
+
+  async listByGroup(groupId: string): Promise<CompetitiveDraftAttemptRow[]> {
+    return [...this.store.values()]
+      .filter((row) => row.group_id === groupId)
+      .sort((left, right) => left.ordinal - right.ordinal);
+  }
+
+  async update(
+    attemptId: string,
+    patch: Partial<CompetitiveDraftAttemptRow>,
+  ): Promise<void> {
+    const row = this.store.get(attemptId);
+    if (!row) return;
+    this.store.set(attemptId, { ...row, ...patch });
+  }
+}
+
 export interface AgentRunsMemoryRepos {
   agentRuns: MemoryAgentRunRepository;
+  competitiveDraftGroups: MemoryCompetitiveDraftGroupRepository;
+  competitiveDraftAttempts: MemoryCompetitiveDraftAttemptRepository;
 }
 
 export function createAgentRunsMemoryRepos(): AgentRunsMemoryRepos {
-  return { agentRuns: new MemoryAgentRunRepository() };
+  return {
+    agentRuns: new MemoryAgentRunRepository(),
+    competitiveDraftGroups: new MemoryCompetitiveDraftGroupRepository(),
+    competitiveDraftAttempts: new MemoryCompetitiveDraftAttemptRepository(),
+  };
 }

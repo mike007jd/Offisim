@@ -33,6 +33,7 @@ export type StageViewTarget =
       kind: 'changes';
       path?: string | null;
       leaseId?: string;
+      comparisonGroupId?: string;
       files?: Array<{ path: string; diff: string }>;
       status?: 'active' | 'pending_review' | 'merged' | 'discarded' | 'failed';
     }
@@ -218,7 +219,7 @@ function stageTabIdForTarget(target: StageOpenTarget): string {
     case 'browser-session':
       return `browser-session:${target.sessionId}`;
     case 'changes':
-      return `changes:${target.leaseId ?? target.path ?? 'workspace'}`;
+      return `changes:${target.comparisonGroupId ?? target.leaseId ?? target.path ?? 'workspace'}`;
     case 'logs':
       return `logs:${target.sourceId ?? target.tool ?? target.title ?? 'latest'}`;
     case 'terminal-session':

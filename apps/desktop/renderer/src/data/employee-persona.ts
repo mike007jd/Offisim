@@ -218,6 +218,7 @@ export async function buildDelegationContext(
   actingEmployeeId: string | null,
   inheritedRuntime: EmployeeRuntimeSelection = {},
   projectId: string | null = null,
+  options: { includeActingEmployeeInRoster?: boolean } = {},
 ): Promise<DelegationContext> {
   const [
     employees,
@@ -256,7 +257,12 @@ export async function buildDelegationContext(
     ? (employees.find((e) => e.employee_id === actingEmployeeId) ?? null)
     : null;
   const roster = employees
-    .filter((e) => e.enabled === 1 && e.is_external !== 1 && e.employee_id !== actingEmployeeId)
+    .filter(
+      (e) =>
+        e.enabled === 1 &&
+        e.is_external !== 1 &&
+        (options.includeActingEmployeeInRoster || e.employee_id !== actingEmployeeId),
+    )
     .map((e) => {
       const model = e.model?.trim();
       const thinkingLevel = e.thinking_level?.trim();
@@ -281,7 +287,12 @@ export async function buildDelegationContext(
     projectSkillPaths,
     runtimeSelection: resolveEmployeeRuntimeSelection(
       acting,
-      runtimeStatus?.models ?? [],
+      [
+        ...(runtimeStatus?.models ?? []),
+        ...(runtimeStatus?.orchestrationEngines ?? [])
+          .filter((engine) => engine.state === 'ready')
+          .map((engine) => ({ runtimeModelRef: engine.engineId })),
+      ],
       inheritedRuntime,
     ),
     roster,

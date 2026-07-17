@@ -688,6 +688,8 @@ pub(super) fn validate_execute_workspace_requirement(
     }
     let required_by = if is_resume {
         Some("durable resume")
+    } else if req.competitive_draft.is_some() {
+        Some("competitive draft execution")
     } else if req.direct_delegation.is_some() {
         Some("direct delegation")
     } else if req.mission_context_json.is_some() {
@@ -776,10 +778,71 @@ async fn execute_with_bound_workspace<R: tauri::Runtime>(
             }
         };
         let agent_dir = app_pi_agent_dir(app);
-        let authorized_direct_delegation =
-            crate::git::authorize_direct_delegation(app, &binding, req.direct_delegation.as_ref())
-                .await
-                .map_err(HostError::Request)?;
+        let competitive_lease = match req.competitive_draft.as_ref() {
+            Some(context) => Some(
+                crate::git::create_competitive_draft_workspace_lease(app, &binding, context)
+                    .await
+                    .map_err(HostError::Request)?,
+            ),
+            None => None,
+        };
+        let mut effective_direct_delegation = req.direct_delegation.clone();
+        if let Some(lease) = competitive_lease.as_ref() {
+            let delegation = effective_direct_delegation
+                .as_mut()
+                .and_then(serde_json::Value::as_object_mut)
+                .ok_or_else(|| {
+                    HostError::Request(
+                        "Pi competitive draft requires a direct delegation packet.".into(),
+                    )
+                })?;
+            if delegation
+                .get("deferIntegration")
+                .and_then(serde_json::Value::as_bool)
+                != Some(true)
+            {
+                return Err(HostError::Request(
+                    "Pi competitive draft must defer automatic integration.".into(),
+                )
+                .into());
+            }
+            let employee_id = req
+                .employee_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    HostError::Request("Pi competitive draft requires an employeeId.".into())
+                })?;
+            if delegation
+                .get("employeeId")
+                .and_then(serde_json::Value::as_str)
+                != Some(employee_id)
+            {
+                return Err(HostError::Request(
+                    "Pi competitive draft employee does not match its root run.".into(),
+                )
+                .into());
+            }
+            delegation.insert(
+                "resumeLease".into(),
+                serde_json::json!({
+                    "leaseId": lease.lease_id,
+                    "runId": lease.registered_run_id,
+                    "workspaceRoot": lease.workspace_root,
+                    "cwd": lease.cwd,
+                    "branch": lease.branch,
+                    "createdAt": lease.created_at,
+                }),
+            );
+        }
+        let authorized_direct_delegation = crate::git::authorize_direct_delegation(
+            app,
+            &binding,
+            effective_direct_delegation.as_ref(),
+        )
+        .await
+        .map_err(HostError::Request)?;
         // Direct-lease adoption performs filesystem/Git/DB work. Revalidate the
         // original binding immediately before the child payload is constructed;
         // an authority loss during adoption must not launch the sidecar.
@@ -1026,6 +1089,11 @@ pub(super) async fn do_execute<R: tauri::Runtime>(
         is_resume,
         req.workspace_binding_history_id.as_deref(),
     )?;
+    if is_resume && req.competitive_draft.is_some() {
+        return Err(HostError::Request(
+            "Competitive draft attempts cannot use durable resume.".into(),
+        ));
+    }
     if is_resume && req.native_session_mode.is_fresh() {
         return Err(HostError::Request(
             "Durable Resume must open its exact native session and cannot start fresh.".into(),

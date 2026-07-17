@@ -386,7 +386,7 @@ function stageTabLabel(target: StageOpenTarget) {
     case 'browser-session':
       return target.title ?? 'Browser';
     case 'changes':
-      return target.path ? fileLeaf(target.path) : 'Review';
+      return target.comparisonGroupId ? 'Compare drafts' : target.path ? fileLeaf(target.path) : 'Review';
     case 'logs':
       return target.tool ?? target.title ?? 'Terminal';
     case 'terminal-session':
@@ -403,7 +403,7 @@ function stageTabTitle(target: StageOpenTarget) {
     case 'browser-session':
       return target.title ?? target.initialUrl;
     case 'changes':
-      return target.path ?? 'Workspace changes';
+      return target.comparisonGroupId ? 'Competitive draft review' : target.path ?? 'Workspace changes';
     case 'logs':
       return target.tool ?? target.title ?? 'Terminal log';
     case 'terminal-session':
@@ -1134,6 +1134,9 @@ function ChangesView({
 }) {
   const setStageMaximized = useUiState((state) => state.setOfficeStageMaximized);
   useEffect(() => setStageMaximized(true), [setStageMaximized]);
+  if (target.comparisonGroupId) {
+    return <ReviewWorkbenchStage comparisonGroupId={target.comparisonGroupId} />;
+  }
   if (target.leaseId) {
     return (
       <ReviewWorkbenchStage

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::git::CompetitiveDraftContext;
+
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum CodexWorkspaceRequirement {
@@ -123,6 +125,8 @@ pub struct CodexAgentExecuteRequest {
     /// fields.
     #[serde(default)]
     pub native_session_id: Option<String>,
+    #[serde(default)]
+    pub competitive_draft: Option<CompetitiveDraftContext>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
