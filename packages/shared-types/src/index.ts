@@ -170,6 +170,14 @@ export {
   chatAttachmentEvent,
 } from './events/chat-attachment-events.js';
 
+export type {
+  WorkspaceDiagnostic,
+  WorkspaceDiagnosticPosition,
+  WorkspaceDiagnosticsUpdatedPayload,
+  WorkspaceDiagnosticSeverity,
+} from './events/workspace-diagnostics.js';
+export { WORKSPACE_DIAGNOSTICS_UPDATED_EVENT } from './events/workspace-diagnostics.js';
+
 export type { RunScope, RunToolPolicy } from './run-scope.js';
 export { chatScopeFields } from './run-scope.js';
 

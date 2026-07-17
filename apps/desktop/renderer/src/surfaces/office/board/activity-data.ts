@@ -1,7 +1,9 @@
 import { isTauriRuntime } from '@/data/adapters.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
 import { escapeRegExp } from '@/lib/utils.js';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { runtimeEventBus } from '@/runtime/repos.js';
+import { WORKSPACE_DIAGNOSTICS_UPDATED_EVENT } from '@offisim/shared-types';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
   ArrowRightLeft,
@@ -13,6 +15,7 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react';
+import { useEffect } from 'react';
 
 /**
  * Office Board Timeline data model.
@@ -782,6 +785,16 @@ export function formatRelativeTimestamp(at: number, now: number = Date.now()): s
  * rows past the per-source page wall.
  */
 export function useActivityRecords(companyId: string) {
+  const queryClient = useQueryClient();
+  useEffect(
+    () =>
+      runtimeEventBus.on(WORKSPACE_DIAGNOSTICS_UPDATED_EVENT, (event) => {
+        if (event.companyId === companyId) {
+          void queryClient.invalidateQueries({ queryKey: ['activity-records', companyId] });
+        }
+      }),
+    [companyId, queryClient],
+  );
   return useInfiniteQuery<ActivityPage>({
     queryKey: ['activity-records', companyId],
     initialPageParam: null as string | null,
