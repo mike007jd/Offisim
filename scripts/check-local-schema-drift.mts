@@ -239,6 +239,25 @@ function tableRows(database: DatabaseConnection): SqlMasterRow[] {
     .all() as SqlMasterRow[];
 }
 
+const FTS5_SHADOW_SUFFIXES = ['_config', '_content', '_data', '_docsize', '_idx'] as const;
+
+function partitionSqlTables(tables: SqlMasterRow[]): {
+  relational: SqlMasterRow[];
+  virtual: SqlMasterRow[];
+} {
+  const virtual = tables.filter((table) => /\bUSING\s+fts5\s*\(/iu.test(table.sql ?? ''));
+  const managedNames = new Set(
+    virtual.flatMap((table) => [
+      table.name,
+      ...FTS5_SHADOW_SUFFIXES.map((suffix) => `${table.name}${suffix}`),
+    ]),
+  );
+  return {
+    relational: tables.filter((table) => !managedNames.has(table.name)),
+    virtual,
+  };
+}
+
 function sqlForeignKeys(database: DatabaseConnection, tableName: string): CanonicalForeignKey[] {
   const rows = database
     .prepare(
@@ -305,7 +324,8 @@ async function main(): Promise<void> {
   const database = new Database(':memory:');
   try {
     database.exec(readFileSync(SQL_SCHEMA_PATH, 'utf8'));
-    const sqlTables = tableRows(database);
+    const allSqlTables = tableRows(database);
+    const { relational: sqlTables, virtual: virtualTables } = partitionSqlTables(allSqlTables);
     const sqlTableByName = new Map(sqlTables.map((table) => [table.name, table]));
     const drizzleTables = Object.values(productionSchema)
       .filter(isTable)
@@ -477,7 +497,7 @@ async function main(): Promise<void> {
     }
 
     console.log(
-      `[check-local-schema-drift] ok (${sqlTables.length} tables, ${columnCount} columns, ${foreignKeyCount} mirrored foreign keys, ${indexCount} indexes/unique constraints, ${sqlCheckCount} SQL CHECK constraints parsed)`,
+      `[check-local-schema-drift] ok (${sqlTables.length} relational tables, ${virtualTables.length} FTS5 virtual tables, ${columnCount} columns, ${foreignKeyCount} mirrored foreign keys, ${indexCount} indexes/unique constraints, ${sqlCheckCount} SQL CHECK constraints parsed)`,
     );
   } finally {
     database.close();

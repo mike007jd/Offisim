@@ -210,6 +210,7 @@ pub fn run() {
             local_db::local_db_execute,
             local_db::local_db_select,
             local_db::local_db_execute_transaction,
+            local_db::global_search,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_lines,
             builtin_tools::project_read_file_preview,

@@ -5,6 +5,7 @@ commands.allow = [
   "local_db_execute",
   "local_db_select",
   "local_db_execute_transaction",
+  "global_search",
   "pi_agent_status",
   "pi_agent_open_config_folder",
   "pi_agent_save_provider",
