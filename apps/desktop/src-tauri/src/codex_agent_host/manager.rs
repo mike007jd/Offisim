@@ -10,6 +10,9 @@ use tauri::{ipc::Channel, AppHandle, Manager};
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 
 use crate::agent_host_runtime::{AgentHostLane, HostError};
+use crate::engine_skill_overlay::{
+    materialize_engine_skill_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
+};
 use crate::task_workspace_binding::{
     persist_conversation_native_session_reset,
     resolve_conversation_opaque_native_session_for_execute, resolve_task_workspace_for_turn,
@@ -352,12 +355,32 @@ async fn execute_claimed(
 
     let binary = codex_binary_path()?;
     let neutral = neutral_cwd(&app)?;
+    let skill_overlay = if workspace.process_cwd.is_some() {
+        match resolve_engine_skill_paths(
+            &workspace.cwd,
+            req.skill_paths.as_deref(),
+            req.project_skill_paths.as_deref(),
+        )
+        .and_then(|paths| {
+            materialize_engine_skill_overlay(&paths, EngineSkillOverlayKind::CodexHome)
+        }) {
+            Ok(overlay) => overlay,
+            Err(message) => {
+                revoke_prestart_binding(&app, workspace.binding_ref.as_deref(), false).await;
+                stream.finish_failed("codex_skill_export_failed", message.clone());
+                return Err(message);
+            }
+        }
+    } else {
+        None
+    };
     let connection = match CodexConnection::spawn(
         &binary,
         workspace.process_cwd.as_ref(),
         &neutral,
         Some(Arc::clone(&stream)),
         Some(&startup_cancellation),
+        skill_overlay.as_ref().map(|overlay| overlay.load_path()),
     )
     .await
     {
@@ -541,6 +564,7 @@ async fn enhance_claimed(
         &neutral,
         Some(Arc::clone(&stream)),
         Some(&startup_cancellation),
+        None,
     )
     .await
     {
@@ -1975,7 +1999,7 @@ mod tests {
     async fn tracked_thread_resume_missing_rollout_gets_internal_fresh_recovery_code() {
         let root = unique_test_dir("missing-rollout");
         let (binary, _) = write_scripted_app_server(&root, MISSING_ROLLOUT_FIXTURE);
-        let connection = CodexConnection::spawn(&binary, None, &root, None, None)
+        let connection = CodexConnection::spawn(&binary, None, &root, None, None, None)
             .await
             .unwrap();
         let continuation = CodexNativeThreadRef {
@@ -2288,6 +2312,8 @@ time.sleep(30)
             native_session_reset_source_run_id: None,
             permission_mode: Some("auto".into()),
             system_prompt_append: None,
+            skill_paths: None,
+            project_skill_paths: None,
             client_user_message_id: None,
             workspace_requirement: CodexWorkspaceRequirement::Required,
             native_session_id: None,
@@ -2336,7 +2362,7 @@ time.sleep(30)
             .unwrap()
             .as_secs();
         let connection =
-            CodexConnection::spawn(&binary, None, &root, Some(Arc::clone(&stream)), None)
+            CodexConnection::spawn(&binary, None, &root, Some(Arc::clone(&stream)), None, None)
                 .await
                 .unwrap();
         let target = CodexExecutionTarget {
@@ -2510,7 +2536,7 @@ time.sleep(30)
     async fn ask_mode_uses_the_native_read_only_approval_preset() {
         let root = unique_test_dir("ask-policy");
         let (binary, transcript_path) = write_scripted_app_server(&root, ASK_POLICY_FIXTURE);
-        let connection = CodexConnection::spawn(&binary, None, &root, None, None)
+        let connection = CodexConnection::spawn(&binary, None, &root, None, None, None)
             .await
             .unwrap();
         let policy = permission_policy(Some("ask"), &root, true).unwrap();

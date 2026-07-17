@@ -793,7 +793,7 @@ async fn execute_with_bound_workspace<R: tauri::Runtime>(
             authorized_direct_delegation.as_ref(),
             native_session.map(|session| session.file),
             native_session.map(|session| session.id),
-        );
+        )?;
         // The renderer-facing abort token remains the parent. A watchdog may
         // cancel only this child token, allowing authority loss to terminate
         // and reap the host without being misreported as a user abort.
@@ -961,7 +961,7 @@ async fn execute_without_workspace<R: tauri::Runtime>(
         None,
         native_session.map(|session| session.file),
         native_session.map(|session| session.id),
-    );
+    )?;
     let response = run_pi_sidecar_jsonl(
         app,
         PiSidecarRun {

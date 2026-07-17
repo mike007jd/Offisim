@@ -12,7 +12,7 @@ use super::types::{
 /// Wire-contract version negotiated with the bundled Node host via the `ready`
 /// handshake. Must stay in lockstep with `PI_HOST_PROTOCOL_VERSION` in
 /// scripts/pi-agent-host-wire.mjs; bump both when a line's required shape changes.
-pub(crate) const PI_HOST_PROTOCOL_VERSION: u32 = 11;
+pub(crate) const PI_HOST_PROTOCOL_VERSION: u32 = 12;
 
 /// Wire kinds the Rust bridge knows how to decode. A line with an unknown kind is
 /// skipped (forward-compatible with newer hosts); a malformed line on a KNOWN kind

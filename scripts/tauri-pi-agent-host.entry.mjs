@@ -1667,13 +1667,15 @@ async function runPrompt(payload) {
   // DefaultResourceLoader whenever there's a permission gate OR a persona, and
   // merge both into it so Pi receives a single loader.
   const systemPromptAppend = asNonEmptyString(payload.systemPromptAppend);
-  // Vault-authoritative employee skills use Pi's native discovery contract.
-  // The renderer resolves the effective company + employee scope and Rust
-  // forwards absolute SKILL.md paths; the loader parses and injects them.
-  const skillPaths =
-    !workspaceUnavailable && Array.isArray(payload.skillPaths)
-      ? payload.skillPaths.filter((path) => typeof path === 'string' && path.trim())
-      : [];
+  // Vault skills and repository-owned skills converge only after Rust has
+  // resolved each source against its own authority root. Pi receives absolute
+  // SKILL.md paths and keeps the open-standard files unchanged.
+  const skillPaths = !workspaceUnavailable
+    ? [payload.skillPaths, payload.projectSkillPaths]
+        .flatMap((paths) => (Array.isArray(paths) ? paths : []))
+        .filter((path) => typeof path === 'string' && path.trim())
+        .filter((path, index, paths) => paths.indexOf(path) === index)
+    : [];
   // Delegation: when the renderer supplies a root run id + thread id + a non-empty
   // company roster, register the `delegate` tool so the root agent can hand bounded
   // subtasks to teammates. Children are built in-process by the supervisor (see

@@ -3544,7 +3544,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       // `appendSystemPrompt`) plus the delegation roster. If this fails, the run
       // fails visibly instead of silently becoming a base Pi run with no employee
       // identity. MCP scope remains a separate safe degradation below.
-      const { systemPromptAppend, skillPaths, runtimeSelection, roster } =
+      const { systemPromptAppend, skillPaths, projectSkillPaths, runtimeSelection, roster } =
         await buildDelegationContext(
           this.repos,
           this.companyId,
@@ -3553,7 +3553,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             model: resolvedModel,
             thinkingLevel: resolvedThinkingLevel,
           },
-          input.projectId,
+          projectId,
         );
       throwIfRunAborted(signal);
       // The gateway already froze the task's engine/account/model before entering
@@ -3699,6 +3699,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             nativeSessionMode,
             permissionMode,
             systemPromptAppend: systemPromptAppend ?? undefined,
+            skillPaths,
+            projectSkillPaths,
             clientUserMessageId: input.conversationProjection?.userMessageId,
             ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
               ? { nativeSessionId: runtimeContext.nativeSessionId }
@@ -3731,6 +3733,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             nativeSessionMode,
             permissionMode,
             systemPromptAppend: systemPromptAppend ?? undefined,
+            skillPaths,
+            projectSkillPaths,
             ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
               ? { nativeSessionId: runtimeContext.nativeSessionId }
               : {}),
@@ -3765,6 +3769,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             thinkingLevel: resolvedThinkingLevel,
             systemPromptAppend: systemPromptAppend ?? undefined,
             skillPaths,
+            projectSkillPaths,
             rootRunId: runScope.runId,
             nativeSessionMode,
             ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId

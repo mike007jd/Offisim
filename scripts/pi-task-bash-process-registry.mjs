@@ -126,6 +126,24 @@ function normalizedPiPathInput(input, fallback) {
   };
 }
 
+function normalizedPiReadPathInput(input, cwd, fallback) {
+  const source = input?.path === undefined || input?.path === null ? fallback : input.path;
+  if (typeof source === 'string' && isAbsolute(source)) {
+    const workspaceRoot = resolve(cwd);
+    const relativePath = relative(workspaceRoot, resolve(source));
+    const insideWorkspace =
+      relativePath === '' ||
+      (relativePath !== '..' && !relativePath.startsWith(`..${sep}`) && !isAbsolute(relativePath));
+    if (!insideWorkspace) {
+      throw workspaceOutOfBounds(
+        'Workspace tools only accept paths inside the bound Project folder.',
+      );
+    }
+    return normalizedPiPathInput({ ...input, path: relativePath || '.' }, fallback);
+  }
+  return normalizedPiPathInput(input, fallback);
+}
+
 function appendWorkspaceNotice(result, notice, details) {
   return {
     ...result,
@@ -313,7 +331,10 @@ export function createTaskBashProcessRegistry(options = {}) {
     return {
       ...template,
       async execute(toolCallId, input, signal, onUpdate, context) {
-        const safeInput = normalizedPiPathInput(input);
+        // Pi's Agent Skills prompt names a discovered SKILL.md by absolute path.
+        // Convert only reads that remain inside the descriptor-bound Project;
+        // the bridge still performs the real read and revalidates the lease.
+        const safeInput = normalizedPiReadPathInput(input, cwd);
         let pendingRead;
         const load = (absolutePath) => {
           pendingRead ??= requestWorkspaceOperation(

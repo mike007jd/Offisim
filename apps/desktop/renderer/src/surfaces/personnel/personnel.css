@@ -806,6 +806,13 @@
   line-height: 1.5;
 }
 
+.off-pers-sk-location {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .off-pers-sk-runtime {
   display: inline-flex;
   align-items: center;

@@ -232,6 +232,7 @@ impl CodexConnection {
         fallback_cwd: &Path,
         stream: Option<Arc<RunStream>>,
         startup_cancellation: Option<&StartupCancellation>,
+        isolated_home: Option<&Path>,
     ) -> Result<Arc<Self>, CodexHostError> {
         if startup_cancellation.is_some_and(StartupCancellation::is_cancelled) {
             return Err(CodexHostError::Request(
@@ -241,7 +242,15 @@ impl CodexConnection {
         validate_binary(binary)?;
         let mut command = Command::new(binary);
         command.args(["app-server", "--stdio"]);
-        configure_codex_process_env(&mut command, std::env::vars_os())?;
+        if let Some(isolated_home) = isolated_home {
+            configure_codex_process_env_with_home(
+                &mut command,
+                std::env::vars_os(),
+                Some(isolated_home),
+            )?;
+        } else {
+            configure_codex_process_env(&mut command, std::env::vars_os())?;
+        }
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -1193,15 +1202,43 @@ fn configure_codex_process_env<I>(
 where
     I: IntoIterator<Item = (OsString, OsString)>,
 {
-    let allowed = environment
+    configure_codex_process_env_with_home(command, environment, None)
+}
+
+fn configure_codex_process_env_with_home<I>(
+    command: &mut Command,
+    environment: I,
+    isolated_home: Option<&Path>,
+) -> Result<(), CodexHostError>
+where
+    I: IntoIterator<Item = (OsString, OsString)>,
+{
+    let mut allowed = environment
         .into_iter()
         .filter(|(key, _)| codex_env_key_is_allowed(key))
         .collect::<Vec<_>>();
-    if !allowed
+    let original_home = allowed
         .iter()
-        .any(|(key, value)| key == OsStr::new("HOME") && !value.is_empty())
-    {
+        .find(|(key, value)| key == OsStr::new("HOME") && !value.is_empty())
+        .map(|(_, value)| PathBuf::from(value));
+    let Some(original_home) = original_home else {
         return Err(CodexHostError::Unavailable);
+    };
+    if let Some(isolated_home) = isolated_home {
+        if !allowed
+            .iter()
+            .any(|(key, value)| key == OsStr::new("CODEX_HOME") && !value.is_empty())
+        {
+            allowed.push((
+                OsString::from("CODEX_HOME"),
+                original_home.join(".codex").into_os_string(),
+            ));
+        }
+        allowed.retain(|(key, _)| key != OsStr::new("HOME"));
+        allowed.push((
+            OsString::from("HOME"),
+            isolated_home.as_os_str().to_os_string(),
+        ));
     }
     command.env_clear();
     command.envs(allowed);
@@ -2071,6 +2108,26 @@ mod tests {
         ] {
             assert!(!environment.contains(blocked));
         }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn skill_home_isolated_from_cli_owned_codex_home() {
+        let mut command = Command::new("/usr/bin/env");
+        configure_codex_process_env_with_home(
+            &mut command,
+            [
+                (OsString::from("HOME"), OsString::from("/tmp/user-home")),
+                (OsString::from("PATH"), OsString::from("/usr/bin:/bin")),
+            ],
+            Some(Path::new("/tmp/offisim-skill-home")),
+        )
+        .unwrap();
+        let output = command.output().await.unwrap();
+        assert!(output.status.success());
+        let environment = String::from_utf8(output.stdout).unwrap();
+        assert!(environment.contains("HOME=/tmp/offisim-skill-home"));
+        assert!(environment.contains("CODEX_HOME=/tmp/user-home/.codex"));
     }
 
     #[test]

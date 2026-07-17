@@ -193,6 +193,9 @@ export interface DelegationRosterEntry {
   /** Absolute vault SKILL.md paths resolved by the renderer for this employee.
    * Pi's native resource loader reads these when it creates the child session. */
   readonly skillPaths?: readonly string[];
+  /** Project-root-relative SKILL.md paths. The Pi child resolves these against
+   * its effective worktree so delegated runs keep repository-owned skills. */
+  readonly projectSkillPaths?: readonly string[];
 }
 
 /** Scope fields present on every event — the run tree is rebuilt from these. */

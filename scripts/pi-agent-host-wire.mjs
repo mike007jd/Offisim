@@ -11,7 +11,7 @@
 // host validates the `ready` handshake against its own copy of this constant and
 // refuses a stale bundled host.
 
-export const PI_HOST_PROTOCOL_VERSION = 11;
+export const PI_HOST_PROTOCOL_VERSION = 12;
 
 export const PI_WIRE_KINDS = Object.freeze([
   'ready',
@@ -63,6 +63,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'thinkingLevel',
       'systemPromptAppend',
       'skillPaths',
+      'projectSkillPaths',
       'threadId',
       'projectId',
       'projectVerifyCommand',
@@ -87,6 +88,7 @@ export const PI_REQUEST_SPEC = Object.freeze({
       'thinkingLevel',
       'systemPromptAppend',
       'skillPaths',
+      'projectSkillPaths',
       'projectId',
       'projectVerifyCommand',
       'projectVerifyMaxAttempts',
@@ -164,6 +166,7 @@ const PI_REQUEST_NORMALIZERS = Object.freeze({
     thinkingLevel: payload.thinkingLevel,
     systemPromptAppend: payload.systemPromptAppend,
     skillPaths: payload.skillPaths,
+    projectSkillPaths: payload.projectSkillPaths,
     threadId: payload.threadId,
     projectId: payload.projectId,
     projectVerifyCommand: payload.projectVerifyCommand,

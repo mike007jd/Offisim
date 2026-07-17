@@ -331,6 +331,7 @@ interface PiAgentExecuteRequest {
   thinkingLevel?: string | null;
   systemPromptAppend?: string | null;
   skillPaths?: string[] | null;
+  projectSkillPaths?: string[] | null;
   rootRunId: string;
   /** Required only for resume; backend reissues authority from persisted history. */
   workspaceBindingHistoryId?: string | null;
@@ -355,6 +356,8 @@ interface CodexAgentExecuteRequest {
   nativeSessionResetSourceRunId?: string | null;
   permissionMode?: string | null;
   systemPromptAppend?: string | null;
+  skillPaths?: string[] | null;
+  projectSkillPaths?: string[] | null;
   clientUserMessageId?: string | null;
   workspaceRequirement: 'optional' | 'required';
   nativeSessionId?: string | null;
@@ -374,6 +377,8 @@ interface ClaudeAgentExecuteRequest {
   nativeSessionResetSourceRunId?: string | null;
   permissionMode?: string | null;
   systemPromptAppend?: string | null;
+  skillPaths?: string[] | null;
+  projectSkillPaths?: string[] | null;
   workspaceRequirement: 'optional' | 'required';
   nativeSessionId?: string | null;
 }
