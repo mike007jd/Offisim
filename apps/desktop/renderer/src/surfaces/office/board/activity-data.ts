@@ -1,5 +1,10 @@
 import { isTauriRuntime } from '@/data/adapters.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
+import {
+  invokeCommand,
+  type WorkspaceCheckpointRollbackRow,
+  type WorkspaceCheckpointRow,
+} from '@/lib/tauri-commands.js';
 import { escapeRegExp } from '@/lib/utils.js';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import {
@@ -67,6 +72,8 @@ export interface ActivityRecord {
   payload?: Record<string, ActivityPayloadValue>;
   /** Resolved actor label used by the actor filter / search. */
   actor?: string;
+  checkpoint?: WorkspaceCheckpointRow;
+  rollback?: WorkspaceCheckpointRollbackRow;
 }
 
 interface RuntimeEventDbRow {
@@ -341,6 +348,51 @@ function agentRecordFromRow(row: AgentEventDbRow): ActivityRecord {
   };
 }
 
+function checkpointRecordFromRow(row: WorkspaceCheckpointRow): ActivityRecord {
+  return {
+    id: `checkpoint-${row.checkpointId}`,
+    type: 'workspace.checkpoint',
+    at: toEventTime(row.createdAt),
+    actor: row.runId,
+    entity: { label: `Step ${row.step}`, type: 'workspace-checkpoint', id: row.checkpointId },
+    payload: {
+      checkpointId: row.checkpointId,
+      leaseId: row.leaseId,
+      projectId: row.projectId,
+      runId: row.runId,
+      rootRunId: row.rootRunId,
+      step: row.step,
+      triggerTool: row.triggerTool,
+      changedPaths: row.changedPaths,
+    },
+    checkpoint: row,
+  };
+}
+
+function rollbackRecordFromRow(row: WorkspaceCheckpointRollbackRow): ActivityRecord {
+  return {
+    id: `rollback-${row.rollbackId}`,
+    type: 'workspace.checkpoint.rollback',
+    at: toEventTime(row.rolledBackAt),
+    actor: row.actor,
+    entity: {
+      label: `Step ${row.targetStep}`,
+      type: 'workspace-checkpoint-rollback',
+      id: row.rollbackId,
+    },
+    payload: {
+      rollbackId: row.rollbackId,
+      leaseId: row.leaseId,
+      checkpointId: row.checkpointId,
+      projectId: row.projectId,
+      targetStep: row.targetStep,
+      targetRef: row.targetRef,
+      changedPaths: row.changedPaths,
+    },
+    rollback: row,
+  };
+}
+
 function mcpRecordFromRow(row: McpAuditDbRow): ActivityRecord {
   const args = parsePayload(row.arguments_json);
   const result = parsePayload(row.result_json);
@@ -415,6 +467,7 @@ export function meetingRecordFromRow(row: MeetingActivityDbRow): ActivityRecord 
  */
 async function loadActivityPage(
   companyId: string,
+  projectIds: readonly string[],
   options: { before?: string; pageSize?: number } = {},
 ): Promise<ActivityPage> {
   const pageSize = options.pageSize ?? ACTIVITY_PAGE_SIZE;
@@ -425,11 +478,12 @@ async function loadActivityPage(
   // passed as a value that sorts after any real ISO timestamp so the predicate
   // `created_at < cursor` is a no-op on the first page.
   const cursor = before ?? '~';
-  const [runtimeRows, agentRows, mcpRows, meetingRows] = await Promise.all([
+  const [runtimeRows, agentRows, mcpRows, meetingRows, checkpointTimelines] = await Promise.all([
     db.select<RuntimeEventDbRow[]>(
       `select event_id, event_type, severity, payload_json, created_at, thread_id
        from runtime_events
        where company_id = $1 and created_at < $2
+         and event_type not in ('workspace.checkpoint', 'workspace.checkpoint.rollback')
        order by created_at desc
        limit $3`,
       [companyId, cursor, pageSize],
@@ -461,7 +515,29 @@ async function loadActivityPage(
        limit $3`,
       [companyId, cursor, pageSize],
     ),
+    Promise.all(
+      projectIds.map((projectId) =>
+        invokeCommand('workspace_checkpoint_timeline', { projectId }).catch(() => ({
+          checkpoints: [],
+          rollbacks: [],
+        })),
+      ),
+    ),
   ]);
+
+  const checkpointRows = checkpointTimelines
+    .flatMap((timeline) => [
+      ...timeline.checkpoints.map((row) => ({
+        record: checkpointRecordFromRow(row),
+        createdAt: row.createdAt,
+      })),
+      ...timeline.rollbacks.map((row) => ({
+        record: rollbackRecordFromRow(row),
+        createdAt: row.rolledBackAt,
+      })),
+    ])
+    .filter((row) => row.createdAt < cursor)
+    .sort((a, b) => b.record.at - a.record.at);
 
   return mergeActivityPage(
     [
@@ -492,6 +568,10 @@ async function loadActivityPage(
           createdAt: row.created_at,
         })),
         saturated: meetingRows.length >= pageSize,
+      },
+      {
+        rows: checkpointRows.slice(0, pageSize),
+        saturated: checkpointRows.length > pageSize,
       },
     ],
     pageSize,
@@ -549,6 +629,8 @@ const KNOWN_TOPIC_LABELS: Record<string, string> = {
   'agent.conversation.synopsis.updated': 'Updated the conversation summary',
   'agent.workspace.lease.snapshot': 'Recorded a worktree snapshot',
   'agent.workspace.lease.action': 'Reviewed a worktree',
+  'workspace.checkpoint': 'Saved a workspace checkpoint',
+  'workspace.checkpoint.rollback': 'Rolled back the workspace',
   'agent.mission.resumed': 'Resumed a mission',
   'agent.mission.status.changed': 'Mission status changed',
   'agent.mission.evaluation.submitted': 'Submitted a mission evaluation',
@@ -781,13 +863,15 @@ export function formatRelativeTimestamp(at: number, now: number = Date.now()): s
  * older" walks `nextCursor` back through history so the Board timeline reaches
  * rows past the per-source page wall.
  */
-export function useActivityRecords(companyId: string) {
+export function useActivityRecords(companyId: string, projectIds: readonly string[] = []) {
   return useInfiniteQuery<ActivityPage>({
-    queryKey: ['activity-records', companyId],
+    queryKey: ['activity-records', companyId, [...projectIds].sort()],
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
       isTauriRuntime()
-        ? loadActivityPage(companyId, { before: (pageParam as string | null) ?? undefined })
+        ? loadActivityPage(companyId, projectIds, {
+            before: (pageParam as string | null) ?? undefined,
+          })
         : ({ records: [], nextCursor: null } satisfies ActivityPage),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });

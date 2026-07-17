@@ -97,6 +97,38 @@ export interface MergeResult {
   conflicts: string[];
 }
 
+/** One durable git-backed snapshot of an isolated workspace lease. */
+export interface WorkspaceCheckpoint {
+  checkpointId: string;
+  leaseId: string;
+  step: number;
+  ref: string;
+  triggerTool: string;
+  triggerToolCallId: string | null;
+  createdAt: string;
+  changedPaths: string[];
+}
+
+/** Durable audit record returned after an explicit rewind. */
+export interface WorkspaceCheckpointRollback {
+  rollbackId: string;
+  leaseId: string;
+  checkpointId: string;
+  targetStep: number;
+  targetRef: string;
+  actor: string;
+  rolledBackAt: string;
+  changedPaths: string[];
+}
+
+export interface CreateWorkspaceCheckpointInput {
+  leaseId: string;
+  runId: string;
+  triggerTool: string;
+  triggerToolCallId?: string | null;
+  createdAt: string;
+}
+
 /**
  * The injected git surface the {@link WorkspaceLeaseManager} drives (WI-002,
  * WI-004, WI-005, WI-006). Production wires each method to the sandboxed
@@ -133,6 +165,22 @@ export interface GitWorktreeOps {
   commitAll(path: string, message: string): void | Promise<void>;
   /** Merge `branch` into the root (WI-005). Reports conflicts; never overwrites. */
   merge(branch: string): MergeResult | Promise<MergeResult>;
+  /** Create a hidden-ref snapshot without moving or committing the lease branch. */
+  createCheckpoint?(
+    path: string,
+    input: CreateWorkspaceCheckpointInput,
+  ): WorkspaceCheckpoint | null | Promise<WorkspaceCheckpoint | null>;
+  /** Recover the durable checkpoint chain after a host/app restart. */
+  listCheckpoints?(
+    path: string,
+    leaseId: string,
+  ): WorkspaceCheckpoint[] | Promise<WorkspaceCheckpoint[]>;
+  /** Restore the lease worktree to one durable checkpoint and record who did it. */
+  rollbackCheckpoint?(
+    path: string,
+    checkpoint: WorkspaceCheckpoint,
+    actor: string,
+  ): WorkspaceCheckpointRollback | Promise<WorkspaceCheckpointRollback>;
 }
 
 // ---------------------------------------------------------------------------

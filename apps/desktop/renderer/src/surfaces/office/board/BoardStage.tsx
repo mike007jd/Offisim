@@ -12,6 +12,7 @@ import {
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
+import type { WorkspaceCheckpointRow } from '@/lib/tauri-commands.js';
 import { getRepos } from '@/runtime/repos.js';
 import {
   EmptyState,
@@ -61,6 +62,7 @@ import {
   reviewWorkspaceLease,
   workspaceLeaseDecisionAction,
 } from './workspace-lease-actions.js';
+import { rewindWorkspaceCheckpoint } from './workspace-checkpoint-actions.js';
 
 type BoardColumnId = 'running' | 'pending_review' | 'done' | 'attention';
 
@@ -247,6 +249,16 @@ export function BoardStage() {
         .map((row) => ({ ...row, status: effectiveStatus(row, allLeases) }))
         .filter((row) => row.status !== 'discarded'),
     [allLeases, board.rows, projectId],
+  );
+  const attentionRootRunIds = useMemo(
+    () =>
+      new Set(
+        board.rows
+          .map((row) => ({ row, status: effectiveStatus(row, allLeases) }))
+          .filter(({ status }) => ['failed', 'cancelled', 'interrupted'].includes(status))
+          .map(({ row }) => row.rootRunId),
+      ),
+    [allLeases, board.rows],
   );
   const selectedRow = scopedRows.find((row) => row.runId === selectedRunId) ?? null;
   const selectedLeases = selectedRow ? leasesForRow(selectedRow, allLeases) : [];
@@ -466,7 +478,11 @@ export function BoardStage() {
       </header>
 
       {lens === 'timeline' ? (
-        <BoardTimeline companyId={companyId} />
+        <BoardTimeline
+          companyId={companyId}
+          projectIds={projectIds}
+          attentionRootRunIds={attentionRootRunIds}
+        />
       ) : board.isError && scopedRows.length === 0 ? (
         <ErrorState
           title="Couldn't load the board"
@@ -894,13 +910,52 @@ function BoardDrawer({
   );
 }
 
-function BoardTimeline({ companyId }: { companyId: string }) {
-  const records = useActivityRecords(companyId);
+function BoardTimeline({
+  companyId,
+  projectIds,
+  attentionRootRunIds,
+}: {
+  companyId: string;
+  projectIds: readonly string[];
+  attentionRootRunIds: ReadonlySet<string>;
+}) {
+  const records = useActivityRecords(companyId, projectIds);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    anchorId: string;
+    target: WorkspaceCheckpointRow;
+  } | null>(null);
+  const [rewindingId, setRewindingId] = useState<string | null>(null);
   const allRecords = useMemo<ActivityRecord[]>(
     () => records.data?.pages.flatMap((page) => page.records) ?? [],
     [records.data],
   );
+  const baselineByRootRun = useMemo(() => {
+    const baselines = new Map<string, WorkspaceCheckpointRow>();
+    for (const record of allRecords) {
+      if (record.checkpoint?.step === 0) {
+        baselines.set(record.checkpoint.rootRunId, record.checkpoint);
+      }
+    }
+    return baselines;
+  }, [allRecords]);
   const groups = useMemo(() => groupByTime(allRecords), [allRecords]);
+  const rewind = useCallback(
+    async (checkpoint: WorkspaceCheckpointRow) => {
+      setRewindingId(checkpoint.checkpointId);
+      try {
+        await rewindWorkspaceCheckpoint(checkpoint, companyId);
+        setConfirmState(null);
+        toast.success(`Workspace restored to Step ${checkpoint.step}.`);
+        await records.refetch();
+      } catch (error) {
+        toast.error(errorDetail(error, 'Could not rewind this workspace.'));
+      } finally {
+        setRewindingId(null);
+      }
+    },
+    [companyId, records],
+  );
   if (records.isError && allRecords.length === 0)
     return (
       <ErrorState
@@ -929,9 +984,23 @@ function BoardTimeline({ companyId }: { companyId: string }) {
           {collapseReroutes(group.records).map(({ record, collapsedCount }) => {
             const summary = getDisplaySummary(record);
             const { icon, color } = domainIcon(record.type);
+            const checkpoint = record.checkpoint;
+            const expanded = expandedId === record.id;
+            const baseline = checkpoint ? baselineByRootRun.get(checkpoint.rootRunId) : undefined;
+            const showRunStart = Boolean(
+              checkpoint &&
+                checkpoint.step !== 0 &&
+                baseline &&
+                attentionRootRunIds.has(checkpoint.rootRunId),
+            );
+            const confirmTarget = confirmState?.anchorId === record.id ? confirmState.target : null;
             return (
               <div
-                className={cn('off-board-event', `is-${getEventLevel(record.type)}`)}
+                className={cn(
+                  'off-board-event',
+                  `is-${getEventLevel(record.type)}`,
+                  checkpoint && 'is-checkpoint',
+                )}
                 key={record.id}
               >
                 <Icon icon={icon} size="sm" className={`is-${color}`} />
@@ -941,6 +1010,70 @@ function BoardTimeline({ companyId }: { companyId: string }) {
                   {collapsedCount ? <em> ×{collapsedCount}</em> : null}
                 </span>
                 <time>{formatRelativeTimestamp(record.at)}</time>
+                {checkpoint ? (
+                  <div className="off-board-checkpoint-actions">
+                    <button
+                      type="button"
+                      className="off-focusable"
+                      onClick={() => setExpandedId(expanded ? null : record.id)}
+                    >
+                      {expanded ? 'Hide files' : `${checkpoint.changedPaths.length} files`}
+                    </button>
+                    <button
+                      type="button"
+                      className="off-focusable"
+                      disabled={rewindingId !== null}
+                      onClick={() => setConfirmState({ anchorId: record.id, target: checkpoint })}
+                    >
+                      Rewind to Step {checkpoint.step}
+                    </button>
+                    {showRunStart ? (
+                      <button
+                        type="button"
+                        className="off-focusable is-run-start"
+                        disabled={rewindingId !== null}
+                        onClick={() =>
+                          baseline && setConfirmState({ anchorId: record.id, target: baseline })
+                        }
+                      >
+                        撤到本轮开始前
+                      </button>
+                    ) : null}
+                    {expanded ? (
+                      <ul>
+                        {checkpoint.changedPaths.length > 0 ? (
+                          checkpoint.changedPaths.map((path) => <li key={path}>{path}</li>)
+                        ) : (
+                          <li>Baseline · no changed files</li>
+                        )}
+                      </ul>
+                    ) : null}
+                    {confirmTarget ? (
+                      <div className="off-board-checkpoint-confirm" role="alert">
+                        <span>
+                          Restore this isolated worktree to Step {confirmTarget.step}? The Project
+                          checkout is not affected.
+                        </span>
+                        <button
+                          type="button"
+                          className="off-focusable is-danger"
+                          disabled={rewindingId !== null}
+                          onClick={() => void rewind(confirmTarget)}
+                        >
+                          {rewindingId ? 'Rewinding…' : 'Confirm rewind'}
+                        </button>
+                        <button
+                          type="button"
+                          className="off-focusable"
+                          disabled={rewindingId !== null}
+                          onClick={() => setConfirmState(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             );
           })}

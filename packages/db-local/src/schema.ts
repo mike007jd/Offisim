@@ -496,6 +496,71 @@ export const taskWorkspaceLeaseHistory = sqliteTable(
   ],
 );
 
+/** Git-backed hidden-ref snapshots for one isolated workspace lease. */
+export const workspaceCheckpoints = sqliteTable(
+  'workspace_checkpoints',
+  {
+    checkpoint_id: text('checkpoint_id').primaryKey(),
+    lease_id: text('lease_id')
+      .notNull()
+      .references(() => taskWorkspaceLeaseHistory.lease_id, { onDelete: 'cascade' }),
+    run_id: text('run_id').notNull(),
+    step: integer('step').notNull(),
+    checkpoint_ref: text('checkpoint_ref').notNull().unique(),
+    trigger_tool: text('trigger_tool').notNull(),
+    trigger_tool_call_id: text('trigger_tool_call_id'),
+    changed_paths_json: text('changed_paths_json').notNull(),
+    created_at: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('workspace_checkpoints_lease_step').on(table.lease_id, table.step),
+    index('idx_workspace_checkpoints_lease_step').on(table.lease_id, table.step),
+    check('workspace_checkpoints_step', sql`${table.step} >= 0`),
+    check(
+      'workspace_checkpoints_ref',
+      sql`${table.checkpoint_ref} LIKE 'refs/offisim/checkpoints/%'`,
+    ),
+    check('workspace_checkpoints_changed_paths_json', sql`json_valid(${table.changed_paths_json})`),
+  ],
+);
+
+/** Immutable rewind audit trail; pending/failed rows preserve attempted actions. */
+export const workspaceCheckpointRollbacks = sqliteTable(
+  'workspace_checkpoint_rollbacks',
+  {
+    rollback_id: text('rollback_id').primaryKey(),
+    lease_id: text('lease_id')
+      .notNull()
+      .references(() => taskWorkspaceLeaseHistory.lease_id, { onDelete: 'cascade' }),
+    checkpoint_id: text('checkpoint_id')
+      .notNull()
+      .references(() => workspaceCheckpoints.checkpoint_id, { onDelete: 'restrict' }),
+    target_step: integer('target_step').notNull(),
+    target_ref: text('target_ref').notNull(),
+    actor: text('actor').notNull(),
+    changed_paths_json: text('changed_paths_json').notNull(),
+    rolled_back_at: text('rolled_back_at').notNull(),
+    status: text('status').notNull(),
+  },
+  (table) => [
+    index('idx_workspace_checkpoint_rollbacks_lease_time').on(table.lease_id, table.rolled_back_at),
+    check('workspace_checkpoint_rollbacks_step', sql`${table.target_step} >= 0`),
+    check(
+      'workspace_checkpoint_rollbacks_ref',
+      sql`${table.target_ref} LIKE 'refs/offisim/checkpoints/%'`,
+    ),
+    check('workspace_checkpoint_rollbacks_actor', sql`trim(${table.actor}) <> ''`),
+    check(
+      'workspace_checkpoint_rollbacks_changed_paths_json',
+      sql`json_valid(${table.changed_paths_json})`,
+    ),
+    check(
+      'workspace_checkpoint_rollbacks_status',
+      sql`${table.status} IN ('pending', 'completed', 'failed')`,
+    ),
+  ],
+);
+
 // ---------------------------------------------------------------------------
 // 011 — Project assignments
 // ---------------------------------------------------------------------------

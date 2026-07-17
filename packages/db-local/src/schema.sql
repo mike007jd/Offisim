@@ -466,6 +466,31 @@ CREATE TABLE IF NOT EXISTS task_workspace_lease_history (
   updated_at_unix_ms         INTEGER NOT NULL,
   status                     TEXT NOT NULL CHECK(status IN ('active', 'released', 'discarded', 'invalid'))
 );
+-- Git-backed change safety net for isolated lease worktrees. Each row points at
+-- a hidden ref; no checkpoint commit is attached to the employee branch.
+CREATE TABLE IF NOT EXISTS workspace_checkpoints (
+  checkpoint_id       TEXT PRIMARY KEY NOT NULL,
+  lease_id            TEXT NOT NULL REFERENCES task_workspace_lease_history(lease_id) ON DELETE CASCADE,
+  run_id              TEXT NOT NULL,
+  step                INTEGER NOT NULL CHECK(step >= 0),
+  checkpoint_ref      TEXT NOT NULL UNIQUE CHECK(checkpoint_ref LIKE 'refs/offisim/checkpoints/%'),
+  trigger_tool        TEXT NOT NULL,
+  trigger_tool_call_id TEXT,
+  changed_paths_json  TEXT NOT NULL CHECK(json_valid(changed_paths_json)),
+  created_at          TEXT NOT NULL,
+  UNIQUE(lease_id, step)
+);
+CREATE TABLE IF NOT EXISTS workspace_checkpoint_rollbacks (
+  rollback_id         TEXT PRIMARY KEY NOT NULL,
+  lease_id            TEXT NOT NULL REFERENCES task_workspace_lease_history(lease_id) ON DELETE CASCADE,
+  checkpoint_id       TEXT NOT NULL REFERENCES workspace_checkpoints(checkpoint_id) ON DELETE RESTRICT,
+  target_step         INTEGER NOT NULL CHECK(target_step >= 0),
+  target_ref          TEXT NOT NULL CHECK(target_ref LIKE 'refs/offisim/checkpoints/%'),
+  actor               TEXT NOT NULL CHECK(trim(actor) <> ''),
+  changed_paths_json  TEXT NOT NULL CHECK(json_valid(changed_paths_json)),
+  rolled_back_at      TEXT NOT NULL,
+  status              TEXT NOT NULL CHECK(status IN ('pending', 'completed', 'failed'))
+);
 CREATE TABLE IF NOT EXISTS project_assignments (
   assignment_id TEXT PRIMARY KEY NOT NULL,
   project_id    TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
@@ -751,6 +776,10 @@ CREATE INDEX IF NOT EXISTS idx_task_workspace_lease_history_project_status
   ON task_workspace_lease_history(project_id, status, updated_at_unix_ms DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workspace_lease_history_active_branch
   ON task_workspace_lease_history(project_id, branch) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_workspace_checkpoints_lease_step
+  ON workspace_checkpoints(lease_id, step DESC);
+CREATE INDEX IF NOT EXISTS idx_workspace_checkpoint_rollbacks_lease_time
+  ON workspace_checkpoint_rollbacks(lease_id, rolled_back_at DESC);
 
 -- Backend workspace authority is deliberately stronger than the renderer's
 -- generic local-DB surface. These triggers make cross-table scope/provenance

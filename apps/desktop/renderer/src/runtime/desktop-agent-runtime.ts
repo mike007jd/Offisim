@@ -16,6 +16,7 @@ import {
 import { requireProjectWorkspaceForRun } from '@/runtime/require-project-workspace.js';
 import {
   agentRunEvent,
+  engineActivity,
   isResettableNativeSessionPrestartCode,
   llmStreamChunk,
   toolExecutionTelemetry,
@@ -1967,6 +1968,44 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         );
         return true;
       }
+      if (event.runType === 'workspace.checkpoint') {
+        const payload =
+          event.payload && typeof event.payload === 'object'
+            ? (event.payload as Record<string, unknown>)
+            : {};
+        const checkpointId =
+          typeof payload.checkpointId === 'string' ? payload.checkpointId : event.runId;
+        const step = typeof payload.step === 'number' ? payload.step : null;
+        const changedPaths = Array.isArray(payload.changedPaths)
+          ? payload.changedPaths.filter((path): path is string => typeof path === 'string')
+          : [];
+        runtimeEventBus.emit(
+          engineActivity(this.companyId, event.threadId, {
+            runId: event.runId,
+            engineId:
+              this.engineId === 'codex'
+                ? 'codex-engine'
+                : this.engineId === 'claude'
+                  ? 'claude-engine'
+                  : 'openai-engine',
+            employeeId: event.employeeId ?? event.runId,
+            employeeName: event.employeeId ?? event.runId,
+            taskRunId: event.rootRunId,
+            kind: 'checkpoint',
+            status: 'completed',
+            activityId: checkpointId,
+            label: step === null ? 'Workspace checkpoint' : `Workspace checkpoint · Step ${step}`,
+            detail:
+              changedPaths.length > 0
+                ? `${changedPaths.length} changed file${changedPaths.length === 1 ? '' : 's'}`
+                : 'Workspace baseline',
+          }),
+        );
+        this.enqueuePersist(() =>
+          this.persistWorkspaceCheckpoint(event, expectedWorkspace.projectId),
+        );
+        return true;
+      }
       if (event.runType === 'evaluation_submitted') {
         const payload = (event.payload ?? {}) as {
           criterionId?: string;
@@ -3370,10 +3409,16 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       // fails visibly instead of silently becoming a base Pi run with no employee
       // identity. MCP scope remains a separate safe degradation below.
       const { systemPromptAppend, skillPaths, runtimeSelection, roster } =
-        await buildDelegationContext(this.repos, this.companyId, input.employeeId, {
-          model: resolvedModel,
-          thinkingLevel: resolvedThinkingLevel,
-        });
+        await buildDelegationContext(
+          this.repos,
+          this.companyId,
+          input.employeeId,
+          {
+            model: resolvedModel,
+            thinkingLevel: resolvedThinkingLevel,
+          },
+          input.projectId,
+        );
       throwIfRunAborted(signal);
       // The gateway already froze the task's engine/account/model before entering
       // this adapter. Employee settings may still supply a thinking level, but
@@ -4124,6 +4169,43 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     }
   }
 
+  private async persistWorkspaceCheckpoint(
+    event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+    fallbackProjectId: string | null,
+  ): Promise<void> {
+    const payload =
+      event.payload && typeof event.payload === 'object'
+        ? (event.payload as Record<string, unknown>)
+        : {};
+    const projectId =
+      typeof payload.projectId === 'string' && payload.projectId.trim()
+        ? payload.projectId
+        : fallbackProjectId;
+    try {
+      await this.repos.agentEvents.append({
+        event_id:
+          typeof payload.checkpointId === 'string' ? payload.checkpointId : crypto.randomUUID(),
+        project_id: projectId,
+        thread_id: event.threadId,
+        company_id: this.companyId,
+        agent_name: event.employeeId ?? event.runId,
+        event_type: 'workspace.checkpoint',
+        payload_json: JSON.stringify({
+          ...payload,
+          rootRunId: event.rootRunId,
+          runId: event.runId,
+          parentRunId: event.parentRunId ?? null,
+        }),
+        parent_event_id: null,
+      });
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] persist workspace checkpoint failed', {
+        runId: event.runId,
+        err,
+      });
+    }
+  }
+
   /** Persist an `artifact.created` run event as a deliverable row, then emit the
    *  bus event so the Outputs panel refetches AFTER the row is committed. The
    *  agent published a workspace-relative path; we read it through the SAME
@@ -4470,10 +4552,16 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
       );
       let requestedModel = input.model?.trim() || undefined;
       if (!requestedModel && !durableAuthority && input.employeeId && !input.executionTarget) {
-        const context = await buildDelegationContext(this.repos, this.companyId, input.employeeId, {
-          model: undefined,
-          thinkingLevel: input.thinkingLevel,
-        });
+        const context = await buildDelegationContext(
+          this.repos,
+          this.companyId,
+          input.employeeId,
+          {
+            model: undefined,
+            thinkingLevel: input.thinkingLevel,
+          },
+          input.projectId,
+        );
         requestedModel = context.runtimeSelection.model?.trim() || undefined;
       }
       const initialSelector = input.runtimeModelRef?.trim() || input.model?.trim() || undefined;

@@ -26,7 +26,7 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// Any existing local database with another version is a disposable dev artifact.
 /// Startup preserves one overwrite-only `.stale` backup, then rebuilds the
 /// current baseline automatically.
-const LOCAL_SCHEMA_VERSION: i64 = 14;
+const LOCAL_SCHEMA_VERSION: i64 = 15;
 
 pub struct OffisimDbState {
     pool: SqlitePool,
@@ -230,6 +230,8 @@ fn validate_statement_sql(sql: &str) -> Result<(), String> {
         "project_workspace_authority",
         "task_workspace_binding_history",
         "task_workspace_lease_history",
+        "workspace_checkpoints",
+        "workspace_checkpoint_rollbacks",
     ];
     let identifiers = sql_identifier_tokens(sql)?;
     for identifier in &identifiers {

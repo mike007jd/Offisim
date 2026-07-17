@@ -13,7 +13,10 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import stripJsonComments from 'strip-json-comments';
 import { Type } from 'typebox';
-import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
+import {
+  createWorkspaceCheckpointManager,
+  createWorkspaceLeaseManager,
+} from '../packages/core/dist/browser.js';
 import { resolveApiRunUsage } from './agent-run-usage.mjs';
 import { projectApiAccountCatalog } from './ai-account-catalog.mjs';
 import {
@@ -628,6 +631,14 @@ function createHostGitWorktreeOps(requestWorktreeResult) {
           ? result.conflicts.filter((p) => typeof p === 'string')
           : [],
       };
+    },
+    async createCheckpoint(path, input) {
+      const result = await call('createCheckpoint', { path, ...input });
+      return result && typeof result === 'object' ? result : null;
+    },
+    async listCheckpoints(path, leaseId) {
+      const result = await call('listCheckpoints', { path, leaseId });
+      return Array.isArray(result) ? result : [];
     },
   };
 }
@@ -1741,10 +1752,15 @@ async function runPrompt(payload) {
     if (delegationEnabled) {
       // One shared limit budget for this whole user turn's delegation tree
       // (depth / concurrency / total children / per-child timeout).
+      const gitOps = createHostGitWorktreeOps(worktreeChannel.requestWorktreeResult);
       const leaseManager = createWorkspaceLeaseManager({
-        gitOps: createHostGitWorktreeOps(worktreeChannel.requestWorktreeResult),
+        gitOps,
         now: () => new Date().toISOString(),
         newId: () => randomUUID(),
+      });
+      const checkpointManager = createWorkspaceCheckpointManager({
+        gitOps,
+        now: () => new Date().toISOString(),
       });
       const rootLease = await leaseManager.acquireRootLease(workspaceRoot);
       const confirmIntegration = async (plan) => {
@@ -1806,6 +1822,7 @@ async function runPrompt(payload) {
           session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' }),
         limits: delegationBudgetState,
         leaseManager,
+        checkpointManager,
         rootLease,
         validateLeaseCwd: async (leaseClaim) =>
           assertWorktreeOk(

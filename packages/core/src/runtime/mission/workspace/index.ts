@@ -11,12 +11,21 @@
 
 // WI-001..006 — WorkspaceLeaseManager.
 export { createWorkspaceLeaseManager } from './lease-manager.js';
+export {
+  createWorkspaceCheckpointManager,
+  isCheckpointCandidateTool,
+} from './checkpoint-manager.js';
 export type {
   WorkspaceLeaseManager,
   WorkspaceLeaseManagerDeps,
   AcquireChildLeaseInput,
   ReleaseLeaseOptions,
 } from './lease-manager.js';
+export type {
+  WorkspaceCheckpointManager,
+  WorkspaceCheckpointManagerDeps,
+  WorkspaceCheckpointTrigger,
+} from './checkpoint-manager.js';
 
 // Domain types.
 export type {
@@ -30,4 +39,7 @@ export type {
   IntegrationConflict,
   IntegrationPlan,
   IntegrationResult,
+  WorkspaceCheckpoint,
+  WorkspaceCheckpointRollback,
+  CreateWorkspaceCheckpointInput,
 } from './types.js';

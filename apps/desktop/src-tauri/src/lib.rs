@@ -277,6 +277,8 @@ pub fn run() {
             git::workspace_lease_changed,
             git::workspace_lease_release,
             git::workspace_lease_discard,
+            git::workspace_checkpoint_timeline,
+            git::workspace_checkpoint_rollback,
             local_paths::open_local_path,
             local_paths::reveal_local_path,
             local_paths::delete_company_workspace,
