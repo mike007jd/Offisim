@@ -300,7 +300,12 @@ export function createMissionRunController(deps: MissionRunControllerDeps): Miss
       },
     );
 
-    const prompt = buildAttemptPrompt(mission.goal, controllerCriteria, input.failurePacket);
+    const prompt = buildAttemptPrompt(
+      mission.goal,
+      controllerCriteria,
+      input.failurePacket,
+      input.budgetNudge,
+    );
     const runInput: DesktopAgentRunInput = {
       text: prompt,
       threadId: mission.thread_id,
@@ -496,6 +501,7 @@ function buildAttemptPrompt(
   goal: string,
   criteria: ControllerCriterion[],
   failurePacket: FailurePacket | undefined,
+  budgetNudge: RunAttemptInput['budgetNudge'],
 ): string {
   const lines: string[] = [];
   if (failurePacket) {
@@ -523,6 +529,10 @@ function buildAttemptPrompt(
     lines.push('');
   } else {
     lines.push('# Mission', '');
+  }
+
+  if (budgetNudge) {
+    lines.push('# Budget convergence', '', budgetNudge.instruction, '');
   }
 
   lines.push('## Goal', goal, '', '## Acceptance criteria (you must satisfy every required one)');

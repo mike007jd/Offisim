@@ -50,7 +50,7 @@ import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mis
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 17;
+const TOTAL = 18;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -687,6 +687,43 @@ await check(
     assert.equal(mission.status, 'failed', 'mission persisted as failed');
   },
 );
+
+await check('token budget nudge: 88%+ injects once before the unchanged hard stop', async () => {
+  const { svc, deps } = freshService();
+  const missionId = await readyMission(svc, {
+    criteria: [cmdCriterion('tests pass', 'pnpm test')],
+  });
+  const observedNudges: Array<RunAttemptInput['budgetNudge']> = [];
+  const controller = makeController(
+    svc,
+    deps,
+    async ({ attemptNumber, budgetNudge }) => {
+      observedNudges.push(budgetNudge);
+      return {
+        evaluationContextFor: (criterion) => scriptedContext(criterion, attemptNumber + 10),
+        usage: { tokens: attemptNumber < 3 ? 45 : 10 },
+      } satisfies AttemptExecution;
+    },
+    { maxRepairsPerCriterion: 3, maxAttempts: 6, tokenBudget: 100 },
+  );
+
+  const result = await controller.run(missionId);
+  assert.equal(result.stopReason, 'token_budget');
+  assert.equal(result.attempts, 3, 'the nudge is delivered before the exhausting attempt');
+  assert.equal(observedNudges.filter(Boolean).length, 1, 'the Mission receives exactly one nudge');
+  assert.equal(observedNudges[0], undefined, '45% usage is below threshold');
+  assert.equal(observedNudges[1], undefined, 'the nudge is computed after crossing 88%');
+  assert.equal(
+    observedNudges[2]?.tokenRemaining,
+    10,
+    'the next attempt sees exact remaining tokens',
+  );
+  assert.match(observedNudges[2]?.instruction ?? '', /Do not start new work/);
+  assert.ok(
+    result.failurePacket!.remainingBudget.tokenBudgetRemaining! <= 0,
+    'hard exhaustion remains authoritative after the nudge',
+  );
+});
 
 // ---------------------------------------------------------------------------
 // 9. Concurrent cancel race: a cancel that lands mid-attempt (after
