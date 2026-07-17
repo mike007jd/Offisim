@@ -21,6 +21,7 @@ import {
   createAgentSession,
 } from '@earendil-works/pi-coding-agent';
 import {
+  OneShotBudgetNudge,
   decideBoundedLoop,
   stableFailureSignature,
 } from '../packages/core/dist/runtime/bounded-loop.js';
@@ -406,6 +407,23 @@ function verificationSummary(result, cwd) {
     VERIFY_SUMMARY_CAP,
     'verification summary',
   );
+}
+
+export function buildVerificationRepairPrompt({
+  attemptNumber,
+  maxAttempts,
+  command,
+  verifySummary,
+  budgetNudge,
+}) {
+  return [
+    `Project verification failed on attempt ${attemptNumber}/${maxAttempts}.`,
+    `Command: ${command}`,
+    verifySummary,
+    ...(budgetNudge ? ['', '# Budget convergence', budgetNudge.instruction] : []),
+    '',
+    'Continue in the same workspace. Fix the verified failure, then report the updated result.',
+  ].join('\n');
 }
 
 const CHILD_RESULT_GUIDANCE = [
@@ -1103,6 +1121,12 @@ export function createChildSupervisor(ctx) {
         return { summary: `Delegation failed: ${reason}`, completed: false };
       }
       const maxAttempts = Math.max(1, Math.min(20, verifyConfig?.maxAttempts ?? 3));
+      const treeTokenBudget = Math.max(0, limits.maxTotalTokens - limits.spentTokens());
+      const effectiveTokenBudget =
+        verifyConfig?.tokenBudget === undefined
+          ? treeTokenBudget
+          : Math.min(verifyConfig.tokenBudget, treeTokenBudget);
+      const budgetNudgeTracker = new OneShotBudgetNudge();
       let attemptNumber = 0;
       let previousFailureSignature;
       let prompt = effectiveObjective;
@@ -1249,13 +1273,17 @@ export function createChildSupervisor(ctx) {
           });
         }
         previousFailureSignature = failureSignature;
-        prompt = [
-          `Project verification failed on attempt ${attemptNumber}/${maxAttempts}.`,
-          `Command: ${verifyConfig.command}`,
+        const budgetNudge = budgetNudgeTracker.next({
+          tokenBudget: effectiveTokenBudget,
+          tokenRemaining,
+        });
+        prompt = buildVerificationRepairPrompt({
+          attemptNumber,
+          maxAttempts,
+          command: verifyConfig.command,
           verifySummary,
-          '',
-          'Continue in the same workspace. Fix the verified failure, then report the updated result.',
-        ].join('\n');
+          budgetNudge,
+        });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

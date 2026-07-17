@@ -34,7 +34,12 @@
  */
 
 import type { MissionExecutionBudgetContract } from '@offisim/shared-types';
-import { decideBoundedLoop, stableFailureSignature } from '../bounded-loop.js';
+import {
+  type BudgetNudge,
+  OneShotBudgetNudge,
+  decideBoundedLoop,
+  stableFailureSignature,
+} from '../bounded-loop.js';
 import type { EvaluationContext, EvaluatorRegistry } from './evaluators/index.js';
 import {
   DEFAULT_MISSION_EXECUTION_BUDGET,
@@ -135,6 +140,8 @@ export interface RunAttemptInput {
   attemptNumber: number;
   /** The packet from the previous failed attempt, on a repair attempt. */
   failurePacket?: FailurePacket;
+  /** One-time soft convergence signal issued before token-budget exhaustion. */
+  budgetNudge?: BudgetNudge;
   /** Absolute canonical wall-clock deadline propagated to the runtime driver. */
   wallClockDeadlineAt?: string;
 }
@@ -309,6 +316,8 @@ class MissionLoopControllerImpl implements MissionLoopController {
     let attemptNumber = 0;
     let previousFailureSignature: string | undefined;
     let pendingFailurePacket: FailurePacket | undefined; // fed into the NEXT attempt
+    let pendingBudgetNudge: BudgetNudge | undefined;
+    const budgetNudgeTracker = new OneShotBudgetNudge();
 
     // The criteria are fixed for the mission lifetime (created via MissionService
     // before run). We only gate on `required` criteria (§18.1 / §19.1 step 7).
@@ -399,6 +408,7 @@ class MissionLoopControllerImpl implements MissionLoopController {
             attemptNumber,
             previousFailureSignature,
             pendingFailurePacket,
+            pendingBudgetNudge,
             tokenRemaining,
             repairCounts,
             attemptEvidence,
@@ -416,6 +426,13 @@ class MissionLoopControllerImpl implements MissionLoopController {
         previousFailureSignature = result.previousFailureSignature;
         pendingFailurePacket = result.pendingFailurePacket;
         tokenRemaining = result.tokenRemaining;
+        pendingBudgetNudge =
+          this.budget.tokenBudget === undefined || tokenRemaining === undefined
+            ? undefined
+            : (budgetNudgeTracker.next({
+                tokenBudget: this.budget.tokenBudget,
+                tokenRemaining,
+              }) ?? undefined);
       } catch (error) {
         if (error instanceof MissionStateError && error.code === 'illegal_transition') {
           const after = await svc.getMission(missionId);
@@ -463,6 +480,7 @@ class MissionLoopControllerImpl implements MissionLoopController {
       attemptNumber: number;
       previousFailureSignature: string | undefined;
       pendingFailurePacket: FailurePacket | undefined;
+      pendingBudgetNudge: BudgetNudge | undefined;
       tokenRemaining: number | undefined;
       repairCounts: Map<string, number>;
       attemptEvidence: AttemptEvidence[];
@@ -486,7 +504,13 @@ class MissionLoopControllerImpl implements MissionLoopController {
     const svc = this.deps.missionService;
     const { missionId, repairCounts, attemptEvidence, requiredCriteria, wallClockDeadlineMs } =
       state;
-    let { attemptNumber, previousFailureSignature, pendingFailurePacket, tokenRemaining } = state;
+    let {
+      attemptNumber,
+      previousFailureSignature,
+      pendingFailurePacket,
+      pendingBudgetNudge,
+      tokenRemaining,
+    } = state;
 
     {
       // --- 1. startAttempt (MissionService) ------------------------------
@@ -508,6 +532,7 @@ class MissionLoopControllerImpl implements MissionLoopController {
         attemptId,
         attemptNumber,
         failurePacket: pendingFailurePacket,
+        budgetNudge: pendingBudgetNudge,
         ...(wallClockDeadlineMs === undefined
           ? {}
           : { wallClockDeadlineAt: new Date(wallClockDeadlineMs).toISOString() }),

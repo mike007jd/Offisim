@@ -20,6 +20,38 @@ export type BoundedLoopDecision =
   | { action: 'continue' }
   | { action: 'stop'; reason: BoundedLoopStopReason };
 
+export const BUDGET_NUDGE_THRESHOLD_RATIO = 0.88;
+
+export interface BudgetNudge {
+  readonly tokenBudget: number;
+  readonly tokenRemaining: number;
+  readonly usedPercent: number;
+  readonly instruction: string;
+}
+
+/** One run-scoped soft signal before the existing token-budget hard stop. */
+export class OneShotBudgetNudge {
+  private issued = false;
+
+  next(input: { tokenBudget: number; tokenRemaining: number }): BudgetNudge | null {
+    if (this.issued || input.tokenBudget <= 0 || input.tokenRemaining <= 0) return null;
+    const usedRatio = Math.max(
+      0,
+      Math.min(1, (input.tokenBudget - input.tokenRemaining) / input.tokenBudget),
+    );
+    if (usedRatio < BUDGET_NUDGE_THRESHOLD_RATIO) return null;
+
+    this.issued = true;
+    const usedPercent = Math.floor(usedRatio * 100);
+    return {
+      tokenBudget: input.tokenBudget,
+      tokenRemaining: input.tokenRemaining,
+      usedPercent,
+      instruction: `The run has used ${usedPercent}% of its token budget; ${input.tokenRemaining} tokens remain out of ${input.tokenBudget}. Finish and deliver the best complete result now. Do not start new work, broaden scope, or delegate additional tasks. Prioritize closing the current work, running the most important verification, and reporting any unfinished item explicitly.`,
+    };
+  }
+}
+
 /** Stable across producer order; dynamic timestamps belong in evidence, not signatures. */
 export function stableFailureSignature(failures: readonly LoopFailureFact[]): string {
   return JSON.stringify(
