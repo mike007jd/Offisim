@@ -34,6 +34,9 @@ import {
   type RunFailureKind,
   type RuntimeEngineCapabilityManifest,
   type RuntimeEvent,
+  WORKSPACE_DIAGNOSTICS_UPDATED_EVENT,
+  type WorkspaceDiagnostic,
+  type WorkspaceDiagnosticsUpdatedPayload,
   type WorkspaceProvenance,
   classifyRunFailure,
 } from '@offisim/shared-types';
@@ -636,6 +639,101 @@ function agentLifecycleEvent(
   return {
     type: AGENT_LIFECYCLE_EVENT,
     entityId: payload.runId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
+function parseWorkspaceDiagnosticsPayload(
+  value: unknown,
+): Omit<WorkspaceDiagnosticsUpdatedPayload, 'requestId' | 'runId' | 'childRunId'> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const path = typeof raw.path === 'string' ? raw.path.trim() : '';
+  if (!path || path.startsWith('/') || path.includes('\\') || path.split('/').includes('..')) {
+    return null;
+  }
+  if (
+    typeof raw.languageId !== 'string' ||
+    typeof raw.serverId !== 'string' ||
+    raw.source !== 'lsp' ||
+    !Number.isSafeInteger(raw.version) ||
+    Number(raw.version) < 1 ||
+    !Array.isArray(raw.diagnostics) ||
+    raw.diagnostics.length > 50 ||
+    typeof raw.message !== 'string' ||
+    typeof raw.capturedAt !== 'string'
+  ) {
+    return null;
+  }
+  const diagnostics: WorkspaceDiagnostic[] = [];
+  for (const candidate of raw.diagnostics) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+    const diagnostic = candidate as Record<string, unknown>;
+    const severity = diagnostic.severity;
+    const range = diagnostic.range;
+    if (
+      (severity !== 'error' &&
+        severity !== 'warning' &&
+        severity !== 'information' &&
+        severity !== 'hint') ||
+      typeof diagnostic.message !== 'string' ||
+      !range ||
+      typeof range !== 'object' ||
+      Array.isArray(range)
+    ) {
+      return null;
+    }
+    const typedRange = range as Record<string, unknown>;
+    const start = typedRange.start as Record<string, unknown> | undefined;
+    const end = typedRange.end as Record<string, unknown> | undefined;
+    if (
+      !start ||
+      !end ||
+      !Number.isSafeInteger(start.line) ||
+      !Number.isSafeInteger(start.column) ||
+      !Number.isSafeInteger(end.line) ||
+      !Number.isSafeInteger(end.column)
+    ) {
+      return null;
+    }
+    diagnostics.push({
+      severity,
+      message: diagnostic.message.slice(0, 1_200),
+      ...(typeof diagnostic.code === 'string' ? { code: diagnostic.code.slice(0, 120) } : {}),
+      ...(typeof diagnostic.source === 'string' ? { source: diagnostic.source.slice(0, 80) } : {}),
+      range: {
+        start: { line: Number(start.line), column: Number(start.column) },
+        end: { line: Number(end.line), column: Number(end.column) },
+      },
+    });
+  }
+  const counts = { error: 0, warning: 0, information: 0, hint: 0 };
+  for (const diagnostic of diagnostics) counts[diagnostic.severity] += 1;
+  return {
+    path,
+    languageId: raw.languageId.slice(0, 80),
+    serverId: raw.serverId.slice(0, 80),
+    source: 'lsp',
+    version: Number(raw.version),
+    diagnostics,
+    counts,
+    message: raw.message.slice(0, 1_200),
+    capturedAt: raw.capturedAt,
+  };
+}
+
+function workspaceDiagnosticsUpdatedEvent(
+  companyId: string,
+  threadId: string,
+  payload: WorkspaceDiagnosticsUpdatedPayload,
+): RuntimeEvent<WorkspaceDiagnosticsUpdatedPayload> {
+  return {
+    type: WORKSPACE_DIAGNOSTICS_UPDATED_EVENT,
+    entityId: `${payload.runId}:${payload.path}`,
     entityType: 'runtime',
     companyId,
     threadId,
@@ -1957,6 +2055,29 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       return true;
     }
     if (event.kind === 'agentRun') {
+      if (event.runType === WORKSPACE_DIAGNOSTICS_UPDATED_EVENT) {
+        const diagnostics = parseWorkspaceDiagnosticsPayload(event.payload);
+        if (!diagnostics) return true;
+        const payload: WorkspaceDiagnosticsUpdatedPayload = {
+          ...diagnostics,
+          requestId: expectedWorkspace.requestId,
+          runId: event.rootRunId,
+          ...(event.runId !== event.rootRunId ? { childRunId: event.runId } : {}),
+        };
+        this.enqueuePersist(async () => {
+          const persisted = await this.persistWorkspaceDiagnostics(
+            event,
+            expectedWorkspace.projectId,
+            payload,
+          );
+          if (persisted) {
+            runtimeEventBus.emit(
+              workspaceDiagnosticsUpdatedEvent(this.companyId, event.threadId, payload),
+            );
+          }
+        });
+        return true;
+      }
       if (event.runType === 'mcp.tool.called') {
         this.enqueuePersist(() => this.persistMcpToolCall(event, employeeId));
         return true;
@@ -4121,6 +4242,35 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         runId: event.runId,
         err,
       });
+    }
+  }
+
+  private async persistWorkspaceDiagnostics(
+    event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+    projectId: string | null,
+    payload: WorkspaceDiagnosticsUpdatedPayload,
+  ): Promise<boolean> {
+    const level =
+      payload.counts.error > 0 ? 'error' : payload.counts.warning > 0 ? 'warning' : 'clear';
+    try {
+      await this.repos.agentEvents.append({
+        event_id: crypto.randomUUID(),
+        project_id: projectId,
+        thread_id: event.threadId,
+        company_id: this.companyId,
+        agent_name: event.employeeId ?? event.runId,
+        event_type: `${WORKSPACE_DIAGNOSTICS_UPDATED_EVENT}.${level}`,
+        payload_json: JSON.stringify(payload),
+        parent_event_id: null,
+      });
+      return true;
+    } catch (err) {
+      console.warn('[desktop-agent-runtime] persist workspace diagnostics failed', {
+        runId: event.runId,
+        path: payload.path,
+        err,
+      });
+      return false;
     }
   }
 

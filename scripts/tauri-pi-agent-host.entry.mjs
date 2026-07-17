@@ -4,8 +4,8 @@ import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import {
   DefaultResourceLoader,
-  ModelRuntime,
   ModelRegistry,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
   createAgentSession,
@@ -13,10 +13,12 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import stripJsonComments from 'strip-json-comments';
 import { Type } from 'typebox';
+import { createLspDiagnosticsExtensionFactory } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
 import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
 import { resolveApiRunUsage } from './agent-run-usage.mjs';
 import { projectApiAccountCatalog } from './ai-account-catalog.mjs';
 import {
+  agentRunLine,
   decodePiRequestPayload,
   errorLine,
   executionPreparedLine,
@@ -1734,10 +1736,40 @@ async function runPrompt(payload) {
   let resourceLoader;
   let settingsManager;
   let directSupervisor = null;
+  let lspDiagnosticsFactory = null;
   {
     settingsManager = SettingsManager.create(cwd, agentDir);
     const extensionFactories = [];
     if (gateFactory) extensionFactories.push(gateFactory);
+    if (!workspaceUnavailable) {
+      lspDiagnosticsFactory = createLspDiagnosticsExtensionFactory({
+        cwd: workspaceRoot,
+        emitDiagnostics: (diagnostics) => {
+          if (!rootRunId || !threadId) return;
+          emit(
+            agentRunLine({
+              threadId,
+              rootRunId,
+              runId: rootRunId,
+              employeeId: asNonEmptyString(payload.employeeId),
+              runType: 'workspace.diagnostics.updated',
+              payload: diagnostics,
+            }),
+          );
+        },
+        ...(projectVerifyCommand && projectId
+          ? {
+              runFallbackVerification: () =>
+                verifyChannel.requestVerifyResult({
+                  command: projectVerifyCommand,
+                  cwd: workspaceRoot,
+                  projectId,
+                }),
+            }
+          : {}),
+      });
+      extensionFactories.push(lspDiagnosticsFactory);
+    }
     if (delegationEnabled) {
       // One shared limit budget for this whole user turn's delegation tree
       // (depth / concurrency / total children / per-child timeout).
@@ -2261,6 +2293,7 @@ async function runPrompt(payload) {
     pendingRootControls.length = 0;
     observedRootControlIds.clear();
     unsubscribe();
+    await lspDiagnosticsFactory?.dispose?.();
     session.dispose();
     if (activeRootSession === session) activeRootSession = null;
   }
