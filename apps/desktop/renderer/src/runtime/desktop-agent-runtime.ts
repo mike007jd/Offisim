@@ -2928,10 +2928,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           progressWatchdog = new NativeStreamProgressWatchdog({
             requestId,
             timeoutMs: this.config.streamIdleTimeoutMs,
-            onRecover: async () => {
+            onRecover: async (allowReattach) => {
               const recoverySnapshot = await this.invokeStreamSnapshot(requestId);
               if (!recoverySnapshot?.running) return 'failed';
               if (recoverySnapshot.cursor > lastObservedStreamCursor) {
+                if (!allowReattach) return 'failed';
                 await this.invokeReattach(requestId, lastObservedStreamCursor, onEvent);
                 return 'recovered';
               }
@@ -3335,10 +3336,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         channelError = nonAuthorizingAgentHostError(event.message);
       }
     };
-    const recoverStalledStream = async () => {
+    const recoverStalledStream = async (allowReattach: boolean) => {
       const snapshot = await this.invokeStreamSnapshot(requestId);
       if (!snapshot?.running) return 'failed' as const;
       if (snapshot.cursor > lastObservedStreamCursor) {
+        if (!allowReattach) return 'failed' as const;
         await this.invokeReattach(requestId, lastObservedStreamCursor, onEvent);
         return 'recovered' as const;
       }

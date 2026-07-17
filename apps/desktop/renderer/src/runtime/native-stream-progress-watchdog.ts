@@ -32,7 +32,7 @@ export class NativeStreamIdleTimeoutError extends Error {
 interface NativeStreamProgressWatchdogOptions {
   readonly requestId: string;
   readonly timeoutMs: number;
-  readonly onRecover: () => Promise<NativeStreamRecoveryResult>;
+  readonly onRecover: (allowReattach: boolean) => Promise<NativeStreamRecoveryResult>;
   readonly recoveryTimeoutMs?: number;
   readonly scheduler?: StreamWatchdogScheduler;
 }
@@ -118,28 +118,29 @@ export class NativeStreamProgressWatchdog {
     }, this.options.timeoutMs);
   }
 
+  // Probe on every idle period: a quiet-but-alive tool must keep the run
+  // alive even after the single reattach allowance has been spent. Only the
+  // reattach itself is one-shot; the liveness probe is not.
   private async handleIdle(generation: number): Promise<void> {
     if (!this.active || generation !== this.generation) return;
     this.timer = undefined;
-    if (!this.recoveryAttempted) {
-      const recovery = await this.attemptRecovery();
-      if (!this.active || generation !== this.generation) return;
-      if (recovery === 'still-running') {
-        this.arm();
-        return;
-      }
+    const recovery = await this.attemptRecovery(!this.recoveryAttempted);
+    if (!this.active || generation !== this.generation) return;
+    if (recovery === 'still-running') {
+      this.arm();
+      return;
+    }
+    if (recovery === 'recovered') {
       this.recoveryAttempted = true;
-      if (recovery === 'recovered') {
-        this.arm();
-        return;
-      }
+      this.arm();
+      return;
     }
     const reject = this.rejectFailure;
     this.stop();
     reject?.(new NativeStreamIdleTimeoutError(this.options.requestId, this.options.timeoutMs));
   }
 
-  private attemptRecovery(): Promise<NativeStreamRecoveryResult> {
+  private attemptRecovery(allowReattach: boolean): Promise<NativeStreamRecoveryResult> {
     const timeoutMs = Math.min(
       this.options.recoveryTimeoutMs ?? NATIVE_STREAM_RECOVERY_TIMEOUT_MS,
       this.options.timeoutMs,
@@ -153,7 +154,7 @@ export class NativeStreamProgressWatchdog {
         resolve(result);
       };
       const timeout = this.scheduler.setTimeout(() => finish('failed'), timeoutMs);
-      void this.options.onRecover().then(
+      void this.options.onRecover(allowReattach).then(
         (result) => finish(result),
         () => finish('failed'),
       );

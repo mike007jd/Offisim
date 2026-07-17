@@ -89,9 +89,9 @@ const flushAsyncRecovery = async (): Promise<void> => {
     requestId: 'recover-once',
     timeoutMs: 100,
     scheduler,
-    onRecover: async () => {
+    onRecover: async (allowReattach) => {
       recoveries += 1;
-      return 'recovered';
+      return allowReattach ? 'recovered' : 'failed';
     },
   });
   const observed = watchdog.watch(never).then(
@@ -107,7 +107,54 @@ const flushAsyncRecovery = async (): Promise<void> => {
   scheduler.advance(100);
   await flushAsyncRecovery();
   assert((await observed) instanceof NativeStreamIdleTimeoutError);
-  assert.equal(recoveries, 1, 'the watchdog must never loop recovery attempts');
+  assert.equal(
+    recoveries,
+    2,
+    'the spent reattach allowance must still allow a final liveness probe, never a reattach loop',
+  );
+}
+
+{
+  // Regression: a spent reattach allowance must not blind the quiet-tool probe.
+  const scheduler = new ManualScheduler();
+  const inFlightToolCallIds = new Set<string>();
+  let cursorAdvanced = true;
+  const watchdog = new NativeStreamProgressWatchdog({
+    requestId: 'quiet-tool-after-recovery',
+    timeoutMs: 100,
+    scheduler,
+    onRecover: async (allowReattach) => {
+      if (cursorAdvanced) {
+        cursorAdvanced = false;
+        return allowReattach ? 'recovered' : 'failed';
+      }
+      return inFlightToolCallIds.size > 0 ? 'still-running' : 'failed';
+    },
+  });
+  let settled = false;
+  const observed = watchdog.watch(never).then(
+    () => null,
+    (error: unknown) => error,
+  );
+  void observed.finally(() => {
+    settled = true;
+  });
+  scheduler.advance(100);
+  await flushAsyncRecovery();
+  assert.equal(settled, false, 'the single reattach must grant a fresh idle window');
+  inFlightToolCallIds.add('quiet-tool');
+  scheduler.advance(100);
+  await flushAsyncRecovery();
+  assert.equal(
+    settled,
+    false,
+    'a quiet in-flight tool must keep the run alive even after the reattach allowance is spent',
+  );
+  inFlightToolCallIds.clear();
+  watchdog.recordProgress();
+  scheduler.advance(100);
+  await flushAsyncRecovery();
+  assert((await observed) instanceof NativeStreamIdleTimeoutError);
 }
 
 {
@@ -302,6 +349,11 @@ assert.match(
   runtimeSource,
   /inFlightToolCallIds\.size > 0 \? 'still-running' : 'failed'/,
   'an unchanged live snapshot may continue only while a renderer-visible tool is in flight',
+);
+assert.match(
+  runtimeSource,
+  /if \(!allowReattach\) return 'failed'/,
+  'a spent reattach allowance must fail the recovery instead of reattaching again',
 );
 assert.match(
   runtimeSource,
