@@ -13,10 +13,15 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import stripJsonComments from 'strip-json-comments';
 import { Type } from 'typebox';
-import { createWorkspaceLeaseManager } from '../packages/core/dist/browser.js';
+import { createLspDiagnosticsExtensionFactory } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
+import {
+  createWorkspaceCheckpointManager,
+  createWorkspaceLeaseManager,
+} from '../packages/core/dist/browser.js';
 import { resolveApiRunUsage } from './agent-run-usage.mjs';
 import { projectApiAccountCatalog } from './ai-account-catalog.mjs';
 import {
+  agentRunLine,
   decodePiRequestPayload,
   errorLine,
   executionPreparedLine,
@@ -653,6 +658,14 @@ function createHostGitWorktreeOps(requestWorktreeResult) {
           ? result.conflicts.filter((p) => typeof p === 'string')
           : [],
       };
+    },
+    async createCheckpoint(path, input) {
+      const result = await call('createCheckpoint', { path, ...input });
+      return result && typeof result === 'object' ? result : null;
+    },
+    async listCheckpoints(path, leaseId) {
+      const result = await call('listCheckpoints', { path, leaseId });
+      return Array.isArray(result) ? result : [];
     },
   };
 }
@@ -1760,17 +1773,52 @@ async function runPrompt(payload) {
   let resourceLoader;
   let settingsManager;
   let directSupervisor = null;
+  let lspDiagnosticsFactory = null;
   {
     settingsManager = SettingsManager.create(cwd, agentDir);
     const extensionFactories = [];
     if (gateFactory) extensionFactories.push(gateFactory);
+    if (!workspaceUnavailable) {
+      lspDiagnosticsFactory = createLspDiagnosticsExtensionFactory({
+        cwd: workspaceRoot,
+        emitDiagnostics: (diagnostics) => {
+          if (!rootRunId || !threadId) return;
+          emit(
+            agentRunLine({
+              threadId,
+              rootRunId,
+              runId: rootRunId,
+              employeeId: asNonEmptyString(payload.employeeId),
+              runType: 'workspace.diagnostics.updated',
+              payload: diagnostics,
+            }),
+          );
+        },
+        ...(projectVerifyCommand && projectId
+          ? {
+              runFallbackVerification: () =>
+                verifyChannel.requestVerifyResult({
+                  command: projectVerifyCommand,
+                  cwd: workspaceRoot,
+                  projectId,
+                }),
+            }
+          : {}),
+      });
+      extensionFactories.push(lspDiagnosticsFactory);
+    }
     if (delegationEnabled) {
       // One shared limit budget for this whole user turn's delegation tree
       // (depth / concurrency / total children / per-child timeout).
+      const gitOps = createHostGitWorktreeOps(worktreeChannel.requestWorktreeResult);
       const leaseManager = createWorkspaceLeaseManager({
-        gitOps: createHostGitWorktreeOps(worktreeChannel.requestWorktreeResult),
+        gitOps,
         now: () => new Date().toISOString(),
         newId: () => randomUUID(),
+      });
+      const checkpointManager = createWorkspaceCheckpointManager({
+        gitOps,
+        now: () => new Date().toISOString(),
       });
       const rootLease = await leaseManager.acquireRootLease(workspaceRoot);
       const confirmIntegration = async (plan) => {
@@ -1832,6 +1880,7 @@ async function runPrompt(payload) {
           session.bindExtensions({ uiContext: createForwardingUiContext(), mode: 'rpc' }),
         limits: delegationBudgetState,
         leaseManager,
+        checkpointManager,
         rootLease,
         validateLeaseCwd: async (leaseClaim) =>
           assertWorktreeOk(
@@ -2290,6 +2339,7 @@ async function runPrompt(payload) {
   } finally {
     await closeRootControls();
     unsubscribe();
+    await lspDiagnosticsFactory?.dispose?.();
     session.dispose();
     if (activeRootSession === session) activeRootSession = null;
   }

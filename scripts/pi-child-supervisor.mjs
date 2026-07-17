@@ -20,6 +20,7 @@ import {
   SessionManager,
   createAgentSession,
 } from '@earendil-works/pi-coding-agent';
+import { createLspDiagnosticsExtensionFactory } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
 import {
   OneShotBudgetNudge,
   decideBoundedLoop,
@@ -615,6 +616,17 @@ export function createChildSupervisor(ctx) {
     );
   }
 
+  function emitWorkspaceCheckpoint(emit, lease, checkpoint) {
+    emit('workspace.checkpoint', {
+      ...checkpoint,
+      projectId: typeof ctx.projectId === 'string' ? ctx.projectId : null,
+      runId: lease.runId,
+      workspaceRoot: lease.workspaceRoot,
+      cwd: lease.cwd,
+      branch: lease.branch,
+    });
+  }
+
   /** Build a per-run emitter that stamps this run's scope + relation + workKind
    *  onto every neutral agentRun line. relation/workKind are constant for a run,
    *  so they ride the closure rather than every call site. */
@@ -883,6 +895,7 @@ export function createChildSupervisor(ctx) {
     });
     const childDelegationFactory = createDelegationExtensionFactory(childSupervisor);
     const extensionFactories = [gateFactory, childDelegationFactory].filter(Boolean);
+    let lspDiagnosticsFactory = null;
     let lease = null;
     let taskWorkspaceLease = null;
     let childCwd = ctx.cwd;
@@ -950,6 +963,14 @@ export function createChildSupervisor(ctx) {
             ...(asNonEmptyString(resumeLease?.runId) ? { originRunId: resumeLease.runId } : {}),
           });
         }
+        if (lease?.isolated && access === 'write' && ctx.checkpointManager) {
+          const existing = await ctx.checkpointManager.list(lease);
+          const checkpoints =
+            existing.length > 0 ? existing : await ctx.checkpointManager.open(lease);
+          if (existing.length === 0 && checkpoints[0]) {
+            emitWorkspaceCheckpoint(emit, lease, checkpoints[0]);
+          }
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (lease) {
@@ -976,6 +997,11 @@ export function createChildSupervisor(ctx) {
         };
       }
     }
+    lspDiagnosticsFactory = createLspDiagnosticsExtensionFactory({
+      cwd: childCwd,
+      emitDiagnostics: (diagnostics) => emit('workspace.diagnostics.updated', diagnostics),
+    });
+    extensionFactories.push(lspDiagnosticsFactory);
     const effectiveObjective =
       lease?.isolated && access === 'write'
         ? [
@@ -1079,6 +1105,30 @@ export function createChildSupervisor(ctx) {
         modelRegistry: ctx.modelRegistry,
       }).catch(() => undefined);
     let finalAssistant;
+    let checkpointTail = Promise.resolve();
+    let checkpointError = null;
+    const queueCheckpoint = (toolName, toolCallId) => {
+      if (!lease?.isolated || access !== 'write' || !ctx.checkpointManager) return;
+      checkpointTail = checkpointTail
+        .then(async () => {
+          const checkpoint = await ctx.checkpointManager.captureAfterTool(lease, {
+            toolName,
+            toolCallId,
+          });
+          if (checkpoint) emitWorkspaceCheckpoint(emit, lease, checkpoint);
+        })
+        .catch((error) => {
+          checkpointError = error;
+        });
+    };
+    const flushCheckpoints = async () => {
+      await checkpointTail;
+      if (checkpointError) {
+        const error = checkpointError;
+        checkpointError = null;
+        throw error;
+      }
+    };
     const unsubscribe = session.subscribe((event) => {
       if (event.type === 'message_end' && event.message?.role === 'custom') {
         ctx.onControlMessage?.(event.message);
@@ -1098,6 +1148,7 @@ export function createChildSupervisor(ctx) {
           toolName: event.toolName,
           status: event.isError ? 'failed' : 'completed',
         });
+        if (!event.isError) queueCheckpoint(event.toolName, event.toolCallId);
         return;
       }
       if (event.type === 'message_end' && event.message?.role === 'assistant') {
@@ -1176,6 +1227,7 @@ export function createChildSupervisor(ctx) {
           controlSessionExposed = true;
         }
         await promptRun;
+        await flushCheckpoints();
         const assistantError = asNonEmptyString(finalAssistant?.errorMessage);
         if (finalAssistant?.stopReason === 'error' || assistantError) {
           const message =
@@ -1352,8 +1404,10 @@ export function createChildSupervisor(ctx) {
       if (timer) clearTimeout(timer);
       unsubscribe();
       if (controlSessionExposed) ctx.onControlSessionClosed?.(runId, session);
+      await lspDiagnosticsFactory?.dispose?.();
       session.dispose();
       if (signal) signal.removeEventListener('abort', onAbort);
+      await ctx.checkpointManager?.waitForIdle?.(lease?.leaseId).catch(() => undefined);
       if (lease && !(lease.isolated && access === 'write')) {
         const released = await ctx.leaseManager?.releaseLease?.(lease.leaseId).catch(() => null);
         if (released) await emitWorkspaceLeaseSnapshot(emit, released, 'released');

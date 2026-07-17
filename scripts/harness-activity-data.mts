@@ -21,6 +21,9 @@ import type {
 } from '../apps/desktop/renderer/src/surfaces/office/board/activity-data.js';
 import {
   MAX_MCP_VALUE_CHARS,
+  checkpointPathForDisplay,
+  displayActorName,
+  getDisplaySummary,
   meetingRecordFromRow,
   mergeActivityPage,
   redactSecrets,
@@ -51,6 +54,76 @@ const meeting = meetingRecordFromRow({
 check('meeting source keeps title', meeting.entity?.label === 'Launch review');
 check('meeting source keeps a display time', typeof meeting.payload?.timeLabel === 'string');
 check('meeting source is timeline-addressable', meeting.type === 'meeting.scheduled');
+
+console.log('Timeline copy — checkpoint, rewind, and worktree activity');
+{
+  const checkpoint = getDisplaySummary({
+    id: 'checkpoint-1',
+    type: 'workspace.checkpoint',
+    at: Date.now(),
+    actor: 'Sophie',
+    payload: { employeeRole: 'Developer', step: 2, changedPaths: ['src/app.ts'] },
+  });
+  check('checkpoint headline names the employee', checkpoint.actor === 'Sophie');
+  check(
+    'checkpoint headline explains role, step, and file count',
+    checkpoint.label === 'Developer · saved a change checkpoint · Step 2 · 1 file',
+    checkpoint.label,
+  );
+  check('checkpoint headline contains no machine id', !checkpoint.label.includes('checkpoint-'));
+  check(
+    'unresolved run id falls back to a human actor label',
+    displayActorName('run-6a3f8f98-2d94-44be-92f3-8aac7ae92c99') === 'Employee',
+  );
+  check('API engine actor uses product language', displayActorName('api') === 'Assistant');
+  check(
+    'checkpoint file path is project-relative',
+    checkpointPathForDisplay('/tmp/project/src/app.ts', '/tmp/project') === 'src/app.ts',
+  );
+  check(
+    'unexpected absolute path degrades to a filename',
+    checkpointPathForDisplay('/private/elsewhere/secret.txt', '/tmp/project') === 'secret.txt',
+  );
+
+  const rollback = getDisplaySummary({
+    id: 'rollback-1',
+    type: 'workspace.checkpoint.rollback',
+    at: Date.now(),
+    actor: 'You',
+    payload: { targetStep: 2 },
+  });
+  check(
+    'rewind headline is a plain-language action',
+    rollback.actor === 'You' && rollback.label === 'rolled back to Step 2',
+    `${rollback.actor} · ${rollback.label}`,
+  );
+
+  const snapshot = getDisplaySummary({
+    id: 'snapshot-1',
+    type: 'agent.workspace.lease.snapshot',
+    at: Date.now(),
+    actor: 'Sophie',
+    payload: { employeeRole: 'Developer', phase: 'verified' },
+  });
+  check(
+    'worktree snapshot copy uses the same human voice',
+    snapshot.label === 'Developer · verified workspace changes',
+    snapshot.label,
+  );
+
+  const failedWrite = getDisplaySummary({
+    id: 'tool-1',
+    type: 'agent.conversation.run.tool',
+    at: Date.now(),
+    actor: displayActorName('api'),
+    payload: { toolName: 'write', status: 'failed' },
+  });
+  check(
+    'engine tool failure explains the attempted action',
+    failedWrite.actor === 'Assistant' && failedWrite.label === 'tried to update a project file',
+    `${failedWrite.actor} · ${failedWrite.label}`,
+  );
+}
 
 /* ── AC2: redaction over individual token shapes ───────────────────────────── */
 console.log('AC2 redactSecrets — token shapes');

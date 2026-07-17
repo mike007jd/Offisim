@@ -17,7 +17,10 @@
 
 import { globSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { resolveEmployeeRuntimeSelection } from '../apps/desktop/renderer/src/data/employee-persona.js';
+import {
+  buildEmployeeSystemPrompt,
+  resolveEmployeeRuntimeSelection,
+} from '../apps/desktop/renderer/src/data/employee-persona.js';
 import {
   type CollaborationParticipant,
   FORBIDDEN_CONTEXT_MARKERS,
@@ -385,10 +388,7 @@ async function seedThread(
     codexSubscriptionRejected =
       error instanceof Error && error.message.includes('No verified stable API model');
   }
-  check(
-    'collaboration rejects a subscription-only catalog',
-    codexSubscriptionRejected,
-  );
+  check('collaboration rejects a subscription-only catalog', codexSubscriptionRejected);
   let unavailableRejected = false;
   try {
     selectCollaborationExecutionTarget({ ...safeCatalogStatus, accounts: [] });
@@ -1128,6 +1128,42 @@ await (async () => {
   check(
     'recentWindow bounds the message window',
     w.length === 12 && w[w.length - 1].messageId === 'm-029',
+  );
+}
+
+{
+  const projectRule = 'Always write the W1 marker into employee output.';
+  const prompt = buildEmployeeSystemPrompt({
+    name: 'Checkpoint Worker',
+    role: 'Engineer',
+    companyName: 'Offisim',
+    expertise: 'Workspace safety',
+    workingStyle: 'Evidence first',
+    communication: 'medium',
+    risk: 'balanced',
+    decisionStyle: 'autonomous',
+    customInstructions: '',
+    projectInstructions: projectRule,
+  });
+  check(
+    'employee prompt injects the project-root AGENTS.md context',
+    prompt.includes('## Project AGENTS.md') && prompt.includes(projectRule),
+  );
+  const oversized = buildEmployeeSystemPrompt({
+    name: 'Checkpoint Worker',
+    role: 'Engineer',
+    companyName: 'Offisim',
+    expertise: '',
+    workingStyle: '',
+    communication: 'medium',
+    risk: 'balanced',
+    decisionStyle: 'autonomous',
+    customInstructions: '',
+    projectInstructions: 'x'.repeat(30_000),
+  });
+  check(
+    'employee prompt bounds oversized AGENTS.md context with an explicit marker',
+    oversized.includes('[AGENTS.md truncated by Offisim]') && oversized.length < 25_000,
   );
 }
 

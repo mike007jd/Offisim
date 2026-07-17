@@ -610,6 +610,49 @@
   font-family: var(--off-font-mono);
   font-size: var(--off-fs-micro);
 }
+.off-board-event.is-checkpoint {
+  padding-block: var(--off-sp-2);
+}
+.off-board-checkpoint-actions {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--off-sp-2);
+}
+.off-board-checkpoint-actions button {
+  min-height: 26px;
+  padding: 0 var(--off-sp-2);
+}
+.off-board-checkpoint-actions button.is-run-start {
+  border-color: var(--off-warn);
+  color: var(--off-warn);
+}
+.off-board-checkpoint-actions ul {
+  flex-basis: 100%;
+  max-height: 128px;
+  margin: 0;
+  padding: var(--off-sp-2) var(--off-sp-3);
+  overflow: auto;
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-2);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-micro);
+}
+.off-board-checkpoint-confirm {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-2);
+  border: 1px solid color-mix(in oklab, var(--off-danger) 35%, var(--off-line-soft));
+  border-radius: var(--off-r-sm);
+  background: color-mix(in oklab, var(--off-danger) 6%, var(--off-surface-1));
+}
+.off-board-checkpoint-confirm span {
+  flex: 1;
+}
 .off-board-load-more {
   display: flex;
   margin: 0 auto var(--off-sp-4);

@@ -608,6 +608,32 @@
   color: var(--off-accent);
 }
 
+.off-command-result-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: var(--off-sp-1);
+}
+
+.off-command-result-copy > span,
+.off-command-result-copy > small,
+.off-command-result-scope {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-command-result-copy > small,
+.off-command-result-scope {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
+}
+
+.off-command-result-scope {
+  max-width: 34%;
+  margin-left: auto;
+}
+
 .off-command-item[data-disabled="true"] {
   pointer-events: none;
   opacity: 0.5;
@@ -829,7 +855,6 @@
   width: 16px;
   height: 16px;
 }
-
 
 /* --- Segmented control --- */
 .off-seg {

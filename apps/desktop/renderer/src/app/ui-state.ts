@@ -353,7 +353,9 @@ interface UiState {
 
   /** One-shot cross-project conversation focus. The target project's thread
    * query consumes this only after it has resolved successfully. */
-  pendingThreadFocus: { projectId: string; threadId: string } | null;
+  pendingThreadFocus: { projectId: string; threadId: string; messageId?: string | null } | null;
+  /** One-shot message anchor consumed after a cross-project conversation opens. */
+  focusedMessageId: string | null;
 
   setSurface: (surface: SurfaceKey) => void;
   /** Open Settings, optionally deep-linking to a section (composer `/` routes). */
@@ -370,12 +372,21 @@ interface UiState {
   requestLoopProjectSelect: (intent: { loopId: string; revisionId: string }) => void;
   /** Clear the one-shot Loop project-select intent once it has been handled. */
   consumePendingLoopProjectSelect: () => { loopId: string; revisionId: string } | null;
-  requestThreadFocus: (intent: { projectId: string; threadId: string }) => void;
-  consumePendingThreadFocus: () => { projectId: string; threadId: string } | null;
+  requestThreadFocus: (intent: {
+    projectId: string;
+    threadId: string;
+    messageId?: string | null;
+  }) => void;
+  consumePendingThreadFocus: () => {
+    projectId: string;
+    threadId: string;
+    messageId?: string | null;
+  } | null;
+  clearFocusedMessage: () => void;
   setScope: (companyId: string, projectId: string) => void;
   setProject: (projectId: string) => void;
 
-  openThread: (threadId: string) => void;
+  openThread: (threadId: string, messageId?: string | null) => void;
   openCompanyThread: (threadId: string) => void;
   openCompanyDraft: (draft: CompanyThreadDraft) => void;
   /**
@@ -471,6 +482,7 @@ export const useUiState = create<UiState>((set, get) => ({
 
   pendingLoopProjectSelect: null,
   pendingThreadFocus: null,
+  focusedMessageId: null,
 
   setSurface: (surface) => set({ surface }),
   openSettings: (section) => set({ surface: 'settings', settingsSection: section ?? null }),
@@ -500,6 +512,7 @@ export const useUiState = create<UiState>((set, get) => ({
       activeStageTabId: null,
       stageSplitTabId: null,
       boardHighlightedRunId: null,
+      focusedMessageId: null,
       officeStageMaximized: false,
     }),
   consumePendingThreadFocus: () => {
@@ -507,6 +520,7 @@ export const useUiState = create<UiState>((set, get) => ({
     if (intent) set({ pendingThreadFocus: null });
     return intent;
   },
+  clearFocusedMessage: () => set({ focusedMessageId: null }),
   setScope: (companyId, projectId) =>
     set({
       companyId,
@@ -523,6 +537,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageSplitTabId: null,
       boardHighlightedRunId: null,
       pendingThreadFocus: null,
+      focusedMessageId: null,
       officeStageMaximized: false,
     }),
   setProject: (projectId) =>
@@ -540,10 +555,11 @@ export const useUiState = create<UiState>((set, get) => ({
       stageSplitTabId: null,
       boardHighlightedRunId: null,
       pendingThreadFocus: null,
+      focusedMessageId: null,
       officeStageMaximized: false,
     }),
 
-  openThread: (threadId) =>
+  openThread: (threadId, messageId = null) =>
     set({
       selectedThreadId: threadId,
       selectedCompanyThreadId: null,
@@ -555,6 +571,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageOpenTabs: [],
       activeStageTabId: null,
       stageSplitTabId: null,
+      focusedMessageId: messageId,
     }),
   openDraftThread: (employeeId = null) => {
     const id = generateId('thread');
@@ -569,6 +586,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageOpenTabs: [],
       activeStageTabId: null,
       stageSplitTabId: null,
+      focusedMessageId: null,
     });
     return id;
   },
@@ -584,6 +602,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageOpenTabs: [],
       activeStageTabId: null,
       stageSplitTabId: null,
+      focusedMessageId: null,
     }),
   openCompanyDraft: (companyThreadDraft) =>
     set({
@@ -597,6 +616,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageOpenTabs: [],
       activeStageTabId: null,
       stageSplitTabId: null,
+      focusedMessageId: null,
     }),
   markDraftPersisted: () => set({ draftThread: null }),
   setDraftEmployee: (employeeId) =>
@@ -613,6 +633,7 @@ export const useUiState = create<UiState>((set, get) => ({
       stageOpenTabs: [],
       activeStageTabId: null,
       stageSplitTabId: null,
+      focusedMessageId: null,
     }),
   setSceneRenderMode: (sceneRenderMode) => set({ sceneRenderMode }),
   setStagePrimaryTab: (stagePrimaryTab, empty = false) =>

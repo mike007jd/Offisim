@@ -15,6 +15,21 @@ interface LocalDbTransactionStatement {
   params?: readonly unknown[];
 }
 
+export interface GlobalSearchResult {
+  category: 'conversation' | 'card' | 'output';
+  entityId: string;
+  companyId: string | null;
+  companyName: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  threadId: string | null;
+  messageId: string | null;
+  title: string;
+  snippet: string;
+  path: string | null;
+  updatedAt: string | null;
+}
+
 interface ProjectFilePreview {
   content: string;
   truncated: boolean;
@@ -759,6 +774,41 @@ export interface WorkspaceLeaseLifecycleRow {
     | null;
 }
 
+export interface WorkspaceCheckpointRow {
+  checkpointId: string;
+  leaseId: string;
+  projectId: string;
+  runId: string;
+  threadId: string | null;
+  rootRunId: string;
+  workspaceRoot: string;
+  cwd: string;
+  branch: string;
+  step: number;
+  ref: string;
+  triggerTool: string;
+  triggerToolCallId: string | null;
+  createdAt: string;
+  changedPaths: string[];
+}
+
+export interface WorkspaceCheckpointRollbackRow {
+  rollbackId: string;
+  leaseId: string;
+  projectId: string;
+  checkpointId: string;
+  targetStep: number;
+  targetRef: string;
+  actor: string;
+  rolledBackAt: string;
+  changedPaths: string[];
+}
+
+interface WorkspaceCheckpointTimeline {
+  checkpoints: WorkspaceCheckpointRow[];
+  rollbacks: WorkspaceCheckpointRollbackRow[];
+}
+
 type CommandSpec<TArgs, TResult> = {
   args: TArgs;
   result: TResult;
@@ -768,6 +818,7 @@ export interface CommandMap {
   local_db_execute: CommandSpec<{ sql: string; params: unknown[] }, number>;
   local_db_select: CommandSpec<{ sql: string; params: unknown[] }, unknown[]>;
   local_db_execute_transaction: CommandSpec<{ statements: LocalDbTransactionStatement[] }, void>;
+  global_search: CommandSpec<{ query: string }, GlobalSearchResult[]>;
   project_workspace_select: CommandSpec<
     { title?: string | null },
     ProjectWorkspaceSelectionClaim | null
@@ -1011,6 +1062,17 @@ export interface CommandMap {
   >;
   workspace_lease_release: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
   workspace_lease_discard: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
+  workspace_checkpoint_timeline: CommandSpec<{ projectId: string }, WorkspaceCheckpointTimeline>;
+  workspace_checkpoint_rollback: CommandSpec<
+    {
+      projectId: string;
+      leaseId: string;
+      path: string;
+      checkpointId: string;
+      actor: string;
+    },
+    WorkspaceCheckpointRollbackRow
+  >;
   open_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
   reveal_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
   delete_company_workspace: CommandSpec<{ companyId: string }, void>;
