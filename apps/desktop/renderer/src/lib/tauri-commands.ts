@@ -774,6 +774,41 @@ export interface WorkspaceLeaseLifecycleRow {
     | null;
 }
 
+export interface WorkspaceCheckpointRow {
+  checkpointId: string;
+  leaseId: string;
+  projectId: string;
+  runId: string;
+  threadId: string | null;
+  rootRunId: string;
+  workspaceRoot: string;
+  cwd: string;
+  branch: string;
+  step: number;
+  ref: string;
+  triggerTool: string;
+  triggerToolCallId: string | null;
+  createdAt: string;
+  changedPaths: string[];
+}
+
+export interface WorkspaceCheckpointRollbackRow {
+  rollbackId: string;
+  leaseId: string;
+  projectId: string;
+  checkpointId: string;
+  targetStep: number;
+  targetRef: string;
+  actor: string;
+  rolledBackAt: string;
+  changedPaths: string[];
+}
+
+interface WorkspaceCheckpointTimeline {
+  checkpoints: WorkspaceCheckpointRow[];
+  rollbacks: WorkspaceCheckpointRollbackRow[];
+}
+
 type CommandSpec<TArgs, TResult> = {
   args: TArgs;
   result: TResult;
@@ -1023,6 +1058,17 @@ export interface CommandMap {
   >;
   workspace_lease_release: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
   workspace_lease_discard: CommandSpec<{ projectId: string; leaseId: string; path: string }, void>;
+  workspace_checkpoint_timeline: CommandSpec<{ projectId: string }, WorkspaceCheckpointTimeline>;
+  workspace_checkpoint_rollback: CommandSpec<
+    {
+      projectId: string;
+      leaseId: string;
+      path: string;
+      checkpointId: string;
+      actor: string;
+    },
+    WorkspaceCheckpointRollbackRow
+  >;
   open_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
   reveal_local_path: CommandSpec<{ projectId: string | null; path: string }, void>;
   delete_company_workspace: CommandSpec<{ companyId: string }, void>;

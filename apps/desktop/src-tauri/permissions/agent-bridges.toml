@@ -45,6 +45,8 @@ commands.allow = [
   "workspace_lease_changed",
   "workspace_lease_release",
   "workspace_lease_discard",
+  "workspace_checkpoint_timeline",
+  "workspace_checkpoint_rollback",
   "open_local_path",
   "project_workspace_select",
   "project_create",

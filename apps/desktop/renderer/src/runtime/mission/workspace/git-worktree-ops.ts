@@ -137,6 +137,27 @@ export function createTauriGitWorktreeOps(input: TauriGitWorktreeOpsInput): GitW
       if (!commit.ok) throw new Error(`git commit failed: ${commit.stderr.trim()}`);
     },
 
+    async createCheckpoint(): Promise<never> {
+      throw new Error('Workspace checkpoints are created by the bound task runtime.');
+    },
+
+    async listCheckpoints(path, leaseId) {
+      const timeline = await invokeCommand('workspace_checkpoint_timeline', { projectId });
+      return timeline.checkpoints.filter(
+        (checkpoint) => checkpoint.leaseId === leaseId && checkpoint.cwd === path,
+      );
+    },
+
+    async rollbackCheckpoint(path, checkpoint, actor) {
+      return invokeCommand('workspace_checkpoint_rollback', {
+        projectId,
+        leaseId: checkpoint.leaseId,
+        path,
+        checkpointId: checkpoint.checkpointId,
+        actor,
+      });
+    },
+
     async merge(branch: string): Promise<MergeResult> {
       // A non-ok result with conflict markers in stderr/stdout is reported as a
       // conflict (NOT an overwrite — the manager surfaces it).

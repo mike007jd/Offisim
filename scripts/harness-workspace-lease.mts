@@ -46,10 +46,15 @@ import {
   type WorkspaceLeaseManagerDeps,
   createWorkspaceLeaseManager,
 } from '../packages/core/src/runtime/mission/workspace/lease-manager.ts';
+import {
+  createWorkspaceCheckpointManager,
+  type WorkspaceCheckpoint,
+  type WorkspaceCheckpointRollback,
+} from '../packages/core/dist/browser.js';
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 17;
+const TOTAL = 21;
 
 async function check(name: string, run: () => void | Promise<void>): Promise<void> {
   try {
@@ -719,6 +724,9 @@ await check(
       'diff',
       'diffText',
       'commitAll',
+      'createCheckpoint',
+      'listCheckpoints',
+      'rollbackCheckpoint',
       'merge',
     ] as const) {
       assert.equal(typeof ops[method], 'function', `adapter exposes ${method}()`);
@@ -732,6 +740,140 @@ await check(
     );
   },
 );
+
+await check(
+  'W1: checkpoint manager creates baseline once and recovers the durable chain',
+  async () => {
+    const checkpoints: WorkspaceCheckpoint[] = [];
+    let createCalls = 0;
+    const git = makeFakeGit({ isGit: true });
+    git.createCheckpoint = (_path, input) => {
+      createCalls += 1;
+      const checkpoint: WorkspaceCheckpoint = {
+        checkpointId: `checkpoint-${createCalls}`,
+        leaseId: input.leaseId,
+        step: checkpoints.length,
+        ref: `refs/offisim/checkpoints/${input.leaseId}/${checkpoints.length}`,
+        triggerTool: input.triggerTool,
+        triggerToolCallId: input.triggerToolCallId ?? null,
+        createdAt: input.createdAt,
+        changedPaths: [],
+      };
+      checkpoints.push(checkpoint);
+      return checkpoint;
+    };
+    git.listCheckpoints = () => checkpoints;
+    const lease: WorkspaceLease = {
+      leaseId: 'lease-checkpoint',
+      runId: 'run-checkpoint',
+      workspaceRoot: '/ws',
+      access: 'write',
+      cwd: '/ws/.offisim/worktrees/lease-checkpoint',
+      branch: 'offisim/lease/run-checkpoint-lease-checkpoint',
+      isolated: true,
+      status: 'active',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const manager = createWorkspaceCheckpointManager({ gitOps: git, now: () => lease.createdAt });
+    assert.equal((await manager.open(lease))[0]?.step, 0);
+    assert.equal((await manager.open(lease))[0]?.checkpointId, 'checkpoint-1');
+    assert.equal(createCalls, 1);
+  },
+);
+
+await check('W1: only successful file-changing tool classes request checkpoints', async () => {
+  const git = makeFakeGit({ isGit: true });
+  let nextStep = 1;
+  git.listCheckpoints = () => [];
+  git.createCheckpoint = (_path, input) => ({
+    checkpointId: `checkpoint-${nextStep}`,
+    leaseId: input.leaseId,
+    step: nextStep++,
+    ref: `refs/offisim/checkpoints/${input.leaseId}/${nextStep}`,
+    triggerTool: input.triggerTool,
+    triggerToolCallId: input.triggerToolCallId ?? null,
+    createdAt: input.createdAt,
+    changedPaths: ['src/a.ts'],
+  });
+  const lease: WorkspaceLease = {
+    leaseId: 'lease-write',
+    runId: 'run-write',
+    workspaceRoot: '/ws',
+    access: 'write',
+    cwd: '/ws/.offisim/worktrees/lease-write',
+    branch: 'offisim/lease/run-write-lease-write',
+    isolated: true,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  };
+  const manager = createWorkspaceCheckpointManager({ gitOps: git, now: () => lease.createdAt });
+  assert.equal(await manager.captureAfterTool(lease, { toolName: 'read' }), null);
+  assert.equal(
+    (await manager.captureAfterTool(lease, { toolName: 'project_write_file' }))?.step,
+    1,
+  );
+  assert.equal((await manager.captureAfterTool(lease, { toolName: 'bash' }))?.step, 2);
+});
+
+await check('W1: rewind validates lease ownership and returns durable rollback audit', async () => {
+  const git = makeFakeGit({ isGit: true });
+  const checkpoint: WorkspaceCheckpoint = {
+    checkpointId: 'checkpoint-2',
+    leaseId: 'lease-rewind',
+    step: 2,
+    ref: 'refs/offisim/checkpoints/lease-rewind/2',
+    triggerTool: 'edit',
+    triggerToolCallId: 'tool-2',
+    createdAt: '2026-01-01T00:00:02.000Z',
+    changedPaths: ['a.ts', 'b.ts'],
+  };
+  const rollback: WorkspaceCheckpointRollback = {
+    rollbackId: 'rollback-1',
+    leaseId: checkpoint.leaseId,
+    checkpointId: checkpoint.checkpointId,
+    targetStep: checkpoint.step,
+    targetRef: checkpoint.ref,
+    actor: 'You',
+    rolledBackAt: '2026-01-01T00:00:03.000Z',
+    changedPaths: ['a.ts'],
+  };
+  git.listCheckpoints = () => [checkpoint];
+  git.createCheckpoint = () => checkpoint;
+  git.rollbackCheckpoint = () => rollback;
+  const lease: WorkspaceLease = {
+    leaseId: checkpoint.leaseId,
+    runId: 'run-rewind',
+    workspaceRoot: '/ws',
+    access: 'write',
+    cwd: '/ws/.offisim/worktrees/lease-rewind',
+    branch: 'offisim/lease/run-rewind-lease-rewind',
+    isolated: true,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  };
+  const manager = createWorkspaceCheckpointManager({ gitOps: git, now: () => lease.createdAt });
+  assert.deepEqual(await manager.rewind(lease, checkpoint, 'You'), rollback);
+  await assert.rejects(manager.rewind(lease, { ...checkpoint, leaseId: 'other' }, 'You'));
+});
+
+await check('W1: shared/read leases cannot create or rewind checkpoints', async () => {
+  const git = makeFakeGit({ isGit: true });
+  git.listCheckpoints = () => [];
+  git.createCheckpoint = () => null;
+  const manager = createWorkspaceCheckpointManager({ gitOps: git, now: () => 'now' });
+  const shared: WorkspaceLease = {
+    leaseId: 'shared',
+    runId: 'run-read',
+    workspaceRoot: '/ws',
+    access: 'read',
+    cwd: '/ws',
+    branch: null,
+    isolated: false,
+    status: 'active',
+    createdAt: 'now',
+  };
+  await assert.rejects(manager.open(shared));
+});
 
 await check('porcelain -z preserves spaces, Unicode, quotes, and leading whitespace', () => {
   assert.deepEqual(

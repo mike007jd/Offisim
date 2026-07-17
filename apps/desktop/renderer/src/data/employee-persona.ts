@@ -22,6 +22,15 @@ export interface EmployeePersonaInput {
   risk: string;
   decisionStyle: string;
   customInstructions: string;
+  projectInstructions?: string;
+}
+
+const PROJECT_INSTRUCTIONS_MAX_CHARS = 24_000;
+
+function boundedProjectInstructions(value: string | undefined): string {
+  const instructions = value?.trim() ?? '';
+  if (instructions.length <= PROJECT_INSTRUCTIONS_MAX_CHARS) return instructions;
+  return `${instructions.slice(0, PROJECT_INSTRUCTIONS_MAX_CHARS)}\n\n[AGENTS.md truncated by Offisim]`;
 }
 
 export function buildEmployeeSystemPrompt(persona: EmployeePersonaInput): string {
@@ -36,6 +45,10 @@ export function buildEmployeeSystemPrompt(persona: EmployeePersonaInput): string
   ];
   if (persona.customInstructions.trim()) {
     lines.push('', '## Custom instructions', persona.customInstructions.trim());
+  }
+  const projectInstructions = boundedProjectInstructions(persona.projectInstructions);
+  if (projectInstructions) {
+    lines.push('', '## Project AGENTS.md', projectInstructions);
   }
   lines.push(
     '',
@@ -79,7 +92,11 @@ function readDisplayTitle(personaJson: string | null | undefined): string | unde
 }
 
 /** Build the system-prompt text for an already-loaded employee row + company name. */
-function personaFromRow(employee: EmployeeRow, companyName: string): string {
+function personaFromRow(
+  employee: EmployeeRow,
+  companyName: string,
+  projectInstructions?: string,
+): string {
   const profile = readProfile(employee.persona_json);
   return buildEmployeeSystemPrompt({
     name: employee.name ?? '',
@@ -91,6 +108,7 @@ function personaFromRow(employee: EmployeeRow, companyName: string): string {
     risk: asPersonaText(profile.risk) || 'balanced',
     decisionStyle: asPersonaText(profile.decisionStyle) || 'collaborative',
     customInstructions: asPersonaText(profile.customInstructions),
+    projectInstructions,
   });
 }
 
@@ -196,16 +214,21 @@ export async function buildDelegationContext(
   companyId: string,
   actingEmployeeId: string | null,
   inheritedRuntime: EmployeeRuntimeSelection = {},
+  projectId?: string | null,
 ): Promise<DelegationContext> {
-  const [employees, company, skills, vaultStatus, runtimeStatus] = await Promise.all([
-    repos.employees.findByCompany(companyId),
-    repos.companies.findById(companyId).catch(() => null),
-    repos.skills.listByCompany(companyId),
-    invokeCommand('runtime_vault_status'),
-    actingEmployeeId
-      ? invokeCommand('agent_runtime_status', { includeUsage: false }).catch(() => null)
-      : Promise.resolve(null),
-  ]);
+  const [employees, company, skills, vaultStatus, runtimeStatus, projectInstructions] =
+    await Promise.all([
+      repos.employees.findByCompany(companyId),
+      repos.companies.findById(companyId).catch(() => null),
+      repos.skills.listByCompany(companyId),
+      invokeCommand('runtime_vault_status'),
+      actingEmployeeId
+        ? invokeCommand('agent_runtime_status', { includeUsage: false }).catch(() => null)
+        : Promise.resolve(null),
+      projectId
+        ? invokeCommand('project_read_file', { projectId, path: 'AGENTS.md' }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
   const vaultRoot = vaultStatus.path;
   const companySkillPaths = skills
     .filter((skill) => skill.employee_id === null)
@@ -230,7 +253,7 @@ export async function buildDelegationContext(
         employeeId: e.employee_id,
         name: e.name ?? e.employee_id,
         roleSlug: e.role_slug,
-        persona: personaFromRow(e, companyName),
+        persona: personaFromRow(e, companyName, projectInstructions ?? undefined),
         ...(displayTitle ? { displayTitle } : {}),
         ...(model ? { model } : {}),
         ...(model && thinkingLevel ? { thinkingLevel } : {}),
@@ -238,7 +261,9 @@ export async function buildDelegationContext(
       };
     });
   return {
-    systemPromptAppend: acting ? personaFromRow(acting, companyName) : null,
+    systemPromptAppend: acting
+      ? personaFromRow(acting, companyName, projectInstructions ?? undefined)
+      : null,
     skillPaths: acting ? skillPathsForEmployee(acting.employee_id) : companySkillPaths,
     runtimeSelection: resolveEmployeeRuntimeSelection(
       acting,

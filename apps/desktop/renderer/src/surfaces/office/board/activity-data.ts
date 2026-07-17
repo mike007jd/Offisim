@@ -1,6 +1,11 @@
 import { isTauriRuntime } from '@/data/adapters.js';
+import {
+  type WorkspaceCheckpointRollbackRow,
+  type WorkspaceCheckpointRow,
+  invokeCommand,
+} from '@/lib/tauri-commands.js';
 import { getTauriDb } from '@/lib/tauri-db.js';
-import { escapeRegExp } from '@/lib/utils.js';
+import { escapeRegExp, titleizeSlug } from '@/lib/utils.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import { WORKSPACE_DIAGNOSTICS_UPDATED_EVENT } from '@offisim/shared-types';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
@@ -70,6 +75,8 @@ export interface ActivityRecord {
   payload?: Record<string, ActivityPayloadValue>;
   /** Resolved actor label used by the actor filter / search. */
   actor?: string;
+  checkpoint?: WorkspaceCheckpointRow;
+  rollback?: WorkspaceCheckpointRollbackRow;
 }
 
 interface RuntimeEventDbRow {
@@ -88,6 +95,17 @@ interface AgentEventDbRow {
   created_at: string;
   thread_id: string;
   agent_name: string;
+}
+
+interface ActivityActorDbRow {
+  actor_id: string;
+  employee_name: string;
+  role_slug: string;
+}
+
+interface ActivityActor {
+  name: string;
+  role: string;
 }
 
 interface McpAuditDbRow {
@@ -161,6 +179,18 @@ function firstLine(value: string | null): string | null {
   if (!value) return null;
   const line = value.split(/\r?\n/).find((part) => part.trim());
   return line?.trim() ?? null;
+}
+
+/** Keep project file labels readable and prevent an unexpected absolute path
+ * from leaking the local workspace location into Timeline. */
+export function checkpointPathForDisplay(path: string, workspaceRoot: string): string {
+  const normalized = path.replaceAll('\\', '/');
+  const normalizedRoot = workspaceRoot.replaceAll('\\', '/').replace(/\/$/, '');
+  if (normalized.startsWith(`${normalizedRoot}/`)) {
+    return normalized.slice(normalizedRoot.length + 1);
+  }
+  if (!normalized.startsWith('/')) return normalized.replace(/^\.\//, '');
+  return normalized.split('/').filter(Boolean).at(-1) ?? 'Changed file';
 }
 
 function commandFromMcpArguments(args: Record<string, ActivityPayloadValue>): string | null {
@@ -306,7 +336,7 @@ function runtimeRecordFromRow(row: RuntimeEventDbRow): ActivityRecord {
     id: row.event_id,
     type: row.event_type,
     at: toEventTime(row.created_at),
-    actor: typeof payload.actor === 'string' ? displayActorName(payload.actor) : 'runtime',
+    actor: typeof payload.actor === 'string' ? displayActorName(payload.actor) : 'Offisim',
     entity: entityFromPayload(payload, {
       label: row.event_type,
       type: 'runtime-event',
@@ -321,30 +351,100 @@ function runtimeRecordFromRow(row: RuntimeEventDbRow): ActivityRecord {
 const ACTOR_DISPLAY_NAMES: Record<string, string> = {
   'pi-agent': 'Assistant',
   'desktop-provider': 'Assistant',
+  api: 'Assistant',
+  'workspace-lease-review': 'You',
+  runtime: 'Offisim',
   boss: 'You',
 };
 
-function displayActorName(actor: string): string {
-  return ACTOR_DISPLAY_NAMES[actor] ?? actor;
+export function displayActorName(actor: string): string {
+  const knownName = ACTOR_DISPLAY_NAMES[actor];
+  if (knownName) return knownName;
+  if (/^(?:(?:run|attempt)-)?[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(actor)) {
+    return 'Employee';
+  }
+  return actor;
 }
 
-function agentRecordFromRow(row: AgentEventDbRow): ActivityRecord {
+function agentRecordFromRow(
+  row: AgentEventDbRow,
+  actorDirectory: ReadonlyMap<string, ActivityActor>,
+): ActivityRecord {
   const payload = parsePayload(row.payload_json);
+  const resolvedActor = actorDirectory.get(row.agent_name);
   return {
     id: row.event_id,
     type: `agent.${row.event_type}`,
     at: toEventTime(row.created_at),
-    actor: displayActorName(row.agent_name),
+    actor: resolvedActor?.name ?? displayActorName(row.agent_name),
     entity: entityFromPayload(payload, {
       label: row.agent_name,
       type: 'agent-event',
       id: row.thread_id,
     }),
-    payload: { ...payload, threadId: row.thread_id, agentName: row.agent_name },
+    payload: {
+      ...payload,
+      threadId: row.thread_id,
+      agentName: row.agent_name,
+      employeeRole: resolvedActor?.role,
+    },
   };
 }
 
-function mcpRecordFromRow(row: McpAuditDbRow): ActivityRecord {
+function checkpointRecordFromRow(
+  row: WorkspaceCheckpointRow,
+  actorDirectory: ReadonlyMap<string, ActivityActor>,
+): ActivityRecord {
+  const resolvedActor = actorDirectory.get(row.runId);
+  return {
+    id: `checkpoint-${row.checkpointId}`,
+    type: 'workspace.checkpoint',
+    at: toEventTime(row.createdAt),
+    actor: resolvedActor?.name ?? 'Employee',
+    entity: { label: `Step ${row.step}`, type: 'workspace-checkpoint', id: row.checkpointId },
+    payload: {
+      checkpointId: row.checkpointId,
+      leaseId: row.leaseId,
+      projectId: row.projectId,
+      runId: row.runId,
+      rootRunId: row.rootRunId,
+      step: row.step,
+      triggerTool: row.triggerTool,
+      changedPaths: row.changedPaths,
+      employeeRole: resolvedActor?.role,
+    },
+    checkpoint: row,
+  };
+}
+
+function rollbackRecordFromRow(row: WorkspaceCheckpointRollbackRow): ActivityRecord {
+  return {
+    id: `rollback-${row.rollbackId}`,
+    type: 'workspace.checkpoint.rollback',
+    at: toEventTime(row.rolledBackAt),
+    actor: row.actor,
+    entity: {
+      label: `Step ${row.targetStep}`,
+      type: 'workspace-checkpoint-rollback',
+      id: row.rollbackId,
+    },
+    payload: {
+      rollbackId: row.rollbackId,
+      leaseId: row.leaseId,
+      checkpointId: row.checkpointId,
+      projectId: row.projectId,
+      targetStep: row.targetStep,
+      targetRef: row.targetRef,
+      changedPaths: row.changedPaths,
+    },
+    rollback: row,
+  };
+}
+
+function mcpRecordFromRow(
+  row: McpAuditDbRow,
+  actorDirectory: ReadonlyMap<string, ActivityActor>,
+): ActivityRecord {
   const args = parsePayload(row.arguments_json);
   const result = parsePayload(row.result_json);
   // Run the same redaction over the derived command/error strings so the row
@@ -360,7 +460,7 @@ function mcpRecordFromRow(row: McpAuditDbRow): ActivityRecord {
     id: row.audit_id,
     type: row.error ? 'mcp.tool.error' : 'mcp.tool.invoked',
     at: toEventTime(row.created_at),
-    actor: row.employee_id,
+    actor: actorDirectory.get(row.employee_id)?.name ?? displayActorName(row.employee_id),
     entity: {
       label: row.error
         ? `${row.tool_name} failed · ${row.server_name}`
@@ -418,6 +518,7 @@ export function meetingRecordFromRow(row: MeetingActivityDbRow): ActivityRecord 
  */
 async function loadActivityPage(
   companyId: string,
+  projectIds: readonly string[],
   options: { before?: string; pageSize?: number } = {},
 ): Promise<ActivityPage> {
   const pageSize = options.pageSize ?? ACTIVITY_PAGE_SIZE;
@@ -428,11 +529,12 @@ async function loadActivityPage(
   // passed as a value that sorts after any real ISO timestamp so the predicate
   // `created_at < cursor` is a no-op on the first page.
   const cursor = before ?? '~';
-  const [runtimeRows, agentRows, mcpRows, meetingRows] = await Promise.all([
+  const [runtimeRows, agentRows, mcpRows, meetingRows, checkpointTimelines] = await Promise.all([
     db.select<RuntimeEventDbRow[]>(
       `select event_id, event_type, severity, payload_json, created_at, thread_id
        from runtime_events
        where company_id = $1 and created_at < $2
+         and event_type not in ('workspace.checkpoint', 'workspace.checkpoint.rollback')
        order by created_at desc
        limit $3`,
       [companyId, cursor, pageSize],
@@ -441,6 +543,7 @@ async function loadActivityPage(
       `select event_id, event_type, payload_json, created_at, thread_id, agent_name
        from agent_events
        where company_id = $1 and created_at < $2
+         and event_type not in ('workspace.checkpoint', 'workspace.checkpoint.rollback')
        order by created_at desc
        limit $3`,
       [companyId, cursor, pageSize],
@@ -464,7 +567,67 @@ async function loadActivityPage(
        limit $3`,
       [companyId, cursor, pageSize],
     ),
+    Promise.all(
+      projectIds.map((projectId) =>
+        invokeCommand('workspace_checkpoint_timeline', { projectId }).catch(() => ({
+          checkpoints: [],
+          rollbacks: [],
+        })),
+      ),
+    ),
   ]);
+
+  const actorIds = Array.from(
+    new Set([
+      ...agentRows.map((row) => row.agent_name),
+      ...mcpRows.map((row) => row.employee_id),
+      ...checkpointTimelines
+        .flatMap((timeline) => timeline.checkpoints)
+        .filter((checkpoint) => checkpoint.createdAt < cursor)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, pageSize)
+        .map((checkpoint) => checkpoint.runId),
+    ]),
+  );
+  const actorDirectory = new Map<string, ActivityActor>();
+  if (actorIds.length > 0) {
+    const placeholders = actorIds.map((_, index) => `$${index + 2}`).join(', ');
+    const [employeeActors, runActors] = await Promise.all([
+      db.select<ActivityActorDbRow[]>(
+        `select employee_id as actor_id, name as employee_name, role_slug
+         from employees
+         where company_id = $1 and employee_id in (${placeholders})`,
+        [companyId, ...actorIds],
+      ),
+      db.select<ActivityActorDbRow[]>(
+        `select ar.run_id as actor_id, e.name as employee_name, e.role_slug
+         from agent_runs ar
+         join employees e on e.employee_id = ar.employee_id
+         where ar.company_id = $1 and ar.run_id in (${placeholders})`,
+        [companyId, ...actorIds],
+      ),
+    ]);
+    for (const row of [...employeeActors, ...runActors]) {
+      actorDirectory.set(row.actor_id, {
+        name: row.employee_name,
+        role: titleizeSlug(row.role_slug),
+      });
+    }
+  }
+
+  const checkpointRows = checkpointTimelines
+    .flatMap((timeline) => [
+      ...timeline.checkpoints.map((row) => ({
+        record: checkpointRecordFromRow(row, actorDirectory),
+        createdAt: row.createdAt,
+      })),
+      ...timeline.rollbacks.map((row) => ({
+        record: rollbackRecordFromRow(row),
+        createdAt: row.rolledBackAt,
+      })),
+    ])
+    .filter((row) => row.createdAt < cursor)
+    .sort((a, b) => b.record.at - a.record.at);
 
   return mergeActivityPage(
     [
@@ -477,14 +640,14 @@ async function loadActivityPage(
       },
       {
         rows: agentRows.map((row) => ({
-          record: agentRecordFromRow(row),
+          record: agentRecordFromRow(row, actorDirectory),
           createdAt: row.created_at,
         })),
         saturated: agentRows.length >= pageSize,
       },
       {
         rows: mcpRows.map((row) => ({
-          record: mcpRecordFromRow(row),
+          record: mcpRecordFromRow(row, actorDirectory),
           createdAt: row.created_at,
         })),
         saturated: mcpRows.length >= pageSize,
@@ -495,6 +658,10 @@ async function loadActivityPage(
           createdAt: row.created_at,
         })),
         saturated: meetingRows.length >= pageSize,
+      },
+      {
+        rows: checkpointRows.slice(0, pageSize),
+        saturated: checkpointRows.length > pageSize,
       },
     ],
     pageSize,
@@ -550,14 +717,30 @@ const KNOWN_TOPIC_LABELS: Record<string, string> = {
   'agent.conversation.run.tool': 'Ran a tool',
   'agent.conversation.compact.completed': 'Compacted the conversation',
   'agent.conversation.synopsis.updated': 'Updated the conversation summary',
-  'agent.workspace.lease.snapshot': 'Recorded a worktree snapshot',
-  'agent.workspace.lease.action': 'Reviewed a worktree',
+  'agent.workspace.lease.snapshot': 'saved workspace progress',
+  'agent.workspace.lease.action': 'reviewed workspace changes',
+  'workspace.checkpoint': 'saved a change checkpoint',
+  'workspace.checkpoint.rollback': 'rolled back workspace changes',
   'agent.mission.resumed': 'Resumed a mission',
   'agent.mission.status.changed': 'Mission status changed',
   'agent.mission.evaluation.submitted': 'Submitted a mission evaluation',
   'agent.company.created': 'Created the company',
   'boss.route.decided': 'Boss routed the task',
   'pm-preflight-cancelled': 'Preflight was cancelled',
+};
+
+const WORKSPACE_SNAPSHOT_LABELS: Record<string, string> = {
+  acquired: 'started an isolated workspace',
+  verifying: 'checked workspace changes',
+  verified: 'verified workspace changes',
+  repairing: 'repaired workspace changes',
+  verification_terminated: 'recorded the verification result',
+};
+
+const WORKSPACE_ACTION_LABELS: Record<string, string> = {
+  merge_completed: 'merged the workspace changes',
+  discard_completed: 'discarded the workspace changes',
+  changes_requested: 'sent the workspace changes back for revision',
 };
 
 /** Topic words that read as acronyms — naive Title-Case would render "Mcp". */
@@ -595,6 +778,47 @@ function isMachineFormattedMessage(message: string): boolean {
  *  payload message/name fields, then a topic-derived fallback. */
 function getDisplayLabel(record: ActivityRecord): string {
   const { type, payload } = record;
+
+  if (type === 'workspace.checkpoint') {
+    const step = typeof payload?.step === 'number' ? payload.step : null;
+    const changedPaths = Array.isArray(payload?.changedPaths) ? payload.changedPaths : [];
+    const role = typeof payload?.employeeRole === 'string' ? payload.employeeRole : null;
+    const fileLabel = `${changedPaths.length} ${changedPaths.length === 1 ? 'file' : 'files'}`;
+    return [role, 'saved a change checkpoint', step === null ? null : `Step ${step}`, fileLabel]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (type === 'workspace.checkpoint.rollback') {
+    const step = typeof payload?.targetStep === 'number' ? payload.targetStep : null;
+    return step === null ? 'rolled back workspace changes' : `rolled back to Step ${step}`;
+  }
+  if (type === 'agent.workspace.lease.snapshot') {
+    const role = typeof payload?.employeeRole === 'string' ? payload.employeeRole : null;
+    const phase = typeof payload?.phase === 'string' ? payload.phase : null;
+    const action = phase?.startsWith('released')
+      ? 'finished the isolated workspace'
+      : (phase && WORKSPACE_SNAPSHOT_LABELS[phase]) || 'saved workspace progress';
+    return role ? `${role} · ${action}` : action;
+  }
+  if (type === 'agent.workspace.lease.action') {
+    const action = typeof payload?.action === 'string' ? payload.action : null;
+    return (action && WORKSPACE_ACTION_LABELS[action]) || 'reviewed workspace changes';
+  }
+  if (type === 'agent.conversation.run.tool') {
+    const toolName = typeof payload?.toolName === 'string' ? payload.toolName : null;
+    const failed = payload?.status === 'failed';
+    const action =
+      toolName === 'read'
+        ? 'read a project file'
+        : toolName === 'write' || toolName === 'edit'
+          ? 'update a project file'
+          : toolName === 'bash'
+            ? 'run a workspace command'
+            : toolName === 'delegate'
+              ? 'delegate work to an employee'
+              : 'use a workspace tool';
+    return failed ? `tried to ${action}` : action.replace(/^./, (letter) => letter.toUpperCase());
+  }
 
   if (type === 'task.assignment.rerouted') {
     const reason = (payload?.reason as string) ?? 'unspecified';
@@ -784,7 +1008,7 @@ export function formatRelativeTimestamp(at: number, now: number = Date.now()): s
  * older" walks `nextCursor` back through history so the Board timeline reaches
  * rows past the per-source page wall.
  */
-export function useActivityRecords(companyId: string) {
+export function useActivityRecords(companyId: string, projectIds: readonly string[] = []) {
   const queryClient = useQueryClient();
   useEffect(
     () =>
@@ -796,11 +1020,13 @@ export function useActivityRecords(companyId: string) {
     [companyId, queryClient],
   );
   return useInfiniteQuery<ActivityPage>({
-    queryKey: ['activity-records', companyId],
+    queryKey: ['activity-records', companyId, [...projectIds].sort()],
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
       isTauriRuntime()
-        ? loadActivityPage(companyId, { before: (pageParam as string | null) ?? undefined })
+        ? loadActivityPage(companyId, projectIds, {
+            before: (pageParam as string | null) ?? undefined,
+          })
         : ({ records: [], nextCursor: null } satisfies ActivityPage),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });

@@ -644,7 +644,11 @@ export type {
 // read/review/non-Git share the root read-only; conflicts surface at merge time
 // (no auto three-way merge, no silent overwrite). Production wraps git_exec; the
 // harness fakes it. Consumed by the renderer git-worktree adapter + the harness.
-export { createWorkspaceLeaseManager } from './runtime/mission/workspace/index.js';
+export {
+  createWorkspaceLeaseManager,
+  createWorkspaceCheckpointManager,
+  isCheckpointCandidateTool,
+} from './runtime/mission/workspace/index.js';
 export type {
   WorkspaceLeaseManager,
   WorkspaceLeaseManagerDeps,
@@ -660,4 +664,10 @@ export type {
   IntegrationConflict,
   IntegrationPlan,
   IntegrationResult,
+  WorkspaceCheckpoint,
+  WorkspaceCheckpointRollback,
+  CreateWorkspaceCheckpointInput,
+  WorkspaceCheckpointManager,
+  WorkspaceCheckpointManagerDeps,
+  WorkspaceCheckpointTrigger,
 } from './runtime/mission/workspace/index.js';
