@@ -984,6 +984,7 @@ export function resolveApiExecutionSelection(
 interface PersistedRunContext {
   requestId?: string | null;
   streamCursor?: number | null;
+  inFlightToolCallIds?: string[];
   workspaceBinding: TaskWorkspaceBindingProjection | null;
   workspaceRequirement: WorkspaceRequirement;
   workspaceAvailability: 'pending' | 'bound' | 'unavailable';
@@ -1013,6 +1014,7 @@ interface SharedHostStreamState {
   contentText: string;
   reasoningText: string;
   readonly startedAtByTool: Map<string, number>;
+  readonly inFlightToolCallIds: Set<string>;
 }
 
 interface SharedHostEventConsumer {
@@ -1150,6 +1152,12 @@ function parseRunContext(raw: string | null | undefined): Partial<PersistedRunCo
     return {
       requestId: typeof parsed.requestId === 'string' ? parsed.requestId : null,
       streamCursor: typeof parsed.streamCursor === 'number' ? parsed.streamCursor : null,
+      inFlightToolCallIds: Array.isArray(parsed.inFlightToolCallIds)
+        ? parsed.inFlightToolCallIds.filter(
+            (toolCallId): toolCallId is string =>
+              typeof toolCallId === 'string' && Boolean(toolCallId.trim()),
+          )
+        : [],
       workspaceBinding,
       workspaceRequirement: parsed.workspaceRequirement === 'optional' ? 'optional' : 'required',
       workspaceAvailability,
@@ -1851,6 +1859,16 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       return true;
     }
     if (event.kind === 'tool') {
+      const wasInFlight = state.inFlightToolCallIds.has(event.toolCallId);
+      if (event.status === 'started' || event.status === 'running') {
+        state.inFlightToolCallIds.add(event.toolCallId);
+      } else {
+        state.inFlightToolCallIds.delete(event.toolCallId);
+      }
+      if (wasInFlight !== state.inFlightToolCallIds.has(event.toolCallId)) {
+        state.runtimeContext.inFlightToolCallIds = [...state.inFlightToolCallIds];
+        input.persistContext();
+      }
       const startedAt = state.startedAtByTool.get(event.toolCallId) ?? Date.now();
       if (event.status === 'started') state.startedAtByTool.set(event.toolCallId, startedAt);
       const completedAt =
@@ -2388,6 +2406,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       const workspaceRequirement: WorkspaceRequirement =
         context?.workspaceRequirement === 'optional' ? 'optional' : 'required';
       const startedAtByTool = new Map<string, number>();
+      const inFlightToolCallIds = new Set(runtimeContext.inFlightToolCallIds ?? []);
       let workspaceBindingGate = createWorkspaceBindingGate<
         TaskWorkspaceBindingClaim,
         WorkspaceUnavailableEvent
@@ -2398,6 +2417,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         contentText: accumulatedContentText,
         reasoningText: accumulatedReasoningText,
         startedAtByTool,
+        inFlightToolCallIds,
       };
       let progressWatchdog: NativeStreamProgressWatchdog | null = null;
       let streamAwaitingUser = false;
@@ -2910,14 +2930,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             timeoutMs: this.config.streamIdleTimeoutMs,
             onRecover: async () => {
               const recoverySnapshot = await this.invokeStreamSnapshot(requestId);
-              if (
-                !recoverySnapshot?.running ||
-                recoverySnapshot.cursor <= lastObservedStreamCursor
-              ) {
-                return false;
+              if (!recoverySnapshot?.running) return 'failed';
+              if (recoverySnapshot.cursor > lastObservedStreamCursor) {
+                await this.invokeReattach(requestId, lastObservedStreamCursor, onEvent);
+                return 'recovered';
               }
-              await this.invokeReattach(requestId, lastObservedStreamCursor, onEvent);
-              return true;
+              return inFlightToolCallIds.size > 0 ? 'still-running' : 'failed';
             },
           });
           this.progressWatchdogByRequest.set(requestId, progressWatchdog);
@@ -3035,6 +3053,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     const requestId = newRequestId(this.config.requestPrefix);
     const workspaceRequirement = resolveWorkspaceRequirement(input, commandName);
     const startedAtByTool = new Map<string, number>();
+    const inFlightToolCallIds = new Set<string>();
     let finalText = '';
     let reasoningText = '';
     let channelError: Error | null = null;
@@ -3059,6 +3078,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     const runtimeContext: PersistedRunContext = {
       requestId,
       streamCursor: 0,
+      inFlightToolCallIds: [],
       workspaceBinding:
         commandName === 'agent_runtime_resume' ? (resumeWorkspaceBinding ?? null) : null,
       workspaceRequirement,
@@ -3145,6 +3165,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       contentText: finalText,
       reasoningText,
       startedAtByTool,
+      inFlightToolCallIds,
     };
     let bindingAbortPromise: Promise<void> | null = null;
     const abortRejectedBinding = (): Promise<void> => {
@@ -3314,11 +3335,14 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         channelError = nonAuthorizingAgentHostError(event.message);
       }
     };
-    const recoverStalledStream = async (): Promise<boolean> => {
+    const recoverStalledStream = async () => {
       const snapshot = await this.invokeStreamSnapshot(requestId);
-      if (!snapshot?.running || snapshot.cursor <= lastObservedStreamCursor) return false;
-      await this.invokeReattach(requestId, lastObservedStreamCursor, onEvent);
-      return true;
+      if (!snapshot?.running) return 'failed' as const;
+      if (snapshot.cursor > lastObservedStreamCursor) {
+        await this.invokeReattach(requestId, lastObservedStreamCursor, onEvent);
+        return 'recovered' as const;
+      }
+      return inFlightToolCallIds.size > 0 ? ('still-running' as const) : ('failed' as const);
     };
 
     // A new run must exist before child events can reference it. Resume already

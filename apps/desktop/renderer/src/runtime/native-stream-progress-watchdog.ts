@@ -8,6 +8,8 @@ export interface StreamWatchdogScheduler {
   clearTimeout(handle: unknown): void;
 }
 
+export type NativeStreamRecoveryResult = 'recovered' | 'still-running' | 'failed';
+
 const systemScheduler: StreamWatchdogScheduler = {
   setTimeout: (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
   clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
@@ -30,7 +32,7 @@ export class NativeStreamIdleTimeoutError extends Error {
 interface NativeStreamProgressWatchdogOptions {
   readonly requestId: string;
   readonly timeoutMs: number;
-  readonly onRecover: () => Promise<boolean>;
+  readonly onRecover: () => Promise<NativeStreamRecoveryResult>;
   readonly recoveryTimeoutMs?: number;
   readonly scheduler?: StreamWatchdogScheduler;
 }
@@ -120,10 +122,14 @@ export class NativeStreamProgressWatchdog {
     if (!this.active || generation !== this.generation) return;
     this.timer = undefined;
     if (!this.recoveryAttempted) {
-      this.recoveryAttempted = true;
-      const recovered = await this.attemptRecovery();
+      const recovery = await this.attemptRecovery();
       if (!this.active || generation !== this.generation) return;
-      if (recovered) {
+      if (recovery === 'still-running') {
+        this.arm();
+        return;
+      }
+      this.recoveryAttempted = true;
+      if (recovery === 'recovered') {
         this.arm();
         return;
       }
@@ -133,23 +139,23 @@ export class NativeStreamProgressWatchdog {
     reject?.(new NativeStreamIdleTimeoutError(this.options.requestId, this.options.timeoutMs));
   }
 
-  private attemptRecovery(): Promise<boolean> {
+  private attemptRecovery(): Promise<NativeStreamRecoveryResult> {
     const timeoutMs = Math.min(
       this.options.recoveryTimeoutMs ?? NATIVE_STREAM_RECOVERY_TIMEOUT_MS,
       this.options.timeoutMs,
     );
-    return new Promise<boolean>((resolve) => {
+    return new Promise<NativeStreamRecoveryResult>((resolve) => {
       let settled = false;
-      const finish = (recovered: boolean): void => {
+      const finish = (result: NativeStreamRecoveryResult): void => {
         if (settled) return;
         settled = true;
         this.scheduler.clearTimeout(timeout);
-        resolve(recovered);
+        resolve(result);
       };
-      const timeout = this.scheduler.setTimeout(() => finish(false), timeoutMs);
+      const timeout = this.scheduler.setTimeout(() => finish('failed'), timeoutMs);
       void this.options.onRecover().then(
-        (recovered) => finish(recovered),
-        () => finish(false),
+        (result) => finish(result),
+        () => finish('failed'),
       );
     });
   }
