@@ -2028,6 +2028,16 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         return true;
       }
       if (event.runType === 'mission_state_query') return true;
+      const agentPayload =
+        event.runType === 'run.started'
+          ? {
+              ...(event.payload && typeof event.payload === 'object' ? event.payload : {}),
+              // Child run events do not carry Project identity over the Pi wire.
+              // The accepted workspace binding is the backend-verified authority
+              // used by lease registration, so persist that exact Project here.
+              projectId: expectedWorkspace.projectId,
+            }
+          : event.payload;
       const agentEvent = {
         threadId: event.threadId,
         rootRunId: event.rootRunId,
@@ -2037,7 +2047,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         ...(event.relation ? { relation: event.relation } : {}),
         ...(event.workKind ? { workKind: event.workKind } : {}),
         type: event.runType,
-        payload: event.payload,
+        payload: agentPayload,
       } as AgentRunEvent;
       if (event.runType === 'artifact.created') {
         this.enqueuePersist(() => this.persistArtifact(agentEvent, state.workspaceGate.claim));
