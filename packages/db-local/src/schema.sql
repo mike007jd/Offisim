@@ -1828,3 +1828,262 @@ WHEN NOT EXISTS (
 BEGIN
   SELECT RAISE(ABORT, 'collaboration execution lane mismatch');
 END;
+
+-- ---------------------------------------------------------------------------
+-- Global search (W4). This is a local-only projection: the renderer can query
+-- it only through the narrow `global_search` Tauri command. Deliverable bodies
+-- are deliberately excluded because they may contain large full diffs.
+--
+-- `agent_events` is the current visible Conversation projection, while
+-- `pi_messages` remains the Pi-kernel transcript. Index both so engine lanes
+-- have the same search behavior without treating either store as canonical for
+-- the other.
+-- ---------------------------------------------------------------------------
+CREATE VIRTUAL TABLE IF NOT EXISTS global_search_fts USING fts5(
+  category UNINDEXED,
+  entity_id UNINDEXED,
+  company_id UNINDEXED,
+  project_id UNINDEXED,
+  thread_id UNINDEXED,
+  message_id UNINDEXED,
+  title,
+  content,
+  path,
+  updated_at UNINDEXED,
+  tokenize = 'unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_chat_threads_insert
+AFTER INSERT ON chat_threads
+FOR EACH ROW
+BEGIN
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  ) VALUES (
+    'conversation', NEW.thread_id,
+    (SELECT company_id FROM projects WHERE project_id = NEW.project_id),
+    NEW.project_id, NEW.thread_id, NULL, NEW.title, COALESCE(NEW.summary, ''),
+    '', NEW.updated_at
+  );
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_chat_threads_update
+AFTER UPDATE OF project_id, title, summary, updated_at ON chat_threads
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'conversation' AND entity_id = OLD.thread_id AND message_id IS NULL;
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  ) VALUES (
+    'conversation', NEW.thread_id,
+    (SELECT company_id FROM projects WHERE project_id = NEW.project_id),
+    NEW.project_id, NEW.thread_id, NULL, NEW.title, COALESCE(NEW.summary, ''),
+    '', NEW.updated_at
+  );
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_chat_threads_delete
+AFTER DELETE ON chat_threads
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'conversation' AND thread_id = OLD.thread_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_pi_messages_insert
+AFTER INSERT ON pi_messages
+FOR EACH ROW
+BEGIN
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  ) VALUES (
+    'conversation', NEW.message_id, NEW.company_id,
+    (SELECT project_id FROM chat_threads WHERE thread_id = NEW.thread_id),
+    NEW.thread_id, NEW.message_id, '',
+    CASE
+      WHEN json_valid(NEW.message_json)
+        THEN COALESCE(json_extract(NEW.message_json, '$.content'), NEW.message_json)
+      ELSE NEW.message_json
+    END,
+    '', NEW.created_at
+  );
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_pi_messages_update
+AFTER UPDATE OF thread_id, company_id, message_json, created_at ON pi_messages
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'conversation' AND entity_id = OLD.message_id
+     AND message_id = OLD.message_id;
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  ) VALUES (
+    'conversation', NEW.message_id, NEW.company_id,
+    (SELECT project_id FROM chat_threads WHERE thread_id = NEW.thread_id),
+    NEW.thread_id, NEW.message_id, '',
+    CASE
+      WHEN json_valid(NEW.message_json)
+        THEN COALESCE(json_extract(NEW.message_json, '$.content'), NEW.message_json)
+      ELSE NEW.message_json
+    END,
+    '', NEW.created_at
+  );
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_pi_messages_delete
+AFTER DELETE ON pi_messages
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'conversation' AND entity_id = OLD.message_id
+     AND message_id = OLD.message_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_agent_events_insert
+AFTER INSERT ON agent_events
+FOR EACH ROW
+WHEN NEW.event_type = 'direct_chat.message' AND json_valid(NEW.payload_json)
+BEGIN
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  ) VALUES (
+    'conversation', NEW.event_id, NEW.company_id,
+    COALESCE(
+      NEW.project_id,
+      (SELECT project_id FROM chat_threads WHERE thread_id = NEW.thread_id)
+    ),
+    NEW.thread_id,
+    COALESCE(json_extract(NEW.payload_json, '$.message.id'), NEW.event_id),
+    '', COALESCE(json_extract(NEW.payload_json, '$.message.body'), ''), '', NEW.created_at
+  );
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_agent_events_update
+AFTER UPDATE OF event_type, payload_json, company_id, project_id, thread_id, created_at ON agent_events
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'conversation' AND entity_id = OLD.event_id;
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  )
+  SELECT
+    'conversation', NEW.event_id, NEW.company_id,
+    COALESCE(
+      NEW.project_id,
+      (SELECT project_id FROM chat_threads WHERE thread_id = NEW.thread_id)
+    ),
+    NEW.thread_id,
+    COALESCE(json_extract(NEW.payload_json, '$.message.id'), NEW.event_id),
+    '', COALESCE(json_extract(NEW.payload_json, '$.message.body'), ''), '', NEW.created_at
+  WHERE NEW.event_type = 'direct_chat.message' AND json_valid(NEW.payload_json);
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_agent_events_delete
+AFTER DELETE ON agent_events
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'conversation' AND entity_id = OLD.event_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_agent_runs_insert
+AFTER INSERT ON agent_runs
+FOR EACH ROW
+WHEN NEW.run_id = NEW.root_run_id AND length(trim(COALESCE(NEW.objective, ''))) > 0
+BEGIN
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  ) VALUES (
+    'card', NEW.run_id, NEW.company_id,
+    COALESCE(
+      NEW.project_id,
+      (SELECT project_id FROM chat_threads WHERE thread_id = NEW.thread_id)
+    ),
+    NEW.thread_id, NULL, NEW.objective, '', '', NEW.started_at
+  );
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_agent_runs_update
+AFTER UPDATE OF objective, company_id, project_id, thread_id, root_run_id, started_at ON agent_runs
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'card' AND entity_id = OLD.run_id;
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  )
+  SELECT
+    'card', NEW.run_id, NEW.company_id,
+    COALESCE(
+      NEW.project_id,
+      (SELECT project_id FROM chat_threads WHERE thread_id = NEW.thread_id)
+    ),
+    NEW.thread_id, NULL, NEW.objective, '', '', NEW.started_at
+  WHERE NEW.run_id = NEW.root_run_id
+    AND length(trim(COALESCE(NEW.objective, ''))) > 0;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_agent_runs_delete
+AFTER DELETE ON agent_runs
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'card' AND entity_id = OLD.run_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_deliverables_insert
+AFTER INSERT ON deliverables
+FOR EACH ROW
+BEGIN
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  ) VALUES (
+    'output', NEW.deliverable_id, NEW.company_id,
+    (
+      SELECT project_id FROM chat_threads
+       WHERE thread_id = COALESCE(NEW.chat_thread_id, NEW.thread_id)
+    ),
+    COALESCE(NEW.chat_thread_id, NEW.thread_id), NULL, NEW.title, '',
+    COALESCE(NEW.file_name, ''), NEW.created_at
+  );
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_deliverables_update
+AFTER UPDATE OF title, file_name, company_id, chat_thread_id, thread_id, created_at ON deliverables
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'output' AND entity_id = OLD.deliverable_id;
+  INSERT INTO global_search_fts(
+    category, entity_id, company_id, project_id, thread_id, message_id,
+    title, content, path, updated_at
+  ) VALUES (
+    'output', NEW.deliverable_id, NEW.company_id,
+    (
+      SELECT project_id FROM chat_threads
+       WHERE thread_id = COALESCE(NEW.chat_thread_id, NEW.thread_id)
+    ),
+    COALESCE(NEW.chat_thread_id, NEW.thread_id), NULL, NEW.title, '',
+    COALESCE(NEW.file_name, ''), NEW.created_at
+  );
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_global_search_deliverables_delete
+AFTER DELETE ON deliverables
+FOR EACH ROW
+BEGIN
+  DELETE FROM global_search_fts
+   WHERE category = 'output' AND entity_id = OLD.deliverable_id;
+END;

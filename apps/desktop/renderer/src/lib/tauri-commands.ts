@@ -15,6 +15,21 @@ interface LocalDbTransactionStatement {
   params?: readonly unknown[];
 }
 
+export interface GlobalSearchResult {
+  category: 'conversation' | 'card' | 'output';
+  entityId: string;
+  companyId: string | null;
+  companyName: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  threadId: string | null;
+  messageId: string | null;
+  title: string;
+  snippet: string;
+  path: string | null;
+  updatedAt: string | null;
+}
+
 interface ProjectFilePreview {
   content: string;
   truncated: boolean;
@@ -803,6 +818,7 @@ export interface CommandMap {
   local_db_execute: CommandSpec<{ sql: string; params: unknown[] }, number>;
   local_db_select: CommandSpec<{ sql: string; params: unknown[] }, unknown[]>;
   local_db_execute_transaction: CommandSpec<{ statements: LocalDbTransactionStatement[] }, void>;
+  global_search: CommandSpec<{ query: string }, GlobalSearchResult[]>;
   project_workspace_select: CommandSpec<
     { title?: string | null },
     ProjectWorkspaceSelectionClaim | null

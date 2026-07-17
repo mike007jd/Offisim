@@ -20,6 +20,7 @@ import {
   SessionManager,
   createAgentSession,
 } from '@earendil-works/pi-coding-agent';
+import { createLspDiagnosticsExtensionFactory } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
 import {
   OneShotBudgetNudge,
   decideBoundedLoop,
@@ -889,6 +890,7 @@ export function createChildSupervisor(ctx) {
     });
     const childDelegationFactory = createDelegationExtensionFactory(childSupervisor);
     const extensionFactories = [gateFactory, childDelegationFactory].filter(Boolean);
+    let lspDiagnosticsFactory = null;
     let lease = null;
     let taskWorkspaceLease = null;
     let childCwd = ctx.cwd;
@@ -978,6 +980,11 @@ export function createChildSupervisor(ctx) {
         };
       }
     }
+    lspDiagnosticsFactory = createLspDiagnosticsExtensionFactory({
+      cwd: childCwd,
+      emitDiagnostics: (diagnostics) => emit('workspace.diagnostics.updated', diagnostics),
+    });
+    extensionFactories.push(lspDiagnosticsFactory);
     const effectiveObjective =
       lease?.isolated && access === 'write'
         ? [
@@ -1356,6 +1363,7 @@ export function createChildSupervisor(ctx) {
     } finally {
       if (timer) clearTimeout(timer);
       unsubscribe();
+      await lspDiagnosticsFactory?.dispose?.();
       session.dispose();
       if (signal) signal.removeEventListener('abort', onAbort);
       await ctx.checkpointManager?.waitForIdle?.(lease?.leaseId).catch(() => undefined);

@@ -3877,6 +3877,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-2);
+  border-radius: var(--off-r-md);
+  outline: 0 solid transparent;
+  transition: background-color var(--off-motion-base) var(--off-motion-ease), outline-color
+    var(--off-motion-base) var(--off-motion-ease);
+}
+
+.off-msg.is-search-target {
+  background: var(--off-accent-surface);
+  outline: 2px solid var(--off-accent);
+  outline-offset: var(--off-sp-2);
 }
 
 .off-msg-head {

@@ -92,6 +92,9 @@ interface OfficeThreadProps {
    * persisted (deferred conversation creation).
    */
   materializeThread?: (firstUserText: string) => Promise<void>;
+  /** Message selected from global search; consumed after the DOM anchor resolves. */
+  focusedMessageId: string | null;
+  onMessageFocusConsumed: () => void;
 }
 
 /**
@@ -471,6 +474,8 @@ export function OfficeThread({
   projectName,
   persistMessage,
   materializeThread,
+  focusedMessageId,
+  onMessageFocusConsumed,
 }: OfficeThreadProps) {
   const attachmentScope = useMemo<ComposerAttachmentScope>(
     () => ({ companyId, projectId, threadId }),
@@ -486,6 +491,32 @@ export function OfficeThread({
     materializeThread,
     employeesById,
   });
+
+  useEffect(() => {
+    if (!focusedMessageId) return;
+    let attempts = 0;
+    let timer = 0;
+    const reveal = () => {
+      const target = document.getElementById(`off-message-${focusedMessageId}`);
+      if (!target && attempts < 50) {
+        attempts += 1;
+        timer = window.setTimeout(reveal, 50);
+        return;
+      }
+      if (target) {
+        target.classList.remove('is-search-target');
+        void target.offsetWidth;
+        target.classList.add('is-search-target');
+        target.scrollIntoView({ behavior: 'auto', block: 'center' });
+        target.focus({ preventScroll: true });
+        window.setTimeout(() => target.classList.remove('is-search-target'), 2_400);
+      }
+      onMessageFocusConsumed();
+    };
+    timer = window.setTimeout(reveal, 0);
+    return () => window.clearTimeout(timer);
+  }, [focusedMessageId, onMessageFocusConsumed]);
+
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="off-thread">

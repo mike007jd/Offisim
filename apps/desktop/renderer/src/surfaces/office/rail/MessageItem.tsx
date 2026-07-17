@@ -118,7 +118,12 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
   const loopRevisionIds = loopRevisionIdsInBody(message.body ?? '');
   return (
     <MessagePrimitive.Root asChild>
-      <article className={cn('off-msg', `is-${message.author}`)}>
+      <article
+        id={`off-message-${message.id}`}
+        data-message-id={message.id}
+        tabIndex={-1}
+        className={cn('off-msg', `is-${message.author}`)}
+      >
         <header className="off-msg-head">
           {meta.employee ? (
             <EmployeeAvatar
