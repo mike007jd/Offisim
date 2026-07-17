@@ -39,13 +39,11 @@ export class ConversationBudgetService {
     let compactBaseline: CompactBaselineState | null = parseCompactBaseline(
       thread?.compact_baseline_json ?? null,
     );
-    const compactedMessages = microCompactMessages(request.messages, {
-      maxToolResultBytes: options.microMaxToolResultBytes,
-      snippetBytes: options.microSnippetBytes,
-      preserveLastN: options.microPreserveLastN,
-    }).messages;
-    const systemMessages = compactedMessages.filter((message) => message.role === 'system');
-    const rawNonSystemMessages = compactedMessages.filter((message) => message.role !== 'system');
+    const existingSynopsis = compactBaseline
+      ? null
+      : this.synopsisGenerator.parseExisting(thread?.synopsis_json ?? null);
+    const systemMessages = request.messages.filter((message) => message.role === 'system');
+    let rawNonSystemMessages = request.messages.filter((message) => message.role !== 'system');
     let nonSystemMessages = compactBaseline
       ? rawNonSystemMessages.slice(
           Math.min(compactBaseline.compactedNonSystemMessageCount, rawNonSystemMessages.length),
@@ -62,6 +60,29 @@ export class ConversationBudgetService {
     );
 
     const forceFullCompact = preparation.forceFullCompact === true;
+    let requestMessagesChanged = false;
+    if (options.enabled && !forceFullCompact && !compactBaseline && !existingSynopsis) {
+      const preMicroCompactTokens = estimateTokens(nonSystemMessages);
+      if (preMicroCompactTokens >= options.microCompactTriggerTokens) {
+        const microCompact = microCompactMessages(nonSystemMessages, {
+          maxToolResultBytes: options.microMaxToolResultBytes,
+          snippetBytes: options.microSnippetBytes,
+          preserveLastN: options.microPreserveLastN,
+        });
+        if (microCompact.compacted > 0) {
+          nonSystemMessages = [...microCompact.messages];
+          rawNonSystemMessages = nonSystemMessages;
+          requestMessagesChanged = true;
+          await this.recordMicroCompact(ctx, {
+            compactedToolCallIds: microCompact.compactedToolCallIds,
+            bytesSaved: microCompact.bytesSaved,
+            preCompactMessageCount: nonSystemMessages.length,
+            preCompactTokenCount: preMicroCompactTokens,
+            postCompactTokenCount: estimateTokens(nonSystemMessages),
+          });
+        }
+      }
+    }
 
     if (!options.enabled && !forceFullCompact) {
       return {
@@ -79,14 +100,11 @@ export class ConversationBudgetService {
 
     if (!forceFullCompact && nonSystemMessages.length <= effectiveMaxNonSystemMessages) {
       const prepared = buildRequestMessages(systemMessages, compactBaseline, nonSystemMessages);
-      return compactedMessages === request.messages && !compactBaseline
+      return !requestMessagesChanged && !compactBaseline
         ? request
         : { ...request, messages: prepared };
     }
 
-    const existingSynopsis = compactBaseline
-      ? null
-      : this.synopsisGenerator.parseExisting(thread?.synopsis_json ?? null);
     const approximateTokens = estimateTokens(nonSystemMessages);
     const wantsInitialFullCompact =
       !compactBaseline &&
@@ -171,5 +189,45 @@ export class ConversationBudgetService {
         },
       ),
     };
+  }
+
+  private async recordMicroCompact(
+    ctx: RuntimeContext,
+    input: {
+      compactedToolCallIds: readonly string[];
+      bytesSaved: number;
+      preCompactMessageCount: number;
+      preCompactTokenCount: number;
+      postCompactTokenCount: number;
+    },
+  ): Promise<void> {
+    const summaryText = JSON.stringify({
+      compactedToolCallIds: input.compactedToolCallIds,
+      bytesSaved: input.bytesSaved,
+      postCompactTokenCount: input.postCompactTokenCount,
+    });
+    const [latestCompact] = await ctx.repos.compactSummaries.listByThread(ctx.threadId, {
+      limit: 1,
+    });
+    if (
+      latestCompact?.compact_kind === 'microcompact' &&
+      latestCompact.summary_text === summaryText
+    ) {
+      return;
+    }
+    const compactId = ctx.determinism.id('mcb');
+    await ctx.repos.compactSummaries.create({
+      compact_id: compactId,
+      thread_id: ctx.threadId,
+      company_id: ctx.companyId,
+      compact_kind: 'microcompact',
+      summary_source: 'deterministic',
+      summary_text: summaryText,
+      pre_compact_message_count: input.preCompactMessageCount,
+      pre_compact_token_count: input.preCompactTokenCount,
+      messages_compacted: input.compactedToolCallIds.length,
+      failure_streak: 0,
+      created_at: ctx.determinism.nowIso(),
+    });
   }
 }

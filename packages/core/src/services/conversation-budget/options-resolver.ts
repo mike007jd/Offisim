@@ -10,6 +10,8 @@ export interface ConversationBudgetServiceOptions {
   microMaxToolResultBytes?: number;
   microSnippetBytes?: number;
   microPreserveLastN?: number;
+  microCompactTriggerTokens?: number;
+  microCompactTriggerRatio?: number;
   synopsisFailureThreshold?: number;
   postCompactKeepNodeSummaries?: number;
   fullCompactTriggerTokens?: number;
@@ -40,6 +42,7 @@ export interface ResolvedConversationBudgetOptions {
   microMaxToolResultBytes: number;
   microSnippetBytes: number;
   microPreserveLastN: number;
+  microCompactTriggerTokens: number;
   synopsisFailureThreshold: number;
   postCompactKeepNodeSummaries: number;
   fullCompactTriggerTokens: number;
@@ -55,7 +58,7 @@ export const DEFAULT_TOOL_RESULT_KEEP_RECENT = 4;
 export const DEFAULT_TOOL_RESULT_MAX_CONTENT_CHARS = 400;
 export const DEFAULT_MICRO_MAX_TOOL_RESULT_BYTES = 8000;
 export const DEFAULT_MICRO_SNIPPET_BYTES = 400;
-export const DEFAULT_MICRO_PRESERVE_LAST_N = 1;
+export const DEFAULT_MICRO_COMPACT_TRIGGER_RATIO = 0.6;
 export const DEFAULT_SYNOPSIS_FAILURE_THRESHOLD = 3;
 export const DEFAULT_POST_COMPACT_KEEP_NODE_SUMMARIES = 12;
 export const DEFAULT_FULL_COMPACT_TRIGGER_TOKENS = 90_000;
@@ -87,6 +90,18 @@ export function resolveOptions(
     1,
     Math.floor(Math.max(1, contextWindow - reservedOutput) * triggerRatio),
   );
+  const microTriggerRatio = Math.min(
+    triggerRatio,
+    Math.max(0.1, defaults.microCompactTriggerRatio ?? DEFAULT_MICRO_COMPACT_TRIGGER_RATIO),
+  );
+  const windowDerivedMicroCompactTrigger = Math.max(
+    1,
+    Math.floor(Math.max(1, contextWindow - reservedOutput) * microTriggerRatio),
+  );
+  const fullCompactTriggerTokens = Math.max(
+    2,
+    defaults.fullCompactTriggerTokens ?? windowDerivedFullCompactTrigger,
+  );
   const keepRecentMessages = Math.max(
     0,
     summarization?.keepRecentMessages ?? DEFAULT_TAIL_NON_SYSTEM_MESSAGES,
@@ -107,12 +122,19 @@ export function resolveOptions(
     microMaxToolResultBytes:
       defaults.microMaxToolResultBytes ?? DEFAULT_MICRO_MAX_TOOL_RESULT_BYTES,
     microSnippetBytes: defaults.microSnippetBytes ?? DEFAULT_MICRO_SNIPPET_BYTES,
-    microPreserveLastN: defaults.microPreserveLastN ?? DEFAULT_MICRO_PRESERVE_LAST_N,
+    microPreserveLastN:
+      defaults.microPreserveLastN ??
+      defaults.toolResultKeepRecent ??
+      DEFAULT_TOOL_RESULT_KEEP_RECENT,
+    microCompactTriggerTokens: Math.min(
+      defaults.microCompactTriggerTokens ?? windowDerivedMicroCompactTrigger,
+      Math.max(1, fullCompactTriggerTokens - 1),
+    ),
     synopsisFailureThreshold:
       defaults.synopsisFailureThreshold ?? DEFAULT_SYNOPSIS_FAILURE_THRESHOLD,
     postCompactKeepNodeSummaries:
       defaults.postCompactKeepNodeSummaries ?? DEFAULT_POST_COMPACT_KEEP_NODE_SUMMARIES,
-    fullCompactTriggerTokens: defaults.fullCompactTriggerTokens ?? windowDerivedFullCompactTrigger,
+    fullCompactTriggerTokens,
     fullCompactTriggerMessages:
       defaults.fullCompactTriggerMessages ?? DEFAULT_FULL_COMPACT_TRIGGER_MESSAGES,
     fullCompactFailureThreshold:

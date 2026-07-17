@@ -4,12 +4,15 @@ export interface MicroCompactOptions {
   readonly maxToolResultBytes?: number;
   readonly snippetBytes?: number;
   readonly preserveLastN?: number;
+  /** Messages at and after this index are part of the protected current turn. */
+  readonly protectFromIndex?: number;
 }
 
 export interface MicroCompactResult {
   readonly messages: readonly LlmMessage[];
   readonly compacted: number;
   readonly bytesSaved: number;
+  readonly compactedToolCallIds: readonly string[];
 }
 
 const DEFAULT_MAX_TOOL_RESULT_BYTES = 8000;
@@ -59,19 +62,47 @@ export function microCompactMessages(
   const maxToolResultBytes = opts.maxToolResultBytes ?? DEFAULT_MAX_TOOL_RESULT_BYTES;
   const snippetBytes = opts.snippetBytes ?? DEFAULT_SNIPPET_BYTES;
   const preserveLastN = Math.max(0, opts.preserveLastN ?? DEFAULT_PRESERVE_LAST_N);
-  const toolIndices = messages.flatMap((message, index) =>
-    message.role === 'tool' ? [index] : [],
+  let lastUserIndex = -1;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'user') {
+      lastUserIndex = index;
+      break;
+    }
+  }
+  const protectFromIndex = Math.min(
+    messages.length,
+    Math.max(0, opts.protectFromIndex ?? (lastUserIndex >= 0 ? lastUserIndex : messages.length)),
   );
-  const compactBefore = Math.max(0, toolIndices.length - preserveLastN);
+  const owningToolUses = new Map<string, number>();
+  const eligibleToolResults: Array<{ index: number; toolCallId: string }> = [];
+
+  for (let index = 0; index < protectFromIndex; index += 1) {
+    const message = messages[index];
+    if (!message) continue;
+    if (message.role === 'assistant') {
+      for (const toolCall of message.toolCalls ?? []) owningToolUses.set(toolCall.id, index);
+      continue;
+    }
+    if (
+      message.role === 'tool' &&
+      message.toolCallId &&
+      (owningToolUses.get(message.toolCallId) ?? index) < index
+    ) {
+      eligibleToolResults.push({ index, toolCallId: message.toolCallId });
+    }
+  }
+
+  const compactBefore = Math.max(0, eligibleToolResults.length - preserveLastN);
   let compactedMessages: LlmMessage[] | null = null;
   let compacted = 0;
   let bytesSaved = 0;
+  const compactedToolCallIds: string[] = [];
 
   for (let i = 0; i < compactBefore; i++) {
-    const messageIndex = toolIndices[i];
-    if (messageIndex == null) continue;
+    const candidate = eligibleToolResults[i];
+    if (!candidate) continue;
 
-    const message = messages[messageIndex];
+    const message = messages[candidate.index];
     if (!message) continue;
 
     const origBytes = byteLength(message.content);
@@ -79,17 +110,19 @@ export function microCompactMessages(
 
     const nextContent = buildCompactedContent(message.content, origBytes, snippetBytes);
     compactedMessages ??= [...messages];
-    compactedMessages[messageIndex] = {
+    compactedMessages[candidate.index] = {
       ...message,
       content: nextContent,
     };
     compacted += 1;
     bytesSaved += Math.max(0, origBytes - byteLength(nextContent));
+    compactedToolCallIds.push(candidate.toolCallId);
   }
 
   return {
     messages: compactedMessages ?? messages,
     compacted,
     bytesSaved,
+    compactedToolCallIds,
   };
 }
