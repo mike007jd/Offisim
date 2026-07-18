@@ -31,6 +31,7 @@ import { StageSessionReconciler } from './stage-viewer/StageSessionReconciler.js
 import {
   GameViewOptions,
   StageAutoOpen,
+  StageRunStatusCluster,
   StageTopBar,
   StageViewer,
 } from './stage-viewer/StageViewer.js';
@@ -157,7 +158,7 @@ export function OfficeStage() {
 
   return (
     <section ref={stageRef} className={cn('off-stage', isRunning && 'is-live')}>
-      <StageTopBar isRunning={isRunning} accounting={accounting} />
+      <StageTopBar />
       <div
         className={cn(
           'off-scene-host',
@@ -172,7 +173,12 @@ export function OfficeStage() {
         ) : (
           <OfficeScene2D pip={sceneIsPip} />
         )}
-        <GameViewControls />
+        {stagePrimaryTab === 'game' ? (
+          <div className="off-scene-hud">
+            <StageRunStatusCluster isRunning={isRunning} accounting={accounting} />
+            <GameViewControls />
+          </div>
+        ) : null}
         {emptyOffice ? (
           // Honest empty office: the scene keeps its bare floor and seats
           // nobody; this HTML overlay carries the guidance for both modes.
@@ -221,7 +227,7 @@ export function OfficeStage() {
       </div>
       <StageAutoOpen />
       <StageSessionReconciler />
-      <StageViewer />
+      <StageViewer isRunning={isRunning} accounting={accounting} />
 
       {/* Read-only workload drilldown (INC-5): self-gates on `workloadDrilldown`
           state; opened from an office actor / workload bubble / delivery chip.

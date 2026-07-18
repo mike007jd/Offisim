@@ -17,22 +17,18 @@
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: 42px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   background: var(--off-surface-0);
 }
 
-.off-board-toolbar {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-3);
-  padding: 0 var(--off-sp-4);
-  border-bottom: 1px solid var(--off-line-soft);
-  background: var(--off-surface-1);
-}
-
 .off-board-scope-note {
-  margin-left: auto;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-1);
   color: var(--off-ink-4);
   font-family: var(--off-font-mono);
   font-size: var(--off-fs-micro);

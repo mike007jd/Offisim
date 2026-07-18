@@ -80,7 +80,7 @@ interface StageMenuItem {
   onSelect: () => void;
 }
 
-interface StageTopBarProps {
+interface StageRunStatusProps {
   isRunning: boolean;
   accounting: TaskAccountingPresentation;
 }
@@ -118,7 +118,7 @@ function htmlDeliverable(deliverables: readonly Deliverable[]) {
   return deliverables.find((d) => d.format?.toUpperCase() === 'HTML') ?? null;
 }
 
-export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
+export function StageTopBar() {
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
   const boardLens = useUiState((s) => s.boardLens);
@@ -297,27 +297,6 @@ export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
       </div>
 
       <div className="off-stage-topbar-right">
-        <RunPipelinePill />
-        <output
-          className={cn(
-            'off-stage-readout',
-            isRunning && 'is-live',
-            accounting.tone !== 'neutral' && `is-${accounting.tone}`,
-          )}
-          aria-label={accounting.ariaLabel}
-          title={accounting.title}
-        >
-          <span className="off-stage-readout-part">
-            <Icon icon={accounting.kind === 'subscription' ? Gauge : Coins} size="sm" />
-            <b>{accounting.primary}</b>
-          </span>
-          {accounting.secondary ? (
-            <>
-              <span className="off-stage-readout-div" />
-              <b>{accounting.secondary}</b>
-            </>
-          ) : null}
-        </output>
         <button
           type="button"
           className="off-stage-max-btn off-focusable"
@@ -338,6 +317,35 @@ export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
           <Icon icon={rightRailCollapsed ? PanelRightOpen : PanelRightClose} size="sm" />
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Run state belongs to stage content, never to the view-tab strip. */
+export function StageRunStatusCluster({ isRunning, accounting }: StageRunStatusProps) {
+  return (
+    <div className="off-stage-status-cluster" data-stage-run-status aria-label="Stage run status">
+      <RunPipelinePill />
+      <output
+        className={cn(
+          'off-stage-readout',
+          isRunning && 'is-live',
+          accounting.tone !== 'neutral' && `is-${accounting.tone}`,
+        )}
+        aria-label={accounting.ariaLabel}
+        title={accounting.title}
+      >
+        <span className="off-stage-readout-part">
+          <Icon icon={accounting.kind === 'subscription' ? Gauge : Coins} size="sm" />
+          <b>{accounting.primary}</b>
+        </span>
+        {accounting.secondary ? (
+          <>
+            <span className="off-stage-readout-div" />
+            <b>{accounting.secondary}</b>
+          </>
+        ) : null}
+      </output>
     </div>
   );
 }
@@ -900,7 +908,7 @@ function StageAutoOpenForThread({ threadId }: { threadId: string }) {
   return null;
 }
 
-export function StageViewer() {
+export function StageViewer({ isRunning, accounting }: StageRunStatusProps) {
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const stageView = useUiState((s) => s.stageView);
   const stageOpenTabs = useUiState((s) => s.stageOpenTabs);
@@ -927,7 +935,13 @@ export function StageViewer() {
           onLayoutChanged={setStageSplitLayout}
         >
           <Panel id="stage-primary" minSize="30%">
-            <StageViewPane tab={viewerTab} target={visibleTarget} tabId={activeStageTabId} />
+            <StageViewPane
+              tab={viewerTab}
+              target={visibleTarget}
+              tabId={activeStageTabId}
+              isRunning={isRunning}
+              accounting={accounting}
+            />
           </Panel>
           <Separator
             className="off-resize-handle off-stage-split-handle"
@@ -939,11 +953,19 @@ export function StageViewer() {
               target={splitTab.target}
               tabId={splitTab.id}
               split
+              isRunning={isRunning}
+              accounting={accounting}
             />
           </Panel>
         </Group>
       ) : (
-        <StageViewPane tab={viewerTab} target={visibleTarget} tabId={activeStageTabId} />
+        <StageViewPane
+          tab={viewerTab}
+          target={visibleTarget}
+          tabId={activeStageTabId}
+          isRunning={isRunning}
+          accounting={accounting}
+        />
       )}
     </section>
   );
@@ -954,19 +976,28 @@ function StageViewPane({
   target,
   tabId,
   split = false,
+  isRunning,
+  accounting,
 }: {
   tab: Exclude<StagePrimaryTab, 'game'>;
   target: StageViewTarget | null;
   tabId: string | null;
   split?: boolean;
-}) {
+} & StageRunStatusProps) {
   return (
     <StageChromeProvider>
       <section
         className={cn('off-stage-viewer-pane', split && 'is-split')}
         aria-label={split ? `Pinned ${viewerTitle(tab)} view` : `${viewerTitle(tab)} view`}
       >
-        <StageViewerHead tab={tab} target={target} tabId={tabId} split={split} />
+        <StageViewerHead
+          tab={tab}
+          target={target}
+          tabId={tabId}
+          split={split}
+          isRunning={isRunning}
+          accounting={accounting}
+        />
         <div className="off-stage-viewer-body">
           <StageTabBody tab={tab} target={target} />
         </div>
@@ -980,12 +1011,14 @@ function StageViewerHead({
   target,
   tabId,
   split,
+  isRunning,
+  accounting,
 }: {
   tab: Exclude<StagePrimaryTab, 'game'>;
   target: StageViewTarget | null;
   tabId: string | null;
   split: boolean;
-}) {
+} & StageRunStatusProps) {
   const closeStageView = useUiState((s) => s.closeStageView);
   const closeStageTab = useUiState((s) => s.closeStageTab);
   const toggleStageSplitTab = useUiState((s) => s.toggleStageSplitTab);
@@ -1002,6 +1035,7 @@ function StageViewerHead({
       </div>
       <div className="off-stage-viewer-controls">
         {chrome?.actions ? <div className="off-preview-actions">{chrome.actions}</div> : null}
+        <StageRunStatusCluster isRunning={isRunning} accounting={accounting} />
         {split && tabId ? (
           <button
             type="button"
