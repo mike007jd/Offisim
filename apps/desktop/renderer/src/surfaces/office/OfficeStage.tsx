@@ -20,7 +20,7 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react';
-import { Suspense, useEffect, useRef, useSyncExternalStore } from 'react';
+import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { RecoveryPanel } from './RecoveryPanel.js';
 import { WorkloadDrilldown } from './WorkloadDrilldown.js';
@@ -83,6 +83,21 @@ export function OfficeStage() {
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const scenePipCollapsed = useUiState((s) => s.scenePipCollapsed);
   const setScenePipCollapsed = useUiState((s) => s.setScenePipCollapsed);
+  const stageRef = useRef<HTMLElement>(null);
+  const [compactStage, setCompactStage] = useState(false);
+  const [compactPipExpanded, setCompactPipExpanded] = useState(false);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const compact = (entry?.contentRect.width ?? stage.clientWidth) < 560;
+      setCompactStage(compact);
+      if (!compact) setCompactPipExpanded(false);
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
   const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
   const setSurface = useUiState((s) => s.setSurface);
   const companyId = useUiState((s) => s.companyId);
@@ -137,10 +152,11 @@ export function OfficeStage() {
   const layout = useOfficeLayout(companyId);
   const emptyOffice = zoneDefsFromLayout(layout.data).length === 0;
   const sceneIsPip = stagePrimaryTab !== 'game';
-  const sceneIsCollapsed = sceneIsPip && scenePipCollapsed;
+  const sceneIsCollapsed =
+    sceneIsPip && (scenePipCollapsed || (compactStage && !compactPipExpanded));
 
   return (
-    <section className={cn('off-stage', isRunning && 'is-live')}>
+    <section ref={stageRef} className={cn('off-stage', isRunning && 'is-live')}>
       <StageTopBar isRunning={isRunning} accounting={accounting} />
       <div
         className={cn(
@@ -183,11 +199,22 @@ export function OfficeStage() {
             <button
               type="button"
               className="off-scene-pip-collapse off-focusable"
-              onClick={() => setScenePipCollapsed(!scenePipCollapsed)}
-              aria-label={scenePipCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
-              title={scenePipCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
+              onClick={() => {
+                if (compactStage) {
+                  if (sceneIsCollapsed) {
+                    setScenePipCollapsed(false);
+                    setCompactPipExpanded(true);
+                  } else {
+                    setCompactPipExpanded(false);
+                  }
+                  return;
+                }
+                setScenePipCollapsed(!scenePipCollapsed);
+              }}
+              aria-label={sceneIsCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
+              title={sceneIsCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
             >
-              <Icon icon={scenePipCollapsed ? PictureInPicture2 : PanelBottomClose} size="sm" />
+              <Icon icon={sceneIsCollapsed ? PictureInPicture2 : PanelBottomClose} size="sm" />
             </button>
           </div>
         ) : null}

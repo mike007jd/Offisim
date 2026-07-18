@@ -256,9 +256,9 @@ export function McpServersPane() {
   return (
     <div className="off-set-pane">
       <div className="off-set-panehead">
-        <div className="off-set-panetitle">MCP Servers</div>
+        <div className="off-set-panetitle">Tools &amp; Integrations</div>
         <div className="off-set-panedesc">
-          Tool servers your employees can use. Stdio servers need your approval to start.
+          Connect MCP tool servers for employees. Local servers need your approval before starting.
         </div>
         {!desktopAvailable ? (
           <div className="off-set-callout">

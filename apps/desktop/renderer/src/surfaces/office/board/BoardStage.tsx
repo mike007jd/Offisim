@@ -20,8 +20,8 @@ import {
   SkeletonRows,
   errorDetail,
 } from '@/surfaces/shared/SurfaceStates.js';
-import { useQuery } from '@tanstack/react-query';
 import type { CompetitiveDraftGroupRow } from '@offisim/core/browser';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { CompetitiveDraftDialog } from './CompetitiveDraftDialog.js';
 import {
   type ActivityRecord,
   checkpointPathForDisplay,
@@ -50,6 +51,7 @@ import {
   groupByTime,
   useActivityRecords,
 } from './activity-data.js';
+import { startCompetitiveDraft } from './competitive-draft-actions.js';
 import {
   type TaskBoardRow,
   type TaskBoardStatus,
@@ -67,8 +69,6 @@ import {
   reviewWorkspaceLease,
   workspaceLeaseDecisionAction,
 } from './workspace-lease-actions.js';
-import { CompetitiveDraftDialog } from './CompetitiveDraftDialog.js';
-import { startCompetitiveDraft } from './competitive-draft-actions.js';
 
 type BoardColumnId = 'running' | 'pending_review' | 'done' | 'attention';
 
@@ -225,7 +225,9 @@ export function BoardStage() {
   const highlightedRunId = useUiState((state) => state.boardHighlightedRunId);
   const highlightBoardRun = useUiState((state) => state.highlightBoardRun);
   const lens = useUiState((state) => state.boardLens);
-  const setLens = useUiState((state) => state.setBoardLens);
+  const openDraftThread = useUiState((state) => state.openDraftThread);
+  const openBoard = useUiState((state) => state.openBoard);
+  const setRightRailCollapsed = useUiState((state) => state.setOfficeRightRailCollapsed);
   const board = useTaskBoard(companyId || null);
   const employees = useCompanyEmployees(companyId || null);
   const projects = useProjects(companyId || null);
@@ -239,6 +241,11 @@ export function BoardStage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
   const [draftRow, setDraftRow] = useState<TaskBoardRow | null>(null);
+  const startRequest = useCallback(() => {
+    openDraftThread();
+    openBoard(lens);
+    setRightRailCollapsed(false);
+  }, [lens, openBoard, openDraftThread, setRightRailCollapsed]);
 
   useEffect(() => {
     void recovery.refetch();
@@ -506,24 +513,6 @@ export function BoardStage() {
   return (
     <div className="off-board-stage">
       <header className="off-board-toolbar">
-        <div className="off-board-segment" aria-label="Board lens">
-          <button
-            className={cn('off-focusable', lens === 'board' && 'is-active')}
-            type="button"
-            onClick={() => setLens('board')}
-          >
-            <Icon icon={Columns3} size="sm" />
-            Board
-          </button>
-          <button
-            className={cn('off-focusable', lens === 'timeline' && 'is-active')}
-            type="button"
-            onClick={() => setLens('timeline')}
-          >
-            <Icon icon={History} size="sm" />
-            Timeline
-          </button>
-        </div>
         <span className="off-board-scope-note">
           {lens === 'timeline' ? 'Company-wide timeline' : `${scopedRows.length} requests`}
         </span>
@@ -534,6 +523,7 @@ export function BoardStage() {
           companyId={companyId}
           projectIds={projectIds}
           attentionRootRunIds={attentionRootRunIds}
+          onStartRequest={startRequest}
         />
       ) : board.isError && scopedRows.length === 0 ? (
         <ErrorState
@@ -547,7 +537,8 @@ export function BoardStage() {
         <EmptyState
           icon={Columns3}
           title="No requests yet"
-          description="Requests for this project appear here as soon as work starts. Company-wide history lives in Timeline."
+          description="Start a request in a conversation and its progress will appear here."
+          action={{ label: 'Start a request', onClick: startRequest }}
         />
       ) : (
         <div className={cn('off-board-body', selectedRow && 'is-drawer-open')}>
@@ -722,7 +713,7 @@ function BoardCard({
         </button>
         <button type="button" className="off-board-card-source off-focusable" onClick={onThread}>
           <Icon icon={Link2} size="sm" />
-          {row.threadId.slice(0, 12)} · {row.source ?? 'office'}
+          Open conversation · {row.source === 'workspace' ? 'Workspace' : 'Office'}
         </button>
         <span className="off-board-card-foot">
           <span className="off-board-avatars">
@@ -984,9 +975,7 @@ function BoardDrawer({
                         .filter(Boolean)
                         .join(' · ') || 'Participant roster retained'}
                     </small>
-                    <small>
-                      {competitiveHistoryStatus(group.status)}
-                    </small>
+                    <small>{competitiveHistoryStatus(group.status)}</small>
                   </span>
                   <ChevronRight aria-hidden />
                 </button>
@@ -1042,10 +1031,12 @@ function BoardTimeline({
   companyId,
   projectIds,
   attentionRootRunIds,
+  onStartRequest,
 }: {
   companyId: string;
   projectIds: readonly string[];
   attentionRootRunIds: ReadonlySet<string>;
+  onStartRequest: () => void;
 }) {
   const records = useActivityRecords(companyId, projectIds);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1098,7 +1089,8 @@ function BoardTimeline({
       <EmptyState
         icon={History}
         title="No company activity yet"
-        description="Runtime and workspace events appear here as work happens."
+        description="Start a request to build a company-wide history of work and reviews."
+        action={{ label: 'Start a request', onClick: onStartRequest }}
       />
     );
   return (
@@ -1122,11 +1114,6 @@ function BoardTimeline({
                 attentionRootRunIds.has(checkpoint.rootRunId),
             );
             const confirmTarget = confirmState?.anchorId === record.id ? confirmState.target : null;
-            const machineDetails = checkpoint
-              ? `Run ID: ${checkpoint.runId}\nCheckpoint ID: ${checkpoint.checkpointId}`
-              : record.rollback
-                ? `Rollback ID: ${record.rollback.rollbackId}\nCheckpoint ID: ${record.rollback.checkpointId}`
-                : undefined;
             return (
               <div
                 className={cn(
@@ -1137,7 +1124,7 @@ function BoardTimeline({
                 key={record.id}
               >
                 <Icon icon={icon} size="sm" className={`is-${color}`} />
-                <span title={machineDetails}>
+                <span>
                   {summary.actor ? <b>{summary.actor} · </b> : null}
                   {summary.label}
                   {collapsedCount ? <em> ×{collapsedCount}</em> : null}
@@ -1171,7 +1158,7 @@ function BoardTimeline({
                           baseline && setConfirmState({ anchorId: record.id, target: baseline })
                         }
                       >
-                        撤到本轮开始前
+                        Rewind to before this run
                       </button>
                     ) : null}
                     {expanded ? (

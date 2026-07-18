@@ -1,4 +1,4 @@
-import type { SurfaceKey } from '@/app/ui-state.js';
+import { type SurfaceKey, guardCurrentSurfaceScopeChange, useUiState } from '@/app/ui-state.js';
 import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
 import { reposOrNull } from '@/data/adapters.js';
 import type { RuntimeRepositories } from '@offisim/core/browser';
@@ -74,7 +74,7 @@ export async function activateCompanyScope({
   /** Reserved for automatic bootstrap, which must claim its intent before its
    * first repository await so a later user selection always supersedes it. */
   activationId?: number;
-}): Promise<void> {
+}): Promise<boolean> {
   const activationId = providedActivationId ?? beginCompanyScopeActivation();
   const repos = await reposOrNull();
   let projectId = '';
@@ -93,12 +93,22 @@ export async function activateCompanyScope({
     );
     projectId = await resolveCompanyScopeProjectId(repos, companyId);
   }
-  commitCompanyScopeActivation(
-    activationId,
-    () => shouldCommit?.() ?? true,
-    () => {
+  const canCommit = () => shouldCommit?.() ?? true;
+  let currentIntent = false;
+  commitCompanyScopeActivation(activationId, canCommit, () => {
+    currentIntent = true;
+  });
+  if (!currentIntent) return false;
+
+  let committed = false;
+  const targetSurface = surface ?? useUiState.getState().surface;
+  const allowed = await guardCurrentSurfaceScopeChange(targetSurface, () => {
+    // The user may leave a discard dialog open while choosing another
+    // company. Re-check intent ordering at the actual commit boundary.
+    committed = commitCompanyScopeActivation(activationId, canCommit, () => {
       setScope(companyId, projectId);
       if (surface && setSurface) setSurface(surface);
-    },
-  );
+    });
+  });
+  return allowed && committed;
 }

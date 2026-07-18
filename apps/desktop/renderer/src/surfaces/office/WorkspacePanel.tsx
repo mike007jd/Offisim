@@ -86,6 +86,11 @@ function compactPath(path: string | null | undefined) {
   return path.replace(/^\/Users\/[^/]+/u, '~');
 }
 
+function folderName(path: string | null | undefined) {
+  if (!path) return 'Project folder';
+  return path.replace(/\/$/u, '').split('/').at(-1) || 'Project folder';
+}
+
 const STATUS_GLYPH: Record<GitFileChange['status'], string> = {
   added: 'A',
   modified: 'M',
@@ -225,12 +230,24 @@ function FilesTab({
     await invokePathCommand('reveal_local_path', node);
   }
 
+  async function openWorkspaceRoot() {
+    if (!isTauriRuntime()) {
+      toast.error('File actions require the desktop runtime');
+      return;
+    }
+    try {
+      await invokeCommand('open_local_path', { projectId, path: '.' });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not open the Project folder');
+    }
+  }
+
   return (
     <>
       <div className="off-ws-toolbar">
         <span className="off-ws-wsroot" title={workspaceRoot}>
           <Icon icon={FolderOpen} size="sm" />
-          {compactPath(workspaceRoot)}
+          {folderName(workspaceRoot)}
         </span>
         <SearchInput value={query} onChange={setQuery} placeholder="Search files…" />
       </div>
@@ -294,6 +311,11 @@ function FilesTab({
                 : 'Add files to the Project folder, then rescan.'
             }
             action={
+              files.data?.length
+                ? undefined
+                : { label: 'Open Project folder', onClick: () => void openWorkspaceRoot() }
+            }
+            secondaryAction={
               files.data?.length
                 ? undefined
                 : { label: 'Rescan', onClick: () => void files.refetch() }

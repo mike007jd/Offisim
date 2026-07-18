@@ -35,26 +35,26 @@ type SettingsTab =
 
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
   { key: 'providers', label: 'AI Accounts', icon: WalletCards },
-  { key: 'runtime', label: 'Runtime', icon: Cpu },
-  { key: 'mcp', label: 'MCP', icon: Plug },
-  { key: 'computer', label: 'Computer Use', icon: MonitorSmartphone },
+  { key: 'runtime', label: 'Usage & Storage', icon: Cpu },
+  { key: 'mcp', label: 'Tools & Integrations', icon: Plug },
+  { key: 'computer', label: 'Computer Access', icon: MonitorSmartphone },
   { key: 'companion', label: 'Codex Pets', icon: PawPrint },
-  { key: 'external', label: 'External Employees', icon: Users },
+  { key: 'external', label: 'Connected Employees', icon: Users },
   { key: 'updates', label: 'App Updates', icon: Download },
-  { key: 'advanced', label: 'Advanced', icon: Cable },
+  { key: 'advanced', label: 'Service Connections', icon: Cable },
 ];
 
 function SettingsCompanion({ tab }: { tab: SettingsTab }) {
   if (tab === 'runtime') {
     return (
-      <aside className="off-set-companion" aria-label="Runtime summary">
+      <aside className="off-set-companion" aria-label="Usage and storage summary">
         <div className="off-set-comp-card">
           <div className="off-set-comp-main">
             <Icon icon={Cpu} size="sm" />
-            Session controls
+            Usage &amp; storage
           </div>
           <p className="off-set-comp-copy">
-            Choose run mode, model, and thinking in each conversation composer.
+            Set usage alerts and manage local data or diagnostics.
           </p>
         </div>
       </aside>
@@ -63,13 +63,13 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
 
   if (tab === 'mcp') {
     return (
-      <aside className="off-set-companion" aria-label="MCP summary">
+      <aside className="off-set-companion" aria-label="Tools and integrations summary">
         <div className="off-set-comp-card">
           <div className="off-set-comp-main">
             <Icon icon={Plug} size="sm" />
-            MCP servers
+            Tools &amp; integrations
           </div>
-          <p className="off-set-comp-copy">Connect tools and manage per-employee access.</p>
+          <p className="off-set-comp-copy">Connect tool servers and manage employee access.</p>
         </div>
       </aside>
     );
@@ -97,10 +97,10 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
         <div className="off-set-comp-card">
           <div className="off-set-comp-main">
             <Icon icon={MonitorSmartphone} size="sm" />
-            Driver &amp; access
+            Computer access
           </div>
           <p className="off-set-comp-copy">
-            Check driver readiness and manage per-employee Computer Use access.
+            Check computer control readiness and manage employee access.
           </p>
         </div>
       </aside>
@@ -109,13 +109,13 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
 
   if (tab === 'external') {
     return (
-      <aside className="off-set-companion" aria-label="External employees summary">
+      <aside className="off-set-companion" aria-label="Connected employees summary">
         <div className="off-set-comp-card">
           <div className="off-set-comp-main">
             <Icon icon={Users} size="sm" />
-            External employees
+            Connected employees
           </div>
-          <p className="off-set-comp-copy">Manage connected A2A employees.</p>
+          <p className="off-set-comp-copy">Manage employees connected from external services.</p>
         </div>
       </aside>
     );

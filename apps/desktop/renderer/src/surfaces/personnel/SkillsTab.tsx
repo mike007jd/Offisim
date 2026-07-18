@@ -1,7 +1,13 @@
+import { useUiState } from '@/app/ui-state.js';
 import { useEmployeeSkills } from '@/data/queries.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
 import { CheckCircle2, Puzzle, TriangleAlert } from 'lucide-react';
 
 interface SkillsTabProps {
@@ -10,6 +16,7 @@ interface SkillsTabProps {
 
 export function SkillsTab({ employeeId }: SkillsTabProps) {
   const skills = useEmployeeSkills(employeeId);
+  const setSurface = useUiState((state) => state.setSurface);
   const sourceLabel = (scope: 'company' | 'employee' | 'project') =>
     scope === 'employee' ? 'employee' : scope;
 
@@ -26,13 +33,12 @@ export function SkillsTab({ employeeId }: SkillsTabProps) {
         ) : skills.isLoading ? (
           <SkeletonRows rows={3} />
         ) : !skills.data?.length ? (
-          <div className="off-pers-sk-empty">
-            <Icon icon={Puzzle} size="md" />
-            <p>
-              No skills available. Skills installed from the marketplace or created locally will
-              appear here.
-            </p>
-          </div>
+          <EmptyState
+            icon={Puzzle}
+            title="No skills yet"
+            description="Add a skill to give this employee a repeatable way to handle specialized work."
+            action={{ label: 'Browse available skills', onClick: () => setSurface('market') }}
+          />
         ) : (
           skills.data.map((skill) => (
             <div key={skill.id} className="off-pers-skrow">

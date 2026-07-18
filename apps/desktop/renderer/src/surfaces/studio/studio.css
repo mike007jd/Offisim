@@ -1,17 +1,30 @@
-/* ══════════ Studio editor surface ══════════
-   Unity/Godot-style office editor: scene hierarchy (left) · 3D viewport with a
-   UE-style prefab content browser docked under it (center) · inspector (right). */
+/* ══════════ Studio office-layout editor ══════════ */
 
 .off-studio {
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr) 280px;
+  display: flex;
   min-height: 0;
   background: var(--off-bg);
 }
 
+.off-studio-aux-panel,
+.off-studio-center-panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+.off-studio-resize-handle {
+  width: 5px;
+  flex: none;
+}
+
+.off-studio-resize-handle.is-hidden {
+  display: none;
+}
+
 .off-studio-panel {
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -132,6 +145,8 @@
 
 /* ── Stage column ────────────────────────────────────────────────── */
 .off-studio-stage {
+  height: 100%;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -226,6 +241,18 @@
   min-height: 0;
 }
 
+.off-studio-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--off-sp-3);
+  color: var(--off-ink-3);
+  background: var(--off-surface-0);
+  font-size: var(--off-fs-sm);
+}
+
 /* ── Prefab content browser (UE-style bottom drawer) ─────────────── */
 .off-studio-browser {
   flex: none;
@@ -253,15 +280,40 @@
   white-space: nowrap;
 }
 
-.off-studio-browser-track {
+.off-studio-browser-scroll-shell {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 28px;
+  align-items: stretch;
+}
+
+.off-studio-browser-scroll-button {
+  align-self: center;
+  z-index: var(--off-z-raised);
+}
+
+.off-studio-browser-scroll-button:disabled {
+  visibility: hidden;
+}
+
+.off-studio-browser-track {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--off-sp-2) var(--off-sp-2) var(--off-sp-3);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+}
+
+.off-studio-browser-track-content {
+  width: max-content;
+  min-width: 100%;
+  height: 100%;
   display: flex;
   align-items: stretch;
   gap: var(--off-sp-2);
-  padding: var(--off-sp-2) var(--off-sp-5) var(--off-sp-3);
-  overflow-x: auto;
-  overflow-y: hidden;
 }
 
 .off-studio-browser-group {
@@ -275,7 +327,7 @@
   font-size: var(--off-fs-label);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0;
+  letter-spacing: var(--off-ls-caps);
   color: var(--off-ink-4);
   text-align: center;
 }

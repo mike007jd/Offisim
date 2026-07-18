@@ -233,15 +233,19 @@ for (const call of calls.slice(0, 2)) {
       `${call.command} leaked engine-managed field ${engineManaged}`,
     );
   }
-  for (const piOnly of ['skillPaths', 'roster', 'missionContextJson', 'mcpTools', 'directDelegation']) {
+  for (const piOnly of [
+    'skillPaths',
+    'roster',
+    'missionContextJson',
+    'mcpTools',
+    'directDelegation',
+  ]) {
     assert.equal(payload[piOnly], undefined, `${call.command} leaked ${piOnly}`);
   }
 }
 
 const rendererCommandContract = source('../apps/desktop/renderer/src/lib/tauri-commands.ts');
-const rustCommandContract = source(
-  '../apps/desktop/src-tauri/src/codex_agent_host/types.rs',
-);
+const rustCommandContract = source('../apps/desktop/src-tauri/src/codex_agent_host/types.rs');
 const rendererFields = rendererCommandContract
   .match(/interface CodexAgentExecuteRequest \{(?<body>[\s\S]*?)\n\}/u)
   ?.groups?.body.match(/^\s{2}[a-zA-Z][a-zA-Z0-9]*\??:/gmu)
@@ -283,10 +287,10 @@ assert.match(composerSource, /showPermissionMode \?/u);
 
 const settingsSource = source('../apps/desktop/renderer/src/surfaces/settings/AiAccountsPane.tsx');
 assert.match(settingsSource, /API engines/u);
-assert.match(settingsSource, /Orchestration engines/u);
+assert.match(settingsSource, /Subscription tools/u);
 assert.match(settingsSource, /engine\.loginCommand/u);
 assert.match(settingsSource, /new URL\(engine\.docsUrl\)/u);
-assert.match(settingsSource, /无 API 成本/u);
+assert.match(settingsSource, /No API cost|无 API 成本/iu);
 assert.doesNotMatch(settingsSource, /Subscription usage|remaining credits/iu);
 
 const controllerSource = source(
@@ -300,17 +304,17 @@ assert.match(controllerSource, /Never log the input object/u);
 assert.match(approvalSource, /type=\{question\.isSecret \? 'password' : 'text'\}/u);
 assert.match(approvalSource, /Do not log answer state/u);
 
-const runtimeTabSource = source(
-  '../apps/desktop/renderer/src/surfaces/personnel/RuntimeTab.tsx',
-);
+const runtimeTabSource = source('../apps/desktop/renderer/src/surfaces/personnel/RuntimeTab.tsx');
 const personnelSource = source(
   '../apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx',
 );
-assert.match(runtimeTabSource, /selectionKind === 'orchestration-engine' \? 'Engine' : 'Model'/u);
+assert.match(runtimeTabSource, /<span>Employee AI<\/span>/u);
+assert.match(runtimeTabSource, /const supportsReasoning = selectedOption\?\.reasoning === true/u);
 assert.match(runtimeTabSource, /\{supportsReasoning \? \(/u);
 assert.doesNotMatch(runtimeTabSource, /disabled=\{!model \|\| invalid \|\| !supportsReasoning\}/u);
 assert.match(personnelSource, /selectedRuntime\?\.selectionKind === 'orchestration-engine'/u);
-assert.match(personnelSource, /thinking_level: model && supportsReasoning/u);
+assert.match(personnelSource, /thinking_level: model && thinkingLevel/u);
+assert.match(personnelSource, /thinking_level: model && supportsReasoning && thinkingLevel/u);
 assert.match(personnelSource, /\{supportsReasoning \? \(/u);
 
 console.log('renderer engine authority gate OK');

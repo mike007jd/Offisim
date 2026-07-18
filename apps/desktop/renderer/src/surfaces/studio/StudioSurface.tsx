@@ -11,6 +11,7 @@ import {
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
+import { PANEL_SIZE_TOKENS } from '@/styles/visual-tokens.js';
 import {
   type PrefabInstanceRow,
   type PrefabPlacementObstacle,
@@ -19,8 +20,18 @@ import {
   findOverlaps,
   findZonePreset,
 } from '@offisim/shared-types';
-import { ChevronRight, Info, X } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import {
+  ChevronRight,
+  Info,
+  Loader2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  X,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { toast } from 'sonner';
 import { PrefabBrowser } from './PrefabBrowser.js';
 import { SceneTreePanel } from './SceneTreePanel.js';
@@ -33,10 +44,8 @@ import {
 } from './StudioScene3D.js';
 import { useStudioStore } from './studio-store.js';
 
-/** Unity/Godot-style office editor: Scene hierarchy (left) · viewport with a
- *  UE-style prefab content browser under it (center) · inspector (right).
- *  Overview level edits zones as whole units; focusing a zone edits its
- *  furniture with the catalog filtered to that zone's allowed categories. */
+/** Office layout editor: rooms (left), layout canvas and item shelf (center),
+ *  selected-room or item details (right). */
 export function StudioSurface() {
   const companyId = useUiState((s) => s.companyId);
   const layout = useOfficeLayout(companyId);
@@ -46,6 +55,13 @@ export function StudioSurface() {
   const createPrefab = useCreatePrefabInstance();
   const updatePrefab = useUpdatePrefabInstance();
   const deletePrefab = useDeletePrefabInstance();
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const leftPanelRef = usePanelRef();
+  const rightPanelRef = usePanelRef();
+  const leftPanelOpenRef = useRef(leftPanelOpen);
+  const rightPanelOpenRef = useRef(rightPanelOpen);
+  const preCompactPanels = useRef<{ left: boolean; right: boolean } | null>(null);
 
   const focusZoneId = useStudioStore((s) => s.focusZoneId);
   const selection = useStudioStore((s) => s.selection);
@@ -54,6 +70,59 @@ export function StudioSurface() {
   const select = useStudioStore((s) => s.select);
   const rotatePlacement = useStudioStore((s) => s.rotatePlacement);
   const endPlacement = useStudioStore((s) => s.endPlacement);
+
+  // Preserve the canvas as the primary task at compact desktop widths. Both
+  // auxiliary panels remain one click away in the canvas toolbar.
+  useEffect(() => {
+    leftPanelOpenRef.current = leftPanelOpen;
+  }, [leftPanelOpen]);
+
+  useEffect(() => {
+    rightPanelOpenRef.current = rightPanelOpen;
+  }, [rightPanelOpen]);
+
+  useEffect(() => {
+    const compact = window.matchMedia('(max-width: 1180px)');
+    const sync = (isCompact: boolean) => {
+      if (isCompact) {
+        if (!preCompactPanels.current) {
+          preCompactPanels.current = {
+            left: leftPanelOpenRef.current,
+            right: rightPanelOpenRef.current,
+          };
+        }
+        setLeftPanelOpen(false);
+        setRightPanelOpen(false);
+        return;
+      }
+      const previous = preCompactPanels.current;
+      if (!previous) return;
+      preCompactPanels.current = null;
+      setLeftPanelOpen(previous.left);
+      setRightPanelOpen(previous.right);
+    };
+    sync(compact.matches);
+    const onChange = (event: MediaQueryListEvent) => sync(event.matches);
+    compact.addEventListener('change', onChange);
+    return () => {
+      compact.removeEventListener('change', onChange);
+      const previous = preCompactPanels.current;
+      if (!previous) return;
+      preCompactPanels.current = null;
+      setLeftPanelOpen(previous.left);
+      setRightPanelOpen(previous.right);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (leftPanelOpen) leftPanelRef.current?.expand();
+    else leftPanelRef.current?.collapse();
+  }, [leftPanelOpen, leftPanelRef]);
+
+  useEffect(() => {
+    if (rightPanelOpen) rightPanelRef.current?.expand();
+    else rightPanelRef.current?.collapse();
+  }, [rightPanelOpen, rightPanelRef]);
 
   const zones = useMemo(() => layout.data?.zones ?? [], [layout.data?.zones]);
   const prefabs = useMemo(() => layout.data?.prefabs ?? [], [layout.data?.prefabs]);
@@ -164,7 +233,7 @@ export function StudioSurface() {
           );
         }
         select({ kind: 'zone', id: result.zoneId });
-        toast.success('Zone added', { description: label });
+        toast.success('Room added', { description: label });
       }
     } catch (error) {
       toast.error('Placement failed', { description: safeErrorMessage(error) });
@@ -179,7 +248,7 @@ export function StudioSurface() {
       });
       if (result.persisted) select({ kind: 'object', id: move.instanceId });
     } catch (error) {
-      toast.error('Object move failed', { description: safeErrorMessage(error) });
+      toast.error('Furniture move failed', { description: safeErrorMessage(error) });
     }
   }
 
@@ -194,8 +263,8 @@ export function StudioSurface() {
       zoneRects,
     );
     if (overlaps.length > 0) {
-      toast.error('Zone move blocked', {
-        description: `Overlaps ${overlaps.map((other) => other.label ?? other.id).join(', ')}`,
+      toast.error('Room move blocked', {
+        description: `Overlaps ${overlaps.map((other) => other.label ?? 'another room').join(', ')}`,
       });
       return;
     }
@@ -218,23 +287,23 @@ export function StudioSurface() {
       ]);
       if (result.persisted) select({ kind: 'zone', id: zoneId });
     } catch (error) {
-      toast.error('Zone move failed', { description: safeErrorMessage(error) });
+      toast.error('Room move failed', { description: safeErrorMessage(error) });
     }
   }
 
   async function patchZone(zoneId: string, patch: ZonePatch) {
     const overlapMessage = zoneGeometryOverlapMessage(zoneId, patch);
     if (overlapMessage) {
-      toast.error('Zone update blocked', { description: overlapMessage });
+      toast.error('Room update blocked', { description: overlapMessage });
       return;
     }
     try {
       const result = await updateZone.mutateAsync({ zoneId, fields: { ...patch } });
       if (result.persisted && patch.label) {
-        toast.success('Zone renamed', { description: patch.label });
+        toast.success('Room renamed', { description: patch.label });
       }
     } catch (error) {
-      toast.error('Zone update failed', { description: safeErrorMessage(error) });
+      toast.error('Room update failed', { description: safeErrorMessage(error) });
     }
   }
 
@@ -260,7 +329,7 @@ export function StudioSurface() {
       zoneRects,
     );
     if (overlaps.length === 0) return null;
-    return `Overlaps ${overlaps.map((other) => other.label ?? other.id).join(', ')}`;
+    return `Overlaps ${overlaps.map((other) => other.label ?? 'another room').join(', ')}`;
   }
 
   async function removeZone(zoneId: string) {
@@ -270,15 +339,15 @@ export function StudioSurface() {
       if (result.persisted) {
         if (focusZoneId === zoneId) setFocusZone(null);
         select(null);
-        toast.success('Zone deleted', {
+        toast.success('Room deleted', {
           description:
             result.deletedObjects > 0
-              ? `${result.deletedObjects} objects removed`
-              : (zone?.label ?? zoneId),
+              ? `${result.deletedObjects} furniture items removed`
+              : (zone?.label ?? 'Room removed'),
         });
       }
     } catch (error) {
-      toast.error('Zone deletion failed', { description: safeErrorMessage(error) });
+      toast.error('Room deletion failed', { description: safeErrorMessage(error) });
     }
   }
 
@@ -320,7 +389,7 @@ export function StudioSurface() {
     try {
       await updatePrefab.mutateAsync({ instanceId, fields: { rotation: nextRotation } });
     } catch (error) {
-      toast.error('Object rotation failed', { description: safeErrorMessage(error) });
+      toast.error('Furniture rotation failed', { description: safeErrorMessage(error) });
     }
   }
 
@@ -330,10 +399,10 @@ export function StudioSurface() {
       const result = await deletePrefab.mutateAsync({ instanceId });
       if (result.persisted) {
         select(null);
-        toast.success('Object deleted', { description: vm?.definition.name });
+        toast.success('Furniture removed', { description: vm?.definition.name });
       }
     } catch (error) {
-      toast.error('Object deletion failed', { description: safeErrorMessage(error) });
+      toast.error('Furniture removal failed', { description: safeErrorMessage(error) });
     }
   }
 
@@ -403,102 +472,159 @@ export function StudioSurface() {
   });
 
   return (
-    <div className="off-studio">
-      <aside className="off-studio-panel is-left">
-        <SceneTreePanel zones={zones} prefabs={prefabs} onEnterFocus={setFocusZone} />
-      </aside>
+    <Group orientation="horizontal" className="off-studio">
+      <Panel
+        id="studio-rooms"
+        panelRef={leftPanelRef}
+        defaultSize="20%"
+        minSize={PANEL_SIZE_TOKENS.studioRoomsMin}
+        maxSize="32%"
+        collapsible
+        collapsedSize="0%"
+        onResize={(size) => setLeftPanelOpen(size.inPixels > 0)}
+        className="off-studio-aux-panel"
+      >
+        <aside className="off-studio-panel is-left">
+          <SceneTreePanel zones={zones} prefabs={prefabs} onEnterFocus={setFocusZone} />
+        </aside>
+      </Panel>
+      <Separator
+        className={`off-resize-handle off-studio-resize-handle${leftPanelOpen ? '' : ' is-hidden'}`}
+      />
 
-      <section className="off-studio-stage">
-        {layout.isError ? (
-          <div className="off-studio-banner is-error" role="alert">
-            <Icon icon={Info} size="sm" />
-            Couldn't load the office layout.
-            <button
-              type="button"
-              className="off-studio-banner-retry off-focusable"
-              onClick={() => void layout.refetch()}
-            >
-              Retry
-            </button>
-          </div>
-        ) : !layout.isLoading && !layout.data ? (
-          <div className="off-studio-banner">
-            <Icon icon={Info} size="sm" />
-            Preview scene — Studio editing needs the desktop app, so changes here won't be saved.
-          </div>
-        ) : null}
-
-        <div className="off-studio-toolbar">
-          <nav className="off-studio-crumb" aria-label="Edit level">
-            <button
-              type="button"
-              className="off-studio-crumb-seg off-focusable"
-              onClick={() => setFocusZone(null)}
-              disabled={!focusZoneId}
-            >
-              Plot
-            </button>
-            {focusedZone ? (
-              <>
-                <Icon icon={ChevronRight} size="sm" className="off-studio-crumb-sep" />
-                <span className="off-studio-crumb-seg is-current">{focusedZone.label}</span>
-              </>
-            ) : null}
-          </nav>
-          <span className="off-studio-toolbar-hint">
-            {placement
-              ? placement.kind === 'prefab'
-                ? 'Click to place · R rotate · right-click / Esc stop'
-                : 'Click open floor to add the zone · right-click / Esc cancel'
-              : focusedZone
-                ? 'Drag objects to move · E/R rotate · Delete remove · Esc back to plot'
-                : 'Click a zone to select · drag to move it · double-click / F to edit inside'}
-          </span>
-          {focusedZone ? (
-            <Button variant="outline" size="sm" onClick={() => setFocusZone(null)}>
-              <Icon icon={X} size="sm" />
-              Exit zone edit
-            </Button>
+      <Panel id="studio-canvas" minSize="42%" className="off-studio-center-panel">
+        <section className="off-studio-stage">
+          {layout.isError ? (
+            <div className="off-studio-banner is-error" role="alert">
+              <Icon icon={Info} size="sm" />
+              Couldn't load the office layout.
+              <button
+                type="button"
+                className="off-studio-banner-retry off-focusable"
+                onClick={() => void layout.refetch()}
+              >
+                Retry
+              </button>
+            </div>
+          ) : !layout.isLoading && !layout.data ? (
+            <div className="off-studio-banner">
+              <Icon icon={Info} size="sm" />
+              Office preview — Studio editing needs the desktop app, so changes here won't be saved.
+            </div>
           ) : null}
-        </div>
 
-        <div className="off-studio-canvas-host">
-          <StudioScene3D
-            layout={layout.data ?? null}
-            prefabs={prefabs}
-            editable={editable && !busy}
-            onCommitPlacement={(point) => void commitPlacement(point)}
-            onMoveObject={(move) => void moveObject(move)}
-            onMoveZone={(move: StudioZoneDrag) => void shiftZone(move.zoneId, move.dx, move.dz)}
-            onEnterFocus={setFocusZone}
-            onMoveRejected={(reason) => toast.error('Move blocked', { description: reason })}
-            onPlacementRejected={(reason) =>
-              toast.error("Can't place here", { description: reason })
-            }
+          <div className="off-studio-toolbar">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              onClick={() => setLeftPanelOpen((open) => !open)}
+              aria-label={leftPanelOpen ? 'Hide rooms' : 'Show rooms'}
+              title={leftPanelOpen ? 'Hide rooms' : 'Show rooms'}
+            >
+              <Icon icon={leftPanelOpen ? PanelLeftClose : PanelLeftOpen} size="sm" />
+            </Button>
+            <nav className="off-studio-crumb" aria-label="Edit level">
+              <button
+                type="button"
+                className="off-studio-crumb-seg off-focusable"
+                onClick={() => setFocusZone(null)}
+                disabled={!focusZoneId}
+              >
+                Office layout
+              </button>
+              {focusedZone ? (
+                <>
+                  <Icon icon={ChevronRight} size="sm" className="off-studio-crumb-sep" />
+                  <span className="off-studio-crumb-seg is-current">{focusedZone.label}</span>
+                </>
+              ) : null}
+            </nav>
+            <span className="off-studio-toolbar-hint">
+              {placement
+                ? placement.kind === 'prefab'
+                  ? 'Choose a spot to place this item'
+                  : 'Choose open floor space for this room'
+                : focusedZone
+                  ? 'Arrange items inside this room'
+                  : 'Select a room to move it or edit what is inside'}
+            </span>
+            {focusedZone ? (
+              <Button variant="outline" size="sm" onClick={() => setFocusZone(null)}>
+                <Icon icon={X} size="sm" />
+                Back to layout
+              </Button>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="iconSm"
+              onClick={() => setRightPanelOpen((open) => !open)}
+              aria-label={rightPanelOpen ? 'Hide details' : 'Show details'}
+              title={rightPanelOpen ? 'Hide details' : 'Show details'}
+            >
+              <Icon icon={rightPanelOpen ? PanelRightClose : PanelRightOpen} size="sm" />
+            </Button>
+          </div>
+
+          <div className="off-studio-canvas-host">
+            {layout.isLoading ? (
+              <output className="off-studio-loading">
+                <Icon icon={Loader2} size="md" className="off-spin" />
+                <span>Loading office layout…</span>
+              </output>
+            ) : (
+              <StudioScene3D
+                layout={layout.data ?? null}
+                prefabs={prefabs}
+                editable={editable && !busy}
+                onCommitPlacement={(point) => void commitPlacement(point)}
+                onMoveObject={(move) => void moveObject(move)}
+                onMoveZone={(move: StudioZoneDrag) => void shiftZone(move.zoneId, move.dx, move.dz)}
+                onEnterFocus={setFocusZone}
+                onMoveRejected={(reason) => toast.error('Move blocked', { description: reason })}
+                onPlacementRejected={(reason) =>
+                  toast.error("Can't place here", { description: reason })
+                }
+              />
+            )}
+          </div>
+
+          <PrefabBrowser
+            focusActive={Boolean(focusedZone)}
+            allowedCategories={allowedCategories}
+            disabled={!editable || busy}
           />
-        </div>
+        </section>
+      </Panel>
 
-        <PrefabBrowser
-          focusActive={Boolean(focusedZone)}
-          allowedCategories={allowedCategories}
-          disabled={!editable || busy}
-        />
-      </section>
-
-      <aside className="off-studio-panel is-right">
-        <StudioInspector
-          zones={zones}
-          prefabs={prefabs}
-          busy={busy}
-          onZonePatch={(zoneId, patch) => void patchZone(zoneId, patch)}
-          onZoneShift={(zoneId, dx, dz) => void shiftZone(zoneId, dx, dz)}
-          onZoneDelete={(zoneId) => void removeZone(zoneId)}
-          onEnterFocus={setFocusZone}
-          onExitFocus={() => setFocusZone(null)}
-          onObjectRotate={(instanceId) => void rotateObject(instanceId)}
-          onObjectDelete={(instanceId) => void removeObject(instanceId)}
-        />
-      </aside>
-    </div>
+      <Separator
+        className={`off-resize-handle off-studio-resize-handle${rightPanelOpen ? '' : ' is-hidden'}`}
+      />
+      <Panel
+        id="studio-details"
+        panelRef={rightPanelRef}
+        defaultSize="23%"
+        minSize={PANEL_SIZE_TOKENS.studioDetailsMin}
+        maxSize="36%"
+        collapsible
+        collapsedSize="0%"
+        onResize={(size) => setRightPanelOpen(size.inPixels > 0)}
+        className="off-studio-aux-panel"
+      >
+        <aside className="off-studio-panel is-right">
+          <StudioInspector
+            zones={zones}
+            prefabs={prefabs}
+            busy={busy}
+            onZonePatch={(zoneId, patch) => void patchZone(zoneId, patch)}
+            onZoneShift={(zoneId, dx, dz) => void shiftZone(zoneId, dx, dz)}
+            onZoneDelete={(zoneId) => void removeZone(zoneId)}
+            onEnterFocus={setFocusZone}
+            onExitFocus={() => setFocusZone(null)}
+            onObjectRotate={(instanceId) => void rotateObject(instanceId)}
+            onObjectDelete={(instanceId) => void removeObject(instanceId)}
+          />
+        </aside>
+      </Panel>
+    </Group>
   );
 }

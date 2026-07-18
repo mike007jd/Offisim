@@ -14,6 +14,7 @@ import type { Deliverable } from '@/data/types.js';
 import { parseUnifiedDiffFiles } from '@/data/unified-diff.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Button } from '@/design-system/primitives/button.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
 import { BoardPendingReviewAutoOpen, BoardStage } from '@/surfaces/office/board/BoardStage.js';
@@ -52,6 +53,7 @@ import {
   GitCompareArrows,
   Globe,
   Globe2,
+  History,
   Maximize2,
   Minimize2,
   MonitorSmartphone,
@@ -119,6 +121,8 @@ function htmlDeliverable(deliverables: readonly Deliverable[]) {
 export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
+  const boardLens = useUiState((s) => s.boardLens);
+  const openBoard = useUiState((s) => s.openBoard);
   const stageOpenTabs = useUiState((s) => s.stageOpenTabs);
   const activeStageTabId = useUiState((s) => s.activeStageTabId);
   const activateStageTab = useUiState((s) => s.activateStageTab);
@@ -138,6 +142,20 @@ export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
       .filter((lease) => lease.status === 'pending_review')
       .map((lease) => lease.rootRunId),
   ).size;
+  const toggleLeftRail = () => {
+    const expanding = leftRailCollapsed;
+    if (expanding && window.matchMedia('(max-width: 1100px)').matches) {
+      setRightRailCollapsed(true);
+    }
+    setLeftRailCollapsed(!leftRailCollapsed);
+  };
+  const toggleRightRail = () => {
+    const expanding = rightRailCollapsed;
+    if (expanding && window.matchMedia('(max-width: 1100px)').matches) {
+      setLeftRailCollapsed(true);
+    }
+    setRightRailCollapsed(!rightRailCollapsed);
+  };
 
   const labelCounts = new Map<string, number>();
   for (const tab of stageOpenTabs) {
@@ -152,7 +170,7 @@ export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
           type="button"
           className="off-stage-rail-toggle off-focusable"
           data-rail="workspace"
-          onClick={() => setLeftRailCollapsed(!leftRailCollapsed)}
+          onClick={toggleLeftRail}
           aria-label={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
           aria-expanded={!leftRailCollapsed}
           title={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
@@ -175,10 +193,10 @@ export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
             type="button"
             className={cn(
               'off-stage-tab off-focusable',
-              stagePrimaryTab === 'board' && 'is-active',
+              stagePrimaryTab === 'board' && boardLens === 'board' && 'is-active',
             )}
-            onClick={() => setStagePrimaryTab('board')}
-            aria-current={stagePrimaryTab === 'board' ? 'page' : undefined}
+            onClick={() => openBoard('board')}
+            aria-current={stagePrimaryTab === 'board' && boardLens === 'board' ? 'page' : undefined}
             aria-label={`Board${pendingReviewCount ? `, ${pendingReviewCount} pending review` : ''}`}
             title="Board"
           >
@@ -187,6 +205,22 @@ export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
             {pendingReviewCount > 0 ? (
               <b className="off-stage-tab-badge">{pendingReviewCount}</b>
             ) : null}
+          </button>
+          <button
+            type="button"
+            className={cn(
+              'off-stage-tab off-focusable',
+              stagePrimaryTab === 'board' && boardLens === 'timeline' && 'is-active',
+            )}
+            onClick={() => openBoard('timeline')}
+            aria-current={
+              stagePrimaryTab === 'board' && boardLens === 'timeline' ? 'page' : undefined
+            }
+            aria-label="Timeline"
+            title="Timeline"
+          >
+            <Icon icon={History} size="sm" />
+            <span>Timeline</span>
           </button>
           {stageOpenTabs.map((tab) => {
             const baseLabel = stageTabLabel(tab.target);
@@ -296,7 +330,7 @@ export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
           type="button"
           className="off-stage-rail-toggle off-focusable"
           data-rail="conversations"
-          onClick={() => setRightRailCollapsed(!rightRailCollapsed)}
+          onClick={toggleRightRail}
           aria-label={rightRailCollapsed ? 'Expand conversations' : 'Collapse conversations'}
           aria-expanded={!rightRailCollapsed}
           title={rightRailCollapsed ? 'Expand conversations' : 'Collapse conversations'}
@@ -1110,13 +1144,21 @@ function viewerMeta(target: StageViewTarget) {
  *  that cannot tell non-repo from a clean tree. */
 function ReviewEmpty() {
   const projectId = useUiState((s) => s.projectId);
+  const setLeftRailCollapsed = useUiState((s) => s.setOfficeLeftRailCollapsed);
+  const openBoard = useUiState((s) => s.openBoard);
   const git = useGitWorkbench(projectId);
+  const showWorkspaceGit = (
+    <Button variant="subtle" size="sm" onClick={() => setLeftRailCollapsed(false)}>
+      Show workspace Git
+    </Button>
+  );
   if (git.data?.status === 'uninitialized') {
     return (
       <StageEmpty
         icon={GitCompareArrows}
         title="Not a git repository yet"
         detail="Initialize a repository from the Git tab in the workspace rail to review diffs here."
+        action={showWorkspaceGit}
       />
     );
   }
@@ -1126,6 +1168,7 @@ function ReviewEmpty() {
         icon={GitCompareArrows}
         title="Workspace folder not found"
         detail="Rebind this project to a folder that exists from the Git tab in the workspace rail."
+        action={showWorkspaceGit}
       />
     );
   }
@@ -1134,8 +1177,45 @@ function ReviewEmpty() {
       icon={GitCompareArrows}
       title="No changes to review"
       detail="Git diffs and changed files will appear here when the workspace changes."
+      action={
+        <Button variant="subtle" size="sm" onClick={() => openBoard('board')}>
+          Open request board
+        </Button>
+      }
     />
   );
+}
+
+let reviewPresentationLeaseCount = 0;
+let reviewPresentationPreviousMaximized = false;
+let reviewPresentationOwnerVersion: number | null = null;
+
+function useReviewPresentationLease() {
+  useEffect(() => {
+    if (reviewPresentationLeaseCount === 0) {
+      reviewPresentationPreviousMaximized = useUiState.getState().officeStageMaximized;
+      if (!reviewPresentationPreviousMaximized) {
+        useUiState.getState().setOfficeStageMaximized(true);
+        reviewPresentationOwnerVersion = useUiState.getState().officeStageMaximizedVersion;
+      } else {
+        reviewPresentationOwnerVersion = null;
+      }
+    }
+    reviewPresentationLeaseCount += 1;
+    return () => {
+      reviewPresentationLeaseCount = Math.max(0, reviewPresentationLeaseCount - 1);
+      if (reviewPresentationLeaseCount === 0) {
+        const state = useUiState.getState();
+        if (
+          reviewPresentationOwnerVersion !== null &&
+          state.officeStageMaximizedVersion === reviewPresentationOwnerVersion
+        ) {
+          state.setOfficeStageMaximized(reviewPresentationPreviousMaximized);
+        }
+        reviewPresentationOwnerVersion = null;
+      }
+    };
+  }, []);
 }
 
 function ChangesView({
@@ -1143,8 +1223,7 @@ function ChangesView({
 }: {
   target: Extract<StageViewTarget, { kind: 'changes' }>;
 }) {
-  const setStageMaximized = useUiState((state) => state.setOfficeStageMaximized);
-  useEffect(() => setStageMaximized(true), [setStageMaximized]);
+  useReviewPresentationLease();
   if (target.comparisonGroupId) {
     return <ReviewWorkbenchStage comparisonGroupId={target.comparisonGroupId} />;
   }

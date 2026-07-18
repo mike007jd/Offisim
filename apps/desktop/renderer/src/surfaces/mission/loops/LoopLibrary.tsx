@@ -4,7 +4,6 @@ import { startLoopAsParallelProjectRun } from '@/assistant/runtime/loop-send-exe
 import {
   useArchiveLoop,
   useConfigureLoopSchedule,
-  useCreateLoop,
   useDuplicateLoop,
   useLoops,
 } from '@/data/loops.js';
@@ -26,7 +25,6 @@ import {
   SkeletonRows,
   errorDetail,
 } from '@/surfaces/shared/SurfaceStates.js';
-import { DEFAULT_COMPILER_PROFILE_ID } from '@offisim/core/browser';
 import type { LoopDefinition, LoopScheduleIntervalMinutes } from '@offisim/shared-types';
 import {
   Copy,
@@ -89,12 +87,12 @@ function scheduleTime(iso: string | undefined): string {
 
 interface LoopLibraryProps {
   onOpenLoop: (loopId: string) => void;
+  onNewLoop: () => void;
 }
 
-export function LoopLibrary({ onOpenLoop }: LoopLibraryProps) {
+export function LoopLibrary({ onOpenLoop, onNewLoop }: LoopLibraryProps) {
   const companyId = useUiState((s) => s.companyId) || null;
   const loops = useLoops(companyId);
-  const createLoop = useCreateLoop(companyId);
 
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -111,19 +109,7 @@ export function LoopLibrary({ onOpenLoop }: LoopLibraryProps) {
 
   function handleNewLoop() {
     if (!companyId) return;
-    // Unique working title ("Untitled loop", "Untitled loop 2", …) so several
-    // drafts stay distinguishable in the library list.
-    const titles = new Set((loops.data ?? []).map((loop) => loop.title));
-    let title = 'Untitled loop';
-    for (let n = 2; titles.has(title); n += 1) title = `Untitled loop ${n}`;
-    createLoop.mutate(
-      { title, profileId: DEFAULT_COMPILER_PROFILE_ID },
-      {
-        onSuccess: (loop) => onOpenLoop(loop.loopId),
-        onError: (err) =>
-          toast.error(err instanceof Error ? err.message : 'Could not create the Loop.'),
-      },
-    );
+    onNewLoop();
   }
 
   return (
@@ -159,7 +145,7 @@ export function LoopLibrary({ onOpenLoop }: LoopLibraryProps) {
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" onClick={handleNewLoop} disabled={!companyId || createLoop.isPending}>
+          <Button size="sm" onClick={handleNewLoop} disabled={!companyId}>
             <Icon icon={PlusCircle} size="sm" />
             New Loop
           </Button>
@@ -262,23 +248,33 @@ function LoopCard({
           <span className="off-loop-card-title">{loop.title}</span>
           <span className={cn('off-loop-card-status', status.tone)}>{status.label}</span>
         </div>
-        <p className="off-loop-card-summary">{loop.summary || 'No description yet.'}</p>
+        <p className="off-loop-card-summary">
+          {loop.summary || 'Describe this loop to generate its first plan.'}
+        </p>
         <div className="off-loop-card-meta">
           <span className="off-loop-card-rev">
-            {loop.currentRevisionId ? 'Saved plan' : 'Not generated'}
+            {loop.currentRevisionId
+              ? 'Saved plan'
+              : loop.summary
+                ? 'Description saved · generate the plan next'
+                : 'Ready for a description'}
           </span>
           <span className="off-loop-card-time">{timeAgo(loop.updatedAt)}</span>
         </div>
-        <div className="off-loop-card-schedule">
-          <span>
-            {loop.scheduleIntervalMinutes ? `Next ${scheduleTime(loop.nextRunAt)}` : 'Manual only'}
-          </span>
-          <span>
-            {loop.lastRunAt
-              ? `Last ${scheduleTime(loop.lastRunAt)} · ${loop.lastRunResult ?? 'completed'}`
-              : 'No scheduled run yet'}
-          </span>
-        </div>
+        {loop.currentRevisionId ? (
+          <div className="off-loop-card-schedule">
+            <span>
+              {loop.scheduleIntervalMinutes
+                ? `Next ${scheduleTime(loop.nextRunAt)}`
+                : 'Run manually'}
+            </span>
+            {loop.lastRunAt ? (
+              <span>
+                Last {scheduleTime(loop.lastRunAt)} · {loop.lastRunResult ?? 'completed'}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </button>
       <div className="off-loop-card-actions">
         <Button variant="subtle" size="sm" onClick={onOpen}>

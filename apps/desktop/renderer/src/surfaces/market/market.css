@@ -627,6 +627,10 @@
   align-items: center;
   justify-content: center;
 }
+.off-mkt-state-wrap {
+  display: grid;
+  place-items: center;
+}
 .off-mkt-hero {
   max-width: 420px;
   margin: 0 auto;

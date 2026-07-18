@@ -102,7 +102,7 @@ function employeeModelState(
 ): EmployeeModelState {
   if (employee.kind === 'external') return { label: 'External', value: '', invalid: false };
   const value = employee.model?.trim() ?? '';
-  if (!value) return { label: 'Inherit', value: '', invalid: false };
+  if (!value) return { label: 'Conversation model', value: '', invalid: false };
   const option = models?.find((candidate) => candidate.value === value);
   return {
     label: option?.name ?? shortModelName(value),
@@ -118,13 +118,19 @@ function companyModelSummary(
   const counts = new Map<string, number>();
   for (const employee of employees) {
     const state = employeeModelState(employee, models);
-    const label = state.invalid ? 'Inherit' : state.label;
+    const label = state.invalid ? 'Conversation model' : state.label;
     counts.set(label, (counts.get(label) ?? 0) + 1);
   }
   return [...counts.entries()]
     .sort(([labelA, countA], [labelB, countB]) => countB - countA || labelA.localeCompare(labelB))
     .slice(0, 3)
-    .map(([label, count]) => `${count} ${label.toLowerCase()}`)
+    .map(([label, count]) =>
+      label === 'Conversation model'
+        ? `${count} use conversation model`
+        : label === 'External'
+          ? `${count} external`
+          : `${count} use ${label}`,
+    )
     .join(' · ');
 }
 
@@ -169,7 +175,7 @@ function EmployeeDockPopover({
   const memories = useEmployeeMemories(employee.id);
   const modelState = employeeModelState(employee, models);
   const capabilitySummary = [
-    modelState.invalid ? 'Model unavailable · inherits' : modelState.label,
+    employee.model ? (modelState.invalid ? 'Saved model unavailable' : modelState.label) : null,
     `${employee.skillCount} skills`,
     employee.kind === 'external' ? (employee.brandLabel ?? 'External') : employee.discipline,
   ]
@@ -223,21 +229,21 @@ function EmployeeDockPopover({
           </dd>
         </div>
         <div>
-          <dt>Runtime</dt>
+          <dt>Work setup</dt>
           <dd>{capabilitySummary}</dd>
         </div>
       </dl>
       {employee.kind === 'internal' ? (
         <section className="off-team-pop-section">
-          <span className="off-team-pop-section-title">Runtime model</span>
+          <span className="off-team-pop-section-title">Model for new work</span>
           <Select
             value={modelState.value}
             onChange={(event) => onModelChange(event.target.value)}
             disabled={modelsLoading || models === undefined || modelUpdating}
-            aria-label={`Runtime model for ${employee.name}`}
+            aria-label={`Model for new work by ${employee.name}`}
             className="w-full"
             options={[
-              { value: '', label: 'Inherit conversation model' },
+              { value: '', label: 'Follow the conversation model' },
               ...(modelState.invalid && employee.model
                 ? [
                     {
@@ -253,7 +259,9 @@ function EmployeeDockPopover({
             ]}
           />
           {modelState.invalid ? (
-            <p className="off-team-pop-sub">Saved model is unavailable; runs inherit instead.</p>
+            <p className="off-team-pop-sub">
+              The saved model is unavailable. New work follows the conversation model.
+            </p>
           ) : null}
         </section>
       ) : null}
@@ -514,19 +522,21 @@ export function TeamDock() {
                     <span className="off-team-name">{employee.name}</span>
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="off-team-role min-w-0">{employee.role}</span>
-                      <span
-                        className={cn(
-                          'max-w-24 shrink-0 truncate rounded-[var(--off-radius-status)] border border-[var(--off-line-soft)] bg-[var(--off-surface-sunken)] px-1.5 py-px font-mono text-xs leading-none text-[var(--off-ink-3)]',
-                          modelState.invalid && 'text-[var(--off-warn)]',
-                        )}
-                        title={
-                          modelState.invalid
-                            ? 'Saved model unavailable; inherits conversation model'
-                            : employee.model || 'Inherits conversation model'
-                        }
-                      >
-                        {modelState.invalid ? 'Inherit' : modelState.label}
-                      </span>
+                      {employee.model ? (
+                        <span
+                          className={cn(
+                            'max-w-24 shrink-0 truncate rounded-[var(--off-radius-status)] border border-[var(--off-line-soft)] bg-[var(--off-surface-sunken)] px-1.5 py-px font-mono text-xs leading-none text-[var(--off-ink-3)]',
+                            modelState.invalid && 'text-[var(--off-warn)]',
+                          )}
+                          title={
+                            modelState.invalid
+                              ? 'Saved model unavailable; following the conversation model'
+                              : modelState.label
+                          }
+                        >
+                          {modelState.invalid ? 'Model unavailable' : modelState.label}
+                        </span>
+                      ) : null}
                     </span>
                     <span className={cn('off-team-status', PRESENCE_CLS[presence])}>
                       <span className="off-team-dot" />

@@ -129,9 +129,9 @@ export function RuntimePane() {
   return (
     <div className="off-set-pane">
       <div className="off-set-panehead">
-        <div className="off-set-panetitle">Runtime</div>
+        <div className="off-set-panetitle">Usage &amp; Storage</div>
         <div className="off-set-panedesc">
-          Run mode, model, and thinking are selected per conversation in the composer.
+          Set usage alerts, manage local employee data, and export diagnostics.
         </div>
       </div>
 

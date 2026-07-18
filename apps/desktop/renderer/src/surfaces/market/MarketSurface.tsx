@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
 import { cn } from '@/lib/utils.js';
+import { EmptyState, ErrorState } from '@/surfaces/shared/SurfaceStates.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDownNarrowWide,
@@ -27,12 +28,10 @@ import {
   LayoutGrid,
   Loader2,
   Search,
-  Settings2,
   Sparkles,
   Store,
   Upload,
   UserRound,
-  WifiOff,
 } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -276,6 +275,8 @@ export function MarketSurface() {
   // Missing endpoint keeps online browsing unavailable, while local installed
   // items and file imports stay fully usable.
   const registryNotConnected = registryConnection.data?.reason === 'registry-config-missing';
+  const browseUnavailable =
+    mode === 'explore' && (listings.isLoading || listings.isError || registryNotConnected);
 
   return (
     <div className={cn('off-market', detailOpen && 'is-detail-mode')}>
@@ -287,12 +288,14 @@ export function MarketSurface() {
             onChange={setMode}
             ariaLabel="Marketplace mode"
           />
-          <SearchInput
-            value={query}
-            onChange={setQuery}
-            placeholder={marketSearchPlaceholder(mode, manageView)}
-            className="off-mkt-search"
-          />
+          {!browseUnavailable ? (
+            <SearchInput
+              value={query}
+              onChange={setQuery}
+              placeholder={marketSearchPlaceholder(mode, manageView)}
+              className="off-mkt-search"
+            />
+          ) : null}
           <input
             ref={fileInputRef}
             type="file"
@@ -307,7 +310,7 @@ export function MarketSurface() {
             }}
           />
           {/* Sort (explore only) collapses into a dropdown, pushed right. */}
-          {mode === 'explore' && !registryNotConnected ? (
+          {mode === 'explore' && !browseUnavailable ? (
             <SortMenu sort={sort} onChange={setSort} className="ml-auto" />
           ) : (
             <span className="ml-auto" />
@@ -344,7 +347,7 @@ export function MarketSurface() {
               ariaLabel="Installed and publishing views"
             />
           </div>
-        ) : mode === 'explore' && !registryNotConnected ? (
+        ) : mode === 'explore' && !browseUnavailable ? (
           <div className="off-mkt-fbar-sub">
             <SegmentedControl
               options={KIND_FILTERS}
@@ -381,7 +384,12 @@ export function MarketSurface() {
           ) : listings.isLoading ? (
             <SkeletonGrid />
           ) : listings.isError ? (
-            <MarketErrorState error={listings.error} onRetry={() => listings.refetch()} />
+            <MarketErrorState
+              error={listings.error}
+              retrying={listings.isFetching}
+              onRetry={() => void listings.refetch()}
+              onViewInstalled={() => setMode('manage')}
+            />
           ) : registryNotConnected ? (
             // No registry configured (the default desktop build): show an honest
             // not-connected state with local import, not a fabricated storefront.
@@ -578,53 +586,48 @@ function SkeletonGrid() {
   );
 }
 
-function MarketErrorState({ error: _error, onRetry }: { error: unknown; onRetry: () => void }) {
+function MarketErrorState({
+  error: _error,
+  onRetry,
+  retrying,
+  onViewInstalled,
+}: {
+  error: unknown;
+  onRetry: () => void;
+  retrying: boolean;
+  onViewInstalled: () => void;
+}) {
   const openSettings = useUiState((s) => s.openSettings);
   return (
-    <div className="off-mkt-scroll off-mkt-hero-wrap">
-      <div className="off-mkt-hero">
-        <span className="off-mkt-hero-i is-danger">
-          <Icon icon={WifiOff} size="md" />
-        </span>
-        <div className="off-mkt-hero-t">Online catalog unavailable</div>
-        <div className="off-mkt-hero-d">
-          Installed items remain available. Retry now or review the connection settings.
-        </div>
-        <div className="off-mkt-hero-a">
-          <Button size="md" onClick={onRetry}>
-            <Icon icon={Loader2} size="sm" />
-            Retry
-          </Button>
-          <Button variant="outline" size="md" onClick={() => openSettings('advanced')}>
-            Connection settings
-          </Button>
-        </div>
-      </div>
+    <div className="off-mkt-scroll off-mkt-state-wrap">
+      <ErrorState
+        title="Online catalog unavailable"
+        detail="Installed items remain available. Retry the connection or continue with local items."
+        onRetry={onRetry}
+        retrying={retrying}
+        secondaryAction={{ label: 'View installed', onClick: onViewInstalled }}
+        tertiaryAction={{
+          label: 'Connection settings',
+          onClick: () => openSettings('advanced'),
+        }}
+      />
     </div>
   );
 }
 
 function MarketEmptyState({ filtered, onReset }: { filtered: boolean; onReset: () => void }) {
   return (
-    <div className="off-mkt-scroll off-mkt-hero-wrap">
-      <div className="off-mkt-hero">
-        <span className="off-mkt-hero-i">
-          <Icon icon={filtered ? Search : Store} size="md" />
-        </span>
-        <div className="off-mkt-hero-t">{filtered ? 'No items found' : 'Market is empty'}</div>
-        <div className="off-mkt-hero-d">
-          {filtered
-            ? 'Try a different search or clear filters.'
-            : 'Published employees, skills, and templates will appear here.'}
-        </div>
-        {filtered ? (
-          <div className="off-mkt-hero-a">
-            <Button size="md" onClick={onReset}>
-              Reset filters
-            </Button>
-          </div>
-        ) : null}
-      </div>
+    <div className="off-mkt-scroll off-mkt-state-wrap">
+      <EmptyState
+        icon={filtered ? Search : Store}
+        title={filtered ? 'No items found' : 'Market is empty'}
+        description={
+          filtered
+            ? 'Try a different search or clear the current filters.'
+            : 'Published employees, skills, and templates will appear here.'
+        }
+        action={filtered ? { label: 'Reset filters', onClick: onReset } : undefined}
+      />
     </div>
   );
 }
@@ -641,31 +644,19 @@ function MarketNotConnected({
   importing: boolean;
 }) {
   return (
-    <div className="off-mkt-scroll off-mkt-hero-wrap">
-      <div className="off-mkt-hero">
-        <span className="off-mkt-hero-i">
-          <Icon icon={Store} size="md" />
-        </span>
-        <div className="off-mkt-hero-t">Browse offline</div>
-        <div className="off-mkt-hero-d">
-          The online catalog is not connected. You can still search installed items or import from
-          your computer.
-        </div>
-        <div className="off-mkt-hero-a">
-          <Button size="md" onClick={onImport} disabled={importing}>
-            <Icon icon={importing ? Loader2 : Upload} size="sm" />
-            Import from computer…
-          </Button>
-          <Button variant="outline" size="md" onClick={onViewInstalled}>
-            <Icon icon={Layers} size="sm" />
-            View installed
-          </Button>
-          <Button variant="ghost" size="md" onClick={onOpenConnectionSettings}>
-            <Icon icon={Settings2} size="sm" />
-            Connection settings
-          </Button>
-        </div>
-      </div>
+    <div className="off-mkt-scroll off-mkt-state-wrap">
+      <EmptyState
+        icon={Store}
+        title="Browse offline"
+        description="The online catalog is not connected. Local items and package imports still work."
+        action={{ label: 'View installed', onClick: onViewInstalled }}
+        secondaryAction={{
+          label: importing ? 'Importing…' : 'Import from computer…',
+          onClick: onImport,
+          disabled: importing,
+        }}
+        tertiaryAction={{ label: 'Connection settings', onClick: onOpenConnectionSettings }}
+      />
     </div>
   );
 }

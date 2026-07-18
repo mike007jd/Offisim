@@ -26,6 +26,7 @@ import {
   type ThinkingLevel,
   usePiThreadThinkingStore,
 } from '@/runtime/pi-thread-thinking-store.js';
+import { thinkingLevelMeta } from '@/runtime/thinking-level-presentation.js';
 import {
   Bot,
   Brain,
@@ -56,34 +57,6 @@ const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta:
   auto: { label: 'Auto', icon: ShieldCheck, meta: 'Runs in the Project — asks when needed' },
   full: { label: 'Full', icon: Zap, meta: 'No restrictions' },
 };
-
-/**
- * Thinking-level labels + qualitative depth hints. Deliberately no token
- * numbers: the provider decides the real budget per level, so a "~Nk tokens"
- * figure would be false precision.
- */
-const KNOWN_THINKING_META: Record<string, { label: string; meta: string }> = {
-  off: { label: 'Off', meta: 'No reasoning' },
-  none: { label: 'Off', meta: 'No reasoning' },
-  minimal: { label: 'Minimal', meta: 'Very brief' },
-  low: { label: 'Low', meta: 'Light' },
-  medium: { label: 'Medium', meta: 'Moderate' },
-  high: { label: 'High', meta: 'Deep' },
-  xhigh: { label: 'Extra high', meta: 'Very deep' },
-  max: { label: 'Max', meta: 'Maximum' },
-  ultra: { label: 'Ultra', meta: 'Proactive multi-agent' },
-};
-
-function thinkingMeta(level: ThinkingLevel): { label: string; meta: string } {
-  const known = KNOWN_THINKING_META[level];
-  if (known) return known;
-  const label = level
-    .split(/[._-]+/u)
-    .filter(Boolean)
-    .map((word) => `${word[0]?.toUpperCase() ?? ''}${word.slice(1)}`)
-    .join(' ');
-  return { label: label || level, meta: 'Model-defined effort' };
-}
 
 function catalogDateLabel(value: string): string {
   const timestamp = Date.parse(value);
@@ -247,7 +220,7 @@ export function ComposerSettingsMenu({
           : selectedModelUnavailable
             ? 'Selected model unavailable — reselect'
             : 'Model unavailable'),
-    supportsReasoning ? thinkingMeta(level).label : null,
+    supportsReasoning ? thinkingLevelMeta(level).label : null,
     showPermissionMode ? MODE_META[mode].label : null,
   ]
     .filter(Boolean)
@@ -375,7 +348,7 @@ export function ComposerSettingsMenu({
               <Icon icon={Brain} size="sm" />
               <span className="off-composer-menu-row">
                 <span className="off-composer-menu-name">Reasoning</span>
-                <span className="off-composer-menu-meta">{thinkingMeta(level).label}</span>
+                <span className="off-composer-menu-meta">{thinkingLevelMeta(level).label}</span>
               </span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="off-composer-menu off-composer-thinking-menu">
@@ -387,8 +360,12 @@ export function ComposerSettingsMenu({
                 {reasoningLevels.map((value) => (
                   <DropdownMenuRadioItem key={value} value={value}>
                     <span className="off-composer-menu-row">
-                      <span className="off-composer-menu-name">{thinkingMeta(value).label}</span>
-                      <span className="off-composer-menu-meta">{thinkingMeta(value).meta}</span>
+                      <span className="off-composer-menu-name">
+                        {thinkingLevelMeta(value).label}
+                      </span>
+                      <span className="off-composer-menu-meta">
+                        {thinkingLevelMeta(value).meta}
+                      </span>
                     </span>
                   </DropdownMenuRadioItem>
                 ))}

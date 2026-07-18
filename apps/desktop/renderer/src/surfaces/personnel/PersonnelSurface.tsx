@@ -1,4 +1,4 @@
-import { useUiState } from '@/app/ui-state.js';
+import { registerSurfaceLeaveGuard, useUiState } from '@/app/ui-state.js';
 import {
   type AgentRuntimeModelOption,
   useAgentRuntimeModels,
@@ -29,8 +29,10 @@ import {
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
 import { Input } from '@/design-system/primitives/input.js';
-import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { cn } from '@/lib/utils.js';
+import { THINKING_LEVELS } from '@/runtime/pi-thread-thinking-store.js';
+import { thinkingLevelMeta } from '@/runtime/thinking-level-presentation.js';
 import { PANEL_SIZE_TOKENS } from '@/styles/visual-tokens.js';
 import {
   clearDiscardConfirm,
@@ -86,7 +88,7 @@ const INSPECTOR_TABS = [
   { key: 'memory', label: 'Memory' },
   { key: 'experience', label: 'Experience' },
   { key: 'appearance', label: 'Appearance' },
-  { key: 'runtime', label: 'Runtime' },
+  { key: 'runtime', label: 'AI engine' },
   { key: 'history', label: 'History' },
 ] as const;
 type InspectorTab = (typeof INSPECTOR_TABS)[number]['key'];
@@ -185,11 +187,9 @@ function RosterRow({
             {employee.kind === 'external' && employee.brandLabel ? (
               <span className="off-pers-emp-brand">{employee.brandLabel}</span>
             ) : null}
-            {employee.kind === 'internal' ? (
+            {employee.kind === 'internal' && (modelInvalid || employee.model) ? (
               <span className={cn('off-pers-emp-model', modelInvalid && 'is-invalid')}>
-                {modelInvalid
-                  ? 'Model unavailable · inherits'
-                  : employee.model || 'Inherits conversation model'}
+                {modelInvalid ? 'AI unavailable · uses conversation default' : employee.model}
               </span>
             ) : null}
           </span>
@@ -351,7 +351,9 @@ function DetailHeader({
         <div className="off-pers-detail-pills">
           {employee.kind === 'internal' ? (
             <span className={cn('off-pers-st-pill', invalidModel && 'is-off')}>
-              {invalidModel ? 'Model unavailable · inherits' : employee.model || 'Inherits model'}
+              {invalidModel
+                ? 'AI unavailable · conversation default'
+                : employee.model || 'Conversation default'}
             </span>
           ) : null}
           {employee.kind === 'external' ? (
@@ -568,13 +570,33 @@ function EmployeeDetail({
     }
   };
 
-  const onReset = () => {
+  const onReset = useCallback(() => {
     form.reset(baselineProfile.current);
     setAppearance(baselineAppearance.current);
     setModel(baselineRuntime.current.model);
     setThinkingLevel(baselineRuntime.current.thinkingLevel);
     setSaveError(null);
-  };
+  }, [form]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const unregister = registerSurfaceLeaveGuard('personnel', ({ proceed, cancel }) => {
+      showDiscardConfirm({
+        message: 'Discard unsaved employee changes?',
+        detail: 'Leaving Personnel will lose the edits you have not saved.',
+        onDiscard: () => {
+          onReset();
+          proceed();
+        },
+        onKeep: cancel,
+      });
+      return false;
+    });
+    return () => {
+      unregister();
+      clearDiscardConfirm();
+    };
+  }, [isDirty, onReset]);
 
   const onDelete = async () => {
     if (isDeleting) return;
@@ -620,37 +642,45 @@ function EmployeeDetail({
             </TabsTrigger>
           ))}
         </TabsList>
+        <div className="off-pers-insp-body">
+          <TabsContent value="profile" className="off-pers-tab-panel">
+            <ProfileTab employee={employee} companyName={companyName} form={form} />
+          </TabsContent>
+          <TabsContent value="skills" className="off-pers-tab-panel">
+            <SkillsTab employeeId={employee.id} />
+          </TabsContent>
+          <TabsContent value="tools" className="off-pers-tab-panel">
+            <McpToolsTab employeeId={employee.id} />
+          </TabsContent>
+          <TabsContent value="memory" className="off-pers-tab-panel">
+            <MemoryTab employeeId={employee.id} />
+          </TabsContent>
+          <TabsContent value="experience" className="off-pers-tab-panel">
+            <ExperienceTab employeeId={employee.id} companyId={companyId} />
+          </TabsContent>
+          <TabsContent value="appearance" className="off-pers-tab-panel">
+            <AppearanceTab employee={employee} draft={appearance} onChange={setAppearance} />
+          </TabsContent>
+          <TabsContent value="runtime" className="off-pers-tab-panel">
+            <RuntimeTab
+              employee={employee}
+              models={models}
+              modelsLoading={modelsLoading}
+              model={model}
+              thinkingLevel={thinkingLevel}
+              onModelChange={(value) => {
+                setModel(value);
+                if (!value) setThinkingLevel('');
+              }}
+              onThinkingLevelChange={setThinkingLevel}
+            />
+          </TabsContent>
+          <TabsContent value="history" className="off-pers-tab-panel">
+            <HistoryTab employeeId={employee.id} />
+          </TabsContent>
+        </div>
       </Tabs>
-      <div className="off-pers-insp-body">
-        {tab === 'profile' ? (
-          <ProfileTab employee={employee} companyName={companyName} form={form} />
-        ) : null}
-        {tab === 'skills' ? <SkillsTab employeeId={employee.id} /> : null}
-        {tab === 'tools' ? <McpToolsTab employeeId={employee.id} /> : null}
-        {tab === 'memory' ? <MemoryTab employeeId={employee.id} /> : null}
-        {tab === 'experience' ? (
-          <ExperienceTab employeeId={employee.id} companyId={companyId} />
-        ) : null}
-        {tab === 'appearance' ? (
-          <AppearanceTab employee={employee} draft={appearance} onChange={setAppearance} />
-        ) : null}
-        {tab === 'runtime' ? (
-          <RuntimeTab
-            employee={employee}
-            models={models}
-            modelsLoading={modelsLoading}
-            model={model}
-            thinkingLevel={thinkingLevel}
-            onModelChange={(value) => {
-              setModel(value);
-              if (!value) setThinkingLevel('');
-            }}
-            onThinkingLevelChange={setThinkingLevel}
-          />
-        ) : null}
-        {tab === 'history' ? <HistoryTab employeeId={employee.id} /> : null}
-      </div>
-      {tab === 'profile' || tab === 'appearance' || tab === 'runtime' ? (
+      {tab === 'profile' || tab === 'appearance' || tab === 'runtime' || isDirty ? (
         <>
           {saveError ? <div className="off-pers-save-error">{saveError}</div> : null}
           <div
@@ -659,6 +689,7 @@ function EmployeeDetail({
               if (e.animationName === 'off-pers-guard-flash') setGuardPulsing(false);
             }}
           >
+            {isDirty ? <span className="off-pers-save-status">Unsaved changes</span> : <span />}
             <div className="flex items-center gap-[var(--off-sp-3)]">
               <Button variant="outline" size="sm" disabled={!isDirty || isSaving} onClick={onReset}>
                 Reset
@@ -815,7 +846,7 @@ function HireEmployeeDialog({
               options={[
                 {
                   value: '',
-                  label: models.isLoading ? 'Loading models…' : 'Inherit conversation model',
+                  label: models.isLoading ? 'Loading available AI…' : "Use each conversation's AI",
                 },
                 ...(models.data ?? []).map((option) => ({
                   value: option.value,
@@ -826,19 +857,17 @@ function HireEmployeeDialog({
           </div>
           {supportsReasoning ? (
             <div className="off-pers-hire-field">
-              <label htmlFor={`${roleInputId}-thinking`}>Thinking level</label>
+              <label htmlFor={`${roleInputId}-thinking`}>Reasoning effort</label>
               <Select
                 id={`${roleInputId}-thinking`}
                 value={thinkingLevel}
                 onChange={(event) => setThinkingLevel(event.target.value)}
                 options={[
                   { value: '', label: 'Use conversation level' },
-                  ...(['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).map(
-                    (level) => ({
-                      value: level,
-                      label: level,
-                    }),
-                  ),
+                  ...THINKING_LEVELS.map((level) => ({
+                    value: level,
+                    label: thinkingLevelMeta(level).label,
+                  })),
                 ]}
               />
             </div>
@@ -922,12 +951,11 @@ export function PersonnelSurface() {
     visibleEmployeeIdsRef.current = ids;
   }, []);
 
-  // Reset to Profile when the selected employee changes (tab is local). Also
-  // clear any lingering discard bar and the dirty flag — the freshly-mounted
-  // EmployeeDetail re-reports its own dirty state.
+  // Keep the inspector view stable while comparing employees. Clear any
+  // lingering discard bar and dirty flag; the freshly-mounted EmployeeDetail
+  // re-reports its own state for the selected employee.
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on selection change only
   useEffect(() => {
-    setTab('profile');
     clearDiscardConfirm();
     dirtyRef.current = false;
   }, [selectedEmployeeId]);
@@ -1032,7 +1060,7 @@ export function PersonnelSurface() {
         <Panel
           panelRef={listPanelRef}
           className="off-pers-rail"
-          defaultSize="18%"
+          defaultSize={PANEL_SIZE_TOKENS.personnelRailDefault}
           minSize={PANEL_SIZE_TOKENS.personnelRailMin}
           collapsible
           collapsedSize={PANEL_SIZE_TOKENS.personnelRailCollapsed}

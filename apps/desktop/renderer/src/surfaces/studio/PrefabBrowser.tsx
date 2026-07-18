@@ -1,10 +1,30 @@
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Button } from '@/design-system/primitives/button.js';
 import { cn } from '@/lib/utils.js';
 import { getAllBuiltinPrefabs } from '@offisim/renderer';
 import { type SemanticCategory, ZONE_PRESET_GROUPS, type ZonePreset } from '@offisim/shared-types';
-import { BookOpen, Box, Cpu, type LucideIcon, PanelTop, Sprout, Users, Wrench } from 'lucide-react';
-import { Fragment, type PointerEvent as ReactPointerEvent, useMemo, useRef } from 'react';
+import {
+  BookOpen,
+  Box,
+  ChevronLeft,
+  ChevronRight,
+  Cpu,
+  type LucideIcon,
+  PanelTop,
+  Sprout,
+  Users,
+  Wrench,
+} from 'lucide-react';
+import {
+  Fragment,
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { type StudioPlacement, useStudioStore } from './studio-store.js';
 import { ZONE_ARCHETYPE_ICON } from './zone-archetype-icons.js';
 
@@ -117,6 +137,68 @@ function PlacementCard({
   );
 }
 
+function BrowserTrack({ children, label }: { children: ReactNode; label: string }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const track = trackRef.current;
+    const content = contentRef.current;
+    if (!track || !content) return;
+    const sync = () => {
+      const max = Math.max(0, track.scrollWidth - track.clientWidth);
+      const next = { left: track.scrollLeft > 2, right: track.scrollLeft < max - 2 };
+      setEdges((previous) =>
+        previous.left === next.left && previous.right === next.right ? previous : next,
+      );
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(track);
+    observer.observe(content);
+    track.addEventListener('scroll', sync, { passive: true });
+    return () => {
+      observer.disconnect();
+      track.removeEventListener('scroll', sync);
+    };
+  }, []);
+
+  const scroll = (direction: -1 | 1) => {
+    trackRef.current?.scrollBy({ left: direction * 320, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="off-studio-browser-scroll-shell">
+      <Button
+        variant="ghost"
+        size="iconSm"
+        className="off-studio-browser-scroll-button"
+        onClick={() => scroll(-1)}
+        disabled={!edges.left}
+        aria-label={`Show earlier ${label}`}
+      >
+        <Icon icon={ChevronLeft} size="sm" />
+      </Button>
+      <section ref={trackRef} className="off-studio-browser-track" aria-label={label}>
+        <div ref={contentRef} className="off-studio-browser-track-content">
+          {children}
+        </div>
+      </section>
+      <Button
+        variant="ghost"
+        size="iconSm"
+        className="off-studio-browser-scroll-button"
+        onClick={() => scroll(1)}
+        disabled={!edges.right}
+        aria-label={`Show more ${label}`}
+      >
+        <Icon icon={ChevronRight} size="sm" />
+      </Button>
+    </div>
+  );
+}
+
 /** Overview shelf: zone presets (furnished templates) + a blank shell per group. */
 function ZonePresetShelf({ disabled }: { disabled: boolean }) {
   const gesture = usePlacementGesture();
@@ -129,7 +211,7 @@ function ZonePresetShelf({ disabled }: { disabled: boolean }) {
       mode,
     });
   return (
-    <div className="off-studio-browser-track">
+    <BrowserTrack label="Room templates">
       {ZONE_PRESET_GROUPS.map((group) => {
         const blankPreset = group.presets[0];
         return (
@@ -144,7 +226,7 @@ function ZonePresetShelf({ disabled }: { disabled: boolean }) {
                 make={presetPlacement(preset.id, false)}
                 icon={ZONE_ARCHETYPE_ICON[preset.archetype]}
                 name={preset.label}
-                meta={`${preset.w}×${preset.d} · ${preset.prefabs.length} obj`}
+                meta={`${preset.w}×${preset.d} · ${preset.prefabs.length} items`}
                 title={`${preset.description} · ${preset.w}×${preset.d} · ${preset.prefabs.length} objects`}
                 disabled={disabled}
                 gesture={gesture}
@@ -165,7 +247,7 @@ function ZonePresetShelf({ disabled }: { disabled: boolean }) {
           </Fragment>
         );
       })}
-    </div>
+    </BrowserTrack>
   );
 }
 
@@ -194,7 +276,7 @@ function FurnitureShelf({
   }, [allowedCategories]);
 
   return (
-    <div className="off-studio-browser-track">
+    <BrowserTrack label="Furniture and office items">
       {groups.map(([category, prefabs]) => (
         <Fragment key={category}>
           <span className="off-studio-browser-group">
@@ -215,7 +297,7 @@ function FurnitureShelf({
           ))}
         </Fragment>
       ))}
-    </div>
+    </BrowserTrack>
   );
 }
 
@@ -229,13 +311,13 @@ export function PrefabBrowser({
   disabled: boolean;
 }) {
   return (
-    <section className="off-studio-browser" aria-label="Prefabs">
+    <section className="off-studio-browser" aria-label="Add to office">
       <header className="off-studio-browser-head">
-        <CapsLabel>{focusActive ? 'Prefabs · Furniture' : 'Prefabs · Zone templates'}</CapsLabel>
+        <CapsLabel>{focusActive ? 'Furniture and items' : 'Room templates'}</CapsLabel>
         <span className="off-studio-browser-hint">
           {focusActive
-            ? 'Drag into the zone, or click then place repeatedly · R rotate · right-click stop'
-            : 'Drag onto open floor to add a zone'}
+            ? 'Drag into the room, or choose an item and place it on the canvas'
+            : 'Drag a template onto open floor to add a room'}
         </span>
       </header>
       {focusActive ? (

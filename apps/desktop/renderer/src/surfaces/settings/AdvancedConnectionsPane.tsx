@@ -85,7 +85,7 @@ export function AdvancedConnectionsPane() {
   return (
     <div className="off-set-pane">
       <header className="off-set-panehead">
-        <h2 className="off-set-panetitle">Advanced connections</h2>
+        <h2 className="off-set-panetitle">Service Connections</h2>
         <p className="off-set-panedesc">
           Technical connection settings for self-hosted and team services.
         </p>

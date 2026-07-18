@@ -1,5 +1,5 @@
 import { NAV_ENTRIES } from '@/app/nav-registry.js';
-import { useUiState } from '@/app/ui-state.js';
+import { guardCurrentSurfaceScopeChange, useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
 import { useCompanies, useProjects } from '@/data/queries.js';
 import {
@@ -136,7 +136,7 @@ function CommandDataGroups({
     const seq = ++commandCompanyActivationSeq;
     try {
       if (result.companyId && result.companyId !== companyId) {
-        await activateCompanyScope({
+        const activated = await activateCompanyScope({
           companyId: result.companyId,
           setScope: (nextCompanyId, fallbackProjectId) =>
             setScope(nextCompanyId, result.projectId ?? fallbackProjectId),
@@ -144,10 +144,13 @@ function CommandDataGroups({
           surface: 'office',
           shouldCommit: () => seq === commandCompanyActivationSeq,
         });
-        if (seq !== commandCompanyActivationSeq) return;
+        if (!activated || seq !== commandCompanyActivationSeq) return;
       } else {
-        if (result.projectId && result.projectId !== projectId) setProject(result.projectId);
-        setSurface('office');
+        const activated = await guardCurrentSurfaceScopeChange('office', () => {
+          if (result.projectId && result.projectId !== projectId) setProject(result.projectId);
+          setSurface('office');
+        });
+        if (!activated || seq !== commandCompanyActivationSeq) return;
       }
 
       if (result.category === 'conversation') {
