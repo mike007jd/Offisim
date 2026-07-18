@@ -542,6 +542,17 @@ mod tests {
     }
 
     #[test]
+    fn distribution_capability_is_main_window_only() {
+        let capability = capability(include_str!("../capabilities/distribution.json"));
+        assert_privileged_capability_is_main_webview_only(&capability);
+        let permissions = capability
+            .get("permissions")
+            .and_then(Value::as_array)
+            .expect("permissions array");
+        assert_eq!(permissions, &vec![Value::String("distribution".into())]);
+    }
+
+    #[test]
     fn codex_pets_capability_is_main_window_only() {
         let capability = capability(include_str!("../capabilities/codex-pets.json"));
         assert_privileged_capability_is_main_webview_only(&capability);
