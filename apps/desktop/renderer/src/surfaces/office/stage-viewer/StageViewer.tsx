@@ -147,115 +147,120 @@ export function StageTopBar({ isRunning, accounting }: StageTopBarProps) {
 
   return (
     <div className="off-stage-topbar">
-      <button
-        type="button"
-        className="off-stage-rail-toggle off-focusable"
-        data-rail="workspace"
-        onClick={() => setLeftRailCollapsed(!leftRailCollapsed)}
-        aria-label={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
-        aria-expanded={!leftRailCollapsed}
-        title={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
-      >
-        <Icon icon={leftRailCollapsed ? PanelLeftOpen : PanelLeftClose} size="sm" />
-      </button>
-      <nav className="off-stage-tabs" aria-label="Stage views">
+      <div className="off-stage-topbar-tabs">
         <button
           type="button"
-          className={cn('off-stage-tab off-focusable', stagePrimaryTab === 'game' && 'is-active')}
-          onClick={() => setStagePrimaryTab('game')}
-          aria-current={stagePrimaryTab === 'game' ? 'page' : undefined}
-          aria-label="Game View"
-          title="Game View"
+          className="off-stage-rail-toggle off-focusable"
+          data-rail="workspace"
+          onClick={() => setLeftRailCollapsed(!leftRailCollapsed)}
+          aria-label={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
+          aria-expanded={!leftRailCollapsed}
+          title={leftRailCollapsed ? 'Expand workspace' : 'Collapse workspace'}
         >
-          <Icon icon={Box} size="sm" />
-          <span>Game View</span>
+          <Icon icon={leftRailCollapsed ? PanelLeftOpen : PanelLeftClose} size="sm" />
         </button>
-        <button
-          type="button"
-          className={cn('off-stage-tab off-focusable', stagePrimaryTab === 'board' && 'is-active')}
-          onClick={() => setStagePrimaryTab('board')}
-          aria-current={stagePrimaryTab === 'board' ? 'page' : undefined}
-          aria-label={`Board${pendingReviewCount ? `, ${pendingReviewCount} pending review` : ''}`}
-          title="Board"
-        >
-          <Icon icon={Columns3} size="sm" />
-          <span>Board</span>
-          {pendingReviewCount > 0 ? (
-            <b className="off-stage-tab-badge">{pendingReviewCount}</b>
-          ) : null}
-        </button>
-        {stageOpenTabs.map((tab) => {
-          const baseLabel = stageTabLabel(tab.target);
-          const label =
-            (labelCounts.get(baseLabel) ?? 0) > 1
-              ? stageTabDisambiguatedLabel(tab.target)
-              : baseLabel;
-          return (
-            <div
-              key={tab.id}
-              className={cn('off-stage-tab-shell', activeStageTabId === tab.id && 'is-active')}
-              data-split={stageSplitTabId === tab.id ? 'right' : undefined}
-            >
-              <button
-                type="button"
-                className="off-stage-tab off-focusable"
-                onClick={() => activateStageTab(tab.id)}
-                onAuxClick={(event) => {
-                  if (event.button === 1) closeStageTab(tab.id);
-                }}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  if (stagePrimaryTab !== 'game' && stagePrimaryTab !== 'board') {
-                    toggleStageSplitTab(tab.id);
-                  }
-                }}
-                aria-current={activeStageTabId === tab.id ? 'page' : undefined}
-                aria-label={label}
-                title={stageTabTitle(tab.target)}
+        <nav className="off-stage-tabs" aria-label="Stage views">
+          <button
+            type="button"
+            className={cn('off-stage-tab off-focusable', stagePrimaryTab === 'game' && 'is-active')}
+            onClick={() => setStagePrimaryTab('game')}
+            aria-current={stagePrimaryTab === 'game' ? 'page' : undefined}
+            aria-label="Game View"
+            title="Game View"
+          >
+            <Icon icon={Box} size="sm" />
+            <span>Game View</span>
+          </button>
+          <button
+            type="button"
+            className={cn(
+              'off-stage-tab off-focusable',
+              stagePrimaryTab === 'board' && 'is-active',
+            )}
+            onClick={() => setStagePrimaryTab('board')}
+            aria-current={stagePrimaryTab === 'board' ? 'page' : undefined}
+            aria-label={`Board${pendingReviewCount ? `, ${pendingReviewCount} pending review` : ''}`}
+            title="Board"
+          >
+            <Icon icon={Columns3} size="sm" />
+            <span>Board</span>
+            {pendingReviewCount > 0 ? (
+              <b className="off-stage-tab-badge">{pendingReviewCount}</b>
+            ) : null}
+          </button>
+          {stageOpenTabs.map((tab) => {
+            const baseLabel = stageTabLabel(tab.target);
+            const label =
+              (labelCounts.get(baseLabel) ?? 0) > 1
+                ? stageTabDisambiguatedLabel(tab.target)
+                : baseLabel;
+            return (
+              <div
+                key={tab.id}
+                className={cn('off-stage-tab-shell', activeStageTabId === tab.id && 'is-active')}
+                data-split={stageSplitTabId === tab.id ? 'right' : undefined}
               >
-                <Icon icon={stageTabIcon(tab.target)} size="sm" />
-                <span>{label}</span>
-              </button>
-              {stagePrimaryTab !== 'game' && stagePrimaryTab !== 'board' ? (
                 <button
                   type="button"
-                  className="off-stage-tab-split off-focusable"
-                  onClick={() => toggleStageSplitTab(tab.id)}
-                  aria-label={
-                    stageSplitTabId === tab.id
-                      ? `Restore ${label} to single view`
-                      : `Split ${label} to right`
-                  }
-                  aria-pressed={stageSplitTabId === tab.id}
-                  title={
-                    stageSplitTabId === tab.id
-                      ? 'Restore single view'
-                      : stageOpenTabs.length > 1
-                        ? 'Split to right'
-                        : 'Open another work view to split'
-                  }
-                  disabled={stageOpenTabs.length < 2 && stageSplitTabId !== tab.id}
+                  className="off-stage-tab off-focusable"
+                  onClick={() => activateStageTab(tab.id)}
+                  onAuxClick={(event) => {
+                    if (event.button === 1) closeStageTab(tab.id);
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    if (stagePrimaryTab !== 'game' && stagePrimaryTab !== 'board') {
+                      toggleStageSplitTab(tab.id);
+                    }
+                  }}
+                  aria-current={activeStageTabId === tab.id ? 'page' : undefined}
+                  aria-label={label}
+                  title={stageTabTitle(tab.target)}
                 >
-                  <Icon
-                    icon={stageSplitTabId === tab.id ? PanelRightClose : PanelRightOpen}
-                    size="sm"
-                  />
+                  <Icon icon={stageTabIcon(tab.target)} size="sm" />
+                  <span>{label}</span>
                 </button>
-              ) : null}
-              <button
-                type="button"
-                className="off-stage-tab-close off-focusable"
-                onClick={() => closeStageTab(tab.id)}
-                aria-label={`Close ${label}`}
-                title={`Close ${label}`}
-              >
-                <Icon icon={X} size="sm" />
-              </button>
-            </div>
-          );
-        })}
-        <StageViewMenu />
-      </nav>
+                {stagePrimaryTab !== 'game' && stagePrimaryTab !== 'board' ? (
+                  <button
+                    type="button"
+                    className="off-stage-tab-split off-focusable"
+                    onClick={() => toggleStageSplitTab(tab.id)}
+                    aria-label={
+                      stageSplitTabId === tab.id
+                        ? `Restore ${label} to single view`
+                        : `Split ${label} to right`
+                    }
+                    aria-pressed={stageSplitTabId === tab.id}
+                    title={
+                      stageSplitTabId === tab.id
+                        ? 'Restore single view'
+                        : stageOpenTabs.length > 1
+                          ? 'Split to right'
+                          : 'Open another work view to split'
+                    }
+                    disabled={stageOpenTabs.length < 2 && stageSplitTabId !== tab.id}
+                  >
+                    <Icon
+                      icon={stageSplitTabId === tab.id ? PanelRightClose : PanelRightOpen}
+                      size="sm"
+                    />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="off-stage-tab-close off-focusable"
+                  onClick={() => closeStageTab(tab.id)}
+                  aria-label={`Close ${label}`}
+                  title={`Close ${label}`}
+                >
+                  <Icon icon={X} size="sm" />
+                </button>
+              </div>
+            );
+          })}
+          <StageViewMenu />
+        </nav>
+      </div>
 
       <div className="off-stage-topbar-right">
         <RunPipelinePill />
@@ -386,7 +391,11 @@ function stageTabLabel(target: StageOpenTarget) {
     case 'browser-session':
       return target.title ?? 'Browser';
     case 'changes':
-      return target.comparisonGroupId ? 'Compare drafts' : target.path ? fileLeaf(target.path) : 'Review';
+      return target.comparisonGroupId
+        ? 'Compare drafts'
+        : target.path
+          ? fileLeaf(target.path)
+          : 'Review';
     case 'logs':
       return target.tool ?? target.title ?? 'Terminal';
     case 'terminal-session':
@@ -403,7 +412,9 @@ function stageTabTitle(target: StageOpenTarget) {
     case 'browser-session':
       return target.title ?? target.initialUrl;
     case 'changes':
-      return target.comparisonGroupId ? 'Competitive draft review' : target.path ?? 'Workspace changes';
+      return target.comparisonGroupId
+        ? 'Competitive draft review'
+        : (target.path ?? 'Workspace changes');
     case 'logs':
       return target.tool ?? target.title ?? 'Terminal log';
     case 'terminal-session':

@@ -129,11 +129,26 @@ check('idle and terminal states use meaningful status instead of a ghost Stop', 
   assert.match(runPill, /presentation\.terminalLabel \? \([\s\S]*off-pipe-status/);
 });
 
-check('compact run pill retains phase, progress, and the live action', () => {
+check('stage-width topbar partition retains tabs, progress, and the live action', () => {
+  const topbarStart = officeCss.indexOf('.off-stage-topbar {');
+  const topbarEnd = officeCss.indexOf('.off-stage-readout-div', topbarStart);
+  const topbarCss = officeCss.slice(topbarStart, topbarEnd);
   const pipelineStart = officeCss.indexOf('/* === Pipeline pill');
   const pipelineEnd = officeCss.indexOf('/* === Staged attachments', pipelineStart);
   const pipelineCss = officeCss.slice(pipelineStart, pipelineEnd);
-  assert.match(pipelineCss, /@media \(max-width: 1500px\)/);
+  assert.match(officeCss, /container:\s*off-stage \/ inline-size/);
+  assert.match(topbarCss, /grid-template-columns:\s*minmax\(80px, 1fr\) max-content/);
+  assert.match(
+    topbarCss,
+    /\.off-stage-topbar-tabs\s*{[^}]*min-width:\s*0;[^}]*overflow:\s*hidden/s,
+  );
+  assert.match(topbarCss, /\.off-stage-tabs\s*{[^}]*min-width:\s*0;[^}]*overflow-x:\s*auto/s);
+  assert.match(
+    topbarCss,
+    /\.off-stage-topbar-right\s*{[^}]*justify-self:\s*end;[^}]*overflow:\s*hidden/s,
+  );
+  assert.match(pipelineCss, /@container off-stage \(max-width: 920px\)/);
+  assert.match(pipelineCss, /@container off-stage \(max-width: 420px\)/);
   assert.match(pipelineCss, /\.off-pipe-task\s*{\s*display:\s*none;/);
   for (const required of ['off-pipe-phase-label', 'off-pipe-progress', 'off-pipe-stop']) {
     assert.doesNotMatch(pipelineCss, new RegExp(`\\.${required}\\s*\\{[^}]*display:\\s*none`, 's'));
