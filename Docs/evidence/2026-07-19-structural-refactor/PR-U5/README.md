@@ -5,8 +5,11 @@
 - Worktree: `/Users/haoshengli/worktrees/offisim-refactor-u5`
 - Branch: `refactor/U5-data-layer`
 - Exact release app: `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`
-- Executable PID during verification: `18194`
-- Resolved window: `CGWindowNumber=33475`, title `Offisim`, bounds `36,33,1440x884`
+- Implementation commit built and verified: `c41ad86d1b94034742f39c2f37fc8e986d52f30c`
+- Final release build time: `2026-07-19 05:52:40 +1200`
+- Executable SHA-256 / size: `22a354afc9904d5358c9595321d111f6030af1d20464f971ecc5ecdac32b804a` / `33,940,032` bytes
+- Executable PID during verification: `87258`
+- Resolved window: `CGWindowNumber=33661`, title `Offisim`, bounds `36,33,1440x884`
 - Signature: `Developer ID Application: Haosheng Li (9MP925J67C)`; `codesign --verify --deep --strict` passed.
 
 ## Automated gates
@@ -34,7 +37,7 @@
 
 Created a real local skill package with `@offisim/install-core`, package id
 `u5.refactor.live.skill`, version `1.0.0`, archive SHA-256
-`3c45fbb34a6cfc46f1c6de8e758ec2e02b03219e1ff5b3e3497d174202f95a6e`.
+`f143333d1105a9b4ed120f273f670f314615880a96cb5c669009ae8ca7fd4b34`.
 The signed release app imported the `.offisimpkg`, materialized it into the
 selected company, showed `Installed`, and returned it from the Installed query
 when searching `u5.refactor`.
@@ -64,15 +67,15 @@ reachable catalog plus valid creator account.
 ### Board — passed
 
 Opened Office → Board in the signed release app. The Board query rendered the
-current company state (`Requests and review`, `0 requests`) without an error.
+current company state (`Requests and review`, `21 requests`) without an error.
 
 - [Board live](board-live.png)
 
 ### Activity — passed
 
 Opened Office → Timeline in the signed release app. The activity query returned
-319 records and the surface-side presentation mappings rendered topic labels,
-time buckets (`Today 2`, `Yesterday 76`) and relative timestamps.
+331 records and the surface-side presentation mappings rendered topic labels,
+time buckets (`Today 5`, `Yesterday 76`) and relative timestamps.
 
 - [Activity live](activity-live.png)
 
