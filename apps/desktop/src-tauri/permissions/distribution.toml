@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "distribution"
+description = "Allow signed app updates and startup recovery commands in the main Offisim window."
+commands.allow = [
+  "app_update_check",
+  "app_update_install",
+  "startup_status",
+  "startup_export_diagnostics",
+  "startup_reset_local_data",
+]

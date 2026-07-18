@@ -129,7 +129,7 @@
     "format": "biome format --write .",
     "clean": "turbo run clean && rm -rf node_modules",
     "release:run": "node scripts/run-clean-release.mjs",
-    "release:dmg": "node scripts/build-signed-dmg.mjs",
+    "release:publish": "node scripts/release-publish.mjs",
     "check:deadcode": "knip",
     "qa:loop": "node scripts/run-functional-test-loop.mjs",
     "harness:live-agent-run": "node scripts/harness-live-agent-run.mjs",
@@ -153,7 +153,7 @@
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "license": "MIT",
   "repository": {
     "type": "git",

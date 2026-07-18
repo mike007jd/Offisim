@@ -193,6 +193,183 @@
   background: var(--off-surface-sunken);
 }
 
+/* Startup recovery is intentionally independent from the normal app shell and
+   database-backed providers. It must remain usable when every other surface is not. */
+.off-safe-mode {
+  position: fixed;
+  inset: 0;
+  z-index: var(--off-z-emergency);
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--off-warn) 10%, transparent), transparent 36%),
+    var(--off-bg);
+  color: var(--off-ink-1);
+}
+
+.off-safe-mode.is-loading {
+  align-content: center;
+  gap: var(--off-sp-3);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-sm);
+}
+
+.off-safe-mode-loader {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--off-line);
+  border-top-color: var(--off-accent);
+  border-radius: 50%;
+}
+
+.off-safe-mode-card {
+  width: min(680px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 36px;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-lg);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-3);
+}
+
+.off-safe-mode-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  margin-bottom: var(--off-sp-5);
+  border-radius: var(--off-r-md);
+  background: color-mix(in srgb, var(--off-warn) 14%, var(--off-surface-1));
+  color: var(--off-warn);
+}
+
+.off-safe-mode-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.off-safe-mode-kicker {
+  color: var(--off-warn);
+  font-size: var(--off-fs-micro);
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.off-safe-mode h1 {
+  margin: var(--off-sp-2) 0 0;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.off-safe-mode-summary {
+  max-width: 60ch;
+  margin: var(--off-sp-4) 0 0;
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-md);
+  line-height: 1.55;
+}
+
+.off-safe-mode-meta {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--off-sp-3);
+  margin: var(--off-sp-6) 0 0;
+}
+
+.off-safe-mode-meta div {
+  min-width: 0;
+  padding: var(--off-sp-4);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+}
+
+.off-safe-mode-meta dt {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-micro);
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.off-safe-mode-meta dd {
+  margin: var(--off-sp-1) 0 0;
+  overflow: hidden;
+  color: var(--off-ink-2);
+  font-family: var(--off-font-mono);
+  font-size: var(--off-fs-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-safe-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-3);
+  margin-top: var(--off-sp-6);
+}
+
+.off-safe-mode-privacy,
+.off-safe-mode-exported {
+  margin: var(--off-sp-4) 0 0;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  line-height: 1.5;
+}
+
+.off-safe-mode-exported strong {
+  color: var(--off-ok);
+}
+
+.off-safe-mode-confirm {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--off-sp-5);
+  margin-top: var(--off-sp-5);
+  padding: var(--off-sp-5);
+  border: 1px solid var(--off-danger-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-danger-surface);
+}
+
+.off-safe-mode-confirm strong {
+  color: var(--off-danger);
+}
+
+.off-safe-mode-confirm p {
+  margin: var(--off-sp-2) 0 0;
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  line-height: 1.45;
+}
+
+.off-safe-mode-confirm-actions {
+  display: flex;
+  gap: var(--off-sp-2);
+}
+
+@media (max-width: 680px) {
+  .off-safe-mode {
+    padding: var(--off-sp-4);
+  }
+
+  .off-safe-mode-card {
+    padding: var(--off-sp-6);
+  }
+
+  .off-safe-mode-meta,
+  .off-safe-mode-confirm {
+    grid-template-columns: 1fr;
+  }
+}
+
 .off-state {
   flex: 1;
   min-height: 0;
