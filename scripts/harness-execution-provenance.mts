@@ -243,6 +243,10 @@ check('direct delegated roots report the child session actual model', () => {
     nodeHostSource,
     /directResult\.provenance \? \{ provenance: directResult\.provenance \} : \{\}/u,
   );
+  assert.match(
+    desktopRuntimeSource,
+    /function requireRootResultProvenance\([\s\S]*orchestrationShell \? undefined : rootRunId[\s\S]*requirePreparedExecutionIdentity\(preparations, actual\.runId\)[\s\S]*orchestrationShell \? \{ \.\.\.actual, runId: rootRunId \} : actual/u,
+  );
 });
 
 const oauthRegistry = { isUsingOAuth: () => true };

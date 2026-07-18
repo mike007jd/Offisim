@@ -1,3 +1,8 @@
+import {
+  type EmployeeSeniority,
+  employeeSeniorityLabel,
+  employeeTrackRecordLabel,
+} from '@/data/employee-seniority.js';
 import type { Employee } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
@@ -40,12 +45,16 @@ function SystemPromptPreview({ text }: { text: string }) {
 
 interface ProfileTabProps {
   employee: Employee;
+  seniority: EmployeeSeniority | undefined;
   companyName: string;
   form: UseFormReturn<ProfileFormValues>;
 }
 
 /** Read-only external (A2A) profile — brand-managed, no form/save. */
-function ExternalProfile({ employee }: { employee: Employee }) {
+function ExternalProfile({
+  employee,
+  seniority,
+}: { employee: Employee; seniority: EmployeeSeniority | undefined }) {
   return (
     <div className="off-pers-prof-grid">
       <div className="off-pers-brand-banner">
@@ -67,11 +76,17 @@ function ExternalProfile({ employee }: { employee: Employee }) {
         <span className="off-field-label">Capabilities</span>
         <div className="off-pers-ro-inp is-area">{(employee.expertise ?? []).join(' · ')}</div>
       </div>
+      {seniority ? (
+        <div className="off-pers-seniority-card">
+          <strong>{employeeSeniorityLabel(seniority)}</strong>
+          <span>{employeeTrackRecordLabel(seniority)}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export function ProfileTab({ employee, companyName, form }: ProfileTabProps) {
+export function ProfileTab({ employee, seniority, companyName, form }: ProfileTabProps) {
   const nameId = useId();
   const expertiseId = useId();
   const workingStyleId = useId();
@@ -81,7 +96,7 @@ export function ProfileTab({ employee, companyName, form }: ProfileTabProps) {
     return (
       <div className="off-pers-tab-shell">
         <div className="off-pers-tab-scroll">
-          <ExternalProfile employee={employee} />
+          <ExternalProfile employee={employee} seniority={seniority} />
         </div>
       </div>
     );
@@ -140,6 +155,15 @@ export function ProfileTab({ employee, companyName, form }: ProfileTabProps) {
                 workstation.
               </p>
             </div>
+            {seniority ? (
+              <div className="off-pers-seniority-card">
+                <strong>{employeeSeniorityLabel(seniority)}</strong>
+                <span>{employeeTrackRecordLabel(seniority)}</span>
+                <small>
+                  Career level comes from completed tasks, selected drafts, and saved lessons.
+                </small>
+              </div>
+            ) : null}
           </section>
 
           {/* Persona — these fields compose the employee's real Pi system prompt. */}

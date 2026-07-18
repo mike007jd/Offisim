@@ -578,6 +578,23 @@ function requirePreparedExecutionIdentity(
   return expected;
 }
 
+function requireRootResultProvenance(
+  value: unknown,
+  rootRunId: string,
+  preparations: ReadonlyMap<string, ExecutionPreparationRecord>,
+  orchestrationShell: boolean,
+): TurnExecutionProvenance {
+  const actual = requireTurnExecutionProvenance(
+    value,
+    orchestrationShell ? undefined : rootRunId,
+  );
+  assertSameExecutionAccount(
+    requirePreparedExecutionIdentity(preparations, actual.runId),
+    actual,
+  );
+  return orchestrationShell ? { ...actual, runId: rootRunId } : actual;
+}
+
 function newRequestId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
@@ -3600,18 +3617,16 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       if (event.kind === 'result') {
         finalText = event.response.text || finalText;
         try {
-          const provenance = requireTurnExecutionProvenance(
+          const provenance = requireRootResultProvenance(
             event.response.provenance,
             runScope.runId,
+            executionPreparations,
+            Boolean(input.directDelegation || competitiveDraft),
           );
           if (!executionTarget) {
             throw new Error('Agent runtime returned provenance without an execution target.');
           }
           assertSameExecutionAccount({ ...executionTarget, runId: runScope.runId }, provenance);
-          assertSameExecutionAccount(
-            requirePreparedExecutionIdentity(executionPreparations, runScope.runId),
-            provenance,
-          );
           runtimeContext.provenance = provenance;
           this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
         } catch (error) {
@@ -3677,6 +3692,19 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         projectId,
         competitiveDraft ? { includeActingEmployeeInRoster: true } : undefined,
       );
+      const effectiveSystemPromptAppend = competitiveDraft
+        ? [
+            systemPromptAppend,
+            [
+              'Competitive draft workspace rules:',
+              '- Work only inside the assigned isolated worktree and produce the requested files there.',
+              '- Do not commit, amend, merge, rebase, switch branches, or create branches. Offisim owns proposal capture, winner integration, and loser cleanup.',
+              '- Finish with the worktree changes left uncommitted so Offisim can compare and adopt them.',
+            ].join('\n'),
+          ]
+            .filter(Boolean)
+            .join('\n\n')
+        : systemPromptAppend;
       throwIfRunAborted(signal);
       // The gateway already froze the task's engine/account/model before entering
       // this adapter. Employee settings may still supply a thinking level, but
@@ -3821,7 +3849,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             workspaceRequirement,
             nativeSessionMode,
             permissionMode,
-            systemPromptAppend: systemPromptAppend ?? undefined,
+            systemPromptAppend: effectiveSystemPromptAppend ?? undefined,
             projectExperience: projectExperience ?? undefined,
             skillPaths,
             projectSkillPaths,
@@ -3857,7 +3885,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             workspaceRequirement,
             nativeSessionMode,
             permissionMode,
-            systemPromptAppend: systemPromptAppend ?? undefined,
+            systemPromptAppend: effectiveSystemPromptAppend ?? undefined,
             projectExperience: projectExperience ?? undefined,
             skillPaths,
             projectSkillPaths,
@@ -3894,7 +3922,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             runtimeModelRef: resolvedModel,
             permissionMode,
             thinkingLevel: resolvedThinkingLevel,
-            systemPromptAppend: systemPromptAppend ?? undefined,
+            systemPromptAppend: effectiveSystemPromptAppend ?? undefined,
             projectExperience: projectExperience ?? undefined,
             skillPaths,
             projectSkillPaths,
@@ -4045,17 +4073,18 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       // branch's invoke threw before returning.
       const rootUsage = commandResponse.usage;
       const provenance = {
-        ...requireTurnExecutionProvenance(commandResponse.provenance, runScope.runId),
+        ...requireRootResultProvenance(
+          commandResponse.provenance,
+          runScope.runId,
+          executionPreparations,
+          Boolean(input.directDelegation || competitiveDraft),
+        ),
         runtimeModelRef: resolvedModel,
       };
       if (!executionTarget) {
         throw new Error('Agent runtime completed without an execution target.');
       }
       assertSameExecutionAccount({ ...executionTarget, runId: runScope.runId }, provenance);
-      assertSameExecutionAccount(
-        requirePreparedExecutionIdentity(executionPreparations, runScope.runId),
-        provenance,
-      );
       if (runtimeContext.provenance?.runId !== provenance.runId) {
         runtimeContext.provenance = provenance;
         this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));

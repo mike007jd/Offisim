@@ -202,6 +202,25 @@
   white-space: nowrap;
 }
 
+.off-pers-seniority-badge {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
+  font-weight: 680;
+  line-height: 1.25;
+}
+
+.off-pers-seniority-badge.is-level-3,
+.off-pers-career-pill.is-level-3 {
+  border-color: var(--off-accent-ring);
+  background: var(--off-accent-surface);
+  color: var(--off-accent);
+}
+
 .off-pers-emp-dis {
   font-size: var(--off-fs-micro);
   color: var(--off-ink-4);
@@ -316,6 +335,20 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--off-sp-2);
+}
+
+.off-pers-career-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-xs);
+  font-weight: 680;
+  white-space: nowrap;
 }
 
 .off-pers-detail-actions {
@@ -472,6 +505,27 @@
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-4);
+}
+
+.off-pers-seniority-card {
+  display: grid;
+  gap: 3px;
+  padding: var(--off-sp-4);
+  border: 1px solid var(--off-accent-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-accent-surface);
+}
+
+.off-pers-seniority-card strong {
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+}
+
+.off-pers-seniority-card span,
+.off-pers-seniority-card small {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  line-height: 1.45;
 }
 
 .off-pers-switch-row {
@@ -1252,6 +1306,24 @@
   gap: var(--off-sp-6);
   padding: var(--off-sp-2) 0 var(--off-sp-3);
   border-bottom: 1px solid var(--off-line-soft);
+}
+
+.off-pers-exp-level {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--off-sp-4);
+}
+
+.off-pers-exp-level strong {
+  color: var(--off-accent);
+  font-size: var(--off-fs-sm);
+}
+
+.off-pers-exp-level span {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
 }
 
 .off-pers-exp-stat {

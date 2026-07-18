@@ -606,6 +606,30 @@
   display: inline-flex;
 }
 
+.off-scene-seniority {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  z-index: var(--off-z-raised);
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  background: color-mix(in oklab, var(--off-surface-1) 94%, transparent);
+  box-shadow: var(--off-scene-toy-shadow);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-micro);
+  font-weight: 680;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.off-scene-seniority.is-level-3 {
+  border-color: var(--off-accent-ring);
+  color: var(--off-accent);
+}
+
 /* Active-count badge — concurrent runs collapse to one actor, so the ×N count is
    the only signal of parallel work. Pinned to the tag's top-right corner. */
 .off-scene-count-badge {

@@ -11,7 +11,9 @@ import {
 } from '@/assistant/runtime/scene-cue-projection.js';
 import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
 import { OFFICE_SCENE_2D_COLORS } from '@/data/color-palette.js';
+import { employeeSeniorityLabel } from '@/data/employee-seniority.js';
 import type { ZoneKind } from '@/data/types.js';
+import { seniorityForEmployee, useEmployeeSeniorityRoster } from '@/data/use-employee-seniority.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { CANVAS_FONT_TOKENS, CANVAS_RADIUS_TOKENS } from '@/styles/visual-tokens.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
@@ -79,7 +81,7 @@ const CHIP_TONE_2D: Record<WorkloadChipTone, string> = {
 interface EmployeeHit {
   kind: 'employee';
   employeeId: string;
-  threadId: string;
+  threadId: string | null;
   sx: number;
   sy: number;
   r: number;
@@ -155,6 +157,8 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   // synthetic fallback only applies when there is no backend (dev preview).
   const { roster, zoneDefs, positions, stagingPrefabs, pathfinder, routeFor, routeSignature } =
     useSceneStagingInputs();
+  const seniority = useEmployeeSeniorityRoster(companyId, roster);
+  const [hoveredEmployeeId, setHoveredEmployeeId] = useState<string | null>(null);
   const { floorW, floorD } = useMemo(() => floorBounds(zoneDefs), [zoneDefs]);
 
   // THE render contract: one SceneCueFrame per render, shared with the 3D
@@ -901,6 +905,33 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           ctx.fillText(labelText, sx, slot);
           ctx.textAlign = 'left';
         }
+        if (hoveredEmployeeId === employee.id) {
+          const employeeSeniority = seniorityForEmployee(seniority.data, employee.id);
+          if (employeeSeniority) {
+            const career = employeeSeniorityLabel(employeeSeniority);
+            ctx.font = CANVAS_FONT_TOKENS.officeSceneLabel;
+            const careerW = ctx.measureText(career).width + 14;
+            const careerH = 20;
+            const careerX = sx - careerW / 2;
+            const careerY = sy - r - 42;
+            roundRect(
+              ctx,
+              careerX,
+              careerY,
+              careerW,
+              careerH,
+              CANVAS_RADIUS_TOKENS.deliveryShelf,
+            );
+            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.deliveryShelf;
+            ctx.fill();
+            ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.activeRing;
+            ctx.stroke();
+            ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
+            ctx.textAlign = 'center';
+            ctx.fillText(career, sx, careerY + 14);
+            ctx.textAlign = 'left';
+          }
+        }
         // Register the disc+ring footprint only after this employee's own
         // label is placed — the above-slot box grazes the ring box by 2px and
         // must not be blocked by the employee's own disc.
@@ -911,16 +942,14 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
           y1: sy + r + ringPad,
         });
 
-        if (cue?.threadId) {
-          hitsRef.current.push({
-            kind: 'employee',
-            employeeId: employee.id,
-            threadId: cue.threadId,
-            sx,
-            sy,
-            r: r + 6,
-          });
-        }
+        hitsRef.current.push({
+          kind: 'employee',
+          employeeId: employee.id,
+          threadId: cue?.threadId ?? null,
+          sx,
+          sy,
+          r: r + 6,
+        });
       }
     };
   });
@@ -996,7 +1025,15 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
       if (raf) window.cancelAnimationFrame(raf);
       if (timer) window.clearTimeout(timer);
     };
-  }, [companionAtlasReady, companionEnabled, frame, officeMode, reducedMotion]);
+  }, [
+    companionAtlasReady,
+    companionEnabled,
+    frame,
+    hoveredEmployeeId,
+    officeMode,
+    reducedMotion,
+    seniority.data,
+  ]);
 
   // Hit testing walks registration order in REVERSE so the topmost-drawn
   // target wins — later employees' chip rows paint over earlier ones, so a
@@ -1033,16 +1070,18 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
         const hit = hitAt(e.clientX - rect.left, e.clientY - rect.top);
         // Interactive hits (employee, bubble, shelf) read as clickable.
         e.currentTarget.style.cursor = hit ? 'pointer' : '';
+        setHoveredEmployeeId(hit?.kind === 'employee' ? hit.employeeId : null);
       }}
       onPointerLeave={(e) => {
         e.currentTarget.style.cursor = '';
+        setHoveredEmployeeId(null);
       }}
       onClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const hit = hitAt(e.clientX - rect.left, e.clientY - rect.top);
         if (!hit) return;
         if (hit.kind === 'employee') {
-          openThread(hit.threadId);
+          if (hit.threadId) openThread(hit.threadId);
           return;
         }
         if (hit.kind === 'drilldown') {

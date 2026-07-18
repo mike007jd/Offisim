@@ -12,8 +12,10 @@ import {
   flowCueText,
 } from '@/assistant/runtime/scene-cue-projection.js';
 import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
+import { type EmployeeSeniority, employeeSeniorityLabel } from '@/data/employee-seniority.js';
 import { useReassignEmployee } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
+import { seniorityForEmployee, useEmployeeSeniorityRoster } from '@/data/use-employee-seniority.js';
 import { resolveAppearance } from '@/lib/avatar.js';
 import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim.js';
 import {
@@ -373,6 +375,7 @@ function ScenePrefabInstance3D({
 
 function EmployeeUnit({
   employee,
+  seniority,
   x,
   z,
   rotation,
@@ -384,6 +387,7 @@ function EmployeeUnit({
   resourceKind,
   reducedMotion,
   selected,
+  hovered,
   attention,
   dragging,
   performance,
@@ -399,6 +403,7 @@ function EmployeeUnit({
   onDragState,
 }: {
   employee: Employee;
+  seniority: EmployeeSeniority | undefined;
   x: number;
   z: number;
   rotation: number;
@@ -411,6 +416,7 @@ function EmployeeUnit({
   resourceKind: ResourceKind | null;
   reducedMotion: boolean;
   selected: boolean;
+  hovered: boolean;
   /** frame.attention targets this actor — a subtle sustained focus emphasis. */
   attention: boolean;
   dragging: boolean;
@@ -915,6 +921,11 @@ function EmployeeUnit({
             ) : (
               <span className={`off-scene-tag${actorStatusClass}`}>{actorLabelText}</span>
             )}
+            {hovered && seniority ? (
+              <span className={`off-scene-seniority is-level-${seniority.level}`}>
+                {employeeSeniorityLabel(seniority)}
+              </span>
+            ) : null}
             {/* The frame's WorkloadCue drives the ×N badge, the resource-marker
                 hierarchy, and the chip row, in lockstep with the 2D scene. When
                 the cue's primary slot is 'issue' the marker and badge swap
@@ -1080,6 +1091,7 @@ function FallbackFurniture() {
 }
 
 export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
+  const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const openThread = useUiState((s) => s.openThread);
@@ -1109,6 +1121,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
     routeFor,
     routeSignature,
   } = useSceneStagingInputs();
+  const seniority = useEmployeeSeniorityRoster(companyId, roster);
   const knownEmployeeIdsRef = useRef<Set<string> | null>(null);
   const enteringEmployeeIds = new Set<string>();
   if (sceneInputsReady && knownEmployeeIdsRef.current) {
@@ -1354,6 +1367,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
                 <EmployeeUnit
                   key={employee.id}
                   employee={employee}
+                  seniority={seniorityForEmployee(seniority.data, employee.id)}
                   x={target.x}
                   z={target.z}
                   rotation={target.rotation}
@@ -1365,6 +1379,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
                   resourceKind={resourceKindByEmployee.get(employee.id) ?? null}
                   reducedMotion={reducedMotion}
                   selected={cue?.selected ?? false}
+                  hovered={cue?.hovered ?? false}
                   attention={attentionEmployeeId === employee.id}
                   dragging={cue?.dragging ?? false}
                   performance={performance}

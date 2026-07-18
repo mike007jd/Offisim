@@ -1606,7 +1606,17 @@ assert(
 );
 assert(
   /deferIntegration: directDelegation\.deferIntegration === true/.test(nodeHostSource) &&
-    /options\.deferIntegration !== true/.test(childSupervisorSource) &&
+    /options\.deferIntegration === true/.test(childSupervisorSource) &&
+    /runTask\(task, signal, options\)/.test(childSupervisorSource) &&
+    /maybeIntegrateWrites\([\s\S]*options\.deferIntegration === true/.test(
+      childSupervisorSource,
+    ) &&
+    /confirmIntegration: retainForReview \? undefined : ctx\.confirmIntegration/.test(
+      childSupervisorSource,
+    ) &&
+    /options\.deferIntegration === true[\s\S]*do not stage, commit, amend, merge, rebase, switch branches, or create branches/.test(
+      childSupervisorSource,
+    ) &&
     /deferIntegration/.test(bundledNodeHostSource) &&
     /if \(!directResult\.completed\)/.test(nodeHostSource) &&
     /direct-delegation-failed/.test(nodeHostSource),
@@ -1628,7 +1638,7 @@ assert(
     ) &&
     desktopAgentRuntimeSource.indexOf('const pendingAbortDecision =') <
       desktopAgentRuntimeSource.indexOf(
-        '...requireTurnExecutionProvenance(commandResponse.provenance, runScope.runId)',
+        '...requireRootResultProvenance(',
       ) &&
     /if \(this\.abortedRequests\.has\(requestId\)\) \{[\s\S]*?this\.persistRootTerminal\(\s*runScope\.runId,\s*'cancelled'/.test(
       desktopAgentRuntimeSource,
