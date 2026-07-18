@@ -3,6 +3,8 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  accessSync,
+  constants,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -73,6 +75,30 @@ function credentialFreeEnv() {
 }
 
 const env = credentialFreeEnv();
+
+function resolveTool(name, candidates = []) {
+  const pathCandidates = String(env.PATH ?? '')
+    .split(path.delimiter)
+    .filter(Boolean)
+    .map((directory) => path.join(directory, name));
+  for (const candidate of [...candidates, ...pathCandidates]) {
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Continue until an executable candidate is found.
+    }
+  }
+  throw new Error(`required tool is missing: ${name}`);
+}
+
+const ghPath = resolveTool('gh', ['/opt/homebrew/bin/gh', '/usr/local/bin/gh']);
+const pnpmPath = resolveTool('pnpm', ['/opt/homebrew/bin/pnpm', '/usr/local/bin/pnpm']);
+const cargoPath = resolveTool('cargo', [
+  path.join(os.homedir(), '.cargo/bin/cargo'),
+  '/opt/homebrew/bin/cargo',
+  '/usr/local/bin/cargo',
+]);
 
 function run(command, args, { label = path.basename(command), forward = false, cwd = root } = {}) {
   console.log(`[release] ${label}`);
@@ -148,7 +174,7 @@ function assertPrerequisites(options) {
     ['notarytool', 'history', '--keychain-profile', notaryProfile, '--output-format', 'json'],
     { label: 'verify notary keychain profile' },
   );
-  run('/opt/homebrew/bin/gh', ['auth', 'status', '--active', '--hostname', 'github.com'], {
+  run(ghPath, ['auth', 'status', '--active', '--hostname', 'github.com'], {
     label: 'verify GitHub CLI login',
   });
   const branch = run('/usr/bin/git', ['branch', '--show-current'], {
@@ -292,11 +318,11 @@ function publishDraft(options, version, artifacts, checksums, evidenceDir) {
     notesFile,
   ];
   if (options.draft) args.push('--draft');
-  run('/opt/homebrew/bin/gh', args, {
+  run(ghPath, args, {
     label: `create${options.draft ? ' draft' : ''} GitHub release`,
   });
   const release = run(
-    '/opt/homebrew/bin/gh',
+    ghPath,
     ['release', 'view', tag, '--repo', repository, '--json', 'url,tagName,isDraft,assets'],
     { label: 'verify GitHub release' },
   );
@@ -304,11 +330,11 @@ function publishDraft(options, version, artifacts, checksums, evidenceDir) {
 }
 
 function runReleaseGates() {
-  run('/opt/homebrew/bin/pnpm', ['--filter', '@offisim/desktop-renderer...', 'build'], {
+  run(pnpmPath, ['--filter', '@offisim/desktop-renderer...', 'build'], {
     label: 'build renderer and workspace dependencies',
     forward: true,
   });
-  run('/opt/homebrew/bin/pnpm', ['--filter', '@offisim/desktop-renderer', 'typecheck'], {
+  run(pnpmPath, ['--filter', '@offisim/desktop-renderer', 'typecheck'], {
     label: 'typecheck renderer',
     forward: true,
   });
@@ -316,12 +342,12 @@ function runReleaseGates() {
     label: 'run Node release gates',
     forward: true,
   });
-  run('/opt/homebrew/bin/pnpm', ['prepare:desktop-cargo-test'], {
+  run(pnpmPath, ['prepare:desktop-cargo-test'], {
     label: 'prepare desktop cargo tests',
     forward: true,
   });
   run(
-    path.join(os.homedir(), '.cargo/bin/cargo'),
+    cargoPath,
     ['test', '--locked', '--manifest-path', 'apps/desktop/src-tauri/Cargo.toml', '--lib'],
     { label: 'run desktop cargo library tests', forward: true },
   );
@@ -342,7 +368,7 @@ export function main(argv = process.argv.slice(2)) {
 
   if (!options.skipBuild) {
     run(
-      '/opt/homebrew/bin/pnpm',
+      pnpmPath,
       [
         '--filter',
         '@offisim/desktop',
