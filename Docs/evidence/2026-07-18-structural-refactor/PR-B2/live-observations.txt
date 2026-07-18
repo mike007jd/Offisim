@@ -1,0 +1,91 @@
+PR-B2 LIVE OBSERVATIONS
+checkedAt=2026-07-18T23:20:13+12:00
+
+Exact B1 baseline after-restart proof
+-------------------------------------
+commit=6bc048728cbcbf2addbeafe8fdb9478427868d50
+app=/private/tmp/offisim-b1-live-baseline/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app
+binarySha256=dfc358546becbdcd6ee6b0b5dd75a46ff1f506df5ffd6af7338cb55d88aa3845
+pid=76536
+CGWindowNumber=31750
+bounds=x36,y33,w1440,h889
+
+Computer Use action-time AX and screenshot were captured in the same frame.
+Relevant AX text:
+  Use the shell to run `sleep 30`, then reply with exactly
+  B1-BASELINE-REATTACH-OK and nothing else. Do not modify any file.
+  Started 25m ago CAN RESUME Continue this task in
+  /private/tmp/offisim-w6-live-project from where it stopped.
+
+screenshot=09-b1-baseline-after-restart.jpeg
+dbRunId=attempt-d30d0358-3ed2-494e-ae35-58f250b6efb7
+dbThreadId=thread-5fba4ec5-58f0-4477-a417-a038633f1998
+dbStatus=interrupted
+dbStartedAt=2026-07-18T10:53:02.401Z
+manualResumeUsed=false
+afterComputerUseClose.pidRemaining=false
+afterComputerUseClose.windowRemaining=false
+
+B2 reattach comparison rows
+----------------------------
+run=attempt-763e67bb-00b7-4354-ac55-ad7d6621c2b4 status=interrupted thread=thread-b77647f1-1fd9-4cc5-8046-7c3f20b22c2e startedAt=2026-07-18T10:41:40.042Z
+run=attempt-09d1c2a7-153a-4833-b8bf-bafaa10412b7 status=interrupted thread=thread-4d6bcb4a-4a2a-4959-b03f-4a5994068390 startedAt=2026-07-18T10:44:56.801Z
+
+Accepted Stop observation
+-------------------------
+run=attempt-c4246552-cefe-415d-8906-14b5135ac042
+thread=thread-dc8e1d11-c019-426a-b18b-7a0215086d0f
+startedAt=2026-07-18T11:07:00.559Z
+finishedAt=2026-07-18T11:07:19.694Z
+
+Before Computer Use Stop:
+  AX text: bash / running...
+  AX text: WORKING bash · api · Built-in
+  appPid=60042
+  piAgentHostPid=63791
+  first diagnostic sleep chain=60042 -> 63857 -> 63859 (sleep 60)
+  accepted screenshot=07-stop2-running.jpeg
+
+Computer Use action:
+  clicked=Stop run
+
+0.8 seconds after Stop, action-time AX text:
+  Interrupted: 0 of 4 stages
+  Interrupted Last run interrupted
+  Run progress Value: 0 Details: 0%
+  0 / 4 Stopped
+
+Database terminal row:
+  status=cancelled
+
+Terminal process scan:
+  sleep180Remaining=false
+  piAgentHostRemaining=false
+  activeThreadInteractions=0
+  b2AppExitedAfterComputerUseClose=true
+  b2WindowExitedAfterComputerUseClose=true
+
+Visual limitation:
+  08-stop2-interrupted.jpeg is the action-time post-Stop frame, but retained
+  CAN RESUME cards obscure the center-stage status. Reopening the retained
+  conversation resets that stage projection to Ready, so the AX terminal text,
+  DB cancelled row, and process scan above are the auditable terminal proof.
+
+Approval blocker
+----------------
+Ask AXMenuItem bounds=x809,y579,w318,h30
+Computer Use center click=x968,y594
+afterClick.askValue=0
+afterClick.autoValue=1
+settingsHelp=cohere/north-mini-code:free · Auto
+approvalGranted=false
+commandSent=false
+
+Cleanup
+-------
+activeThreadInteractions=0
+testSleepRemaining=false
+piAgentHostRemaining=false
+canResumeCardsRetained=3
+allEmployeesIdleClaimed=false
+reason=Discard is irreversible and lacked action-time user confirmation; Alex remains visually WORKING.

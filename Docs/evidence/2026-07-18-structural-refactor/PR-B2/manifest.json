@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "pr": "PR-B2",
+  "checkedAt": "2026-07-18T23:12:14+12:00",
+  "branch": "refactor/B2-host-event-dispatch",
+  "baseBranch": "refactor/B1-runtime-pure-functions",
+  "baseCommit": "6bc048728cbcbf2addbeafe8fdb9478427868d50",
+  "headBeforeCommit": "6bc048728cbcbf2addbeafe8fdb9478427868d50",
+  "mergeReady": false,
+  "implementation": {
+    "eventKindsCovered": 14,
+    "singleHandlerTable": true,
+    "singleDispatchEntrypoint": true,
+    "runtimeClassImportedByHandlerModule": false,
+    "b3PersistenceExtractionIncluded": false
+  },
+  "gates": {
+    "nodeReleaseLane": "PASS 4/4",
+    "rendererTypecheckBuild": "PASS",
+    "agentRunProjection": "PASS 65/65",
+    "runtimeConformance": "PASS 12/12",
+    "chatPersistence": "PASS 18/18",
+    "executionProvenance": "PASS 29/29",
+    "rendererEngineAuthority": "PASS",
+    "projectWorkspace": "PASS",
+    "streamWatchdog": "PASS",
+    "piAgentHost": "PASS",
+    "chatAttachmentRoundtrip": "PASS",
+    "gitDiffCheck": "PASS",
+    "gitNexusDetectChanges": "HIGH expected core B2 blast radius; six RunNativeTurn/cursor/context flows"
+  },
+  "releaseArtifacts": {
+    "b2": {
+      "path": "/Users/haoshengli/worktrees/offisim-refactor-b/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app",
+      "binarySha256": "538e82813299912612b2c8029382e3e2d620d8988ee8af6aff6e9e3edb371b5d",
+      "pid": 60042,
+      "mainWindowId": 31682,
+      "closed": true
+    },
+    "b1Baseline": {
+      "commit": "6bc048728cbcbf2addbeafe8fdb9478427868d50",
+      "path": "/private/tmp/offisim-b1-live-baseline/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app",
+      "binarySha256": "dfc358546becbdcd6ee6b0b5dd75a46ff1f506df5ffd6af7338cb55d88aa3845"
+    }
+  },
+  "liveScenarios": {
+    "normal": {
+      "status": "PASS",
+      "sentinel": "B2-NORMAL-OK",
+      "uiTerminal": "Complete 4/4"
+    },
+    "reattach": {
+      "status": "BLOCKED",
+      "b2PiRunId": "attempt-763e67bb-00b7-4354-ac55-ad7d6621c2b4",
+      "b2CodexRunId": "attempt-09d1c2a7-153a-4833-b8bf-bafaa10412b7",
+      "b1BaselineRunId": "attempt-d30d0358-3ed2-494e-ae35-58f250b6efb7",
+      "observedTerminal": "interrupted / CAN RESUME",
+      "manualResumeUsed": false,
+      "classification": "pre-existing full-app bootstrap contract conflict reproduced on exact B1 baseline"
+    },
+    "approval": {
+      "status": "BLOCKED",
+      "askValue": 0,
+      "autoValue": 1,
+      "settingsHelp": "cohere/north-mini-code:free · Auto",
+      "approvalGranted": false,
+      "commandSent": false,
+      "classification": "permission-mode menu cannot switch from Auto to Ask in release app"
+    },
+    "stop": {
+      "status": "PASS",
+      "acceptedRunId": "attempt-c4246552-cefe-415d-8906-14b5135ac042",
+      "startedAt": "2026-07-18T11:07:00.559Z",
+      "finishedAt": "2026-07-18T11:07:19.694Z",
+      "uiTerminal": "Interrupted / 0 of 4 / Stopped",
+      "databaseTerminal": "cancelled",
+      "sleepProcessRemaining": false,
+      "piHostRemaining": false,
+      "assistantSentinelAppeared": false,
+      "diagnosticNaturalCompletionRunId": "attempt-ab566e89-186c-44b1-8670-33fb6d7beb41"
+    }
+  },
+  "cleanup": {
+    "conversationMode": "Auto",
+    "activeThreadInteractions": 0,
+    "b2AppProcessRemaining": false,
+    "b2WindowRemaining": false,
+    "testSleepRemaining": false,
+    "piHostRemaining": false,
+    "canResumeCardsRetained": 3,
+    "allEmployeesIdleClaimed": false,
+    "reason": "Discard is irreversible and lacked action-time user confirmation; Alex remains visually WORKING"
+  },
+  "evidence": [
+    {"file": "01-normal-complete.jpeg", "sha256": "2b9e73298b8ca7760f269d110f462421ed7f8f6e178559097766c58c7b994291"},
+    {"file": "02-reattach-before-close.jpeg", "sha256": "9e543d384ffc01346dae475927efef51df1c84fae26388dc06281dcc78fa8f82"},
+    {"file": "03-reattach-after-restart-interrupted.jpeg", "sha256": "badc966df98763c1de56bd0a3cb2a0ab5e4c15e7e13f7a348708e329f29f37fb"},
+    {"file": "04-codex-reattach-before-close.jpeg", "sha256": "a03df7b99b02d1769969a9bba18a6a506cf68fef64242e051af4943158adfa8c"},
+    {"file": "05-codex-reattach-after-restart-interrupted.jpeg", "sha256": "4ebaf823ee352e9f2466a3b1a99667b62689620dd152d81f0b74503758c53c96"},
+    {"file": "06-stop-running.jpeg", "sha256": "3117f746d85aefc24ef625c37bb47588ee9accf3d3961fc1c195482340b2cb98"},
+    {"file": "07-stop2-running.jpeg", "sha256": "89be269aa18f20f7aa3ab7f75322668d53023218f4d8b4bcd48fec5b931c503e"},
+    {"file": "08-stop2-interrupted.jpeg", "sha256": "4f0e9dc263ff2f0f4af2404678a8a407dd84417df74145794feaf3c88eca1227"},
+    {"file": "09-b1-baseline-after-restart.jpeg", "sha256": "9c0520981a0d5aa0b2850bfbffa2d9a195119294df2ac2f8caf4fbd7d33fde94"},
+    {"file": "live-observations.txt", "sha256": "a2109172fd44633d5a45e1b437ecf613a4427d256cbb9d921441d5aa6d268636"}
+  ]
+}
