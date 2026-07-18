@@ -685,6 +685,229 @@ mod tests {
     }
 
     #[test]
+    fn codex_run_stream_semantics_publish_subscribe_replay_cursor() {
+        let stream = test_stream();
+        stream.publish(CodexAgentHostEvent::MessageDelta {
+            delta: "first".into(),
+            channel: Some("final".into()),
+        });
+        stream.publish(CodexAgentHostEvent::MessageDelta {
+            delta: "second".into(),
+            channel: Some("final".into()),
+        });
+
+        let delivered = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+        let delivered_for_channel = Arc::clone(&delivered);
+        let channel = Channel::new(move |body| {
+            delivered_for_channel
+                .lock()
+                .unwrap()
+                .push(body.deserialize().unwrap());
+            Ok(())
+        });
+
+        let snapshot = stream
+            .reattach(Some(1), channel)
+            .expect("reattach Codex stream");
+        assert!(snapshot.running);
+        assert_eq!(snapshot.cursor, 2);
+        {
+            let delivered = delivered.lock().unwrap();
+            assert_eq!(delivered.len(), 2);
+            assert_eq!(delivered[0]["kind"], "messageDelta");
+            assert_eq!(delivered[0]["delta"], "second");
+            assert_eq!(delivered[1]["kind"], "streamCursor");
+            assert_eq!(delivered[1]["cursor"], 2);
+        }
+
+        stream.publish(CodexAgentHostEvent::MessageDelta {
+            delta: "third".into(),
+            channel: Some("final".into()),
+        });
+        let delivered = delivered.lock().unwrap();
+        assert_eq!(delivered.len(), 4);
+        assert_eq!(delivered[2]["kind"], "messageDelta");
+        assert_eq!(delivered[2]["delta"], "third");
+        assert_eq!(delivered[3]["kind"], "streamCursor");
+        assert_eq!(delivered[3]["cursor"], 3);
+    }
+
+    #[test]
+    fn codex_run_stream_semantics_terminal_policy() {
+        let delivered = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+        let delivered_for_channel = Arc::clone(&delivered);
+        let channel = Channel::new(move |body| {
+            delivered_for_channel
+                .lock()
+                .unwrap()
+                .push(body.deserialize().unwrap());
+            Ok(())
+        });
+        let stream = RunStream::new("request".into(), channel);
+
+        stream.publish(CodexAgentHostEvent::MessageDelta {
+            delta: "before-stop".into(),
+            channel: Some("final".into()),
+        });
+        assert!(stream.finish_interrupted("user stop"));
+        let terminal_cursor = stream.snapshot().cursor;
+        assert_eq!(terminal_cursor, 2);
+        assert_eq!(
+            stream.publish(CodexAgentHostEvent::MessageDelta {
+                delta: "late".into(),
+                channel: Some("final".into()),
+            }),
+            terminal_cursor,
+            "Codex rejects post-terminal publication"
+        );
+
+        let snapshot = stream.snapshot();
+        assert!(!snapshot.running);
+        assert_eq!(snapshot.cursor, terminal_cursor);
+        assert_eq!(snapshot.buffered, 2);
+        assert_eq!(
+            snapshot
+                .terminal
+                .as_ref()
+                .map(|terminal| terminal.status.as_str()),
+            Some("interrupted")
+        );
+        {
+            let delivered = delivered.lock().unwrap();
+            assert_eq!(delivered.len(), 4, "late output must not be delivered");
+            assert_eq!(delivered[0]["kind"], "messageDelta");
+            assert_eq!(delivered[1]["kind"], "streamCursor");
+            assert_eq!(delivered[2]["kind"], "streamCursor");
+            assert_eq!(delivered[2]["cursor"], terminal_cursor);
+            assert_eq!(delivered[3]["kind"], "messageEnd");
+        }
+
+        let published_terminal = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+        let published_terminal_for_channel = Arc::clone(&published_terminal);
+        let stream = RunStream::new(
+            "published-terminal".into(),
+            Channel::new(move |body| {
+                published_terminal_for_channel
+                    .lock()
+                    .unwrap()
+                    .push(body.deserialize().unwrap());
+                Ok(())
+            }),
+        );
+        stream.publish(CodexAgentHostEvent::MessageEnd {
+            text: "published directly".into(),
+            stop_reason: Some("completed".into()),
+            error_message: None,
+        });
+
+        assert!(
+            stream.snapshot().running,
+            "ordinary publish of a terminal-shaped event does not terminalize the stream"
+        );
+        let published_terminal = published_terminal.lock().unwrap();
+        assert_eq!(published_terminal.len(), 2);
+        assert_eq!(
+            published_terminal[0]["kind"], "messageEnd",
+            "ordinary publish preserves the existing event-before-cursor ordering"
+        );
+        assert_eq!(published_terminal[1]["kind"], "streamCursor");
+    }
+
+    #[test]
+    fn codex_run_stream_semantics_bounded_pending_policy() {
+        let stream = test_stream();
+        stream.publish(CodexAgentHostEvent::MessageDelta {
+            delta: "seed".into(),
+            channel: Some("final".into()),
+        });
+
+        let replay_started = Arc::new(AtomicBool::new(false));
+        let publisher_finished = Arc::new(AtomicBool::new(false));
+        let publisher_handle = Arc::new(Mutex::new(None));
+        let stream_for_channel = Arc::clone(&stream);
+        let replay_started_for_channel = Arc::clone(&replay_started);
+        let publisher_finished_for_channel = Arc::clone(&publisher_finished);
+        let publisher_handle_for_channel = Arc::clone(&publisher_handle);
+        let channel = Channel::new(move |body| {
+            let event: serde_json::Value = body.deserialize().unwrap();
+            if event["kind"] == "messageDelta"
+                && !replay_started_for_channel.swap(true, Ordering::AcqRel)
+            {
+                let publish_barrier = Arc::new(Barrier::new(2));
+                let publish_barrier_for_thread = Arc::clone(&publish_barrier);
+                let stream_for_thread = Arc::clone(&stream_for_channel);
+                let publisher_finished_for_thread = Arc::clone(&publisher_finished_for_channel);
+                let handle = std::thread::spawn(move || {
+                    publish_barrier_for_thread.wait();
+                    for index in 0..=STREAM_BUFFER_LIMIT {
+                        stream_for_thread.publish(CodexAgentHostEvent::MessageDelta {
+                            delta: format!("concurrent-{index}"),
+                            channel: Some("final".into()),
+                        });
+                    }
+                    publisher_finished_for_thread.store(true, Ordering::Release);
+                });
+                *publisher_handle_for_channel.lock().unwrap() = Some(handle);
+                publish_barrier.wait();
+                std::thread::sleep(Duration::from_millis(20));
+                assert!(
+                    !publisher_finished_for_channel.load(Ordering::Acquire),
+                    "Codex currently serializes publish behind reattach instead of buffering pending output"
+                );
+            }
+            Ok(())
+        });
+
+        let replay_snapshot = stream
+            .reattach(Some(0), channel)
+            .expect("serialized Codex reattach remains successful");
+        assert_eq!(replay_snapshot.cursor, 1);
+        publisher_handle
+            .lock()
+            .unwrap()
+            .take()
+            .expect("replay should start a concurrent publisher")
+            .join()
+            .unwrap();
+        assert!(publisher_finished.load(Ordering::Acquire));
+        let final_snapshot = stream.snapshot();
+        assert_eq!(final_snapshot.cursor, STREAM_BUFFER_LIMIT as u64 + 2);
+        assert_eq!(final_snapshot.buffered, STREAM_BUFFER_LIMIT);
+    }
+
+    #[test]
+    fn codex_run_stream_semantics_cursor_validation_policy() {
+        let stream = test_stream();
+        stream.publish(CodexAgentHostEvent::MessageDelta {
+            delta: "first".into(),
+            channel: Some("final".into()),
+        });
+
+        let ahead_snapshot = stream
+            .reattach(Some(2), Channel::new(|_body| Ok(())))
+            .expect("Codex currently permits a cursor ahead of the live stream");
+        assert_eq!(ahead_snapshot.cursor, 1);
+
+        for index in 0..=STREAM_BUFFER_LIMIT {
+            stream.publish(CodexAgentHostEvent::MessageDelta {
+                delta: format!("buffered-{index}"),
+                channel: Some("final".into()),
+            });
+        }
+        let zero_cursor_snapshot = stream
+            .reattach(Some(0), Channel::new(|_body| Ok(())))
+            .expect("Codex currently permits zero cursor after replay eviction");
+        assert_eq!(zero_cursor_snapshot.buffered, STREAM_BUFFER_LIMIT);
+        let stale_error = stream
+            .reattach(Some(1), Channel::new(|_body| Ok(())))
+            .expect_err("Codex rejects a positive cursor behind retained replay");
+        assert!(
+            stale_error.contains("bounded buffer"),
+            "unexpected stale cursor error: {stale_error}"
+        );
+    }
+
+    #[test]
     fn late_native_output_is_rejected_after_user_stop() {
         let stream = test_stream();
         assert!(stream.finish_interrupted("user stop"));
