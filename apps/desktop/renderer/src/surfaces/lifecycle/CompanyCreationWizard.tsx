@@ -6,8 +6,10 @@ import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
+import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { motionPresets } from '@/styles/motion-tokens.js';
+import { openFirstRunGuide } from '@/surfaces/onboarding/first-run-state.js';
 import { ChevronDown, ChevronLeft, ChevronUp, FolderOpen, Loader2, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type CSSProperties, useCallback, useEffect, useId, useMemo, useState } from 'react';
@@ -59,6 +61,8 @@ interface CompanyCreationWizardProps {
    * affordances are hidden. Defaults to true.
    */
   dismissible?: boolean;
+  /** Cold-start path: begin with an empty team and require a real or demo Project folder. */
+  firstRun?: boolean;
 }
 
 function EmployeeCard({
@@ -141,23 +145,31 @@ export function CompanyCreationWizard({
   onDismiss,
   onComplete,
   dismissible = true,
+  firstRun = false,
 }: CompanyCreationWizardProps) {
   const templatesQuery = useCompanyTemplates();
   const modelsQuery = useAgentRuntimeModels();
 
   const templates = useMemo<WizardTemplate[]>(
-    () => [...(templatesQuery.data ?? []), CREATE_YOUR_OWN_TEMPLATE],
-    [templatesQuery.data],
+    () =>
+      firstRun
+        ? (templatesQuery.data ?? []).filter((template) => template.id === 'starter-company')
+        : [...(templatesQuery.data ?? []), CREATE_YOUR_OWN_TEMPLATE],
+    [firstRun, templatesQuery.data],
   );
 
   const [index, setIndex] = useState(0);
-  const [companyName, setCompanyName] = useState('');
+  const [companyName, setCompanyName] = useState(firstRun ? 'Northstar Studio' : '');
   const [description, setDescription] = useState('');
   const [workspaceRoot, setWorkspaceRoot] = useState('');
   const [workspaceSelectionRef, setWorkspaceSelectionRef] = useState<string | null>(null);
   const [employeeModels, setEmployeeModels] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (firstRun && !companyName.trim()) setCompanyName('Northstar Studio');
+  }, [companyName, firstRun]);
 
   const safeIndex = templates.length ? Math.min(index, templates.length - 1) : 0;
   const selected = templates[safeIndex] ?? null;
@@ -233,7 +245,7 @@ export function CompanyCreationWizard({
         ),
         workspaceRoot: requestedWorkspaceRoot || null,
         workspaceSelectionRef: requestedWorkspaceRoot ? workspaceSelectionRef : null,
-        openStudio: isCustom,
+        openStudio: isCustom && !firstRun,
       });
       clearDiscardConfirm();
     } catch (error) {
@@ -254,7 +266,22 @@ export function CompanyCreationWizard({
     }
   }
 
-  const primaryDisabled = !selected || !companyName.trim();
+  async function useDemoWorkspace() {
+    setCreateError(null);
+    setBusy(true);
+    try {
+      const folder = await invokeCommand('project_demo_workspace_prepare', {});
+      setWorkspaceRoot(folder.displayPath);
+      setWorkspaceSelectionRef(folder.selectionRef);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Demo Project creation failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const primaryDisabled =
+    !selected || !companyName.trim() || (firstRun && (!workspaceRoot || !workspaceSelectionRef));
 
   // One verb for every path. The Studio route is a template choice (Create your
   // own), not a second primary action.
@@ -264,7 +291,16 @@ export function CompanyCreationWizard({
     <motion.div className="off-wiz" {...motionPresets.pageFade}>
       <div className="off-wiz-head">
         <div className="off-wiz-head-ttl">Create a company</div>
-        <div className="off-wiz-head-sub">Pick a starting template, or build your own.</div>
+        <div className="off-wiz-head-sub">
+          {firstRun
+            ? 'Start with an empty office, then hire the person who will deliver your first order.'
+            : 'Pick a starting template, or build your own.'}
+        </div>
+        {!firstRun ? (
+          <button type="button" className="off-wiz-back off-focusable" onClick={openFirstRunGuide}>
+            Show setup guide
+          </button>
+        ) : null}
       </div>
 
       {/* Scannable template track — every template + Create-your-own is visible
@@ -320,7 +356,11 @@ export function CompanyCreationWizard({
                     </span>
                   ))}
                 </div>
-                <p className="off-wiz-cyo-note">Opens in Studio after you create it.</p>
+                <p className="off-wiz-cyo-note">
+                  {firstRun
+                    ? 'Your first employee will make this office their own.'
+                    : 'Opens in Studio after you create it.'}
+                </p>
               </div>
             ) : selected ? (
               <TemplatePreview template={selected} accentHex={selected.accentHex} />
@@ -331,7 +371,11 @@ export function CompanyCreationWizard({
         <aside className="off-wiz-side">
           {isCustom ? (
             <div className="off-wiz-cyo">
-              <p>Build your office in the Studio editor.</p>
+              <p>
+                {firstRun
+                  ? 'No team is pre-filled. You will hire and connect the first employee yourself.'
+                  : 'Build your office in the Studio editor.'}
+              </p>
             </div>
           ) : selected ? (
             <>
@@ -419,7 +463,11 @@ export function CompanyCreationWizard({
               <div className="off-wiz-workspace">
                 <label htmlFor="off-wiz-workspace">
                   Project folder{' '}
-                  <span className="off-wiz-opt">optional — skip to create a Project later</span>
+                  <span className="off-wiz-opt">
+                    {firstRun
+                      ? 'required for the first order'
+                      : 'optional — skip to create a Project later'}
+                  </span>
                 </label>
                 <div className="off-wiz-workspace-control">
                   <input
@@ -452,6 +500,16 @@ export function CompanyCreationWizard({
                   >
                     <Icon icon={FolderOpen} size="sm" />
                   </button>
+                  {firstRun && !workspaceRoot ? (
+                    <button
+                      type="button"
+                      className="off-wiz-folder off-wiz-folder--label off-focusable"
+                      disabled={busy}
+                      onClick={() => void useDemoWorkspace()}
+                    >
+                      Use demo project
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>

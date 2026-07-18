@@ -1104,6 +1104,12 @@
   background: var(--off-surface-2);
 }
 
+.off-wiz-folder--label {
+  width: auto;
+  padding-inline: var(--off-sp-4);
+  white-space: nowrap;
+}
+
 /* The textarea opts into the grammar's `.is-compact` variant (no comfortable
    area minimum), so this rule only has to state the footer-row height. */
 .off-wiz-desc textarea[data-slot="textarea"] {

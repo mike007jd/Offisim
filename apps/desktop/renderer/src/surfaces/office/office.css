@@ -431,11 +431,19 @@
   color: var(--off-accent);
 }
 
-.off-scene-controls {
+.off-scene-hud {
   position: absolute;
   top: var(--off-sp-3);
   right: var(--off-sp-3);
   z-index: var(--off-z-float);
+  min-width: 0;
+  max-width: calc(100% - (var(--off-sp-3) * 2));
+  display: grid;
+  justify-items: end;
+  gap: var(--off-sp-2);
+}
+
+.off-scene-controls {
   display: inline-flex;
   align-items: center;
   gap: var(--off-sp-2);
@@ -1051,6 +1059,7 @@
 .off-stage-topbar-tabs,
 .off-stage-tabs,
 .off-stage-topbar-right,
+.off-stage-status-cluster,
 .off-stage-readout,
 .off-stage-readout-part {
   display: inline-flex;
@@ -1228,6 +1237,14 @@
   overflow: hidden;
 }
 
+.off-stage-status-cluster {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--off-sp-1);
+  overflow: hidden;
+}
+
 .off-stage-rail-toggle {
   flex: none;
   width: 30px;
@@ -1280,12 +1297,6 @@
 .off-stage-readout-part {
   min-width: 0;
   gap: var(--off-sp-2);
-}
-
-@media (max-width: 1100px) {
-  .off-stage-readout {
-    display: none;
-  }
 }
 
 @container off-stage (max-width: 920px) {
@@ -1363,7 +1374,6 @@
   }
 
   .off-stage-tab span,
-  .off-stage-readout,
   .off-stage-max-btn {
     display: none;
   }
@@ -1479,6 +1489,7 @@
 .off-stage-viewer-pane {
   display: grid;
   grid-template-rows: 38px minmax(0, 1fr);
+  container: off-stage-pane / inline-size;
   background: var(--off-surface-1);
   overflow: hidden;
 }
@@ -1504,6 +1515,7 @@
 }
 
 .off-stage-viewer-title {
+  flex: 1 1 auto;
   min-width: 0;
   display: grid;
   gap: 1px;
@@ -1549,11 +1561,14 @@
 }
 
 .off-stage-viewer-controls {
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 76%;
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: var(--off-sp-1);
+  overflow: hidden;
 }
 
 .off-stage-viewer-body {
@@ -5664,6 +5679,77 @@
 
   .off-pipe-stop,
   .off-pipe-status {
+    width: 40px;
+    padding-inline: var(--off-sp-1);
+  }
+}
+
+/* Split panes have their own width budget, independent from the outer Stage. */
+@container off-stage-pane (max-width: 760px) {
+  .off-stage-status-cluster .off-pipe {
+    width: 244px;
+    grid-template-columns: minmax(0, 1fr) 88px 48px;
+  }
+
+  .off-stage-status-cluster .off-pipe-task {
+    display: none;
+  }
+
+  .off-stage-status-cluster .off-stage-readout {
+    width: 30px;
+    max-width: 30px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .off-stage-status-cluster .off-stage-readout-part {
+    justify-content: center;
+  }
+
+  .off-stage-status-cluster .off-stage-readout b,
+  .off-stage-status-cluster .off-stage-readout-div,
+  .off-stage-status-cluster .off-stage-readout > b {
+    display: none;
+  }
+}
+
+@container off-stage-pane (max-width: 520px) {
+  .off-stage-status-cluster .off-pipe {
+    width: 164px;
+    grid-template-columns: minmax(0, 1fr) 34px 44px;
+    gap: var(--off-sp-1);
+    padding-left: var(--off-sp-2);
+  }
+
+  .off-stage-status-cluster .off-pipe-flow {
+    display: none;
+  }
+
+  .off-stage-status-cluster .off-pipe-progress-slot {
+    grid-template-columns: 8px 24px;
+    gap: 2px;
+  }
+
+  .off-stage-status-cluster .off-pipe-stop,
+  .off-stage-status-cluster .off-pipe-status {
+    width: 44px;
+  }
+}
+
+@container off-stage-pane (max-width: 380px) {
+  .off-stage-status-cluster .off-pipe {
+    width: 116px;
+    grid-template-columns: minmax(0, 1fr) 28px 40px;
+    gap: 2px;
+    padding: 0 2px 0 var(--off-sp-2);
+  }
+
+  .off-stage-status-cluster .off-pipe-progress-slot {
+    grid-template-columns: 4px 22px;
+  }
+
+  .off-stage-status-cluster .off-pipe-stop,
+  .off-stage-status-cluster .off-pipe-status {
     width: 40px;
     padding-inline: var(--off-sp-1);
   }

@@ -1,0 +1,88 @@
+.off-first-run-lifecycle {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--off-bg);
+}
+
+.off-first-run-lifecycle > .off-wiz,
+.off-first-run-lifecycle > .off-lc-boot,
+.off-first-run-lifecycle > .off-lc-error-wrap {
+  min-height: 0;
+  flex: 1;
+}
+
+.off-first-run {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(var(--off-menu-min-w), 1fr) auto;
+  align-items: center;
+  gap: var(--off-sp-6);
+  padding: var(--off-sp-3) var(--off-sp-5);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-1);
+  pointer-events: auto;
+}
+
+.off-first-run-lifecycle > .off-first-run {
+  border-width: 0 0 1px;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.off-first-run-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+}
+
+.off-first-run-step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+  white-space: nowrap;
+}
+
+.off-first-run-step.is-current {
+  color: var(--off-accent);
+  font-weight: 700;
+}
+
+.off-first-run-step.is-done {
+  color: var(--off-ok);
+}
+
+.off-first-run-copy {
+  min-width: 0;
+  display: grid;
+  gap: var(--off-sp-1);
+}
+
+.off-first-run-copy strong {
+  font-size: var(--off-fs-sm);
+}
+
+.off-first-run-copy span,
+.off-first-run-copy small {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  line-height: var(--off-lh-copy);
+}
+
+.off-first-run-copy small {
+  color: var(--off-warn);
+}
+
+.off-first-run-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  white-space: nowrap;
+}

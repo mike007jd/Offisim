@@ -68,7 +68,7 @@ const templates = listTemplates();
 const ids = new Set<string>();
 const names = new Set<string>();
 
-check('exactly 6 built-in templates', templates.length === 6, `got ${templates.length}`);
+check('exactly 7 built-in templates', templates.length === 7, `got ${templates.length}`);
 
 for (const t of templates) {
   console.log(`\n[${t.id}] static`);
@@ -80,7 +80,10 @@ for (const t of templates) {
     `${t.id}: presentation.icon is a non-empty string`,
     typeof t.presentation.icon === 'string' && t.presentation.icon.length > 0,
   );
-  check(`${t.id}: has employees`, t.employees.length > 0);
+  check(
+    `${t.id}: roster matches template intent`,
+    t.id === 'starter-company' ? t.employees.length === 0 : t.employees.length > 0,
+  );
   check(
     `${t.id}: layoutPreset is a non-empty string`,
     typeof t.layoutPreset === 'string' && t.layoutPreset.trim().length > 0,
@@ -175,6 +178,11 @@ if (vibeStudio) {
     ),
   );
 }
+
+const starterCompany = getTemplate('starter-company');
+check('starter-company: template exists', starterCompany !== undefined);
+check('starter-company: begins with an empty roster', starterCompany?.employees.length === 0);
+check('starter-company: keeps a real staged office', (starterCompany?.zones?.length ?? 0) > 0);
 
 // ── Materialization invariants ──────────────────────────────────────────────
 for (const t of templates) {

@@ -9,6 +9,7 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
 const officeSurface = read('apps/desktop/renderer/src/surfaces/office/OfficeSurface.tsx');
+const officeStage = read('apps/desktop/renderer/src/surfaces/office/OfficeStage.tsx');
 const workspacePanel = read('apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx');
 const chatRail = read('apps/desktop/renderer/src/surfaces/office/ChatRail.tsx');
 const teamDock = read('apps/desktop/renderer/src/surfaces/office/TeamDock.tsx');
@@ -127,34 +128,66 @@ check('idle and terminal states use meaningful status instead of a ghost Stop', 
   assert.match(runPill, /presentation\.terminalLabel \? \([\s\S]*off-pipe-status/);
 });
 
-check('stage-width topbar partition retains tabs, progress, and the live action', () => {
-  const topbarStart = officeCss.indexOf('.off-stage-topbar {');
-  const topbarEnd = officeCss.indexOf('.off-stage-readout-div', topbarStart);
-  const topbarCss = officeCss.slice(topbarStart, topbarEnd);
-  const pipelineStart = officeCss.indexOf('/* === Pipeline pill');
-  const pipelineEnd = officeCss.indexOf('/* === Staged attachments', pipelineStart);
-  const pipelineCss = officeCss.slice(pipelineStart, pipelineEnd);
-  assert.match(officeCss, /container:\s*off-stage \/ inline-size/);
-  assert.match(
-    officeCss,
-    /@media \(max-width: 1100px\)[\s\S]*?\.off-stage-readout\s*{\s*display:\s*none/,
-  );
-  assert.match(topbarCss, /grid-template-columns:\s*minmax\(80px, 1fr\) max-content/);
-  assert.match(
-    topbarCss,
-    /\.off-stage-topbar-tabs\s*{[^}]*min-width:\s*0;[^}]*overflow:\s*hidden/s,
-  );
-  assert.match(topbarCss, /\.off-stage-tabs\s*{[^}]*min-width:\s*0;[^}]*overflow-x:\s*auto/s);
-  assert.match(
-    topbarCss,
-    /\.off-stage-topbar-right\s*{[^}]*justify-self:\s*end;[^}]*overflow:\s*hidden/s,
-  );
-  assert.match(pipelineCss, /@container off-stage \(max-width: 920px\)/);
-  assert.match(pipelineCss, /@container off-stage \(max-width: 420px\)/);
-  assert.match(pipelineCss, /\.off-pipe-task\s*{\s*display:\s*none;/);
-  for (const required of ['off-pipe-phase-label', 'off-pipe-progress', 'off-pipe-stop']) {
-    assert.doesNotMatch(pipelineCss, new RegExp(`\\.${required}\\s*\\{[^}]*display:\\s*none`, 's'));
-  }
-});
+check(
+  'stage tab row contains only tabs and layout controls; run status lives in content chrome',
+  () => {
+    const topbarSourceStart = stageViewer.indexOf('export function StageTopBar()');
+    const topbarSourceEnd = stageViewer.indexOf('/** Run state belongs', topbarSourceStart);
+    assert.ok(topbarSourceStart >= 0 && topbarSourceEnd > topbarSourceStart);
+    const topbarSource = stageViewer.slice(topbarSourceStart, topbarSourceEnd);
+    assert.doesNotMatch(
+      topbarSource,
+      /RunPipelinePill|off-stage-status-cluster|off-stage-readout|data-stage-run-status|accounting|isRunning|off-pipe|Stop/,
+      'the view-tab row must never own run state, progress, usage, or Stop',
+    );
+    assert.match(topbarSource, /<nav className="off-stage-tabs" aria-label="Stage views">/);
+    assert.match(topbarSource, /<StageViewMenu \/>/);
+    assert.equal(topbarSource.match(/data-rail=/g)?.length, 2);
+    assert.match(topbarSource, /off-stage-max-btn/);
+    assert.match(
+      stageViewer,
+      /function StageViewerHead[\s\S]*<StageRunStatusCluster isRunning={isRunning} accounting={accounting} \/>/,
+    );
+    assert.match(
+      officeStage,
+      /stagePrimaryTab === 'game'[\s\S]*off-scene-hud[\s\S]*<StageRunStatusCluster isRunning={isRunning} accounting={accounting} \/>/,
+    );
+    assert.match(
+      stageViewer,
+      /className="off-stage-status-cluster" data-stage-run-status aria-label="Stage run status"/,
+    );
+    const topbarStart = officeCss.indexOf('.off-stage-topbar {');
+    const topbarEnd = officeCss.indexOf('.off-stage-readout-div', topbarStart);
+    const topbarCss = officeCss.slice(topbarStart, topbarEnd);
+    const pipelineStart = officeCss.indexOf('/* === Pipeline pill');
+    const pipelineEnd = officeCss.indexOf('/* === Staged attachments', pipelineStart);
+    const pipelineCss = officeCss.slice(pipelineStart, pipelineEnd);
+    assert.match(officeCss, /container:\s*off-stage \/ inline-size/);
+    assert.match(topbarCss, /grid-template-columns:\s*minmax\(80px, 1fr\) max-content/);
+    assert.match(
+      topbarCss,
+      /\.off-stage-topbar-tabs\s*{[^}]*min-width:\s*0;[^}]*overflow:\s*hidden/s,
+    );
+    assert.match(topbarCss, /\.off-stage-tabs\s*{[^}]*min-width:\s*0;[^}]*overflow-x:\s*auto/s);
+    assert.match(
+      topbarCss,
+      /\.off-stage-topbar-right\s*{[^}]*justify-self:\s*end;[^}]*overflow:\s*hidden/s,
+    );
+    assert.match(pipelineCss, /@container off-stage \(max-width: 920px\)/);
+    assert.match(pipelineCss, /@container off-stage \(max-width: 420px\)/);
+    assert.match(pipelineCss, /@container off-stage-pane \(max-width: 760px\)/);
+    assert.match(
+      officeCss,
+      /\.off-stage-viewer-pane\s*{[\s\S]*container:\s*off-stage-pane \/ inline-size/,
+    );
+    assert.match(pipelineCss, /\.off-pipe-task\s*{\s*display:\s*none;/);
+    for (const required of ['off-pipe-phase-label', 'off-pipe-progress', 'off-pipe-stop']) {
+      assert.doesNotMatch(
+        pipelineCss,
+        new RegExp(`\\.${required}\\s*\\{[^}]*display:\\s*none`, 's'),
+      );
+    }
+  },
+);
 
 console.log(`\nChrome stability harness: ${passed}/10 checks passed`);
