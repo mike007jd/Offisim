@@ -1132,7 +1132,7 @@ const desktopAgentRuntimeSource = readFileSync(
   'utf8',
 );
 const activityDataSource = readFileSync(
-  'apps/desktop/renderer/src/surfaces/office/board/activity-data.ts',
+  'apps/desktop/renderer/src/data/board/activity-data.ts',
   'utf8',
 );
 

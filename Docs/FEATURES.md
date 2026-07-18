@@ -146,8 +146,10 @@ Owner paths:
 
 - `apps/desktop/renderer/src/surfaces/office/rail/connect` (company-channel UI,
   renderer query/service glue and presentation)
-- `apps/desktop/renderer/src/surfaces/office/board/activity-data.ts` (company
-  timeline, including meeting rows)
+- `apps/desktop/renderer/src/data/board/activity-data.ts` (company timeline data,
+  including meeting rows)
+- `apps/desktop/renderer/src/surfaces/office/board/activity-presentation.ts`
+  (timeline presentation mappings)
 - `apps/desktop/renderer/src/runtime/collaboration` (no-tools transport + turn
   controller)
 - `packages/core/src/runtime/collaboration/collaboration-service.ts` (domain
@@ -345,7 +347,8 @@ recoverable.
 
 Owner paths:
 
-- `apps/desktop/renderer/src/surfaces/office/board/activity-data.ts`
+- `apps/desktop/renderer/src/data/board/activity-data.ts`
+- `apps/desktop/renderer/src/surfaces/office/board/activity-presentation.ts`
 - `apps/desktop/renderer/src/assistant/parts/PermissionApprovalBar.tsx`
 - `packages/core/src/mcp`
 - `apps/desktop/src-tauri/src/redaction.rs`

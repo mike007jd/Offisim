@@ -1,6 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
-import { queryKeys } from '@/data/query-keys.js';
+import { useProjectWorkspaceLeaseReviews, useTaskBoard } from '@/data/board/task-board-data.js';
 import {
   type CommandExecResult,
   commitGitChanges,
@@ -16,6 +16,7 @@ import {
   viewPullRequest,
 } from '@/data/git-workbench.js';
 import { useGitWorkbench, useProjectFiles, useProjects } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import type { FileNode, GitFileChange, GitWorkbench, Project } from '@/data/types.js';
 import { parseUnifiedDiffFiles } from '@/data/unified-diff.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
@@ -39,10 +40,6 @@ import { pickWorkspaceFolder } from '@/lib/desktop-dialog.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { useReviewPrPrefill } from '@/surfaces/office/board/review-pr-prefill.js';
-import {
-  useProjectWorkspaceLeaseReviews,
-  useTaskBoard,
-} from '@/surfaces/office/board/task-board-data.js';
 import { openFirstRunGuide } from '@/surfaces/onboarding/first-run-state.js';
 import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { useQueryClient } from '@tanstack/react-query';
