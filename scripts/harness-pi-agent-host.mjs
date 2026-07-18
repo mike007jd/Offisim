@@ -1614,9 +1614,7 @@ assert(
   /deferIntegration: directDelegation\.deferIntegration === true/.test(nodeHostSource) &&
     /options\.deferIntegration === true/.test(childSupervisorSource) &&
     /runTask\(task, signal, options\)/.test(childSupervisorSource) &&
-    /maybeIntegrateWrites\([\s\S]*options\.deferIntegration === true/.test(
-      childSupervisorSource,
-    ) &&
+    /maybeIntegrateWrites\([\s\S]*options\.deferIntegration === true/.test(childSupervisorSource) &&
     /confirmIntegration: retainForReview \? undefined : ctx\.confirmIntegration/.test(
       childSupervisorSource,
     ) &&
@@ -1643,10 +1641,8 @@ assert(
       desktopAgentRuntimeSource,
     ) &&
     desktopAgentRuntimeSource.indexOf('const pendingAbortDecision =') <
-      desktopAgentRuntimeSource.indexOf(
-        '...requireRootResultProvenance(',
-      ) &&
-    /if \(this\.abortedRequests\.has\(requestId\)\) \{[\s\S]*?this\.persistRootTerminal\(\s*runScope\.runId,\s*'cancelled'/.test(
+      desktopAgentRuntimeSource.indexOf('...requireRootResultProvenance(') &&
+    /if \(this\.abortedRequests\.has\(requestId\)\) \{[\s\S]*?this\.persistQueue\.persistRootTerminal\(\s*runScope\.runId,\s*'cancelled'/.test(
       desktopAgentRuntimeSource,
     ) &&
     /releaseRetainedStream\(requestId\)/.test(desktopAgentRuntimeSource),

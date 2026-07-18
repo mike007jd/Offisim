@@ -26,6 +26,7 @@ const paths = {
   schema: `${ROOT}/packages/db-local/src/schema.sql`,
   commands: `${ROOT}/apps/desktop/renderer/src/lib/tauri-commands.ts`,
   runtime: `${ROOT}/apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`,
+  runtimePersistence: `${ROOT}/apps/desktop/renderer/src/runtime/agent-run-persistence.ts`,
   runtimeHostEventDispatch: `${ROOT}/apps/desktop/renderer/src/runtime/host-event-dispatch.ts`,
   runtimeRunContext: `${ROOT}/apps/desktop/renderer/src/runtime/run-context.ts`,
   runtimeWorkspaceBinding: `${ROOT}/apps/desktop/renderer/src/runtime/workspace-binding.ts`,
@@ -934,6 +935,7 @@ function verifySqlOracle(schemaSql: string): void {
 function verifyWireAndRuntimeContracts(): void {
   const commands = source(paths.commands);
   const runtime = source(paths.runtime);
+  const runtimePersistence = source(paths.runtimePersistence);
   const runtimeHostEventDispatch = source(paths.runtimeHostEventDispatch);
   const runtimeRunContext = source(paths.runtimeRunContext);
   const runtimeWorkspaceBinding = source(paths.runtimeWorkspaceBinding);
@@ -1159,8 +1161,9 @@ function verifyWireAndRuntimeContracts(): void {
     'runtime workspace projection',
   );
   assert.equal(
-    runtimeHostEventDispatch.split('state.runtimeContext.workspaceBinding = projectWorkspaceBinding(event)')
-      .length - 1,
+    runtimeHostEventDispatch.split(
+      'state.runtimeContext.workspaceBinding = projectWorkspaceBinding(event)',
+    ).length - 1,
     1,
     'the shared live/reattach consumer must persist only the safe projection',
   );
@@ -1198,9 +1201,9 @@ function verifyWireAndRuntimeContracts(): void {
     'the shared live/reattach artifact path must pass the complete ephemeral claim',
   );
   const artifactPersistence = sliceBetween(
-    runtime,
-    'private async persistArtifact(',
-    'private async persistMcpToolCall(',
+    runtimePersistence,
+    'async persistArtifact(',
+    'async persistMcpToolCall(',
     'artifact persistence',
   );
   assertContains(
@@ -1340,13 +1343,16 @@ function verifyWireAndRuntimeContracts(): void {
   const runNativeTurn = sliceBetween(
     runtime,
     'private async runNativeTurn(',
-    '/** Mark the root run terminal',
+    'async queueMessage(threadId:',
     'desktop run persistence boundary',
   );
   const rootReadbackIndex = runNativeTurn.indexOf(
     'const openedRoot = await this.repos.agentRuns.findById(runScope.runId)',
   );
-  const finalAbortCheckIndex = runNativeTurn.indexOf('throwIfRunAborted(signal)', rootReadbackIndex);
+  const finalAbortCheckIndex = runNativeTurn.indexOf(
+    'throwIfRunAborted(signal)',
+    rootReadbackIndex,
+  );
   const nativeInvokeIndex = runNativeTurn.indexOf('hostCommandStarted = true', rootReadbackIndex);
   assert.ok(
     rootReadbackIndex >= 0 &&
@@ -1366,8 +1372,8 @@ function verifyWireAndRuntimeContracts(): void {
     'pre-native Stop/error terminalizes an already-open root',
   );
   const rootTerminal = sliceBetween(
-    runtime,
-    'private async persistRootTerminal(',
+    runtimePersistence,
+    'async persistRootTerminal(',
     '/** Persist a delegation run',
     'atomic root terminal persistence',
   );
