@@ -26,6 +26,8 @@ const paths = {
   schema: `${ROOT}/packages/db-local/src/schema.sql`,
   commands: `${ROOT}/apps/desktop/renderer/src/lib/tauri-commands.ts`,
   runtime: `${ROOT}/apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`,
+  runtimeRunContext: `${ROOT}/apps/desktop/renderer/src/runtime/run-context.ts`,
+  runtimeWorkspaceBinding: `${ROOT}/apps/desktop/renderer/src/runtime/workspace-binding.ts`,
   conversationController: `${ROOT}/apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.ts`,
   recovery: `${ROOT}/apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.ts`,
   missionController: `${ROOT}/apps/desktop/renderer/src/runtime/mission/mission-run-controller.ts`,
@@ -931,6 +933,8 @@ function verifySqlOracle(schemaSql: string): void {
 function verifyWireAndRuntimeContracts(): void {
   const commands = source(paths.commands);
   const runtime = source(paths.runtime);
+  const runtimeRunContext = source(paths.runtimeRunContext);
+  const runtimeWorkspaceBinding = source(paths.runtimeWorkspaceBinding);
   const recovery = source(paths.recovery);
   const tools = source(paths.tools);
   const git = source(paths.git);
@@ -1111,9 +1115,9 @@ function verifyWireAndRuntimeContracts(): void {
   );
 
   const persistedRunContext = sliceBetween(
-    runtime,
-    'interface PersistedRunContext',
-    'interface SharedHostStreamState',
+    runtimeRunContext,
+    'export interface PersistedRunContext',
+    'export function parseRunContext',
     'persisted runtime context',
   );
   assertContains(
@@ -1142,9 +1146,9 @@ function verifyWireAndRuntimeContracts(): void {
     'persisted runtime context',
   );
   const projectionBuilder = sliceBetween(
-    runtime,
-    'function projectWorkspaceBinding',
-    'function bindingMatchesRun',
+    runtimeWorkspaceBinding,
+    'export function projectWorkspaceBinding',
+    'export function bindingMatchesRun',
     'runtime workspace projection',
   );
   assertContains(
@@ -1233,8 +1237,16 @@ function verifyWireAndRuntimeContracts(): void {
     'resolveWorkspaceRequirement(input, commandName)',
     'workspace requirement',
   );
-  assertContains(runtime, 'input.missionId?.trim()', 'Mission workspace requirement');
-  assertContains(runtime, 'input.directDelegation', 'delegation workspace requirement');
+  assertContains(
+    runtimeWorkspaceBinding,
+    'input.missionId?.trim()',
+    'Mission workspace requirement',
+  );
+  assertContains(
+    runtimeWorkspaceBinding,
+    'input.directDelegation',
+    'delegation workspace requirement',
+  );
   assertContains(runtime, 'workspaceRequirement,', 'workspace requirement backend request');
   const projectPreflight = source(
     `${ROOT}/apps/desktop/renderer/src/runtime/require-project-workspace.ts`,
@@ -1923,7 +1935,11 @@ function verifyWorkspaceBindingStreamGate(): void {
     'reattach must decide policy from the atomic command snapshot',
   );
   const runtime = source(paths.runtime);
-  assertContains(runtime, 'claim.access === expected.access', 'workspace binding access gate');
+  assertContains(
+    source(paths.runtimeWorkspaceBinding),
+    'claim.access === expected.access',
+    'workspace binding access gate',
+  );
   assert.equal(
     runtime.split('this.invokeAbort(requestId)').length - 1,
     1,
