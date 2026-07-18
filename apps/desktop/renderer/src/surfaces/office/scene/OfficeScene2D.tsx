@@ -145,95 +145,97 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   // tears down when the frame identity changes.
   const drawRef = useRef<() => void>(() => {});
 
-  drawRef.current = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const surface = drawBackground(canvas, floorW, floorD);
-    if (!surface) return;
+  useEffect(() => {
+    drawRef.current = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const surface = drawBackground(canvas, floorW, floorD);
+      if (!surface) return;
 
-    // Anything drawn opaquely registers a box here so later passes (name
-    // labels) can dodge it: zone titles first, then each employee's disc.
-    const occupied: OccupiedRect[] = [];
-    drawZones(surface, zoneDefs, pip, occupied);
+      // Anything drawn opaquely registers a box here so later passes (name
+      // labels) can dodge it: zone titles first, then each employee's disc.
+      const occupied: OccupiedRect[] = [];
+      drawZones(surface, zoneDefs, pip, occupied);
 
-    const hits: Hit[] = [];
-    const employeeProjection = createEmployeeProjection({
-      surface,
-      positions,
-      actorById,
-      zoneById,
-    });
-    const { screenForEmployee } = employeeProjection;
+      const hits: Hit[] = [];
+      const employeeProjection = createEmployeeProjection({
+        surface,
+        positions,
+        actorById,
+        zoneById,
+      });
+      const { screenForEmployee } = employeeProjection;
 
-    drawFlows({
-      surface,
-      frame,
-      floorW,
-      floorD,
-      pip,
-      reducedMotion,
-      occupied,
-      screenForEmployee,
-    });
-    drawShelf({
-      surface,
-      frame,
-      floorW,
-      floorD,
-      reducedMotion,
-      shelfGlowUntil: shelfGlowUntilRef.current,
-      hits,
-      occupied,
-    });
-
-    const companionResult = drawCompanion({
-      surface,
-      atlas: companionAtlas,
-      atlasReady: companionAtlasReady,
-      input: {
-        enabled: companionEnabled,
-        companyId,
-        projectId,
-        mode: officeMode,
-        reducedMotion,
-        geometryRevision: routeSignature,
+      drawFlows({
+        surface,
         frame,
-        candidates: companionCandidates,
-        occupiedPoints: companionOccupied,
-        actorPositions: companionActorPositions,
-        spatialRevision: companionSpatialRevision,
-        deliveryPoint: OFFICE_DELIVERY_WORLD,
-        pathfinder,
-      },
-      plan: companionPlanRef.current,
-      animation: companionAnimationRef.current,
-    });
-    companionPlanRef.current = companionResult.plan;
-    companionAnimationRef.current = companionResult.animation;
-    if (companionResult.animationWakeAt == null) {
-      companionAnimationWakeRef.current = null;
-    } else {
-      companionAnimationWakeRef.current = companionResult.animationWakeAt;
-    }
+        floorW,
+        floorD,
+        pip,
+        reducedMotion,
+        occupied,
+        screenForEmployee,
+      });
+      drawShelf({
+        surface,
+        frame,
+        floorW,
+        floorD,
+        reducedMotion,
+        shelfGlowUntil: shelfGlowUntilRef.current,
+        hits,
+        occupied,
+      });
 
-    drawEmployees({
-      surface,
-      orderedRoster,
-      positions,
-      actorById,
-      projection: employeeProjection,
-      resourceKindByEmployee,
-      pip,
-      hoveredEmployeeId,
-      careerLabelForEmployee: (employeeId) => {
-        const employeeSeniority = seniorityForEmployee(seniority.data, employeeId);
-        return employeeSeniority ? employeeSeniorityLabel(employeeSeniority) : null;
-      },
-      occupied,
-      hits,
-    });
-    hitsRef.current = hits;
-  };
+      const companionResult = drawCompanion({
+        surface,
+        atlas: companionAtlas,
+        atlasReady: companionAtlasReady,
+        input: {
+          enabled: companionEnabled,
+          companyId,
+          projectId,
+          mode: officeMode,
+          reducedMotion,
+          geometryRevision: routeSignature,
+          frame,
+          candidates: companionCandidates,
+          occupiedPoints: companionOccupied,
+          actorPositions: companionActorPositions,
+          spatialRevision: companionSpatialRevision,
+          deliveryPoint: OFFICE_DELIVERY_WORLD,
+          pathfinder,
+        },
+        plan: companionPlanRef.current,
+        animation: companionAnimationRef.current,
+      });
+      companionPlanRef.current = companionResult.plan;
+      companionAnimationRef.current = companionResult.animation;
+      if (companionResult.animationWakeAt == null) {
+        companionAnimationWakeRef.current = null;
+      } else {
+        companionAnimationWakeRef.current = companionResult.animationWakeAt;
+      }
+
+      drawEmployees({
+        surface,
+        orderedRoster,
+        positions,
+        actorById,
+        projection: employeeProjection,
+        resourceKindByEmployee,
+        pip,
+        hoveredEmployeeId,
+        careerLabelForEmployee: (employeeId) => {
+          const employeeSeniority = seniorityForEmployee(seniority.data, employeeId);
+          return employeeSeniority ? employeeSeniorityLabel(employeeSeniority) : null;
+        },
+        occupied,
+        hits,
+      });
+      hitsRef.current = hits;
+    };
+  });
 
   useEffect(() => {
     setCompanionAtlasReady(false);
@@ -259,13 +261,10 @@ export function OfficeScene2D({ pip = false }: { pip?: boolean }) {
   // Setup effect: canvas mount only — resize redraws through drawRef, so the
   // observer never re-subscribes on frame identity changes.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const parent = canvas?.parentElement;
-    const widthOwner = canvas?.closest<HTMLElement>('.off-office-center');
-    if (!parent || !widthOwner) return;
+    const parent = canvasRef.current?.parentElement;
+    if (!parent) return;
     const observer = new ResizeObserver(() => drawRef.current());
     observer.observe(parent);
-    observer.observe(widthOwner);
     return () => observer.disconnect();
   }, []);
 

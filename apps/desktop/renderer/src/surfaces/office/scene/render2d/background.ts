@@ -44,23 +44,6 @@ export interface Render2DSurface {
   readonly wy: (z: number) => number;
 }
 
-export interface OfficeCanvasViewport {
-  readonly x: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-export function projectOfficeCanvasViewport(
-  host: { readonly left: number; readonly height: number },
-  widthOwner: { readonly left: number; readonly width: number },
-): OfficeCanvasViewport {
-  return {
-    x: widthOwner.left - host.left,
-    width: widthOwner.width,
-    height: host.height,
-  };
-}
-
 export function syncOfficeCanvasBackingStore(
   canvas: CanvasBackingStore,
   cssWidth: number,
@@ -106,16 +89,10 @@ export function drawBackground(
   if (!ctx) return null;
   const parent = canvas.parentElement;
   if (!parent) return null;
-  const widthOwner = canvas.closest<HTMLElement>('.off-office-center');
-  if (!widthOwner) return null;
   const dpr = window.devicePixelRatio || 1;
   const cw = parent.clientWidth;
   const ch = parent.clientHeight;
   syncOfficeCanvasBackingStore(canvas, cw, ch, dpr);
-  const viewport = projectOfficeCanvasViewport(
-    { left: parent.getBoundingClientRect().left, height: ch },
-    { left: widthOwner.getBoundingClientRect().left, width: widthOwner.clientWidth },
-  );
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = OFFICE_SCENE_2D_COLORS.name;
   ctx.strokeStyle = OFFICE_SCENE_2D_COLORS.name;
@@ -139,9 +116,9 @@ export function drawBackground(
   ctx.clearRect(0, 0, cw, ch);
 
   const pad = 48;
-  const scale = Math.min((viewport.width - pad * 2) / floorW, (viewport.height - pad * 2) / floorD);
-  const ox = viewport.x + viewport.width / 2;
-  const oy = viewport.height / 2;
+  const scale = Math.min((cw - pad * 2) / floorW, (ch - pad * 2) / floorD);
+  const ox = cw / 2;
+  const oy = ch / 2;
   const wx = (x: number) => ox + x * scale;
   const wy = (z: number) => oy + z * scale;
 

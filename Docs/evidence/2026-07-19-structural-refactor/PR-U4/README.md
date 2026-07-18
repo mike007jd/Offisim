@@ -12,31 +12,45 @@
 - The moved `FlowPacket` body has the same normalized SHA-256 before and after: `75e659546f5cde6d1d842a7cd07e1a84deeb8f6f0300a913b52f47f4f86`.
 - The moved drag-listener inventory has the same normalized SHA-256 before and after: `12f972de1707eed0f011170b6e352477125668efa4198e5f60201a52f47f4f86`.
 
-## Declared deviation
+## §0 mechanical-equivalence audit
 
-The first release-app 3D to 2D switch exposed an existing layout-owner mismatch: the canvas host was `1576x663` at `x=-741`, while the visible center panel was `503x798` at `x=332`. The refactor made that latent mismatch visible because the extracted background pass initially centered the floor in the overflowed host. The scoped correction keeps the backing-store height owned by the scene host and derives the visible horizontal viewport from `.off-office-center`; the pure oracle is locked by `harness-native-stage-sessions`:
-
-`projectOfficeCanvasViewport({ left: -741, height: 663 }, { left: 332, width: 503 }) -> { x: 1073, width: 503, height: 663 }`
-
-No product contract, copy, projection coordinates, assertion quantity, or release-gate semantics changed. No fallback or compatibility path was added.
+- Declared behavior deviation: **zero**.
+- The final head preserves the exact base scheduling order: the draw closure is assigned inside the original no-dependency `useEffect`, the resize observer watches only the canvas parent, and the 2D backing store/projection uses that parent's `clientWidth` and `clientHeight`.
+- The final head contains no `.off-office-center` viewport lookup, no second resize-observer target, and no viewport oracle/assertion. Those out-of-scope changes were removed before this evidence was finalized.
+- The source baseline already clips the 2D canvas when the overflowed scene host is wider than the visible center panel. `after-02-office-2d.png` records the same known clipping in the final head; it is not claimed as fixed or as a regression introduced by this PR.
+- No product contract, copy, projection coordinate, assertion quantity, release-gate semantic, fallback, or compatibility path changed.
 
 ## Automated verification
 
-- `pnpm exec biome check <changed TypeScript files>`: pass.
+- `pnpm exec biome check <15 changed TypeScript files>`: pass.
+- `git diff --check`: pass.
 - `pnpm --filter @offisim/desktop-renderer typecheck`: pass.
 - `pnpm --filter @offisim/desktop-renderer build`: pass.
-- `pnpm harness:native-stage-sessions`: pass, including the real release-dimension oracle above.
+- `pnpm harness:native-stage-sessions`: pass; `native-stage-sessions: PASS (targets, lifecycle, ACL, 16 typed commands)`.
 - `node scripts/release-gates.mjs --lane=node`: pass; `[release-gates] 4 gate(s) green (lane: node)` and `No known vulnerabilities found`.
 - `pnpm --filter @offisim/desktop build`: pass. Final bundle:
   `/Users/haoshengli/worktrees/offisim-refactor-u4/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`
-- `codesign --verify --deep --strict --verbose=2 <app>`: valid on disk and satisfies its Designated Requirement. Developer ID timestamp: `19 Jul 2026 at 4:52:09 AM`, team `9MP925J67C`. Notarization was not attempted because the required Apple notarization credentials are not present.
+- `codesign --verify --deep --strict --verbose=2 <app>`: valid on disk and satisfies its Designated Requirement. Developer ID timestamp: `19 Jul 2026 at 5:51:32 AM`, team `9MP925J67C`. Notarization was not attempted because the required Apple notarization credentials are not present.
 
 ## Release-app live verification
 
-Computer Use was attached to the exact worktree release `.app` path above.
+Computer Use was attached to the exact worktree release `.app` path above after resolving the final live-flow process as PID `97585`, `CGWindowNumber=33719`, title `Offisim`, and bounds `x=36,y=33,width=1440,height=884`. The executable path matched this worktree. The app was closed through Computer Use after verification and observed absent for 10 seconds.
 
-- 3D to 2D first switch: pass without resizing or maximizing. Within one second the full floor, seven zones, employees, and companion were visible. Evidence: `after-01-office-3d.png`, `after-02-office-2d.png`.
-- 3D to 2D recording: pass. The resolver matched exact executable PID `64700` to `CGWindowNumber=33428`, title `Offisim`, bounds `x=36,y=33,width=1440,height=884`; `/usr/sbin/screencapture -v -V11 -R36,33,1440,884` then recorded the Computer Use interaction. `after-06-3d-2d-toggle.mov` is H.264, `2880x1768`, and `11.000000s` by `ffprobe`.
-- Drag/drop: pass. Sophie Park moved from the Product seat to the Rest/Server vicinity and remained there in the running scene. Evidence: `drag-before.png`, `after-03-drag-drop.png`.
-- Project flow: pass. One `sleep 30` run was captured while Alex was working in both views; 3D showed the line/packet and 2D showed the working ring/label. The run then reached `4 / 4 Done` and replied `done`. Evidence: `after-04-project-flow-3d.png`, `after-05-project-flow-2d.png`.
-- Baseline comparison frames are retained as `before-01-office-3d.png`, `before-02-office-2d.png`, `before-03-project-flow-2d-tool.png`, `before-04-project-flow-3d.png`, and `before-04-project-flow-3d-tool.png`.
+- 3D/2D switching: pass. `after-01-office-3d.png` shows the 3D release scene. `after-02-office-2d.png` shows the final-head 2D scene with the source-baseline clipping explicitly retained.
+- Drag/drop: pass. Alex Chen moved from the lower workstation to the Library edge and remained at the new placement. Evidence: `drag-before.png`, `after-03-drag-drop.png`.
+- Project flow: pass. `after-04-project-flow-3d.png` captures a real 3D run with the `bash` tool live. A second real task executed `bash` → `sleep 30`; `after-05-project-flow-2d.png` captures that run while the `2D` control is active, stage status is `Working 1 / 4`, Stop is available, and the 2D employee work rings are visible. The run then reached `4 / 4 Done` and replied exactly `U4_STRICT_2D_FLOW_OK`.
+- The earlier 11-second toggle recording was deleted because it represented the withdrawn viewport behavior, not this final head. It is not cited as evidence.
+
+## Test-data cleanup
+
+- The test Conversation containing `U4_STRICT_FLOW_OK` and `U4_STRICT_2D_FLOW_OK` was deleted through the release app. The project-conversation count changed from 14 to 13 and the app confirmed that messages, tool logs, approvals, deliverables, and run history were cleared.
+- Post-delete SQLite checks found zero `U4_STRICT` rows in `agent_runs`, `pi_messages`, and `agent_events`.
+- `git worktree list` showed no task worktree from either flow run; only this PR's development worktree remained. The temporary U4 build/log/screenshot files under `/private/tmp` were removed and a reverse scan returned no U4 temp artifact.
+
+## Current-head screenshot hashes
+
+- `after-01-office-3d.png`: `5452e396ea4e8e961a417170382066e1237a1e74ba1c1bf6a102a68a093c21e2`
+- `after-02-office-2d.png`: `ad6adce2e45e2665dd04e099bdd0454d114ddcce4b89807556cadc7b8540e3e6`
+- `after-03-drag-drop.png`: `178d09c7baa08ca2f4d8115d36c3d31179696b1e26d8103af1b3d0da4692b00f`
+- `after-04-project-flow-3d.png`: `703e40bff14197c129fc5bc79547272b0839741a18f7e8e3a52d831ed18cb652`
+- `after-05-project-flow-2d.png`: `4403d6266af443a2774dce386051e97903db72a428c01a69117985e6abbf7994`
