@@ -82,11 +82,20 @@ pub(super) struct CodexNativeThreadRef {
     pub session_id: String,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CodexImageInput {
+    pub data: String,
+    pub mime_type: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CodexAgentExecuteRequest {
     pub request_id: String,
     pub text: String,
+    #[serde(default)]
+    pub images: Vec<CodexImageInput>,
     pub expected_target: CodexExecutionTarget,
     pub company_id: String,
     pub thread_id: String,
@@ -251,6 +260,8 @@ pub enum CodexAgentHostEvent {
         tool_name: String,
         #[serde(default)]
         detail: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        artifact_paths: Option<Vec<String>>,
         #[serde(default)]
         duration_ms: Option<u64>,
     },

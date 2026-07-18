@@ -4226,6 +4226,7 @@
 
 /* Attachment chip */
 .off-attachment {
+  width: 100%;
   display: grid;
   grid-template-columns: 30px 1fr;
   align-items: center;
@@ -4234,6 +4235,15 @@
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-sm);
   background: var(--off-surface-2);
+  color: inherit;
+  text-align: left;
+  transition: border-color var(--off-motion-fast) var(--off-motion-ease), background
+    var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-attachment:hover {
+  border-color: var(--off-line-strong);
+  background: var(--off-surface-1);
 }
 
 .off-att-icon {
@@ -4268,6 +4278,49 @@
   font-size: var(--off-fs-micro);
   color: var(--off-ink-3);
   margin-top: 1px;
+}
+
+.off-attachment-preview {
+  width: min(520px, calc(100vw - 48px));
+  max-height: min(620px, calc(100vh - 64px));
+  overflow: auto;
+  padding: var(--off-sp-4);
+}
+
+.off-attachment-preview-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--off-sp-3);
+}
+
+.off-attachment-preview-head strong {
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+}
+
+.off-attachment-preview-head span,
+.off-attachment-preview-state {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-xs);
+}
+
+.off-attachment-preview img {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+}
+
+.off-attachment-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: var(--off-fs-xs) / 1.55 var(--off-font-mono);
+  color: var(--off-ink-2);
 }
 
 /* Shared file-format tag: one visual for type badges across message attachment
@@ -5646,6 +5699,14 @@
   display: inline-flex;
   color: var(--off-ink-4);
 }
+.off-staged-thumb {
+  width: 22px;
+  height: 22px;
+  display: block;
+  object-fit: cover;
+  border-radius: var(--off-r-xs);
+  background: var(--off-surface-sunken);
+}
 .off-staged-chip.is-error .off-staged-icon {
   color: var(--off-danger);
 }
@@ -6828,6 +6889,23 @@
 .off-dlv-provenance {
   font-size: var(--off-fs-xs);
   color: var(--off-ink-4);
+}
+.off-dlv-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+}
+.off-dlv-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px var(--off-sp-2);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-xs);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-xs);
 }
 .off-dlv-preview {
   margin: 0;

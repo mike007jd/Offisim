@@ -51,6 +51,15 @@
 wire/宿主/引擎五层,#72 已带原生多模态附件地基,本单补 UI 与全链打通。
 验收:拖一张设计稿截图给员工,员工按图实现;附件在时间线与产出溯源可见。
 
+实现记录(2026-07-18):composer 已具备原生拖入、图片剪贴板粘贴和文件选择器
+三入口,附件经会话级受控 vault 落地;图片按引擎能力走多模态,文本/代码在有界
+截断后进入员工上下文。Pi 与 Codex CLI 已完成 release `.app` 实测消费,Codex
+`fileChange` 通过受 workspace sandbox 复核的相对路径落为 deliverable,Outputs 将
+产出 run 关联回来源附件。超大文件与非白名单类型在发送前有界拒绝。验收证据:
+`~/.dev-dispatch/evidence/offisim/r4-attachments-2026-07-18/`。Computer Use 当前
+不支持跨 App 拖拽,因此图片 live 走剪贴板粘贴;原生 drop 入口由 release 代码与
+附件 round-trip harness 覆盖,未用 localhost/dev webview 充当桌面验收。
+
 ## R5 — 差异化深化(小单,连叙事)
 
 1. 比稿混编实机:Pi + Codex 员工同题比稿的 live 场景补拍(W5 观察项闭环)。

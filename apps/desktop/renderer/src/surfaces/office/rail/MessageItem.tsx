@@ -7,8 +7,9 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn, relativeTime } from '@/lib/utils.js';
 import { MessagePrimitive } from '@assistant-ui/react';
-import { ChevronRight, FileText, Repeat, Terminal } from 'lucide-react';
+import { ChevronRight, Repeat, Terminal } from 'lucide-react';
 import { useState } from 'react';
+import { AttachmentPreviewChip } from './AttachmentPreviewChip.js';
 
 /** Parse Loop reference tokens (`[[loop:<revisionId>]]`) out of a message body so
  *  the transcript can render them as Loop badges instead of raw token text. */
@@ -151,18 +152,7 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
           </div>
         ))}
         {message.attachments?.map((attachment) => (
-          <div key={attachment.id} className="off-attachment">
-            <span className="off-att-icon">
-              <Icon icon={FileText} size="sm" />
-            </span>
-            <span className="off-att-text">
-              <span className="off-att-name">{attachment.name}</span>
-              <span className="off-att-meta">
-                <span className="off-fmt-tag">{attachment.ext}</span>
-                {attachment.sizeLabel}
-              </span>
-            </span>
-          </div>
+          <AttachmentPreviewChip key={attachment.id} attachment={attachment} />
         ))}
         {message.runRecord ? (
           <RunRecordCard record={message.runRecord} byId={employeesById} />

@@ -42,6 +42,7 @@ const API_RUNTIME_CAPABILITIES: RuntimeEngineCapabilityManifest = {
   stop: true,
   steer: false,
   resume: true,
+  attachmentInput: { textFiles: true, images: 'model-dependent' },
   permissionModes: ['plan', 'ask', 'auto', 'full'],
   interactions: { approval: true, userInput: true },
   processEvents: { reasoning: true, toolCalls: true, fileChanges: true },

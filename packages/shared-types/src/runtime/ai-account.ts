@@ -42,6 +42,12 @@ export interface RuntimeEngineCapabilityManifest {
   readonly stop: boolean;
   readonly steer: boolean;
   readonly resume: boolean;
+  readonly attachmentInput: {
+    /** Text/code/document files are parsed by Offisim and sent as bounded text context. */
+    readonly textFiles: boolean;
+    /** API engines still defer native image truth to the exact model catalog row. */
+    readonly images: 'supported' | 'model-dependent' | 'unsupported';
+  };
   readonly permissionModes: readonly RuntimeEnginePermissionMode[];
   readonly interactions: {
     readonly approval: boolean;

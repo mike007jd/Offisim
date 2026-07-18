@@ -1,7 +1,8 @@
 import type { StagedAttachment } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { AlertCircle, FileText, X } from 'lucide-react';
+import { AlertCircle, FileText, Image as ImageIcon, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
   type ComposerAttachmentScope,
   composerAttachmentScopeKey,
@@ -9,6 +10,26 @@ import {
 } from './composer-attachment-store.js';
 
 const EMPTY_STAGED_ATTACHMENTS: StagedAttachment[] = [];
+
+function StagedAttachmentVisual({ attachment }: { attachment: StagedAttachment }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (attachment.kind !== 'image' || !attachment.bytes || !attachment.mimeType) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(
+      new Blob([attachment.bytes.slice().buffer as ArrayBuffer], { type: attachment.mimeType }),
+    );
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [attachment.bytes, attachment.kind, attachment.mimeType]);
+
+  if (previewUrl) {
+    return <img className="off-staged-thumb" src={previewUrl} alt="" />;
+  }
+  return <Icon icon={attachment.kind === 'image' ? ImageIcon : FileText} size="sm" />;
+}
 
 /** Staged attachment chips shown between the composer input and its tool row.
  *  Each chip reflects truthful staging state; failed chips carry the canonical
@@ -30,12 +51,14 @@ export function StagedAttachments({ scope }: { scope: ComposerAttachmentScope })
             {att.status === 'error' ? (
               <Icon icon={AlertCircle} size="sm" />
             ) : (
-              <Icon icon={FileText} size="sm" />
+              <StagedAttachmentVisual attachment={att} />
             )}
           </span>
           <span className="off-staged-text">
             <span className="off-staged-name">{att.name}</span>
-            <span className="off-staged-meta">{att.sizeLabel}</span>
+            <span className="off-staged-meta">
+              {[att.sizeLabel, att.summary].filter(Boolean).join(' · ')}
+            </span>
           </span>
           <button
             type="button"

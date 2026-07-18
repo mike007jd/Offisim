@@ -260,5 +260,5 @@ export function useOfficeRuntime({
     isRunning: isConversationRunActive(run.phase),
     onCancel,
   });
-  return { runtime, sendWhileRunning };
+  return { runtime, sendWhileRunning, messages };
 }

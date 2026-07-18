@@ -564,7 +564,7 @@ const requiredChecks = [
   {
     label: 'Office chat pitbar stores secondary panels',
     file: 'apps/desktop/renderer/src/assistant/OfficeThread.tsx',
-    patterns: [/className="off-thread-pitbar"/, /<ConvOutputs /],
+    patterns: [/className="off-thread-pitbar"/, /<ConvOutputs\b/],
   },
   {
     label: 'Office chat compact tokenized composer',

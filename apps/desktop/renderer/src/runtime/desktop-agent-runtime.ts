@@ -498,6 +498,7 @@ const API_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     stop: true,
     steer: true,
     resume: true,
+    attachmentInput: { textFiles: true, images: 'model-dependent' },
     permissionModes: ['plan', 'ask', 'auto', 'full'],
     interactions: { approval: true, userInput: true },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
@@ -516,6 +517,7 @@ const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     stop: true,
     steer: false,
     resume: true,
+    attachmentInput: { textFiles: true, images: 'supported' },
     permissionModes: ['plan', 'ask', 'auto', 'full'],
     interactions: { approval: true, userInput: true },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
@@ -534,6 +536,7 @@ const CLAUDE_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     stop: true,
     steer: false,
     resume: true,
+    attachmentInput: { textFiles: true, images: 'unsupported' },
     permissionModes: ['plan', 'auto', 'full'],
     interactions: { approval: false, userInput: false },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
@@ -1094,6 +1097,29 @@ export function resolveApiExecutionSelection(
     throw new Error('The selected model catalog entry has invalid execution provenance.');
   }
   return { target, runtimeModelRef: selected.runtimeModelRef };
+}
+
+function apiModelSupportsImageInput(
+  status: AiRuntimeStatus | undefined,
+  selection: ResolvedRuntimeExecutionSelection,
+): boolean {
+  if (!status) return false;
+  return Boolean(
+    status.models.find(
+      (model) =>
+        model.engineId === selection.target.engineId &&
+        model.accountId === selection.target.accountId &&
+        model.billingMode === selection.target.billingMode &&
+        model.modelId === selection.target.modelId &&
+        model.runtimeModelRef === selection.runtimeModelRef,
+    )?.capabilities.imageInput,
+  );
+}
+
+function attachmentImageDowngradeNotice(engineId: string): string {
+  return engineId === 'api'
+    ? 'The selected API model does not support image input. Images remain visible in the timeline but were not sent to the employee.'
+    : `${engineId} does not support image input in Offisim. Images remain visible in the timeline but were not sent to the employee.`;
 }
 
 interface PersistedRunContext {
@@ -2063,6 +2089,25 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             detail: event.detail,
           }),
         );
+      }
+      if (
+        this.engineId === 'codex' &&
+        event.status === 'completed' &&
+        event.toolName === 'file_change' &&
+        event.artifactPaths?.length
+      ) {
+        for (const [index, rawPath] of event.artifactPaths.entries()) {
+          const path = rawPath.trim();
+          if (!path) continue;
+          const title = path.split(/[\\/]/).pop() || path;
+          const artifactEvent = rootRun('artifact.created', {
+            deliverableId: `artifact-${runScope.runId}-${event.toolCallId}-${index}`,
+            path,
+            title,
+            kind: 'file',
+          });
+          this.enqueuePersist(() => this.persistArtifact(artifactEvent, state.workspaceGate.claim));
+        }
       }
       return true;
     }
@@ -3766,6 +3811,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           req: {
             requestId,
             text: input.text,
+            images: input.images?.length ? input.images : [],
             expectedTarget: executionTarget,
             companyId: this.companyId,
             threadId: input.threadId,
@@ -4933,9 +4979,13 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
         requestedModel,
         initialAuthority,
       );
+      let runtimeStatus: AiRuntimeStatus | undefined;
+      if (selectionPlan.requiresCatalog) {
+        runtimeStatus = await invokeCommand('agent_runtime_status', { includeUsage: false });
+      }
       const selection = selectionPlan.requiresCatalog
         ? resolveRuntimeExecutionSelection(
-            await invokeCommand('agent_runtime_status', { includeUsage: false }),
+            runtimeStatus,
             selectionPlan.requestedModel,
             selectionPlan.frozenAuthority?.target ?? input.executionTarget,
             selectionPlan.frozenAuthority?.runtimeModelRef ?? input.runtimeModelRef,
@@ -4949,6 +4999,43 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
         throw new Error('The selected model belongs to another AI engine.');
       }
       const engineId = selection.target.engineId;
+      const adapter = this.adapter(engineId);
+      if (
+        input.images?.length &&
+        adapter.capabilities.attachmentInput.images === 'model-dependent' &&
+        !runtimeStatus
+      ) {
+        runtimeStatus = await invokeCommand('agent_runtime_status', { includeUsage: false }).catch(
+          () => undefined,
+        );
+      }
+      const supportsImages =
+        adapter.capabilities.attachmentInput.images === 'supported' ||
+        (adapter.capabilities.attachmentInput.images === 'model-dependent' &&
+          apiModelSupportsImageInput(runtimeStatus, selection));
+      const attachmentNotice =
+        input.images?.length && !supportsImages ? attachmentImageDowngradeNotice(engineId) : null;
+      if (attachmentNotice && input.runId) {
+        runtimeEventBus.emit(
+          agentLifecycleEvent(this.companyId, input.threadId, {
+            requestId: `attachment-capability-${input.runId}`,
+            runId: input.runId,
+            event: 'attachmentCapability',
+            data: {
+              state: 'degraded',
+              message: attachmentNotice,
+              imageCount: input.images?.length ?? 0,
+            },
+          }),
+        );
+      }
+      const executableInput: DesktopAgentRunInput = attachmentNotice
+        ? {
+            ...input,
+            text: `${input.text}\n\n## Attachment capability notice\nThe selected engine/model cannot inspect the attached images. Do not claim to have seen them; ask for a textual description or a vision-capable model if visual details are required.`,
+            images: [],
+          }
+        : input;
       const threadStatusInput = {
         repos: this.repos,
         eventBus: runtimeEventBus,
@@ -4961,9 +5048,9 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
       await persistThreadRuntimeStatus({ ...threadStatusInput, status: 'running' });
       this.activeEngineByThread.set(input.threadId, engineId);
       try {
-        const execution = this.adapter(engineId).execute(
+        const execution = adapter.execute(
           {
-            ...input,
+            ...executableInput,
             engineId,
             model: selection.runtimeModelRef,
             runtimeModelRef: selection.runtimeModelRef,

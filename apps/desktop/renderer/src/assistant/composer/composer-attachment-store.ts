@@ -3,11 +3,13 @@ import {
   type AttachmentFailReason,
   type StagedAttachment,
 } from '@/data/types.js';
+import { parseAttachment } from '@offisim/doc-engine';
 import { sha256Hex } from '@offisim/install-core';
-import { CHAT_ATTACHMENT_MAX_BYTES, kindFromMime } from '@offisim/shared-types';
+import { CHAT_ATTACHMENT_MAX_BYTES, kindFromMime, summaryFromParsed } from '@offisim/shared-types';
 import { create } from 'zustand';
 
 const MAX_ATTACHMENTS = 6;
+const MAX_TOTAL_ATTACHMENT_BYTES = 24 * 1024 * 1024;
 const MIME_BY_EXT: Readonly<Record<string, string>> = {
   pdf: 'application/pdf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -18,7 +20,6 @@ const MIME_BY_EXT: Readonly<Record<string, string>> = {
   jpeg: 'image/jpeg',
   gif: 'image/gif',
   webp: 'image/webp',
-  fig: 'application/octet-stream',
   md: 'text/markdown',
   markdown: 'text/markdown',
   mdx: 'text/markdown',
@@ -100,6 +101,8 @@ const MIME_BY_EXT: Readonly<Record<string, string>> = {
   hcl: 'text/x-hcl',
 };
 const SUPPORTED_EXT = new Set(Object.keys(MIME_BY_EXT));
+const SUPPORTED_MIME = new Set(Object.values(MIME_BY_EXT));
+export const CHAT_ATTACHMENT_ACCEPT = [...SUPPORTED_EXT].map((ext) => `.${ext}`).join(',');
 
 interface StageFileInput {
   name: string;
@@ -154,8 +157,14 @@ export const useComposerAttachmentStore = create<ComposerAttachmentStore>((set, 
     const prepared: StagedAttachment[] = [];
     const hydrationTasks: Array<() => Promise<void>> = [];
     const alreadyStaged = get().stagedByScope[scopeKey] ?? [];
+    let acceptedBytes = alreadyStaged.reduce(
+      (total, attachment) =>
+        attachment.status === 'attached' ? total + (attachment.byteLength ?? 0) : total,
+      0,
+    );
     for (const file of files) {
       const ext = attachmentExtension(file.name);
+      const mimeType = resolveMimeType(file.type, ext);
       const source = file.file;
       const attachmentId = source ? crypto.randomUUID() : undefined;
       const id = `att-${attachmentId ?? crypto.randomUUID()}`;
@@ -163,12 +172,12 @@ export const useComposerAttachmentStore = create<ComposerAttachmentStore>((set, 
       const existing = [...alreadyStaged, ...prepared];
       if (existing.filter((a) => a.status !== 'error').length >= MAX_ATTACHMENTS) fail = 'too-many';
       else if (file.bytes > CHAT_ATTACHMENT_MAX_BYTES) fail = 'too-large';
-      else if (ext && !SUPPORTED_EXT.has(ext)) fail = 'unsupported-type';
+      else if (acceptedBytes + file.bytes > MAX_TOTAL_ATTACHMENT_BYTES) fail = 'total-too-large';
+      else if (!isSupportedAttachment(ext, mimeType)) fail = 'unsupported-type';
       if (fail) {
         prepared.push(errorChip(id, file.name, fail));
         continue;
       }
-      const mimeType = resolveMimeType(file.type, ext);
       const kind = kindFromMime(mimeType);
       if (source) {
         hydrationTasks.push(() =>
@@ -187,6 +196,7 @@ export const useComposerAttachmentStore = create<ComposerAttachmentStore>((set, 
         file: source,
         kind,
       });
+      acceptedBytes += file.bytes;
     }
     if (prepared.length) {
       set((s) => ({
@@ -261,6 +271,11 @@ function resolveMimeType(declared: string | undefined, ext: string): string {
   return normalized === 'image/jpg' ? 'image/jpeg' : normalized;
 }
 
+function isSupportedAttachment(ext: string, mimeType: string): boolean {
+  if (ext && SUPPORTED_EXT.has(ext)) return true;
+  return SUPPORTED_MIME.has(mimeType) && mimeType !== 'application/octet-stream';
+}
+
 function attachmentExtension(name: string): string {
   const normalized = name.trim().toLowerCase();
   if (/^\.env(?:\.|$)/.test(normalized)) return 'env';
@@ -293,6 +308,27 @@ async function hydrateStagedFile(
       return;
     }
     const sha256 = await sha256Hex(bytes);
+    const current = useComposerAttachmentStore
+      .getState()
+      .stagedByScope[scopeKey]?.find(
+        (attachment) => attachment.id === id && attachment.attachmentId === attachmentId,
+      );
+    const mimeType = current?.mimeType ?? 'application/octet-stream';
+    const parsed = await parseAttachment(bytes, mimeType, name);
+    if (parsed.kind === 'unsupported') {
+      set((s) => ({
+        stagedByScope: {
+          ...s.stagedByScope,
+          [scopeKey]: (s.stagedByScope[scopeKey] ?? []).map((attachment) =>
+            attachment.id === id && attachment.attachmentId === attachmentId
+              ? errorChip(id, name, 'unreadable')
+              : attachment,
+          ),
+        },
+      }));
+      return;
+    }
+    const summary = summaryFromParsed(parsed);
     set((s) => ({
       stagedByScope: {
         ...s.stagedByScope,
@@ -310,6 +346,7 @@ async function hydrateStagedFile(
                 byteLength: bytes.byteLength,
                 sizeLabel: formatBytes(bytes.byteLength),
                 sha256,
+                summary,
               };
         }),
       },

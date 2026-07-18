@@ -381,6 +381,7 @@ interface PiAgentExecuteRequest {
 interface CodexAgentExecuteRequest {
   requestId: string;
   text: string;
+  images: Array<{ data: string; mimeType: string }>;
   expectedTarget: AiExecutionTarget;
   companyId: string;
   threadId: string;
@@ -526,6 +527,7 @@ type PiAgentHostEvent =
       toolCallId: string;
       toolName: string;
       detail?: string;
+      artifactPaths?: string[];
       durationMs?: number;
     }
   | {
