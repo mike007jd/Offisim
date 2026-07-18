@@ -1,15 +1,20 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use tauri::ipc::Channel;
 use tokio::sync::Notify;
 
+#[cfg(test)]
+use crate::agent_host_stream::RUN_STREAM_BUFFER_LIMIT;
+use crate::agent_host_stream::{
+    send_published_stream_entry, send_stream_entry, RunStreamBufferedEvent, RunStreamCore,
+    RunStreamCursorError, RunStreamEvent, RunStreamPolicy,
+};
+
 use super::types::{
     CodexAgentHostEvent, CodexAgentHostResponse, CodexExecutionProvenance, CodexModelSummary,
     CodexNativeThreadRef, CodexRunStreamSnapshot, CodexRunStreamTerminal,
 };
-
-const STREAM_BUFFER_LIMIT: usize = 4096;
 
 #[derive(Clone)]
 pub(super) enum RunOutcome {
@@ -68,16 +73,8 @@ pub(super) struct RunMetadata {
     pub expose_session: bool,
 }
 
-#[derive(Clone)]
-struct BufferedEvent {
-    cursor: u64,
-    event: CodexAgentHostEvent,
-}
-
 struct StreamInner {
-    next_cursor: u64,
-    events: VecDeque<BufferedEvent>,
-    subscribers: HashMap<u64, Channel<CodexAgentHostEvent>>,
+    stream: RunStreamCore<CodexAgentHostEvent>,
     next_subscriber_id: u64,
     terminal: Option<RunOutcome>,
     workspace_declaration: Option<CodexAgentHostEvent>,
@@ -93,6 +90,19 @@ struct StreamInner {
     active_turn_id: Option<String>,
 }
 
+impl RunStreamEvent for CodexAgentHostEvent {
+    fn stream_cursor(cursor: u64) -> Self {
+        Self::StreamCursor { cursor }
+    }
+
+    fn is_terminal(&self) -> bool {
+        matches!(
+            self,
+            Self::MessageEnd { .. } | Self::Result { .. } | Self::Error { .. }
+        )
+    }
+}
+
 pub(super) struct RunStream {
     request_id: String,
     inner: Mutex<StreamInner>,
@@ -105,14 +115,12 @@ impl RunStream {
         request_id: String,
         initial_channel: Channel<CodexAgentHostEvent>,
     ) -> Arc<Self> {
-        let mut subscribers = HashMap::new();
-        subscribers.insert(1, initial_channel);
+        let mut stream = RunStreamCore::new(RunStreamPolicy::CODEX);
+        stream.insert_subscriber(1, initial_channel, false);
         Arc::new(Self {
             request_id,
             inner: Mutex::new(StreamInner {
-                next_cursor: 1,
-                events: VecDeque::new(),
-                subscribers,
+                stream,
                 next_subscriber_id: 2,
                 terminal: None,
                 workspace_declaration: None,
@@ -200,42 +208,25 @@ impl RunStream {
 
     pub(super) fn publish(&self, event: CodexAgentHostEvent) -> u64 {
         let _delivery = self.delivery_guard();
-        let (cursor, subscribers) = {
+        let published = {
             let mut inner = self.guard();
-            if inner.terminal.is_some() {
-                return inner.next_cursor.saturating_sub(1);
-            }
-            let cursor = inner.next_cursor;
-            inner.next_cursor = inner.next_cursor.saturating_add(1);
-            inner.events.push_back(BufferedEvent {
-                cursor,
-                event: event.clone(),
-            });
-            while inner.events.len() > STREAM_BUFFER_LIMIT {
-                inner.events.pop_front();
-            }
-            let subscribers = inner
-                .subscribers
-                .iter()
-                .map(|(id, channel)| (*id, channel.clone()))
-                .collect::<Vec<_>>();
-            (cursor, subscribers)
+            inner.stream.publish(event)
+        };
+        let cursor = published.cursor;
+        let Some(entry) = published.entry else {
+            return cursor;
         };
 
         let mut dead = Vec::new();
-        for (id, channel) in subscribers {
-            if channel.send(event.clone()).is_err()
-                || channel
-                    .send(CodexAgentHostEvent::StreamCursor { cursor })
-                    .is_err()
-            {
+        for (id, channel) in published.subscribers {
+            if send_published_stream_entry(&channel, &entry).is_err() {
                 dead.push(id);
             }
         }
         if !dead.is_empty() {
             let mut inner = self.guard();
             for id in dead {
-                inner.subscribers.remove(&id);
+                inner.stream.remove_subscriber(id);
             }
         }
         cursor
@@ -246,8 +237,8 @@ impl RunStream {
         CodexRunStreamSnapshot {
             request_id: self.request_id.clone(),
             running: inner.terminal.is_none(),
-            cursor: inner.next_cursor.saturating_sub(1),
-            buffered: inner.events.len(),
+            cursor: inner.stream.cursor(),
+            buffered: inner.stream.buffered(),
             terminal: inner
                 .terminal
                 .as_ref()
@@ -266,47 +257,49 @@ impl RunStream {
         let _delivery = self.delivery_guard();
         let mut inner = self.guard();
         let after_cursor = after_cursor.unwrap_or(0);
-        if let Some(first) = inner.events.front() {
-            if after_cursor > 0 && after_cursor.saturating_add(1) < first.cursor {
-                return Err(
+        inner
+            .stream
+            .validate_replay_cursor(after_cursor)
+            .map_err(|error| match error {
+                RunStreamCursorError::Gap { .. } => {
                     "Codex stream replay exceeded its bounded buffer; resume from durable state."
-                        .into(),
-                );
-            }
-        }
+                        .to_string()
+                }
+                RunStreamCursorError::Ahead { .. } => {
+                    unreachable!("Codex existing cursor validation permits ahead cursors")
+                }
+            })?;
         let replay_workspace_separately = inner.workspace_declaration.is_some();
         if let Some(workspace) = inner.workspace_declaration.clone() {
             channel
                 .send(workspace)
                 .map_err(|_| "Codex stream reattach channel is closed.".to_string())?;
         }
-        for entry in inner
-            .events
-            .iter()
-            .filter(|entry| entry.cursor > after_cursor)
-        {
+        for entry in inner.stream.replay_entries_after(after_cursor) {
             if replay_workspace_separately
                 && matches!(
-                    entry.event,
+                    &entry.event,
                     CodexAgentHostEvent::WorkspaceBound { .. }
                         | CodexAgentHostEvent::WorkspaceUnavailable { .. }
                 )
             {
                 continue;
             }
-            send_buffered_entry(&channel, entry)
+            send_stream_entry(&channel, entry, RunStreamPolicy::CODEX)
                 .map_err(|_| "Codex stream reattach channel is closed.".to_string())?;
         }
         if inner.terminal.is_none() {
             let subscriber_id = inner.next_subscriber_id;
             inner.next_subscriber_id = inner.next_subscriber_id.saturating_add(1);
-            inner.subscribers.insert(subscriber_id, channel);
+            inner
+                .stream
+                .insert_subscriber(subscriber_id, channel, false);
         }
         Ok(CodexRunStreamSnapshot {
             request_id: self.request_id.clone(),
             running: inner.terminal.is_none(),
-            cursor: inner.next_cursor.saturating_sub(1),
-            buffered: inner.events.len(),
+            cursor: inner.stream.cursor(),
+            buffered: inner.stream.buffered(),
             terminal: inner
                 .terminal
                 .as_ref()
@@ -547,68 +540,32 @@ fn terminalize_locked(
     inner: &mut StreamInner,
     outcome: RunOutcome,
     events: Vec<CodexAgentHostEvent>,
-) -> (Vec<BufferedEvent>, Vec<Channel<CodexAgentHostEvent>>) {
-    let mut terminal_events = Vec::with_capacity(events.len());
-    for event in events {
-        let buffered = BufferedEvent {
-            cursor: inner.next_cursor,
-            event,
-        };
-        inner.next_cursor = inner.next_cursor.saturating_add(1);
-        inner.events.push_back(buffered.clone());
-        terminal_events.push(buffered);
-    }
-    while inner.events.len() > STREAM_BUFFER_LIMIT {
-        inner.events.pop_front();
-    }
+) -> (
+    Vec<RunStreamBufferedEvent<CodexAgentHostEvent>>,
+    Vec<Channel<CodexAgentHostEvent>>,
+) {
+    let terminal_events = inner.stream.buffer_events(events);
     // This transition is deliberately inside the same critical section as the
     // terminal events. A racing native delta either lands before this sequence
     // or is rejected by `publish`; it can never appear after terminal output.
     inner.terminal = Some(outcome);
     inner.pending_interactions.clear();
     inner.native_request_to_interaction.clear();
-    let subscribers = std::mem::take(&mut inner.subscribers)
-        .into_values()
-        .collect();
+    let subscribers = inner.stream.mark_terminal();
     (terminal_events, subscribers)
 }
 
 fn deliver_terminal_events(
-    events: Vec<BufferedEvent>,
+    events: Vec<RunStreamBufferedEvent<CodexAgentHostEvent>>,
     subscribers: Vec<Channel<CodexAgentHostEvent>>,
 ) {
     for channel in subscribers {
         for entry in &events {
-            if send_buffered_entry(&channel, entry).is_err() {
+            if send_stream_entry(&channel, entry, RunStreamPolicy::CODEX).is_err() {
                 break;
             }
         }
     }
-}
-
-fn send_buffered_entry(
-    channel: &Channel<CodexAgentHostEvent>,
-    entry: &BufferedEvent,
-) -> Result<(), ()> {
-    let cursor = CodexAgentHostEvent::StreamCursor {
-        cursor: entry.cursor,
-    };
-    if is_terminal_event(&entry.event) {
-        channel.send(cursor).map_err(|_| ())?;
-        channel.send(entry.event.clone()).map_err(|_| ())
-    } else {
-        channel.send(entry.event.clone()).map_err(|_| ())?;
-        channel.send(cursor).map_err(|_| ())
-    }
-}
-
-fn is_terminal_event(event: &CodexAgentHostEvent) -> bool {
-    matches!(
-        event,
-        CodexAgentHostEvent::MessageEnd { .. }
-            | CodexAgentHostEvent::Result { .. }
-            | CodexAgentHostEvent::Error { .. }
-    )
 }
 
 pub(super) fn opaque_session_id(native: &CodexNativeThreadRef) -> Result<String, String> {
@@ -839,7 +796,7 @@ mod tests {
                 let publisher_finished_for_thread = Arc::clone(&publisher_finished_for_channel);
                 let handle = std::thread::spawn(move || {
                     publish_barrier_for_thread.wait();
-                    for index in 0..=STREAM_BUFFER_LIMIT {
+                    for index in 0..=RUN_STREAM_BUFFER_LIMIT {
                         stream_for_thread.publish(CodexAgentHostEvent::MessageDelta {
                             delta: format!("concurrent-{index}"),
                             channel: Some("final".into()),
@@ -871,8 +828,8 @@ mod tests {
             .unwrap();
         assert!(publisher_finished.load(Ordering::Acquire));
         let final_snapshot = stream.snapshot();
-        assert_eq!(final_snapshot.cursor, STREAM_BUFFER_LIMIT as u64 + 2);
-        assert_eq!(final_snapshot.buffered, STREAM_BUFFER_LIMIT);
+        assert_eq!(final_snapshot.cursor, RUN_STREAM_BUFFER_LIMIT as u64 + 2);
+        assert_eq!(final_snapshot.buffered, RUN_STREAM_BUFFER_LIMIT);
     }
 
     #[test]
@@ -888,7 +845,7 @@ mod tests {
             .expect("Codex currently permits a cursor ahead of the live stream");
         assert_eq!(ahead_snapshot.cursor, 1);
 
-        for index in 0..=STREAM_BUFFER_LIMIT {
+        for index in 0..=RUN_STREAM_BUFFER_LIMIT {
             stream.publish(CodexAgentHostEvent::MessageDelta {
                 delta: format!("buffered-{index}"),
                 channel: Some("final".into()),
@@ -897,7 +854,7 @@ mod tests {
         let zero_cursor_snapshot = stream
             .reattach(Some(0), Channel::new(|_body| Ok(())))
             .expect("Codex currently permits zero cursor after replay eviction");
-        assert_eq!(zero_cursor_snapshot.buffered, STREAM_BUFFER_LIMIT);
+        assert_eq!(zero_cursor_snapshot.buffered, RUN_STREAM_BUFFER_LIMIT);
         let stale_error = stream
             .reattach(Some(1), Channel::new(|_body| Ok(())))
             .expect_err("Codex rejects a positive cursor behind retained replay");
@@ -949,7 +906,8 @@ mod tests {
 
         let inner = stream.guard();
         let terminal_index = inner
-            .events
+            .stream
+            .events()
             .iter()
             .position(|entry| {
                 matches!(
@@ -961,7 +919,7 @@ mod tests {
                 )
             })
             .expect("terminal message is buffered");
-        assert_eq!(terminal_index + 1, inner.events.len());
+        assert_eq!(terminal_index + 1, inner.stream.events().len());
         assert!(matches!(inner.terminal, Some(RunOutcome::Interrupted(_))));
     }
 

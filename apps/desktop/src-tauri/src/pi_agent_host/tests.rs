@@ -1905,7 +1905,7 @@ fn pi_run_stream_semantics_terminal_policy() {
     let replay_count = pi_run_streams_guard()
         .get(&request_id)
         .expect("stream state exists")
-        .events
+        .events()
         .iter()
         .filter(|entry| entry.cursor > 1)
         .count();
@@ -2319,7 +2319,7 @@ fn pi_run_stream_semantics_bounded_pending_policy() {
     let state = streams
         .get(&request_id)
         .expect("bounded replay stream exists");
-    assert_eq!(state.events.len(), PI_RUN_STREAM_BUFFER_LIMIT);
+    assert_eq!(state.events().len(), PI_RUN_STREAM_BUFFER_LIMIT);
     assert!(
         state.subscriber_count() == 0,
         "overflowed replay subscriber must be removed so reattach can retry"
