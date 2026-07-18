@@ -9,10 +9,12 @@ const json = (path) => JSON.parse(read(path));
 const rustFiles = ['manager.rs', 'protocol.rs', 'stream.rs', 'types.rs'].map((name) =>
   read(`apps/desktop/src-tauri/src/codex_agent_host/${name}`),
 );
-const rustHost = rustFiles.join('\n');
-const rustProduction = rustFiles
-  .map((value) => value.split(/\n#\[cfg\(test\)\]/u, 1)[0])
-  .join('\n');
+const agentHostRuntime = read('apps/desktop/src-tauri/src/agent_host_runtime.rs');
+const rustHost = [...rustFiles, agentHostRuntime].join('\n');
+const rustProduction = [
+  ...rustFiles.map((value) => value.split(/\n#\[cfg\(test\)\]/u, 1)[0]),
+  agentHostRuntime,
+].join('\n');
 const shared = read('packages/shared-types/src/runtime/ai-account.ts');
 const runtime = read('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 const provenance = read('apps/desktop/renderer/src/runtime/execution-provenance.ts');
