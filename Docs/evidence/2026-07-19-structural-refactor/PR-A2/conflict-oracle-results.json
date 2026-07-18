@@ -1,0 +1,938 @@
+[
+  {
+    "file": "scripts/harness-agent-run-usage.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 202,
+    "legacyBodySha256": "a373216ad64260d789516a095634164926d34735a596b33109fca93682f69275",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-ai-account-catalog.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 81,
+    "legacyBodySha256": "c0207a16e4cc103f3f469e9040d6cbad49f4b302fb5bba9043dba68474c193af",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-ai-account-configuration.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 88,
+    "legacyBodySha256": "4bd8399ab9908f8dcbf087785585816f7bd3fe4731bbe609b0a61cf07d29328d",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-ai-account-usage.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 97,
+    "legacyBodySha256": "602faa3cf3a295cf283b1ad66e53986ff58335ac95bc720bf46b75876056a9d7",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-best-of-n.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 39,
+    "legacyBodySha256": "8b9ed12f1b4a7552934de7649a381dfc19f549998240b41154bcebcba845761b",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-budget-nudge.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 127,
+    "legacyBodySha256": "3401fa6af8cf9af2dec5731bf605adb7d5fb4e3bd6f8743821745f54667a6bee",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-character-actions-p3.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 119,
+    "legacyBodySha256": "e5a7e752c4897628f7d0e90fb95e4c1cf0e71cceacf7681345110cd9db26df82",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-character-clip-map.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 101,
+    "legacyBodySha256": "62c944663f08945957a46e404f61e93a020852a50b2f1be7f4dda01d3f9c6a00",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-character-toy-p0.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 142,
+    "legacyBodySha256": "b5ab726c27c6f664164d46b2d26f7cefc7890923f3ea259a4e40fd71e888b749",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-character-toy-p1-runtime.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 38,
+    "legacyBodySha256": "0d9c8f14c998ea8e07fbefe998d982f5ac8a8cc566edbe52331f508c934a68c3",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-character-toy-p1.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1997,
+    "legacyBodySha256": "2e2696d94ad97d0ae3e4b74ba99e14b8179029377e9d9dc52579b30c47008ee0",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-chat-attachment-roundtrip.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 482,
+    "legacyBodySha256": "9001911edc694553c83f98a257c8ea71c7b5e108c3aaf885063f7523a93ca596",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-chat-persistence.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 9150,
+    "legacyBodySha256": "e80bcdf96464aef6383a0ad8260804bc850f85baf71c7973654b23fa944cab96",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-chrome-stability.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 690,
+    "legacyBodySha256": "aaf58e5689b6c3e014e4ffbf65996b545b8cfe04d02b4f8ac38138c018e0ee98",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-claude-agent-host.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 46,
+    "legacyBodySha256": "11804aa9d4d16c0e74a6cb2255fc0f580535c1dde454340da4e3de65c63d6898",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-codex-app-server-contract.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 40,
+    "legacyBodySha256": "54a342129bf529b803398e3a344b17d2cd93b91e2f16cfead0be318083f739de",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-collaboration-profile.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 619,
+    "legacyBodySha256": "51f8c81c56df50ba5d4dacb7f2159ebb0c227d7914592c7ed9c68ed82b04a552",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-collaboration-repo-contract.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 2941,
+    "legacyBodySha256": "2ec19e62cf6f99ff85c2f7fb972336cd27beddf8a122f4cd235ce726250be41e",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-computer-rich-detail.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 428,
+    "legacyBodySha256": "7b5151075851e0010f3aa46874ed28e4511077c4d42111a6c0f0b0c952b12b84",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-connect-chat-flow.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 953,
+    "legacyBodySha256": "8740e929f4f3b5b3d22bea0a454fb70397efad4c0848943ae9816e412635de45",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-conversation-deletion.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 122,
+    "legacyBodySha256": "276955b64f42f6ce52bc3c9ec8daf78624f6c6e6b0b2b9f5b6965cee3ac9e0cd",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-conversation-run-controller.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 28309,
+    "legacyBodySha256": "c9052736441c7a6f31870276d5c26dd49d397800ce997a0b9f8b05fe29886904",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-doc-engine-csv-security.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 40,
+    "legacyBodySha256": "9c22efa30394ad8d9cf81e691b7f19b535cb49872cee2e57d558725714c646c9",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-doc-engine-parsers.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 867,
+    "legacyBodySha256": "fc90e032f7bdf05a59372f949bf8c0bb3aee911d6fc1f40f18edc01ee93cbd27",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-doc-engine-xlsx-limits.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 306,
+    "legacyBodySha256": "22d7eb51b3309bedbd20e2c3abfac63528885defe044b6ea103b12ae0d52964c",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-dramaturgy-stress.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 905,
+    "legacyBodySha256": "399180fb1fc3af7e7fbff0643a5c9e3fcd1ae525aec79050c8eb0205dd98672b",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-employee-memory.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 49,
+    "legacyBodySha256": "db1c709e96ebf2b341c5e3068f2624f05b730114054a06d221563e139f1c4775",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-employee-seniority.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 47,
+    "legacyBodySha256": "78044d6770fd8764fb59999484eeab389d2d74ac86d8b93e84f5ef2630ff315e",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-employee-version-on-save.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 623,
+    "legacyBodySha256": "a0fc1c2710c48ad07d80fa6c78542e283472edebc8399d255e68b2d2b070e60b",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-eval-suite.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 508,
+    "legacyBodySha256": "fcf7dc1da219997cc3fc9a205cbbe66e481a871ec1964c044c47e400a21cb331",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-execution-provenance.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1983,
+    "legacyBodySha256": "cb6aad2bae1345bf4397fb251e522eafd67cee40f3fbfacc6455d1d462059ef6",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-execution-target-gate.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 68,
+    "legacyBodySha256": "0bfb18984d5e68d8b71a804480ef835ff510b050705d90154c3ad99368e493db",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-first-run-onboarding.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 42,
+    "legacyBodySha256": "8ab4351df74e9476d4ee727e7ff27023edccabd98a5c7b4a0ea1f00a0532bfa8",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-git-pr-workbench.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 82,
+    "legacyBodySha256": "3e35a6c757d7db53d5cde536658681aaa6fe220eb4f4964778bd5d926af5cd05",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-git-source-security.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 36,
+    "legacyBodySha256": "966820d3e7098778eb69bd0fc940394c0ec31737c91daee98f60ebcc65fab5c8",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-git-workbench-parser.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 95,
+    "legacyBodySha256": "8ca402e2c8b6a684e7d4093bf557b67631cf042f65ff0190159838811edf591e",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-install-core-integrity.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1235,
+    "legacyBodySha256": "9ad1f269217dc4481007ac1dbb31eb05b50fc6ed9720f3b4ab8b018bca5b0ca8",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-live-agent-run.mjs",
+    "beforeCode": 1,
+    "afterCode": 1,
+    "legacyBodyBytes": 534,
+    "legacyBodySha256": "68303c6173f5b0c348adf88abd1fd69d95a06c52a0176bb2703f90da8f181e7b",
+    "rawByteEqual": true,
+    "normalizedByteEqual": true
+  },
+  {
+    "file": "scripts/harness-live-ask-gate.mjs",
+    "beforeCode": 1,
+    "afterCode": 1,
+    "legacyBodyBytes": 548,
+    "legacyBodySha256": "cc5b01e1742f73fccb544a28afafa616eb3b5ce81b92fa8bce9baed4966472b1",
+    "rawByteEqual": true,
+    "normalizedByteEqual": true
+  },
+  {
+    "file": "scripts/harness-live-auto-gate.mjs",
+    "beforeCode": 1,
+    "afterCode": 1,
+    "legacyBodyBytes": 534,
+    "legacyBodySha256": "68303c6173f5b0c348adf88abd1fd69d95a06c52a0176bb2703f90da8f181e7b",
+    "rawByteEqual": true,
+    "normalizedByteEqual": true
+  },
+  {
+    "file": "scripts/harness-live-mcp-approval-gate.mjs",
+    "beforeCode": 1,
+    "afterCode": 1,
+    "legacyBodyBytes": 491,
+    "legacyBodySha256": "1496f6456af948f40009ce75f8e740822846c1df125132ebc84a6c97cced26ed",
+    "rawByteEqual": true,
+    "normalizedByteEqual": true
+  },
+  {
+    "file": "scripts/harness-loop-authoring-flow.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1406,
+    "legacyBodySha256": "5a12bdde5c6ff477e4170a7878a3fc36b4009fd45d7ca18d806db5206b63ee99",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-loop-compiler.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1713,
+    "legacyBodySha256": "7575f6277cc13090a88e2d0f85c06df441c97701ec2c41320d5cf60d3a1e4ddc",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-loop-graph-projection.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1381,
+    "legacyBodySha256": "31ae7c1be49fc507f8ccf25e603fa1e6a74d3c430def86a2fda3ca19d8ae781a",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-loop-office-invocation.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1729,
+    "legacyBodySha256": "94683b54bf911aa0cf837ebb42fdb453982efb93c1427f9d5a0d6f810a03c240",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-loop-repository.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 863,
+    "legacyBodySha256": "684dc9fa63ad146df11aec3dfa7c801621e8d94c1df8ff433fbbf71575797a67",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-market-surface.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 686,
+    "legacyBodySha256": "f42e267d42731b689a66f7a0c96d4fa32c0216adb9a791481a1edb2f77083342",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mcp-bridge-extension.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1694,
+    "legacyBodySha256": "2113b3585fcaa5e0ece17c66fd56a74e7af1da4193ce2a8204c2af6294dab989",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mcp-bridge-sdk.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 28,
+    "legacyBodySha256": "4a4b3eda86d3c9b6ccbc720c4d3b529df477d3e49a8989500969a4ecf3d6ed3d",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mcp-grant-risk-class.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 75,
+    "legacyBodySha256": "952bfbdf1955387077267b31d7d7cf3f7a2bb57077c265907cd41a9a84e46458",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mcp-host-channel.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 503,
+    "legacyBodySha256": "85386261f5dfbaee33bbaae31702ceeef79daf8840c4791281846189863a8457",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mission-evaluators.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1140,
+    "legacyBodySha256": "1600af7e6477d880a7c165bb563e16e0112d7bc680a0e5d716368df8d5e38b11",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mission-loop-controller.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1440,
+    "legacyBodySha256": "e7208e643759978904ad0673e16e68edc3963920aba07444a19f4a1e8d495631",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mission-office-projection.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1969,
+    "legacyBodySha256": "66cdaedf2e18cda46715b40d84eef6daa221aa625c01754301da1d43c9ba08b7",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mission-recovery.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1388,
+    "legacyBodySha256": "89a4e1f8a494b2074350b31be0fef1c8985de3b4e38af941b842175650b1d7a6",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mission-reload.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1574,
+    "legacyBodySha256": "b4c86189bb9ee0247e2dc22d8307e0b5f40efdb14db202c3243c4f37e54f63d9",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-mission-run-controller.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 5326,
+    "legacyBodySha256": "cbd0bc7c752e2c3f21d23be5afbd2a12d858ecfd90fedeee8dc6655f8b57a345",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-native-stage-sessions.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 73,
+    "legacyBodySha256": "eeb5effdc8c357b88895e280bcd3a534f2e768181940c656d6c9addfe48a37d4",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-office-ambient-p5.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 5209,
+    "legacyBodySha256": "6d464d1013322e7ca1df773e41002a0245bbf5563bbe6557de4026351580fae0",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-office-companion.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 108,
+    "legacyBodySha256": "01ed9dfbc45de25d061b917b5cf4d3b3f4bc39c72257e8810cc041a24b9cd5ff",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-office-diorama-p6.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 3550,
+    "legacyBodySha256": "9e56fb88e35e2f5d8fbb94308040289172cf7d4b22657214576216237ae51a51",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-office-projection.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 3365,
+    "legacyBodySha256": "10389173737a19790d43b732d29e672f03bdc996a0ca99656dc192a1d0d60287",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-office-scene-quality.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 4139,
+    "legacyBodySha256": "81fab8cd780b298edb1d376e82a2a895aecaf79b4033a7c9ac0d7411053ff985",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-office-seating-p2.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 2444,
+    "legacyBodySha256": "1a2720df72cedf4c8a556dd70121e6f6ebac2e3b3c50b860815a38b9e01ed361",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-office-visual-language-p4.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 4158,
+    "legacyBodySha256": "561baf2a548edb7aad8df6306e8fab55155ed61cd58fba587bf712252807e4a1",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-personnel-danger-zone.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 782,
+    "legacyBodySha256": "9fc9a2b74236dda2a85a8927751f5c06d8eb57ea3e3b210bc8e703bdc11ee321",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-pi-agent-host.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1141,
+    "legacyBodySha256": "aa0eb5bb3706da16359ea8766e1b9af7f41102442f1f18ecebe18fbbd3fcc432",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-pi-bash-process-tree.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 295,
+    "legacyBodySha256": "287d1f7ad4d3c3082a8236d8b52f5dbb22b51e5777d8ca181c600aa3d3b08bc0",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-pi-collaboration-runtime.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 6756,
+    "legacyBodySha256": "b9880c2a27ad70a7e1f5a591f1aab6ddba18591ecd5788d25c8e310b4ad16cff",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-pi-delegation-integration.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 742,
+    "legacyBodySha256": "c02f808d527817a633699057218f102595eea464601e68cb30fc27279b1088f9",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-pi-loop-until-green.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 74,
+    "legacyBodySha256": "80f25bea7b447c62367b214e5118ef4c3010c328ff5194fa5df09af7ba199bb5",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-pi-permission-modes.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 52,
+    "legacyBodySha256": "b59bf9f44fc002bb54614e42859a352ddfb9c8bb848953df5629c0d110a38bc9",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-platform-auth-boundaries.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 39,
+    "legacyBodySha256": "68f70b6d23ea6004cc4c2127ee72b7c0225d0ea3ea55b71d5fe9be7c45b0616a",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-platform-body-limit-security.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 0,
+    "legacyBodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-platform-moderation.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 55,
+    "legacyBodySha256": "2aa189b3afc45a224ce2073f1ad3943d4b0e2997501e8026478686fa0ba2f87d",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-platform-zod-contract.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 35,
+    "legacyBodySha256": "c85b88520e328c131b920bb0b5b20c494371d91f063bbf4d5b38e0496886f2cf",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-playbook-validation.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 3413,
+    "legacyBodySha256": "7f421fdf4699441e3d6d138b1ccfc5ad3f4aedbb8b90e8c27b9367bce4faa589",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-project-workspace.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 3267,
+    "legacyBodySha256": "4c5b05b43d7001ff7f5d4ddb0a7fff08b60338942db1a0738aa46252287b1606",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-prompt-enhance.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 3239,
+    "legacyBodySha256": "a47cbbc8e8dd51e82ede6375e47d9c48bf47222f612a220a703644a61e5e5802",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-registry-client-security.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 0,
+    "legacyBodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-renderer-engine-authority.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 65,
+    "legacyBodySha256": "12cd0042c66c986a5661888fc8248adba109bbdda00f248ed834a94343fcd2bc",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-review-fixes.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 67,
+    "legacyBodySha256": "6ec38e839aa6140537390765671436ed3dc4560a2a2d560ea1ca4c56fc25f726",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-run-cost-scope.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 135,
+    "legacyBodySha256": "5f1938715706413ba81ca00102eabda73882f05cfa4270eed4fc74b17b6cd9eb",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-run-recovery.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 3262,
+    "legacyBodySha256": "60ed351fdf5ba6b58cc9b4a100ac874d2a4965e5c3007f2593241a0fe6bef306",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-runtime-conformance.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1085,
+    "legacyBodySha256": "9339e1f4b29f830a99bb7ec90c0a414264c974cc245332a2f5c71450f0bb1b86",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-scene-cue.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 6825,
+    "legacyBodySha256": "49aa7e440a293a6597a10560c6971e07a9adbc9e4f3b19dbef3bb7465aab66df",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-scene-staging.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 2076,
+    "legacyBodySha256": "0fe57830c102f5f0f8ea1130a1e8ba7204954f4ef0f56981b79773d772cfde51",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-semantic-title-repository.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 75,
+    "legacyBodySha256": "a8f3cd710e9ee919c6d6496b64f3aa2d24b13af324121fd898fe0e8ea7f19f4c",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-settings-status-coordinator.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 78,
+    "legacyBodySha256": "0e9916b7a50b38ec11766bfd51ce0375a98ddad47f76c2cf212c38166b204cd0",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-stage-preview-targets.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1507,
+    "legacyBodySha256": "b04f18c610c3056beeb8b7346fa7c0c9230180dc29d0d12e52c332a2bd3a8e3a",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-staged-compaction.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 159,
+    "legacyBodySha256": "6746b3131799c717f0cfe42fc2eb941245a38f39254c424eb80334bbd16bc3ef",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-stream-watchdog.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 148,
+    "legacyBodySha256": "14c3ebdbf29c2005dd2c4dc73ddf0b6e442e39f40616f7c9c20a25f9ba6748ff",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-task-board-child-tree.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 75,
+    "legacyBodySha256": "cc0398b1adbc0542da05f3d5a35cf8abe6ac71871be2da453104408af8490fa1",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-template-contract.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 53455,
+    "legacyBodySha256": "d6938766826829b21614b25b1b1fef97ee6f8dafcf58f4f1f1cb88ef8878c941",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-thread-lifecycle-guard.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 45,
+    "legacyBodySha256": "15a2e9bf7d05534c4010297c039356749c6b90a8da529224d17380cfe1725c0b",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-token-budget-alerts.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 38,
+    "legacyBodySha256": "e8de9a3f9c7dcf2680c3c0610fa1e356150add56dc7f434c113a358a47621d7d",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-visual-semantics.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 30,
+    "legacyBodySha256": "fec24623cf832bbd65e6f29f3092a6394177cbce14e150cbab48c012bc643b2a",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-web-fetch-security.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 35,
+    "legacyBodySha256": "014313e28cfcbb83f980bf201ab3fa344700748d6fbf36e4466971205779c917",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-web-search-security.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 36,
+    "legacyBodySha256": "695a1e91d1b12c4a861ba18233dfaa89ba655865a8432d6ae97b24ab8a397ac1",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-workspace-chat-presentation.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 9072,
+    "legacyBodySha256": "2ddd4c819830a608c2f2e1cc866b2baecf54fff7277dd543adc4ecf9bd596fa1",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-workspace-lease-decisions.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 182,
+    "legacyBodySha256": "0119016706f335b2a872060b3c00d92ce4f18b86e9358f455383d6c473e8e3c9",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-workspace-lease.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 1959,
+    "legacyBodySha256": "14cfcd7c4729542528e42a54bbda144170597ec07d3e9e286721512252b6e2b8",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-workspace-panel-project-gate.mjs",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 35,
+    "legacyBodySha256": "42b06f62e0032ebd5ebf860a8ebf4779be7eb877901de93f779a3784d01f892d",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  },
+  {
+    "file": "scripts/harness-workspace-repo-contract.mts",
+    "beforeCode": 0,
+    "afterCode": 0,
+    "legacyBodyBytes": 234,
+    "legacyBodySha256": "a01d29877179babfef46dfed1d9df1a44f54c8c11715d9ace301c4e46efe8b09",
+    "rawByteEqual": false,
+    "normalizedByteEqual": false
+  }
+]
