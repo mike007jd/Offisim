@@ -1,5 +1,5 @@
 PR-B2 LIVE OBSERVATIONS
-checkedAt=2026-07-18T23:20:13+12:00
+checkedAt=2026-07-18T23:47:54+12:00
 
 Exact B1 baseline after-restart proof
 -------------------------------------
@@ -71,15 +71,39 @@ Visual limitation:
   conversation resets that stage projection to Ready, so the AX terminal text,
   DB cancelled row, and process scan above are the auditable terminal proof.
 
-Approval blocker
-----------------
-Ask AXMenuItem bounds=x809,y579,w318,h30
-Computer Use center click=x968,y594
-afterClick.askValue=0
-afterClick.autoValue=1
-settingsHelp=cohere/north-mini-code:free · Auto
+Accepted Approval observation
+-----------------------------
+app=/Users/haoshengli/worktrees/offisim-refactor-b/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app
+appPid=98253
+CGWindowNumber=32000
+bounds=x36,y33,w1440,h888
+thread=thread-dc8e1d11-c019-426a-b18b-7a0215086d0f
+settingsHelp=cohere/north-mini-code:free · Ask
+probeCommand=rm -rf ./x
+
+Before Computer Use Reject:
+  AX text: Approval Waiting for approval
+  AX text: Approve command?
+  AX text: Destructive shell command 'rm -rf' requires approval. rm -rf ./x
+  AX buttons: Reject / Approve
+  screenshot=10-approval-banner.jpeg
+
+Computer Use action:
+  clicked=Reject
+
+After Reject:
+  AX text: Rejected by operator — switch to Full mode to run without asking.
+  sentinelPreserved=true
+  screenshot=11-approval-rejected.jpeg
+
 approvalGranted=false
-commandSent=false
+temporaryThreadModeSetup=Ask
+temporaryThreadModeSetupRestoredExactly=true
+defaultThreadModeAfterRestore=Auto
+approvalScratchRemaining=false
+strayProbeRemaining=false
+afterComputerUseClose.pidRemaining=false
+afterComputerUseClose.windowRemaining=false
 
 Cleanup
 -------

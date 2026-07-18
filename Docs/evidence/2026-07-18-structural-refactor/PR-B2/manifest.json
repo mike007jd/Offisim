@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "pr": "PR-B2",
-  "checkedAt": "2026-07-18T23:12:14+12:00",
+  "checkedAt": "2026-07-18T23:47:54+12:00",
   "branch": "refactor/B2-host-event-dispatch",
   "baseBranch": "refactor/B1-runtime-pure-functions",
   "baseCommit": "6bc048728cbcbf2addbeafe8fdb9478427868d50",
@@ -59,13 +59,19 @@
       "classification": "pre-existing full-app bootstrap contract conflict reproduced on exact B1 baseline"
     },
     "approval": {
-      "status": "BLOCKED",
-      "askValue": 0,
-      "autoValue": 1,
-      "settingsHelp": "cohere/north-mini-code:free · Auto",
+      "status": "PASS",
+      "probeCommand": "rm -rf ./x",
+      "settingsHelp": "cohere/north-mini-code:free · Ask",
+      "uiWaiting": "Approval / Waiting for approval",
+      "rejectButtonVisible": true,
+      "approveButtonVisible": true,
       "approvalGranted": false,
-      "commandSent": false,
-      "classification": "permission-mode menu cannot switch from Auto to Ask in release app"
+      "operatorDecision": "Reject",
+      "result": "Rejected by operator",
+      "sentinelPreserved": true,
+      "temporaryModeSetupRestoredExactly": true,
+      "appPid": 98253,
+      "mainWindowId": 32000
     },
     "stop": {
       "status": "PASS",
@@ -81,7 +87,7 @@
     }
   },
   "cleanup": {
-    "conversationMode": "Auto",
+    "conversationMode": "Auto (original local-storage bytes restored)",
     "activeThreadInteractions": 0,
     "b2AppProcessRemaining": false,
     "b2WindowRemaining": false,
@@ -101,6 +107,8 @@
     {"file": "07-stop2-running.jpeg", "sha256": "89be269aa18f20f7aa3ab7f75322668d53023218f4d8b4bcd48fec5b931c503e"},
     {"file": "08-stop2-interrupted.jpeg", "sha256": "4f0e9dc263ff2f0f4af2404678a8a407dd84417df74145794feaf3c88eca1227"},
     {"file": "09-b1-baseline-after-restart.jpeg", "sha256": "9c0520981a0d5aa0b2850bfbffa2d9a195119294df2ac2f8caf4fbd7d33fde94"},
-    {"file": "live-observations.txt", "sha256": "a2109172fd44633d5a45e1b437ecf613a4427d256cbb9d921441d5aa6d268636"}
+    {"file": "10-approval-banner.jpeg", "sha256": "e0cf35ed1d592eba009f0b443a1ac69604c3d9f21df84bc70f37066626618517"},
+    {"file": "11-approval-rejected.jpeg", "sha256": "9984dbbd8fe7533eccf76dc937a4ecf2645085293b972814f1ebf8113b83a8df"},
+    {"file": "live-observations.txt", "sha256": "1c139dc3b77a39abea0c2722de48bc0ab73eb9afc010d039b1d8556295ee8b87"}
   ]
 }

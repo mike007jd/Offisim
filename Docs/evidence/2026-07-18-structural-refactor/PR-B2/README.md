@@ -1,6 +1,6 @@
 # PR-B2 live verification evidence
 
-Checked at `2026-07-18T23:12:14+12:00` on branch
+Checked at `2026-07-18T23:47:54+12:00` on branch
 `refactor/B2-host-event-dispatch`, stacked directly on
 `refactor/B1-runtime-pure-functions` at
 `6bc048728cbcbf2addbeafe8fdb9478427868d50`.
@@ -48,7 +48,7 @@ resolved Offisim window/PID before every interaction.
 | --- | --- | --- |
 | Normal run | PASS | `01-normal-complete.jpeg`; reply `B2-NORMAL-OK`, UI `Complete`, 4/4. |
 | App restart + reattach | BLOCKED | B2 Pi run `attempt-763e67bb-00b7-4354-ac55-ad7d6621c2b4` and B2 Codex run `attempt-09d1c2a7-153a-4833-b8bf-bafaa10412b7` both restart as `interrupted / CAN RESUME`, without automatically continuing. `02`-`05` show B2 before/after. `09-b1-baseline-after-restart.jpeg` is the exact B1 app after restart in the same persisted state; its action-time AX tree contains the B1 sentinel card and `CAN RESUME`. DB identifies that card as `attempt-d30d0358-3ed2-494e-ae35-58f250b6efb7`, status `interrupted`. This reproduces the conflict on the B1 baseline, so it is not introduced by the B2 dispatch diff. No manual Resume was used. |
-| Approval banner | BLOCKED | Fresh AX exposes Ask as a settable menu item, but AX click, `set_value`, keyboard navigation, and Computer Use click at the native AX bounds all leave `Ask=0`, `Auto=1`, with Help `cohere/north-mini-code:free · Auto`. No command was sent and no approval was granted. |
+| Approval banner | PASS | The release app ran the selected thread in `Ask` (`cohere/north-mini-code:free · Ask`). `Bash rm -rf ./x` reached `Approval / Waiting for approval` with `Reject` and `Approve`; Computer Use chose `Reject`, the UI recorded `Rejected by operator`, and the sentinel remained. `10` and `11` are the waiting/rejected frames. The thread-only mode setup was written while the app was closed and restored byte-for-byte after the run; no approval was granted. |
 | Stop | PASS | Second run `attempt-c4246552-cefe-415d-8906-14b5135ac042` reached `bash running…`; Computer Use clicked `Stop run`; action-time AX reached `Interrupted / 0 of 4 / Stopped`, DB reached `cancelled`, and `sleep 180` plus Pi host exited. `07` and `08` are the accepted before/after pair. The center-stage status is obscured by retained CAN RESUME cards in `08`; the exact AX/DB/process observations are recorded in `live-observations.txt`. Reloading the retained conversation resets the stage projection to Ready, so no replacement screenshot is claimed. `06` is an earlier diagnostic run that naturally completed and is not counted as acceptance. |
 
 The live acceptance gate is therefore **not complete**. This evidence supports
@@ -56,9 +56,12 @@ a reviewable Draft only; it must not be presented as merge-ready.
 
 ## Cleanup state
 
-- Conversation mode remained `Auto`.
+- The temporary thread-only `Ask` setup was restored byte-for-byte to the
+  original local-storage value; the test thread therefore returned to its
+  default `Auto` mode.
 - `active_thread_interactions` is empty.
-- B2 app PID `60042` and its Offisim window exited through Computer Use.
+- B2 Stop-session PID `60042` and approval-session PID `98253`, with their
+  resolved Offisim windows, exited through Computer Use.
 - No test `sleep` process or Pi host remains.
 - Three `CAN RESUME` cards are retained because Discard is irreversible and
   did not have action-time user confirmation. Their retained projection keeps
