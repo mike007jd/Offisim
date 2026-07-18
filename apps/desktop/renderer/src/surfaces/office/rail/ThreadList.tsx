@@ -4,6 +4,7 @@ import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { RunStatePill } from '@/design-system/grammar/RunStatePill.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { cn, relativeTime } from '@/lib/utils.js';
+import { openFirstRunGuide } from '@/surfaces/onboarding/first-run-state.js';
 import {
   EmptyState,
   ErrorState,
@@ -76,6 +77,14 @@ export function ThreadList() {
             title={query ? 'No matching conversations' : 'No conversations yet'}
             description={
               query ? 'Try a different search term.' : 'Message the team or one employee.'
+            }
+            action={
+              query
+                ? undefined
+                : {
+                    label: 'Start first request',
+                    onClick: openFirstRunGuide,
+                  }
             }
           />
         ) : (

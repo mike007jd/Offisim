@@ -50,6 +50,7 @@ commands.allow = [
   "workspace_checkpoint_rollback",
   "open_local_path",
   "project_workspace_select",
+  "project_demo_workspace_prepare",
   "project_create",
   "project_update",
   "project_update_status",

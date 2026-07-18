@@ -42,6 +42,7 @@ import {
   useProjectWorkspaceLeaseReviews,
   useTaskBoard,
 } from '@/surfaces/office/board/task-board-data.js';
+import { openFirstRunGuide } from '@/surfaces/onboarding/first-run-state.js';
 import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -501,6 +502,7 @@ function ProjectsTab({
             title="No projects yet"
             description="Create a Project and choose where its files live."
             action={{ label: 'New project', onClick: onNew }}
+            secondaryAction={{ label: 'Show setup guide', onClick: openFirstRunGuide }}
           />
         )}
       </div>

@@ -5,6 +5,7 @@ import { useCompanies } from '@/data/queries.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
+import { useFirstRunGuideActive } from '@/surfaces/onboarding/first-run-state.js';
 import { ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { CompanyTemplateService } from '@offisim/core/browser';
 import { useQueryClient } from '@tanstack/react-query';
@@ -20,6 +21,7 @@ type LifecycleMode = 'portal' | 'create';
  *  companies it opens the creation wizard directly; with one or more it opens
  *  the selection page. A user action (new / dismiss) overrides the derived mode. */
 export function LifecycleSurface() {
+  const firstRunGuideActive = useFirstRunGuideActive();
   const setScope = useUiState((s) => s.setScope);
   const setSurface = useUiState((s) => s.setSurface);
   const intent = useUiState((s) => s.lifecycleIntent);
@@ -177,6 +179,7 @@ export function LifecycleSurface() {
     return (
       <CompanyCreationWizard
         dismissible={hasCompanies}
+        firstRun={firstRunGuideActive && !hasCompanies}
         onDismiss={() => setOverride('portal')}
         onComplete={createCompany}
       />

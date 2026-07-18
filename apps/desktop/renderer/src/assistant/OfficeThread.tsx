@@ -6,6 +6,7 @@ import type { AgentQueueBehavior } from '@/runtime/desktop-agent-runtime.js';
 import { CapabilityManifest } from '@/surfaces/office/rail/CapabilityManifest.js';
 import { ConvOutputs } from '@/surfaces/office/rail/ConvOutputs.js';
 import { MessageItem } from '@/surfaces/office/rail/MessageItem.js';
+import { useFirstRunState } from '@/surfaces/onboarding/first-run-state.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import {
   AssistantRuntimeProvider,
@@ -258,6 +259,9 @@ function OfficeComposer({
   onSendWhileRunning: (text: string, behavior: AgentQueueBehavior) => Promise<boolean>;
 }) {
   const employees = useMemo(() => Array.from(employeesById.values()), [employeesById]);
+  const initialPrompt = useFirstRunState((state) => state.draftPrompts[threadId] ?? null);
+  const consumePrompt = useFirstRunState((state) => state.consumePrompt);
+  const composer = useComposerRuntime();
   const run = useConversationRun(threadId);
   const isRunning = isConversationRunActive(run.phase);
   const stageFiles = useComposerAttachmentStore((s) => s.stageFiles);
@@ -274,6 +278,12 @@ function OfficeComposer({
   const activeSendPendingRef = useRef(false);
   const [dragActive, setDragActive] = useState(false);
   const [activeSendPending, setActiveSendPending] = useState<AgentQueueBehavior | null>(null);
+
+  useEffect(() => {
+    if (!initialPrompt) return;
+    composer.setText(initialPrompt);
+    consumePrompt(threadId);
+  }, [composer, consumePrompt, initialPrompt, threadId]);
 
   const sendWhileRunning = useCallback(
     async (text: string, behavior: AgentQueueBehavior) => {

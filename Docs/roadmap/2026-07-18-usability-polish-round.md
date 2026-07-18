@@ -45,6 +45,13 @@
 拿到第一个产出。缺一步都算失败。空状态全部有引导,不再出现「空白 + 术语」。
 验收:清库冷启动,按引导 5 分钟内完成第一单(实机计时)。
 
+实现记录(2026-07-18):`PASS`。release `.app` 清库启动后沿向导完成建公司、
+雇员、选用已登录 Codex CLI、派单、舞台/时间线演绎与 `FIRST_WIN.md` 产出，
+从进程启动到 6/6 收尾共 270 秒。跳过、公司/Project/Personnel/Conversation
+空状态回入口均已验证；原 `~/.offisim` 在两轮 live 验收后恢复。完整报告见
+`Docs/live-verify-report-2026-07-18-r3-onboarding.md`，证据固定在
+`~/.dev-dispatch/evidence/offisim/r3-onboarding-2026-07-18/`。
+
 ## R4 — Chat 附件端到端(backlog 转正)
 
 会话里拖入/粘贴文件与图片→员工真实读到→产出可溯源。跨 composer/runtime/

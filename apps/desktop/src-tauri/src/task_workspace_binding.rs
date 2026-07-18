@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -4154,6 +4155,30 @@ pub async fn project_workspace_select<R: tauri::Runtime>(
     selections
         .register(window.label(), canonical, now)
         .map(Some)
+}
+
+#[tauri::command]
+pub async fn project_demo_workspace_prepare<R: tauri::Runtime>(
+    window: tauri::WebviewWindow<R>,
+    selections: tauri::State<'_, ProjectWorkspaceSelectionRegistry>,
+) -> Result<ProjectWorkspaceSelectionClaim, String> {
+    let demo_root = crate::local_paths::offisim_storage_dir("demo-projects")?
+        .join(format!("first-project-{}", random_id()));
+    fs::create_dir_all(&demo_root)
+        .map_err(|error| format!("Create the demo Project folder: {error}"))?;
+    fs::write(
+        demo_root.join("PROJECT_BRIEF.md"),
+        "# First Project\n\nThis is a small local workspace for your first Offisim order.\n\n## Goal\n\nTurn a short request into one clear, visible deliverable.\n",
+    )
+    .map_err(|error| format!("Seed the demo Project brief: {error}"))?;
+    fs::write(
+        demo_root.join("README.md"),
+        "# Welcome\n\nYour employee can read and write files in this Project folder.\n",
+    )
+    .map_err(|error| format!("Seed the demo Project readme: {error}"))?;
+    let canonical = crate::local_paths::resolve_project_workspace_root_path(demo_root)?;
+    let now = now_unix_ms().map_err(host_error_message)?;
+    selections.register(window.label(), canonical, now)
 }
 
 #[tauri::command]
