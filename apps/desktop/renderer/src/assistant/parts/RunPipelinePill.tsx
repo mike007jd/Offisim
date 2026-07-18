@@ -11,8 +11,7 @@ import {
 } from '../runtime/conversation-run-react.js';
 import { runPipelinePresentation } from './run-pipeline-presentation.js';
 
-/** Compact run chip for the Stage top bar. It owns the global run projection,
- * so Office and Workspace runs share one Stop control and progress surface. */
+/** Compact global run projection for Stage content headers and the Game View HUD. */
 export function RunPipelinePill() {
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const companyId = useUiState((s) => s.companyId);

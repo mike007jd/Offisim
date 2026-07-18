@@ -14,6 +14,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import type { WorkspaceCheckpointRow } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
+import { useSetStageChrome } from '@/surfaces/office/stage-viewer/stage-chrome.js';
 import {
   EmptyState,
   ErrorState,
@@ -218,6 +219,7 @@ function toastLeaseOutcomes(
 
 export function BoardStage() {
   useWorkspaceLeaseDecisionVersion();
+  const setStageChrome = useSetStageChrome();
   const companyId = useUiState((state) => state.companyId);
   const projectId = useUiState((state) => state.projectId);
   const requestThreadFocus = useUiState((state) => state.requestThreadFocus);
@@ -278,6 +280,16 @@ export function BoardStage() {
         .filter((row) => row.status !== 'discarded'),
     [allLeases, board.rows, projectId],
   );
+  useEffect(() => {
+    setStageChrome({
+      actions: (
+        <span className="off-board-scope-note">
+          {lens === 'timeline' ? 'Company-wide timeline' : `${scopedRows.length} requests`}
+        </span>
+      ),
+    });
+    return () => setStageChrome(null);
+  }, [lens, scopedRows.length, setStageChrome]);
   const attentionRootRunIds = useMemo(
     () =>
       new Set(
@@ -512,12 +524,6 @@ export function BoardStage() {
 
   return (
     <div className="off-board-stage">
-      <header className="off-board-toolbar">
-        <span className="off-board-scope-note">
-          {lens === 'timeline' ? 'Company-wide timeline' : `${scopedRows.length} requests`}
-        </span>
-      </header>
-
       {lens === 'timeline' ? (
         <BoardTimeline
           companyId={companyId}
