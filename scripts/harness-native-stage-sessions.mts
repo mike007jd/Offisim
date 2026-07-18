@@ -362,9 +362,10 @@ assert.match(browserSource, /No local access/);
 assert.match(browserSource, /ResizeObserver/);
 assert.match(browserSource, /nextUnlisten\(\)/, 'late browser listeners dispose themselves');
 assert.match(browserSource, /runIfLatest/, 'browser cleanup is generation-gated');
-const stageViewerSource = read(
-  'apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx',
-);
+const stageViewerSource = [
+  read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx'),
+  read('apps/desktop/renderer/src/surfaces/office/stage-viewer/views/ChangesView.tsx'),
+].join('\n');
 assert.match(
   stageViewerSource,
   /<BrowserSessionView key=\{target\.sessionId\} target=\{target\} \/>/,

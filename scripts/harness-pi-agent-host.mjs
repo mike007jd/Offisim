@@ -1702,10 +1702,11 @@ assert(
     'apps/desktop/renderer/src/assistant/parts/PermissionApprovalBar.tsx',
     'utf8',
   );
-  const boardStageSource = readFileSync(
-    'apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx',
-    'utf8',
-  );
+  const boardStageSource = [
+    readFileSync('apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx', 'utf8'),
+    readFileSync('apps/desktop/renderer/src/surfaces/office/board/BoardCard.tsx', 'utf8'),
+    readFileSync('apps/desktop/renderer/src/surfaces/office/board/BoardDrawer.tsx', 'utf8'),
+  ].join('\n');
   const reviewWorkbenchStageSource = readFileSync(
     'apps/desktop/renderer/src/surfaces/office/board/ReviewWorkbenchStage.tsx',
     'utf8',
