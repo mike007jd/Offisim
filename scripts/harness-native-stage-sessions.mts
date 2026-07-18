@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { stageTabForTarget, useUiState } from '../apps/desktop/renderer/src/app/ui-state.js';
 import { CANVAS_FONT_TOKENS } from '../apps/desktop/renderer/src/styles/visual-tokens.js';
 import { syncOfficeCanvasBackingStore } from '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.js';
+import { projectOfficeCanvasViewport } from '../apps/desktop/renderer/src/surfaces/office/scene/render2d/background.js';
 import { newestBrowserSnapshot } from '../apps/desktop/renderer/src/surfaces/office/stage-browser/browser-session-state.js';
 import {
   bytesToBase64,
@@ -221,10 +222,16 @@ assert.deepEqual(
 );
 assert.equal(syncOfficeCanvasBackingStore(fakeCanvas, 320, 180, 1.5), true);
 assert.deepEqual([backingWidth, backingHeight], [480, 270]);
-
-const officeScene2DSource = read(
-  'apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx',
+assert.deepEqual(
+  projectOfficeCanvasViewport({ left: -741, height: 663 }, { left: 332, width: 503 }),
+  { x: 1_073, width: 503, height: 663 },
+  '2D projection centers inside the visible center panel while retaining the scene-host height',
 );
+
+const officeScene2DSource = [
+  read('apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx'),
+  read('apps/desktop/renderer/src/surfaces/office/scene/render2d/background.ts'),
+].join('\n');
 assert.equal(
   CANVAS_FONT_TOKENS.canvasReset,
   '10px sans-serif',

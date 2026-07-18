@@ -363,13 +363,22 @@ const [sharedHook, scene2d, scene3d, character, playback, queries, employeeRepo]
       ),
       'utf8',
     ),
-    readFile(
-      new URL(
-        '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx',
-        import.meta.url,
+    Promise.all([
+      readFile(
+        new URL(
+          '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx',
+          import.meta.url,
+        ),
+        'utf8',
       ),
-      'utf8',
-    ),
+      readFile(
+        new URL(
+          '../apps/desktop/renderer/src/surfaces/office/scene/use-employee-drag.ts',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    ]).then((sources) => sources.join('\n')),
     readFile(
       new URL(
         '../apps/desktop/renderer/src/surfaces/office/scene/character/GltfCharacter.tsx',
