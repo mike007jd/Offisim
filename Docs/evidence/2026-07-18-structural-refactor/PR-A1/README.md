@@ -10,10 +10,18 @@ Scope: tooling-only mechanical refactor; no renderer/runtime/Rust product behavi
 The shared `h.report()` contract necessarily appends its fixed summary, so the
 roadmap's literal “entire log byte-identical” sentence cannot coexist with its
 mandatory `h.report()` requirement. The enforced oracle is stricter about the
-behavior-bearing portion: each migrated harness's complete legacy body remains
+successful path: each migrated harness's complete legacy success body remains
 byte-identical, and only the new fixed `h.report()` plus aggregate runner summary
 are appended. Assertions, command bodies, ordering, fail-fast behavior, and
 non-zero failure semantics remain unchanged.
+
+Two async pilots have one unavoidable failure-log deviation from adopting the
+fixed anchor unchanged: `mission-service` and `loop-mission-adapter` previously
+printed `✗ name`, a newline, and `error.stack ?? error.message`; shared
+`checkAsync` prints `✗ name — error.message` on one line. The roadmap forbids
+rewriting the supplied anchor, so this PR records the exact deviation rather
+than claiming failure-log byte identity. The failure oracle below proves both
+still report the failed check and exit nonzero.
 
 The current root package contains exactly 100 `harness:*` ids. Thirteen are
 ordered composites, including the one Cargo entry; these are represented with
@@ -41,9 +49,9 @@ scenarios plus the chained 50-interleaving semantic-title repository gate.
 
 ## Before/after log oracle
 
-For each pilot harness, the package command banner and the two new fixed runner
-summaries were removed from the comparison. The remaining complete legacy log
-body was byte-equal before and after:
+For each successful pilot invocation, the package command banner and the two new
+fixed runner summaries were removed from the comparison. The remaining complete
+legacy success log body was byte-equal before and after:
 
 | Harness | Legacy body SHA-256 | Byte-equal |
 | --- | --- | --- |
@@ -69,6 +77,8 @@ plain Node, filtered `tsx`, renderer tsconfig injection, and shared repo-root us
   id. The temporary injection was then reverted and is absent from the diff.
 - Direct async runner failure oracle threw `A1_FAILURE_ORACLE` inside
   `checkAsync`; the runner printed `1/1 checks failed` and returned exit 1.
+  This validates the new fixed async failure format and exit semantics; it is
+  not presented as a byte oracle for the two legacy stack-printing wrappers.
 - `node scripts/release-gates.mjs --lane=node`: PASS, 4/4 gates green.
 - Manifest-backed `pnpm validate`: PASS, 73/73 harness roots green.
 - `node scripts/run-harnesses.mjs --only codex-runtime-conformance`: PASS,
