@@ -21,21 +21,10 @@ import {
 } from '../packages/core/src/runtime/mission/mission-service.ts';
 import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mission/memory.ts';
 import type { LoopIR, LoopRevision } from '../packages/shared-types/src/loops/index.ts';
+import { createHarness } from './lib/harness-runner.mjs';
 
-let passed = 0;
-let failed = 0;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const h = createHarness();
+const check = h.checkAsync;
 
 function makeMissionDeps(): MissionServiceDeps {
   let idSeq = 0;
@@ -326,8 +315,9 @@ await check(
   },
 );
 
-if (failed > 0) {
-  console.error(`\nloop-mission-adapter: ${passed} passed, ${failed} failed`);
-  process.exit(1);
+if (h.failures > 0) {
+  console.error(`\nloop-mission-adapter: ${h.checks - h.failures} passed, ${h.failures} failed`);
+} else {
+  console.log(`\nloop-mission-adapter: ${h.checks} checks passed`);
 }
-console.log(`\nloop-mission-adapter: ${passed} checks passed`);
+h.report();

@@ -16,18 +16,10 @@ import {
   sceneWorkDetailSummary,
 } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 import { compactWorkBenchSummary } from '../apps/desktop/renderer/src/surfaces/office/scene/work-bench/WorkBench.js';
+import { createHarness } from './lib/harness-runner.mjs';
 
-let checks = 0;
-let failures = 0;
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const h = createHarness();
+const { check } = h;
 
 // --- compact/PiP workbench: every rich family crosses one human-summary boundary --
 {
@@ -325,9 +317,10 @@ const issue = (kind: WorkloadPriorityIssue['kind'], label: string): WorkloadPrio
   );
 }
 
-console.log(`\nworkload-chips: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`workload-chips gate FAILED with ${failures} failure(s)`);
-  process.exit(1);
+console.log(`\nworkload-chips: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`workload-chips gate FAILED with ${h.failures} failure(s)`);
+} else {
+  console.log('workload-chips gate PASSED');
 }
-console.log('workload-chips gate PASSED');
+h.report();

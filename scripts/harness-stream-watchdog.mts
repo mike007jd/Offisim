@@ -6,6 +6,7 @@ import {
   NativeStreamProgressWatchdog,
   type StreamWatchdogScheduler,
 } from '../apps/desktop/renderer/src/runtime/native-stream-progress-watchdog.ts';
+import { validateHarnessIds } from './harness-manifest.mjs';
 
 type ScheduledTask = {
   readonly id: number;
@@ -307,9 +308,6 @@ const runtimeSource = readFileSync(
   resolve(root, 'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts'),
   'utf8',
 );
-const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
-  scripts?: Record<string, string>;
-};
 
 assert.match(
   runtimeSource,
@@ -360,9 +358,8 @@ assert.match(
   /commands\.answer[\s\S]*progressWatchdogByRequest\.get\(answer\.requestId\)\?\.resume\(\)/,
   'a successfully delivered answer must resume the same request watchdog',
 );
-assert.match(
-  packageJson.scripts?.validate ?? '',
-  /harness:stream-watchdog/,
+assert(
+  validateHarnessIds.includes('stream-watchdog'),
   'the stream watchdog harness must run in the release-gates node lane through validate',
 );
 

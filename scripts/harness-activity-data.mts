@@ -29,19 +29,10 @@ import {
   redactSecrets,
   sanitizeMcpActivityValue,
 } from '../apps/desktop/renderer/src/surfaces/office/board/activity-data.js';
+import { createHarness } from './lib/harness-runner.mjs';
 
-let failures = 0;
-let checks = 0;
-
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const h = createHarness();
+const { check } = h;
 
 const meeting = meetingRecordFromRow({
   meeting_id: 'meeting-1',
@@ -398,9 +389,10 @@ function pageSource(
   );
 }
 
-console.log(`\n${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`\n${failures} check(s) FAILED`);
-  process.exit(1);
+console.log(`\n${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`\n${h.failures} check(s) FAILED`);
+} else {
+  console.log('harness-activity-data: PASS');
 }
-console.log('harness-activity-data: PASS');
+h.report();
