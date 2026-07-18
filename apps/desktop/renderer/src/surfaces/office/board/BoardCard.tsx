@@ -1,3 +1,4 @@
+import { SelectableCard } from '@/components/SelectableCard.js';
 import type { Employee } from '@/data/types.js';
 import {
   type UsageTokenSummary,
@@ -145,13 +146,11 @@ export function BoardCard({
   const hasActiveLease = leases.some((lease) => lease.status === 'active');
   const latestDraft = row.competitiveDrafts.at(-1);
   return (
-    <article
-      className={cn(
-        'off-board-card',
-        selected && 'is-selected',
-        highlighted && 'is-highlighted',
-        row.live && 'is-live',
-      )}
+    <SelectableCard
+      as="article"
+      selected={selected}
+      selectedClassName="is-selected"
+      className={cn('off-board-card', highlighted && 'is-highlighted', row.live && 'is-live')}
     >
       <div className="off-board-card-main">
         <button type="button" className="off-board-card-open off-focusable" onClick={onSelect}>
@@ -236,6 +235,6 @@ export function BoardCard({
           </button>
         )}
       </div>
-    </article>
+    </SelectableCard>
   );
 }

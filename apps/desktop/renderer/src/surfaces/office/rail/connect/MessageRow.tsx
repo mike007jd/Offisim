@@ -1,3 +1,10 @@
+import {
+  ListRow,
+  ListRowAvatar,
+  ListRowMeta,
+  ListRowSubtitle,
+  ListRowTitle,
+} from '@/components/ListRow.js';
 import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -33,8 +40,8 @@ export function MessageRow({
   const timeLabel = timeLabelFrom(row.createdAt);
   if (row.pending) {
     return (
-      <div className="off-ws-msg-row">
-        <span className="off-ws-msg-from">
+      <ListRow as="div" className="off-ws-msg-row">
+        <ListRowAvatar className="off-ws-msg-from">
           {employee ? (
             <EmployeeAvatar
               seed={employee.id}
@@ -45,9 +52,9 @@ export function MessageRow({
               brand={employee.kind === 'external'}
             />
           ) : null}
-          <span className="off-ws-msg-nm">{name}</span>
-        </span>
-        <div className="off-ws-bubble is-thinking">
+          <ListRowTitle className="off-ws-msg-nm">{name}</ListRowTitle>
+        </ListRowAvatar>
+        <ListRowSubtitle as="div" className="off-ws-bubble is-thinking">
           <span className="off-ws-thinking-dots" aria-label="Typing">
             <i />
             <i />
@@ -58,14 +65,14 @@ export function MessageRow({
               <Icon icon={Square} size="sm" />
             </button>
           ) : null}
-        </div>
-      </div>
+        </ListRowSubtitle>
+      </ListRow>
     );
   }
   return (
-    <div className={cn('off-ws-msg-row', isMe && 'is-me')}>
+    <ListRow as="div" selected={isMe} selectedClassName="is-me" className="off-ws-msg-row">
       {!isMe ? (
-        <span className="off-ws-msg-from">
+        <ListRowAvatar className="off-ws-msg-from">
           {employee ? (
             <EmployeeAvatar
               seed={employee.id}
@@ -76,22 +83,27 @@ export function MessageRow({
               brand={employee.kind === 'external'}
             />
           ) : null}
-          <span className="off-ws-msg-nm">{name}</span>
+          <ListRowTitle className="off-ws-msg-nm">{name}</ListRowTitle>
           {row.status === 'failed' ? <span className="off-ws-msg-rl">failed</span> : null}
           {row.status === 'interrupted' ? <span className="off-ws-msg-rl">stopped</span> : null}
-        </span>
+        </ListRowAvatar>
       ) : null}
       {row.body.trim() ? (
-        <div className={cn('off-ws-bubble', isMe && 'is-me')}>{row.body}</div>
+        <ListRowSubtitle as="div" className={cn('off-ws-bubble', isMe && 'is-me')}>
+          {row.body}
+        </ListRowSubtitle>
       ) : row.status === 'failed' ? (
-        <div className="off-ws-bubble off-connect-bubble-err">
+        <ListRowSubtitle as="div" className="off-ws-bubble off-connect-bubble-err">
           {row.error || 'This reply failed.'}
-        </div>
+        </ListRowSubtitle>
       ) : null}
       {timeLabel ? (
-        <span className="off-ws-bubble-time" title={new Date(row.createdAt).toLocaleString()}>
+        <ListRowMeta
+          className="off-ws-bubble-time"
+          title={new Date(row.createdAt).toLocaleString()}
+        >
           {timeLabel}
-        </span>
+        </ListRowMeta>
       ) : null}
       {row.status === 'failed' && onRetry ? (
         <button type="button" className="off-connect-retry off-focusable" onClick={onRetry}>
@@ -99,6 +111,6 @@ export function MessageRow({
           Retry
         </button>
       ) : null}
-    </div>
+    </ListRow>
   );
 }

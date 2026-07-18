@@ -1,3 +1,4 @@
+import { SelectableCard } from '@/components/SelectableCard.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -116,13 +117,11 @@ function PlacementCard({
 }) {
   const key = placementKey(make('click'));
   return (
-    <button
+    <SelectableCard
       type="button"
-      className={cn(
-        'off-studio-card off-focusable',
-        blank && 'is-blank',
-        placementKey(gesture.placement) === key && 'is-on',
-      )}
+      selected={placementKey(gesture.placement) === key}
+      selectedClassName="is-on"
+      className={cn('off-studio-card off-focusable', blank && 'is-blank')}
       disabled={disabled}
       title={title}
       onPointerDown={(e) => gesture.onCardPointerDown(e, make)}
@@ -133,7 +132,7 @@ function PlacementCard({
       </span>
       <span className="off-studio-card-name">{name}</span>
       <span className="off-studio-card-meta">{meta}</span>
-    </button>
+    </SelectableCard>
   );
 }
 

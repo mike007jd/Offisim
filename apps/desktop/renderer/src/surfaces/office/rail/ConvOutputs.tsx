@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { SelectableCard } from '@/components/SelectableCard.js';
 import { isTauriRuntime } from '@/data/adapters.js';
 import { loadDeliverableBody, useProjects } from '@/data/queries.js';
 import type { ChatAttachment, ChatMessage, Deliverable, Employee } from '@/data/types.js';
@@ -8,7 +9,6 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
-import { cn } from '@/lib/utils.js';
 import { ChevronDown, Copy, FileCode2, FolderOpen, Paperclip, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -211,7 +211,7 @@ function DeliverableCard({
   }
 
   return (
-    <div className={cn('off-dlv', open && 'is-open')}>
+    <SelectableCard as="div" selected={open} selectedClassName="is-open" className="off-dlv">
       <button
         type="button"
         className="off-dlv-head off-focusable"
@@ -284,7 +284,7 @@ function DeliverableCard({
           </div>
         </div>
       ) : null}
-    </div>
+    </SelectableCard>
   );
 }
 
