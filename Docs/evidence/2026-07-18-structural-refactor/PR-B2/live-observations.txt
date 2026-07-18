@@ -86,7 +86,8 @@ Before Computer Use Reject:
   AX text: Approve command?
   AX text: Destructive shell command 'rm -rf' requires approval. rm -rf ./x
   AX buttons: Reject / Approve
-  screenshot=10-approval-banner.jpeg
+  screenshot=10-approval-banner.jpeg (same-frame pending chat crop; the banner
+  itself is below this crop, so AX is the waiting/button proof)
 
 Computer Use action:
   clicked=Reject
@@ -99,6 +100,14 @@ After Reject:
 approvalGranted=false
 temporaryThreadModeSetup=Ask
 temporaryThreadModeSetupRestoredExactly=true
+modeStorageFile=/Users/haoshengli/Library/WebKit/com.offisim.desktop/WebsiteData/Default/_Ym9b7aIHwVCLg2j3Qf0e2lXqFDqOcw2HwsgbbO5zZE/_Ym9b7aIHwVCLg2j3Qf0e2lXqFDqOcw2HwsgbbO5zZE/LocalStorage/localstorage.sqlite3
+modeStorageTable=ItemTable
+modeStorageKey=offisim:pi-agent:thread-modes
+modeStorageEncoding=UTF-16LE
+modeStorageOriginalBytes=420
+modeStorageBeforeSha256=8e7d58143c2a34a11cc8aba649d41941f1622d277f1bd5bb9041b8eadcb7fa20
+modeStorageAfterBytes=420
+modeStorageAfterSha256=8e7d58143c2a34a11cc8aba649d41941f1622d277f1bd5bb9041b8eadcb7fa20
 defaultThreadModeAfterRestore=Auto
 approvalScratchRemaining=false
 strayProbeRemaining=false

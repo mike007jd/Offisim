@@ -70,6 +70,13 @@
       "result": "Rejected by operator",
       "sentinelPreserved": true,
       "temporaryModeSetupRestoredExactly": true,
+      "modeStorageKey": "offisim:pi-agent:thread-modes",
+      "modeStorageEncoding": "UTF-16LE",
+      "modeStorageOriginalBytes": 420,
+      "modeStorageBeforeSha256": "8e7d58143c2a34a11cc8aba649d41941f1622d277f1bd5bb9041b8eadcb7fa20",
+      "modeStorageAfterSha256": "8e7d58143c2a34a11cc8aba649d41941f1622d277f1bd5bb9041b8eadcb7fa20",
+      "pendingScreenshotCropContainsBanner": false,
+      "pendingScreenshotProof": "same-frame AX waiting state and Reject/Approve buttons",
       "appPid": 98253,
       "mainWindowId": 32000
     },
@@ -109,6 +116,6 @@
     {"file": "09-b1-baseline-after-restart.jpeg", "sha256": "9c0520981a0d5aa0b2850bfbffa2d9a195119294df2ac2f8caf4fbd7d33fde94"},
     {"file": "10-approval-banner.jpeg", "sha256": "e0cf35ed1d592eba009f0b443a1ac69604c3d9f21df84bc70f37066626618517"},
     {"file": "11-approval-rejected.jpeg", "sha256": "9984dbbd8fe7533eccf76dc937a4ecf2645085293b972814f1ebf8113b83a8df"},
-    {"file": "live-observations.txt", "sha256": "1c139dc3b77a39abea0c2722de48bc0ab73eb9afc010d039b1d8556295ee8b87"}
+    {"file": "live-observations.txt", "sha256": "7921cdd159fc074e29e5dea1a79e94a1f80262ded4f947a775a1576d2bb6477d"}
   ]
 }
