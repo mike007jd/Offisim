@@ -1,4 +1,5 @@
 import { CommandPalette } from '@/app/CommandPalette.js';
+import { UpdateNotifier } from '@/app/UpdateNotifier.js';
 import { useUiState } from '@/app/ui-state.js';
 import { AppFrame } from '@/design-system/shell/AppFrame.js';
 import { LoopScheduler } from '@/runtime/loops/LoopScheduler.js';
@@ -41,6 +42,7 @@ export function App() {
       )}
       <CommandPalette />
       <LoopScheduler />
+      <UpdateNotifier />
     </CodexPetProvider>
   );
 }

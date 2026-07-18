@@ -63,17 +63,20 @@ The desktop release `.app` used for local release verification is produced by
 `pnpm --filter @offisim/desktop build`; the bundle is at
 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`.
 
-Signed Developer ID DMGs are produced from the repo root with:
+Signed, notarized, stapled DMG and update ZIP artifacts are published from the
+repo root with:
 
 ```bash
-pnpm release:dmg
+pnpm release:publish -- --tag v1.0.0 --target main
 ```
 
-That command loads the Apple distribution variables from the ignored root
-`.env.local`, validates the configured keychain identity, overrides the default
-ad-hoc signing identity for this distribution build only, and runs Tauri's DMG
-bundle flow. It then submits the final DMG for notarization and staples/validates
-the DMG ticket. The required local variables are documented in `.env.example`.
+The command runs renderer, Node, Rust, and release-build gates; builds and signs
+`Offisim.app` with `Developer ID Application: Haosheng Li (9MP925J67C)` from the
+login keychain; submits through the `offisim-notary` keychain profile; staples
+and Gatekeeper-assesses the app and final DMG; writes SHA-256 sidecars; then
+creates the GitHub release. Use `--draft` for QA. It refuses a dirty production
+worktree by default. No Apple password, GitHub token, or updater credential is
+read from `.env.local`, written to disk, or printed by this flow.
 
 The recommended release entrypoint is `pnpm release:run` from the repo root —
 it enforces the core gates from
@@ -85,15 +88,20 @@ Release builds do not include WebView devtools. Live-verify builds that need
 right-click → Inspect on the `.app` must be made with
 `pnpm --filter @offisim/desktop build:devtools` and must not be distributed.
 
-### No auto-update (deliberate 1.0 trade-off)
+### Private-repository app updates
 
-1.0 ships without `tauri-plugin-updater` or any in-app update channel. Updating
-means installing a newer build manually. This is intentional for the 1.0
-local-first scope: an update channel implies signed artifacts, an update
-server, and a rollback story — all post-1.0 work. Before public launch, local
-data is disposable across manual reinstalls: the local SQLite schema is a single
-current baseline stamped from `LOCAL_SCHEMA_VERSION` in the desktop backend. Fresh databases
-bootstrap from `packages/db-local/src/schema.sql`; older local/dev databases are
-deleted and rebuilt rather than migrated.
+Settings › App Updates checks and installs releases through the user's existing
+GitHub CLI login. Offisim invokes a fixed repository and fixed command surface;
+it never asks for, reads, copies, logs, or persists the gh token. Missing or
+signed-out GitHub CLI states show setup instructions and are never auto-fixed.
+Downloaded updates must match the release SHA-256, exact bundle version,
+Developer ID team, code signature, and Gatekeeper notarization before the
+running `/Applications/Offisim.app` is replaced and restarted.
+
+The official Tauri updater is intentionally not used while the repository is
+private: private GitHub release metadata and assets require authenticated HTTP
+requests, which would put a reusable GitHub credential in the desktop updater
+path. The decision and current-source check are recorded in
+[`2026-07-18-distribution-readiness.md`](../architecture/2026-07-18-distribution-readiness.md).
 
 See also: [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) · [RELEASE_GATES.md](./RELEASE_GATES.md)

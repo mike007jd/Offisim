@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-rc.2
+
+- Added a Developer ID signed and notarized release publisher with stapled DMG/ZIP artifacts and SHA-256 evidence.
+- Added private GitHub release checks and one-click updates through the user's existing authenticated `gh` CLI.
+- Added startup safe mode with sanitized diagnostic export, local-data reset, restart recovery, and Rust setup panic capture.
+
 ## 1.0.0-rc.1
 
 ### Open Source Release Candidate

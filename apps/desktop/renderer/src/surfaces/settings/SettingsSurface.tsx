@@ -7,6 +7,7 @@ import {
   Bot,
   Cable,
   Cpu,
+  Download,
   MonitorSmartphone,
   PawPrint,
   Plug,
@@ -20,6 +21,7 @@ import { CompanionPane } from './CompanionPane.js';
 import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
 import { McpServersPane } from './McpServersPane.js';
 import { RuntimePane } from './RuntimePane.js';
+import { UpdatePane } from './UpdatePane.js';
 
 type SettingsTab =
   | 'providers'
@@ -28,6 +30,7 @@ type SettingsTab =
   | 'computer'
   | 'companion'
   | 'external'
+  | 'updates'
   | 'advanced';
 
 const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
@@ -37,6 +40,7 @@ const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> 
   { key: 'computer', label: 'Computer Access', icon: MonitorSmartphone },
   { key: 'companion', label: 'Codex Pets', icon: PawPrint },
   { key: 'external', label: 'Connected Employees', icon: Users },
+  { key: 'updates', label: 'App Updates', icon: Download },
   { key: 'advanced', label: 'Service Connections', icon: Cable },
 ];
 
@@ -66,6 +70,22 @@ function SettingsCompanion({ tab }: { tab: SettingsTab }) {
             Tools &amp; integrations
           </div>
           <p className="off-set-comp-copy">Connect tool servers and manage employee access.</p>
+        </div>
+      </aside>
+    );
+  }
+
+  if (tab === 'updates') {
+    return (
+      <aside className="off-set-companion" aria-label="App update summary">
+        <div className="off-set-comp-card">
+          <div className="off-set-comp-main">
+            <Icon icon={Download} size="sm" />
+            Private release channel
+          </div>
+          <p className="off-set-comp-copy">
+            Uses the signed-in GitHub CLI without copying credentials.
+          </p>
         </div>
       </aside>
     );
@@ -187,6 +207,7 @@ export function SettingsSurface() {
               ) : null}
               {tab === 'companion' ? <CompanionPane /> : null}
               {tab === 'external' ? <ExternalEmployeesPane /> : null}
+              {tab === 'updates' ? <UpdatePane /> : null}
               {tab === 'advanced' ? <AdvancedConnectionsPane /> : null}
             </div>
             <SettingsCompanion tab={tab} />

@@ -33,6 +33,11 @@
 验收:旧版本 app 在线升级到新版全程无人工;人为注坏库,app 进安全模式
 并导出诊断而非崩溃。
 
+实现记录:方案与凭据边界见
+`Docs/architecture/2026-07-18-distribution-readiness.md`;验收证据固定写入
+`~/.dev-dispatch/evidence/offisim/r2-distribution-2026-07-18/`,以 Draft PR
+中的实测事实为最终状态,不得用 localhost 或 dev webview 代替。
+
 ## R3 — Onboarding 首跑(backlog 转正)
 
 新玩家(以及未来的真实用户)打开 app 的前 5 分钟:建公司→雇第一名员工→
