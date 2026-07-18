@@ -5,8 +5,14 @@ import {
 } from '@/assistant/composer/usePiAgentModels.js';
 import { displayRole, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
+import { type EmployeeSeniority, employeeSeniorityLabel } from '@/data/employee-seniority.js';
 import { useCompanies, useEmployees, useReassignEmployee } from '@/data/queries.js';
 import type { Employee, EmployeeAppearance } from '@/data/types.js';
+import {
+  type EmployeeSeniorityRoster,
+  seniorityForEmployee,
+  useEmployeeSeniorityRoster,
+} from '@/data/use-employee-seniority.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
@@ -148,12 +154,14 @@ function createHireAppearance() {
 
 function RosterRow({
   employee,
+  seniority,
   validModels,
   selected,
   collapsed,
   onSelect,
 }: {
   employee: Employee;
+  seniority: EmployeeSeniority | undefined;
   validModels: ReadonlySet<string> | undefined;
   selected: boolean;
   collapsed: boolean;
@@ -165,7 +173,13 @@ function RosterRow({
       <button
         type="button"
         className={cn('off-pers-emp off-focusable', selected && 'is-sel')}
-        title={collapsed ? employee.name : undefined}
+        title={
+          collapsed && seniority
+            ? `${employee.name} · ${employeeSeniorityLabel(seniority)}`
+            : collapsed
+              ? employee.name
+              : undefined
+        }
         onClick={onSelect}
       >
         <EmployeeAvatar
@@ -179,6 +193,11 @@ function RosterRow({
         <span className="off-pers-emp-info">
           <span className="off-pers-emp-name-row">
             <span className="off-pers-emp-name">{employee.name}</span>
+            {seniority ? (
+              <span className={`off-pers-seniority-badge is-level-${seniority.level}`}>
+                L{seniority.level} {seniority.title}
+              </span>
+            ) : null}
             {employee.disabled ? <span className="off-pers-emp-dis">disabled</span> : null}
           </span>
           <span className="off-pers-emp-meta">
@@ -202,6 +221,7 @@ function RosterRow({
 
 function RosterRail({
   employees,
+  seniorityByEmployee,
   validModels,
   collapsed,
   onToggleCollapse,
@@ -212,6 +232,7 @@ function RosterRail({
   onVisibleEmployeeIdsChange,
 }: {
   employees: Employee[];
+  seniorityByEmployee: EmployeeSeniorityRoster | undefined;
   validModels: ReadonlySet<string> | undefined;
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -309,6 +330,7 @@ function RosterRail({
             <RosterRow
               key={employee.id}
               employee={employee}
+              seniority={seniorityForEmployee(seniorityByEmployee, employee.id)}
               validModels={validModels}
               selected={employee.id === selectedEmployeeId}
               collapsed={collapsed}
@@ -323,10 +345,12 @@ function RosterRail({
 
 function DetailHeader({
   employee,
+  seniority,
   validModels,
   onDeleteRequest,
 }: {
   employee: Employee;
+  seniority: EmployeeSeniority | undefined;
   validModels: ReadonlySet<string> | undefined;
   onDeleteRequest: () => void;
 }) {
@@ -350,6 +374,11 @@ function DetailHeader({
       </div>
       <div className="off-pers-detail-actions">
         <div className="off-pers-detail-pills">
+          {seniority ? (
+            <span className={`off-pers-career-pill is-level-${seniority.level}`}>
+              {employeeSeniorityLabel(seniority)}
+            </span>
+          ) : null}
           {employee.kind === 'internal' ? (
             <span className={cn('off-pers-st-pill', invalidModel && 'is-off')}>
               {invalidModel
@@ -415,6 +444,7 @@ function appearanceKey(draft: AppearanceDraft): string {
  *  id at the parent so this remounts (fresh state) on switch. */
 function EmployeeDetail({
   employee,
+  seniority,
   companyName,
   models,
   modelsLoading,
@@ -425,6 +455,7 @@ function EmployeeDetail({
   guardPulse = 0,
 }: {
   employee: Employee;
+  seniority: EmployeeSeniority | undefined;
   companyName: string;
   models: AgentRuntimeModelOption[] | undefined;
   modelsLoading: boolean;
@@ -628,6 +659,7 @@ function EmployeeDetail({
     <>
       <DetailHeader
         employee={employee}
+        seniority={seniority}
         validModels={models ? new Set(models.map((option) => option.value)) : undefined}
         onDeleteRequest={() => setConfirmingDelete(true)}
       />
@@ -645,7 +677,12 @@ function EmployeeDetail({
         </TabsList>
         <div className="off-pers-insp-body">
           <TabsContent value="profile" className="off-pers-tab-panel">
-            <ProfileTab employee={employee} companyName={companyName} form={form} />
+            <ProfileTab
+              employee={employee}
+              seniority={seniority}
+              companyName={companyName}
+              form={form}
+            />
           </TabsContent>
           <TabsContent value="skills" className="off-pers-tab-panel">
             <SkillsTab employeeId={employee.id} />
@@ -941,6 +978,7 @@ export function PersonnelSurface() {
   const visibleEmployeeIdsRef = useRef<string[]>([]);
 
   const roster = employees.data ?? [];
+  const seniority = useEmployeeSeniorityRoster(companyId, roster);
   const validModels = models.data ? new Set(models.data.map((option) => option.value)) : undefined;
   const selected = roster.find((e) => e.id === selectedEmployeeId) ?? null;
 
@@ -1086,6 +1124,7 @@ export function PersonnelSurface() {
         >
           <RosterRail
             employees={roster}
+            seniorityByEmployee={seniority.data}
             validModels={validModels}
             collapsed={collapsed}
             onToggleCollapse={onToggleList}
@@ -1104,6 +1143,7 @@ export function PersonnelSurface() {
             <EmployeeDetail
               key={selected.id}
               employee={selected}
+              seniority={seniorityForEmployee(seniority.data, selected.id)}
               companyName={companyName}
               models={models.data}
               modelsLoading={models.isLoading}

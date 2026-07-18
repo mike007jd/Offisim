@@ -148,7 +148,7 @@ try {
   );
   assert.match(
     supervisorSource,
-    /async function runSingle[\s\S]*?maybeIntegrateWrites\(\[task\], \[result\.runId\]\)/,
+    /async function runSingle[\s\S]*?maybeIntegrateWrites\([\s\S]*?\[task\],[\s\S]*?\[result\.runId\],[\s\S]*?options\.deferIntegration === true/,
     'single-mode supervisor must invoke the shared integration path',
   );
 

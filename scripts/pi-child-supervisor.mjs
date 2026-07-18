@@ -667,7 +667,7 @@ export function createChildSupervisor(ctx) {
     emit('run.failed', { status: 'failed', failureKind, summary, ...(usage ? { usage } : {}) });
   }
 
-  async function runTask(task, signal) {
+  async function runTask(task, signal, options = {}) {
     const runId = `run-${randomUUID()}`;
     const access = normalizeAccess(task.access);
     const objective = typeof task.objective === 'string' ? task.objective.trim() : '';
@@ -788,6 +788,7 @@ export function createChildSupervisor(ctx) {
         access,
         controller.signal,
         task.resumeLease,
+        options,
       );
       return {
         summary: childResult.summary,
@@ -816,11 +817,14 @@ export function createChildSupervisor(ctx) {
 
   async function runSingleWithMetadata(task, signal, options = {}) {
     return withParentConcurrencySuspended(signal, async () => {
-      const result = await runTask(task, signal);
-      const integration =
-        result.completed && options.deferIntegration !== true
-          ? await maybeIntegrateWrites([task], [result.runId])
-          : '';
+      const result = await runTask(task, signal, options);
+      const integration = result.completed
+        ? await maybeIntegrateWrites(
+            [task],
+            [result.runId],
+            options.deferIntegration === true,
+          )
+        : '';
       return {
         text: capBytes(
           [result.summary, integration ? `Integration:\n${integration}` : '']
@@ -868,6 +872,7 @@ export function createChildSupervisor(ctx) {
     access,
     signal,
     resumeLease,
+    options = {},
   ) {
     // The access band restricts WORK tools (read/write/bash). `delegate` is an
     // orchestration capability, not a work tool, so it must survive the allowlist
@@ -1025,13 +1030,13 @@ export function createChildSupervisor(ctx) {
       emitDiagnostics: (diagnostics) => emit('workspace.diagnostics.updated', diagnostics),
     });
     extensionFactories.push(lspDiagnosticsFactory);
+    const isolatedWorkspaceNote =
+      options.deferIntegration === true
+        ? 'Workspace note: you are running in an isolated git worktree for a competitive draft. Make the requested file changes and run git status, but do not stage, commit, amend, merge, rebase, switch branches, or create branches. Leave the changes uncommitted so Offisim can compare proposals, adopt the winner, and discard the rest.'
+        : 'Workspace note: you are running in an isolated git worktree for this delegated write task. After making file changes, run git status, stage the changed files, and create a local commit on this worktree branch so the lead can review and merge it.';
     const effectiveObjective =
       lease?.isolated && access === 'write'
-        ? [
-            objective,
-            '',
-            'Workspace note: you are running in an isolated git worktree for this delegated write task. After making file changes, run git status, stage the changed files, and create a local commit on this worktree branch so the lead can review and merge it.',
-          ].join('\n')
+        ? [objective, '', isolatedWorkspaceNote].join('\n')
         : objective;
 
     // Session build can throw (loader reload / model resolution). run.started has
@@ -1437,13 +1442,13 @@ export function createChildSupervisor(ctx) {
     }
   }
 
-  async function maybeIntegrateWrites(tasks, runIds) {
+  async function maybeIntegrateWrites(tasks, runIds, retainForReview = false) {
     return integrateCompletedDelegation({
       tasks,
       runIds,
       leaseManager: ctx.leaseManager,
       rootLease: ctx.rootLease,
-      confirmIntegration: ctx.confirmIntegration,
+      confirmIntegration: retainForReview ? undefined : ctx.confirmIntegration,
       emitSnapshot: emitWorkspaceLeaseSnapshotLine,
     });
   }

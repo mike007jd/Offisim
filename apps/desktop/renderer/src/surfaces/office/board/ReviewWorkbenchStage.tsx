@@ -8,7 +8,7 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { getRepos } from '@/runtime/repos.js';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CompetitiveDraftAttemptRow,
   CompetitiveDraftGroupRow,
@@ -267,6 +267,7 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
   const employeeQuery = useCompanyEmployees(companyId || null);
   const board = useTaskBoard(companyId || null);
   const reviews = useProjectWorkspaceLeaseReviews(projectId || null);
+  const queryClient = useQueryClient();
   const comparison = useQuery({
     queryKey: ['competitive-draft-review', comparisonGroupId],
     queryFn: async () => {
@@ -330,7 +331,12 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
           });
         },
       });
-      await Promise.all([comparison.refetch(), reviews.refetch(), board.refetch()]);
+      await Promise.all([
+        comparison.refetch(),
+        reviews.refetch(),
+        board.refetch(),
+        queryClient.invalidateQueries({ queryKey: ['employee-seniority', companyId] }),
+      ]);
       toast.success('Winning draft merged. Losing worktrees were cleaned up.');
     } catch (error) {
       await Promise.all([comparison.refetch(), reviews.refetch(), board.refetch()]);
@@ -414,6 +420,7 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
                   <small>Option {attempt.ordinal}</small>
                   <b>{employee?.name ?? `Employee ${attempt.ordinal}`}</b>
                   <em>{employee?.role ?? 'Assigned employee'}</em>
+                  <em className="is-engine">{employee?.modelLabel ?? 'Conversation default'}</em>
                   {isWinner ? <em>Winner</em> : null}
                 </span>
                 {isWinner ? <Icon icon={Trophy} size="sm" /> : null}
@@ -435,7 +442,7 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
                         : verificationSummary ?? 'Verification unavailable'}
                 </span>
                 <span><Clock3 aria-hidden /> {durationLabel(attempt.started_at, attempt.finished_at ?? task?.finishedAt ?? null)}</span>
-                <span title={accounting.title}>{accounting.primary}</span>
+                <span aria-label={accounting.ariaLabel} title={accounting.title}>{accounting.primary}</span>
                 {accounting.secondary ? <small>{accounting.secondary}</small> : null}
               </div>
               <footer>

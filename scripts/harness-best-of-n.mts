@@ -8,6 +8,7 @@ const read = (path: string) => readFileSync(`${ROOT}/${path}`, 'utf8');
 const schemaSql = read('packages/db-local/src/schema.sql');
 const actions = read('apps/desktop/renderer/src/surfaces/office/board/competitive-draft-actions.ts');
 const runtime = read('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
+const piChildSupervisor = read('scripts/pi-child-supervisor.mjs');
 const conversationController = read(
   'apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.ts',
 );
@@ -206,8 +207,18 @@ function sourceContract(): void {
   const piAt = locate(runtime, "this.engineId === 'api' && competitiveDraft", 'Pi must adapt neutral context');
   check(runtime.slice(piAt, piAt + 500).includes('deferIntegration: true'), 'Pi must retain proposals for review');
   check(
+    piChildSupervisor.includes('confirmIntegration: retainForReview ? undefined : ctx.confirmIntegration'),
+    'Pi competitive proposals must enter Offisim review capture without automatic integration',
+  );
+  check(
     runtime.includes('competitiveDraft ? { includeActingEmployeeInRoster: true } : undefined'),
     'competitive Pi execution must expose its assigned employee to the isolated child supervisor',
+  );
+  check(
+    runtime.includes('const effectiveSystemPromptAppend = competitiveDraft') &&
+      runtime.includes('Do not commit, amend, merge, rebase, switch branches, or create branches.') &&
+      runtime.match(/systemPromptAppend: effectiveSystemPromptAppend \?\? undefined/g)?.length === 3,
+    'all engine lanes must leave competitive proposal changes uncommitted for neutral capture',
   );
   check(
     runtime.includes('if (input.directDelegation || competitiveDraft) return;'),

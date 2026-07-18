@@ -1304,6 +1304,7 @@
 .off-competitive-review-grid article > header > span { display: grid; gap: 1px; }
 .off-competitive-review-grid article > header small,
 .off-competitive-review-grid article > header em { color: var(--off-ink-4); font-size: var(--off-fs-xs); font-style: normal; }
+.off-competitive-review-grid article > header em.is-engine { color: var(--off-accent); font-weight: 680; }
 .off-competitive-review-stats { display: grid; gap: var(--off-sp-2); grid-template-columns: 1fr 1fr 1fr; }
 .off-competitive-review-stats > span {
   background: var(--off-surface-sunken); border-radius: var(--off-r-sm); color: var(--off-ink-3);

@@ -1,4 +1,9 @@
 import { useUiState } from '@/app/ui-state.js';
+import {
+  deriveEmployeeSeniority,
+  employeeSeniorityLabel,
+  employeeTrackRecordLabel,
+} from '@/data/employee-seniority.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -109,6 +114,11 @@ function useEmployeeExperience(employeeId: string, companyId: string) {
 }
 
 function ExperienceSummary({ data }: { data: ExperienceData }) {
+  const seniority = deriveEmployeeSeniority({
+    completedTasks: data.completedTasks,
+    comparisonWins: data.comparisonWins,
+    experienceEntries: data.memories.length,
+  });
   const metrics = [
     ...(data.completedTasks > 0
       ? [{ label: 'tasks completed', value: String(data.completedTasks) }]
@@ -125,9 +135,12 @@ function ExperienceSummary({ data }: { data: ExperienceData }) {
       ? [{ label: 'active projects', value: String(data.activeProjects) }]
       : []),
   ];
-  if (metrics.length === 0) return null;
   return (
     <section className="off-pers-exp-summary" aria-label="Employee experience summary">
+      <div className="off-pers-exp-level">
+        <strong>{employeeSeniorityLabel(seniority)}</strong>
+        <span>{employeeTrackRecordLabel(seniority)}</span>
+      </div>
       {metrics.map((metric) => (
         <div key={metric.label} className="off-pers-exp-stat">
           <strong>{metric.value}</strong>
@@ -180,8 +193,12 @@ export function ExperienceTab({
     );
   }, [data?.memories, projectMap]);
 
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ['personnel', 'experience', employeeId] });
+  const refresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['personnel', 'experience', employeeId] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-seniority', companyId] }),
+    ]);
+  };
 
   const runMutation = async (memoryId: string, action: () => Promise<void>, success: string) => {
     setPendingId(memoryId);
