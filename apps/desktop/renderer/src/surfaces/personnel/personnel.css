@@ -271,6 +271,7 @@
   display: flex;
   flex-direction: column;
   background: var(--off-surface-1);
+  container-type: inline-size;
 }
 
 .off-pers-detail-head {
@@ -420,6 +421,13 @@
 }
 
 .off-pers-insp-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.off-pers-tab-panel {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -685,6 +693,13 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--off-sp-3);
+}
+
+.off-pers-save-status {
+  margin-right: auto;
+  color: var(--off-warn);
+  font-size: var(--off-fs-meta);
+  font-weight: 650;
 }
 
 /* Fired by guardedSelect when switching employees is blocked by unsaved
@@ -1208,31 +1223,48 @@
 }
 
 /* ── Project experience tab ─────────────────── */
+.off-pers-scope-intro {
+  display: flex;
+  align-items: baseline;
+  gap: var(--off-sp-3);
+  padding-bottom: var(--off-sp-3);
+  border-bottom: 1px solid var(--off-line-soft);
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  line-height: 1.45;
+}
+
+.off-pers-scope-intro strong {
+  flex: none;
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 680;
+}
+
 .off-pers-exp-scroll {
   gap: var(--off-sp-5);
 }
 
 .off-pers-exp-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--off-sp-3);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--off-sp-6);
+  padding: var(--off-sp-2) 0 var(--off-sp-3);
+  border-bottom: 1px solid var(--off-line-soft);
 }
 
 .off-pers-exp-stat {
   min-width: 0;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-2);
-  padding: var(--off-sp-4);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--off-sp-2);
 }
 
 .off-pers-exp-stat strong {
   color: var(--off-ink-1);
   font-family: var(--off-font-mono);
-  font-size: var(--off-fs-lg);
+  font-size: var(--off-fs-md);
   line-height: 1.1;
 }
 
@@ -1376,7 +1408,7 @@
   flex: 0 0 auto;
 }
 
-@media (max-width: 900px) {
+@container (max-width: 680px) {
   .off-pers-exp-compose-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -1385,6 +1417,12 @@
   .off-pers-exp-compose-grid [data-slot="button"] {
     grid-column: 1 / -1;
     grid-row: auto;
+  }
+
+  .off-pers-scope-intro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--off-sp-1);
   }
 }
 

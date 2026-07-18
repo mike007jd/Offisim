@@ -850,6 +850,50 @@ for (const file of cssFiles) {
     });
   }
 }
+
+// Custom properties are resolved as a dependency graph. A declaration can look
+// valid in source while a role alias points back to its size alias (A -> B -> A),
+// which makes the computed value invalid in every consumer. Keep the token root
+// one-way and fail before WebKit silently drops the declaration.
+const tokenSourcePath = join(ROOT, 'apps/desktop/renderer/src/styles/tokens.css');
+const tokenSource = readFileSync(tokenSourcePath, 'utf8');
+const tokenDefinitions = new Map();
+for (const match of tokenSource.matchAll(/(--off-[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+  tokenDefinitions.set(match[1], {
+    dependencies: [...match[2].matchAll(/var\((--off-[a-z0-9-]+)/g)].map((entry) => entry[1]),
+    line: lineNumber(tokenSource, match.index ?? 0),
+  });
+}
+const visitingTokens = new Set();
+const visitedTokens = new Set();
+const reportedTokenCycles = new Set();
+function visitToken(name, path = []) {
+  if (visitingTokens.has(name)) {
+    const cycleStart = path.indexOf(name);
+    const cycle = [...path.slice(cycleStart), name];
+    const cycleKey = [...new Set(cycle)].sort().join('|');
+    if (!reportedTokenCycles.has(cycleKey)) {
+      reportedTokenCycles.add(cycleKey);
+      failures.push({
+        check: 'cyclic Offisim CSS token dependency',
+        file: 'apps/desktop/renderer/src/styles/tokens.css',
+        line: tokenDefinitions.get(name)?.line ?? 1,
+        match: cycle.join(' -> '),
+      });
+    }
+    return;
+  }
+  if (visitedTokens.has(name)) return;
+  visitingTokens.add(name);
+  const nextPath = [...path, name];
+  for (const dependency of tokenDefinitions.get(name)?.dependencies ?? []) {
+    if (tokenDefinitions.has(dependency)) visitToken(dependency, nextPath);
+  }
+  visitingTokens.delete(name);
+  visitedTokens.add(name);
+}
+for (const name of tokenDefinitions.keys()) visitToken(name);
+
 for (const cssVar of usedCssVars) {
   if (definedCssVars.has(cssVar.name) || runtimeCssVars.has(cssVar.name)) continue;
   failures.push({

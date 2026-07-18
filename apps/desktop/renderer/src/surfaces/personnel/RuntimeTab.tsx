@@ -4,6 +4,7 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { THINKING_LEVELS } from '@/runtime/pi-thread-thinking-store.js';
+import { thinkingLevelMeta } from '@/runtime/thinking-level-presentation.js';
 import { Bot, Lock, ShieldCheck } from 'lucide-react';
 import { useId } from 'react';
 
@@ -35,10 +36,10 @@ export function RuntimeTab({
     return (
       <div className="off-pers-tab-shell">
         <div className="off-pers-tab-scroll">
-          <CapsLabel>Execution binding</CapsLabel>
+          <CapsLabel>AI engine</CapsLabel>
           <div className="off-pers-lock-note">
             <Icon icon={Lock} size="sm" />
-            External A2A peer · brand endpoint owned.
+            This external employee's AI is managed by its provider.
           </div>
         </div>
       </div>
@@ -54,27 +55,31 @@ export function RuntimeTab({
   return (
     <div className="off-pers-tab-shell">
       <div className="off-pers-tab-scroll">
-        <CapsLabel>Execution binding</CapsLabel>
+        <CapsLabel>AI engine</CapsLabel>
         <div className="off-pers-runtime-head">
           <span className="off-pers-runtime-ic">
             <Icon icon={Bot} size="sm" />
           </span>
           <div>
-            <div className="off-pers-runtime-title">Execution binding</div>
+            <div className="off-pers-runtime-title">
+              {invalid ? 'Conversation default' : (selectedOption?.name ?? 'Conversation default')}
+            </div>
             <div className="off-pers-runtime-sub">
               {invalid
-                ? 'Binding unavailable · inherits conversation model'
-                : model || 'Inherits conversation model'}
+                ? 'The saved choice is unavailable, so this employee uses the conversation AI.'
+                : selectedOption
+                  ? `${selectedOption.accountName} · fixed for this employee`
+                  : 'Uses the AI selected in each conversation'}
             </div>
           </div>
           <span className="off-pers-runtime-ok">
             <Icon icon={ShieldCheck} size="sm" />
-            Tools isolated
+            Own tool access
           </span>
         </div>
         <div className="off-pers-runtime-fields">
           <label className="off-pers-runtime-field" htmlFor={modelSelectId}>
-            <span>{selectedOption?.selectionKind === 'orchestration-engine' ? 'Engine' : 'Model'}</span>
+            <span>Employee AI</span>
             <Select
               id={modelSelectId}
               value={selectedModel}
@@ -89,7 +94,7 @@ export function RuntimeTab({
               options={[
                 {
                   value: '',
-                  label: modelsLoading ? 'Loading models…' : 'Inherit conversation model',
+                  label: modelsLoading ? 'Loading available AI…' : "Use each conversation's AI",
                 },
                 ...(models ?? []).map((option) => ({
                   value: option.value,
@@ -100,14 +105,17 @@ export function RuntimeTab({
           </label>
           {supportsReasoning ? (
             <label className="off-pers-runtime-field" htmlFor={thinkingLevelSelectId}>
-              <span>Thinking level</span>
+              <span>Reasoning effort</span>
               <Select
                 id={thinkingLevelSelectId}
                 value={model && !invalid ? thinkingLevel : ''}
                 onChange={(event) => onThinkingLevelChange(event.target.value)}
                 options={[
-                  { value: '', label: 'Use conversation level' },
-                  ...THINKING_LEVELS.map((level) => ({ value: level, label: level })),
+                  { value: '', label: 'Use conversation setting' },
+                  ...THINKING_LEVELS.map((level) => ({
+                    value: level,
+                    label: thinkingLevelMeta(level).label,
+                  })),
                 ]}
               />
             </label>
@@ -115,8 +123,8 @@ export function RuntimeTab({
         </div>
         {invalid ? (
           <p className="off-pers-runtime-warning">
-            The saved model binding is no longer available. It is not sent; this employee inherits
-            the conversation model until you choose another.
+            The saved AI is no longer available. This employee will use the AI selected in each
+            conversation until you choose another.
           </p>
         ) : null}
       </div>

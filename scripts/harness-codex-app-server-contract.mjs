@@ -10,7 +10,9 @@ const rustFiles = ['manager.rs', 'protocol.rs', 'stream.rs', 'types.rs'].map((na
   read(`apps/desktop/src-tauri/src/codex_agent_host/${name}`),
 );
 const rustHost = rustFiles.join('\n');
-const rustProduction = rustFiles.map((value) => value.split(/\n#\[cfg\(test\)\]/u, 1)[0]).join('\n');
+const rustProduction = rustFiles
+  .map((value) => value.split(/\n#\[cfg\(test\)\]/u, 1)[0])
+  .join('\n');
 const shared = read('packages/shared-types/src/runtime/ai-account.ts');
 const runtime = read('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 const provenance = read('apps/desktop/renderer/src/runtime/execution-provenance.ts');
@@ -33,7 +35,10 @@ for (const removed of [
 assert.equal('build:codex-app-server' in rootPackage.scripts, false);
 assert.doesNotMatch(desktopPackage.scripts['build:frontend'], /codex-app-server/u);
 assert.equal('externalBin' in tauri.bundle, false);
-assert.equal(tauri.bundle.resources.some((value) => /third-party\/codex/u.test(value)), false);
+assert.equal(
+  tauri.bundle.resources.some((value) => /third-party\/codex/u.test(value)),
+  false,
+);
 
 for (const forbidden of [
   'account/read',
@@ -72,7 +77,11 @@ for (const field of [
   'userInput',
   'fileChanges',
 ]) {
-  assert.match(shared + runtime, new RegExp(field, 'u'), `missing capability/status field ${field}`);
+  assert.match(
+    shared + runtime,
+    new RegExp(field, 'u'),
+    `missing capability/status field ${field}`,
+  );
 }
 assert.match(shared, /kind:\s*'native'/u);
 assert.match(provenance, /kind\s*===\s*'native'/u);
@@ -92,11 +101,14 @@ assert.match(answerBody, /this\.adapter\(engineId\)\.answerUiRequest\(answer\)/u
 assert.doesNotMatch(answerBody, /adapters\.size/u);
 
 assert.match(settings, /API engines?/iu);
-assert.match(settings, /Orchestration engines?/iu);
+assert.match(settings, /Subscription tools?/iu);
 assert.match(settings, /engine\.loginCommand/u);
 assert.match(settings, /No API cost|无 API 成本/iu);
 assert.match(settings, /docsUrl|developers\.openai\.com\/codex\/auth/u);
-assert.doesNotMatch(settings, /Native subscription usage|Rate-limit reset credits|Lifetime activity/u);
+assert.doesNotMatch(
+  settings,
+  /Native subscription usage|Rate-limit reset credits|Lifetime activity/u,
+);
 
 for (const retained of [
   'turn/interrupt',

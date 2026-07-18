@@ -1,7 +1,13 @@
+import { useUiState } from '@/app/ui-state.js';
 import { useEmployeeMcpTools } from '@/data/queries.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
 import { ShieldCheck, Wrench, Zap } from 'lucide-react';
 
 interface McpToolsTabProps {
@@ -10,11 +16,12 @@ interface McpToolsTabProps {
 
 export function McpToolsTab({ employeeId }: McpToolsTabProps) {
   const tools = useEmployeeMcpTools(employeeId);
+  const openSettings = useUiState((state) => state.openSettings);
 
   return (
     <div className="off-pers-tab-shell">
       <div className="off-pers-tab-scroll">
-        <CapsLabel>MCP tools</CapsLabel>
+        <CapsLabel>Connected tools</CapsLabel>
         {tools.isError ? (
           <ErrorState
             title="Couldn't load MCP tools"
@@ -24,10 +31,12 @@ export function McpToolsTab({ employeeId }: McpToolsTabProps) {
         ) : tools.isLoading ? (
           <SkeletonRows rows={3} />
         ) : !tools.data?.length ? (
-          <div className="off-pers-sk-empty">
-            <Icon icon={Wrench} size="md" />
-            <p>No live MCP tools are granted to this employee.</p>
-          </div>
+          <EmptyState
+            icon={Wrench}
+            title="No connected tools"
+            description="Connect a tool service, then choose which tools this employee can use."
+            action={{ label: 'Open tool settings', onClick: () => openSettings('mcp') }}
+          />
         ) : (
           tools.data.map((tool) => (
             <div key={tool.id} className="off-pers-skrow">

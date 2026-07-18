@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { startLoopAsParallelProjectRun } from '@/assistant/runtime/loop-send-execution.js';
 import {
   compileLoopPreview,
+  useCreateLoop,
   useLoop,
   useLoopRevisions,
   useSaveLoopRevision,
@@ -19,7 +20,7 @@ import {
 } from '@/design-system/primitives/dropdown-menu.js';
 import { LoopGraphPanel } from '@/surfaces/mission/loops/graph/index.js';
 import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
-import type { LoopCompileResult } from '@offisim/core/browser';
+import { DEFAULT_COMPILER_PROFILE_ID, type LoopCompileResult } from '@offisim/core/browser';
 import type { LoopValidationFinding } from '@offisim/shared-types';
 import {
   ArrowLeft,
@@ -71,15 +72,19 @@ const EXAMPLE_PROMPTS = [
 ];
 
 interface LoopEditorProps {
-  loopId: string;
+  loopId: string | null;
+  onCreated: (loopId: string) => void;
   onBack: () => void;
 }
 
-export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
+export function LoopEditor({ loopId, onCreated, onBack }: LoopEditorProps) {
   const companyId = useUiState((s) => s.companyId) || null;
   const projectId = useUiState((s) => s.projectId) || null;
-  const loop = useLoop(loopId);
-  const revisions = useLoopRevisions(loopId);
+  const [createdLoopId, setCreatedLoopId] = useState<string | null>(null);
+  const effectiveLoopId = loopId ?? createdLoopId;
+  const loop = useLoop(effectiveLoopId);
+  const revisions = useLoopRevisions(effectiveLoopId);
+  const createLoop = useCreateLoop(companyId);
   const saveRevision = useSaveLoopRevision(companyId);
   const selectRevision = useSelectLoopRevision(companyId);
   const updateDraftSummary = useUpdateLoopDraftSummary(companyId);
@@ -97,20 +102,28 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const [startingRun, setStartingRun] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const hydratedFor = useRef<string | null>(null);
+  const newDraftHydrated = useRef(false);
+  const draftStorageKey = `offisim.loop-authoring-draft:${companyId ?? 'none'}`;
+
+  useEffect(() => {
+    if (effectiveLoopId || newDraftHydrated.current) return;
+    newDraftHydrated.current = true;
+    setPrompt(sessionStorage.getItem(draftStorageKey) ?? '');
+  }, [draftStorageKey, effectiveLoopId]);
 
   // Hydrate the prompt + compiled view from the loop's current revision once.
   useEffect(() => {
-    if (hydratedFor.current === loopId) return;
+    if (!effectiveLoopId || hydratedFor.current === effectiveLoopId) return;
     const current = loop.data?.currentRevisionId;
     if (!loop.data) return;
     if (!current) {
-      hydratedFor.current = loopId;
+      hydratedFor.current = effectiveLoopId;
       setPrompt(loop.data.summary);
       return;
     }
     const rev = revisions.data?.find((r) => r.revisionId === current);
     if (!rev) return; // wait for revisions to load
-    hydratedFor.current = loopId;
+    hydratedFor.current = effectiveLoopId;
     setPrompt(rev.sourcePrompt);
     setCompiled({
       status: rev.compileStatus,
@@ -122,7 +135,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       savedRevisionId: rev.revisionId,
       savedRevisionNumber: rev.revisionNumber,
     });
-  }, [loopId, loop.data, revisions.data]);
+  }, [effectiveLoopId, loop.data, revisions.data]);
 
   const model: LoopAuthoringModel = {
     ...EMPTY_AUTHORING_MODEL,
@@ -145,6 +158,36 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   // click, so the answer path could otherwise launch a SECOND concurrent compile
   // and race the setCompiled writes. This ref blocks re-entry immediately.
   const compilingRef = useRef(false);
+  const ensureLoopPromiseRef = useRef<Promise<{ loopId: string; profileId: string }> | null>(null);
+
+  const ensureLoop = useCallback(async () => {
+    if (effectiveLoopId) {
+      return {
+        loopId: effectiveLoopId,
+        profileId: loop.data?.profileId ?? DEFAULT_COMPILER_PROFILE_ID,
+      };
+    }
+    if (ensureLoopPromiseRef.current) return ensureLoopPromiseRef.current;
+    const createPromise = (async () => {
+      const summary = prompt.trim();
+      if (!summary) throw new Error('Describe the recurring work first.');
+      const created = await createLoop.mutateAsync({
+        title: deriveLoopTitle(summary),
+        summary,
+        profileId: DEFAULT_COMPILER_PROFILE_ID,
+      });
+      setCreatedLoopId(created.loopId);
+      sessionStorage.removeItem(draftStorageKey);
+      onCreated(created.loopId);
+      return { loopId: created.loopId, profileId: created.profileId };
+    })();
+    ensureLoopPromiseRef.current = createPromise;
+    try {
+      return await createPromise;
+    } finally {
+      if (ensureLoopPromiseRef.current === createPromise) ensureLoopPromiseRef.current = null;
+    }
+  }, [createLoop, draftStorageKey, effectiveLoopId, loop.data?.profileId, onCreated, prompt]);
 
   // ── Compile (PREVIEW only — runs the real model, persists NOTHING) ──
   const handleCompile = useCallback(
@@ -165,8 +208,9 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       setJustSaved(false);
       setCompiling(true);
       try {
+        const persistedLoop = await ensureLoop();
         const result = await compileLoopPreview({
-          profileId: loop.data?.profileId ?? '',
+          profileId: persistedLoop.profileId,
           threadId: undefined,
           compileInput: {
             sourcePrompt: prompt,
@@ -188,11 +232,15 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
         if (result.status === 'ready') {
           setCompileSuccessKey((key) => key + 1);
           const semanticTitle = deriveLoopTitle(prompt);
-          if (loop.data) {
-            void updateDraftSummary.mutateAsync({
-              loopId,
+          try {
+            await updateDraftSummary.mutateAsync({
+              loopId: persistedLoop.loopId,
               summary: prompt.trim(),
-              ...(isUntitledLoop(loop.data.title) ? { title: semanticTitle } : {}),
+              ...(isUntitledLoop(loop.data?.title ?? '') ? { title: semanticTitle } : {}),
+            });
+          } catch (error) {
+            toast.error('Plan generated, but the latest description was not saved.', {
+              description: error instanceof Error ? error.message : undefined,
             });
           }
           toast.success('Plan generated — review it, then save');
@@ -217,12 +265,11 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       model,
       companyId,
       projectId,
-      loop.data?.profileId,
       prompt,
       compiled,
       saveRevision.isPending,
       loop.data,
-      loopId,
+      ensureLoop,
       updateDraftSummary,
     ],
   );
@@ -231,6 +278,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
   const handleSave = useCallback(async () => {
     if (!canSave(model) || !companyId || !compiled) return;
     try {
+      const persistedLoop = await ensureLoop();
       const compiledResult: LoopCompileResult = {
         status: compiled.status,
         ...(ir ? { ir } : {}),
@@ -242,7 +290,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
         ...(compiled.enhancedPrompt ? { enhancedPrompt: compiled.enhancedPrompt } : {}),
       };
       const result = await saveRevision.mutateAsync({
-        loopId,
+        loopId: persistedLoop.loopId,
         sourcePrompt: prompt,
         ...(compiled?.enhancedPrompt ? { enhancedPrompt: compiled.enhancedPrompt } : {}),
         selectIfReady: true,
@@ -261,7 +309,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
         savedRevisionNumber: result.revision.revisionNumber,
       });
       setJustSaved(true);
-      hydratedFor.current = loopId; // keep our state authoritative over a refetch
+      hydratedFor.current = persistedLoop.loopId; // keep our state authoritative over a refetch
       toast.success(`Plan saved — v${result.revision.revisionNumber}`);
     } catch (err) {
       setErrored(true);
@@ -271,7 +319,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
     // biome-ignore lint/correctness/useExhaustiveDependencies: model is a per-render derived object (not memoized); intentionally tracked so the save callback stays current.
     model,
     companyId,
-    loopId,
+    ensureLoop,
     prompt,
     compiled,
     ir,
@@ -283,14 +331,14 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       toast.message(useBlockedReason(model) ?? 'Generate and save the plan first.');
       return;
     }
-    if (!companyId || !projectId) {
+    if (!companyId || !projectId || !effectiveLoopId) {
       toast.message('Select a project before starting this loop.');
       return;
     }
     setStartingRun(true);
     try {
       await startLoopAsParallelProjectRun({
-        loopId,
+        loopId: effectiveLoopId,
         revisionId: compiled.savedRevisionId,
         title: loop.data?.title ?? deriveLoopTitle(prompt),
         companyId,
@@ -306,8 +354,9 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
 
   // ── Version actions ──
   function handleSetCurrent(revisionId: string) {
+    if (!effectiveLoopId) return;
     selectRevision.mutate(
-      { loopId, revisionId },
+      { loopId: effectiveLoopId, revisionId },
       {
         onSuccess: () => {
           toast.success('Set as current revision');
@@ -323,13 +372,27 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
 
   const handleBack = useCallback(async () => {
     const draftSummary = prompt.trim();
+    if (!effectiveLoopId) {
+      if (!draftSummary) {
+        sessionStorage.removeItem(draftStorageKey);
+        onBack();
+        return;
+      }
+      try {
+        await ensureLoop();
+        onBack();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not save the Loop draft.');
+      }
+      return;
+    }
     const existingSummary = loop.data?.summary.trim() ?? '';
     const shouldPersistDraft = loop.data != null && draftSummary !== existingSummary;
 
     if (shouldPersistDraft) {
       try {
         await updateDraftSummary.mutateAsync({
-          loopId,
+          loopId: effectiveLoopId,
           summary: draftSummary,
           ...(isUntitledLoop(loop.data?.title ?? '')
             ? { title: deriveLoopTitle(draftSummary) }
@@ -342,16 +405,16 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
     }
 
     onBack();
-  }, [loop.data, loopId, onBack, prompt, updateDraftSummary]);
+  }, [draftStorageKey, effectiveLoopId, ensureLoop, loop.data, onBack, prompt, updateDraftSummary]);
 
-  if (loop.isLoading || revisions.isLoading) {
+  if (effectiveLoopId && (loop.isLoading || revisions.isLoading)) {
     return (
       <div className="off-loop-editor off-loop-editor-loading">
         <SkeletonRows rows={6} />
       </div>
     );
   }
-  if (loop.isError || revisions.isError) {
+  if (effectiveLoopId && (loop.isError || revisions.isError)) {
     const error = loop.error ?? revisions.error;
     return (
       <div className="off-loop-editor off-loop-editor-error">
@@ -366,7 +429,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
       </div>
     );
   }
-  if (!loop.data) {
+  if (effectiveLoopId && !loop.data) {
     return (
       <div className="off-loop-editor off-loop-editor-error">
         <ErrorState
@@ -385,13 +448,13 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
           variant="ghost"
           size="iconSm"
           onClick={() => void handleBack()}
-          disabled={updateDraftSummary.isPending}
+          disabled={updateDraftSummary.isPending || createLoop.isPending || compiling}
           aria-label="Back to library"
         >
           <Icon icon={ArrowLeft} size="sm" />
         </Button>
         <div className="off-loop-editor-titles">
-          <span className="off-loop-editor-name">{loop.data?.title ?? 'Loop'}</span>
+          <span className="off-loop-editor-name">{loop.data?.title ?? 'New loop'}</span>
           <span className="off-loop-editor-state" data-state={state}>
             {STATE_LABEL[state]}
           </span>
@@ -407,7 +470,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
           </Button>
           <DropdownMenu open={versionsOpen} onOpenChange={setVersionsOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="subtle" size="sm">
+              <Button variant="subtle" size="sm" disabled={!effectiveLoopId}>
                 <Icon icon={History} size="sm" />
                 {compiled?.savedRevisionNumber ? `v${compiled.savedRevisionNumber}` : 'Versions'}
                 <Icon icon={ChevronDown} size="sm" />
@@ -445,6 +508,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
             <LoopStartGuide
               onExampleSelect={(example) => {
                 setPrompt(example);
+                if (!effectiveLoopId) sessionStorage.setItem(draftStorageKey, example);
                 setJustSaved(false);
               }}
             />
@@ -478,7 +542,7 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
               ir={ir}
               status={compiled?.status ?? null}
               findings={findings}
-              profileId={loop.data?.profileId ?? null}
+              profileId={loop.data?.profileId ?? DEFAULT_COMPILER_PROFILE_ID}
               revisionNumber={compiled?.savedRevisionNumber ?? null}
               busy={compiling}
               errorMessage={compileError}
@@ -495,7 +559,9 @@ export function LoopEditor({ loopId, onBack }: LoopEditorProps) {
           placeholder="Describe the goal, what repeats, and when this loop should stop…"
           value={prompt}
           onChange={(e) => {
-            setPrompt(e.target.value);
+            const nextPrompt = e.target.value;
+            setPrompt(nextPrompt);
+            if (!effectiveLoopId) sessionStorage.setItem(draftStorageKey, nextPrompt);
             setJustSaved(false);
           }}
           rows={3}

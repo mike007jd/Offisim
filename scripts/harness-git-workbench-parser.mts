@@ -392,7 +392,12 @@ assert.doesNotMatch(
 );
 assert.match(workspacePanelSource, /Open review stage/u);
 assert.match(stageViewerSource, /<ReviewWorkbenchStage/u);
-assert.match(stageViewerSource, /setStageMaximized\(true\)/u);
+assert.match(stageViewerSource, /setOfficeStageMaximized\(true\)/u);
+assert.match(
+  stageViewerSource,
+  /state\.officeStageMaximizedVersion === reviewPresentationOwnerVersion/u,
+  'review presentation may restore the stage only while it still owns the maximize state',
+);
 assert.match(reviewStageSource, /mode=\{actionable \? 'review' : 'readonly'\}/u);
 assert.match(reviewStageSource, /publishReviewPrPrefill/u);
 assert.match(

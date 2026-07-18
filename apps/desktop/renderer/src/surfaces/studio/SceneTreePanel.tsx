@@ -65,11 +65,12 @@ export function SceneTreePanel({
   const ordered = useMemo(() => [...zones].sort((a, b) => a.sort_order - b.sort_order), [zones]);
 
   return (
-    <div className="off-studio-tree" role="tree" aria-label="Scene objects">
+    <div className="off-studio-tree" role="tree" aria-label="Office rooms and furniture">
       <div className="off-studio-panel-head">
-        <CapsLabel>Scene</CapsLabel>
+        <CapsLabel>Rooms</CapsLabel>
         <span className="off-studio-tree-count">
-          {zones.length} zones · {prefabs.length} objects
+          {zones.length} {zones.length === 1 ? 'room' : 'rooms'} · {prefabs.length}{' '}
+          {prefabs.length === 1 ? 'item' : 'items'}
         </span>
       </div>
       <div className="off-studio-tree-body">
@@ -88,7 +89,7 @@ export function SceneTreePanel({
               >
                 <IconButton
                   icon={open ? ChevronDown : ChevronRight}
-                  label={open ? 'Collapse zone' : 'Expand zone'}
+                  label={open ? 'Collapse room' : 'Expand room'}
                   size="iconSm"
                   variant="ghost"
                   onClick={() => toggle(zone.zone_id)}
@@ -98,7 +99,7 @@ export function SceneTreePanel({
                   className="off-studio-tree-label off-focusable"
                   onClick={() => select({ kind: 'zone', id: zone.zone_id })}
                   onDoubleClick={() => onEnterFocus(zone.zone_id)}
-                  title="Click to select · double-click to edit this zone"
+                  title="Click to select · double-click to arrange this room"
                 >
                   <Icon icon={zoneArchetypeIcon(zone.archetype)} size="sm" />
                   <span className="off-studio-tree-name">{zone.label}</span>
@@ -128,9 +129,7 @@ export function SceneTreePanel({
                         onDoubleClick={() => onEnterFocus(zone.zone_id)}
                       >
                         <span className="off-studio-tree-name">{vm.definition.name}</span>
-                        <span className="off-studio-tree-meta">
-                          {vm.instance.position_x.toFixed(1)}, {vm.instance.position_y.toFixed(1)}
-                        </span>
+                        <span className="off-studio-tree-meta">Placed</span>
                       </button>
                     );
                   })

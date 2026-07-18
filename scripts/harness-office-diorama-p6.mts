@@ -384,7 +384,9 @@ check(
 check(
   'collapsed PiP unmounts rendering and returning to Game View restores it',
   officeStageSource.includes("const sceneIsPip = stagePrimaryTab !== 'game'") &&
-    officeStageSource.includes('const sceneIsCollapsed = sceneIsPip && scenePipCollapsed') &&
+    /const sceneIsCollapsed\s*=\s*sceneIsPip\s*&&\s*\(scenePipCollapsed\s*\|\|\s*\(compactStage\s*&&\s*!compactPipExpanded\)\)/.test(
+      officeStageSource,
+    ) &&
     officeStageSource.includes("sceneIsCollapsed ? null : sceneRenderMode === '3d'") &&
     officeStageSource.includes('<OfficeScene3D pip={sceneIsPip} />'),
 );

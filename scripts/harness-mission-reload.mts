@@ -8,6 +8,11 @@
 
 import assert from 'node:assert/strict';
 import {
+  guardCurrentSurfaceScopeChange,
+  registerSurfaceLeaveGuard,
+  useUiState,
+} from '../apps/desktop/renderer/src/app/ui-state.ts';
+import {
   beginCompanyScopeActivation,
   bootstrapCompanyScopeRuns,
   commitCompanyScopeActivation,
@@ -37,7 +42,7 @@ import type {
 
 let passed = 0;
 let failed = 0;
-const TOTAL = 17;
+const TOTAL = 19;
 const COMPANY_ID = 'company-reload';
 const PROJECT_ID = 'project-reload';
 const THREAD_ID = 'thread-reload';
@@ -796,6 +801,77 @@ await check(
     assert.equal(activeCompanyId, '');
   },
 );
+
+await check('dirty surface scope guard resolves cancellation without committing', async () => {
+  const previousSurface = useUiState.getState().surface;
+  useUiState.setState({ surface: 'personnel' });
+  let cancel!: () => void;
+  let commits = 0;
+  const unregister = registerSurfaceLeaveGuard('personnel', (request) => {
+    cancel = request.cancel;
+    return false;
+  });
+  try {
+    const pending = guardCurrentSurfaceScopeChange('office', () => {
+      commits += 1;
+    });
+    cancel();
+    assert.equal(await pending, false);
+    assert.equal(commits, 0);
+  } finally {
+    unregister();
+    useUiState.setState({ surface: previousSurface });
+  }
+});
+
+await check('delayed dirty-surface proceed rejects a superseded company intent', async () => {
+  const previousSurface = useUiState.getState().surface;
+  useUiState.setState({ surface: 'personnel' });
+  let proceed!: () => void;
+  let commits = 0;
+  let guardCalls = 0;
+  const unregister = registerSurfaceLeaveGuard('personnel', (request) => {
+    guardCalls += 1;
+    proceed = request.proceed;
+    return false;
+  });
+  try {
+    const staleActivation = beginCompanyScopeActivation();
+    const pending = guardCurrentSurfaceScopeChange('office', () => {
+      commitCompanyScopeActivation(
+        staleActivation,
+        () => true,
+        () => {
+          commits += 1;
+          useUiState.getState().setSurface('office');
+        },
+      );
+    });
+    beginCompanyScopeActivation();
+    proceed();
+    assert.equal(await pending, true, 'the user did confirm discard');
+    assert.equal(commits, 0, 'the superseded company intent cannot commit');
+
+    const currentActivation = beginCompanyScopeActivation();
+    const currentPending = guardCurrentSurfaceScopeChange('office', () => {
+      commitCompanyScopeActivation(
+        currentActivation,
+        () => true,
+        () => {
+          commits += 1;
+          useUiState.getState().setSurface('office');
+        },
+      );
+    });
+    proceed();
+    assert.equal(await currentPending, true);
+    assert.equal(commits, 1);
+    assert.equal(guardCalls, 2, 'the authorized transition does not re-enter the same guard');
+  } finally {
+    unregister();
+    useUiState.setState({ surface: previousSurface });
+  }
+});
 
 await check(
   'company scope waits for complete Mission then Conversation live-run recovery',

@@ -99,7 +99,7 @@ export function CapabilityManifest({
           title="What this teammate can do in this thread"
         >
           <Icon icon={Boxes} size="sm" />
-          Capabilities
+          Tools
           <span className="off-thread-pit-count">{available.length}</span>
         </button>
       </PopoverTrigger>

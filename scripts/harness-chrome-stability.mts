@@ -27,21 +27,19 @@ function check(name: string, run: () => void) {
   console.log(`✓ ${name}`);
 }
 
-check('collapsed Office rails consume zero columns and unmount their content', () => {
-  assert.match(
+check('Office rails use resizable zero-collapse panels with synchronized state', () => {
+  assert.match(officeSurface, /<Group[\s\S]*orientation="horizontal"/);
+  assert.match(officeSurface, /id="office-workspace"[\s\S]*collapsible[\s\S]*collapsedSize="0%"/);
+  assert.match(officeSurface, /if \(!stageMaximized\) setLeftCollapsed\(size\.inPixels === 0\)/);
+  assert.match(officeSurface, /if \(!stageMaximized\) setRightCollapsed\(size\.inPixels === 0\)/);
+  assert.match(officeSurface, /id="office-conversations"[\s\S]*collapsedSize="0%"/);
+  assert.match(officeCss, /\.off-office-aux-panel\s*{[\s\S]*overflow:\s*hidden/);
+  assert.match(officeCss, /\.off-office-resize-handle\.is-hidden\s*{\s*display:\s*none/);
+  assert.doesNotMatch(
     officeCss,
-    /\.off-office\.is-left-collapsed\s*{\s*grid-template-columns:\s*0 minmax\(0, 1fr\) 520px;/,
+    /grid-area:\s*(workspace|stage|team|chat)/,
+    'retired outer-grid placement would push panel children into implicit rows',
   );
-  assert.match(
-    officeCss,
-    /\.off-office\.is-right-collapsed\s*{\s*grid-template-columns:\s*288px minmax\(0, 1fr\) 0;/,
-  );
-  assert.match(
-    officeCss,
-    /\.off-office\.is-left-collapsed\.is-right-collapsed\s*{\s*grid-template-columns:\s*0 minmax\(0, 1fr\) 0;/,
-  );
-  assert.match(officeSurface, /!leftCollapsed \? <WorkspacePanel \/> : null/);
-  assert.match(officeSurface, /!rightCollapsed \? <ChatRail \/> : null/);
 });
 
 check('the two rail toggles live only in Office top chrome', () => {
@@ -137,6 +135,10 @@ check('stage-width topbar partition retains tabs, progress, and the live action'
   const pipelineEnd = officeCss.indexOf('/* === Staged attachments', pipelineStart);
   const pipelineCss = officeCss.slice(pipelineStart, pipelineEnd);
   assert.match(officeCss, /container:\s*off-stage \/ inline-size/);
+  assert.match(
+    officeCss,
+    /@media \(max-width: 1100px\)[\s\S]*?\.off-stage-readout\s*{\s*display:\s*none/,
+  );
   assert.match(topbarCss, /grid-template-columns:\s*minmax\(80px, 1fr\) max-content/);
   assert.match(
     topbarCss,

@@ -12,7 +12,6 @@ import {
 } from '@/design-system/primitives/dialog.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import {
-  EMPLOYEE_MEMORY_TYPE_LABELS,
   createManualEmployeeProjectMemory,
   validateEmployeeProjectMemoryContent,
 } from '@/runtime/employee-project-memory.js';
@@ -28,13 +27,20 @@ import type {
   EmployeeProjectMemoryRow,
   EmployeeProjectMemoryType,
 } from '@offisim/core/browser';
-import type { ProjectRow } from '@offisim/shared-types';
+import { ACTIVE_PROJECT_STATUSES, type ProjectRow } from '@offisim/shared-types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Lightbulb, Pin, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-const TYPE_OPTIONS = Object.entries(EMPLOYEE_MEMORY_TYPE_LABELS).map(([value, label]) => ({
+const EXPERIENCE_TYPE_LABELS: Record<EmployeeProjectMemoryType, string> = {
+  pitfall: 'Watch out',
+  repository_preference: 'Project preference',
+  convention: 'Rule to follow',
+  retrospective: 'Review takeaway',
+};
+
+const TYPE_OPTIONS = Object.entries(EXPERIENCE_TYPE_LABELS).map(([value, label]) => ({
   value,
   label,
 }));
@@ -82,13 +88,19 @@ function useEmployeeExperience(employeeId: string, companyId: string) {
         }),
       );
       const rootRuns = runs.filter((run) => run.run_id === run.root_run_id);
+      const workedProjectIds = new Set(
+        rootRuns.flatMap((run) => (run.project_id ? [run.project_id] : [])),
+      );
       return {
         memories,
         projects,
         sources,
         completedTasks: rootRuns.filter((run) => run.status === 'completed').length,
-        activeProjects: new Set(rootRuns.flatMap((run) => (run.project_id ? [run.project_id] : [])))
-          .size,
+        activeProjects: projects.filter(
+          (project) =>
+            workedProjectIds.has(project.project_id) &&
+            ACTIVE_PROJECT_STATUSES.includes(project.status),
+        ).length,
         comparisonWins: attempts.filter((attempt) => attempt.status === 'winner').length,
         comparisonEntries: attempts.length,
       };
@@ -98,10 +110,22 @@ function useEmployeeExperience(employeeId: string, companyId: string) {
 
 function ExperienceSummary({ data }: { data: ExperienceData }) {
   const metrics = [
-    { label: 'Tasks completed', value: data.completedTasks },
-    { label: 'Draft wins', value: `${data.comparisonWins}/${data.comparisonEntries}` },
-    { label: 'Active projects', value: data.activeProjects },
+    ...(data.completedTasks > 0
+      ? [{ label: 'tasks completed', value: String(data.completedTasks) }]
+      : []),
+    ...(data.comparisonEntries > 0
+      ? [
+          {
+            label: 'drafts selected',
+            value: `${data.comparisonWins} of ${data.comparisonEntries}`,
+          },
+        ]
+      : []),
+    ...(data.activeProjects > 0
+      ? [{ label: 'active projects', value: String(data.activeProjects) }]
+      : []),
   ];
+  if (metrics.length === 0) return null;
   return (
     <section className="off-pers-exp-summary" aria-label="Employee experience summary">
       {metrics.map((metric) => (
@@ -124,7 +148,6 @@ export function ExperienceTab({
 }: { employeeId: string; companyId: string }) {
   const query = useEmployeeExperience(employeeId, companyId);
   const queryClient = useQueryClient();
-  const setSurface = useUiState((state) => state.setSurface);
   const requestThreadFocus = useUiState((state) => state.requestThreadFocus);
   const [projectId, setProjectId] = useState('');
   const [type, setType] = useState<EmployeeProjectMemoryType>('pitfall');
@@ -168,7 +191,7 @@ export function ExperienceTab({
       toast.success(success);
       return true;
     } catch (error) {
-      toast.error('Experience update failed', {
+      toast.error('Project lesson update failed', {
         description: error instanceof Error ? error.message : 'The change could not be saved.',
       });
       return false;
@@ -192,9 +215,9 @@ export function ExperienceTab({
       });
       setContent('');
       await refresh();
-      toast.success('Experience added');
+      toast.success('Project lesson added');
     } catch (error) {
-      toast.error('Experience could not be added', {
+      toast.error('Project lesson could not be added', {
         description: error instanceof Error ? error.message : 'The entry could not be saved.',
       });
     } finally {
@@ -216,8 +239,8 @@ export function ExperienceTab({
       <div className="off-pers-tab-shell">
         <div className="off-pers-tab-scroll">
           <ErrorState
-            title="Couldn't load experience"
-            detail={errorDetail(query.error, 'Project experience could not be loaded.')}
+            title="Couldn't load project lessons"
+            detail={errorDetail(query.error, 'Project lessons could not be loaded.')}
             onRetry={() => void query.refetch()}
           />
         </div>
@@ -230,8 +253,16 @@ export function ExperienceTab({
       <div className="off-pers-tab-scroll off-pers-exp-scroll">
         <ExperienceSummary data={data} />
 
+        <div className="off-pers-scope-intro">
+          <strong>Project lessons</strong>
+          <span>
+            Lessons tied to one project. This employee applies them only when working in that
+            project again.
+          </span>
+        </div>
+
         <section className="off-pers-exp-compose">
-          <CapsLabel>Add project experience</CapsLabel>
+          <CapsLabel>Add project lesson</CapsLabel>
           {availableProjects.length > 0 ? (
             <div className="off-pers-exp-compose-grid">
               <Select
@@ -244,13 +275,13 @@ export function ExperienceTab({
                 }))}
               />
               <Select
-                aria-label="Experience type"
+                aria-label="Lesson type"
                 value={type}
                 onChange={(event) => setType(event.target.value as EmployeeProjectMemoryType)}
                 options={TYPE_OPTIONS}
               />
               <Textarea
-                aria-label="New experience"
+                aria-label="New project lesson"
                 value={content}
                 placeholder="A concrete lesson this employee should apply on the next task…"
                 onChange={(event) => setContent(event.target.value)}
@@ -260,19 +291,19 @@ export function ExperienceTab({
                 disabled={!content.trim() || pendingId === 'new'}
                 onClick={() => void addExperience()}
               >
-                <Plus aria-hidden="true" /> {pendingId === 'new' ? 'Adding…' : 'Add experience'}
+                <Plus aria-hidden="true" /> {pendingId === 'new' ? 'Adding…' : 'Add lesson'}
               </Button>
             </div>
           ) : (
-            <p className="off-pers-exp-help">Create a Project before adding project experience.</p>
+            <p className="off-pers-exp-help">Create a Project before adding a project lesson.</p>
           )}
         </section>
 
         {groups.length === 0 ? (
           <EmptyState
             icon={Lightbulb}
-            title="No project experience yet"
-            description="Lessons distilled from completed and failed tasks will appear here. You can also add one above."
+            title="No project lessons yet"
+            description="Lessons from completed and failed tasks will appear here. You can also add the first one above."
           />
         ) : (
           groups.map(([groupProjectId, memories]) => (
@@ -292,7 +323,7 @@ export function ExperienceTab({
                     <article key={memory.memory_id} className="off-pers-exp-card">
                       <div className="off-pers-exp-card-head">
                         <Select
-                          aria-label="Experience type"
+                          aria-label="Lesson type"
                           value={memory.memory_type}
                           disabled={pendingId === memory.memory_id}
                           onChange={(event) => {
@@ -305,7 +336,7 @@ export function ExperienceTab({
                                   memory_type: nextType,
                                 });
                               },
-                              'Experience type updated',
+                              'Lesson type updated',
                             );
                           }}
                           options={TYPE_OPTIONS}
@@ -314,8 +345,8 @@ export function ExperienceTab({
                           <Button
                             variant={memory.pinned ? 'accentSoft' : 'ghost'}
                             size="iconSm"
-                            title={memory.pinned ? 'Unpin experience' : 'Pin experience'}
-                            aria-label={memory.pinned ? 'Unpin experience' : 'Pin experience'}
+                            title={memory.pinned ? 'Unpin lesson' : 'Pin lesson'}
+                            aria-label={memory.pinned ? 'Unpin lesson' : 'Pin lesson'}
                             disabled={pendingId === memory.memory_id}
                             onClick={() =>
                               void runMutation(
@@ -326,7 +357,7 @@ export function ExperienceTab({
                                     pinned: !memory.pinned,
                                   });
                                 },
-                                memory.pinned ? 'Experience unpinned' : 'Experience pinned',
+                                memory.pinned ? 'Lesson unpinned' : 'Lesson pinned',
                               )
                             }
                           >
@@ -335,8 +366,8 @@ export function ExperienceTab({
                           <Button
                             variant="ghost"
                             size="iconSm"
-                            title="Delete experience"
-                            aria-label="Delete experience"
+                            title="Delete lesson"
+                            aria-label="Delete lesson"
                             disabled={pendingId === memory.memory_id}
                             onClick={() => setDeleteMemory(memory)}
                           >
@@ -347,7 +378,7 @@ export function ExperienceTab({
                       <Textarea
                         key={`${memory.memory_id}-${memory.updated_at}`}
                         className="off-pers-exp-text"
-                        aria-label="Experience content"
+                        aria-label="Lesson content"
                         defaultValue={memory.content}
                         disabled={pendingId === memory.memory_id}
                         onBlur={(event) => {
@@ -361,15 +392,17 @@ export function ExperienceTab({
                                 updated_at: new Date().toISOString(),
                               });
                             },
-                            'Experience updated',
+                            'Lesson updated',
                           );
                         }}
                       />
                       <footer className="off-pers-exp-meta">
                         <span>
-                          {memory.pinned ? 'Pinned · ' : ''}Used {memory.hit_count}{' '}
-                          {memory.hit_count === 1 ? 'time' : 'times'} · Updated{' '}
-                          {formatUpdatedAt(memory.updated_at)}
+                          {memory.pinned ? 'Pinned for future tasks · ' : ''}
+                          {memory.hit_count === 0
+                            ? 'Not used yet'
+                            : `Applied to ${memory.hit_count} ${memory.hit_count === 1 ? 'task' : 'tasks'}`}{' '}
+                          · Updated {formatUpdatedAt(memory.updated_at)}
                         </span>
                         {source ? (
                           <button
@@ -377,7 +410,6 @@ export function ExperienceTab({
                             className="off-pers-exp-source off-focusable"
                             onClick={() => {
                               if (!source.run.project_id) return;
-                              setSurface('office');
                               requestThreadFocus({
                                 projectId: source.run.project_id,
                                 threadId: source.run.thread_id,
@@ -387,7 +419,7 @@ export function ExperienceTab({
                             From {source.title} <ExternalLink aria-hidden="true" />
                           </button>
                         ) : (
-                          <span>Added manually</span>
+                          <span>Added by you</span>
                         )}
                       </footer>
                     </article>
@@ -407,7 +439,7 @@ export function ExperienceTab({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete this experience?</DialogTitle>
+            <DialogTitle>Delete this project lesson?</DialogTitle>
             <DialogDescription>
               The employee will no longer receive this lesson on future tasks.
             </DialogDescription>
@@ -428,13 +460,13 @@ export function ExperienceTab({
                     const repos = await getRepos();
                     await repos.employeeProjectMemories.delete(memory.memory_id);
                   },
-                  'Experience deleted',
+                  'Project lesson deleted',
                 ).then((saved) => {
                   if (saved) setDeleteMemory(null);
                 });
               }}
             >
-              <Trash2 aria-hidden="true" /> Delete experience
+              <Trash2 aria-hidden="true" /> Delete lesson
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
-import { cn } from '@/lib/utils.js';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { Repeat } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -19,7 +19,7 @@ import { LoopRuns } from './loops/LoopRuns.js';
  */
 
 type Tab = 'library' | 'runs';
-type View = { kind: 'list'; tab: Tab } | { kind: 'editor'; loopId: string };
+type View = { kind: 'list'; tab: Tab } | { kind: 'editor'; loopId: string | null };
 
 export function MissionSurface() {
   const companyId = useUiState((s) => s.companyId);
@@ -53,36 +53,40 @@ export function MissionSurface() {
   if (view.kind === 'editor') {
     return (
       <div className="off-loops">
-        <LoopEditor loopId={view.loopId} onBack={() => setView({ kind: 'list', tab: 'library' })} />
+        <LoopEditor
+          loopId={view.loopId}
+          onCreated={(loopId) => setView({ kind: 'editor', loopId })}
+          onBack={() => setView({ kind: 'list', tab: 'library' })}
+        />
       </div>
     );
   }
 
   return (
     <div className="off-loops">
-      <nav className="off-loops-tabs" aria-label="Loops views">
-        <button
-          type="button"
-          className={cn('off-loops-tab off-focusable', view.tab === 'library' && 'is-active')}
-          onClick={() => setView({ kind: 'list', tab: 'library' })}
-          aria-current={view.tab === 'library' ? 'page' : undefined}
-        >
-          Library
-        </button>
-        <button
-          type="button"
-          className={cn('off-loops-tab off-focusable', view.tab === 'runs' && 'is-active')}
-          onClick={() => setView({ kind: 'list', tab: 'runs' })}
-          aria-current={view.tab === 'runs' ? 'page' : undefined}
-        >
-          Runs
-        </button>
-      </nav>
-      {view.tab === 'library' ? (
-        <LoopLibrary onOpenLoop={(loopId) => setView({ kind: 'editor', loopId })} />
-      ) : (
-        <LoopRuns />
-      )}
+      <Tabs
+        className="off-loops-tabs-root"
+        value={view.tab}
+        onValueChange={(value) => setView({ kind: 'list', tab: value as Tab })}
+      >
+        <TabsList className="off-loops-tabs" aria-label="Loops views">
+          <TabsTrigger value="library" className="off-loops-tab">
+            Library
+          </TabsTrigger>
+          <TabsTrigger value="runs" className="off-loops-tab">
+            Runs
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="library" className="off-loops-tab-panel">
+          <LoopLibrary
+            onOpenLoop={(loopId) => setView({ kind: 'editor', loopId })}
+            onNewLoop={() => setView({ kind: 'editor', loopId: null })}
+          />
+        </TabsContent>
+        <TabsContent value="runs" className="off-loops-tab-panel">
+          <LoopRuns />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

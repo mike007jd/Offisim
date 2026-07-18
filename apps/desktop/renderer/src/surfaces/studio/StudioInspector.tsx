@@ -5,6 +5,7 @@ import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import {
+  ZONE_PRESET_GROUPS,
   type ZoneRow,
   findOverlaps,
   prefabBoundsToRect,
@@ -28,6 +29,10 @@ import { useStudioStore } from './studio-store.js';
 
 const ZONE_MIN = 3;
 const ZONE_MAX = 30;
+
+function roomPurposeLabel(archetype: ZoneRow['archetype']): string {
+  return ZONE_PRESET_GROUPS.find((group) => group.archetype === archetype)?.label ?? 'Custom room';
+}
 
 export interface ZonePatch {
   readonly label?: string;
@@ -154,29 +159,29 @@ function ZoneInspector({
     );
     return objectsFit
       ? { ok: true }
-      : { ok: false, title: 'Objects would fall outside the smaller footprint' };
+      : { ok: false, title: 'Furniture would no longer fit inside the smaller room' };
   };
   const growVerdict = resizeVerdict(1, 1);
   const shrinkVerdict = resizeVerdict(-1, -1);
 
   return (
     <div className="off-studio-props">
-      <CapsLabel>Zone</CapsLabel>
+      <CapsLabel>Room</CapsLabel>
       <div className="off-studio-size-actions">
         {focused ? (
           <Button variant="outline" size="sm" onClick={onExitFocus}>
             <Icon icon={X} size="sm" />
-            Exit zone edit
+            Back to floor plan
           </Button>
         ) : (
           <Button
             variant="accentSoft"
             size="sm"
-            title="Focus this zone and edit its objects (F)"
+            title="Open this room and arrange its furniture (F)"
             onClick={onEnterFocus}
           >
             <Icon icon={Focus} size="sm" />
-            Edit zone
+            Arrange room
           </Button>
         )}
       </div>
@@ -185,7 +190,7 @@ function ZoneInspector({
         <Input
           value={labelDraft}
           disabled={busy}
-          aria-label="Zone label"
+          aria-label="Room name"
           onChange={(e) => setLabelDraft(e.target.value)}
           onBlur={commitLabel}
           onKeyDown={(e) => {
@@ -194,24 +199,18 @@ function ZoneInspector({
         />
       </div>
       <div className="off-about-row">
-        <span>Type</span>
-        <span>{zone.archetype}</span>
+        <span>Purpose</span>
+        <span>{roomPurposeLabel(zone.archetype)}</span>
       </div>
       <div className="off-about-row">
-        <span>Objects</span>
+        <span>Furniture</span>
         <span>{zonePrefabs.length}</span>
-      </div>
-      <div className="off-about-row">
-        <span>Position</span>
-        <span>
-          {zone.cx}, {zone.cz}
-        </span>
       </div>
       <div className="off-studio-nudge-grid">
         <span />
         <IconButton
           icon={ArrowUp}
-          label="Move zone up"
+          label="Move room up"
           size="iconSm"
           variant="outline"
           disabled={busy}
@@ -220,7 +219,7 @@ function ZoneInspector({
         <span />
         <IconButton
           icon={ArrowLeft}
-          label="Move zone left"
+          label="Move room left"
           size="iconSm"
           variant="outline"
           disabled={busy}
@@ -231,7 +230,7 @@ function ZoneInspector({
         </div>
         <IconButton
           icon={ArrowRight}
-          label="Move zone right"
+          label="Move room right"
           size="iconSm"
           variant="outline"
           disabled={busy}
@@ -240,7 +239,7 @@ function ZoneInspector({
         <span />
         <IconButton
           icon={ArrowDown}
-          label="Move zone down"
+          label="Move room down"
           size="iconSm"
           variant="outline"
           disabled={busy}
@@ -269,7 +268,7 @@ function ZoneInspector({
         </Button>
       </div>
       <div className="off-studio-danger">
-        <ConfirmDeleteButton label="Delete zone" busy={busy} onConfirm={onDelete} />
+        <ConfirmDeleteButton label="Delete room" busy={busy} onConfirm={onDelete} />
       </div>
     </div>
   );
@@ -299,27 +298,21 @@ function ObjectInspector({
   );
   return (
     <div className="off-studio-props">
-      <CapsLabel>Object</CapsLabel>
+      <CapsLabel>Furniture</CapsLabel>
       <div className="off-about-row">
         <span>Name</span>
         <span>{vm.definition.name}</span>
       </div>
       <div className="off-about-row">
-        <span>Zone</span>
+        <span>Room</span>
         <span>{zoneLabel}</span>
       </div>
       <div className="off-about-row">
-        <span>Position</span>
-        <span>
-          {vm.instance.position_x.toFixed(1)}, {vm.instance.position_y.toFixed(1)}
-        </span>
-      </div>
-      <div className="off-about-row">
-        <span>Rotation</span>
+        <span>Facing</span>
         <span>{vm.instance.rotation}°</span>
       </div>
       <div className="off-about-row">
-        <span>Bounds</span>
+        <span>Footprint</span>
         <span>
           {rect.w.toFixed(1)} × {rect.d.toFixed(1)}
         </span>
@@ -370,7 +363,7 @@ export function StudioInspector({
       return (
         <ObjectInspector
           vm={vm}
-          zoneLabel={zone?.label ?? vm.instance.zone_id}
+          zoneLabel={zone?.label ?? 'Unknown room'}
           busy={busy}
           onRotate={() => onObjectRotate(vm.instance.instance_id)}
           onDelete={() => onObjectDelete(vm.instance.instance_id)}
@@ -401,7 +394,7 @@ export function StudioInspector({
       <EmptyState
         icon={MousePointerClick}
         title="No selection"
-        description="Pick a zone or object in the scene tree or the viewport."
+        description="Choose a room or furniture item from the floor plan or the Rooms list."
       />
     </div>
   );

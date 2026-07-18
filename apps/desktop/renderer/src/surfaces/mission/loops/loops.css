@@ -15,6 +15,14 @@
 }
 
 /* ── Library / Runs tab switch ── */
+.off-loops-tabs-root,
+.off-loops-tab-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .off-loops-tabs {
   flex: none;
   display: flex;
@@ -38,7 +46,7 @@
   color: var(--off-ink-1);
   background: var(--off-surface-2);
 }
-.off-loops-tab.is-active {
+.off-loops-tab[data-state="active"] {
   color: var(--off-accent);
   background: var(--off-accent-surface);
 }
@@ -346,20 +354,20 @@
 
 /* Compact start state: the composer is primary; examples only reduce blank-page friction. */
 .off-loop-start {
-  flex: 1;
+  flex: none;
   min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.2fr);
+  align-items: end;
   gap: var(--off-sp-4);
   padding: var(--off-sp-6);
-  background: var(--off-surface-sunken);
+  border-top: 1px solid var(--off-line-soft);
+  background: var(--off-surface-1);
 }
 .off-loop-start-intro,
 .off-loop-start-examples {
-  width: min(620px, 100%);
-  margin-inline: auto;
+  width: 100%;
 }
 .off-loop-start-intro {
   display: flex;
@@ -371,11 +379,11 @@
   font-weight: 680;
   color: var(--off-accent);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--off-ls-caps);
 }
 .off-loop-start-intro h2 {
-  font-size: clamp(18px, 1.8vw, 24px);
-  line-height: 1.15;
+  font-size: var(--off-fs-lg);
+  line-height: 1.3;
   color: var(--off-ink-1);
 }
 .off-loop-start-intro p {
@@ -390,6 +398,12 @@
   font-size: var(--off-fs-meta);
   font-weight: 640;
   color: var(--off-ink-3);
+}
+
+@media (max-width: 920px) {
+  .off-loop-start {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .off-loop-start-chips {
   display: flex;
@@ -803,7 +817,8 @@
 
 /* ── Narrow window: drawer stacks under the graph; cards single column. ── */
 @media (max-width: 920px) {
-  .off-loop-editor-body {
+  .off-loop-editor-body,
+  .off-loop-editor-body.is-details-open {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
   }

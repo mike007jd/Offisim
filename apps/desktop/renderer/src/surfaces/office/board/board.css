@@ -31,35 +31,6 @@
   background: var(--off-surface-1);
 }
 
-.off-board-segment {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px;
-  border: 1px solid var(--off-line-soft);
-  border-radius: var(--off-r-sm);
-  background: var(--off-surface-sunken);
-}
-
-.off-board-segment button {
-  height: 27px;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--off-sp-1);
-  padding: 0 var(--off-sp-3);
-  border: 0;
-  border-radius: var(--off-radius-control);
-  background: transparent;
-  color: var(--off-ink-3);
-  font-size: var(--off-fs-meta);
-  font-weight: 660;
-}
-
-.off-board-segment button.is-active {
-  background: var(--off-surface-1);
-  color: var(--off-ink-1);
-  box-shadow: var(--off-elev-1);
-}
-
 .off-board-scope-note {
   margin-left: auto;
   color: var(--off-ink-4);

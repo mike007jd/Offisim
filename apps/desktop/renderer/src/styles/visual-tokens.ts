@@ -1,8 +1,11 @@
 export const PANEL_SIZE_TOKENS = {
-  personnelRailMin: '180px',
+  personnelRailDefault: '280px',
+  personnelRailMin: '240px',
   personnelRailCollapsed: '64px',
   personnelInspectorMin: '320px',
   personnelInspectorMax: '460px',
+  studioRoomsMin: '180px',
+  studioDetailsMin: '220px',
 } as const;
 
 export const CANVAS_FONT_TOKENS = {

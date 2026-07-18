@@ -11,8 +11,14 @@ import {
 } from '@/design-system/primitives/dialog.js';
 import { Input } from '@/design-system/primitives/input.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
-import { ErrorState, SkeletonRows, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
-import { useMemo, useState } from 'react';
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  errorDetail,
+} from '@/surfaces/shared/SurfaceStates.js';
+import { Brain, SearchX } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   MEMORY_CATEGORIES,
@@ -78,6 +84,7 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterText, setFilterText] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const composeInputId = useId();
   // Live importance drafts keyed by memory id, so dragging the range slider
   // feels instant without issuing a DB mutation on every pointer tick. The
   // value is committed once on pointer/key release.
@@ -91,6 +98,7 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
         (!q || e.content.toLowerCase().includes(q)),
     );
   }, [entries, filterCategory, filterText]);
+  const hasFilters = filterCategory !== 'all' || filterText.trim().length > 0;
 
   const addEntry = () => {
     const content = composeText.trim();
@@ -186,7 +194,13 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
   return (
     <div className="off-pers-tab-shell">
       <div className="off-pers-tab-scroll">
-        <CapsLabel>Compose</CapsLabel>
+        <CapsLabel>General memory</CapsLabel>
+        <div className="off-pers-scope-intro">
+          <strong>Remember across projects</strong>
+          <span>
+            Preferences and knowledge saved here stay with this employee in every project.
+          </span>
+        </div>
         <div className="off-pers-mem-compose">
           <Select
             value={composeCategory}
@@ -195,8 +209,9 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
             aria-label="Memory category"
           />
           <Input
+            id={composeInputId}
             value={composeText}
-            placeholder="Add a memory…"
+            placeholder="What should this employee remember?"
             onChange={(e) => setComposeText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') addEntry();
@@ -213,32 +228,60 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
           </Button>
         </div>
 
-        <div className="off-pers-mem-filter">
-          <Select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            options={FILTER_OPTIONS}
-            aria-label="Filter by category"
-          />
-          <Input
-            value={filterText}
-            placeholder="Search memories…"
-            onChange={(e) => setFilterText(e.target.value)}
-          />
-        </div>
+        {entries.length > 0 ? (
+          <div className="off-pers-mem-filter">
+            <Select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              options={FILTER_OPTIONS}
+              aria-label="Filter by category"
+            />
+            <Input
+              value={filterText}
+              placeholder="Search memories…"
+              onChange={(e) => setFilterText(e.target.value)}
+            />
+          </div>
+        ) : null}
 
-        {MEMORY_CATEGORIES.map((category) => {
-          const rows = filtered.filter((e) => e.category === category);
-          return (
-            <div key={category} className="off-pers-mem-sec">
-              <div className="off-pers-mem-head">
-                <h4>{category}</h4>
-                <span className="off-pers-mem-count">{rows.length}</span>
-              </div>
-              {rows.length === 0 ? (
-                <p className="off-pers-mem-empty">No entries in this category.</p>
-              ) : (
-                rows.map((entry) => {
+        {entries.length === 0 ? (
+          <EmptyState
+            icon={Brain}
+            title="No general memory yet"
+            description="Add the first preference or lesson this employee should carry into future projects."
+            action={{
+              label: 'Add first memory',
+              onClick: () => document.getElementById(composeInputId)?.focus(),
+            }}
+          />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={SearchX}
+            title="No matching memories"
+            description="Try a different phrase or show all categories."
+            action={
+              hasFilters
+                ? {
+                    label: 'Reset filters',
+                    onClick: () => {
+                      setFilterCategory('all');
+                      setFilterText('');
+                    },
+                  }
+                : undefined
+            }
+          />
+        ) : (
+          MEMORY_CATEGORIES.map((category) => {
+            const rows = filtered.filter((e) => e.category === category);
+            if (rows.length === 0) return null;
+            return (
+              <div key={category} className="off-pers-mem-sec">
+                <div className="off-pers-mem-head">
+                  <h4>{category}</h4>
+                  <span className="off-pers-mem-count">{rows.length}</span>
+                </div>
+                {rows.map((entry) => {
                   const importanceValue = importanceDrafts[entry.id] ?? entry.importance;
                   return (
                     <div key={entry.id} className="off-pers-mem-entry">
@@ -261,8 +304,13 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
                           }
                           onCommit={() => commitImportance(entry.id, entry.importance)}
                         />
-                        <span>scope: {entry.scope}</span>
-                        <span>reinforced: {entry.reinforced}</span>
+                        <span>{entry.scope === 'company' ? 'Company-wide' : 'This employee'}</span>
+                        {entry.reinforced > 0 ? (
+                          <span>
+                            Strengthened {entry.reinforced}{' '}
+                            {entry.reinforced === 1 ? 'time' : 'times'}
+                          </span>
+                        ) : null}
                         <button
                           type="button"
                           className="off-pers-mem-del off-focusable"
@@ -273,11 +321,11 @@ export function MemoryTab({ employeeId }: MemoryTabProps) {
                       </div>
                     </div>
                   );
-                })
-              )}
-            </div>
-          );
-        })}
+                })}
+              </div>
+            );
+          })
+        )}
       </div>
       <Dialog
         open={pendingDelete !== null}

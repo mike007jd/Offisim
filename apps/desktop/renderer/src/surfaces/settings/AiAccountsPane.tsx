@@ -33,7 +33,6 @@ import {
   ExternalLink,
   FolderOpen,
   Info,
-  List,
   Pencil,
   Plus,
   RefreshCw,
@@ -382,6 +381,14 @@ function orchestrationStateLabel(state: OrchestrationEngineStatus['state']): str
   return 'Unavailable';
 }
 
+function QuietReadyState({ children }: { children: string }) {
+  return (
+    <span className="off-set-inline-state is-ready">
+      <span /> {children}
+    </span>
+  );
+}
+
 function OrchestrationEngineCard({ engine }: { engine: OrchestrationEngineStatus }) {
   const [copied, setCopied] = useState(false);
   const docsUrl = useMemo(() => {
@@ -398,39 +405,43 @@ function OrchestrationEngineCard({ engine }: { engine: OrchestrationEngineStatus
     window.setTimeout(() => setCopied(false), 1_500);
   };
   return (
-    <div className="off-set-provider-runtime">
+    <div className="off-set-provider-runtime off-set-engine-card">
       <div className="off-set-pv-logo">
         <Icon icon={Terminal} size="md" />
       </div>
       <div className="min-w-0">
         <div className="off-set-pv-name">
           {engine.displayName}
-          <StatusPill
-            tone={
-              engine.state === 'ready' ? 'ok' : engine.state === 'unavailable' ? 'muted' : 'warn'
-            }
-          >
-            {orchestrationStateLabel(engine.state)}
-          </StatusPill>
+          {engine.state === 'ready' ? (
+            <QuietReadyState>Ready</QuietReadyState>
+          ) : (
+            <StatusPill tone={engine.state === 'unavailable' ? 'danger' : 'warn'}>
+              {orchestrationStateLabel(engine.state)}
+            </StatusPill>
+          )}
         </div>
         <div className="off-set-pv-meta">
-          {engine.version ? `Version ${engine.version} · ` : ''}订阅内 · 无 API 成本 · checked{' '}
-          {checkedAtLabel(engine.checkedAt)}
+          {engine.version ? `Version ${engine.version} · ` : ''}Subscription included · No API cost
+          · checked {checkedAtLabel(engine.checkedAt)}
         </div>
         {engine.statusReason ? <div className="off-set-pv-meta">{engine.statusReason}</div> : null}
       </div>
-      <Button variant="outline" size="sm" onClick={() => void copyCommand()}>
-        <Icon icon={copied ? Check : Copy} size="sm" />
-        {copied ? 'Copied' : `Copy ${engine.loginCommand}`}
-      </Button>
-      {docsUrl ? (
-        <Button variant="outline" size="sm" asChild>
-          <a href={docsUrl} target="_blank" rel="noreferrer">
-            <Icon icon={ExternalLink} size="sm" />
-            Official guide
-          </a>
-        </Button>
-      ) : null}
+      <div className="off-set-engine-actions">
+        {engine.state === 'not-signed-in' ? (
+          <Button variant="outline" size="sm" onClick={() => void copyCommand()}>
+            <Icon icon={copied ? Check : Copy} size="sm" />
+            {copied ? 'Copied' : 'Copy login command'}
+          </Button>
+        ) : null}
+        {docsUrl ? (
+          <Button variant="outline" size="sm" asChild>
+            <a href={docsUrl} target="_blank" rel="noreferrer">
+              <Icon icon={ExternalLink} size="sm" />
+              Official guide
+            </a>
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -579,6 +590,13 @@ export function AiAccountsPane() {
   const orchestrationEngines = runtimeQuery.data?.orchestrationEngines ?? [];
   const refreshing =
     runtimeQuery.isFetching || providerQuery.isFetching || accountingQuery.isFetching;
+  const pageState = refreshing
+    ? 'checking'
+    : runtimeQuery.isError
+      ? 'failed'
+      : providerQuery.isError || accountingQuery.isError
+        ? 'attention'
+        : 'ready';
   const refresh = async () => {
     await Promise.all([runtimeQuery.refetch(), providerQuery.refetch(), accountingQuery.refetch()]);
     await queryClient.invalidateQueries({ queryKey: ['agent-runtime', 'models'] });
@@ -589,7 +607,7 @@ export function AiAccountsPane() {
       <div className="off-set-panehead">
         <div className="off-set-panetitle">AI Accounts</div>
         <div className="off-set-panedesc">
-          Pi-managed API providers and external CLI orchestration engines.
+          Connect pay-as-you-go API providers or use coding tools from your existing subscriptions.
         </div>
       </div>
       <div className="off-set-provider-runtime">
@@ -598,14 +616,33 @@ export function AiAccountsPane() {
         </div>
         <div className="min-w-0">
           <div className="off-set-pv-name">
-            AI engines
-            <StatusPill tone={refreshing ? 'accent' : 'ok'} running={refreshing}>
-              {refreshing ? 'Checking' : 'Ready'}
-            </StatusPill>
+            API engines
+            {pageState === 'ready' ? (
+              <QuietReadyState>Up to date</QuietReadyState>
+            ) : (
+              <StatusPill
+                tone={
+                  pageState === 'checking' ? 'accent' : pageState === 'failed' ? 'danger' : 'warn'
+                }
+                running={pageState === 'checking'}
+              >
+                {pageState === 'checking'
+                  ? 'Checking'
+                  : pageState === 'failed'
+                    ? 'Unavailable'
+                    : 'Needs attention'}
+              </StatusPill>
+            )}
           </div>
           <div className="off-set-pv-meta">
-            {providerConfigs.length} API providers · {orchestrationEngines.length} orchestration
-            engines · checked {checkedAtLabel(runtimeQuery.data?.checkedAt)}
+            {providerQuery.isError
+              ? 'API provider status unavailable'
+              : `${providerConfigs.length} API ${providerConfigs.length === 1 ? 'provider' : 'providers'}`}{' '}
+            ·{' '}
+            {runtimeQuery.isError
+              ? 'subscription tool status unavailable'
+              : `${orchestrationEngines.length} subscription ${orchestrationEngines.length === 1 ? 'tool' : 'tools'}`}{' '}
+            · checked {checkedAtLabel(runtimeQuery.data?.checkedAt)}
           </div>
         </div>
         <Button
@@ -624,72 +661,28 @@ export function AiAccountsPane() {
           AI settings are available inside the desktop app.
         </div>
       ) : null}
-      {runtimeQuery.isError || providerQuery.isError ? (
+      {pageState === 'failed' || pageState === 'attention' ? (
         <div className="off-set-callout is-warn mt-[var(--off-sp-3)]">
           <Icon icon={TriangleAlert} size="sm" />
-          {providerQuery.isError
-            ? 'Pi provider configuration is unavailable.'
-            : 'AI runtime status is unavailable.'}
+          {pageState === 'failed'
+            ? "Offisim couldn't check API providers or subscription tools. Refresh to try again."
+            : "Some account details couldn't be checked. Available settings remain usable; refresh to retry."}
         </div>
       ) : null}
 
       <section className="off-set-account-section">
         <div className="off-set-sec-head">
-          <CapsLabel>API engines</CapsLabel>
-          <span>
-            Pi owns ~/.pi/agent/models.json; Offisim shows safe summaries and edit controls.
-          </span>
+          <CapsLabel>API providers</CapsLabel>
+          <span>Add providers and choose the exact models available to employees.</span>
         </div>
-        <section className="off-set-provider-console">
-          <aside className="off-set-provider-list" aria-label="Pi providers">
-            <div className="off-set-provider-list-head">
-              <CapsLabel>Providers</CapsLabel>
-              <span>{providerConfigs.length}</span>
-            </div>
-            {providerConfigs.length ? (
-              <button
-                type="button"
-                className={`off-set-provider-nav off-focusable ${selection.mode === 'overview' ? 'is-active' : ''}`}
-                onClick={() => setSelection({ mode: 'overview' })}
-              >
-                <Icon icon={List} size="sm" />
-                <span>All providers</span>
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className={`off-set-provider-nav off-focusable ${selection.mode === 'add' ? 'is-active' : ''}`}
-              onClick={() => showAddProvider()}
-            >
-              <Icon icon={Plus} size="sm" />
-              <span>Add provider</span>
-            </button>
-            <div className="off-set-provider-nav-scroll">
-              {providerConfigs.map((provider) => (
-                <button
-                  type="button"
-                  key={provider.provider}
-                  className={`off-set-provider-nav off-focusable ${selection.mode === 'edit' && selection.id === provider.provider ? 'is-active' : ''}`}
-                  onClick={() => editProvider(provider)}
-                >
-                  <span
-                    className={`off-set-provider-dot ${provider.hasApiKey || provider.authSource ? 'is-ready' : 'is-muted'}`}
-                  />
-                  <span className="off-set-provider-nav-copy">
-                    <span>{provider.displayName}</span>
-                    <small>{provider.provider}</small>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </aside>
+        <section className="off-set-provider-card">
           <div className="off-set-provider-detail">
             {selection.mode === 'overview' ? (
               <div className="off-set-provider-form">
                 <div className="off-set-provider-detail-head">
                   <div>
                     <h3>Configured providers</h3>
-                    <p>Safe summary only. Stored API keys are never returned to this page.</p>
+                    <p>Saved API keys stay private and are never shown again.</p>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => showAddProvider()}>
                     <Icon icon={Plus} size="sm" />
@@ -697,6 +690,11 @@ export function AiAccountsPane() {
                   </Button>
                 </div>
                 <div className="off-set-provider-overview">
+                  {providerQuery.isError ? (
+                    <div className="off-set-provider-empty">
+                      Couldn't load configured providers. Refresh to check again.
+                    </div>
+                  ) : null}
                   {providerConfigs.map((provider) => (
                     <div className="off-set-provider-overview-row" key={provider.provider}>
                       <span
@@ -708,20 +706,30 @@ export function AiAccountsPane() {
                       </span>
                       <span className="off-set-provider-overview-meta">
                         {provider.models.length} {provider.models.length === 1 ? 'model' : 'models'}{' '}
-                        · {provider.api ?? 'API format not set'}
+                        · {provider.api ?? 'Format not set'} ·{' '}
+                        {provider.hasApiKey || provider.authSource ? 'Key saved' : 'Key needed'}
                       </span>
-                      <StatusPill tone={provider.hasApiKey || provider.authSource ? 'ok' : 'muted'}>
-                        {provider.hasApiKey || provider.authSource
-                          ? 'Credentials configured'
-                          : 'Needs key'}
-                      </StatusPill>
-                      <Button variant="subtle" size="sm" onClick={() => editProvider(provider)}>
-                        <Icon icon={Pencil} size="sm" />
-                        Edit
-                      </Button>
+                      <span className="off-set-provider-row-actions">
+                        {provider.hasApiKey || provider.authSource ? null : (
+                          <StatusPill tone="warn">Needs key</StatusPill>
+                        )}
+                        <Button variant="subtle" size="sm" onClick={() => editProvider(provider)}>
+                          <Icon icon={Pencil} size="sm" />
+                          Edit
+                        </Button>
+                      </span>
                     </div>
                   ))}
+                  {!providerQuery.isLoading && !providerQuery.isError && !providerConfigs.length ? (
+                    <div className="off-set-provider-empty">
+                      No API providers yet. Add one to make its models available to employees.
+                    </div>
+                  ) : null}
                 </div>
+              </div>
+            ) : runtimeQuery.isError || accountingQuery.isError ? (
+              <div className="off-set-provider-empty">
+                Couldn't check API account activity. Refresh to try again.
               </div>
             ) : (
               <div className="off-set-provider-form">
@@ -743,7 +751,7 @@ export function AiAccountsPane() {
                         : (selectedProvider?.displayName ?? 'Edit provider')}
                     </h3>
                     <p>
-                      Endpoint, model ids, and credentials are written directly to Pi models.json.
+                      The endpoint, model IDs, and key are saved in your local Pi configuration.
                     </p>
                   </div>
                   <Button
@@ -760,7 +768,7 @@ export function AiAccountsPane() {
                   </Button>
                 </div>
                 <div className="off-set-provider-form-grid">
-                  <FormField label="Provider id" htmlFor={providerIdInputId}>
+                  <FormField label="Provider ID" htmlFor={providerIdInputId}>
                     <Input
                       id={providerIdInputId}
                       value={form.providerId}
@@ -890,15 +898,11 @@ export function AiAccountsPane() {
 
         <div className="off-set-sec-head">
           <CapsLabel>API account activity</CapsLabel>
-          <span>Usage and API cost remain separate from provider configuration.</span>
+          <span>Usage and pay-as-you-go cost from completed API tasks.</span>
         </div>
-        <section className="off-set-provider-console">
-          <aside className="off-set-provider-list" aria-label="API accounts">
-            <div className="off-set-provider-list-head">
-              <CapsLabel>Accounts</CapsLabel>
-              <span>{apiAccounts.length}</span>
-            </div>
-            <div className="off-set-provider-nav-scroll">
+        <section className="off-set-provider-card">
+          {apiAccounts.length > 1 ? (
+            <div className="off-set-account-switcher" aria-label="API accounts">
               {apiAccounts.map((account) => (
                 <button
                   type="button"
@@ -911,23 +915,29 @@ export function AiAccountsPane() {
                   />
                   <span className="off-set-provider-nav-copy">
                     <span>{account.displayName}</span>
-                    <small>API account</small>
+                    <small>
+                      {account.status === 'available' ? 'Available' : 'Needs attention'}
+                    </small>
                   </span>
                 </button>
               ))}
             </div>
-          </aside>
+          ) : null}
           <div className="off-set-provider-detail">
             {selectedAccount ? (
               <>
                 <div className="off-set-provider-detail-head">
                   <div>
                     <h3>{selectedAccount.displayName}</h3>
-                    <p>{selectedAccount.statusReason ?? 'API usage and cost summary'}</p>
+                    <p>
+                      {selectedAccount.statusReason ?? 'Usage and cost for completed API tasks'}
+                    </p>
                   </div>
-                  <StatusPill tone={selectedAccount.status === 'available' ? 'ok' : 'muted'}>
-                    {selectedAccount.status === 'available' ? 'Available' : 'Unavailable'}
-                  </StatusPill>
+                  {selectedAccount.status === 'available' ? (
+                    <QuietReadyState>Available</QuietReadyState>
+                  ) : (
+                    <StatusPill tone="danger">Unavailable</StatusPill>
+                  )}
                 </div>
                 <div className="off-set-provider-summary-grid">
                   <div>
@@ -961,16 +971,20 @@ export function AiAccountsPane() {
                           <strong>{model.displayName}</strong>
                           <code>{model.modelId}</code>
                         </div>
-                        <StatusPill tone={modelAvailabilityTone(model)}>
-                          {model.availability}
-                        </StatusPill>
+                        {model.availability === 'available' ? null : (
+                          <StatusPill tone={modelAvailabilityTone(model)}>
+                            {model.availability}
+                          </StatusPill>
+                        )}
                       </div>
                     ))}
                   </div>
                 </section>
               </>
             ) : (
-              <div className="off-set-provider-empty">No API account is available.</div>
+              <div className="off-set-provider-empty">
+                No API activity yet. Add a provider above, then run a task to see usage here.
+              </div>
             )}
           </div>
         </section>
@@ -978,18 +992,20 @@ export function AiAccountsPane() {
 
       <section className="off-set-account-section">
         <div className="off-set-sec-head">
-          <CapsLabel>Orchestration engines</CapsLabel>
-          <span>CLI-owned sign-in, model selection, and credentials.</span>
+          <CapsLabel>Subscription tools</CapsLabel>
+          <span>Use Codex or Claude Code with the subscription you already have.</span>
         </div>
         <div className="off-set-callout is-muted">
           <Icon icon={Info} size="sm" />
-          Offisim never receives or persists CLI credentials. Use the CLI's own login flow.
+          Sign-in and model choices stay inside each tool. Offisim only checks whether it is ready.
         </div>
         {orchestrationEngines.map((engine) => (
           <OrchestrationEngineCard key={engine.engineId} engine={engine} />
         ))}
-        {!runtimeQuery.isLoading && !orchestrationEngines.length ? (
-          <div className="off-set-provider-empty">No orchestration engines reported.</div>
+        {!runtimeQuery.isLoading && !runtimeQuery.isError && !orchestrationEngines.length ? (
+          <div className="off-set-provider-empty">
+            No supported subscription tools were detected. Refresh to check again.
+          </div>
         ) : null}
       </section>
     </div>

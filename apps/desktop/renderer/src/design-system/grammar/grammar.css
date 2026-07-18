@@ -2,7 +2,7 @@
   color: var(--off-ink-3);
   font-size: var(--off-fs-micro);
   font-weight: 680;
-  letter-spacing: 0;
+  letter-spacing: var(--off-ls-caps);
   text-transform: uppercase;
 }
 
@@ -801,8 +801,8 @@
   border-radius: var(--off-r-pill);
   font-size: var(--off-fs-micro);
   font-weight: 720;
-  letter-spacing: 0;
-  text-transform: capitalize;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .off-status-dot {

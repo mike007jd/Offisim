@@ -210,8 +210,10 @@ export function ExternalEmployeesPane() {
     <div className="off-set-pane">
       <div className="off-set-ext-head">
         <div>
-          <div className="off-set-panetitle">External Employees</div>
-          <div className="off-set-panedesc">External employees connected over A2A.</div>
+          <div className="off-set-panetitle">Connected Employees</div>
+          <div className="off-set-panedesc">
+            Employees provided by external services through an A2A connection.
+          </div>
         </div>
         {sorted.length > 0 ? (
           <Button

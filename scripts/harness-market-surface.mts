@@ -176,9 +176,9 @@ check('Market main flow does not expose connection implementation terms', () => 
   }
 });
 
-check('endpoint and token live only in Advanced connection settings', () => {
-  assert.match(settingsSurface, /key: 'advanced', label: 'Advanced'/);
-  assert.match(advancedPane, /Advanced connections/);
+check('endpoint and token live only in Service Connections settings', () => {
+  assert.match(settingsSurface, /key: 'advanced', label: 'Service Connections'/);
+  assert.match(advancedPane, /Service Connections/);
   assert.match(advancedPane, /label="Endpoint"/);
   assert.match(advancedPane, /label="Access token"/);
   assert.match(marketSurface, /openSettings\('advanced'\)/);

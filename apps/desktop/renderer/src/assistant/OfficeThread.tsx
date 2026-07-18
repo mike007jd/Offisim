@@ -140,11 +140,13 @@ function LoopAwareSend({
 
 function OfficeComposerInput({
   isRunning,
+  shouldAutoFocus,
   employeeName,
   editRevision,
   onSend,
 }: {
   isRunning: boolean;
+  shouldAutoFocus: boolean;
   employeeName: string | null;
   editRevision: { current: number };
   onSend: (text: string, behavior: AgentQueueBehavior) => Promise<boolean>;
@@ -165,6 +167,7 @@ function OfficeComposerInput({
   return (
     <ComposerPrimitive.Input
       className="off-composer-input"
+      autoFocus={shouldAutoFocus}
       placeholder={
         isRunning
           ? 'Enter adjusts the current run · ⌥Enter queues next'
@@ -400,6 +403,7 @@ function OfficeComposer({
             <div className="off-composer-input-wrap">
               <OfficeComposerInput
                 isRunning={isRunning}
+                shouldAutoFocus={isDraft}
                 employeeName={employeeName}
                 editRevision={composerEditRevision}
                 onSend={sendWhileRunning}

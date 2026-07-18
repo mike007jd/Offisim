@@ -7,6 +7,43 @@ import { AlertTriangle } from 'lucide-react';
 interface EmptyStateAction {
   label: string;
   onClick: () => void;
+  disabled?: boolean;
+}
+
+function StateActions({
+  primary,
+  secondary,
+  tertiary,
+}: {
+  primary?: EmptyStateAction;
+  secondary?: EmptyStateAction;
+  tertiary?: EmptyStateAction;
+}) {
+  if (!primary && !secondary && !tertiary) return null;
+  return (
+    <div className="off-state-actions">
+      {primary ? (
+        <Button variant="subtle" size="sm" onClick={primary.onClick} disabled={primary.disabled}>
+          {primary.label}
+        </Button>
+      ) : null}
+      {secondary ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={secondary.onClick}
+          disabled={secondary.disabled}
+        >
+          {secondary.label}
+        </Button>
+      ) : null}
+      {tertiary ? (
+        <Button variant="ghost" size="sm" onClick={tertiary.onClick} disabled={tertiary.disabled}>
+          {tertiary.label}
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 interface EmptyStateProps {
@@ -17,6 +54,8 @@ interface EmptyStateProps {
   action?: EmptyStateAction;
   /** Optional lower-emphasis alternative shown beside the primary action. */
   secondaryAction?: EmptyStateAction;
+  /** Optional quiet escape hatch when a state has two recovery paths plus settings. */
+  tertiaryAction?: EmptyStateAction;
   /** Muted tertiary line for context (e.g. the bound folder path + detected state). */
   detail?: string;
   className?: string;
@@ -28,6 +67,7 @@ export function EmptyState({
   description,
   action,
   secondaryAction,
+  tertiaryAction,
   detail,
   className,
 }: EmptyStateProps) {
@@ -38,20 +78,7 @@ export function EmptyState({
       </span>
       <p className="off-state-title">{title}</p>
       <p className="off-state-desc">{description}</p>
-      {action || secondaryAction ? (
-        <div className="off-state-actions">
-          {action ? (
-            <Button variant="subtle" size="sm" onClick={action.onClick}>
-              {action.label}
-            </Button>
-          ) : null}
-          {secondaryAction ? (
-            <Button variant="ghost" size="sm" onClick={secondaryAction.onClick}>
-              {secondaryAction.label}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+      <StateActions primary={action} secondary={secondaryAction} tertiary={tertiaryAction} />
       {detail ? <p className="off-state-detail">{detail}</p> : null}
     </div>
   );
@@ -61,10 +88,21 @@ interface ErrorStateProps {
   title: string;
   detail: string;
   onRetry?: () => void;
+  retrying?: boolean;
+  secondaryAction?: EmptyStateAction;
+  tertiaryAction?: EmptyStateAction;
   className?: string;
 }
 
-export function ErrorState({ title, detail, onRetry, className }: ErrorStateProps) {
+export function ErrorState({
+  title,
+  detail,
+  onRetry,
+  retrying = false,
+  secondaryAction,
+  tertiaryAction,
+  className,
+}: ErrorStateProps) {
   return (
     <div className={cn('off-state is-error', className)}>
       <span className="off-state-glyph is-error">
@@ -72,11 +110,15 @@ export function ErrorState({ title, detail, onRetry, className }: ErrorStateProp
       </span>
       <p className="off-state-title">{title}</p>
       <p className="off-state-desc">{detail}</p>
-      {onRetry ? (
-        <Button variant="subtle" size="sm" onClick={onRetry}>
-          Retry
-        </Button>
-      ) : null}
+      <StateActions
+        primary={
+          onRetry
+            ? { label: retrying ? 'Retrying…' : 'Retry', onClick: onRetry, disabled: retrying }
+            : undefined
+        }
+        secondary={secondaryAction}
+        tertiary={tertiaryAction}
+      />
     </div>
   );
 }

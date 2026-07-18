@@ -7,6 +7,78 @@ type WorkspaceKey = 'office' | 'market' | 'personnel';
 type OverlaySurface = 'mission' | 'settings' | 'studio' | 'lifecycle';
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
+export interface SurfaceLeaveRequest {
+  from: SurfaceKey;
+  to: SurfaceKey;
+  /** Commit the already-requested transition after the surface confirms discard. */
+  proceed: () => void;
+  /** Cancel the requested transition and resolve any waiting navigation. */
+  cancel: () => void;
+}
+
+export type SurfaceLeaveGuard = (request: SurfaceLeaveRequest) => boolean;
+
+const surfaceLeaveGuards = new Map<SurfaceKey, SurfaceLeaveGuard>();
+let authorizedSurfaceTransitionDepth = 0;
+
+/** Register one surface-owned dirty-state guard without putting callbacks in Zustand state.
+ *  Return true from the guard to allow immediately, or false after taking ownership of
+ *  `proceed` (for example by showing the shared discard confirmation). */
+export function registerSurfaceLeaveGuard(
+  surface: SurfaceKey,
+  guard: SurfaceLeaveGuard,
+): () => void {
+  surfaceLeaveGuards.set(surface, guard);
+  return () => {
+    if (surfaceLeaveGuards.get(surface) === guard) surfaceLeaveGuards.delete(surface);
+  };
+}
+
+function runSurfaceTransition(from: SurfaceKey, to: SurfaceKey, proceed: () => void): boolean {
+  if (from === to || authorizedSurfaceTransitionDepth > 0) {
+    proceed();
+    return true;
+  }
+  const guard = surfaceLeaveGuards.get(from);
+  if (guard && !guard({ from, to, proceed, cancel: () => undefined })) return false;
+  proceed();
+  return true;
+}
+
+/** Guard a mutation that changes the active surface's data scope. Unlike an
+ * ordinary same-surface navigation, a scope change must still offer the owning
+ * editor a chance to save or discard before its records are replaced. */
+export function guardCurrentSurfaceScopeChange(
+  to: SurfaceKey,
+  proceed: () => void,
+): Promise<boolean> {
+  const from = useUiState.getState().surface;
+  const guard = surfaceLeaveGuards.get(from);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (allowed: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (allowed) {
+        authorizedSurfaceTransitionDepth += 1;
+        try {
+          proceed();
+        } finally {
+          authorizedSurfaceTransitionDepth -= 1;
+        }
+      }
+      resolve(allowed);
+    };
+    const request = {
+      from,
+      to,
+      proceed: () => finish(true),
+      cancel: () => finish(false),
+    };
+    if (!guard || guard(request)) finish(true);
+  });
+}
+
 type SceneRenderMode = '3d' | '2d';
 export type StagePrimaryTab = 'game' | 'board' | 'preview' | 'computer' | 'terminal' | 'review';
 type BoardLens = 'board' | 'timeline';
@@ -303,6 +375,7 @@ interface UiState {
   officeLeftRailCollapsed: boolean;
   officeRightRailCollapsed: boolean;
   officeStageMaximized: boolean;
+  officeStageMaximizedVersion: number;
   /** Dramaturgy presentation density for the office scene. */
   officeMode: DramaturgyMode;
   /** Ambient-only Codex companion visibility; never an AI/runtime actor. */
@@ -465,6 +538,7 @@ export const useUiState = create<UiState>((set, get) => ({
   officeLeftRailCollapsed: false,
   officeRightRailCollapsed: false,
   officeStageMaximized: false,
+  officeStageMaximizedVersion: 0,
   officeMode: 'office',
   officeCompanionEnabled: readOfficeCompanionEnabled(),
   officeCompanionPetId: readOfficeCompanionPetId(),
@@ -485,37 +559,53 @@ export const useUiState = create<UiState>((set, get) => ({
   pendingThreadFocus: null,
   focusedMessageId: null,
 
-  setSurface: (surface) => set({ surface }),
-  openSettings: (section) => set({ surface: 'settings', settingsSection: section ?? null }),
+  setSurface: (surface) =>
+    void runSurfaceTransition(get().surface, surface, () => set({ surface })),
+  openSettings: (section) =>
+    void runSurfaceTransition(get().surface, 'settings', () =>
+      set({ surface: 'settings', settingsSection: section ?? null }),
+    ),
   clearSettingsSection: () => set({ settingsSection: null }),
-  openLifecycle: (intent) => set({ surface: 'lifecycle', lifecycleIntent: intent }),
-  requestHire: () => set({ surface: 'personnel', pendingHire: true }),
+  openLifecycle: (intent) =>
+    void runSurfaceTransition(get().surface, 'lifecycle', () =>
+      set({ surface: 'lifecycle', lifecycleIntent: intent }),
+    ),
+  requestHire: () =>
+    void runSurfaceTransition(get().surface, 'personnel', () =>
+      set({ surface: 'personnel', pendingHire: true }),
+    ),
   consumePendingHire: () => set({ pendingHire: false }),
   requestLoopProjectSelect: (intent) =>
-    set({ surface: 'office', railMode: 'list', pendingLoopProjectSelect: intent }),
+    void runSurfaceTransition(get().surface, 'office', () =>
+      set({ surface: 'office', railMode: 'list', pendingLoopProjectSelect: intent }),
+    ),
   consumePendingLoopProjectSelect: (): { loopId: string; revisionId: string } | null => {
     const intent = get().pendingLoopProjectSelect;
     if (intent) set({ pendingLoopProjectSelect: null });
     return intent;
   },
   requestThreadFocus: (intent) =>
-    set({
-      projectId: intent.projectId,
-      pendingThreadFocus: intent,
-      selectedThreadId: null,
-      selectedCompanyThreadId: null,
-      companyThreadDraft: null,
-      draftThread: null,
-      railMode: 'list',
-      stagePrimaryTab: 'game',
-      stageView: { kind: 'scene' },
-      stageOpenTabs: [],
-      activeStageTabId: null,
-      stageSplitTabId: null,
-      boardHighlightedRunId: null,
-      focusedMessageId: null,
-      officeStageMaximized: false,
-    }),
+    void runSurfaceTransition(get().surface, 'office', () =>
+      set((state) => ({
+        surface: 'office',
+        projectId: intent.projectId,
+        pendingThreadFocus: intent,
+        selectedThreadId: null,
+        selectedCompanyThreadId: null,
+        companyThreadDraft: null,
+        draftThread: null,
+        railMode: 'list',
+        stagePrimaryTab: 'game',
+        stageView: { kind: 'scene' },
+        stageOpenTabs: [],
+        activeStageTabId: null,
+        stageSplitTabId: null,
+        boardHighlightedRunId: null,
+        focusedMessageId: null,
+        officeStageMaximized: false,
+        officeStageMaximizedVersion: state.officeStageMaximizedVersion + 1,
+      })),
+    ),
   consumePendingThreadFocus: () => {
     const intent = get().pendingThreadFocus;
     if (intent) set({ pendingThreadFocus: null });
@@ -523,7 +613,7 @@ export const useUiState = create<UiState>((set, get) => ({
   },
   clearFocusedMessage: () => set({ focusedMessageId: null }),
   setScope: (companyId, projectId) =>
-    set({
+    set((state) => ({
       companyId,
       projectId,
       selectedThreadId: null,
@@ -540,9 +630,10 @@ export const useUiState = create<UiState>((set, get) => ({
       pendingThreadFocus: null,
       focusedMessageId: null,
       officeStageMaximized: false,
-    }),
+      officeStageMaximizedVersion: state.officeStageMaximizedVersion + 1,
+    })),
   setProject: (projectId) =>
-    set({
+    set((state) => ({
       projectId,
       selectedThreadId: null,
       selectedCompanyThreadId: null,
@@ -558,7 +649,8 @@ export const useUiState = create<UiState>((set, get) => ({
       pendingThreadFocus: null,
       focusedMessageId: null,
       officeStageMaximized: false,
-    }),
+      officeStageMaximizedVersion: state.officeStageMaximizedVersion + 1,
+    })),
 
   openThread: (threadId, messageId = null) =>
     set({
@@ -761,19 +853,25 @@ export const useUiState = create<UiState>((set, get) => ({
   setStageSplitLayout: (layout) => set({ stageSplitLayout: persistStageSplitLayout(layout) }),
   highlightBoardRun: (boardHighlightedRunId) => set({ boardHighlightedRunId }),
   openBoard: (boardLens = 'board') =>
-    set({
-      surface: 'office',
-      activeStageTabId: null,
-      stageSplitTabId: null,
-      stagePrimaryTab: 'board',
-      stageView: { kind: 'scene' },
-      boardLens,
-    }),
+    void runSurfaceTransition(get().surface, 'office', () =>
+      set({
+        surface: 'office',
+        activeStageTabId: null,
+        stageSplitTabId: null,
+        stagePrimaryTab: 'board',
+        stageView: { kind: 'scene' },
+        boardLens,
+      }),
+    ),
   setBoardLens: (boardLens) => set({ boardLens }),
   setScenePipCollapsed: (scenePipCollapsed) => set({ scenePipCollapsed }),
   setOfficeLeftRailCollapsed: (officeLeftRailCollapsed) => set({ officeLeftRailCollapsed }),
   setOfficeRightRailCollapsed: (officeRightRailCollapsed) => set({ officeRightRailCollapsed }),
-  setOfficeStageMaximized: (officeStageMaximized) => set({ officeStageMaximized }),
+  setOfficeStageMaximized: (officeStageMaximized) =>
+    set((state) => ({
+      officeStageMaximized,
+      officeStageMaximizedVersion: state.officeStageMaximizedVersion + 1,
+    })),
   setOfficeMode: (officeMode) => set({ officeMode }),
   setOfficeCompanionEnabled: (officeCompanionEnabled) => {
     persistOfficeCompanionEnabled(officeCompanionEnabled);
@@ -792,5 +890,8 @@ export const useUiState = create<UiState>((set, get) => ({
   setPersonnelRailCollapsed: (personnelRailCollapsed) => set({ personnelRailCollapsed }),
 
   selectListing: (selectedListingId) => set({ selectedListingId }),
-  openLoopDetail: (selectedLoopId) => set({ surface: 'mission', selectedLoopId }),
+  openLoopDetail: (selectedLoopId) =>
+    void runSurfaceTransition(get().surface, 'mission', () =>
+      set({ surface: 'mission', selectedLoopId }),
+    ),
 }));

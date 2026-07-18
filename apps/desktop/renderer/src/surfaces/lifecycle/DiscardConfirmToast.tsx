@@ -7,19 +7,29 @@ interface DiscardConfirmOptions {
   detail?: string;
   /** Fired when the user confirms discard — resets dirty state + exits. */
   onDiscard: () => void;
+  /** Fired when the user keeps editing or a newer confirmation supersedes this one. */
+  onKeep?: () => void;
 }
 
 let activeToastId: string | number | null = null;
+let activeOnKeep: (() => void) | null = null;
 
 /** DiscardConfirmToast — the only path out of a dirty wizard. Renders the V3
  *  hard-dark `.discard-bar` grammar (matches the wizard surface) with
  *  Keep editing / Discard actions. Re-arming while shown is a no-op-replace so
  *  repeated Esc presses never bury or bypass the guard. */
-export function showDiscardConfirm({ message, detail, onDiscard }: DiscardConfirmOptions): void {
+export function showDiscardConfirm({
+  message,
+  detail,
+  onDiscard,
+  onKeep,
+}: DiscardConfirmOptions): void {
   // Already armed → keep the single instance (Esc re-arm should not bypass).
   if (activeToastId !== null) {
     toast.dismiss(activeToastId);
+    activeOnKeep?.();
   }
+  activeOnKeep = onKeep ?? null;
   activeToastId = toast.custom(
     (id) => (
       <div className="off-discard-bar" role="alertdialog" aria-label="Discard unsaved changes">
@@ -34,6 +44,9 @@ export function showDiscardConfirm({ message, detail, onDiscard }: DiscardConfir
             onClick={() => {
               toast.dismiss(id);
               activeToastId = null;
+              const keep = activeOnKeep;
+              activeOnKeep = null;
+              keep?.();
             }}
           >
             Keep editing
@@ -44,6 +57,7 @@ export function showDiscardConfirm({ message, detail, onDiscard }: DiscardConfir
             onClick={() => {
               toast.dismiss(id);
               activeToastId = null;
+              activeOnKeep = null;
               onDiscard();
             }}
           >
@@ -63,5 +77,8 @@ export function clearDiscardConfirm(): void {
   if (activeToastId !== null) {
     toast.dismiss(activeToastId);
     activeToastId = null;
+    const keep = activeOnKeep;
+    activeOnKeep = null;
+    keep?.();
   }
 }

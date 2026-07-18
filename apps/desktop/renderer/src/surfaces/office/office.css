@@ -1,59 +1,26 @@
 .off-office {
   position: absolute;
   inset: 0;
-  display: grid;
-  /* Chat is the focal column: widened, with the scene as calmer ambient space. */
-  grid-template-columns: 288px minmax(0, 1fr) 520px;
-  grid-template-rows: 1fr auto;
-  grid-template-areas:
-    "workspace stage chat"
-    "workspace team  chat";
   min-height: 0;
   background: var(--off-bg);
 }
 
-@media (max-width: 1200px) {
-  .off-office {
-    /* Keep all three columns (Files/Git stays a permanent column so it never
-       becomes unreachable); just trim the chat column so the stage keeps a
-       usable width when space is tight. */
-    grid-template-columns: 288px minmax(0, 1fr) 480px;
-  }
+.off-office-center {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.off-office.is-left-collapsed {
-  grid-template-columns: 0 minmax(0, 1fr) 520px;
+.off-office-aux-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.off-office.is-right-collapsed {
-  grid-template-columns: 288px minmax(0, 1fr) 0;
-}
-
-.off-office.is-left-collapsed.is-right-collapsed {
-  grid-template-columns: 0 minmax(0, 1fr) 0;
-}
-
-@media (max-width: 1200px) {
-  .off-office.is-left-collapsed {
-    grid-template-columns: 0 minmax(0, 1fr) 480px;
-  }
-
-  .off-office.is-right-collapsed {
-    grid-template-columns: 288px minmax(0, 1fr) 0;
-  }
-
-  .off-office.is-left-collapsed.is-right-collapsed {
-    grid-template-columns: 0 minmax(0, 1fr) 0;
-  }
-}
-
-.off-office.is-stage-maximized,
-.off-office.is-stage-maximized.is-left-collapsed,
-.off-office.is-stage-maximized.is-right-collapsed,
-.off-office.is-stage-maximized.is-left-collapsed.is-right-collapsed {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 1fr;
-  grid-template-areas: "stage";
+.off-office-resize-handle.is-hidden {
+  display: none;
 }
 
 .off-office.is-stage-maximized .off-ws-panel,
@@ -64,7 +31,6 @@
 
 /* --- Left workspace panel --- */
 .off-ws-panel {
-  grid-area: workspace;
   position: relative;
   min-height: 0;
   display: flex;
@@ -340,7 +306,6 @@
 
 /* --- Stage --- */
 .off-stage {
-  grid-area: stage;
   position: relative;
   container: off-stage / inline-size;
   min-width: 0;
@@ -1315,6 +1280,12 @@
 .off-stage-readout-part {
   min-width: 0;
   gap: var(--off-sp-2);
+}
+
+@media (max-width: 1100px) {
+  .off-stage-readout {
+    display: none;
+  }
 }
 
 @container off-stage (max-width: 920px) {
@@ -3408,7 +3379,6 @@
 
 /* --- Team dock --- */
 .off-team {
-  grid-area: team;
   min-height: 0;
   display: flex;
   align-items: center;
@@ -3734,7 +3704,6 @@
 
 /* --- Chat rail (single axis: list <-> thread, no tab bar) --- */
 .off-rail {
-  grid-area: chat;
   position: relative;
   min-height: 0;
   min-width: 0;
