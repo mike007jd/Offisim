@@ -5,7 +5,7 @@ import {
 } from '@/assistant/composer/usePiAgentModels.js';
 import { displayRole, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
-import { useCompanies, useEmployees } from '@/data/queries.js';
+import { useCompanies, useEmployees, useReassignEmployee } from '@/data/queries.js';
 import type { Employee, EmployeeAppearance } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
@@ -38,6 +38,7 @@ import {
   clearDiscardConfirm,
   showDiscardConfirm,
 } from '@/surfaces/lifecycle/DiscardConfirmToast.js';
+import { openFirstRunGuide } from '@/surfaces/onboarding/first-run-state.js';
 import {
   EmptyState,
   ErrorState,
@@ -744,6 +745,7 @@ function HireEmployeeDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const reassignEmployee = useReassignEmployee();
   const models = useAgentRuntimeModels();
   const nameInputId = useId();
   const roleInputId = useId();
@@ -788,6 +790,19 @@ function HireEmployeeDialog({
         model: model || null,
         thinking_level: model && supportsReasoning && thinkingLevel ? thinkingLevel : null,
       });
+      const zones = await repos.zones.findByCompany(companyId);
+      const firstDesk = zones.find((zone) => zone.archetype === 'workspace');
+      if (firstDesk) {
+        try {
+          await reassignEmployee.mutateAsync({
+            employeeId: employee_id,
+            zoneId: firstDesk.zone_id,
+          });
+        } catch (assignmentError) {
+          await repos.employees.delete(employee_id);
+          throw assignmentError;
+        }
+      }
       await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
       useUiState.getState().selectEmployee(employee_id);
       toast.success(`${name.trim()} hired`);
@@ -1045,6 +1060,9 @@ export function PersonnelSurface() {
               >
                 <Icon icon={Store} size="sm" />
                 Browse marketplace
+              </Button>
+              <Button variant="ghost" size="sm" onClick={openFirstRunGuide}>
+                Show setup guide
               </Button>
             </div>
           </div>

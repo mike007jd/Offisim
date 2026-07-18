@@ -12,6 +12,7 @@ import { aiStartupTemplate } from './ai-startup.js';
 import { contentStudioTemplate } from './content-studio.js';
 import { productTeamTemplate } from './product-team.js';
 import { rdCompanyTemplate } from './rd-company.js';
+import { starterCompanyTemplate } from './starter-company.js';
 import { vibeCodingStudioTemplate } from './vibe-coding-studio.js';
 
 export { agencyLiteTemplate } from './agency-lite.js';
@@ -20,6 +21,7 @@ export { contentStudioTemplate } from './content-studio.js';
 export { productTeamTemplate } from './product-team.js';
 export { rdCompanyTemplate } from './rd-company.js';
 export { vibeCodingStudioTemplate } from './vibe-coding-studio.js';
+export { starterCompanyTemplate } from './starter-company.js';
 
 export type TemplateModelTier = 'best' | 'economical' | 'balanced';
 
@@ -101,6 +103,7 @@ export interface CompanyTemplateDefinition {
 }
 
 const TEMPLATES: readonly CompanyTemplateDefinition[] = [
+  starterCompanyTemplate,
   rdCompanyTemplate,
   contentStudioTemplate,
   productTeamTemplate,

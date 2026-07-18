@@ -309,6 +309,7 @@ pub fn run() {
             local_paths::export_scene_drop_diagnostic,
             local_paths::save_deliverable_to_local,
             task_workspace_binding::project_workspace_select,
+            task_workspace_binding::project_demo_workspace_prepare,
             task_workspace_binding::project_create,
             task_workspace_binding::project_update,
             task_workspace_binding::project_update_status,

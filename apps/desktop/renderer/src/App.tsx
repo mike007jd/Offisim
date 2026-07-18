@@ -7,6 +7,7 @@ import { useRealDataBootstrap } from '@/runtime/useRealDataBootstrap.js';
 import { SurfaceRouter } from '@/surfaces/SurfaceRouter.js';
 import { LifecycleSurface } from '@/surfaces/lifecycle/LifecycleSurface.js';
 import { CodexPetProvider } from '@/surfaces/office/scene/office-companion/CodexPetProvider.js';
+import { FirstRunGuide } from '@/surfaces/onboarding/FirstRunGuide.js';
 import { useLoadPersistedAppearance } from '@/surfaces/settings/appearance.js';
 import { useEffect } from 'react';
 
@@ -34,9 +35,12 @@ export function App() {
   return (
     <CodexPetProvider>
       {isLifecycle ? (
-        <LifecycleSurface />
+        <div className="off-first-run-lifecycle">
+          <FirstRunGuide />
+          <LifecycleSurface />
+        </div>
       ) : (
-        <AppFrame>
+        <AppFrame banner={<FirstRunGuide />}>
           <SurfaceRouter />
         </AppFrame>
       )}

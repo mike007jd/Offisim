@@ -873,6 +873,7 @@ export interface CommandMap {
     { title?: string | null },
     ProjectWorkspaceSelectionClaim | null
   >;
+  project_demo_workspace_prepare: CommandSpec<Record<string, never>, ProjectWorkspaceSelectionClaim>;
   project_create: CommandSpec<{ input: ProjectCreateCommandInput }, void>;
   project_update: CommandSpec<{ input: ProjectUpdateCommandInput }, void>;
   project_update_status: CommandSpec<

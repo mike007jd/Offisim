@@ -17,6 +17,7 @@ import {
   type PiAgentProviderTemplate,
   invokeCommand,
 } from '@/lib/tauri-commands.js';
+import { openFirstRunGuide } from '@/surfaces/onboarding/first-run-state.js';
 import type {
   AiAccountDescriptor,
   AiModelCatalogEntry,
@@ -241,6 +242,13 @@ function modelAvailabilityTone(model: AiModelCatalogEntry) {
   if (model.availability === 'available') return 'ok' as const;
   if (model.availability === 'expiring') return 'warn' as const;
   return 'muted' as const;
+}
+
+function isModelRunnableNow(model: AiModelCatalogEntry) {
+  if (model.availability === 'available') return true;
+  if (model.availability !== 'expiring' || !model.expiresAt) return false;
+  const expiresAt = Date.parse(model.expiresAt);
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
 }
 
 function FormField({
@@ -588,6 +596,18 @@ export function AiAccountsPane() {
     (model) => model.engineId === 'api' && model.accountId === selectedAccount?.accountId,
   );
   const orchestrationEngines = runtimeQuery.data?.orchestrationEngines ?? [];
+  const hasRunnableApiModel = (runtimeQuery.data?.models ?? []).some(
+    (model) =>
+      model.engineId === 'api' &&
+      isModelRunnableNow(model) &&
+      apiAccounts.some(
+        (account) =>
+          account.accountId === model.accountId &&
+          account.status === 'available' &&
+          account.capabilities.execute.status === 'available' &&
+          account.capabilities.models.status === 'available',
+      ),
+  );
   const refreshing =
     runtimeQuery.isFetching || providerQuery.isFetching || accountingQuery.isFetching;
   const pageState = refreshing
@@ -667,6 +687,20 @@ export function AiAccountsPane() {
           {pageState === 'failed'
             ? "Offisim couldn't check API providers or subscription tools. Refresh to try again."
             : "Some account details couldn't be checked. Available settings remain usable; refresh to retry."}
+        </div>
+      ) : null}
+      {!runtimeQuery.isLoading &&
+      !runtimeQuery.isError &&
+      !hasRunnableApiModel &&
+      !orchestrationEngines.some((engine) => engine.state === 'ready') ? (
+        <div className="off-set-callout is-muted mt-[var(--off-sp-3)]">
+          <Icon icon={Info} size="sm" />
+          <span>
+            No engine is ready. Sign in to a detected coding tool, or add a Pi API provider below.
+          </span>
+          <Button variant="outline" size="sm" onClick={openFirstRunGuide}>
+            Resume setup guide
+          </Button>
         </div>
       ) : null}
 
