@@ -80,6 +80,7 @@ function run(command, args, { label = path.basename(command), forward = false, c
     cwd,
     env,
     encoding: 'utf8',
+    maxBuffer: 128 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   if (forward) {
