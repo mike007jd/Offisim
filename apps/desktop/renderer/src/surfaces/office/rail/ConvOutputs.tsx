@@ -1,7 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
 import { loadDeliverableBody, useProjects } from '@/data/queries.js';
-import type { Deliverable, Employee } from '@/data/types.js';
+import type { ChatAttachment, ChatMessage, Deliverable, Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primiti
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
-import { ChevronDown, Copy, FileCode2, FolderOpen, Save } from 'lucide-react';
+import { ChevronDown, Copy, FileCode2, FolderOpen, Paperclip, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -46,6 +46,7 @@ const TEXT_OUTPUT_EXTENSIONS: Record<string, string> = {
 interface ConvOutputsProps {
   deliverables: Deliverable[];
   employeesById: Map<string, Employee>;
+  sourceMessages: readonly ChatMessage[];
 }
 
 function Contributors({
@@ -81,11 +82,13 @@ function DeliverableCard({
   employeesById,
   projectId,
   workspaceBound,
+  sourceAttachments,
 }: {
   deliverable: Deliverable;
   employeesById: Map<string, Employee>;
   projectId: string | null;
   workspaceBound: boolean;
+  sourceAttachments: readonly ChatAttachment[];
 }) {
   const openStageView = useUiState((s) => s.openStageView);
   // J1 provenance: who produced it (first contributor) and which run it came
@@ -97,6 +100,9 @@ function DeliverableCard({
     producerName ? `By ${producerName}` : null,
     deliverable.kind,
     deliverable.runId ? `run ${deliverable.runId.slice(0, 8)}` : null,
+    sourceAttachments.length > 0
+      ? `from ${sourceAttachments.map((attachment) => attachment.name).join(', ')}`
+      : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -235,6 +241,16 @@ function DeliverableCard({
       {open ? (
         <div className="off-dlv-body">
           {provenance ? <div className="off-dlv-provenance">{provenance}</div> : null}
+          {sourceAttachments.length > 0 ? (
+            <div className="off-dlv-sources" aria-label="Source attachments">
+              {sourceAttachments.map((attachment) => (
+                <span key={attachment.id} className="off-dlv-source-chip">
+                  <Icon icon={Paperclip} size="sm" />
+                  {attachment.name}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <pre className="off-dlv-preview">
             {bodyLoading ? 'Loading output…' : outputBody || 'No output body.'}
           </pre>
@@ -272,7 +288,7 @@ function DeliverableCard({
   );
 }
 
-export function ConvOutputs({ deliverables, employeesById }: ConvOutputsProps) {
+export function ConvOutputs({ deliverables, employeesById, sourceMessages }: ConvOutputsProps) {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const projects = useProjects(companyId);
@@ -302,6 +318,14 @@ export function ConvOutputs({ deliverables, employeesById }: ConvOutputsProps) {
               employeesById={employeesById}
               projectId={projectId}
               workspaceBound={workspaceBound}
+              sourceAttachments={
+                deliverable.runId
+                  ? (sourceMessages.find(
+                      (message) =>
+                        message.author === 'boss' && message.attemptId === deliverable.runId,
+                    )?.attachments ?? [])
+                  : []
+              }
             />
           ))}
         </section>

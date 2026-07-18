@@ -84,6 +84,47 @@ function chatMessageRoundTrip() {
   return check('ChatMessage.attachments JSON round-trip', message, restored);
 }
 
+function codexEmptyImageWireShape() {
+  const runtimeSource = readFileSync(
+    new URL('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts', import.meta.url),
+    'utf8',
+  );
+  const commandTypesSource = readFileSync(
+    new URL('../apps/desktop/renderer/src/lib/tauri-commands.ts', import.meta.url),
+    'utf8',
+  );
+  const codexTypesSource = readFileSync(
+    new URL(
+      '../apps/desktop/src-tauri/src/codex_agent_host/types.rs',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const codexProtocolSource = readFileSync(
+    new URL(
+      '../apps/desktop/src-tauri/src/codex_agent_host/protocol.rs',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const codexBranch = runtimeSource.match(
+    /if \(this\.engineId === 'codex'\) \{[\s\S]*?\} else if \(this\.engineId === 'claude'\)/,
+  )?.[0];
+  const ok =
+    Boolean(codexBranch) &&
+    /images: input\.images\?\.length \? input\.images : \[\]/.test(codexBranch) &&
+    /images: Array<\{ data: string; mimeType: string \}>;/.test(commandTypesSource) &&
+    /artifact_paths: Option<Vec<String>>/.test(codexTypesSource) &&
+    /projected_file_change_paths/.test(codexProtocolSource) &&
+    /rootRun\('artifact\.created'/.test(runtimeSource);
+  if (!ok) {
+    console.error('[chat-attachment-roundtrip] FAIL Codex empty image wire shape');
+    return false;
+  }
+  console.log('[chat-attachment-roundtrip] ok Codex empty image wire shape');
+  return true;
+}
+
 async function readAttachmentToolScopeGuard() {
   const { createReadAttachmentTool } = await import(
     new URL('../packages/core/dist/tools/builtin/read-attachment-tool.js', import.meta.url).href
@@ -193,6 +234,7 @@ async function readAttachmentStructuredPdfLegacyContent() {
 const ok = [
   checkpointRoundTrip(),
   chatMessageRoundTrip(),
+  codexEmptyImageWireShape(),
   await readAttachmentToolScopeGuard(),
   await readAttachmentStructuredPdfLegacyContent(),
 ].every(Boolean);

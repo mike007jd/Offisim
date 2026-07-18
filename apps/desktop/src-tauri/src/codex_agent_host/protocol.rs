@@ -1547,6 +1547,8 @@ fn project_item(
     if item_type == "reasoning" || item_type == "userMessage" || item_type == "hookPrompt" {
         return Ok(());
     }
+    let file_change_paths = (item_type == "fileChange")
+        .then(|| projected_file_change_paths(item, workspace_root, codex_home));
     let (tool_name, detail, duration_ms, status) = match item_type {
         "commandExecution" => (
             "bash".to_string(),
@@ -1560,21 +1562,9 @@ fn project_item(
                 .to_string(),
         ),
         "fileChange" => {
-            let paths = item
-                .get("changes")
-                .and_then(Value::as_array)
-                .map(|changes| {
-                    changes
-                        .iter()
-                        .filter_map(|change| {
-                            change.get("path").and_then(Value::as_str).and_then(|path| {
-                                safe_workspace_path(path, workspace_root, codex_home)
-                            })
-                        })
-                        .take(8)
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                })
+            let paths = file_change_paths
+                .as_ref()
+                .map(|paths| paths.join(", "))
                 .filter(|value| !value.is_empty());
             (
                 "file_change".to_string(),
@@ -1664,14 +1654,38 @@ fn project_item(
         "enteredReviewMode" | "exitedReviewMode" | "sleep" | "imageGeneration" => return Ok(()),
         _ => return Ok(()),
     };
+    let normalized_status = normalize_tool_status(&status, completed);
     stream.publish(CodexAgentHostEvent::Tool {
-        status: normalize_tool_status(&status, completed).into(),
+        status: normalized_status.into(),
         tool_call_id: item_id.to_string(),
         tool_name,
         detail,
+        artifact_paths: (completed && normalized_status == "completed")
+            .then_some(file_change_paths)
+            .flatten()
+            .filter(|paths| !paths.is_empty()),
         duration_ms,
     });
     Ok(())
+}
+
+fn projected_file_change_paths(
+    item: &Map<String, Value>,
+    workspace_root: Option<&Path>,
+    codex_home: Option<&str>,
+) -> Vec<String> {
+    item.get("changes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|change| {
+            change
+                .get("path")
+                .and_then(Value::as_str)
+                .and_then(|path| safe_workspace_path(path, workspace_root, codex_home))
+        })
+        .take(8)
+        .collect()
 }
 
 fn normalize_tool_status(status: &str, completed: bool) -> &'static str {
@@ -1870,6 +1884,7 @@ fn emit_stream_projection(stream: &RunStream, projection: (StreamProjectionKind,
                 tool_call_id: item_id,
                 tool_name,
                 detail: Some(truncate(&delta)),
+                artifact_paths: None,
                 duration_ms: None,
             });
         }
@@ -2056,6 +2071,24 @@ mod tests {
         assert_eq!(request_timeout("turn/start"), Duration::from_secs(30));
         assert_eq!(request_timeout("thread/start"), Duration::from_secs(120));
         assert_eq!(request_timeout("thread/resume"), Duration::from_secs(120));
+    }
+
+    #[test]
+    fn file_change_artifacts_only_project_workspace_relative_paths() {
+        let workspace = Path::new("/tmp/offisim-project");
+        let item = json!({
+            "changes": [
+                { "path": "/tmp/offisim-project/codex-proof.md" },
+                { "path": "/tmp/outside.txt" },
+                { "path": "src/local.ts" }
+            ]
+        });
+        let paths = projected_file_change_paths(
+            item.as_object().expect("file change object"),
+            Some(workspace),
+            None,
+        );
+        assert_eq!(paths, vec!["./codex-proof.md", "src/local.ts"]);
     }
 
     #[cfg(unix)]

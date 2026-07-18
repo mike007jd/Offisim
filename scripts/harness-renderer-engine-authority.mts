@@ -69,6 +69,7 @@ const capabilities = {
   stop: true,
   steer: false,
   resume: true,
+  attachmentInput: { textFiles: true, images: 'supported' as const },
   permissionModes: ['plan', 'ask', 'auto', 'full'] as const,
   interactions: { approval: true, userInput: true },
   processEvents: { reasoning: true, toolCalls: true, fileChanges: true },

@@ -77,6 +77,7 @@ export type PiAgentHostEvent =
       toolCallId: string;
       toolName: string;
       detail?: string;
+      artifactPaths?: string[];
       durationMs?: number;
     }
   | {

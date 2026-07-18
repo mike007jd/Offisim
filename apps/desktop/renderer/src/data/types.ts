@@ -345,15 +345,19 @@ type AttachmentStatus = 'attached' | 'error';
 /** Canonical staging failure reasons (size cap, dedupe, unsupported, etc.). */
 export type AttachmentFailReason =
   | 'too-large'
+  | 'total-too-large'
   | 'duplicate'
   | 'unsupported-type'
+  | 'unreadable'
   | 'storage-unavailable'
   | 'too-many';
 
 export const ATTACHMENT_FAIL_MESSAGE: Record<AttachmentFailReason, string> = {
   'too-large': 'File exceeds the 8 MB attachment limit.',
+  'total-too-large': 'Attachments can total up to 24 MB per message.',
   duplicate: 'This file is already attached.',
   'unsupported-type': 'This file type can’t be attached.',
+  unreadable: 'This file couldn’t be read. Try exporting it again.',
   'storage-unavailable': 'Attachment storage is unavailable right now.',
   'too-many': 'You can attach up to 6 files per message.',
 };

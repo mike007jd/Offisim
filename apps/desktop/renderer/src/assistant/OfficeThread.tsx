@@ -19,6 +19,7 @@ import { listen } from '@tauri-apps/api/event';
 import { readFile } from '@tauri-apps/plugin-fs';
 import { MessageSquarePlus, Paperclip, SendHorizontal, Square } from 'lucide-react';
 import {
+  type ClipboardEvent,
   type DragEvent,
   type KeyboardEvent,
   useCallback,
@@ -38,6 +39,7 @@ import {
   shouldClearAcceptedComposerText,
 } from './composer/active-run-composer.js';
 import {
+  CHAT_ATTACHMENT_ACCEPT,
   type ComposerAttachmentScope,
   composerAttachmentScopeKey,
   useComposerAttachmentStore,
@@ -145,12 +147,14 @@ function OfficeComposerInput({
   employeeName,
   editRevision,
   onSend,
+  onPasteImages,
 }: {
   isRunning: boolean;
   shouldAutoFocus: boolean;
   employeeName: string | null;
   editRevision: { current: number };
   onSend: (text: string, behavior: AgentQueueBehavior) => Promise<boolean>;
+  onPasteImages: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
 }) {
   const text = useComposer((composer) => composer.text);
   const composer = useComposerRuntime();
@@ -180,6 +184,7 @@ function OfficeComposerInput({
       submitOnEnter={!isRunning}
       onChange={() => advanceComposerEditRevision(editRevision)}
       onKeyDown={onKeyDown}
+      onPaste={onPasteImages}
     />
   );
 }
@@ -239,6 +244,7 @@ function OfficeComposer({
   threadId,
   projectName,
   deliverables,
+  sourceMessages,
   employeesById,
   employeeName,
   scopeEmployeeId,
@@ -249,6 +255,7 @@ function OfficeComposer({
   threadId: string;
   projectName: string;
   deliverables: Deliverable[];
+  sourceMessages: readonly ChatMessage[];
   employeesById: Map<string, Employee>;
   /** Direct 1:1 threads address the employee by name; team threads stay generic. */
   employeeName: string | null;
@@ -300,15 +307,31 @@ function OfficeComposer({
     [onSendWhileRunning],
   );
 
-  function stageFileList(fileList: FileList | null) {
-    const files = Array.from(fileList ?? []).map((f) => ({
-      name: f.name,
-      bytes: f.size,
-      type: f.type,
-      file: f,
-    }));
-    if (files.length) void stageFiles(attachmentScope, files);
-  }
+  const stageFileList = useCallback(
+    (fileList: FileList | readonly File[] | null) => {
+      const files = Array.from(fileList ?? []).map((f) => ({
+        name: f.name,
+        bytes: f.size,
+        type: f.type,
+        file: f,
+      }));
+      if (files.length) void stageFiles(attachmentScope, files);
+    },
+    [attachmentScope, stageFiles],
+  );
+
+  const stagePastedImages = useCallback(
+    (event: ClipboardEvent<HTMLTextAreaElement>) => {
+      const images = Array.from(event.clipboardData.items)
+        .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null);
+      if (images.length === 0) return;
+      event.preventDefault();
+      stageFileList(images);
+    },
+    [stageFileList],
+  );
 
   const stageNativeFiles = useCallback(
     async (payload: NativeDroppedFilesPayload) => {
@@ -417,6 +440,7 @@ function OfficeComposer({
                 employeeName={employeeName}
                 editRevision={composerEditRevision}
                 onSend={sendWhileRunning}
+                onPasteImages={stagePastedImages}
               />
               <OfficeEnhanceButton
                 threadId={threadId}
@@ -432,6 +456,7 @@ function OfficeComposer({
                 type="file"
                 multiple
                 hidden
+                accept={CHAT_ATTACHMENT_ACCEPT}
                 onChange={(e) => {
                   stageFileList(e.target.files);
                   e.target.value = '';
@@ -447,7 +472,11 @@ function OfficeComposer({
               />
               <div className="off-thread-pitbar" aria-label="Conversation panels">
                 <CapabilityManifest threadId={threadId} employeeId={scopeEmployeeId} />
-                <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
+                <ConvOutputs
+                  deliverables={deliverables}
+                  employeesById={employeesById}
+                  sourceMessages={sourceMessages}
+                />
               </div>
               <div className="off-composer-controls">
                 <ComposerSettingsMenu threadId={threadId} contextLabel={projectName} />
@@ -495,7 +524,7 @@ export function OfficeThread({
     () => ({ companyId, projectId, threadId }),
     [companyId, projectId, threadId],
   );
-  const { runtime, sendWhileRunning } = useOfficeRuntime({
+  const { runtime, sendWhileRunning, messages } = useOfficeRuntime({
     threadId,
     seedMessages,
     assigneeId: employeeId,
@@ -564,6 +593,7 @@ export function OfficeThread({
           threadId={threadId}
           projectName={projectName}
           deliverables={deliverables}
+          sourceMessages={messages}
           employeesById={employeesById}
           employeeName={employeeId ? (employeesById.get(employeeId)?.name ?? null) : null}
           scopeEmployeeId={employeeId}

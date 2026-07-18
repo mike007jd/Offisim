@@ -13,7 +13,8 @@ import {
 } from '@offisim/shared-types';
 
 const INLINE_ATTACHMENT_MAX_CHARS = 48_000;
-const TRUNCATION_MARKER = '\n[truncated]';
+const TURN_ATTACHMENT_CONTEXT_MAX_CHARS = 96_000;
+const TRUNCATION_MARKER = '\n[Attachment content truncated to stay within the context limit.]';
 const NATIVE_IMAGE_MIMES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 export const ATTACHMENT_ONLY_PROMPT = 'Review the attached files.';
 
@@ -86,6 +87,7 @@ export async function materializeChatTurn({
   if (attached.length === 0) return { promptText: text, attachments: [], images: [] };
   const attachments: ChatAttachment[] = [];
   const images: Array<{ data: string; mimeType: string }> = [];
+  let contextCharsRemaining = TURN_ATTACHMENT_CONTEXT_MAX_CHARS;
   const promptLines: string[] = [
     text,
     '',
@@ -109,9 +111,14 @@ export async function materializeChatTurn({
       }
       continue;
     }
-    promptLines.push(
-      ...(await attachmentPromptLines(materialized.chatAttachment, attachment, materialized.bytes)),
+    const inline = await attachmentPromptLines(
+      materialized.chatAttachment,
+      attachment,
+      materialized.bytes,
+      contextCharsRemaining,
     );
+    promptLines.push(...inline.lines);
+    contextCharsRemaining -= inline.charactersUsed;
   }
 
   return { promptText: promptLines.join('\n'), attachments, images };
@@ -128,6 +135,7 @@ export async function rehydratePersistedChatTurn({
 }): Promise<MaterializedChatTurn> {
   if (attachments.length === 0) return { promptText: text, attachments: [], images: [] };
   const images: Array<{ data: string; mimeType: string }> = [];
+  let contextCharsRemaining = TURN_ATTACHMENT_CONTEXT_MAX_CHARS;
   const promptLines = [
     text,
     '',
@@ -165,7 +173,12 @@ export async function rehydratePersistedChatTurn({
       continue;
     }
     const inline = bytes
-      ? await inlineAttachmentBytes(bytes, attachment.mimeType, attachment.name)
+      ? await inlineAttachmentBytes(
+          bytes,
+          attachment.mimeType,
+          attachment.name,
+          contextCharsRemaining,
+        )
       : null;
     promptLines.push(
       attachmentHeader(attachment),
@@ -173,6 +186,7 @@ export async function rehydratePersistedChatTurn({
         ? `Parsed readable content:\n\`\`\`\n${inline}\n\`\`\``
         : 'Readable content: unavailable for this attachment type or parsing failed.',
     );
+    contextCharsRemaining -= inline?.length ?? 0;
   }
 
   return { promptText: promptLines.join('\n'), attachments: [...attachments], images };
@@ -234,32 +248,43 @@ async function attachmentPromptLines(
   chatAttachment: ChatAttachment,
   staged: StagedAttachment,
   bytes: Uint8Array | undefined,
-): Promise<string[]> {
+  contextCharsRemaining: number,
+): Promise<{ lines: string[]; charactersUsed: number }> {
   const header = attachmentHeader(chatAttachment);
-  const inline = await inlineAttachmentText(staged, bytes);
+  const inline = await inlineAttachmentText(staged, bytes, contextCharsRemaining);
   if (!inline)
-    return [header, 'Readable content: unavailable for this attachment type or parsing failed.'];
-  return [header, 'Parsed readable content:', '```', inline, '```'];
+    return {
+      lines: [header, 'Readable content: unavailable for this attachment type or parsing failed.'],
+      charactersUsed: 0,
+    };
+  return {
+    lines: [header, 'Parsed readable content:', '```', inline, '```'],
+    charactersUsed: inline.length,
+  };
 }
 
 async function inlineAttachmentText(
   attachment: StagedAttachment,
   bytes: Uint8Array | undefined,
+  contextCharsRemaining: number,
 ): Promise<string | null> {
   if (!bytes) return null;
-  return inlineAttachmentBytes(bytes, attachment.mimeType, attachment.name);
+  return inlineAttachmentBytes(bytes, attachment.mimeType, attachment.name, contextCharsRemaining);
 }
 
 async function inlineAttachmentBytes(
   bytes: Uint8Array,
   mimeType: string | undefined,
   name: string,
+  contextCharsRemaining = INLINE_ATTACHMENT_MAX_CHARS,
 ): Promise<string | null> {
   const parsed = await parseAttachment(bytes, mimeType ?? 'application/octet-stream', name);
   const trimmed = parsedAttachmentText(parsed)?.trim();
   if (!trimmed) return null;
-  return trimmed.length > INLINE_ATTACHMENT_MAX_CHARS
-    ? `${trimmed.slice(0, INLINE_ATTACHMENT_MAX_CHARS - TRUNCATION_MARKER.length)}${TRUNCATION_MARKER}`
+  const limit = Math.max(0, Math.min(INLINE_ATTACHMENT_MAX_CHARS, contextCharsRemaining));
+  if (limit === 0) return null;
+  return trimmed.length > limit
+    ? `${trimmed.slice(0, Math.max(0, limit - TRUNCATION_MARKER.length))}${TRUNCATION_MARKER}`
     : trimmed;
 }
 

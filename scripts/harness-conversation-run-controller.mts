@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import type { RuntimeEvent, WorkspaceProvenance } from '@offisim/shared-types';
+import type { RuntimeEvent, VaultRef, WorkspaceProvenance } from '@offisim/shared-types';
 import {
   composerAttachmentScopeKey,
   useComposerAttachmentStore,
@@ -424,6 +424,7 @@ function makeEnv(
             mimeType: attachment.mimeType,
             byteLength: attachment.byteLength,
             kind: attachment.kind,
+            vaultRef: `attachment://co/thread-1/${attachment.attachmentId ?? attachment.id}` as VaultRef,
           }),
         ),
     }),
@@ -1450,6 +1451,28 @@ const scenarios: Array<{
         ['brief-b.txt'],
       );
 
+      const scopeC = { companyId: 'co', projectId: 'prj-c', threadId: 'thread-c' };
+      const keyC = composerAttachmentScopeKey(scopeC);
+      const eightMb = 8 * 1024 * 1024;
+      await useComposerAttachmentStore.getState().stageFiles(scopeC, [
+        { name: 'unsafe.exe', bytes: 12, type: 'application/x-msdownload' },
+        { name: 'one.png', bytes: eightMb, type: 'image/png' },
+        { name: 'two.png', bytes: eightMb, type: 'image/png' },
+        { name: 'three.png', bytes: eightMb, type: 'image/png' },
+        { name: 'over-total.png', bytes: 1, type: 'image/png' },
+        { name: 'over-file.png', bytes: eightMb + 1, type: 'image/png' },
+      ]);
+      const bounded = useComposerAttachmentStore.getState().stagedByScope[keyC] ?? [];
+      assert.equal(
+        bounded.find((item) => item.name === 'unsafe.exe')?.failReason,
+        'unsupported-type',
+      );
+      assert.equal(
+        bounded.find((item) => item.name === 'over-total.png')?.failReason,
+        'total-too-large',
+      );
+      assert.equal(bounded.find((item) => item.name === 'over-file.png')?.failReason, 'too-large');
+
       const env = makeEnv({ failPersistFirst: true });
       const stagedA = useComposerAttachmentStore.getState().stagedByScope[keyA] ?? [];
       await submitDefault(env.controller, {
@@ -1485,7 +1508,12 @@ const scenarios: Array<{
         ['brief-b.txt'],
       );
       useComposerAttachmentStore.setState({ stagedByScope: {} });
-      return { failedDraftRetained: true, retryConsumedAOnly: true, bCount: 1 };
+      return {
+        failedDraftRetained: true,
+        retryConsumedAOnly: true,
+        boundedAdmission: true,
+        bCount: 1,
+      };
     },
   },
   {
@@ -1508,6 +1536,11 @@ const scenarios: Array<{
       const snapshot = env.controller.getSnapshot('thread-1');
       assert.equal(snapshot.liveMessages.length, 2);
       assert.equal(snapshot.liveMessages[0]?.attachments?.[0]?.id, 'vault-readme');
+      assert.equal(
+        snapshot.liveMessages[0]?.attachments?.[0]?.vaultRef,
+        'attachment://co/thread-1/vault-readme',
+      );
+      assert.equal(snapshot.liveMessages[0]?.attemptId, snapshot.attemptId);
       assert.equal(snapshot.liveMessages[1]?.body, 'Launch ready');
       assert.equal(snapshot.liveMessages[1]?.status, 'complete');
       assert.ok(env.persisted.some((call) => call.message.author === 'boss'));

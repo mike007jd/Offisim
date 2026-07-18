@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use tauri::{ipc::Channel, AppHandle, Manager};
@@ -37,8 +38,8 @@ use super::stream::{
 use super::types::{
     CodexAdapterIdentity, CodexAgentEnhanceRequest, CodexAgentExecuteRequest, CodexAgentHostEvent,
     CodexAgentHostResponse, CodexAgentStatusResponse, CodexExecutionProvenance,
-    CodexExecutionTarget, CodexModelSummary, CodexNativeSessionMode, CodexNativeThreadRef,
-    CodexRunStreamSnapshot,
+    CodexExecutionTarget, CodexImageInput, CodexModelSummary, CodexNativeSessionMode,
+    CodexNativeThreadRef, CodexRunStreamSnapshot,
 };
 use super::CODEX_HOST_PROTOCOL_VERSION;
 
@@ -267,6 +268,7 @@ struct NativeTurnStart<'a> {
     policy: &'a PermissionPolicy,
     client_user_message_id: &'a str,
     text: &'a str,
+    images: &'a [CodexImageInput],
 }
 
 struct PermissionPolicy {
@@ -516,6 +518,7 @@ async fn execute_claimed(
                         .as_deref()
                         .unwrap_or(req.request_id.as_str()),
                     text: &req.text,
+                    images: &req.images,
                 },
             )
             .await
@@ -676,6 +679,7 @@ async fn enhance_claimed(
                     policy: &policy,
                     client_user_message_id: &req.request_id,
                     text: &req.text,
+                    images: &[],
                 },
             )
             .await
@@ -926,6 +930,7 @@ async fn start_native_turn(
         policy,
         client_user_message_id,
         text,
+        images,
     } = request;
     let cwd_text = cwd.to_str().ok_or_else(|| {
         CodexHostError::Request("The Project folder name is not supported by Codex.".into())
@@ -935,12 +940,19 @@ async fn start_native_turn(
     // preserve the Offisim composer selection instead of inheriting old state.
     let collaboration_mode = turn_collaboration_mode(policy, model);
 
+    let mut input = vec![json!({"type": "text", "text": text})];
+    input.extend(images.iter().map(|image| {
+        json!({
+            "type": "image",
+            "url": format!("data:{};base64,{}", image.mime_type, image.data),
+        })
+    }));
     let turn_result = connection
         .request(
             "turn/start",
             json!({
                 "threadId": thread_id,
-                "input": [{"type": "text", "text": text}],
+                "input": input,
                 "cwd": cwd_text,
                 "clientUserMessageId": client_user_message_id,
                 "model": null,
@@ -1711,6 +1723,7 @@ fn orchestration_capabilities() -> Value {
         "stop": true,
         "steer": false,
         "resume": true,
+        "attachmentInput": { "textFiles": true, "images": "supported" },
         "permissionModes": ["plan", "ask", "auto", "full"],
         "interactions": {
             "approval": true,
@@ -1821,6 +1834,34 @@ fn validate_execute_request(req: &CodexAgentExecuteRequest) -> Result<(), String
     validate_required(req.root_run_id.as_deref().unwrap_or_default(), "rootRunId")?;
     if let Some(employee_id) = req.employee_id.as_deref() {
         validate_required(employee_id, "employeeId")?;
+    }
+    validate_image_inputs(&req.images)?;
+    Ok(())
+}
+
+fn validate_image_inputs(images: &[CodexImageInput]) -> Result<(), String> {
+    const MAX_IMAGES: usize = 6;
+    const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
+    const MAX_BASE64_CHARS: usize = ((MAX_IMAGE_BYTES + 2) / 3) * 4;
+    if images.len() > MAX_IMAGES {
+        return Err("Codex accepts up to 6 images per turn.".into());
+    }
+    for image in images {
+        if !matches!(
+            image.mime_type.as_str(),
+            "image/png" | "image/jpeg" | "image/gif" | "image/webp"
+        ) {
+            return Err("Codex image attachments must be PNG, JPEG, GIF, or WebP.".into());
+        }
+        if image.data.is_empty() || image.data.len() > MAX_BASE64_CHARS {
+            return Err("Codex image attachment exceeds the 8 MB limit.".into());
+        }
+        let decoded = BASE64_STANDARD
+            .decode(&image.data)
+            .map_err(|_| "Codex image attachment is not valid base64.".to_string())?;
+        if decoded.len() > MAX_IMAGE_BYTES {
+            return Err("Codex image attachment exceeds the 8 MB limit.".into());
+        }
     }
     Ok(())
 }
@@ -2224,6 +2265,10 @@ respond(request, {"thread": {"id": "thread-1", "sessionId": "session-1"}, "cwd":
 
 request = read_message()
 assert request["method"] == "turn/start"
+assert request["params"]["input"] == [
+    {"type": "text", "text": "Run the conformance fixture"},
+    {"type": "image", "url": "data:image/png;base64,iVBORw0KGgo="},
+]
 assert request["params"]["approvalPolicy"] == "never"
 assert request["params"]["sandboxPolicy"] == {"type": "readOnly", "networkAccess": False}
 assert request["params"]["collaborationMode"] == {"mode": "plan", "settings": {"model": "gpt-5.4-high"}}
@@ -2358,6 +2403,7 @@ time.sleep(30)
         CodexAgentExecuteRequest {
             request_id: "request".into(),
             text: "hello".into(),
+            images: Vec::new(),
             expected_target: CodexExecutionTarget {
                 engine_id: ENGINE_ID.into(),
                 account_id: ACCOUNT_ID.into(),
@@ -2465,6 +2511,10 @@ time.sleep(30)
             native_thread_ref: setup.native_thread_ref.clone(),
             expose_session: true,
         });
+        let images = vec![CodexImageInput {
+            data: "iVBORw0KGgo=".into(),
+            mime_type: "image/png".into(),
+        }];
         start_native_turn(
             &connection,
             NativeTurnStart {
@@ -2474,6 +2524,7 @@ time.sleep(30)
                 policy: &policy,
                 client_user_message_id: "user-message-1",
                 text: "Run the conformance fixture",
+                images: &images,
             },
         )
         .await
@@ -2630,6 +2681,7 @@ time.sleep(30)
                 policy: &policy,
                 client_user_message_id: "ask-user-message",
                 text: "Attempt a write only after approval",
+                images: &[],
             },
         )
         .await

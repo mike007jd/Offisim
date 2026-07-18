@@ -13,10 +13,9 @@ import {
   AGENT_LIFECYCLE_EVENT,
   AGENT_UI_REQUEST_EVENT,
   AGENT_UI_REQUEST_RESOLVED_EVENT,
-  AgentTerminalCheckpointError,
-  StopLostTerminalRaceError,
   type AgentLifecyclePayload,
   type AgentQueueBehavior,
+  AgentTerminalCheckpointError,
   type AgentUiRequestPayload,
   type AgentUiRequestResolvedPayload,
   type CompetitiveDraftContext,
@@ -26,6 +25,7 @@ import {
   LIVE_CONVERSATION_TERMINAL_EVENT,
   type LiveConversationTerminalPayload,
   type LiveRunReattachResult,
+  StopLostTerminalRaceError,
   type TurnExecutionProvenance,
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
@@ -705,6 +705,7 @@ export class ConversationRunController {
       body: trimmed,
       at: this.deps.now(),
       attachments: displayAttachmentsFromStaged(input.stagedAttachments),
+      attemptId,
       status: 'complete',
     };
     const run = this.beginRun(
@@ -1842,6 +1843,9 @@ export class ConversationRunController {
         ...run.userMessage,
         attachments: materialized.attachments?.length ? materialized.attachments : undefined,
       };
+      run.userMessages = run.userMessages.map((message) =>
+        message.id === run.userMessage.id ? run.userMessage : message,
+      );
 
       // Loop-backed turn: prepare durable records, persist the visible message,
       // then start the paid Mission. No Pi work exists before the message boundary.
@@ -2219,6 +2223,14 @@ export class ConversationRunController {
               ? 'Retry failed'
               : null,
       };
+    } else if (payload.event === 'attachmentCapability') {
+      next = {
+        ...next,
+        message:
+          typeof data.message === 'string' && data.message.trim()
+            ? data.message.trim()
+            : 'Some attachments were not sent to this engine.',
+      };
     } else if (payload.event === 'control') {
       const controlId = typeof data.controlId === 'string' ? data.controlId : '';
       const turn = run.queuedTurns.find((candidate) => candidate.userMessageId === controlId);
@@ -2552,7 +2564,9 @@ export class ConversationRunController {
         const finishedAt = new Date(this.deps.now()).toISOString();
         await repos.asyncTransact(async (transactionRepos) => {
           if (!transactionRepos) {
-            throw new Error('Competitive draft failure convergence requires transaction repositories.');
+            throw new Error(
+              'Competitive draft failure convergence requires transaction repositories.',
+            );
           }
           const attempt = await transactionRepos.competitiveDraftAttempts.findById(
             competitiveDraft.attemptId,

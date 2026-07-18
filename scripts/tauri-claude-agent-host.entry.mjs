@@ -156,6 +156,7 @@ function orchestrationCapabilities() {
     stop: true,
     steer: false,
     resume: true,
+    attachmentInput: { textFiles: true, images: 'unsupported' },
     permissionModes: ['plan', 'auto', 'full'],
     interactions: { approval: false, userInput: false },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
