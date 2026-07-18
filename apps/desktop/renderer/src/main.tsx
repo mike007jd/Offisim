@@ -1,8 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/index.css';
-import { App } from './App.js';
 import { ErrorBoundary } from './app/ErrorBoundary.js';
+import { StartupGate } from './app/StartupGate.js';
 import { recordLastError } from './app/last-error.js';
 import { AppProviders } from './app/providers/AppProviders.js';
 
@@ -39,7 +39,7 @@ try {
     <StrictMode>
       <ErrorBoundary>
         <AppProviders>
-          <App />
+          <StartupGate />
         </AppProviders>
       </ErrorBoundary>
     </StrictMode>,

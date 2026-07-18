@@ -1,4 +1,5 @@
 mod agent_host_runtime;
+mod app_update;
 mod attachment_store;
 mod browser_session;
 mod builtin_tools;
@@ -71,6 +72,7 @@ mod redaction;
 mod shell_classifier;
 mod sidecar_stderr;
 mod stage_audit;
+mod startup_safety;
 mod task_workspace_binding;
 mod terminal_session;
 mod workspace_recovery;
@@ -195,6 +197,10 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     macos_window_activation::disable_state_restoration();
 
+    let startup_safety = startup_safety::StartupSafetyState::default();
+    startup_safety::install_panic_hook(startup_safety.clone());
+    startup_safety::append_normal_startup_log();
+
     tauri::Builder::default()
         // Single-instance MUST be registered first — the handler short-circuits
         // subsequent launches before any DB/plugin init runs. Without it a
@@ -212,6 +218,11 @@ pub fn run() {
             local_db::local_db_select,
             local_db::local_db_execute_transaction,
             local_db::global_search,
+            app_update::app_update_check,
+            app_update::app_update_install,
+            startup_safety::startup_status,
+            startup_safety::startup_export_diagnostics,
+            startup_safety::startup_reset_local_data,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_lines,
             builtin_tools::project_read_file_preview,
@@ -328,6 +339,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(mcp_bridge::init())
+        .manage(startup_safety.clone())
         .manage(terminal_session::TerminalSessionRegistry::default())
         .manage(browser_session::BrowserSessionRegistry::default())
         .manage(task_workspace_binding::ProjectWorkspaceSelectionRegistry::default())
@@ -372,67 +384,75 @@ pub fn run() {
                 macos_window_activation::raise_window(&window);
             }
         })
-        .setup(|app| {
-            tauri::async_runtime::block_on(local_db::init_offisim_db_state(app.handle()))
-                .map_err(|e| format!("local_db init: {e}"))?;
-            tauri::async_runtime::block_on(task_workspace_binding::mark_orphaned_bindings_revoked(
-                app.handle(),
-            ))
-            .map_err(|e| format!("task workspace binding cleanup: {e}"))?;
+        .setup(move |app| {
+            let healthy = startup_safety::catch_setup_failure(&startup_safety, || {
+                tauri::async_runtime::block_on(local_db::init_offisim_db_state(app.handle()))
+                    .map_err(|e| format!("local_db init: {e}"))?;
+                tauri::async_runtime::block_on(
+                    task_workspace_binding::mark_orphaned_bindings_revoked(app.handle()),
+                )
+                .map_err(|e| format!("task workspace binding cleanup: {e}"))?;
 
-            app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                app.set_activation_policy(tauri::ActivationPolicy::Regular);
 
-            // macOS state restoration can relaunch the process without an
-            // accessibility-visible main window after a previous close. Bring
-            // the configured window back explicitly so release desktop live
-            // verification and normal relaunches land on the usable app.
-            {
+                // macOS state restoration can relaunch the process without an
+                // accessibility-visible main window after a previous close. Bring
+                // the configured window back explicitly so release desktop live
+                // verification and normal relaunches land on the usable app.
                 ensure_main_window(app.handle()).map_err(|e| format!("main window init: {e}"))?;
-            }
 
-            // Forward bare Escape past wry's swallowed keyDown (must run on
-            // the main thread; Tauri's setup hook already does).
-            #[cfg(target_os = "macos")]
-            escape_forwarder::install(app.handle().clone());
+                // Forward bare Escape past wry's swallowed keyDown (must run on
+                // the main thread; Tauri's setup hook already does).
+                #[cfg(target_os = "macos")]
+                escape_forwarder::install(app.handle().clone());
 
-            // Open devtools on launch. Only compiled into debug builds or
-            // live-verify builds made with `--features devtools`; the ship
-            // release channel has no devtools at all (`open_devtools` does not
-            // exist without the cargo feature). Within a devtools-capable
-            // build, release behaviour is still gated on the
-            // OFFISIM_DESKTOP_DEVTOOLS env var at startup.
-            #[cfg(any(debug_assertions, feature = "devtools"))]
-            {
-                use tauri::Manager;
-                let force_devtools = std::env::var("OFFISIM_DESKTOP_DEVTOOLS")
-                    .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                    .unwrap_or(false);
-                if cfg!(debug_assertions) || force_devtools {
-                    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-                        window.open_devtools();
-                    } else if let Some(window) = app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL)
-                    {
-                        window.open_devtools();
+                // Open devtools on launch. Only compiled into debug builds or
+                // live-verify builds made with `--features devtools`; the ship
+                // release channel has no devtools at all (`open_devtools` does not
+                // exist without the cargo feature). Within a devtools-capable
+                // build, release behaviour is still gated on the
+                // OFFISIM_DESKTOP_DEVTOOLS env var at startup.
+                #[cfg(any(debug_assertions, feature = "devtools"))]
+                {
+                    use tauri::Manager;
+                    let force_devtools = std::env::var("OFFISIM_DESKTOP_DEVTOOLS")
+                        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                        .unwrap_or(false);
+                    if cfg!(debug_assertions) || force_devtools {
+                        if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+                            window.open_devtools();
+                        } else if let Some(window) =
+                            app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL)
+                        {
+                            window.open_devtools();
+                        }
                     }
                 }
-            }
 
-            // Register deep link scheme on platforms that need runtime registration
-            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
-            {
-                use tauri_plugin_deep_link::DeepLinkExt;
-                let _ = app.deep_link().register_all();
-            }
+                // Register deep link scheme on platforms that need runtime registration
+                #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+                {
+                    use tauri_plugin_deep_link::DeepLinkExt;
+                    let _ = app.deep_link().register_all();
+                }
 
-            // Listen for incoming deep link URLs
-            {
-                use tauri_plugin_deep_link::DeepLinkExt;
-                let handle = app.handle().clone();
-                app.deep_link().on_open_url(move |event| {
-                    deep_link::handle_deep_link_urls(&handle, event.urls().to_vec());
-                });
-            }
+                // Listen for incoming deep link URLs
+                {
+                    use tauri_plugin_deep_link::DeepLinkExt;
+                    let handle = app.handle().clone();
+                    app.deep_link().on_open_url(move |event| {
+                        deep_link::handle_deep_link_urls(&handle, event.urls().to_vec());
+                    });
+                }
+                Ok(())
+            });
 
+            if !healthy {
+                app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                if let Err(error) = ensure_main_window(app.handle()) {
+                    startup_safety.enter_safe_mode("safe mode window", &error.to_string());
+                }
+            }
             Ok(())
         })
         .build(tauri::generate_context!())

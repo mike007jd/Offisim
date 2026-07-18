@@ -15,6 +15,32 @@ interface LocalDbTransactionStatement {
   params?: readonly unknown[];
 }
 
+export interface StartupStatus {
+  mode: 'normal' | 'safe';
+  incidentId: string | null;
+  stage: string | null;
+  summary: string | null;
+  occurredAtUnixMs: number | null;
+}
+
+export interface StartupDiagnosticExport {
+  path: string;
+  displayPath: string;
+  fileName: string;
+  sizeBytes: number;
+}
+
+export interface AppUpdateStatus {
+  status: 'available' | 'current' | 'gh-missing' | 'gh-auth-required' | 'unavailable';
+  currentVersion: string;
+  latestVersion: string | null;
+  releaseName: string | null;
+  releaseTag: string | null;
+  publishedAt: string | null;
+  message: string;
+  ghPath: string | null;
+}
+
 export interface GlobalSearchResult {
   category: 'conversation' | 'card' | 'output';
   entityId: string;
@@ -834,6 +860,11 @@ type CommandSpec<TArgs, TResult> = {
 };
 
 export interface CommandMap {
+  startup_status: CommandSpec<undefined, StartupStatus>;
+  startup_export_diagnostics: CommandSpec<undefined, StartupDiagnosticExport>;
+  startup_reset_local_data: CommandSpec<undefined, void>;
+  app_update_check: CommandSpec<undefined, AppUpdateStatus>;
+  app_update_install: CommandSpec<undefined, void>;
   local_db_execute: CommandSpec<{ sql: string; params: unknown[] }, number>;
   local_db_select: CommandSpec<{ sql: string; params: unknown[] }, unknown[]>;
   local_db_execute_transaction: CommandSpec<{ statements: LocalDbTransactionStatement[] }, void>;
