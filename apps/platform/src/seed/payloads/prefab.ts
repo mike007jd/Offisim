@@ -1,4 +1,4 @@
-import { getBuiltinPrefab } from '@offisim/renderer';
+import { getBuiltinPrefab } from '@offisim/prefab';
 import type { OfficialSeedPayload } from '../types.js';
 
 const SLUG = 'offisim/desk-essentials';

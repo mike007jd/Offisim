@@ -15,7 +15,7 @@ const REPAIR_MARKER_PREFIX = `office.prefab-layout-repair.${SYSTEM_PREFAB_LAYOUT
 const REPAIR_GRID_STEP = 0.5;
 const POSITION_EPSILON = 0.01;
 const ROTATIONS: readonly PrefabInstanceRow['rotation'][] = [0, 90, 180, 270];
-type GetBuiltinPrefab = typeof import('@offisim/renderer')['getBuiltinPrefab'];
+type GetBuiltinPrefab = typeof import('@offisim/prefab')['getBuiltinPrefab'];
 
 type RepairablePrefab = {
   readonly instance: PrefabInstanceRow;
@@ -167,7 +167,7 @@ async function repairCompanyPrefabLayout(
   repos: RuntimeRepositories,
   companyId: string,
 ): Promise<boolean> {
-  const { getBuiltinPrefab } = (await import('@offisim/renderer')) as {
+  const { getBuiltinPrefab } = (await import('@offisim/prefab')) as {
     getBuiltinPrefab: GetBuiltinPrefab;
   };
   const [zones, prefabRows] = await Promise.all([

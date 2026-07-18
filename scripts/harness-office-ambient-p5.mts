@@ -29,7 +29,7 @@ import {
   ambientPolicyForMode,
   performanceForRoutine,
   worldAnchorsFor,
-} from '../packages/shared-types/src/index.js';
+} from '../packages/dramaturgy/src/index.js';
 
 /**
  * Office Toy Performance P5 oracle — deterministic ambient life.
@@ -1002,10 +1002,7 @@ check(
 );
 
 console.log('\n[wiring] one store, one timer, ordered projection');
-const coreSource = await readFile(
-  new URL('packages/shared-types/src/dramaturgy/ambient.ts', ROOT),
-  'utf8',
-);
+const coreSource = await readFile(new URL('packages/dramaturgy/src/ambient.ts', ROOT), 'utf8');
 const storeSource = await readFile(
   new URL('apps/desktop/renderer/src/assistant/runtime/office-ambient-life.ts', ROOT),
   'utf8',

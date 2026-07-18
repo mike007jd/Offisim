@@ -2,7 +2,7 @@ import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { cn } from '@/lib/utils.js';
-import { getAllBuiltinPrefabs } from '@offisim/renderer';
+import { getAllBuiltinPrefabs } from '@offisim/prefab';
 import { type SemanticCategory, ZONE_PRESET_GROUPS, type ZonePreset } from '@offisim/shared-types';
 import {
   BookOpen,

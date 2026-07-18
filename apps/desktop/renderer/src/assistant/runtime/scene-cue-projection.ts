@@ -29,23 +29,25 @@
  * the order of equal-timestamp beats in the input does not change the frame.
  */
 import {
-  type ActorStaging,
-  type AmbientActorDirection,
-  type CharacterPerformanceState,
-  type CharacterStatus,
-  type DramaturgyMode,
-  type FlowIntent,
-  type ResourceKind,
-  type SceneBeat,
-  type StagingPrefab,
-  type SurfacedResourceSeverity,
-  type ToolRichDetail,
   applyDramaturgyMode,
   compareStrings as cmpStr,
   isBeatLive,
   performanceForStatus,
   projectOfficeStaging,
   resourceSeverityRank,
+} from '@offisim/dramaturgy';
+import type {
+  ActorStaging,
+  AmbientActorDirection,
+  CharacterPerformanceState,
+  CharacterStatus,
+  DramaturgyMode,
+  FlowIntent,
+  ResourceKind,
+  SceneBeat,
+  StagingPrefab,
+  SurfacedResourceSeverity,
+  ToolRichDetail,
 } from '@offisim/shared-types';
 import {
   type EmployeeWorkloadProjection,

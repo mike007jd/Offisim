@@ -8,7 +8,7 @@
  * a richer profile back only with a real consumer that lets company/persona style
  * drive variant / anchor / gesture choices.
  */
-import type { RoleSlug } from '../roles.js';
+import type { RoleSlug } from '@offisim/shared-types';
 
 /** Animation speed multiplier per role family (the only profile field the scene
  *  ever consumed). 0.8 = deliberate, 1 = neutral, 1.2 = brisk. */

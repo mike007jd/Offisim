@@ -1,5 +1,5 @@
 {
-  "name": "@offisim/renderer",
+  "name": "@offisim/prefab",
   "version": "1.0.0-rc.2",
   "private": true,
   "type": "module",

@@ -38,7 +38,8 @@ Owner paths:
 
 - `apps/desktop/renderer/src/surfaces/office`
 - `apps/desktop/renderer/src/assistant/runtime`
-- `packages/renderer`
+- `packages/prefab`
+- `packages/dramaturgy`
 - `Docs/design/offisim-office-layout-v3-prototype.html`
 
 Data/contracts:
@@ -323,7 +324,8 @@ rules.
 Owner paths:
 
 - `apps/desktop/renderer/src/surfaces/studio`
-- `packages/renderer`
+- `packages/prefab`
+- `packages/dramaturgy`
 - `scripts/harness-studio-placement.mjs`
 
 Data/contracts:
