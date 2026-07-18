@@ -119,6 +119,19 @@ Cleanup
 activeThreadInteractions=0
 testSleepRemaining=false
 piAgentHostRemaining=false
-canResumeCardsRetained=3
-allEmployeesIdleClaimed=false
-reason=Discard is irreversible and lacked action-time user confirmation; Alex remains visually WORKING.
+canResumeCardsRetained=0
+restartTestRunsRemaining=0
+activeAgentRuns=0
+activeThreadInteractions=0
+cleanupAuthorization=User explicitly authorized deletion of all test data on 2026-07-19.
+cleanupMethod=Discard in exact release UI, then product deletion statement order while app was closed.
+projectWorkspaceFilesDeleted=false
+unrelatedConversationsDeleted=false
+
+Full-app continuation contract audit
+------------------------------------
+result=PLAN CONFLICT / NON-REGRESSION PASS
+b1AndB2ObservedContract=interrupted / CAN RESUME
+automaticContinuationClaimed=false
+reason=Both engines' in-flight owners and child processes live inside the Tauri app lifecycle; true continuation requires an unlisted persistent broker/service and behavior change outside B2.
+section0Decision=Record the current-fact conflict under §0.5; do not invent the lifecycle abstraction in this mechanical dispatch PR.

@@ -2,11 +2,14 @@
   "schemaVersion": 1,
   "pr": "PR-B2",
   "checkedAt": "2026-07-18T23:47:54+12:00",
+  "amendedAt": "2026-07-19T01:03:54+12:00",
   "branch": "refactor/B2-host-event-dispatch",
   "baseBranch": "refactor/B1-runtime-pure-functions",
   "baseCommit": "6bc048728cbcbf2addbeafe8fdb9478427868d50",
   "headBeforeCommit": "6bc048728cbcbf2addbeafe8fdb9478427868d50",
+  "reviewReady": true,
   "mergeReady": false,
+  "mergeRequiresUserApproval": true,
   "implementation": {
     "eventKindsCovered": 14,
     "singleHandlerTable": true,
@@ -50,13 +53,16 @@
       "uiTerminal": "Complete 4/4"
     },
     "reattach": {
-      "status": "BLOCKED",
+      "status": "PLAN CONFLICT / NON-REGRESSION PASS",
       "b2PiRunId": "attempt-763e67bb-00b7-4354-ac55-ad7d6621c2b4",
       "b2CodexRunId": "attempt-09d1c2a7-153a-4833-b8bf-bafaa10412b7",
       "b1BaselineRunId": "attempt-d30d0358-3ed2-494e-ae35-58f250b6efb7",
       "observedTerminal": "interrupted / CAN RESUME",
       "manualResumeUsed": false,
-      "classification": "pre-existing full-app bootstrap contract conflict reproduced on exact B1 baseline"
+      "classification": "pre-existing full-app bootstrap contract reproduced on exact B1 baseline; automatic continuation requires an unlisted persistent broker/service outside B2",
+      "acceptedCurrentContract": "safe interruption with preserved run identity and durable CAN RESUME",
+      "automaticContinuationClaimed": false,
+      "section0Decision": "record plan conflict under section 0.5; do not invent lifecycle behavior in B2"
     },
     "approval": {
       "status": "PASS",
@@ -100,9 +106,14 @@
     "b2WindowRemaining": false,
     "testSleepRemaining": false,
     "piHostRemaining": false,
-    "canResumeCardsRetained": 3,
+    "canResumeCardsRetained": 0,
+    "restartTestRunsRemaining": 0,
+    "activeAgentRuns": 0,
     "allEmployeesIdleClaimed": false,
-    "reason": "Discard is irreversible and lacked action-time user confirmation; Alex remains visually WORKING"
+    "cleanupAuthorizedByUser": true,
+    "cleanupMethod": "Discard in release UI, then product deletion statement order while app was closed",
+    "projectWorkspaceFilesDeleted": false,
+    "unrelatedConversationsDeleted": false
   },
   "evidence": [
     {"file": "01-normal-complete.jpeg", "sha256": "2b9e73298b8ca7760f269d110f462421ed7f8f6e178559097766c58c7b994291"},
@@ -116,6 +127,6 @@
     {"file": "09-b1-baseline-after-restart.jpeg", "sha256": "9c0520981a0d5aa0b2850bfbffa2d9a195119294df2ac2f8caf4fbd7d33fde94"},
     {"file": "10-approval-banner.jpeg", "sha256": "e0cf35ed1d592eba009f0b443a1ac69604c3d9f21df84bc70f37066626618517"},
     {"file": "11-approval-rejected.jpeg", "sha256": "9984dbbd8fe7533eccf76dc937a4ecf2645085293b972814f1ebf8113b83a8df"},
-    {"file": "live-observations.txt", "sha256": "7921cdd159fc074e29e5dea1a79e94a1f80262ded4f947a775a1576d2bb6477d"}
+    {"file": "live-observations.txt", "sha256": "9828dd6e09116ea7d530a3ebe8bc332c59551f6fecb41c98594f87a50b9722af"}
   ]
 }
