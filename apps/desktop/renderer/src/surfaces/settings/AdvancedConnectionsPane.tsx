@@ -1,3 +1,4 @@
+import { queryKeys } from '@/data/query-keys.js';
 import { CapsLabel, FieldRow } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -35,10 +36,10 @@ export function AdvancedConnectionsPane() {
   const [saving, setSaving] = useState(false);
 
   async function refreshConnection() {
-    await queryClient.invalidateQueries({ queryKey: ['market-registry-connection'] });
-    await queryClient.invalidateQueries({ queryKey: ['market-drafts'] });
-    await queryClient.invalidateQueries({ queryKey: ['market-listings'] });
-    await queryClient.invalidateQueries({ queryKey: ['market-installed'] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.marketRegistryConnection() });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.marketDrafts() });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.marketListingsAll() });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.marketInstalledAll() });
   }
 
   async function saveConnection() {

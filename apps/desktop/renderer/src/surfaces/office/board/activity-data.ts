@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { redactSecrets } from '@/data/redact-secrets.js';
 import {
   type WorkspaceCheckpointRollbackRow,
@@ -983,13 +984,15 @@ export function useActivityRecords(companyId: string, projectIds: readonly strin
     () =>
       runtimeEventBus.on(WORKSPACE_DIAGNOSTICS_UPDATED_EVENT, (event) => {
         if (event.companyId === companyId) {
-          void queryClient.invalidateQueries({ queryKey: ['activity-records', companyId] });
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.activityRecordsCompany(companyId),
+          });
         }
       }),
     [companyId, queryClient],
   );
   return useInfiniteQuery<ActivityPage>({
-    queryKey: ['activity-records', companyId, [...projectIds].sort()],
+    queryKey: queryKeys.activityRecords(companyId, projectIds),
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
       isTauriRuntime()

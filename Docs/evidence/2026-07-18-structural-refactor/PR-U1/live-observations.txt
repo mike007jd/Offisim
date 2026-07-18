@@ -1,0 +1,27 @@
+PR-U1 release live observations — 2026-07-19 NZST
+
+Company-delete session
+  initial PID: 36902
+  initial main CGWindow: 32564
+  restarted PID: 40957
+  restarted main CGWindow: 32600
+  title: Offisim
+  bounds: 36,33 1440x888-891
+  AX URL: tauri://localhost
+  result: company vanished immediately; Company deleted toast observed
+
+Conversation-delete session
+  PID: 43903
+  main CGWindow: 32642
+  title: Offisim
+  bounds: 36,33 1440x890
+  AX URL: tauri://localhost
+  result: project conversation count changed 17 -> 16 immediately; Conversation deleted toast observed
+
+Final direct state
+  U1 company rows: 0
+  U1 conversation rows: 0
+  B2 test conversation rows: 0
+  active agent runs: 0
+  active thread interactions: 0
+  release app closed after verification

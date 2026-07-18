@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   type CommandExecResult,
   commitGitChanges,
@@ -618,7 +619,7 @@ function GitTab({
   };
 
   const refreshGit = async (targetProjectId: string) => {
-    await queryClient.invalidateQueries({ queryKey: ['git-workbench', targetProjectId] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.gitWorkbench(targetProjectId) });
   };
 
   const execute = async (
@@ -1135,9 +1136,9 @@ export function WorkspacePanel() {
         },
       });
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['projects', companyId] }),
-        queryClient.invalidateQueries({ queryKey: ['project-files', targetProject.id] }),
-        queryClient.invalidateQueries({ queryKey: ['git-workbench', targetProject.id] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects(companyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectFiles(targetProject.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.gitWorkbench(targetProject.id) }),
       ]);
       setProject(targetProject.id);
       setTab('files');
@@ -1159,8 +1160,8 @@ export function WorkspacePanel() {
     try {
       await initGitRepository(project.id);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['git-workbench', project.id] }),
-        queryClient.invalidateQueries({ queryKey: ['project-files', project.id] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.gitWorkbench(project.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectFiles(project.id) }),
       ]);
       setTab('git');
       toast.success('Initialized an empty git repository');
@@ -1174,8 +1175,8 @@ export function WorkspacePanel() {
   async function rescanWorkspace() {
     if (!project) return;
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['project-files', project.id] }),
-      queryClient.invalidateQueries({ queryKey: ['git-workbench', project.id] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.projectFiles(project.id) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitWorkbench(project.id) }),
     ]);
     toast.success('Workspace refreshed');
   }

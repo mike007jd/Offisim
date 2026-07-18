@@ -66,7 +66,10 @@ check('delete is guarded against double submission and refreshes the roster', ()
   assert.match(personnelSurface, /if \(isDeleting\) return/);
   assert.match(personnelSurface, /await repos\.employees\.delete\(employee\.id\)/);
   assert.match(personnelSurface, /onDeleted\(\)/);
-  assert.match(personnelSurface, /invalidateQueries\(\{ queryKey: \['employees', companyId\] \}\)/);
+  assert.match(
+    personnelSurface,
+    /invalidateQueries\(\{ queryKey: queryKeys\.employees\(companyId\) \}\)/,
+  );
 });
 
 check('post-delete selection uses the visible roster and failure is not rendered twice', () => {

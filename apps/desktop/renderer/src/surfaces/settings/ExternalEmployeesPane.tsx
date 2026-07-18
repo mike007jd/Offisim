@@ -1,6 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { useEmployees } from '@/data/queries.js';
 import { IconButton } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -56,8 +57,10 @@ export function ExternalEmployeesPane() {
   }, []);
 
   function invalidateExternalEmployees() {
-    void queryClient.invalidateQueries({ queryKey: ['settings', 'external-employees', companyId] });
-    void queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.settingsExternalEmployees(companyId),
+    });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
   }
 
   async function handleInstalled(card: DiscoveredCard) {

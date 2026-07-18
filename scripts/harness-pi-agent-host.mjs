@@ -1728,7 +1728,7 @@ assert(
       /isLeaseReview && leaseDecisionComplete/.test(permissionApprovalSource) &&
       /pendingLeaseAction !== null/.test(permissionApprovalSource) &&
       /const outcome = await reviewWorkspaceLease/.test(permissionApprovalSource) &&
-      /queryKey: \['workspace-lease-reviews'\]/.test(permissionApprovalSource),
+      /queryKey: queryKeys\.workspaceLeaseReviewsAll\(\)/.test(permissionApprovalSource),
     'the pending-review permission notice must use the Board lease decision channel, stay actionable after restart, open the matching Board drawer, and refresh every active Board scope',
   );
   assert(

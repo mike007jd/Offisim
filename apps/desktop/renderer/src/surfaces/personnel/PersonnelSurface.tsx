@@ -6,6 +6,7 @@ import {
 import { displayRole, isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
 import { type EmployeeSeniority, employeeSeniorityLabel } from '@/data/employee-seniority.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { useCompanies, useEmployees, useReassignEmployee } from '@/data/queries.js';
 import type { Employee, EmployeeAppearance } from '@/data/types.js';
 import {
@@ -583,9 +584,9 @@ function EmployeeDetail({
             thinking_level: model && thinkingLevel ? thinkingLevel : null,
           }),
       });
-      await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
       await queryClient.invalidateQueries({
-        queryKey: ['personnel', 'versions', employee.id],
+        queryKey: queryKeys.employeeVersions(employee.id),
       });
       baselineProfile.current = values;
       baselineAppearance.current = appearance;
@@ -639,13 +640,13 @@ function EmployeeDetail({
       const row = await repos.employees.findById(employee.id);
       if (!row) {
         onDeleted();
-        await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
         toast.info(`${employee.name} was already removed`);
         return;
       }
       await repos.employees.delete(employee.id);
       onDeleted();
-      await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
       toast.success(`${employee.name} removed`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Employee delete failed';
@@ -840,7 +841,7 @@ function HireEmployeeDialog({
           throw assignmentError;
         }
       }
-      await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
       useUiState.getState().selectEmployee(employee_id);
       toast.success(`${name.trim()} hired`);
       onOpenChange(false);

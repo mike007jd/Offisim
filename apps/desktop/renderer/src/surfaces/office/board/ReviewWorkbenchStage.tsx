@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { markReturnedReviewPatchApplied } from '@/data/review-workbench.js';
 import { useCompanyEmployees } from '@/data/queries.js';
 import { loadRunCost } from '@/data/run-cost.js';
@@ -101,7 +102,7 @@ function competitiveStatusLabel(status: CompetitiveDraftGroupRow['status']): str
 
 export function ReviewWorkbenchStage(props: ReviewWorkbenchStageProps) {
   const competitiveAttempt = useQuery({
-    queryKey: ['competitive-draft-attempt-by-lease', props.leaseId],
+    queryKey: queryKeys.competitiveDraftAttemptByLease(props.leaseId),
     queryFn: async () => {
       if (!props.leaseId) return null;
       const repos = await getRepos();
@@ -269,7 +270,7 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
   const reviews = useProjectWorkspaceLeaseReviews(projectId || null);
   const queryClient = useQueryClient();
   const comparison = useQuery({
-    queryKey: ['competitive-draft-review', comparisonGroupId],
+    queryKey: queryKeys.competitiveDraftReview(comparisonGroupId),
     queryFn: async () => {
       const repos = await getRepos();
       const group = await repos.competitiveDraftGroups.findById(comparisonGroupId);
@@ -335,7 +336,7 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
         comparison.refetch(),
         reviews.refetch(),
         board.refetch(),
-        queryClient.invalidateQueries({ queryKey: ['employee-seniority', companyId] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employeeSeniorityCompany(companyId) }),
       ]);
       toast.success('Winning draft merged. Losing worktrees were cleaned up.');
     } catch (error) {
