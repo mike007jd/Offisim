@@ -1165,24 +1165,138 @@ impl CodexConnection {
         if let Some(stream) = self.stream.as_ref() {
             self.flush_all_stream_projections(stream);
         }
-        if was_alive {
-            signal_process_group(self.process_group_id, libc::SIGTERM);
-        }
         let mut child = self.child.lock().await;
         let Some(mut child) = child.take() else {
             return;
         };
+        let descendants = codex_descendant_processes(self.process_group_id);
+        if was_alive {
+            signal_process_group(self.process_group_id, libc::SIGTERM);
+        }
+        signal_codex_processes(&descendants, libc::SIGTERM);
         let reaped = matches!(
             tokio::time::timeout(GRACEFUL_SHUTDOWN_TIMEOUT, child.wait()).await,
             Ok(Ok(_))
         );
+        // A native tool may call setsid(2), so killing only the app-server's
+        // process group is insufficient. The pre-termination descendant
+        // snapshot retains those escaped PIDs after their parent is reaped.
+        signal_process_group(self.process_group_id, libc::SIGKILL);
+        signal_codex_processes(&descendants, libc::SIGKILL);
         if !reaped {
-            signal_process_group(self.process_group_id, libc::SIGKILL);
             let _ = child.start_kill();
             let _ = child.wait().await;
         }
         self.fail_pending("Codex runtime stopped.");
     }
+}
+
+#[cfg(target_os = "macos")]
+fn codex_process_parent_map() -> HashMap<i32, i32> {
+    let initial_count = unsafe { libc::proc_listallpids(std::ptr::null_mut(), 0) };
+    if initial_count <= 0 {
+        return HashMap::new();
+    }
+    let mut pids = vec![0_i32; initial_count as usize + 64];
+    let Some(buffer_bytes) = pids
+        .len()
+        .checked_mul(std::mem::size_of::<i32>())
+        .and_then(|bytes| i32::try_from(bytes).ok())
+    else {
+        return HashMap::new();
+    };
+    let count =
+        unsafe { libc::proc_listallpids(pids.as_mut_ptr().cast::<libc::c_void>(), buffer_bytes) };
+    if count <= 0 {
+        return HashMap::new();
+    }
+    pids.truncate(count as usize);
+    pids.into_iter()
+        .filter(|pid| *pid > 0 && *pid != std::process::id() as i32)
+        .filter_map(|pid| {
+            let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::uninit();
+            let info_size = std::mem::size_of::<libc::proc_bsdinfo>();
+            let read = unsafe {
+                libc::proc_pidinfo(
+                    pid,
+                    libc::PROC_PIDTBSDINFO,
+                    0,
+                    info.as_mut_ptr().cast::<libc::c_void>(),
+                    i32::try_from(info_size).ok()?,
+                )
+            };
+            (read as usize == info_size).then(|| {
+                let info = unsafe { info.assume_init() };
+                (pid, info.pbi_ppid as i32)
+            })
+        })
+        .collect()
+}
+
+#[cfg(target_os = "linux")]
+fn codex_process_parent_map() -> HashMap<i32, i32> {
+    let current_pid = std::process::id() as i32;
+    let Ok(entries) = std::fs::read_dir("/proc") else {
+        return HashMap::new();
+    };
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let pid = entry.file_name().to_str()?.parse::<i32>().ok()?;
+            if pid <= 0 || pid == current_pid {
+                return None;
+            }
+            let stat = std::fs::read_to_string(entry.path().join("stat")).ok()?;
+            let fields = stat.rsplit_once(") ")?.1;
+            let parent_pid = fields.split_whitespace().nth(1)?.parse::<i32>().ok()?;
+            Some((pid, parent_pid))
+        })
+        .collect()
+}
+
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "linux"))))]
+fn codex_process_parent_map() -> HashMap<i32, i32> {
+    HashMap::new()
+}
+
+#[cfg(unix)]
+fn codex_descendant_processes(root_pid: Option<u32>) -> Vec<i32> {
+    let Some(root_pid) = root_pid.and_then(|pid| i32::try_from(pid).ok()) else {
+        return Vec::new();
+    };
+    let parent_map = codex_process_parent_map();
+    let mut lineage = HashSet::from([root_pid]);
+    loop {
+        let before = lineage.len();
+        for (pid, parent_pid) in &parent_map {
+            if lineage.contains(parent_pid) {
+                lineage.insert(*pid);
+            }
+        }
+        if lineage.len() == before {
+            break;
+        }
+    }
+    lineage.remove(&root_pid);
+    lineage.into_iter().collect()
+}
+
+#[cfg(not(unix))]
+fn codex_descendant_processes(_root_pid: Option<u32>) -> Vec<i32> {
+    Vec::new()
+}
+
+fn signal_codex_processes(processes: &[i32], signal: i32) {
+    #[cfg(unix)]
+    for pid in processes {
+        // SAFETY: PIDs are captured from the app-server's live descendant tree
+        // immediately before termination and signalled within the same call.
+        unsafe {
+            libc::kill(*pid, signal);
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = (processes, signal);
 }
 
 fn request_timeout(method: &str) -> Duration {
