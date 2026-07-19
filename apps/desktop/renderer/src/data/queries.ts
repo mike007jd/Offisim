@@ -37,6 +37,11 @@ import {
 } from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
 import { discoverProjectSkills } from './project-skills.js';
+import {
+  invalidateCompanyDeletionScope,
+  invalidateConversationDeletionScope,
+  queryKeys,
+} from './query-keys.js';
 import { loadRunCost } from './run-cost.js';
 import { computeTokenBudgetAlerts, loadTokenBudgets } from './token-budgets.js';
 import type { ChatMessage, Deliverable, Employee, FileNode, GitRepoState, Skill } from './types.js';
@@ -69,7 +74,7 @@ function loadGetBuiltinPrefab(): Promise<GetBuiltinPrefab> {
 
 export function useCompanies() {
   return useQuery({
-    queryKey: ['companies'],
+    queryKey: queryKeys.companies(),
     queryFn: async () => {
       const repos = await withStartupQueryTimeout(reposOrNull(), 'Desktop repositories');
       if (!repos) return [];
@@ -82,7 +87,7 @@ export function useCompanies() {
 
 export function useCompanyTemplates() {
   return useQuery({
-    queryKey: ['company-templates'],
+    queryKey: queryKeys.companyTemplates(),
     // Templates are static, canonical core data — no I/O. Returns the 5 built-in
     // templates; the wizard appends the renderer-only "Create your own" entry.
     queryFn: () => buildWizardTemplates(),
@@ -91,7 +96,7 @@ export function useCompanyTemplates() {
 
 export function useProjects(companyId: string | null) {
   return useQuery({
-    queryKey: ['projects', companyId],
+    queryKey: queryKeys.projects(companyId),
     queryFn: async () => {
       const repos = await reposOrNull();
       if (!repos) return [];
@@ -105,7 +110,7 @@ export function useProjects(companyId: string | null) {
 export function useEmployees() {
   const companyId = useUiState((s) => s.companyId);
   return useQuery({
-    queryKey: ['employees', companyId],
+    queryKey: queryKeys.employees(companyId),
     queryFn: async () => {
       const repos = await reposOrNull();
       if (!repos) return [];
@@ -121,7 +126,7 @@ export function useEmployees() {
 
 export function useCompanyEmployees(companyId: string | null) {
   return useQuery({
-    queryKey: ['employees', companyId],
+    queryKey: queryKeys.employees(companyId),
     queryFn: async () => {
       const repos = await reposOrNull();
       if (!repos) return [] as Employee[];
@@ -168,9 +173,6 @@ export interface ProjectChatThreadRow {
   run_status?: string | null;
 }
 
-export const projectChatThreadRowsQueryKey = (projectId: string | null) =>
-  ['threads', projectId] as const;
-
 export async function loadProjectChatThreadRows(
   projectId: string | null,
 ): Promise<ProjectChatThreadRow[]> {
@@ -206,7 +208,7 @@ export function useUpdateCompany() {
       return { persisted: true };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.companies() });
     },
   });
 }
@@ -222,13 +224,7 @@ export function useDeleteCompany() {
       return deleteCompanyDeep(companyId);
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['companies'] }),
-        queryClient.invalidateQueries({ queryKey: ['activity-records'] }),
-        queryClient.invalidateQueries({ queryKey: ['threads'] }),
-        queryClient.invalidateQueries({ queryKey: ['messages'] }),
-        queryClient.invalidateQueries({ queryKey: ['deliverables'] }),
-      ]);
+      await invalidateCompanyDeletionScope(queryClient);
     },
   });
 }
@@ -286,14 +282,14 @@ export function useReassignEmployee() {
     },
     onSuccess: ({ employeeId, zoneId, persisted }) => {
       if (persisted) {
-        queryClient.setQueryData<Employee[]>(['employees', companyId], (current) =>
+        queryClient.setQueryData<Employee[]>(queryKeys.employees(companyId), (current) =>
           current?.map((employee) =>
             employee.id === employeeId ? { ...employee, workstationId: zoneId } : employee,
           ),
         );
       }
-      queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
-      queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
     },
   });
 }
@@ -309,8 +305,8 @@ export function useUpdateEmployeeEnabled() {
       return { persisted: true };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
-      queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
     },
   });
 }
@@ -319,7 +315,7 @@ export function useEmployeeSkills(employeeId: string | null) {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId) || null;
   return useQuery({
-    queryKey: ['employee-skills', companyId, projectId, employeeId],
+    queryKey: queryKeys.employeeSkills(companyId, projectId, employeeId),
     queryFn: async () => {
       if (!employeeId) return [] as Skill[];
       const repos = await reposOrNull();
@@ -389,7 +385,7 @@ function stringValue(value: unknown): string | null {
 export function useEmployeeMcpTools(employeeId: string | null) {
   const companyId = useUiState((s) => s.companyId);
   return useQuery<EmployeeMcpTool[]>({
-    queryKey: ['employee-mcp-tools', companyId, employeeId],
+    queryKey: queryKeys.employeeMcpTools(companyId, employeeId),
     queryFn: async () => {
       if (!companyId || !employeeId) return [];
       const repos = await reposOrNull();
@@ -441,12 +437,12 @@ export function useThreads(projectId: string | null) {
       runtimeEventBus.on(GRAPH_THREAD_STATUS_CHANGED_EVENT, (event) => {
         const payload = event.payload as GraphThreadStatusChangedPayload;
         if (payload.projectId !== projectId) return;
-        void queryClient.invalidateQueries({ queryKey: projectChatThreadRowsQueryKey(projectId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.threads(projectId) });
       }),
     [projectId, queryClient],
   );
   return useQuery({
-    queryKey: projectChatThreadRowsQueryKey(projectId),
+    queryKey: queryKeys.threads(projectId),
     queryFn: () => loadProjectChatThreadRows(projectId),
     enabled: projectId !== null,
     select: (rows) => rows.map(threadToVm),
@@ -471,7 +467,9 @@ export function useRenameThread(projectId: string | null) {
       return { persisted: true };
     },
     onSuccess: async () => {
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ['threads', projectId] })]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.threads(projectId) }),
+      ]);
     },
   });
 }
@@ -494,7 +492,9 @@ export function useArchiveThread(projectId: string | null) {
       }
     },
     onSuccess: async () => {
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ['threads', projectId] })]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.threads(projectId) }),
+      ]);
     },
   });
 }
@@ -526,21 +526,18 @@ export function useDeleteConversation(projectId: string | null, companyId: strin
     },
     onSuccess: async (result, vars) => {
       if (!result.persisted) return;
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),
-        queryClient.invalidateQueries({ queryKey: ['messages', vars.threadId] }),
-        queryClient.invalidateQueries({ queryKey: ['deliverables', companyId, vars.threadId] }),
-        queryClient.invalidateQueries({ queryKey: ['activity-records', companyId ?? ''] }),
-        queryClient.invalidateQueries({ queryKey: ['missions', companyId] }),
-        queryClient.invalidateQueries({ queryKey: ['task-board', companyId] }),
-      ]);
+      await invalidateConversationDeletionScope(queryClient, {
+        projectId,
+        threadId: vars.threadId,
+        companyId,
+      });
     },
   });
 }
 
 export function useMessages(threadId: string | null) {
   return useQuery({
-    queryKey: ['messages', threadId],
+    queryKey: queryKeys.messages(threadId),
     queryFn: async () => {
       const repos = await reposOrNull();
       // Chat messages are not a persisted DB table — they are produced live by
@@ -608,7 +605,7 @@ function parseContributorIds(json: string | null | undefined): string[] {
 export function useDeliverables(threadId: string | null) {
   const companyId = useUiState((s) => s.companyId);
   return useQuery({
-    queryKey: ['deliverables', companyId, threadId],
+    queryKey: queryKeys.deliverables(companyId, threadId),
     queryFn: async () => {
       if (companyId === null || threadId === null) return [] as Deliverable[];
       const repos = await reposOrNull();
@@ -652,11 +649,11 @@ export function useRunCost() {
     if (!companyId) return;
     return runtimeEventBus.on(RUN_COST_UPDATED_EVENT, (event) => {
       if (event.companyId !== companyId) return;
-      void queryClient.invalidateQueries({ queryKey: ['run-cost', companyId] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.runCostCompany(companyId) });
     });
   }, [companyId, queryClient]);
   return useQuery({
-    queryKey: ['run-cost', companyId, threadId],
+    queryKey: queryKeys.runCost(companyId, threadId),
     queryFn: async () => {
       const [cost, budgets] = await Promise.all([
         loadRunCost(companyId, threadId),
@@ -683,7 +680,7 @@ export function useRunCost() {
  *  layout. */
 export function useOfficeLayout(companyId: string | null) {
   return useQuery({
-    queryKey: ['office-layout', companyId],
+    queryKey: queryKeys.officeLayout(companyId),
     queryFn: async () => {
       const repos = await reposOrNull();
       if (!repos) return null;
@@ -734,8 +731,8 @@ export function useUpdateZone() {
       return { persisted: true };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
-      queryClient.invalidateQueries({ queryKey: ['office-scene'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeScene() });
     },
   });
 }
@@ -777,8 +774,8 @@ export function useCreateZone() {
       return { persisted: true, zoneId };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
-      queryClient.invalidateQueries({ queryKey: ['office-scene'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeScene() });
     },
   });
 }
@@ -805,8 +802,8 @@ export function useDeleteZone() {
       return { persisted: true, deletedObjects: prefabs.length };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
-      queryClient.invalidateQueries({ queryKey: ['office-scene'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeScene() });
     },
   });
 }
@@ -865,7 +862,7 @@ export function useCreatePrefabInstance() {
       const getBuiltinPrefab = await loadGetBuiltinPrefab();
       const definition = getBuiltinPrefab(prefabId);
       if (!companyId || !definition) return { previous: undefined };
-      const key = ['office-layout', companyId];
+      const key = queryKeys.officeLayout(companyId);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<OfficeLayoutData | null>(key);
       const ts = new Date().toISOString();
@@ -890,11 +887,11 @@ export function useCreatePrefabInstance() {
     },
     onError: (_error, _vars, context) => {
       if (context?.previous !== undefined) {
-        queryClient.setQueryData(['office-layout', companyId], context.previous);
+        queryClient.setQueryData(queryKeys.officeLayout(companyId), context.previous);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
     },
   });
 }
@@ -923,7 +920,7 @@ export function useUpdatePrefabInstance() {
     // the cursor across the DB round-trip instead of snapping back then jumping.
     onMutate: async ({ instanceId, fields }) => {
       if (!companyId) return { previous: undefined };
-      const key = ['office-layout', companyId];
+      const key = queryKeys.officeLayout(companyId);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<OfficeLayoutData | null>(key);
       queryClient.setQueryData<OfficeLayoutData | null>(key, (current) =>
@@ -942,11 +939,11 @@ export function useUpdatePrefabInstance() {
     },
     onError: (_error, _vars, context) => {
       if (context?.previous !== undefined) {
-        queryClient.setQueryData(['office-layout', companyId], context.previous);
+        queryClient.setQueryData(queryKeys.officeLayout(companyId), context.previous);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
     },
   });
 }
@@ -962,14 +959,14 @@ export function useDeletePrefabInstance() {
       return { persisted: true };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
     },
   });
 }
 
 export function useProjectFiles(projectId: string | null) {
   return useQuery<FileNode[], Error>({
-    queryKey: ['project-files', projectId],
+    queryKey: queryKeys.projectFiles(projectId),
     queryFn: async () => {
       if (!projectId) return [];
       if (!isTauriRuntime()) return [] as FileNode[];
@@ -997,7 +994,7 @@ export function useProjectFiles(projectId: string | null) {
 
 export function useGitWorkbench(projectId: string | null) {
   return useQuery<GitRepoState, Error>({
-    queryKey: ['git-workbench', projectId],
+    queryKey: queryKeys.gitWorkbench(projectId),
     queryFn: async () => {
       if (!projectId) return { status: 'unbound' };
       if (!isTauriRuntime()) return { status: 'unbound' };

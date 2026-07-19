@@ -1,13 +1,13 @@
 import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
+import {
+  type WorkspaceLeaseReviewRow,
+  workspaceLeaseStatusFromLifecycle,
+} from '@/data/board/task-board-data.js';
 import type { ReviewAnnotation, ReviewWorkbenchState } from '@/data/review-workbench.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { createTauriGitWorktreeOps } from '@/runtime/mission/workspace/git-worktree-ops.js';
 import { getRepos } from '@/runtime/repos.js';
 import { type WorkspaceLease, createWorkspaceLeaseManager } from '@offisim/core/browser';
-import {
-  type WorkspaceLeaseReviewRow,
-  workspaceLeaseStatusFromLifecycle,
-} from './task-board-data.js';
 import {
   type WorkspaceLeaseDecisionAction,
   WorkspaceLeaseDecisionCoordinator,

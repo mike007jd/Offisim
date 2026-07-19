@@ -1,4 +1,5 @@
 import { MARKET_FLOW_STEP_COLORS } from '@/data/color-palette.js';
+import type { ListingKind, MarketListing } from '@/data/market/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import {
   Book,
@@ -11,7 +12,6 @@ import {
   UserRound,
 } from 'lucide-react';
 import type { CSSProperties } from 'react';
-import type { ListingKind, MarketListing } from './market-data.js';
 
 /** Per-kind cover mini-illustration so the grid reads like a game inventory,
  *  not a SaaS settings list. 1:1 with the prototype `.kv-*` viz family. */

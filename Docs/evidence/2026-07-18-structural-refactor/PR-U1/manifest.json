@@ -1,0 +1,62 @@
+{
+  "pr": "U1",
+  "checkedAt": "2026-07-19T01:00:00+12:00",
+  "branch": "refactor/U1-query-key-factory",
+  "base": "f105efc28bcfc171adb21dd62c40fcd4a532c434",
+  "releaseApp": "apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app",
+  "liveTestedReleaseBinarySha256": "c27078929963cbd912e59bf8347373fc9772e1d9f5a28edc2f60114c76614b3b",
+  "finalRebuiltReleaseBinarySha256": "2709ea68c654fb75fcfe8736848f8674bf56d599a29efdb6adaa67954108fdd5",
+  "sourceChangedBetweenLiveAndFinalBuild": false,
+  "gates": {
+    "nodeReleaseLane": "4/4 green",
+    "desktopReleaseBuild": "pass",
+    "inlineQueryKeyOracle": "zero matches",
+    "diffCheck": "pass"
+  },
+  "live": {
+    "companyDeleteRefresh": "pass",
+    "conversationDeleteRefresh": "pass",
+    "u1CompanyRowsAfter": 0,
+    "u1ConversationRowsAfter": 0,
+    "b2TestConversationRowsAfter": 0,
+    "activeAgentRunsAfter": 0,
+    "activeThreadInteractionsAfter": 0
+  },
+  "gitNexus": {
+    "scope": "staged",
+    "changedSymbols": 137,
+    "changedFiles": 45,
+    "affectedProcesses": 40,
+    "aggregateRisk": "CRITICAL",
+    "interpretation": "breadth risk from mechanical query-key replacement; independent reviewer required"
+  },
+  "independentReview": {
+    "result": "APPROVE",
+    "blockers": 0,
+    "actionableFindings": 0,
+    "cacheOperationsMain": 122,
+    "cacheOperationsCurrent": 122,
+    "cacheOperationsViaFactory": 122,
+    "queryKeyPropertiesViaFactory": "165/165",
+    "independentTypecheck": "pass",
+    "conversationDeletionHarness": "pass"
+  },
+  "images": [
+    {
+      "file": "01-delete-company-confirmation.jpeg",
+      "sha256": "c6d1a1394d09da0b5d8ab5555b595bc6ee4ea4bdb199b43836d01c502bd534d2"
+    },
+    {
+      "file": "02-company-deleted-list-refreshed.jpeg",
+      "sha256": "78061f63e39cdfcc4b976ab2422b42f0074dd7e4536e3a472a6c14e198682006"
+    },
+    {
+      "file": "03-delete-conversation-confirmation.jpeg",
+      "sha256": "e13c05a6adb3c44a49fa3cd070ab4a9ef2c8718a74b84152dee8ffdd122fcdb6"
+    },
+    {
+      "file": "04-conversation-deleted-list-refreshed.jpeg",
+      "sha256": "e96aaf2b58f8978ce77350e0b2e57f3845d6c5732fe9170e6ae580f7c4aa7724"
+    }
+  ]
+}

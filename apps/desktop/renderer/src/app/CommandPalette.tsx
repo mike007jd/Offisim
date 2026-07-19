@@ -1,6 +1,7 @@
 import { NAV_ENTRIES } from '@/app/nav-registry.js';
 import { guardCurrentSurfaceScopeChange, useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { useCompanies, useProjects } from '@/data/queries.js';
 import {
   Command,
@@ -123,7 +124,7 @@ function CommandDataGroups({
   const projects = useProjects(companyId);
   const normalizedSearch = searchText.trim();
   const globalSearch = useQuery({
-    queryKey: ['global-search', normalizedSearch],
+    queryKey: queryKeys.globalSearch(normalizedSearch),
     queryFn: () =>
       isTauriRuntime()
         ? invokeCommand('global_search', { query: normalizedSearch })

@@ -1,3 +1,4 @@
+import type { BindingSlot, InstallBindingValues, MarketListing } from '@/data/market/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -25,7 +26,6 @@ import {
 import { useLayoutEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import type { BindingSlot, InstallBindingValues, MarketListing } from './market-data.js';
 
 type Step = 'review' | 'configure' | 'installing' | 'done' | 'error';
 

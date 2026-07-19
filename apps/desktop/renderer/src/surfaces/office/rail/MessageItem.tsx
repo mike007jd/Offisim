@@ -1,6 +1,7 @@
 import { AssistantMessageParts } from '@/assistant/parts/AssistantMessageParts.js';
 import { MessageWorkspaceDisclosure } from '@/assistant/parts/WorkspaceDisclosure.js';
 import { isReasoningStreaming } from '@/assistant/parts/assistant-message-parts.js';
+import { SelectableCard } from '@/components/SelectableCard.js';
 import type { ChatMessage, Employee, RunRecord } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
@@ -83,7 +84,7 @@ function RunRecordBody({ record, byId }: { record: RunRecord; byId: Map<string, 
 function RunRecordCard({ record, byId }: { record: RunRecord; byId: Map<string, Employee> }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={cn('off-run-record', open && 'is-open')}>
+    <SelectableCard as="div" selected={open} selectedClassName="is-open" className="off-run-record">
       <button
         type="button"
         className="off-rr-head off-focusable"
@@ -96,7 +97,7 @@ function RunRecordCard({ record, byId }: { record: RunRecord; byId: Map<string, 
         <Icon icon={ChevronRight} size="sm" className="off-rr-caret" />
       </button>
       {open ? <RunRecordBody record={record} byId={byId} /> : null}
-    </div>
+    </SelectableCard>
   );
 }
 
