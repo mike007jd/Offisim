@@ -1,7 +1,8 @@
+import { ListRow, ListRowMeta, ListRowSubtitle, ListRowTitle } from '@/components/ListRow.js';
 import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { cn, compactAge } from '@/lib/utils.js';
+import { compactAge } from '@/lib/utils.js';
 import type { CollaborationThreadSummary } from '@offisim/core/browser';
 import { MessageSquare, Users } from 'lucide-react';
 
@@ -60,26 +61,30 @@ export function ThreadRow({
 }) {
   const snippet = thread.lastMessage?.body?.trim() || 'No messages yet';
   return (
-    <button
+    <ListRow
       type="button"
-      className={cn('off-ws-im-row off-focusable', active && 'is-active')}
+      selected={active}
+      selectedClassName="is-active"
+      className="off-ws-im-row off-focusable"
       onClick={onSelect}
     >
       <ThreadAvatar thread={thread} employee={employee} />
       <span className="off-ws-im-main">
-        <span className="off-ws-im-l1">
+        <ListRowTitle className="off-ws-im-l1">
           <span className="off-ws-im-name">{title}</span>
           {thread.kind === 'group' ? <span className="off-ws-im-tag">group</span> : null}
-          <span className="off-ws-im-time">{timeLabelFrom(thread.lastActivityAt)}</span>
-        </span>
-        <span className="off-ws-im-l2">
+          <ListRowMeta className="off-ws-im-time">
+            {timeLabelFrom(thread.lastActivityAt)}
+          </ListRowMeta>
+        </ListRowTitle>
+        <ListRowSubtitle className="off-ws-im-l2">
           <span className="off-ws-im-snip">{snippet}</span>
           {thread.unreadCount > 0 ? (
             <span className="off-ws-im-nb">{thread.unreadCount}</span>
           ) : null}
-        </span>
+        </ListRowSubtitle>
       </span>
-    </button>
+    </ListRow>
   );
 }
 

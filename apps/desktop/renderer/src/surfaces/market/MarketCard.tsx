@@ -1,6 +1,6 @@
+import { SelectableCard } from '@/components/SelectableCard.js';
 import { INSTALLABLE_KINDS, type MarketListing } from '@/data/market/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { cn } from '@/lib/utils.js';
 import { Download, Star } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { MarketCover, kindIcon } from './MarketCover.js';
@@ -20,7 +20,7 @@ export function MarketCard({ listing, installed, selected, onSelect, onOpen }: M
   const showInstalledPip = installed && INSTALLABLE_KINDS.has(listing.kind);
 
   return (
-    <button
+    <SelectableCard
       type="button"
       onClick={onSelect}
       onDoubleClick={onOpen}
@@ -31,7 +31,9 @@ export function MarketCard({ listing, installed, selected, onSelect, onOpen }: M
         }
       }}
       aria-pressed={selected}
-      className={cn('off-mkt-card off-focusable', selected && 'is-selected')}
+      selected={selected}
+      selectedClassName="is-selected"
+      className="off-mkt-card off-focusable"
       style={{ '--rc': tone.rc, '--rcs': tone.rcs } as CSSProperties}
     >
       <div className="off-mc-cover">
@@ -60,6 +62,6 @@ export function MarketCard({ listing, installed, selected, onSelect, onOpen }: M
           </span>
         </div>
       </div>
-    </button>
+    </SelectableCard>
   );
 }

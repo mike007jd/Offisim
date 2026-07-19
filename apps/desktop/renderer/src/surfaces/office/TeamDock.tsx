@@ -3,6 +3,7 @@ import {
   type AgentRuntimeModelOption,
   useAgentRuntimeModels,
 } from '@/assistant/composer/usePiAgentModels.js';
+import { SelectableCard } from '@/components/SelectableCard.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { queryKeys } from '@/data/query-keys.js';
 import {
@@ -506,9 +507,11 @@ export function TeamDock() {
           return (
             <Popover key={employee.id}>
               <PopoverTrigger asChild>
-                <button
+                <SelectableCard
                   type="button"
-                  className={cn('off-team-card off-focusable', active && 'is-active')}
+                  selected={active}
+                  selectedClassName="is-active"
+                  className="off-team-card off-focusable"
                 >
                   <EmployeeAvatar
                     seed={employee.id}
@@ -543,7 +546,7 @@ export function TeamDock() {
                       {PRESENCE_TEXT[presence]}
                     </span>
                   </span>
-                </button>
+                </SelectableCard>
               </PopoverTrigger>
               <PopoverContent align="start" className="off-team-popover">
                 <EmployeeDockPopover

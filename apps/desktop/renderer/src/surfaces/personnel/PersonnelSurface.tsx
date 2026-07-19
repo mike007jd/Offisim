@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useAgentRuntimeModels } from '@/assistant/composer/usePiAgentModels.js';
+import { ListRow, ListRowMeta, ListRowTitle } from '@/components/ListRow.js';
 import { displayRole, isTauriRuntime } from '@/data/adapters.js';
 import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
 import { type EmployeeSeniority, employeeSeniorityLabel } from '@/data/employee-seniority.js';
@@ -54,9 +55,11 @@ function RosterRow({
   const modelInvalid = Boolean(employee.model && validModels && !validModels.has(employee.model));
   return (
     <div className={cn('off-pers-emp-wrap', selected && 'is-sel')}>
-      <button
+      <ListRow
         type="button"
-        className={cn('off-pers-emp off-focusable', selected && 'is-sel')}
+        selected={selected}
+        selectedClassName="is-sel"
+        className="off-pers-emp off-focusable"
         title={
           collapsed && seniority
             ? `${employee.name} · ${employeeSeniorityLabel(seniority)}`
@@ -75,7 +78,7 @@ function RosterRow({
           brand={employee.kind === 'external'}
         />
         <span className="off-pers-emp-info">
-          <span className="off-pers-emp-name-row">
+          <ListRowTitle className="off-pers-emp-name-row">
             <span className="off-pers-emp-name">{employee.name}</span>
             {seniority ? (
               <span className={`off-pers-seniority-badge is-level-${seniority.level}`}>
@@ -83,8 +86,8 @@ function RosterRow({
               </span>
             ) : null}
             {employee.disabled ? <span className="off-pers-emp-dis">disabled</span> : null}
-          </span>
-          <span className="off-pers-emp-meta">
+          </ListRowTitle>
+          <ListRowMeta className="off-pers-emp-meta">
             {displayRole(employee) ? (
               <span className="off-pers-emp-role">{employee.role}</span>
             ) : null}
@@ -96,9 +99,9 @@ function RosterRow({
                 {modelInvalid ? 'AI unavailable · uses conversation default' : employee.model}
               </span>
             ) : null}
-          </span>
+          </ListRowMeta>
         </span>
-      </button>
+      </ListRow>
     </div>
   );
 }
