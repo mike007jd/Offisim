@@ -1,0 +1,38 @@
+{
+  "base": "00f1cbe099ab94043c9ac3b13e223557e9683aba",
+  "oldPath": "packages/core/src/runtime/repositories.ts",
+  "newRoot": "packages/core/src/runtime/repositories",
+  "comparison": "TypeScript AST top-level declarations, exact source text",
+  "declarations": {
+    "oldIncludingAggregate": 192,
+    "moved": 191,
+    "aggregateKeptAtRoot": 1,
+    "missing": [],
+    "extra": [],
+    "changed": []
+  },
+  "publicExports": {
+    "oldIncludingAggregate": 202,
+    "moved": 201,
+    "aggregateKeptAtRoot": 1,
+    "missing": [],
+    "extra": []
+  },
+  "runtimeRepositoriesAggregateExact": true,
+  "existingConsumerFiles": {
+    "before": 69,
+    "after": 69,
+    "directDomainImportsAfter": 0
+  },
+  "files": {
+    "company.ts": { "declarations": 21, "exports": 27 },
+    "thread.ts": { "declarations": 17, "exports": 19 },
+    "run.ts": { "declarations": 48, "exports": 47 },
+    "mission.ts": { "declarations": 19, "exports": 19 },
+    "loop.ts": { "declarations": 13, "exports": 13 },
+    "collaboration.ts": { "declarations": 19, "exports": 19 },
+    "mcp.ts": { "declarations": 24, "exports": 24 },
+    "memory.ts": { "declarations": 23, "exports": 23 },
+    "settings.ts": { "declarations": 7, "exports": 10 }
+  }
+}
