@@ -1,11 +1,23 @@
 # PR-S2 evidence — repository contracts split by domain
 
-Checked at: `2026-07-19T01:41:06+1200` (NZST)
+Checked at: `2026-07-20T12:09:00+1200` (NZST)
 
 Base: `refactor/S1-package-split-rename` at
-`00f1cbe099ab94043c9ac3b13e223557e9683aba`
+`42277b7408c7729750833368c731ff07e0b57e5d`
 
 Branch: `refactor/S2-repositories-domain-split`
+
+## Parent-stack refresh
+
+- Merged the latest S1 audit correction at `42277b74` with merge commit
+  `28a5a42b`; no remote history was rewritten.
+- The refresh restores `107` JSDoc lines across seven retained dramaturgy
+  shared-type files. It does not change emitted JavaScript or any S2 repository
+  contract declaration.
+- GitNexus comparison against the refreshed S1 parent is LOW risk: three
+  interface symbols, zero affected execution flows.
+- `node scripts/release-gates.mjs --lane=node`: PASS, `4/4` gates green after
+  the refresh. `git diff --check`: PASS.
 
 ## Scope proof
 
