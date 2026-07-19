@@ -112,6 +112,7 @@ assert.doesNotMatch(
 
 for (const retained of [
   'turn/interrupt',
+  'thread/backgroundTerminals/clean',
   'thread/start',
   'thread/resume',
   'item/reasoning/summaryTextDelta',
