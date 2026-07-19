@@ -81,7 +81,12 @@ git call site.
 
 See `live-smoke.md` in this directory for the exact app path, PIDs, and
 per-path evidence (git / shell / pi / codex: start task → Stop → no zombie
-process group).
+process group). Outcome: shell / pi / git lanes verified; the Codex CLI lane
+reproducibly leaks an orphan `sleep` process group after Stop — and the
+baseline-contrast experiment (`baseline-codex-stop/report.md`, run on a
+`src-tauri`-identical-to-main release app) proves the leak is a pre-existing
+`main` defect, not an A3 regression. The defect is reported separately and
+deliberately not fixed inside this mechanical PR.
 
 ## Recorded plan deviations
 
