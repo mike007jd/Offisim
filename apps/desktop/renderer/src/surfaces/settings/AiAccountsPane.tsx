@@ -520,11 +520,6 @@ export function AiAccountsPane() {
     setForm(formFromProvider(selectedProvider, templateById.get(selectedProvider.provider)));
   }, [selectedProvider, templateById]);
 
-  useEffect(() => {
-    if (!providerQuery.data || providerConfigs.length || selection.mode !== 'overview') return;
-    setSelection({ mode: 'add' });
-  }, [providerConfigs.length, providerQuery.data, selection.mode]);
-
   const updateForm = <K extends keyof ProviderFormState>(key: K, value: ProviderFormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
   const showAddProvider = (template?: PiAgentProviderTemplate) => {

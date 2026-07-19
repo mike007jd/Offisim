@@ -1,7 +1,7 @@
 # PR A4 release `.app` live screenshot acceptance
 
-- Overall result: `completed_with_risks`
-- Checked at: 2026-07-19 18:00 NZST (Pacific/Auckland)
+- Current overall result: `completed`
+- Latest checked at: 2026-07-20 09:57 NZST (Pacific/Auckland)
 - Branch / commit supplied for acceptance: `refactor/A4-relative-time-empty-states` / `811a91e8`
 - App: `/Users/haoshengli/worktrees/offisim-refactor-a4/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`
 - Build action: not run; the supplied signed release app was used as required.
@@ -78,3 +78,26 @@ All safely reachable changed states passed visual layout acceptance. The expecte
 - Latest GitNexus compare against main is **HIGH**, covering 13 existing UI execution flows across AI Accounts, MCP, Board Timeline and the shared EmptyState. This aggregate result is retained as the acceptance risk and is not downgraded from the three LOW conflict-symbol impacts.
 - The exact release app rebuilt and signed successfully at the documented worktree path. Executable SHA-256: `4c5b5f781dacf4f5b08c3a367e0038e5c4940f40ef458a4c7dca16ceccff3f1e`; `codesign --verify --deep --strict` passed.
 - Current-commit live acceptance remains blocked before launch: the official Computer Use entrypoint returns `Sky Computer Use requires the trusted nodeRepl runtime` even after a clean kernel reset and trusted import. No AppleScript, bundle-id launch, localhost, dev WebView or fabricated profile was used as a substitute. AI Accounts fresh-profile, Loop Runs time and Recovery time therefore remain open.
+
+## 2026-07-20 final release acceptance
+
+- Computer Use recovered after the host app was reopened. All interactions below used the exact release app path documented above; AX reported `tauri://localhost`. No bundle-id launch, AppleScript, localhost browser, dev server or dev WebView was used.
+- The unreachable fresh-profile provider state exposed a real product defect: `AiAccountsPane` automatically opened the add-provider form whenever the provider list was empty, making `No API providers yet` unreachable. The auto-open effect was removed; the explicit `Add provider` action remains. `harness-first-run-onboarding` now locks both empty-state reachability and the absence of the auto-open pattern (23/23).
+- Full gates for the corrected product source passed: Node release gates 4/4 with 73/73 harnesses, Rust 465/465, renderer typecheck, `cargo fmt --check`, and `git diff --check`.
+- A fresh GitNexus index of this exact worktree reports **HIGH** aggregate risk: 16 changed files, 28 changed symbols, and 13 affected existing UI flows. The scope matches A4 (AI Accounts, MCP detail, Board Timeline, shared empty/time presentation); the unrelated 184-file MCP result from the main worktree was rejected as a repository-binding error.
+- The exact corrected release app rebuilt and signed successfully. Executable SHA-256: `5ae1a32c6f71c43c25a88200f83d9fa9c4c403e97884f610040ffe06ac71c3fa`; `codesign --verify --deep --strict` passed.
+
+| Surface | Result | Evidence | Final path and observation |
+| --- | --- | --- | --- |
+| Settings / AI Accounts fresh profile | `verified` | [a4-fresh-ai-accounts-empty-state.jpeg](a4-fresh-ai-accounts-empty-state.jpeg) | Fresh HOME `/private/tmp/offisim-a4-fresh.bs72X0`; PID `84458`; CGWindowNumber `38465`; bounds `36,33 1440x886`. After creating `Northstar Studio` through onboarding, `Settings -> AI Accounts` showed `No API providers yet` and `No API activity yet` together. `Add provider` then opened the form explicitly. |
+| Mission / Loop Runs relative time | `verified` | [a4-loop-runs-time.jpeg](a4-loop-runs-time.jpeg) | Real profile; PID `84782`; CGWindowNumber `38494`; bounds `36,33 1440x886`. A saved loop was started through the release UI; `Loops -> Runs` rendered status `Running` with relative time `now`. |
+| Office / Recovery relative time | `verified` | [a4-recovery-time.jpeg](a4-recovery-time.jpeg) | A Codex CLI task was started, the exact release window was closed through Computer Use while the task was active, and the same release app was relaunched. PID `85758`; CGWindowNumber `38582`; bounds `36,33 1440x886`. Office rendered an interrupted-work card with `Started now`, `CAN RESUME`, `Resume`, `Discard`, and `Details`. No `sleep 300` or child Codex process remained after the close. |
+
+### Final cleanup
+
+- The temporary recovery run was discarded through the product UI after capture.
+- The temporary loop was archived through the product UI. The product has no run-delete action; its inert `Ready to resume` history row remains as product-managed acceptance history, with no live process.
+- Fresh-profile directories `/private/tmp/offisim-a4-fresh.rqwbPL` and `/private/tmp/offisim-a4-fresh.bs72X0` were moved to `/Users/haoshengli/.Trash/` and are recoverable.
+- Each release window was closed through Computer Use and its exact PID exited.
+
+A4 release acceptance is complete. The three states previously blocked by profile data or the unavailable Computer Use host are now covered by current release-app evidence.

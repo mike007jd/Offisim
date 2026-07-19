@@ -45,6 +45,12 @@ assert.match(
   /No engine is ready\. Sign in to a detected coding tool, or add a Pi API provider below\./u,
 );
 assert.match(sourceFiles[3] ?? '', /account\.capabilities\.execute\.status === 'available'/u);
+assert.match(sourceFiles[3] ?? '', /title="No API providers yet"/u);
+assert.doesNotMatch(
+  sourceFiles[3] ?? '',
+  /providerConfigs\.length \|\| selection\.mode !== 'overview'[\s\S]{0,160}setSelection\(\{ mode: 'add' \}\)/u,
+  'a fresh profile must render the provider overview empty state before opening the add form',
+);
 
 const guideSource = await readFile(
   resolve(root, 'apps/desktop/renderer/src/surfaces/onboarding/FirstRunGuide.tsx'),
@@ -62,4 +68,4 @@ const commandSource = await readFile(
 assert.match(commandSource, /project_demo_workspace_prepare/u);
 assert.match(commandSource, /PROJECT_BRIEF\.md/u);
 
-console.log('first-run-onboarding: 21/21 checks passed');
+console.log('first-run-onboarding: 23/23 checks passed');
