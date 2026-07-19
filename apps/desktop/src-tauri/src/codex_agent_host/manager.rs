@@ -2195,7 +2195,11 @@ mod tests {
         let script = root.join("codex-app-server-fixture");
         let transcript_literal =
             serde_json::to_string(transcript.to_string_lossy().as_ref()).unwrap();
-        let body = script_body.replace("__TRANSCRIPT__", &transcript_literal);
+        let background_pid_literal =
+            serde_json::to_string(root.join("background.pid").to_string_lossy().as_ref()).unwrap();
+        let body = script_body
+            .replace("__TRANSCRIPT__", &transcript_literal)
+            .replace("__BACKGROUND_PID__", &background_pid_literal);
         std::fs::write(&script, body).unwrap();
         let mut permissions = std::fs::metadata(&script).unwrap().permissions();
         permissions.set_mode(0o700);
@@ -2300,10 +2304,22 @@ time.sleep(30)
     #[cfg(unix)]
     const BACKGROUND_TERMINAL_CLEAN_FIXTURE: &str = r#"#!/usr/bin/python3
 import json
+import subprocess
 import sys
 import time
 
 TRANSCRIPT = __TRANSCRIPT__
+BACKGROUND_PID = __BACKGROUND_PID__
+
+background = subprocess.Popen(
+    ["sleep", "30"],
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    start_new_session=True,
+)
+with open(BACKGROUND_PID, "w", encoding="utf-8") as handle:
+    handle.write(str(background.pid))
 
 def record(direction, message):
     with open(TRANSCRIPT, "a", encoding="utf-8") as handle:
@@ -2478,7 +2494,25 @@ time.sleep(30)
             .unwrap();
 
         assert!(clean_native_background_terminals(&connection, "thread-clean").await);
+        let background_pid = std::fs::read_to_string(root.join("background.pid"))
+            .unwrap()
+            .parse::<i32>()
+            .unwrap();
+        assert_eq!(unsafe { libc::kill(background_pid, 0) }, 0);
         connection.terminate().await;
+        let disappeared = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if unsafe { libc::kill(background_pid, 0) } != 0 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        assert!(
+            disappeared.is_ok(),
+            "detached Codex descendant {background_pid} survived connection termination"
+        );
 
         let transcript = read_transcript(&transcript_path);
         assert!(transcript.iter().any(|entry| {
