@@ -697,13 +697,19 @@ const sourceEntries = await Promise.all(
     indicators: 'apps/desktop/renderer/src/surfaces/office/scene/character/indicators.tsx',
     character: 'apps/desktop/renderer/src/surfaces/office/scene/character/GltfCharacter.tsx',
     scene2D: 'apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx',
+    scene2DEmployees: 'apps/desktop/renderer/src/surfaces/office/scene/render2d/employees.ts',
+    scene2DFlows: 'apps/desktop/renderer/src/surfaces/office/scene/render2d/flows.ts',
     scene3D: 'apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx',
+    scene3DFlowPackets: 'apps/desktop/renderer/src/surfaces/office/scene/flow-packets-3d.tsx',
+    sceneProjection: 'apps/desktop/renderer/src/surfaces/office/scene/scene-projection.ts',
     stagingInputs: 'apps/desktop/renderer/src/surfaces/office/scene/use-scene-staging-inputs.ts',
     officeCss: 'apps/desktop/renderer/src/surfaces/office/office.css',
   }).map(async ([key, path]) => [key, await readFile(new URL(path, ROOT), 'utf8')] as const),
 );
 const source = Object.fromEntries(sourceEntries) as Record<string, string>;
 const legacyCharacterSource = `${source.indicators}\n${source.character}`;
+const scene2DSource = `${source.scene2D}\n${source.scene2DEmployees}\n${source.scene2DFlows}\n${source.sceneProjection}`;
+const scene3DSource = `${source.scene3D}\n${source.scene3DFlowPackets}\n${source.sceneProjection}`;
 check(
   'CharacterAction and legacyPerformance are absent from the character renderer',
   !/\bCharacterAction\b|\blegacyPerformance\b/.test(legacyCharacterSource),
@@ -711,7 +717,7 @@ check(
 check(
   'the old action prop / ActionHalo lane is absent',
   !/\baction\?:|\bactionState\b|\bActionHalo\b/.test(legacyCharacterSource) &&
-    !/\baction=\{/.test(source.scene3D),
+    !/\baction=\{/.test(scene3DSource),
 );
 check(
   'the production indicator consumes the pure P4 presentation contract',
@@ -719,59 +725,58 @@ check(
 );
 check(
   'OfficeScene3D no longer draws the old active selection ring outside the indicator owner',
-  !/\{active\s*&&\s*!dragging\s*\?\s*\(\s*<mesh[\s\S]{0,520}<ringGeometry/.test(source.scene3D),
+  !/\{active\s*&&\s*!dragging\s*\?\s*\(\s*<mesh[\s\S]{0,520}<ringGeometry/.test(scene3DSource),
 );
 check(
   'both scene modes consume ActorCue.status from the shared frame',
-  source.scene2D.includes('cue?.status') && source.scene3D.includes('cue?.status'),
+  scene2DSource.includes('cue?.status') && scene3DSource.includes('cue?.status'),
 );
 check(
   'neither scene re-derives blocked state from workload.primary',
   !/workload\??\.primary\s*===\s*['"]issue['"]|wl\??\.primary\s*===\s*['"]issue['"]/.test(
-    `${source.scene2D}\n${source.scene3D}`,
+    `${scene2DSource}\n${scene3DSource}`,
   ),
 );
 check(
   'both scene modes still consume the shared six-glyph source',
-  source.scene2D.includes('RESOURCE_KIND_GLYPHS') &&
-    source.scene3D.includes('RESOURCE_KIND_GLYPHS'),
+  scene2DSource.includes('RESOURCE_KIND_GLYPHS') && scene3DSource.includes('RESOURCE_KIND_GLYPHS'),
 );
 check(
   'approval and kindless failures never fall back to a fake ! resource glyph',
   !/RESOURCE_KIND_GLYPHS[^\n]{0,120}['"]!['"]|\?\?\s*['"]!['"]/.test(
-    `${source.scene2D}\n${source.scene3D}`,
+    `${scene2DSource}\n${scene3DSource}`,
   ),
 );
 check(
   'typed blocked strain replaces the generic marker and warning ink uses the shared semantic helper',
   source.character.includes('hasTypedResourceMarker') &&
     source.indicators.includes('hasTypedResourceMarker') &&
-    source.scene2D.includes('officeResourceMarkerColor') &&
-    source.scene3D.includes('officeResourceMarkerColor'),
+    scene2DSource.includes('officeResourceMarkerColor') &&
+    scene3DSource.includes('officeResourceMarkerColor'),
 );
 check(
   'blocked attribution is explicit while the duplicate failure lane wording is suppressed',
-  source.scene3D.includes('`${labelText} · BLOCKED`') &&
-    source.scene3D.includes("showLabel: cue.kind !== 'failure'") &&
+  scene3DSource.includes('`${labelText} · BLOCKED`') &&
+    scene3DSource.includes("showLabel: cue.kind !== 'failure'") &&
     source.officeCss.includes('.off-scene-tag.is-status-blocked'),
 );
 check(
   'pulse=false and reduced-motion flows keep a static packet in both scene modes',
-  source.scene2D.includes('reducedMotion || !cue.pulse ? 0.35') &&
-    source.scene3D.includes('pulse && !reducedMotion') &&
-    !source.scene3D.includes('if (!pulse) return null'),
+  scene2DSource.includes('reducedMotion || !cue.pulse ? 0.35') &&
+    scene3DSource.includes('pulse && !reducedMotion') &&
+    !scene3DSource.includes('if (!pulse) return null'),
 );
 check(
   'status rendering no longer reads the superseded green/amber/selection/danger palette lane',
   !/LIGHT_SCENE_3D\.(?:ledGreen|ledAmber|selectionRing|ghostBlocked)/.test(
-    `${source.indicators}\n${source.character}\n${source.scene3D}`,
+    `${source.indicators}\n${source.character}\n${scene3DSource}`,
   ),
 );
 check(
   'the live shared staging input injects the physical delivery anchor',
   source.stagingInputs.includes('OFFICE_DELIVERY_STAGING_PREFAB') ||
-    (source.scene2D.includes('OFFICE_DELIVERY_STAGING_PREFAB') &&
-      source.scene3D.includes('OFFICE_DELIVERY_STAGING_PREFAB')),
+    (scene2DSource.includes('OFFICE_DELIVERY_STAGING_PREFAB') &&
+      scene3DSource.includes('OFFICE_DELIVERY_STAGING_PREFAB')),
 );
 
 const p4SelectorFragments = [

@@ -361,7 +361,10 @@ assert.doesNotMatch(
   projectionSource,
   /Date\.now|Math\.random|setInterval|setTimeout|invokeCommand|Repository/,
 );
-const scene2d = readText('apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx');
+const scene2d = [
+  readText('apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx'),
+  readText('apps/desktop/renderer/src/surfaces/office/scene/render2d/companion.ts'),
+].join('\n');
 const scene3d = readText('apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx');
 const companion3d = readText(
   'apps/desktop/renderer/src/surfaces/office/scene/office-companion/OfficeCompanion3D.tsx',

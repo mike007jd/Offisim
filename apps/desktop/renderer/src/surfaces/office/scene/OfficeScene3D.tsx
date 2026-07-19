@@ -8,8 +8,6 @@ import {
   type SceneInk,
   type WorkloadChipTone,
   type WorkloadCue,
-  bundleEmphasis,
-  flowCueText,
 } from '@/assistant/runtime/scene-cue-projection.js';
 import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
 import { type EmployeeSeniority, employeeSeniorityLabel } from '@/data/employee-seniority.js';
@@ -34,7 +32,6 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   type CSSProperties,
   Fragment,
-  type RefObject,
   Suspense,
   useEffect,
   useLayoutEffect,
@@ -42,7 +39,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ACESFilmicToneMapping, type Group, type Mesh } from 'three';
+import { ACESFilmicToneMapping, type Group } from 'three';
 import {
   type CharacterMoveOrigin,
   type CharacterMovementPhase,
@@ -51,6 +48,7 @@ import {
 import { GltfCharacter } from './character/GltfCharacter.js';
 import { preloadCharacterAssets } from './character/character-assets.js';
 import { openDeliveryHistory } from './delivery-history.js';
+import { FlowPacket3D } from './flow-packets-3d.js';
 import { OfficeCompanion3D } from './office-companion/OfficeCompanion3D.js';
 import {
   buildOfficeCompanionCandidates,
@@ -83,7 +81,6 @@ import {
   OFFICE_TOY_SIGNAL_COLORS,
   OFFICE_TOY_STATE_COLORS,
 } from './r3d/scene-colors.js';
-import { type ScenePlacementPoint, groundPointFromClient } from './scene-ground.js';
 import { compactSceneEmployeeName } from './scene-labels.js';
 import {
   type EmployeePosture,
@@ -92,6 +89,17 @@ import {
   rotateLocal,
 } from './scene-layout.js';
 import type { OfficePathfinder, PathPoint } from './scene-pathfinding.js';
+import {
+  WORKLOAD_CHIP_INK,
+  projectActiveFlowTargets,
+  projectFlowLanes,
+  projectFlowTargetPoint,
+} from './scene-projection.js';
+import {
+  type SceneEmployeeDrag,
+  type SceneEmployeeDrop,
+  useEmployeeDrag,
+} from './use-employee-drag.js';
 import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
 import { WorkBench } from './work-bench/WorkBench.js';
 
@@ -99,26 +107,6 @@ import { WorkBench } from './work-bench/WorkBench.js';
 // gets all character bodies/animations/accessories in parallel instead of a
 // per-suspend waterfall (the Personnel preview shares the same cache).
 preloadCharacterAssets();
-
-interface SceneEmployeeDrop {
-  readonly zoneId: string | null;
-  readonly x: number | null;
-  readonly z: number | null;
-  readonly startX: number;
-  readonly startY: number;
-  readonly endX: number;
-  readonly endY: number;
-  readonly moved: boolean;
-}
-
-interface SceneEmployeeDrag {
-  readonly employeeId: string;
-  readonly x: number;
-  readonly z: number;
-  readonly clientX: number;
-  readonly clientY: number;
-  readonly moved: boolean;
-}
 
 const PIP_FRAME_INTERVAL_MS = 250;
 
@@ -218,94 +206,15 @@ const INK_3D: Record<SceneInk, string> = {
 };
 
 const CHIP_TONE_3D: Record<WorkloadChipTone, string> = {
-  work: OFFICE_TOY_STATE_COLORS.working,
-  wait: OFFICE_TOY_STATE_COLORS.approval,
-  risk: OFFICE_TOY_STATE_COLORS.blocked,
-  done: OFFICE_TOY_SIGNAL_COLORS.artifact,
+  work: INK_3D[WORKLOAD_CHIP_INK.work],
+  wait: INK_3D[WORKLOAD_CHIP_INK.wait],
+  risk: INK_3D[WORKLOAD_CHIP_INK.risk],
+  done: INK_3D[WORKLOAD_CHIP_INK.done],
 };
 
 function flowTarget3D(target: FlowCueTarget) {
-  switch (target) {
-    case 'delivery':
-      return [OFFICE_DELIVERY_WORLD.x, 0.055, OFFICE_DELIVERY_WORLD.z] as const;
-    case 'tool':
-      return [10.4, 0.1, -9.0] as const;
-    case 'review':
-      return [-6.4, 0.1, -7.4] as const;
-    case 'user':
-      return [0, 0.1, 13.4] as const;
-    default:
-      return [0, 0.1, 0] as const;
-  }
-}
-
-function FlowPacketMesh({
-  color,
-  position,
-  meshRef,
-}: {
-  readonly color: string;
-  readonly position: readonly [number, number, number];
-  readonly meshRef?: RefObject<Mesh | null>;
-}) {
-  return (
-    <mesh ref={meshRef} position={position}>
-      <sphereGeometry args={[0.075, 12, 8]} />
-      <meshBasicMaterial color={color} transparent opacity={0.82} depthWrite={false} />
-    </mesh>
-  );
-}
-
-function AnimatedFlowPacket3D({
-  from,
-  to,
-  color,
-  phase,
-}: {
-  from: readonly [number, number, number];
-  to: readonly [number, number, number];
-  color: string;
-  phase: number;
-}) {
-  const ref = useRef<Mesh>(null);
-  useFrame((state) => {
-    const packet = ref.current;
-    if (!packet) return;
-    const t = (state.clock.elapsedTime / 1.6 + phase) % 1;
-    packet.position.set(
-      from[0] + (to[0] - from[0]) * t,
-      from[1] + 0.035,
-      from[2] + (to[2] - from[2]) * t,
-    );
-  });
-  return <FlowPacketMesh meshRef={ref} position={from} color={color} />;
-}
-
-function FlowPacket3D({
-  from,
-  to,
-  color,
-  pulse,
-  phase,
-  reducedMotion,
-}: {
-  from: readonly [number, number, number];
-  to: readonly [number, number, number];
-  color: string;
-  pulse: boolean;
-  phase: number;
-  reducedMotion: boolean;
-}) {
-  if (pulse && !reducedMotion) {
-    return <AnimatedFlowPacket3D from={from} to={to} color={color} phase={phase} />;
-  }
-  const t = 0.35;
-  return (
-    <FlowPacketMesh
-      color={color}
-      position={[from[0] + (to[0] - from[0]) * t, from[1] + 0.035, from[2] + (to[2] - from[2]) * t]}
-    />
-  );
+  const [x, z] = projectFlowTargetPoint(target, { mode: '3d' });
+  return [x, target === 'delivery' ? 0.055 : 0.1, z] as const;
 }
 
 function DeliveryShelf3D({ interactive, onOpen }: { interactive: boolean; onOpen: () => void }) {
@@ -436,7 +345,6 @@ function EmployeeUnit({
   onDrop: (result: SceneEmployeeDrop) => void;
   onDragState: (drag: SceneEmployeeDrag | null) => void;
 }) {
-  const { camera, gl } = useThree();
   // Walk to the target (home placement or a high-value staged anchor). A
   // standard target change enters the atomic sit.exit phase; GltfCharacter
   // promotes it to walk only after the one-shot finishes (or immediately when
@@ -606,7 +514,6 @@ function EmployeeUnit({
         : diff * Math.min(1, delta * CHARACTER_TURN_RATE_PER_SECOND);
     }
   });
-  const cleanupRef = useRef<(() => void) | null>(null);
   const appearance = useMemo(
     () => resolveAppearance(employee.id, employee.appearance),
     [employee.id, employee.appearance],
@@ -661,158 +568,15 @@ function EmployeeUnit({
   // One desk-depth-ish step along the character's facing (prefab-local +z).
   const fallbackDeskOffset = rotateLocal(0, 0.99, rotation);
 
-  useEffect(
-    () => () => {
-      cleanupRef.current?.();
-    },
-    [],
-  );
-
-  const beginDrag = (event: PointerEvent | MouseEvent) => {
-    if (cleanupRef.current) return;
-
-    const pointerId = 'pointerId' in event ? event.pointerId : null;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    let moved = false;
-    let complete = false;
-    let lastPoint: ScenePlacementPoint | null = null;
-    let lastClientX = startX;
-    let lastClientY = startY;
-
-    const releasePointer = () => {
-      try {
-        if (pointerId !== null) gl.domElement.releasePointerCapture(pointerId);
-      } catch {
-        // Pointer capture is best-effort; WebView can release it before cleanup runs.
-      }
-    };
-
-    const cleanup = () => {
-      if (complete) return;
-      complete = true;
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerCancel);
-      window.removeEventListener('mouseup', onMouseUp);
-      document.removeEventListener('pointerup', onPointerUp);
-      document.removeEventListener('pointercancel', onPointerCancel);
-      document.removeEventListener('mouseup', onMouseUp);
-      gl.domElement.removeEventListener('pointerup', onPointerUp);
-      gl.domElement.removeEventListener('pointercancel', onPointerCancel);
-      gl.domElement.removeEventListener('mouseup', onMouseUp);
-      gl.domElement.removeEventListener('lostpointercapture', onLostPointerCapture);
-      window.removeEventListener('blur', onPointerCancel);
-      releasePointer();
-      document.body.style.cursor = '';
-      onHoverZone(null);
-      onDragState(null);
-      cleanupRef.current = null;
-    };
-
-    const toGround = (e: PointerEvent | MouseEvent) =>
-      groundPointFromClient(e.clientX, e.clientY, gl.domElement, camera, zones);
-
-    const updateDragPreview = (e: PointerEvent | MouseEvent, nextMoved: boolean) => {
-      const point = toGround(e);
-      lastPoint = point;
-      lastClientX = e.clientX;
-      lastClientY = e.clientY;
-      onDragState({
-        employeeId: employee.id,
-        x: point?.x ?? x,
-        z: point?.z ?? z,
-        clientX: e.clientX,
-        clientY: e.clientY,
-        moved: nextMoved,
-      });
-      return point;
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      e.preventDefault();
-      if (Math.hypot(e.clientX - startX, e.clientY - startY) > 5) moved = true;
-      const point = updateDragPreview(e, moved);
-      onHoverZone(moved ? (point?.zoneId ?? null) : null);
-    };
-
-    const finishDrop = (e: PointerEvent | MouseEvent) => {
-      e.preventDefault();
-      const ground = moved ? toGround(e) : null;
-      onDrop({
-        zoneId: ground?.zoneId ?? null,
-        x: ground?.x ?? null,
-        z: ground?.z ?? null,
-        startX,
-        startY,
-        endX: e.clientX,
-        endY: e.clientY,
-        moved,
-      });
-      cleanup();
-    };
-
-    const finishLatestDrop = () => {
-      if (complete) return;
-      onDrop({
-        zoneId: moved ? (lastPoint?.zoneId ?? null) : null,
-        x: moved ? (lastPoint?.x ?? null) : null,
-        z: moved ? (lastPoint?.z ?? null) : null,
-        startX,
-        startY,
-        endX: lastClientX,
-        endY: lastClientY,
-        moved,
-      });
-      cleanup();
-    };
-
-    const onPointerUp = (e: PointerEvent) => finishDrop(e);
-    const onMouseUp = (e: MouseEvent) => finishDrop(e);
-    const onLostPointerCapture = () => finishLatestDrop();
-    const onPointerCancel = () => {
-      onDrop({
-        zoneId: null,
-        x: null,
-        z: null,
-        startX,
-        startY,
-        endX: startX,
-        endY: startY,
-        moved,
-      });
-      cleanup();
-    };
-
-    try {
-      if (pointerId !== null) gl.domElement.setPointerCapture(pointerId);
-    } catch {
-      // Window/document listeners still own the drag lifecycle if capture is unavailable.
-    }
-
-    onDragState({
-      employeeId: employee.id,
-      x,
-      z,
-      clientX: startX,
-      clientY: startY,
-      moved: false,
-    });
-    document.body.style.cursor = 'grabbing';
-    cleanupRef.current = cleanup;
-    window.addEventListener('pointermove', onPointerMove, { passive: false });
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerCancel);
-    window.addEventListener('mouseup', onMouseUp);
-    document.addEventListener('pointerup', onPointerUp);
-    document.addEventListener('pointercancel', onPointerCancel);
-    document.addEventListener('mouseup', onMouseUp);
-    gl.domElement.addEventListener('pointerup', onPointerUp);
-    gl.domElement.addEventListener('pointercancel', onPointerCancel);
-    gl.domElement.addEventListener('mouseup', onMouseUp);
-    gl.domElement.addEventListener('lostpointercapture', onLostPointerCapture);
-    window.addEventListener('blur', onPointerCancel);
-  };
+  const beginDrag = useEmployeeDrag({
+    employeeId: employee.id,
+    x,
+    z,
+    zones,
+    onHoverZone,
+    onDrop,
+    onDragState,
+  });
 
   return (
     // Scale the whole unit (character, selection ring, label, fallback desk)
@@ -1180,45 +944,38 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
   const deliveryLatest = frame.delivery.latest;
 
   const sceneFlowLines = useMemo<SceneFlowLine[]>(() => {
-    // Same (employee, target) lanes share identical geometry (kinds differ) —
-    // stack their labels vertically instead of painting onto each other.
-    const labelSlots = new Map<string, number>();
-    return frame.flows.map((cue) => {
-      const home = placementsByEmployee.get(cue.employeeId) ?? {
-        x: defaultEmployeeZone.cx,
-        z: defaultEmployeeZone.cz,
-      };
-      const staging = actorById.get(cue.employeeId)?.staging;
-      const fromX = staging?.x ?? home.x;
-      const fromZ = staging?.z ?? home.z;
-      const to = flowTarget3D(cue.target);
-      const laneKey = `${cue.employeeId}|${cue.target}`;
-      const slot = labelSlots.get(laneKey) ?? 0;
-      labelSlots.set(laneKey, slot + 1);
-      return {
-        id: `${cue.employeeId}|${cue.target}|${cue.kind}`,
-        from: [fromX, 0.055, fromZ] as const,
-        to,
-        color: INK_3D[cue.ink],
-        ink: cue.ink,
-        pulse: cue.pulse,
-        phase: (cue.at % 1600) / 1600,
-        showLabel: cue.kind !== 'failure',
-        label: flowCueText(cue),
-        labelPosition: [(fromX + to[0]) / 2, 0.42 + slot * 0.28, (fromZ + to[2]) / 2] as const,
-        lineWidth: 1.25 + bundleEmphasis(cue) * 0.75,
-      };
-    });
+    return projectFlowLanes<readonly [number, number, number]>(frame.flows, {
+      sourceFor: (cue) => {
+        const home = placementsByEmployee.get(cue.employeeId) ?? {
+          x: defaultEmployeeZone.cx,
+          z: defaultEmployeeZone.cz,
+        };
+        const staging = actorById.get(cue.employeeId)?.staging;
+        return [staging?.x ?? home.x, 0.055, staging?.z ?? home.z] as const;
+      },
+      targetFor: flowTarget3D,
+      phaseFor: (cue) => (cue.at % 1600) / 1600,
+      labelPositionFor: (from, to, slot) =>
+        [(from[0] + to[0]) / 2, 0.42 + slot * 0.28, (from[2] + to[2]) / 2] as const,
+    }).map((lane) => ({
+      id: lane.id,
+      from: lane.from,
+      to: lane.to,
+      color: INK_3D[lane.cue.ink],
+      ink: lane.cue.ink,
+      pulse: lane.cue.pulse,
+      phase: lane.phase,
+      showLabel: lane.showLabel,
+      label: lane.label,
+      labelPosition: lane.labelPosition,
+      lineWidth: 1.25 + lane.emphasis * 0.75,
+    }));
   }, [actorById, defaultEmployeeZone, placementsByEmployee, frame.flows]);
 
   // Purpose-distinct target anchors (I4): every target a live lane points at
   // gets a small labeled chip so lanes visibly go somewhere; the delivery
   // shelf is itself the delivery anchor whenever it renders.
-  const activeFlowTargets = useMemo(() => {
-    const targets = new Set<FlowCueTarget>();
-    for (const cue of frame.flows) targets.add(cue.target);
-    return [...targets].sort();
-  }, [frame.flows]);
+  const activeFlowTargets = useMemo(() => projectActiveFlowTargets(frame.flows), [frame.flows]);
 
   // employeeId → typed resource strain for the six-kind marker glyphs.
   const resourceKindByEmployee = useMemo(

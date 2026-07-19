@@ -221,10 +221,10 @@ assert.deepEqual(
 );
 assert.equal(syncOfficeCanvasBackingStore(fakeCanvas, 320, 180, 1.5), true);
 assert.deepEqual([backingWidth, backingHeight], [480, 270]);
-
-const officeScene2DSource = read(
-  'apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx',
-);
+const officeScene2DSource = [
+  read('apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx'),
+  read('apps/desktop/renderer/src/surfaces/office/scene/render2d/background.ts'),
+].join('\n');
 assert.equal(
   CANVAS_FONT_TOKENS.canvasReset,
   '10px sans-serif',
