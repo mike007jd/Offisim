@@ -55,6 +55,10 @@ assert(
   validateHarnessIds.includes('pi-agent-host') && validateHarnessIds.includes('runtime-conformance'),
   'Validate must cover the production API adapter and neutral runtime conformance.',
 );
+assert(
+  rootPackage.scripts.validate.includes('node scripts/run-harnesses.mjs'),
+  'Validate must execute the manifest harness runner so validateHarnessIds stays a live gate.',
+);
 
 const desktopPackage = JSON.parse(await source('apps/desktop/package.json'));
 assert(
