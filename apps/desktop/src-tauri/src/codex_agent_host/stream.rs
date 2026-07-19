@@ -731,7 +731,7 @@ mod tests {
                 .terminal
                 .as_ref()
                 .map(|terminal| terminal.status.as_str()),
-            Some("interrupted")
+            Some("aborted")
         );
         {
             let delivered = delivered.lock().unwrap();
