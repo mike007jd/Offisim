@@ -11,14 +11,12 @@ import {
   type TaskWorkspaceBindingClaim,
   type TaskWorkspaceBindingProjection,
   invokeCommand,
-  parseTaskWorkspaceBindingProjection,
 } from '@/lib/tauri-commands.js';
 import { distillTerminalRunMemory } from '@/runtime/employee-project-memory.js';
 import { requireProjectWorkspaceForRun } from '@/runtime/require-project-workspace.js';
 import {
   agentRunEvent,
   engineActivity,
-  isResettableNativeSessionPrestartCode,
   llmStreamChunk,
   toolExecutionTelemetry,
 } from '@offisim/core/browser';
@@ -30,14 +28,10 @@ import {
   type AgentRunStartedPayload,
   type AgentRunUsage,
   type AiExecutionTarget,
-  type AiModelCatalogEntry,
   type AiRuntimeStatus,
-  type OrchestrationEngineStatus,
   type RunFailureKind,
   type RuntimeEngineCapabilityManifest,
-  type RuntimeEvent,
   WORKSPACE_DIAGNOSTICS_UPDATED_EVENT,
-  type WorkspaceDiagnostic,
   type WorkspaceDiagnosticsUpdatedPayload,
   type WorkspaceProvenance,
   classifyRunFailure,
@@ -47,14 +41,22 @@ import { AgentRunPersistenceQueue } from './agent-run-persistence-queue.js';
 import {
   type TurnExecutionProvenance,
   assertSameExecutionAccount,
-  isSameModelSource,
   requireTurnExecutionProvenance,
   validateExecutionTarget,
 } from './execution-provenance.js';
 import {
-  MISSION_EVALUATION_SUBMITTED_EVENT,
-  type MissionEvaluationSubmittedPayload,
-} from './mission/mission-events.js';
+  type ResolvedRuntimeExecutionSelection,
+  isSameExecutionTarget,
+  resolveRuntimeExecutionSelection,
+} from './execution-selection.js';
+import {
+  agentLifecycleEvent,
+  agentUiRequestEvent,
+  agentUiRequestResolvedEvent,
+  missionEvaluationSubmittedEvent,
+  parseWorkspaceDiagnosticsPayload,
+  workspaceDiagnosticsUpdatedEvent,
+} from './host-event-factories.js';
 import {
   type NativeAgentCommandTransport,
   createNativeAgentCommandTransport,
@@ -94,9 +96,28 @@ import {
 } from './workspace-binding-stream-gate.js';
 import {
   notableWorkspaceProvenanceForBinding,
-  parseWorkspaceProvenance,
   workspaceProvenanceForUnavailable,
 } from './workspace-provenance.js';
+import {
+  bindingMatchesRun,
+  isSameWorkspaceBindingClaim,
+  isSameWorkspaceUnavailable,
+  projectWorkspaceBinding,
+  resolveWorkspaceRequirement,
+  validateCompetitiveDraftContext,
+  workspaceUnavailableMatchesRun,
+} from './workspace-binding.js';
+import {
+  type ConversationStreamCheckpoint,
+  type PersistedRunContext,
+  mergeRunContextPreservingNativeIdentity,
+  nonAuthorizingAgentHostError,
+  normalizeStreamCursor,
+  parseRunContext,
+  persistRunContextPatchWithRepositories,
+  persistStartedNativeSessionIdentity,
+  trustedNativeSessionPrestartCode,
+} from './run-context.js';
 
 const PI_SDK_VERSION = '0.80.9';
 const TERMINAL_CHECKPOINT_RETRY_MS = 5_000;
@@ -127,12 +148,6 @@ async function retryTerminalCheckpointUntilDurable({
       persistenceError = error;
     }
   }
-}
-
-interface ConversationStreamCheckpoint {
-  companyId: string;
-  projectId: string | null;
-  message: ChatMessage;
 }
 
 function buildConversationStreamCheckpoint({
@@ -182,8 +197,29 @@ function buildConversationStreamCheckpoint({
 // Re-export the mission-bridge event vocabulary so existing importers of
 // desktop-agent-runtime keep working; the canonical definition lives in
 // mission/mission-events.ts (tauri-free, harness-importable).
-export { MISSION_EVALUATION_SUBMITTED_EVENT };
-export type { MissionEvaluationSubmittedPayload };
+export { MISSION_EVALUATION_SUBMITTED_EVENT } from './mission/mission-events.js';
+export type { MissionEvaluationSubmittedPayload } from './mission/mission-events.js';
+export {
+  AGENT_LIFECYCLE_EVENT,
+  AGENT_UI_REQUEST_EVENT,
+  AGENT_UI_REQUEST_RESOLVED_EVENT,
+  type AgentLifecyclePayload,
+  type AgentUiRequestPayload,
+  type AgentUiRequestResolvedPayload,
+} from './host-event-factories.js';
+export {
+  type ResolvedApiExecutionSelection,
+  type ResolvedRuntimeExecutionSelection,
+  isSameExecutionTarget,
+  resolveApiExecutionSelection,
+  resolveRuntimeExecutionSelection,
+} from './execution-selection.js';
+export {
+  nativeSessionPrestartCode,
+  nonAuthorizingAgentHostError,
+  persistStartedNativeSessionIdentity,
+  trustedNativeSessionPrestartCode,
+} from './run-context.js';
 import { resolveThreadMode } from './pi-thread-mode-store.js';
 import { resolveThreadThinkingOverride } from './pi-thread-thinking-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
@@ -461,15 +497,6 @@ export interface AgentQueuedMessage {
   images?: Array<{ data: string; mimeType: string }>;
 }
 
-export const AGENT_LIFECYCLE_EVENT = 'agent.lifecycle';
-
-export interface AgentLifecyclePayload {
-  requestId: string;
-  runId: string;
-  event: string;
-  data: Record<string, unknown>;
-}
-
 interface RuntimeEngineAdapter extends DesktopAgentRuntime {
   readonly engineId: string;
   readonly capabilities: RuntimeEngineCapabilityManifest;
@@ -599,204 +626,6 @@ function newRequestId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-/** Event name for the agent's mid-run "ask the user something" bridge — shared by
- *  the producer (here) and the ConversationRunController consumer so the two
- *  can't drift on a typo. Backend-neutral on purpose: any agent that pauses to
- *  prompt the user (Pi today via `ctx.ui`, others later) routes through this. */
-export const AGENT_UI_REQUEST_EVENT = 'agent.ui.request';
-export const AGENT_UI_REQUEST_RESOLVED_EVENT = 'agent.ui.request.resolved';
-
-/** Payload shape for the `agent.ui.request` renderer event. An agent paused
- *  mid-run and asked the user something (confirm / select / input / editor). The
- *  renderer needs `requestId` to route the answer back to the run's host and `id`
- *  to match the specific prompt. Mirrors a Pi extension-UI request, but the shape
- *  is generic so it isn't tied to any one backend. */
-export interface AgentUiRequestPayload {
-  engineId: string;
-  requestId: string;
-  runId: string;
-  id: string;
-  method: string;
-  title: string;
-  message?: string;
-  options?: string[];
-  placeholder?: string;
-  prefill?: string;
-  params?: unknown;
-}
-
-export interface AgentUiRequestResolvedPayload {
-  engineId: string;
-  requestId: string;
-  runId: string;
-  id: string;
-  resolution: 'answered' | 'cancelled' | 'timeout' | 'native';
-}
-
-/** Build an `agent.ui.request` RuntimeEvent inline (no core event factory — this
- *  is a renderer-only host→UI bridge). Matches the envelope shape the core
- *  factories return so `runtimeEventBus.emit` typechecks against RuntimeEvent. */
-function agentUiRequestEvent(
-  companyId: string,
-  threadId: string,
-  payload: AgentUiRequestPayload,
-): RuntimeEvent<AgentUiRequestPayload> {
-  return {
-    type: AGENT_UI_REQUEST_EVENT,
-    entityId: payload.id,
-    entityType: 'runtime',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload,
-  };
-}
-
-function agentUiRequestResolvedEvent(
-  companyId: string,
-  threadId: string,
-  payload: AgentUiRequestResolvedPayload,
-): RuntimeEvent<AgentUiRequestResolvedPayload> {
-  return {
-    type: AGENT_UI_REQUEST_RESOLVED_EVENT,
-    entityId: payload.id,
-    entityType: 'runtime',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload,
-  };
-}
-
-function agentLifecycleEvent(
-  companyId: string,
-  threadId: string,
-  payload: AgentLifecyclePayload,
-): RuntimeEvent<AgentLifecyclePayload> {
-  return {
-    type: AGENT_LIFECYCLE_EVENT,
-    entityId: payload.runId,
-    entityType: 'runtime',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload,
-  };
-}
-
-function parseWorkspaceDiagnosticsPayload(
-  value: unknown,
-): Omit<WorkspaceDiagnosticsUpdatedPayload, 'requestId' | 'runId' | 'childRunId'> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const raw = value as Record<string, unknown>;
-  const path = typeof raw.path === 'string' ? raw.path.trim() : '';
-  if (!path || path.startsWith('/') || path.includes('\\') || path.split('/').includes('..')) {
-    return null;
-  }
-  if (
-    typeof raw.languageId !== 'string' ||
-    typeof raw.serverId !== 'string' ||
-    raw.source !== 'lsp' ||
-    !Number.isSafeInteger(raw.version) ||
-    Number(raw.version) < 1 ||
-    !Array.isArray(raw.diagnostics) ||
-    raw.diagnostics.length > 50 ||
-    typeof raw.message !== 'string' ||
-    typeof raw.capturedAt !== 'string'
-  ) {
-    return null;
-  }
-  const diagnostics: WorkspaceDiagnostic[] = [];
-  for (const candidate of raw.diagnostics) {
-    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
-    const diagnostic = candidate as Record<string, unknown>;
-    const severity = diagnostic.severity;
-    const range = diagnostic.range;
-    if (
-      (severity !== 'error' &&
-        severity !== 'warning' &&
-        severity !== 'information' &&
-        severity !== 'hint') ||
-      typeof diagnostic.message !== 'string' ||
-      !range ||
-      typeof range !== 'object' ||
-      Array.isArray(range)
-    ) {
-      return null;
-    }
-    const typedRange = range as Record<string, unknown>;
-    const start = typedRange.start as Record<string, unknown> | undefined;
-    const end = typedRange.end as Record<string, unknown> | undefined;
-    if (
-      !start ||
-      !end ||
-      !Number.isSafeInteger(start.line) ||
-      !Number.isSafeInteger(start.column) ||
-      !Number.isSafeInteger(end.line) ||
-      !Number.isSafeInteger(end.column)
-    ) {
-      return null;
-    }
-    diagnostics.push({
-      severity,
-      message: diagnostic.message.slice(0, 1_200),
-      ...(typeof diagnostic.code === 'string' ? { code: diagnostic.code.slice(0, 120) } : {}),
-      ...(typeof diagnostic.source === 'string' ? { source: diagnostic.source.slice(0, 80) } : {}),
-      range: {
-        start: { line: Number(start.line), column: Number(start.column) },
-        end: { line: Number(end.line), column: Number(end.column) },
-      },
-    });
-  }
-  const counts = { error: 0, warning: 0, information: 0, hint: 0 };
-  for (const diagnostic of diagnostics) counts[diagnostic.severity] += 1;
-  return {
-    path,
-    languageId: raw.languageId.slice(0, 80),
-    serverId: raw.serverId.slice(0, 80),
-    source: 'lsp',
-    version: Number(raw.version),
-    diagnostics,
-    counts,
-    message: raw.message.slice(0, 1_200),
-    capturedAt: raw.capturedAt,
-  };
-}
-
-function workspaceDiagnosticsUpdatedEvent(
-  companyId: string,
-  threadId: string,
-  payload: WorkspaceDiagnosticsUpdatedPayload,
-): RuntimeEvent<WorkspaceDiagnosticsUpdatedPayload> {
-  return {
-    type: WORKSPACE_DIAGNOSTICS_UPDATED_EVENT,
-    entityId: `${payload.runId}:${payload.path}`,
-    entityType: 'runtime',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload,
-  };
-}
-
-/** Build a `mission.evaluation.submitted` RuntimeEvent inline (renderer-only
- *  host→controller bridge — no core factory), mirroring agentUiRequestEvent. */
-function missionEvaluationSubmittedEvent(
-  companyId: string,
-  threadId: string,
-  payload: MissionEvaluationSubmittedPayload,
-): RuntimeEvent<MissionEvaluationSubmittedPayload> {
-  return {
-    type: MISSION_EVALUATION_SUBMITTED_EVENT,
-    entityId: payload.criterionId,
-    entityType: 'runtime',
-    companyId,
-    threadId,
-    timestamp: Date.now(),
-    payload,
-  };
-}
-
 function piRunScope(
   projectId: string | null,
   threadId: string,
@@ -868,254 +697,6 @@ function createWorkspaceStatusEmitter({
   };
 }
 
-function hostModelRef(
-  model: Extract<PiAgentHostEvent, { kind: 'started' }>['model'],
-): string | null {
-  if (model?.api === 'codex-app-server' && model.catalogId?.trim()) {
-    return `codex:${model.catalogId.trim()}`;
-  }
-  if (!model?.id) return null;
-  return model.provider ? `${model.provider}/${model.id}` : model.id;
-}
-
-export interface ResolvedApiExecutionSelection {
-  readonly target: AiExecutionTarget;
-  readonly runtimeModelRef: string;
-}
-
-export type ResolvedRuntimeExecutionSelection = ResolvedApiExecutionSelection;
-
-export function isSameExecutionTarget(
-  expected: AiExecutionTarget | null | undefined,
-  actual: AiExecutionTarget | null | undefined,
-): boolean {
-  return Boolean(
-    expected &&
-      actual &&
-      expected.engineId === actual.engineId &&
-      expected.accountId === actual.accountId &&
-      expected.billingMode === actual.billingMode &&
-      expected.modelId === actual.modelId &&
-      isSameModelSource(expected.modelSource, actual.modelSource),
-  );
-}
-
-function availableApiModel(status: AiRuntimeStatus, model: AiModelCatalogEntry): boolean {
-  const account = status.accounts.find(
-    (candidate) => candidate.engineId === model.engineId && candidate.accountId === model.accountId,
-  );
-  return Boolean(
-    model.engineId === 'api' &&
-      model.billingMode === 'api' &&
-      model.runtimeModelRef.trim() &&
-      model.modelId.trim() &&
-      (model.availability === 'available' ||
-        (model.availability === 'expiring' &&
-          model.expiresAt &&
-          Date.parse(model.expiresAt) > Date.now())) &&
-      account?.billingMode === 'api' &&
-      account.status === 'available' &&
-      account.capabilities.execute.status === 'available' &&
-      account.capabilities.models.status === 'available',
-  );
-}
-
-function orchestrationExecutionTarget(engineId: string): AiExecutionTarget {
-  return {
-    engineId,
-    accountId: `${engineId}:local`,
-    billingMode: 'subscription',
-    modelId: 'engine-managed',
-    modelSource: { kind: 'native' },
-  };
-}
-
-function readyOrchestrationEngine(
-  status: AiRuntimeStatus,
-  engineId: string,
-): OrchestrationEngineStatus | undefined {
-  return status.orchestrationEngines.find(
-    (engine) => engine.engineId === engineId && engine.state === 'ready',
-  );
-}
-
-function isCanonicalOrchestrationTarget(target: AiExecutionTarget): boolean {
-  return isSameExecutionTarget(target, orchestrationExecutionTarget(target.engineId));
-}
-
-/** Resolve one globally unique model/account/engine before the gateway crosses
- * into an adapter. Exact model ids are accepted only when they identify one
- * catalog row; adapter-private runtime refs remain the unambiguous selector. */
-export function resolveRuntimeExecutionSelection(
-  statusValue: unknown,
-  requestedModel: string | undefined,
-  frozenTarget: AiExecutionTarget | undefined,
-  frozenRuntimeModelRef?: string,
-): ResolvedRuntimeExecutionSelection {
-  const status = statusValue as Partial<AiRuntimeStatus>;
-  if (
-    !Array.isArray(status.accounts) ||
-    !Array.isArray(status.models) ||
-    !Array.isArray(status.orchestrationEngines)
-  ) {
-    throw new Error('AI Accounts status is unavailable. Check the selected account.');
-  }
-  const runtimeStatus: AiRuntimeStatus = {
-    accounts: status.accounts,
-    models: status.models,
-    orchestrationEngines: status.orchestrationEngines,
-    checkedAt: typeof status.checkedAt === 'string' ? status.checkedAt : '',
-  };
-  const apiCandidates = runtimeStatus.models.filter((model) =>
-    availableApiModel(runtimeStatus, model),
-  );
-  const requested = requestedModel?.trim();
-  if (frozenTarget) {
-    const validTarget = validateExecutionTarget(frozenTarget);
-    if (!validTarget) throw new Error('This task does not have a valid execution target.');
-    const frozenEngine = readyOrchestrationEngine(runtimeStatus, validTarget.engineId);
-    if (frozenEngine) {
-      if (
-        !isCanonicalOrchestrationTarget(validTarget) ||
-        frozenRuntimeModelRef?.trim() !== frozenEngine.engineId ||
-        (requested && requested !== frozenEngine.engineId)
-      ) {
-        throw new Error("The task's saved orchestration engine is no longer available.");
-      }
-      return {
-        target: orchestrationExecutionTarget(frozenEngine.engineId),
-        runtimeModelRef: frozenEngine.engineId,
-      };
-    }
-    const frozenSelector = frozenRuntimeModelRef?.trim();
-    const matches = apiCandidates.filter(
-      (model) =>
-        model.engineId === validTarget.engineId &&
-        model.accountId === validTarget.accountId &&
-        model.billingMode === validTarget.billingMode &&
-        model.modelId === validTarget.modelId &&
-        (!frozenSelector || model.runtimeModelRef === frozenSelector) &&
-        (!requested || requested === model.runtimeModelRef || requested === model.modelId),
-    );
-    if (matches.length !== 1) {
-      throw new Error("The task's saved AI account or exact model is no longer available.");
-    }
-    const selected = matches[0];
-    if (!selected) throw new Error("The task's saved AI model selector is unavailable.");
-    return { target: validTarget, runtimeModelRef: selected.runtimeModelRef };
-  }
-  const requestedEngine = requested
-    ? readyOrchestrationEngine(runtimeStatus, requested)
-    : undefined;
-  if (requestedEngine) {
-    return {
-      target: orchestrationExecutionTarget(requestedEngine.engineId),
-      runtimeModelRef: requestedEngine.engineId,
-    };
-  }
-  let selected: AiModelCatalogEntry | undefined;
-  if (requested) {
-    const runtimeRefMatch = apiCandidates.find((model) => model.runtimeModelRef === requested);
-    if (runtimeRefMatch) {
-      selected = runtimeRefMatch;
-    } else {
-      const modelIdMatches = apiCandidates.filter((model) => model.modelId === requested);
-      if (modelIdMatches.length !== 1) {
-        throw new Error(`The selected exact AI model is unavailable or ambiguous: ${requested}.`);
-      }
-      [selected] = modelIdMatches;
-    }
-  } else {
-    selected = apiCandidates.find((model) => model.availability === 'available');
-    const defaultEngine = runtimeStatus.orchestrationEngines.find(
-      (engine) => engine.state === 'ready',
-    );
-    if (!selected && defaultEngine) {
-      return {
-        target: orchestrationExecutionTarget(defaultEngine.engineId),
-        runtimeModelRef: defaultEngine.engineId,
-      };
-    }
-  }
-  if (!selected) throw new Error('No available API model or orchestration engine was reported.');
-  const target = validateExecutionTarget({
-    engineId: selected.engineId,
-    accountId: selected.accountId,
-    billingMode: selected.billingMode,
-    modelId: selected.modelId,
-    modelSource: selected.source,
-  });
-  if (!target) throw new Error('The selected model catalog entry has invalid provenance.');
-  return { target, runtimeModelRef: selected.runtimeModelRef };
-}
-
-export function resolveApiExecutionSelection(
-  statusValue: unknown,
-  requestedModel: string | undefined,
-  frozenTarget: AiExecutionTarget | undefined,
-): ResolvedApiExecutionSelection {
-  const status = statusValue as Partial<AiRuntimeStatus>;
-  if (!Array.isArray(status.accounts) || !Array.isArray(status.models)) {
-    throw new Error('AI Accounts status is unavailable. Check the configured API account.');
-  }
-  const runtimeStatus: AiRuntimeStatus = {
-    accounts: status.accounts,
-    models: status.models,
-    orchestrationEngines: Array.isArray(status.orchestrationEngines)
-      ? status.orchestrationEngines
-      : [],
-    checkedAt: typeof status.checkedAt === 'string' ? status.checkedAt : '',
-  };
-  const candidates = runtimeStatus.models.filter((model) =>
-    availableApiModel(runtimeStatus, model),
-  );
-  const requested = requestedModel?.trim();
-  let selected: AiModelCatalogEntry | undefined;
-  if (frozenTarget) {
-    const validTarget = validateExecutionTarget(frozenTarget);
-    if (!validTarget || validTarget.engineId !== 'api' || validTarget.billingMode !== 'api') {
-      throw new Error('This task does not have a valid API execution target.');
-    }
-    selected = candidates.find(
-      (model) =>
-        model.engineId === validTarget.engineId &&
-        model.accountId === validTarget.accountId &&
-        model.billingMode === validTarget.billingMode &&
-        model.modelId === validTarget.modelId &&
-        (!requested || requested === model.runtimeModelRef || requested === model.modelId),
-    );
-    if (!selected) {
-      throw new Error("The task's saved API account or exact model is no longer available.");
-    }
-    return { target: validTarget, runtimeModelRef: selected.runtimeModelRef };
-  }
-  if (requested) {
-    const matches = candidates.filter(
-      (model) => model.runtimeModelRef === requested || model.modelId === requested,
-    );
-    if (matches.length !== 1) {
-      throw new Error(`The selected exact API model is unavailable or ambiguous: ${requested}.`);
-    }
-    [selected] = matches;
-  } else {
-    selected = candidates.find((model) => model.availability === 'available');
-  }
-  if (!selected) {
-    throw new Error('No verified, stable API model is available for the configured account.');
-  }
-  const target = validateExecutionTarget({
-    engineId: selected.engineId,
-    accountId: selected.accountId,
-    billingMode: selected.billingMode,
-    modelId: selected.modelId,
-    modelSource: selected.source,
-  });
-  if (!target) {
-    throw new Error('The selected model catalog entry has invalid execution provenance.');
-  }
-  return { target, runtimeModelRef: selected.runtimeModelRef };
-}
-
 function apiModelSupportsImageInput(
   status: AiRuntimeStatus | undefined,
   selection: ResolvedRuntimeExecutionSelection,
@@ -1137,34 +718,6 @@ function attachmentImageDowngradeNotice(engineId: string): string {
   return engineId === 'api'
     ? 'The selected API model does not support image input. Images remain visible in the timeline but were not sent to the employee.'
     : `${engineId} does not support image input in Offisim. Images remain visible in the timeline but were not sent to the employee.`;
-}
-
-interface PersistedRunContext {
-  requestId?: string | null;
-  streamCursor?: number | null;
-  inFlightToolCallIds?: string[];
-  workspaceBinding: TaskWorkspaceBindingProjection | null;
-  workspaceRequirement: WorkspaceRequirement;
-  workspaceAvailability: 'pending' | 'bound' | 'unavailable';
-  workspaceProvenance?: WorkspaceProvenance;
-  runtime: 'agent-runtime';
-  executionTarget: AiExecutionTarget | null;
-  piSdkVersion?: string;
-  wireProtocolVersion?: number;
-  nativeRuntimeVersion?: string;
-  nativeProtocolVersion?: number;
-  model: string | null;
-  nativeSessionId?: string;
-  nativeSessionPrestartErrorCode?: string;
-  /** Reload recovery may reconstruct only an exact plain Conversation Turn. */
-  recoveryLane?: 'conversation' | 'direct-delegation' | 'competitive-draft' | 'mission';
-  competitiveDraft?: CompetitiveDraftContext;
-  provenance: TurnExecutionProvenance | null;
-  permissionMode: string;
-  thinkingLevel: string | null;
-  projectId: string | null;
-  conversationProjection: ConversationRunProjectionRef | null;
-  createdAt: string;
 }
 
 interface SharedHostStreamState {
@@ -1197,394 +750,6 @@ interface SharedHostEventConsumer {
   onRejected: (message: string) => void;
   onStarted: (event: Extract<PiAgentHostEvent, { kind: 'started' }>) => void;
   persistContext: () => void;
-}
-
-function projectWorkspaceBinding(claim: TaskWorkspaceBindingClaim): TaskWorkspaceBindingProjection {
-  const projection = parseTaskWorkspaceBindingProjection(claim);
-  if (!projection) throw new Error('Backend returned an invalid workspace binding projection.');
-  return projection;
-}
-
-function bindingMatchesRun(
-  claim: TaskWorkspaceBindingClaim,
-  expected: {
-    companyId: string;
-    projectId: string;
-    threadId: string;
-    turnId: string;
-    requestId: string;
-    access: 'read' | 'write';
-  },
-): boolean {
-  return (
-    parseTaskWorkspaceBindingProjection(claim) !== null &&
-    typeof claim.workspaceRef === 'string' &&
-    claim.workspaceRef.trim().length > 0 &&
-    claim.historyId.trim().length > 0 &&
-    claim.companyId === expected.companyId &&
-    claim.projectId === expected.projectId &&
-    claim.threadId === expected.threadId &&
-    claim.turnId === expected.turnId &&
-    claim.requestId === expected.requestId &&
-    claim.access === expected.access
-  );
-}
-
-function isSameWorkspaceBindingClaim(
-  first: TaskWorkspaceBindingClaim,
-  next: TaskWorkspaceBindingClaim,
-): boolean {
-  return (
-    first.workspaceRef === next.workspaceRef &&
-    first.historyId === next.historyId &&
-    first.companyId === next.companyId &&
-    first.projectId === next.projectId &&
-    first.threadId === next.threadId &&
-    first.turnId === next.turnId &&
-    first.requestId === next.requestId &&
-    first.access === next.access
-  );
-}
-
-function workspaceUnavailableMatchesRun(
-  event: WorkspaceUnavailableEvent,
-  expected: {
-    projectId: string;
-    threadId: string;
-    turnId: string;
-    requestId: string;
-  },
-): boolean {
-  return (
-    event.projectId === expected.projectId &&
-    event.threadId === expected.threadId &&
-    event.turnId === expected.turnId &&
-    event.requestId === expected.requestId &&
-    event.source === 'workspace_recovery' &&
-    (event.reasonCode === 'none' || event.reasonCode === 'ambiguous')
-  );
-}
-
-function isSameWorkspaceUnavailable(
-  first: WorkspaceUnavailableEvent,
-  next: WorkspaceUnavailableEvent,
-): boolean {
-  return (
-    first.projectId === next.projectId &&
-    first.threadId === next.threadId &&
-    first.turnId === next.turnId &&
-    first.requestId === next.requestId &&
-    first.source === next.source &&
-    first.reasonCode === next.reasonCode
-  );
-}
-
-function resolveWorkspaceRequirement(
-  input: DesktopAgentRunInput,
-  commandName: 'agent_runtime_execute' | 'agent_runtime_resume',
-): WorkspaceRequirement {
-  if (
-    commandName === 'agent_runtime_resume' ||
-    input.missionId?.trim() ||
-    input.missionContextJson?.trim() ||
-    input.directDelegation ||
-    input.competitiveDraft
-  ) {
-    return 'required';
-  }
-  return input.workspaceRequirement === 'required' ? 'required' : 'optional';
-}
-
-function validateCompetitiveDraftContext(
-  input: DesktopAgentRunInput,
-): CompetitiveDraftContext | undefined {
-  const context = input.competitiveDraft;
-  if (!context) return undefined;
-  if (!context.groupId.trim() || !context.sourceRunId.trim() || !context.attemptId.trim()) {
-    throw new Error('Competitive draft requires durable group, attempt, and source run ids.');
-  }
-  if (
-    !Number.isInteger(context.attemptIndex) ||
-    !Number.isInteger(context.totalAttempts) ||
-    context.totalAttempts < 2 ||
-    context.totalAttempts > 4 ||
-    context.attemptIndex < 1 ||
-    context.attemptIndex > context.totalAttempts
-  ) {
-    throw new Error('Competitive draft attempt index must address a group of 2 to 4 attempts.');
-  }
-  if (!input.runId?.trim() || !input.employeeId?.trim()) {
-    throw new Error('Competitive draft requires an explicit attempt run and employee.');
-  }
-  if (input.directDelegation) {
-    throw new Error('Competitive draft owns delegation routing for this run.');
-  }
-  return context;
-}
-
-function parseRunContext(raw: string | null | undefined): Partial<PersistedRunContext> | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (!parsed || typeof parsed !== 'object') return null;
-    const workspaceBinding = parseTaskWorkspaceBindingProjection(parsed.workspaceBinding);
-    const workspaceProvenance = parseWorkspaceProvenance(parsed.workspaceProvenance);
-    const workspaceAvailability =
-      parsed.workspaceAvailability === 'bound' && workspaceBinding
-        ? 'bound'
-        : parsed.workspaceAvailability === 'unavailable' &&
-            workspaceProvenance?.availability === 'unavailable'
-          ? 'unavailable'
-          : 'pending';
-    return {
-      requestId: typeof parsed.requestId === 'string' ? parsed.requestId : null,
-      streamCursor: typeof parsed.streamCursor === 'number' ? parsed.streamCursor : null,
-      inFlightToolCallIds: Array.isArray(parsed.inFlightToolCallIds)
-        ? parsed.inFlightToolCallIds.filter(
-            (toolCallId): toolCallId is string =>
-              typeof toolCallId === 'string' && Boolean(toolCallId.trim()),
-          )
-        : [],
-      workspaceBinding,
-      workspaceRequirement: parsed.workspaceRequirement === 'optional' ? 'optional' : 'required',
-      workspaceAvailability,
-      workspaceProvenance: workspaceProvenance ?? undefined,
-      runtime: parsed.runtime === 'agent-runtime' ? 'agent-runtime' : undefined,
-      executionTarget: validateExecutionTarget(parsed.executionTarget),
-      piSdkVersion: typeof parsed.piSdkVersion === 'string' ? parsed.piSdkVersion : undefined,
-      wireProtocolVersion:
-        typeof parsed.wireProtocolVersion === 'number' ? parsed.wireProtocolVersion : undefined,
-      nativeRuntimeVersion:
-        typeof parsed.nativeRuntimeVersion === 'string' ? parsed.nativeRuntimeVersion : undefined,
-      nativeProtocolVersion:
-        typeof parsed.nativeProtocolVersion === 'number' ? parsed.nativeProtocolVersion : undefined,
-      model: typeof parsed.model === 'string' ? parsed.model : null,
-      nativeSessionId:
-        typeof parsed.nativeSessionId === 'string' && parsed.nativeSessionId.trim()
-          ? parsed.nativeSessionId.trim()
-          : undefined,
-      nativeSessionPrestartErrorCode:
-        typeof parsed.nativeSessionPrestartErrorCode === 'string' &&
-        parsed.nativeSessionPrestartErrorCode.trim()
-          ? parsed.nativeSessionPrestartErrorCode.trim()
-          : undefined,
-      recoveryLane:
-        parsed.recoveryLane === 'conversation' ||
-        parsed.recoveryLane === 'direct-delegation' ||
-        parsed.recoveryLane === 'competitive-draft' ||
-        parsed.recoveryLane === 'mission'
-          ? parsed.recoveryLane
-          : undefined,
-      competitiveDraft:
-        parsed.competitiveDraft && typeof parsed.competitiveDraft === 'object'
-          ? (parsed.competitiveDraft as CompetitiveDraftContext)
-          : undefined,
-      provenance:
-        parsed.provenance && typeof parsed.provenance === 'object'
-          ? (parsed.provenance as TurnExecutionProvenance)
-          : null,
-      permissionMode: typeof parsed.permissionMode === 'string' ? parsed.permissionMode : undefined,
-      thinkingLevel: typeof parsed.thinkingLevel === 'string' ? parsed.thinkingLevel : null,
-      projectId: typeof parsed.projectId === 'string' ? parsed.projectId : null,
-      conversationProjection:
-        parsed.conversationProjection &&
-        typeof parsed.conversationProjection === 'object' &&
-        typeof (parsed.conversationProjection as Record<string, unknown>).userMessageId ===
-          'string' &&
-        typeof (parsed.conversationProjection as Record<string, unknown>).assistantMessageId ===
-          'string' &&
-        ((parsed.conversationProjection as Record<string, unknown>).source === 'office' ||
-          (parsed.conversationProjection as Record<string, unknown>).source === 'workspace')
-          ? (parsed.conversationProjection as ConversationRunProjectionRef)
-          : null,
-      createdAt: typeof parsed.createdAt === 'string' ? parsed.createdAt : undefined,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function runContextRecord(raw: string | null | undefined): Record<string, unknown> {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function nonEmptyString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function mergeRunContextPreservingNativeIdentity(
-  currentRaw: string | null | undefined,
-  patch: Partial<PersistedRunContext>,
-): Record<string, unknown> {
-  const current = runContextRecord(currentRaw);
-  const currentNativeSessionId = nonEmptyString(current.nativeSessionId);
-  const patchNativeSessionId = nonEmptyString(patch.nativeSessionId);
-  if (
-    currentNativeSessionId &&
-    patchNativeSessionId &&
-    currentNativeSessionId !== patchNativeSessionId
-  ) {
-    throw new Error('Native Conversation session identity changed during durable persistence.');
-  }
-  const definedPatch = Object.fromEntries(
-    Object.entries(patch).filter(([, value]) => value !== undefined),
-  );
-  return { ...current, ...definedPatch };
-}
-
-class AgentHostCommandError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'AgentHostCommandError';
-  }
-}
-
-/** Extract only the structured Tauri error prefix. Free-text provider messages
- * cannot authorize a native-session reset. */
-export function nativeSessionPrestartCode(error: unknown): string | null {
-  // Channel events are presentation telemetry and never authorize reset. Only
-  // the final Tauri command rejection reaches this parser as a plain IPC error.
-  if (error instanceof AgentHostCommandError) return null;
-  const message = error instanceof Error ? error.message : String(error ?? '');
-  const separator = message.indexOf(':');
-  if (separator <= 0) return null;
-  const code = message.slice(0, separator).trim();
-  return isResettableNativeSessionPrestartCode(code) ? code : null;
-}
-
-/** Host stream errors are untrusted provider/sidecar telemetry. Branding them
- * keeps forged reserved prefixes out of the Fresh-session authority path. */
-export function nonAuthorizingAgentHostError(message: string): Error {
-  return new AgentHostCommandError('channel', message);
-}
-
-export function trustedNativeSessionPrestartCode(
-  error: unknown,
-  nativeSessionStarted: boolean,
-): string | null {
-  return nativeSessionStarted ? null : nativeSessionPrestartCode(error);
-}
-
-async function persistRunContextPatchWithRepositories(
-  repos: RuntimeRepositories,
-  runId: string,
-  patch: Partial<PersistedRunContext>,
-  options: {
-    sessionFile?: string;
-    conversationCheckpoint?: ConversationStreamCheckpoint;
-  } = {},
-): Promise<void> {
-  let expectedContextJson: string | null = null;
-  let expectedSessionFile: string | null = null;
-  await repos.asyncTransact(async (transactionRepos) => {
-    const tx = transactionRepos ?? repos;
-    const current = await tx.agentRuns.findById(runId);
-    if (!current) throw new Error(`Cannot update missing agent run ${runId}.`);
-    const nextContext = mergeRunContextPreservingNativeIdentity(
-      current.runtime_context_json,
-      patch,
-    );
-    const nextContextJson = JSON.stringify(nextContext);
-    const sessionFile = options.sessionFile?.trim();
-    if (sessionFile && current.session_file?.trim() && current.session_file !== sessionFile) {
-      throw new Error('Native Conversation session file changed during durable persistence.');
-    }
-    await Promise.all([
-      tx.agentRuns.updateRuntimeContext(runId, nextContextJson),
-      ...(sessionFile ? [tx.agentRuns.updateStatus(runId, 'running', { sessionFile })] : []),
-      ...(options.conversationCheckpoint
-        ? [
-            persistChatMessageWithRepositories({
-              message: options.conversationCheckpoint.message,
-              companyId: options.conversationCheckpoint.companyId,
-              projectId: options.conversationCheckpoint.projectId,
-              repos: tx,
-            }),
-          ]
-        : []),
-    ]);
-    expectedContextJson = nextContextJson;
-    expectedSessionFile = sessionFile || null;
-  });
-  // Tauri's queued transaction adapter does not expose read-your-writes through
-  // SELECT inside the callback. Read from the main repository only after the
-  // transaction returned, which is the durable commit boundary.
-  const readback = await repos.agentRuns.findById(runId);
-  if (!readback || !expectedContextJson || readback.runtime_context_json !== expectedContextJson) {
-    throw new Error('Agent run context durable readback did not match the committed update.');
-  }
-  if (expectedSessionFile && readback.session_file !== expectedSessionFile) {
-    throw new Error('Native Conversation session file durable readback did not match.');
-  }
-  if (expectedSessionFile && readback.status !== 'running') {
-    throw new Error('Native Conversation session checkpoint did not remain running.');
-  }
-  const expectedNativeSessionId = nonEmptyString(patch.nativeSessionId);
-  if (
-    expectedNativeSessionId &&
-    nonEmptyString(runContextRecord(readback.runtime_context_json).nativeSessionId) !==
-      expectedNativeSessionId
-  ) {
-    throw new Error('Native Conversation session id durable readback did not match.');
-  }
-}
-
-/** Production Started checkpoint. File-backed engines persist an exact native
- * file/id pair; opaque engines persist only the native id. Native home paths
- * never cross this product boundary. */
-export async function persistStartedNativeSessionIdentity(input: {
-  repos: RuntimeRepositories;
-  runId: string;
-  runtimeContext: Partial<PersistedRunContext>;
-  event: Extract<PiAgentHostEvent, { kind: 'started' }>;
-  engineId?: string;
-}): Promise<void> {
-  const engineId = input.engineId ?? 'api';
-  const sessionId = input.event.sessionId?.trim();
-  const sessionFile = input.event.sessionFile?.trim();
-  if (!sessionId || (engineId === 'api' && !sessionFile)) {
-    throw new AgentHostCommandError(
-      'protocol',
-      'Agent runtime Started event did not include its required native session identity.',
-    );
-  }
-  if (engineId !== 'api' && sessionFile) {
-    throw new AgentHostCommandError(
-      'protocol',
-      'Opaque native runtime exposed a session file outside its Agent Home boundary.',
-    );
-  }
-  const actualModel = hostModelRef(input.event.model);
-  const nextContext: Partial<PersistedRunContext> = {
-    ...input.runtimeContext,
-    nativeSessionId: sessionId,
-    ...(actualModel ? { model: actualModel } : {}),
-  };
-  await persistRunContextPatchWithRepositories(
-    input.repos,
-    input.runId,
-    nextContext,
-    sessionFile ? { sessionFile } : {},
-  );
-  // The object is shared with cursor and terminal checkpoints. Do not expose a
-  // native identity until its engine-specific checkpoint passed durable readback.
-  input.runtimeContext.nativeSessionId = sessionId;
-  if (actualModel) input.runtimeContext.model = actualModel;
-}
-
-function normalizeStreamCursor(cursor: unknown): number {
-  return Number.isSafeInteger(cursor) && Number(cursor) > 0 ? Number(cursor) : 0;
 }
 
 function throwIfRunAborted(signal?: AbortSignal): void {
