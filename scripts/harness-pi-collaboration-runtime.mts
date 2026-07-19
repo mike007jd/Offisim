@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Pi Collaboration runtime deterministic harness (PR-03).
  *
@@ -72,18 +76,7 @@ function extractNamedAsyncFunction(source: string, name: string): string {
   }
   return '';
 }
-
-let failures = 0;
-let checks = 0;
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const check = h.check;
 
 console.log('pi-collaboration-runtime gate');
 
@@ -1167,9 +1160,11 @@ await (async () => {
   );
 }
 
-console.log(`\npi-collaboration-runtime: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`pi-collaboration-runtime gate FAILED with ${failures} failing check(s)`);
+console.log(`\npi-collaboration-runtime: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`pi-collaboration-runtime gate FAILED with ${h.failures} failing check(s)`);
   process.exit(1);
 }
 console.log('pi-collaboration-runtime gate OK');
+
+if (!process.exitCode) h.report();

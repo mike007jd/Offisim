@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Durable Resume oracle (Epic A, DR-003 / slice A2) — startup interrupted-run
  * reconciliation over `agent_runs`.
@@ -47,22 +51,8 @@ import {
 } from '../apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.js';
 import { MemoryAgentRunRepository } from '../packages/core/src/runtime/repos/agent-runs/memory.ts';
 import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
-
-let passed = 0;
-let failed = 0;
 const TOTAL = 34;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 const FIXED_NOW = '2026-06-27T12:00:00.000Z';
 const now = () => FIXED_NOW;
@@ -1160,11 +1150,13 @@ async function main(): Promise<void> {
     assert.equal(row?.finished_at, null);
   });
 
-  console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
-  if (failed > 0 || passed !== TOTAL) process.exit(1);
+  console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
+  if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
 }
 
-main().catch((err) => {
+await main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+if (!process.exitCode) h.report();

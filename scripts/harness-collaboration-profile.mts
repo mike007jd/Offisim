@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Collaboration profile oracle (Epic E, E1) — the `collaboration_read` read-only
  * boundary for Connect.
@@ -21,41 +25,27 @@ import {
   collaborationToolAllowlist,
   normalizeCollaborationProfile,
 } from './pi-agent-permission-modes.mts';
-
-let passed = 0;
-let failed = 0;
 const TOTAL = 8;
-
-function check(name: string, run: () => void): void {
-  try {
-    run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 console.log('harness:collaboration-profile — Connect read-only boundary (E1)\n');
 
-check('(1) strict profile → zero tools (unchanged daily chat)', () => {
+await check('(1) strict profile → zero tools (unchanged daily chat)', () => {
   assert.deepEqual(collaborationToolAllowlist('strict'), []);
 });
 
-check('(2) collaboration_read → no filesystem built-ins without a source grant', () => {
+await check('(2) collaboration_read → no filesystem built-ins without a source grant', () => {
   assert.deepEqual(collaborationToolAllowlist('collaboration_read'), []);
 });
 
-check('(3) normalize defaults unknown/undefined → strict', () => {
+await check('(3) normalize defaults unknown/undefined → strict', () => {
   assert.equal(normalizeCollaborationProfile(undefined), 'strict');
   assert.equal(normalizeCollaborationProfile('nonsense'), 'strict');
   assert.equal(normalizeCollaborationProfile('collaboration_read'), 'collaboration_read');
   assert.equal(normalizeCollaborationProfile('strict'), 'strict');
 });
 
-check('(4) INVARIANT: collaboration_read allowlist ∩ forbidden = ∅', () => {
+await check('(4) INVARIANT: collaboration_read allowlist ∩ forbidden = ∅', () => {
   assert.deepEqual(collaborationForbiddenIntersection(COLLABORATION_READ_TOOL_ALLOWLIST), []);
   assert.deepEqual(
     collaborationForbiddenIntersection(collaborationToolAllowlist('collaboration_read')),
@@ -63,12 +53,12 @@ check('(4) INVARIANT: collaboration_read allowlist ∩ forbidden = ∅', () => {
   );
 });
 
-check('(5) the forbidden check DETECTS a breach', () => {
+await check('(5) the forbidden check DETECTS a breach', () => {
   const breach = collaborationForbiddenIntersection(['read', 'write', 'bash', 'grep']);
   assert.deepEqual(breach.sort(), ['bash', 'write']);
 });
 
-check('(6) forbidden set covers write / shell / mission / publish / delegate', () => {
+await check('(6) forbidden set covers write / shell / mission / publish / delegate', () => {
   for (const t of [
     'write',
     'edit',
@@ -84,7 +74,7 @@ check('(6) forbidden set covers write / shell / mission / publish / delegate', (
   }
 });
 
-check('(7) the read allowlist exposes no execution/mutation tool', () => {
+await check('(7) the read allowlist exposes no execution/mutation tool', () => {
   for (const t of COLLABORATION_READ_TOOL_ALLOWLIST) {
     assert.ok(
       !(COLLABORATION_FORBIDDEN_TOOLS as readonly string[]).includes(t),
@@ -93,7 +83,7 @@ check('(7) the read allowlist exposes no execution/mutation tool', () => {
   }
 });
 
-check('(8) collaboration_read MCP meta tools still avoid the forbidden set', () => {
+await check('(8) collaboration_read MCP meta tools still avoid the forbidden set', () => {
   const withMcpMeta = [
     ...collaborationToolAllowlist('collaboration_read'),
     'mcp_search_tools',
@@ -103,5 +93,7 @@ check('(8) collaboration_read MCP meta tools still avoid the forbidden set', () 
   assert.deepEqual(collaborationForbiddenIntersection(withMcpMeta), []);
 });
 
-console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
-if (failed > 0 || passed !== TOTAL) process.exit(1);
+console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
+if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
+
+if (!process.exitCode) h.report();

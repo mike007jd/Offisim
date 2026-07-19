@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Computer rich-detail contract gate.
  *
@@ -7,22 +11,8 @@
  */
 import assert from 'node:assert/strict';
 import { mergeToolRichDetail, parseToolRichDetail } from '../packages/shared-types/src/index.js';
-
-let passed = 0;
-let failed = 0;
 const TOTAL = 8;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 console.log('harness:computer-rich-detail — computer tool detail parsing\n');
 
@@ -143,5 +133,7 @@ await check('computer:coordinates-parsed', () => {
   assert.deepEqual(detail.coordinates, { x: 42, y: 7 });
 });
 
-console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
-if (failed > 0 || passed !== TOTAL) process.exit(1);
+console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
+if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
+
+if (!process.exitCode) h.report();

@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 import type {
   ConversationRunSnapshot,
   ConversationRunsSnapshot,
@@ -55,18 +59,7 @@ import { type RunFailureKind, classifyRunFailure } from '../packages/shared-type
 // classifier — this harness locks the two implementations equal.
 // @ts-expect-error plain .mjs module without type declarations
 import { classifyRunFailure as classifyRunFailureMjs } from './pi-agent-host-wire.mjs';
-
-let checks = 0;
-let failures = 0;
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const check = h.check;
 
 const THREAD = 'thread-1';
 const PRJ = 'prj';
@@ -1064,9 +1057,11 @@ console.log('\n[high concurrency] 58 active runs');
   );
 }
 
-console.log(`\nscene-cue: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`scene-cue gate FAILED with ${failures} failure(s)`);
+console.log(`\nscene-cue: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`scene-cue gate FAILED with ${h.failures} failure(s)`);
   process.exit(1);
 }
 console.log('scene-cue gate PASSED');
+
+if (!process.exitCode) h.report();
