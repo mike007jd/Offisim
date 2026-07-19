@@ -1,4 +1,24 @@
 import { useUiState } from '@/app/ui-state.js';
+import {
+  describeFileImportError,
+  useCancelPackageImport,
+  useConfirmPackageInstall,
+  useImportPackageFile,
+  useMarketListings,
+  usePrepareRegistryInstall,
+  usePublishPackage,
+  usePublishSources,
+  usePublishedDrafts,
+  useRegistryConnection,
+} from '@/data/market/queries.js';
+import type {
+  InstallBindingValues,
+  ListingKind,
+  ManageView,
+  MarketListing,
+  PendingPackageInstall,
+  PublishPackageRequest,
+} from '@/data/market/types.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import {
   SegmentedControl,
@@ -41,26 +61,7 @@ import { MarketCard } from './MarketCard.js';
 import { MarketDetail } from './MarketDetail.js';
 import { MarketManage } from './MarketManage.js';
 import { PublishDialog } from './PublishDialog.js';
-import {
-  type InstallBindingValues,
-  type ListingKind,
-  type ManageView,
-  type MarketListing,
-  type PendingPackageInstall,
-  type PublishPackageRequest,
-  canInstallListing,
-  describeFileImportError,
-  useCancelPackageImport,
-  useConfirmPackageInstall,
-  useImportPackageFile,
-  useMarketListings,
-  usePrepareRegistryInstall,
-  usePublishPackage,
-  usePublishSources,
-  usePublishedDrafts,
-  useRegistryConnection,
-} from './market-data.js';
-import { marketSearchPlaceholder } from './market-presentation.js';
+import { canInstallListing, marketSearchPlaceholder } from './market-presentation.js';
 import { type SortKey, useMarketUi } from './market-store.js';
 
 type KindFilter = 'all' | ListingKind;

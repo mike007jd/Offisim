@@ -1,9 +1,9 @@
 import { useUiState } from '@/app/ui-state.js';
+import { useProjectWorkspaceLeaseReviews } from '@/data/board/task-board-data.js';
 import { queryKeys } from '@/data/query-keys.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
-import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import { useWorkspaceLeaseDecision } from '@/surfaces/office/board/use-workspace-lease-decision.js';
 import {
   reviewWorkspaceLease,

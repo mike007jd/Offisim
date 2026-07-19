@@ -7,6 +7,7 @@ import {
 } from '@/app/ui-state.js';
 import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
+import { useProjectWorkspaceLeaseReviews } from '@/data/board/task-board-data.js';
 import { workbenchOf } from '@/data/git-workbench.js';
 import { useDeliverables, useGitWorkbench } from '@/data/queries.js';
 import type { TaskAccountingPresentation } from '@/data/task-accounting-presentation.js';
@@ -20,7 +21,6 @@ import { cn } from '@/lib/utils.js';
 import { BoardPendingReviewAutoOpen, BoardStage } from '@/surfaces/office/board/BoardStage.js';
 import { DiffPanel } from '@/surfaces/office/board/DiffPanel.js';
 import { ReviewWorkbenchStage } from '@/surfaces/office/board/ReviewWorkbenchStage.js';
-import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import { ComputerView } from '@/surfaces/office/computer/ComputerView.js';
 import { useCodexPet } from '@/surfaces/office/scene/office-companion/CodexPetProvider.js';
 import { WorkBench } from '@/surfaces/office/scene/work-bench/WorkBench.js';

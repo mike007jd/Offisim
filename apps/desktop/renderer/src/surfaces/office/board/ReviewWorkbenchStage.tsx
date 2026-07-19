@@ -25,7 +25,7 @@ import {
   type WorkspaceLeaseReviewRow,
   useProjectWorkspaceLeaseReviews,
   useTaskBoard,
-} from './task-board-data.js';
+} from '@/data/board/task-board-data.js';
 import { useWorkspaceLeaseDecision } from './use-workspace-lease-decision.js';
 import {
   applyWorkspaceLeaseReviewPatch,

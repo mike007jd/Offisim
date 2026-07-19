@@ -1,6 +1,18 @@
 import { useUiState } from '@/app/ui-state.js';
 import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
 import { useInterruptedRunRecovery } from '@/assistant/runtime/conversation-run-react.js';
+import {
+  type ActivityRecord,
+  useActivityRecords,
+} from '@/data/board/activity-data.js';
+import {
+  type TaskBoardRow,
+  type TaskBoardStatus,
+  type WorkspaceLeaseReviewRow,
+  useProjectWorkspaceLeaseReviews,
+  useTaskBoard,
+  workspaceLeaseReviewsQueryOptions,
+} from '@/data/board/task-board-data.js';
 import { useCompanyEmployees, useProjects } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import {
@@ -42,7 +54,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { CompetitiveDraftDialog } from './CompetitiveDraftDialog.js';
 import {
-  type ActivityRecord,
   checkpointPathForDisplay,
   collapseReroutes,
   domainIcon,
@@ -50,17 +61,8 @@ import {
   getDisplaySummary,
   getEventLevel,
   groupByTime,
-  useActivityRecords,
-} from './activity-data.js';
+} from './activity-presentation.js';
 import { startCompetitiveDraft } from './competitive-draft-actions.js';
-import {
-  type TaskBoardRow,
-  type TaskBoardStatus,
-  type WorkspaceLeaseReviewRow,
-  useProjectWorkspaceLeaseReviews,
-  useTaskBoard,
-  workspaceLeaseReviewsQueryOptions,
-} from './task-board-data.js';
 import { useWorkspaceLeaseDecisionVersion } from './use-workspace-lease-decision.js';
 import { rewindWorkspaceCheckpoint } from './workspace-checkpoint-actions.js';
 import {
