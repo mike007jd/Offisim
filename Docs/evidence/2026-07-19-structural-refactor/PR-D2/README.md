@@ -1,10 +1,10 @@
 # PR-D2 — task_workspace_binding 机械拆分证据
 
-- 状态：completed
+- 状态：code-complete / release-live-pending
 - 日期：2026-07-19
 - 分支：`refactor/D2-binding-module-split`
-- 基线：`refactor/A3-rust-dedup`（`397e8d38`）
-- 范围：仅把 `task_workspace_binding.rs` 拆成指定的四个 `binding/` 子模块；未新增其他 binding 模块，未做 release live、push 或 merge。
+- PR 拓扑基线：`refactor/D1-git-module-split`；纯移动比对源仍为 A3 `397e8d38:task_workspace_binding.rs`
+- 范围：仅把 `task_workspace_binding.rs` 拆成指定的四个 `binding/` 子模块；未新增其他 binding 模块。D1 已用 merge commit `45792225` 合入本分支并保留双方 harness 路径，PR #108 已 retarget 到 D1；未 merge 到父分支，release `.app` live 尚未执行。
 
 ## 行数
 
@@ -40,8 +40,21 @@
 | GitNexus `detect_changes`（compare `397e8d38`） | PASS（medium，5 条预期 workspace authority flow） |
 | `git diff --check` | PASS |
 
+接管后的 D1→D2 组合提交再次通过 Node release gates 4/4、Rust 458/458、`cargo fmt --check` 与 `git diff --check`；唯一合并冲突位于 `harness-project-workspace.mts` 的源码路径表，已同时保留 D1 的 Git 模块和 D2 的 binding 模块读取路径，断言本身未改。
+
+## 风险复核
+
+- 聚合安全分类保持 **CRITICAL**：接管审计按 workspace authority、resume、registry、persistence、Project CRUD 边界合计识别 37 条流程实例；这是跨符号人工安全分类，不等同于单次 diff 的标签。
+- 最新代表性 upstream 分析：`resolve_task_workspace_for_turn` 为 HIGH，3 个直接依赖横跨 Codex / Claude / Pi lane，并命中 2 个流程根、3 个流程实例。
+- 纯 D2 compare 的 GitNexus 结果为 MEDIUM，命中 5 条预期 workspace authority flow；D1 合入时的 staged change detection 同样为 MEDIUM，11 个符号、2 条 Git filesystem-identity 流程。两者均未被用于降低整体安全等级。
+
 ## 偏差
 
 计划偏差：无。
 
 为保持既有静态合同继续读取同一份 Rust 语义，三个 harness 仅更新了源文件路径或把入口与对应子模块源码拼接后再执行原断言；断言、错误文案和判定逻辑均未变化。Tauri command 宏符号通过入口显式 re-export，保持既有 `generate_handler!` 路径不变。
+
+## Release live 门禁
+
+- 待在当前提交重新构建精确 release `.app` 后，分别以 Pi、Codex、Claude 验证授权目录读写、越界拒绝、重启后的 Resume。
+- OpenRouter 凭据轮换前不执行 Pi 调用；Claude 额度恢复前不宣称 Claude lane 完整验收。上述外部阻塞不改变已通过的机械拆分证明，但会保持 PR 为未完整交付。
