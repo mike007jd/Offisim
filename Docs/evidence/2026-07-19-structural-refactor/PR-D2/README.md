@@ -81,3 +81,10 @@
 - 严格越界读：受 Codex 当前原生 sandbox 合同阻塞；需独立架构单，不属于 D2 纯移动允许范围。
 
 以上阻塞不改变已通过的机械拆分证明，但 PR 保持“未完整交付”。
+
+### 精确清理
+
+- 两个 release `.app` PID 均已退出；不存在残留 D2 应用进程。
+- 测试 Project、Conversation、2 个 completed run、workspace binding、project memory、FTS/graph 投影已从本地 DB 精确删除；遍历所有含 `project_id` 的表均为 0，指定 thread/run 复核也为 0。
+- 原生 Codex Agent Home/session 按产品边界保留，未因删除 Offisim Project 而触碰。
+- 临时 Project、父目录 fixture 与清理前 DB 备份已可恢复地移至 `~/.Trash/offisim-d2-live.MbNsDt-20260719-2148`；生成的 App Server schema 已移至 `~/.Trash/codex-schema.NqVFJ3-20260719-2148`；两个 `/private/tmp` 原路径均不存在。
