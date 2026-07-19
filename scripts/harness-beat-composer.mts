@@ -18,17 +18,10 @@ import {
   type TimedAgentRunEvent,
   composeBeats,
 } from '../packages/dramaturgy/src/index.js';
+import { createHarness } from './lib/harness-runner.mjs';
 
-let failures = 0;
-let checks = 0;
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) console.log(`  ✓ ${name}`);
-  else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const h = createHarness();
+const { check } = h;
 
 const THREAD = 'thread-1';
 const ROOT = 'root-1';
@@ -727,9 +720,10 @@ console.log('\n[determinism] byte-identical beats for a fixed fixture');
   );
 }
 
-console.log(`\nbeat-composer: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`beat-composer gate FAILED with ${failures} failure(s)`);
-  process.exit(1);
+console.log(`\nbeat-composer: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`beat-composer gate FAILED with ${h.failures} failure(s)`);
+} else {
+  console.log('beat-composer gate PASSED');
 }
-console.log('beat-composer gate PASSED');
+h.report();

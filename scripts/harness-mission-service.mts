@@ -20,22 +20,11 @@ import {
   createMissionService,
 } from '../packages/core/src/runtime/mission/mission-service.ts';
 import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mission/memory.ts';
+import { createHarness } from './lib/harness-runner.mjs';
 
-let passed = 0;
 const TOTAL = 19;
-let failed = 0;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const h = createHarness();
+const check = h.checkAsync;
 
 /** Deterministic id/clock factories so every run is byte-stable. */
 function makeDeps(): MissionServiceDeps {
@@ -896,8 +885,11 @@ await check(
   },
 );
 
-if (failed > 0) {
-  console.error(`\nmission-service: ${passed}/${TOTAL} checks passed (${failed} failed)`);
-  process.exit(1);
+if (h.failures > 0) {
+  console.error(
+    `\nmission-service: ${h.checks - h.failures}/${TOTAL} checks passed (${h.failures} failed)`,
+  );
+} else {
+  console.log(`\nmission-service: ${h.checks}/${TOTAL} checks passed`);
 }
-console.log(`\nmission-service: ${passed}/${TOTAL} checks passed`);
+h.report();

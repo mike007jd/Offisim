@@ -27,6 +27,7 @@ import {
   createLspDiagnosticsExtensionFactory,
 } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
 import { RUN_FAILURE_KINDS, classifyRunFailure } from './pi-agent-host-wire.mjs';
+import { validateHarnessIds } from './harness-manifest.mjs';
 import { childToolsForPermissionMode } from './pi-child-supervisor.mjs';
 import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
 import {
@@ -1166,8 +1167,12 @@ assert(
 );
 assert(!('provider:check' in rootPackage.scripts), 'provider:check must not be a validation gate');
 assert(
-  rootPackage.scripts.validate.includes('pnpm harness:pi-agent-host'),
+  validateHarnessIds.includes('pi-agent-host'),
   'validate must include the Pi Agent host harness',
+);
+assert(
+  rootPackage.scripts.validate.includes('node scripts/run-harnesses.mjs'),
+  'validate must execute the manifest harness runner so validateHarnessIds stays a live gate',
 );
 assert(
   rootPackage.scripts['check:pi-wire-contract'] === 'node scripts/check-pi-wire-contract.mjs',

@@ -12,19 +12,10 @@
  */
 
 import { evaluatePrefabPlacement } from '../packages/shared-types/dist/index.js';
+import { createHarness } from './lib/harness-runner.mjs';
 
-let failures = 0;
-let checks = 0;
-
-function check(name, condition, detail) {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const h = createHarness();
+const { check } = h;
 
 // A roomy zone so nothing is rejected merely for zone fit unless we mean it.
 const ZONE = { cx: 0, cz: 0, w: 12, d: 12 };
@@ -155,9 +146,10 @@ console.log('studio-placement gate');
   check('a candidate with no zone in focus is rejected', verdict.valid === false);
 }
 
-console.log(`\n${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`studio-placement gate FAILED (${failures} failing)`);
-  process.exit(1);
+console.log(`\n${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`studio-placement gate FAILED (${h.failures} failing)`);
+} else {
+  console.log('studio-placement gate OK');
 }
-console.log('studio-placement gate OK');
+h.report();
