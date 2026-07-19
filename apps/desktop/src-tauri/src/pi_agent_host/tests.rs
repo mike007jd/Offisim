@@ -83,6 +83,7 @@ fn runtime_status_keeps_codex_catalog_when_api_inspection_fails() {
         status_reason: None,
         login_command: "codex login".into(),
         docs_url: "https://developers.openai.com/codex/auth".into(),
+        source_url: String::new(),
         checked_at: "2026-07-15T01:00:00Z".into(),
         capabilities: serde_json::json!({"stop": true}),
     };
