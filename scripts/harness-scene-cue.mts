@@ -17,6 +17,12 @@ import {
   projectSceneBaseFrame,
   projectSceneCues,
 } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
+import {
+  type SceneBeat,
+  type StagingPrefab,
+  type TimedAgentRunEvent,
+  composeBeats,
+} from '../packages/dramaturgy/src/index.js';
 /**
  * SceneCue projection gate (production-work-dramaturgy I2).
  *
@@ -48,14 +54,7 @@ import {
  *    state) is byte-identical to projectSceneCues({...facts, inputState: state});
  *  - 58-run high concurrency: tier large, exactly 4 grouped chips, flows capped.
  */
-import {
-  type RunFailureKind,
-  type SceneBeat,
-  type StagingPrefab,
-  type TimedAgentRunEvent,
-  classifyRunFailure,
-  composeBeats,
-} from '../packages/shared-types/src/index.js';
+import { type RunFailureKind, classifyRunFailure } from '../packages/shared-types/src/index.js';
 // The bundled hosts can't import TS, so the wire module carries a mirror of the
 // classifier — this harness locks the two implementations equal.
 // @ts-expect-error plain .mjs module without type declarations

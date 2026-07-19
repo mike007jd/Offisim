@@ -144,6 +144,7 @@
     "@gltf-transform/core": "4.4.1",
     "@gltf-transform/extensions": "4.4.1",
     "@gltf-transform/functions": "4.4.1",
+    "@offisim/dramaturgy": "workspace:*",
     "@offisim/shared-types": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^12.6.2",

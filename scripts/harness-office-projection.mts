@@ -19,9 +19,9 @@ import { groupedWorkload } from '../apps/desktop/renderer/src/assistant/runtime/
  * place with no anchor, and approval/failure react in place. Deterministic, so
  * 2D and 3D direct the same actor to the same place.
  *
- * Pure Node via tsx against shared-types source — no DOM, no renderer, no Pi.
+ * Pure Node via tsx against dramaturgy source — no DOM, no renderer, no Pi.
  */
-import type { SceneBeat } from '../packages/shared-types/src/index.js';
+import type { SceneBeat } from '../packages/dramaturgy/src/index.js';
 import {
   IDLE_PERFORMANCE,
   type StagingPrefab,
@@ -29,7 +29,7 @@ import {
   composeBeats,
   performanceForBeat,
   projectOfficeStaging,
-} from '../packages/shared-types/src/index.js';
+} from '../packages/dramaturgy/src/index.js';
 const check = h.check;
 
 const THREAD = 'thread-1';

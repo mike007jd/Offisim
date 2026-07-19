@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { useEmployees } from '@/data/queries.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -83,7 +84,7 @@ export function ComputerSetupPanel({
     try {
       const next = await loadComputerDriverStatus();
       setStatus(next);
-      await queryClient.invalidateQueries({ queryKey: ['settings', 'mcp-servers'] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.settingsMcpServers() });
     } catch (error) {
       toast.error('Computer driver status failed', { description: safeErrorMessage(error) });
     } finally {
@@ -304,8 +305,8 @@ function ComputerAccessSettings({
       });
     } finally {
       await Promise.allSettled([
-        queryClient.invalidateQueries({ queryKey: ['settings', 'mcp-tool-grants'] }),
-        queryClient.invalidateQueries({ queryKey: ['employee-mcp-tools'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.settingsMcpToolGrantsAll() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employeeMcpToolsAll() }),
       ]);
       setUpdatingAccess(false);
     }

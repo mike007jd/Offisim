@@ -1,4 +1,5 @@
 mod agent_host_runtime;
+mod agent_host_stream;
 mod app_update;
 mod attachment_store;
 mod browser_session;

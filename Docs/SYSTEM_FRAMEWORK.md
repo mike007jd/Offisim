@@ -32,7 +32,8 @@ single gateway defined by the current architecture decision.
 | Codex orchestration host | `apps/desktop/src-tauri/src/codex_agent_host/` | Detect user CLI/login/version, spawn native app-server, project event stream, session/approval/Stop/recovery, task tokens/duration | Bundling Codex, choosing its model, or copying OAuth/session/global memory |
 | Local data contracts | `packages/db-local`, `packages/core/src/runtime/repositories.ts` | Company/project/conversation/activity/install/vault state and the current prelaunch schema baseline | Raw engine credentials or native Agent Home contents |
 | Package/install contracts | `packages/asset-schema`, `packages/install-core`, `packages/registry-client`, `packages/shared-types` | Declarative package schema, install state machine, registry client validation, shared types | Install hooks, hidden postinstall execution |
-| Scene engine | `packages/renderer` | Office layout, prefab geometry/state, scene tokens shared by renderer surfaces | Product data ownership |
+| Prefab engine | `packages/prefab` | Office layout, prefab geometry/state, scene tokens shared by renderer surfaces | Product data ownership |
+| Dramaturgy engine | `packages/dramaturgy` | Deterministic beats, staging, performance, modes, and ambient scheduling | Product projection ownership |
 | Platform API | `apps/platform`, `packages/db-platform` | Auth, creator profiles, marketplace listing/search/review/publish/install support | Desktop execution, local shell/file access, native engine sessions |
 | Doc engine | `packages/doc-engine` | Document parsing/render support and harness fixtures | Runtime chat loop |
 

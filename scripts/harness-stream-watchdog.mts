@@ -308,6 +308,13 @@ const runtimeSource = readFileSync(
   resolve(root, 'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts'),
   'utf8',
 );
+const hostEventDispatchSource = readFileSync(
+  resolve(root, 'apps/desktop/renderer/src/runtime/host-event-dispatch.ts'),
+  'utf8',
+);
+const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
+  scripts?: Record<string, string>;
+};
 
 assert.match(
   runtimeSource,
@@ -324,17 +331,17 @@ assert.match(
   'watchdog failure must terminate the native host before terminalizing the run',
 );
 assert.match(
-  runtimeSource,
-  /event\.kind === 'uiRequest'[\s\S]*progressWatchdog\?\.pause\(\)/,
+  `${hostEventDispatchSource}\n${runtimeSource}`,
+  /active\.onUiRequestObserved\(\)[\s\S]*onUiRequestObserved:[\s\S]*progressWatchdog\?\.pause\(\)/,
   'user interaction must pause the active no-progress timer',
 );
 assert.match(
-  runtimeSource,
+  hostEventDispatchSource,
   /event\.status === 'started' \|\| event\.status === 'running'[\s\S]*inFlightToolCallIds\.add/,
   'started and running tool events must enter the renderer in-flight set',
 );
 assert.match(
-  runtimeSource,
+  hostEventDispatchSource,
   /inFlightToolCallIds\.delete\(event\.toolCallId\)[\s\S]*runtimeContext\.inFlightToolCallIds/,
   'completed and failed tool events must leave the durable renderer in-flight set',
 );

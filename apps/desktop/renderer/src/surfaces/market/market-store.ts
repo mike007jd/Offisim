@@ -1,5 +1,5 @@
+import type { ManageView, MarketMode } from '@/data/market/types.js';
 import { create } from 'zustand';
-import type { ManageView, MarketMode } from './market-data.js';
 
 export type SortKey = 'relevance' | 'newest' | 'rating' | 'installs';
 

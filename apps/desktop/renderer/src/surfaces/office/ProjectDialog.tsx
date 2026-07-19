@@ -1,4 +1,5 @@
 import { reposOrNull } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import type { Project } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -147,12 +148,12 @@ export function ProjectDialog({
         toast.success('Project created');
       }
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['projects', companyId] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects(companyId) }),
         savedProjectId
-          ? queryClient.invalidateQueries({ queryKey: ['project-files', savedProjectId] })
+          ? queryClient.invalidateQueries({ queryKey: queryKeys.projectFiles(savedProjectId) })
           : Promise.resolve(),
         savedProjectId
-          ? queryClient.invalidateQueries({ queryKey: ['git-workbench', savedProjectId] })
+          ? queryClient.invalidateQueries({ queryKey: queryKeys.gitWorkbench(savedProjectId) })
           : Promise.resolve(),
       ]);
       if (savedProjectId) onSaved?.(savedProjectId);

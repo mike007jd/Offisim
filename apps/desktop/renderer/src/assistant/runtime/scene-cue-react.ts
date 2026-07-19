@@ -22,12 +22,12 @@
  */
 import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useThreads } from '@/data/queries.js';
-import {
-  type AmbientActorAvailability,
-  type AmbientActorHome,
-  type AmbientRoutePlanner,
-  type StagingPrefab,
-  worldAnchorsFor,
+import { worldAnchorsFor } from '@offisim/dramaturgy';
+import type {
+  AmbientActorAvailability,
+  AmbientActorHome,
+  AmbientRoutePlanner,
+  StagingPrefab,
 } from '@offisim/shared-types';
 import { useMemo } from 'react';
 import { useEmployeeWorkloads } from './conversation-run-react.js';

@@ -43,6 +43,9 @@ importers:
       '@gltf-transform/functions':
         specifier: 4.4.1
         version: 4.4.1
+      '@offisim/dramaturgy':
+        specifier: workspace:*
+        version: link:packages/dramaturgy
       '@offisim/shared-types':
         specifier: workspace:*
         version: link:packages/shared-types
@@ -103,15 +106,18 @@ importers:
       '@offisim/doc-engine':
         specifier: workspace:*
         version: link:../../../packages/doc-engine
+      '@offisim/dramaturgy':
+        specifier: workspace:*
+        version: link:../../../packages/dramaturgy
       '@offisim/install-core':
         specifier: workspace:*
         version: link:../../../packages/install-core
+      '@offisim/prefab':
+        specifier: workspace:*
+        version: link:../../../packages/prefab
       '@offisim/registry-client':
         specifier: workspace:*
         version: link:../../../packages/registry-client
-      '@offisim/renderer':
-        specifier: workspace:*
-        version: link:../../../packages/renderer
       '@offisim/shared-types':
         specifier: workspace:*
         version: link:../../../packages/shared-types
@@ -284,9 +290,9 @@ importers:
       '@offisim/install-core':
         specifier: workspace:*
         version: link:../../packages/install-core
-      '@offisim/renderer':
+      '@offisim/prefab':
         specifier: workspace:*
-        version: link:../../packages/renderer
+        version: link:../../packages/prefab
       better-auth:
         specifier: ^1.6.23
         version: 1.6.23(@opentelemetry/api@1.9.0)(better-sqlite3@12.11.1)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.11.1)(kysely@0.28.17)(postgres@3.4.9))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -416,6 +422,16 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  packages/dramaturgy:
+    dependencies:
+      '@offisim/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   packages/install-core:
     dependencies:
       '@offisim/asset-schema':
@@ -432,21 +448,21 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
-  packages/registry-client:
+  packages/prefab:
     dependencies:
-      '@offisim/asset-schema':
+      '@offisim/shared-types':
         specifier: workspace:*
-        version: link:../asset-schema
+        version: link:../shared-types
     devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
 
-  packages/renderer:
+  packages/registry-client:
     dependencies:
-      '@offisim/shared-types':
+      '@offisim/asset-schema':
         specifier: workspace:*
-        version: link:../shared-types
+        version: link:../asset-schema
     devDependencies:
       typescript:
         specifier: ^5.7.0
