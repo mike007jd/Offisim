@@ -1,5 +1,6 @@
 import { isTauriRuntime } from '@/data/adapters.js';
 import { aiAccountLaneKey } from '@/data/ai-model-presentation.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { THINKING_LEVELS, type ThinkingLevel } from '@/runtime/pi-thread-thinking-store.js';
 import { getRepos } from '@/runtime/repos.js';
@@ -180,7 +181,7 @@ async function loadThreadExecutionAuthority(
 /** Runnable models from the engine-neutral runtime, cached for the desktop session. */
 export function useAgentRuntimeModels() {
   const query = useQuery({
-    queryKey: ['agent-runtime', 'models'],
+    queryKey: queryKeys.agentRuntimeModels(),
     queryFn: loadModels,
     enabled: isTauriRuntime(),
     staleTime: 5 * 60_000,
@@ -221,7 +222,7 @@ export function useAgentRuntimeModels() {
 /** Durable engine/account/selector binding for an already-started task. */
 export function useThreadExecutionAuthority(threadId: string) {
   return useQuery({
-    queryKey: ['agent-runtime', 'thread-authority', threadId],
+    queryKey: queryKeys.agentRuntimeThreadAuthority(threadId),
     queryFn: () => loadThreadExecutionAuthority(threadId),
     enabled: isTauriRuntime() && Boolean(threadId),
     staleTime: 0,

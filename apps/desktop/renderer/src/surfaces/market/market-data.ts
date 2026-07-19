@@ -1,4 +1,5 @@
 import { reposOrNull } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { secretDecrypt, secretEncrypt } from '@/lib/local-secret.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
@@ -961,7 +962,7 @@ function draftToVm(draft: PublishDraft): PublishedDraft {
 
 export function useMarketListings(companyId?: string | null) {
   return useQuery({
-    queryKey: ['market-listings', companyId ?? 'preview'],
+    queryKey: queryKeys.marketListings(companyId),
     queryFn: async () => {
       const registryListings = await loadRegistryListings(companyId);
       if (registryListings) return registryListings;
@@ -972,7 +973,7 @@ export function useMarketListings(companyId?: string | null) {
 
 export function useInstalledPackages(companyId?: string | null) {
   return useQuery({
-    queryKey: ['market-installed', companyId ?? 'preview'],
+    queryKey: queryKeys.marketInstalled(companyId),
     queryFn: async () => {
       const repos = await reposOrNull();
       if (!repos) return [];
@@ -985,7 +986,7 @@ export function useInstalledPackages(companyId?: string | null) {
 
 export function usePublishedDrafts(enabled = true) {
   return useQuery({
-    queryKey: ['market-drafts'],
+    queryKey: queryKeys.marketDrafts(),
     queryFn: async () => {
       const config = await registryConfig();
       if (config?.authToken) {
@@ -1000,7 +1001,7 @@ export function usePublishedDrafts(enabled = true) {
 
 export function useRegistryConnection() {
   return useQuery({
-    queryKey: ['market-registry-connection'],
+    queryKey: queryKeys.marketRegistryConnection(),
     queryFn: async (): Promise<RegistryConnectionState> => {
       const repos = await reposOrNull();
       const config = await registryConfig();
@@ -1076,8 +1077,8 @@ export function usePublishPackage() {
       };
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['market-drafts'] });
-      void queryClient.invalidateQueries({ queryKey: ['market-listings'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketDrafts() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketListingsAll() });
     },
   });
 }
@@ -1148,7 +1149,7 @@ export function usePrepareRegistryInstall(companyId?: string | null) {
 
 export function usePublishSources(companyId?: string | null) {
   return useQuery({
-    queryKey: ['market-publish-sources', companyId ?? 'preview'],
+    queryKey: queryKeys.marketPublishSources(companyId),
     queryFn: async () => {
       const repos = await reposOrNull();
       if (!repos) return [];
@@ -1301,16 +1302,16 @@ export function useConfirmPackageInstall(companyId?: string | null) {
       };
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['market-listings', companyId ?? 'preview'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketListings(companyId) });
       void queryClient.invalidateQueries({
-        queryKey: ['market-installed', companyId ?? 'preview'],
+        queryKey: queryKeys.marketInstalled(companyId),
       });
       if (companyId) {
-        void queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
-        void queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
       }
-      void queryClient.invalidateQueries({ queryKey: ['company-templates'] });
-      void queryClient.invalidateQueries({ queryKey: ['office-scene'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.companyTemplates() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.officeScene() });
     },
   });
 }

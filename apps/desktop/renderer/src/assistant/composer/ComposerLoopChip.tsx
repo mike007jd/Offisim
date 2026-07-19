@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { getLoopDefinition, getLoopRevision } from '@/data/loops.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { useQuery } from '@tanstack/react-query';
@@ -29,7 +30,7 @@ export function ComposerLoopChip({ threadId }: { threadId: string }) {
   // surface "newer available" / "invalid" without ever auto-swapping. Keyed by the
   // pinned revision id so a different chip refetches.
   const status = useQuery({
-    queryKey: ['loop-chip', reference?.loopId ?? null, reference?.revisionId ?? null],
+    queryKey: queryKeys.loopChip(reference?.loopId ?? null, reference?.revisionId ?? null),
     queryFn: async (): Promise<LoopChipStatus> => {
       if (!reference) return { kind: 'missing' };
       const pinned = await getLoopRevision(reference.revisionId);
