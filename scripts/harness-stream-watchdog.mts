@@ -362,6 +362,15 @@ assert(
   validateHarnessIds.includes('stream-watchdog'),
   'the stream watchdog harness must run in the release-gates node lane through validate',
 );
+const rootPackageScripts = (
+  JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
+    scripts: Record<string, string>;
+  }
+).scripts;
+assert(
+  rootPackageScripts.validate.includes('node scripts/run-harnesses.mjs'),
+  'validate must execute the manifest harness runner so validateHarnessIds stays a live gate',
+);
 
 console.log(
   '[harness-stream-watchdog] fault injection passed: idle recovery; quiet-tool keepalive then completion/stall; progress reset; all native lanes wired',

@@ -1167,6 +1167,10 @@ assert(
   'validate must include the Pi Agent host harness',
 );
 assert(
+  rootPackage.scripts.validate.includes('node scripts/run-harnesses.mjs'),
+  'validate must execute the manifest harness runner so validateHarnessIds stays a live gate',
+);
+assert(
   rootPackage.scripts['check:pi-wire-contract'] === 'node scripts/check-pi-wire-contract.mjs',
   'root package must run the Pi Agent wire-contract gate',
 );
