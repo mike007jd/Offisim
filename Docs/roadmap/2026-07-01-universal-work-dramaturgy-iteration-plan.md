@@ -14,7 +14,7 @@
 | claim | status | evidence | implication |
 |---|---|---|---|
 | `agent.run` is already a neutral event family. | TRUE | `packages/shared-types/src/events/agent-run.ts` | Keep using the existing event vocabulary; extend projection, not runtime ownership. |
-| Beat composition is pure and fact-derived. | TRUE | `packages/shared-types/src/dramaturgy/beat-composer.ts` | Add visual signals as deterministic projection fields on beats. |
+| Beat composition is pure and fact-derived. | TRUE | `packages/dramaturgy/src/beat-composer.ts` | Add visual signals as deterministic projection fields on beats. |
 | One employee already collapses concurrent runs into one actor. | TRUE | `apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.ts` | Upgrade the badge into workload chips without duplicating actors. |
 | 2D and 3D share staging projection. | TRUE | `OfficeScene2D.tsx`, `OfficeScene3D.tsx`, `projectOfficeStaging` | Render new flow/resource/artifact overlays from the same beat truth in both modes. |
 | Deliverables/artifact persistence exists separately. | TRUE | `desktop-agent-runtime.ts`, `useDeliverableRefresh`, `useDeliverables` | Scene artifact claim in this iteration is presentation-only; persistence remains the deliverables repo path. |

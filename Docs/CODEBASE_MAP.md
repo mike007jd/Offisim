@@ -25,7 +25,8 @@ truth.
 | `@offisim/doc-engine` | Document parsing/render helpers and parser fixtures |
 | `@offisim/install-core` | Local install state machine and materialization contracts |
 | `@offisim/registry-client` | Registry client validation helpers |
-| `@offisim/renderer` | Office scene/layout/prefab primitives |
+| `@offisim/prefab` | Office scene/layout/prefab primitives |
+| `@offisim/dramaturgy` | Deterministic Office beat, staging, performance, and ambient logic |
 | `@offisim/shared-types` | Cross-package shared types |
 
 ## Renderer Surfaces

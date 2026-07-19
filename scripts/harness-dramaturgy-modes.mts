@@ -7,17 +7,17 @@
  * across modes (no mode invents facts). Plus role-derived employee performance
  * profiles and deterministic variant anti-repeat.
  *
- * Pure Node via tsx against shared-types source — no DOM, no renderer, no Pi.
+ * Pure Node via tsx against dramaturgy source — no DOM, no renderer, no Pi.
  */
 import {
-  type RoleSlug,
   type StagingPrefab,
   type TimedAgentRunEvent,
   animationTempoForRole,
   applyDramaturgyMode,
   composeBeats,
   projectOfficeStaging,
-} from '../packages/shared-types/src/index.js';
+} from '../packages/dramaturgy/src/index.js';
+import type { RoleSlug } from '../packages/shared-types/src/index.js';
 
 let failures = 0;
 let checks = 0;

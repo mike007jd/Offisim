@@ -36,13 +36,13 @@ import {
   loadGitWorkbench,
 } from './git-workbench.js';
 import { deleteCompanyDeep, deleteConversationDeep } from './local-data-deletion.js';
+import { discoverProjectSkills } from './project-skills.js';
 import {
   invalidateCompanyDeletionScope,
   invalidateConversationDeletionScope,
   queryKeys,
 } from './query-keys.js';
 import { loadRunCost } from './run-cost.js';
-import { discoverProjectSkills } from './project-skills.js';
 import { computeTokenBudgetAlerts, loadTokenBudgets } from './token-budgets.js';
 import type { ChatMessage, Deliverable, Employee, FileNode, GitRepoState, Skill } from './types.js';
 
@@ -52,7 +52,7 @@ import type { ChatMessage, Deliverable, Employee, FileNode, GitRepoState, Skill 
  */
 
 const DESKTOP_STARTUP_QUERY_TIMEOUT_MS = 8_000;
-type GetBuiltinPrefab = typeof import('@offisim/renderer')['getBuiltinPrefab'];
+type GetBuiltinPrefab = typeof import('@offisim/prefab')['getBuiltinPrefab'];
 let getBuiltinPrefabPromise: Promise<GetBuiltinPrefab> | null = null;
 
 function withStartupQueryTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
@@ -68,7 +68,7 @@ function withStartupQueryTimeout<T>(promise: Promise<T>, label: string): Promise
 }
 
 function loadGetBuiltinPrefab(): Promise<GetBuiltinPrefab> {
-  getBuiltinPrefabPromise ??= import('@offisim/renderer').then((module) => module.getBuiltinPrefab);
+  getBuiltinPrefabPromise ??= import('@offisim/prefab').then((module) => module.getBuiltinPrefab);
   return getBuiltinPrefabPromise;
 }
 

@@ -39,7 +39,7 @@ The requirement must build on the current implementation, not replace it.
 |---|---|---|
 | Neutral run vocabulary | `packages/shared-types/src/events/agent-run.ts` | `AgentRunEvent` already expresses root/parent/run tree, employee ownership, work kind, artifacts, approval, tools, and terminal states. |
 | Stable employee workload | `apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.ts` | concurrent active runs collapse into one employee actor with `activeCount`, `waitingCount`, `workloadChips`, and dominant beat. |
-| Dramaturgy intent | `packages/shared-types/src/dramaturgy/beat-composer.ts` | `SceneBeat` already carries `visual`, `flow`, `artifact`, and `resource` intents. This is the right generic work grammar. |
+| Dramaturgy intent | `packages/dramaturgy/src/beat-composer.ts` | `SceneBeat` already carries `visual`, `flow`, `artifact`, and `resource` intents. This is the right generic work grammar. |
 | 2D expression | `apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx` | 2D already has flow lines, packets, active count, risk marker, workload chips, and delivery shelf count. |
 | 3D expression | `apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx` | 3D already has active count, workload bubble, resource marker, flow lines, and a passive Delivery shelf count. |
 | Output opening | `apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx` | `openStageView` and deliverable auto-open already exist; artifact claim should reuse this path. File claims must resolve file content before or during `openStageView`; `FileView` does not read by path on its own. |

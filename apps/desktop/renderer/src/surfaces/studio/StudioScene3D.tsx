@@ -13,7 +13,7 @@ import {
 import { LIGHT_SCENE_3D } from '@/surfaces/office/scene/r3d/scene-colors.js';
 import { groundPointFromClient, snapToGrid } from '@/surfaces/office/scene/scene-ground.js';
 import { type ZoneDef, zoneDefsFromLayout } from '@/surfaces/office/scene/scene-layout.js';
-import { getBuiltinPrefab } from '@offisim/renderer';
+import { getBuiltinPrefab } from '@offisim/prefab';
 import {
   type PrefabDefinition,
   type PrefabInstanceRow,

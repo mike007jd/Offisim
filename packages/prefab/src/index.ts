@@ -1,4 +1,4 @@
-// @offisim/renderer — pure logic: prefab catalog, state machines, default
+// @offisim/prefab — pure logic: prefab catalog, state machines, default
 // layouts. No rendering engine dependency (PixiJS removed; 3D = Three.js,
 // 2D = SVG).
 //

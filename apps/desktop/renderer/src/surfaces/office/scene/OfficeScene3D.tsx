@@ -19,13 +19,15 @@ import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim
 import {
   CHARACTER_TURN_RATE_PER_SECOND,
   CHARACTER_WALK_SPEED_UNITS_PER_SECOND,
-  type CharacterPerformanceState,
-  type CharacterStatus,
-  type PrefabDefinition,
-  type PrefabInstanceRow,
-  type ResourceKind,
-  type RoleSlug,
   animationTempoForRole,
+} from '@offisim/dramaturgy';
+import type {
+  CharacterPerformanceState,
+  CharacterStatus,
+  PrefabDefinition,
+  PrefabInstanceRow,
+  ResourceKind,
+  RoleSlug,
 } from '@offisim/shared-types';
 import { Line, OrbitControls, RoundedBox } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';

@@ -1,11 +1,12 @@
 import { readFile } from 'node:fs/promises';
+import { composeBeats, worldAnchorsFor } from '@offisim/dramaturgy';
 import type {
   CharacterStatus,
   SceneBeat,
   StagingPrefab,
   TimedAgentRunEvent,
 } from '@offisim/shared-types';
-import { SYSTEM_ZONE_TEMPLATES, composeBeats, worldAnchorsFor } from '@offisim/shared-types';
+import { SYSTEM_ZONE_TEMPLATES } from '@offisim/shared-types';
 import { PerspectiveCamera, Vector3 } from 'three';
 import type {
   ConversationRunSnapshot,
