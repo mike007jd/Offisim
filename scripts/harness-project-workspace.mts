@@ -34,6 +34,10 @@ const paths = {
   tools: `${ROOT}/apps/desktop/src-tauri/src/builtin_tools.rs`,
   git: `${ROOT}/apps/desktop/src-tauri/src/git.rs`,
   binding: `${ROOT}/apps/desktop/src-tauri/src/task_workspace_binding.rs`,
+  bindingRegistry: `${ROOT}/apps/desktop/src-tauri/src/binding/registry.rs`,
+  bindingResumeCompat: `${ROOT}/apps/desktop/src-tauri/src/binding/resume_compat.rs`,
+  bindingPersistence: `${ROOT}/apps/desktop/src-tauri/src/binding/persistence.rs`,
+  bindingProjectCrud: `${ROOT}/apps/desktop/src-tauri/src/binding/project_crud.rs`,
   workspaceRecovery: `${ROOT}/apps/desktop/src-tauri/src/workspace_recovery.rs`,
   tauriLib: `${ROOT}/apps/desktop/src-tauri/src/lib.rs`,
   bridgePermissions: `${ROOT}/apps/desktop/src-tauri/permissions/agent-bridges.toml`,
@@ -934,7 +938,15 @@ function verifyWireAndRuntimeContracts(): void {
   const recovery = source(paths.recovery);
   const tools = source(paths.tools);
   const git = source(paths.git);
-  const binding = source(paths.binding);
+  const binding = [
+    paths.binding,
+    paths.bindingRegistry,
+    paths.bindingResumeCompat,
+    paths.bindingPersistence,
+    paths.bindingProjectCrud,
+  ]
+    .map(source)
+    .join('\n');
   const workspaceRecovery = source(paths.workspaceRecovery);
   const tauriLib = source(paths.tauriLib);
   const bridgePermissions = source(paths.bridgePermissions);
@@ -1682,23 +1694,23 @@ function verifyRustBehavioralOracleNames(): void {
     [paths.git, 'binding_git_lane_only_accepts_read_only_status'],
     [paths.git, 'workspace_lease_agent_run_requires_exact_live_child_provenance'],
     [paths.git, 'registration_insert_failure_rolls_back_worktree_and_branch'],
-    [paths.binding, 'registry_enforces_scope_access_expiry_and_revoked_read_grace'],
-    [paths.binding, 'revoked_read_grace_covers_terminal_stream_replay_window'],
-    [paths.binding, 'binding_expiry_transition_is_idempotent_and_preserves_read_grace'],
-    [paths.binding, 'read_binding_never_authorizes_write'],
-    [paths.binding, 'read_binding_never_authorizes_verification'],
-    [paths.binding, 'revoked_write_binding_allows_only_read_for_full_terminal_grace'],
-    [paths.binding, 'evaluation_lease_is_bounded_nonrenewable_and_never_direct_write'],
-    [paths.binding, 'evaluation_lifecycle_separates_running_acquire_from_verifying_use'],
-    [paths.binding, 'live_authority_recheck_rejects_expiry_scope_and_root_replacement'],
-    [paths.binding, 'claim_projection_cannot_forge_history_access_or_catalog_project'],
+    [paths.bindingRegistry, 'registry_enforces_scope_access_expiry_and_revoked_read_grace'],
+    [paths.bindingRegistry, 'revoked_read_grace_covers_terminal_stream_replay_window'],
+    [paths.bindingRegistry, 'binding_expiry_transition_is_idempotent_and_preserves_read_grace'],
+    [paths.bindingRegistry, 'read_binding_never_authorizes_write'],
+    [paths.bindingRegistry, 'read_binding_never_authorizes_verification'],
+    [paths.bindingRegistry, 'revoked_write_binding_allows_only_read_for_full_terminal_grace'],
+    [paths.bindingRegistry, 'evaluation_lease_is_bounded_nonrenewable_and_never_direct_write'],
+    [paths.bindingRegistry, 'evaluation_lifecycle_separates_running_acquire_from_verifying_use'],
+    [paths.bindingPersistence, 'live_authority_recheck_rejects_expiry_scope_and_root_replacement'],
+    [paths.bindingPersistence, 'claim_projection_cannot_forge_history_access_or_catalog_project'],
     [
-      paths.binding,
+      paths.bindingResumeCompat,
       'resume_compatibility_accepts_durable_recovered_history_without_returning_root',
     ],
-    [paths.binding, 'registry_rejects_replaced_root_identity'],
-    [paths.binding, 'resume_and_discard_are_atomic_and_mutually_exclusive'],
-    [paths.binding, 'authority_snapshot_cas_rejects_reselection_after_resolver_barrier'],
+    [paths.bindingRegistry, 'registry_rejects_replaced_root_identity'],
+    [paths.bindingResumeCompat, 'resume_and_discard_are_atomic_and_mutually_exclusive'],
+    [paths.bindingProjectCrud, 'authority_snapshot_cas_rejects_reselection_after_resolver_barrier'],
     [paths.workspaceRecovery, 'injected_truncated_scan_never_signs_an_observed_unique_match'],
     [
       paths.workspaceRecovery,
@@ -1706,11 +1718,11 @@ function verifyRustBehavioralOracleNames(): void {
     ],
     [paths.workspaceRecovery, 'truncated_known_anchor_query_never_signs_an_observed_unique_match'],
     [
-      paths.binding,
+      paths.bindingPersistence,
       'interrupted_discard_without_projection_is_safe_but_fail_closed_for_live_writers',
     ],
     [
-      paths.binding,
+      paths.bindingPersistence,
       'deletion_preflight_reports_active_bindings_and_retained_leases_by_exact_scope',
     ],
     [paths.tools, 'evaluation_shell_timeout_is_bounded_by_backend_and_lease'],
