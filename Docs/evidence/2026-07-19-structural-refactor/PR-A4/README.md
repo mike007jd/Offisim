@@ -85,7 +85,7 @@ All safely reachable changed states passed visual layout acceptance. The expecte
 - The unreachable fresh-profile provider state exposed a real product defect: `AiAccountsPane` automatically opened the add-provider form whenever the provider list was empty, making `No API providers yet` unreachable. The auto-open effect was removed; the explicit `Add provider` action remains. `harness-first-run-onboarding` now locks both empty-state reachability and the absence of the auto-open pattern (23/23).
 - Full gates for the corrected product source passed: Node release gates 4/4 with 73/73 harnesses, Rust 465/465, renderer typecheck, `cargo fmt --check`, and `git diff --check`.
 - A fresh GitNexus index of this exact worktree reports **HIGH** aggregate risk: 16 changed files, 28 changed symbols, and 13 affected existing UI flows. The scope matches A4 (AI Accounts, MCP detail, Board Timeline, shared empty/time presentation); the unrelated 184-file MCP result from the main worktree was rejected as a repository-binding error.
-- The exact corrected release app rebuilt and signed successfully. Executable SHA-256: `5ae1a32c6f71c43c25a88200f83d9fa9c4c403e97884f610040ffe06ac71c3fa`; `codesign --verify --deep --strict` passed.
+- The exact corrected product-source commit `2d1f5f0275b6f9f7b6a481135469552e59cbdbeb` rebuilt and signed successfully. Executable SHA-256: `1e3f2a04fde9be6154021969f6a5b96b20a4969db20c6e804d5e3747d82c3d19`; `codesign --verify --deep --strict` passed. The following evidence-only SHA correction does not change bundle inputs.
 
 | Surface | Result | Evidence | Final path and observation |
 | --- | --- | --- | --- |
