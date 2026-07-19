@@ -1,24 +1,24 @@
 # PR-D2 — task_workspace_binding 机械拆分证据
 
-- 状态：code-complete / release-live-partial（Codex 已验；Pi、Claude 与严格越界读仍阻塞）
-- 日期：2026-07-19
+- 状态：code-complete / current-release-live-blocked（Codex 仅有旧提交历史证据；Pi、Claude 与严格越界读仍阻塞）
+- 日期：2026-07-20（最新 main/D1 重验）
 - 分支：`refactor/D2-binding-module-split`
 - PR 拓扑基线：`refactor/D1-git-module-split`；纯移动比对源仍为 A3 `397e8d38:task_workspace_binding.rs`
-- 范围：仅把 `task_workspace_binding.rs` 拆成指定的四个 `binding/` 子模块；未新增其他 binding 模块。D1 已用 merge commit `45792225` 合入本分支并保留双方 harness 路径，最新 D1 证据又以 `aa01355c` 合入，PR #108 已 retarget 到 D1；未 merge 到父分支。
+- 范围：仅把 `task_workspace_binding.rs` 拆成指定的四个 `binding/` 子模块；未新增其他 binding 模块。最新 D1 head `9db476a5` 已由 merge commit `210f7566` 合入本分支并保留双方 harness 路径，PR #108 以 D1 为 base；未 merge 到父分支。
 
 ## 行数
 
 | 文件 | 行数 |
 | --- | ---: |
 | 拆分前 `task_workspace_binding.rs` | 6,986 |
-| 拆分后 `task_workspace_binding.rs` | 1,227 |
+| 拆分后 `task_workspace_binding.rs` | 1,228 |
 | `binding/resume_compat.rs` | 2,283 |
 | `binding/registry.rs` | 1,036 |
 | `binding/persistence.rs` | 1,694 |
 | `binding/project_crud.rs` | 843 |
-| 拆分后合计 | 7,083 |
+| 拆分后合计 | 7,084 |
 
-净增 97 行来自模块声明、跨模块 import/re-export、最小可见性提升及测试文件相对路径适配。
+净增 98 行来自模块声明、跨模块 import/re-export、最小可见性提升及测试文件相对路径适配。
 
 ## 纯移动证明
 
@@ -26,7 +26,7 @@
 - 共核对 122 个符号：122 个匹配，0 个缺失。
 - 比对仅归一化允许的机械差异：`pub(super)` / `pub(in super::super)` 可见性、`cargo fmt` 空白和尾逗号，以及测试 `include_str!` 因文件下移一级产生的 `../`。
 - 函数体、常量值、注释、错误文案、签名和授权判定均未改变；授权中枢仍由 `task_workspace_binding.rs` 统一接线并 re-export。
-- 原文件测试按职责随对应模块迁移；Rust 测试共 458 个全部通过。
+- 原文件测试按职责随对应模块迁移；最新集成树 Rust 测试共 465 个全部通过。
 
 ## Gates
 
@@ -34,13 +34,15 @@
 | --- | --- |
 | `node scripts/prepare-desktop-cargo-test.mjs` | PASS |
 | `cd apps/desktop/src-tauri && cargo fmt --check` | PASS |
-| `cd apps/desktop/src-tauri && cargo test --locked` | PASS（458 passed，0 failed） |
+| `cd apps/desktop/src-tauri && cargo test --locked` | PASS（465 passed，0 failed） |
 | `CI=true pnpm install --frozen-lockfile` | PASS |
 | `node scripts/release-gates.mjs --lane=node` | PASS（4/4 gates green） |
 | GitNexus `detect_changes`（compare `397e8d38`） | PASS（medium，5 条预期 workspace authority flow） |
 | `git diff --check` | PASS |
 
 接管后的 D1→D2 组合提交再次通过 Node release gates 4/4、Rust 458/458、`cargo fmt --check` 与 `git diff --check`；唯一合并冲突位于 `harness-project-workspace.mts` 的源码路径表，已同时保留 D1 的 Git 模块和 D2 的 binding 模块读取路径，断言本身未改。
+
+2026-07-20 最新 D1→D2 组合提交 `210f7566` 再次通过 Node release gates 4/4（全部 73 个 harness）、Rust 465/465、`cargo fmt --check` 与 `git diff --check`。纯 D2 GitNexus compare 以 `refactor/D1-git-module-split` 为基线，结果为 MEDIUM：22 个 changed symbol、5 条预期 workspace authority flow；没有把 D1 的 Git 流程计入 D2 结论。原文件与入口加四个子模块的独立计数一致：145 个函数、28 个 struct、11 个 enum、7 个 const、31 个 Rust test 标记、50 个注释起始标记，均为 old=new。
 
 `20f67c8e` 将 `resolve_task_workspace_binding` 保持为入口 re-export，并单独标注 `#[allow(unused_imports)]`，消除 release build 的 unused re-export 告警而不删除外部入口。修改前 GitNexus upstream 为 CRITICAL（1 个直接依赖、6 条受影响流程）；修改后 staged `detect_changes` 为 low、0 条受影响流程。该提交重新通过 Node release gates 4/4、Rust 458/458、格式、`git diff --check` 与精确 release build，release 编译不再出现该 Rust 告警。
 
@@ -57,6 +59,13 @@
 为保持既有静态合同继续读取同一份 Rust 语义，三个 harness 仅更新了源文件路径或把入口与对应子模块源码拼接后再执行原断言；断言、错误文案和判定逻辑均未变化。Tauri command 宏符号通过入口显式 re-export，保持既有 `generate_handler!` 路径不变。
 
 ## Release live 门禁
+
+### 2026-07-20 当前集成刷新
+
+- 当前集成提交：`210f7566`；父 D1 精确 head：`9db476a5`。
+- 静态、Node、Rust、格式与 change detection 全部通过；聚合安全分类仍为 **CRITICAL（37 条流程实例）**，未以纯 diff 的 MEDIUM 标签降级。
+- Computer Use 当前运行时在可信 Node REPL 中仍返回 `Sky Computer Use requires the trusted nodeRepl runtime`，无法按窗口身份门禁附着 release `.app`。因此下方旧提交截图只保留历史证据，不作为当前提交的 live 验收；Pi、Claude、Codex 当前 release 的读写/越界/重启 Resume 矩阵均保持未完成。
+- Codex 原生 `workspace-write` 仍无法表达严格越界读拒绝；该真实产品合同缺口不塞入机械拆分 PR，也不伪装为通过。
 
 - 验收提交：`20f67c8e`。
 - 精确应用：`apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`；可执行文件 SHA-256 `6414bfe3cd240eca2bed5c93655258a78f296d3ad3b1f2348d7f9c9cc553c793`；`codesign --verify --deep --strict` PASS；因本机无 notarization 环境变量而跳过公证。
@@ -76,7 +85,7 @@
 
 ### 未完成 lane
 
-- Pi：OpenRouter 凭据轮换前不执行任何调用；checkpoint 与 D2 Pi live 均保持未验。
+- Pi：当前 Computer Use 运行时无法附着 release `.app`；D2 Pi live 保持未验，证据不记录任何凭据。
 - Claude：额度恢复前不执行真实 run，不宣称 Claude lane 完整验收。
 - 严格越界读：受 Codex 当前原生 sandbox 合同阻塞；需独立架构单，不属于 D2 纯移动允许范围。
 
