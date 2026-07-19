@@ -401,10 +401,8 @@ fn macos_version() -> Option<String> {
 }
 
 fn now_unix_ms() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or(0)
+    // Canonical clock is i64 (non-negative in practice); this lane keeps u128.
+    crate::time_util::now_unix_ms() as u128
 }
 
 fn system_time_unix_ms(value: SystemTime) -> Option<u128> {

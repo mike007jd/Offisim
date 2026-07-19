@@ -15,6 +15,7 @@ use crate::builtin_tools::{
 use crate::task_workspace_binding::{
     TaskWorkspaceAccess, TaskWorkspaceBindingClaim, TaskWorkspaceEvaluationLeaseClaim,
 };
+use crate::time_util::civil_from_days;
 
 pub const MAX_PREVIEW_TEXT_BYTES: u64 = 262_144;
 pub const MAX_PREVIEW_BINARY_BYTES: u64 = 33_554_432;
@@ -98,22 +99,6 @@ fn system_time_to_rfc3339(value: SystemTime) -> Option<String> {
     Some(format!(
         "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z"
     ))
-}
-
-fn civil_from_days(days_since_epoch: i64) -> (i32, u32, u32) {
-    let z = days_since_epoch + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
-    let mut year = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = mp + if mp < 10 { 3 } else { -9 };
-    if month <= 2 {
-        year += 1;
-    }
-    (year as i32, month as u32, day as u32)
 }
 
 fn sniff_mime(bytes: &[u8]) -> Option<String> {
