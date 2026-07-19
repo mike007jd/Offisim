@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use rand::{rngs::OsRng, RngCore};
@@ -1178,12 +1178,7 @@ impl TaskWorkspaceTerminalStatus {
 }
 
 fn now_unix_ms() -> Result<i64, HostError> {
-    let millis = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|err| HostError::HostUnavailable(format!("Read system clock: {err}")))?
-        .as_millis();
-    i64::try_from(millis)
-        .map_err(|_| HostError::HostUnavailable("System clock is out of range.".into()))
+    crate::time_util::try_now_unix_ms().map_err(HostError::HostUnavailable)
 }
 
 fn random_ref() -> String {

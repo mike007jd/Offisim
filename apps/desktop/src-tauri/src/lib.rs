@@ -59,6 +59,7 @@ mod macos_window_activation {
         }
     }
 }
+mod env_scrub;
 mod gh;
 mod git;
 mod in_flight;
@@ -68,6 +69,7 @@ mod local_secret;
 mod mcp_bridge;
 mod pi_agent_host;
 mod preview;
+mod process_group;
 mod redaction;
 mod shell_classifier;
 mod sidecar_stderr;
@@ -75,6 +77,7 @@ mod stage_audit;
 mod startup_safety;
 mod task_workspace_binding;
 mod terminal_session;
+mod time_util;
 mod workspace_recovery;
 
 use std::path::Path;

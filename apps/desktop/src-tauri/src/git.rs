@@ -8,11 +8,17 @@ use tauri::Runtime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
+use crate::process_group::{configure_process_group, terminate_process_group, ProcessGroupGuard};
 use crate::task_workspace_binding::{
     resolve_task_workspace_claim_authority, resolve_task_workspace_evaluation_claim_authority,
     AuthorizedProcessCwd, AuthorizedWorkspaceRoot, TaskWorkspaceAccess, TaskWorkspaceBinding,
     TaskWorkspaceBindingClaim, TaskWorkspaceEvaluationLeaseClaim,
 };
+use crate::time_util::civil_from_days;
+
+/// Grace window between SIGTERM and SIGKILL for git children (original
+/// `terminate_git_process_group` value).
+const GIT_TERMINATION_GRACE: Duration = Duration::from_millis(500);
 
 /// Allowed git subcommands (whitelist for safety).
 const ALLOWED_SUBCOMMANDS: &[&str] = &[
@@ -1852,59 +1858,6 @@ async fn rollback_registered_workspace_checkpoint_for_project<R: Runtime>(
 /// G3: spawn git, stream stdout/stderr each capped at `max_bytes` (so a flood
 /// cannot balloon memory before truncation), and bound the whole run by `timeout`
 /// with `kill_on_drop` so a hung process is terminated rather than blocking.
-fn configure_git_process_group(command: &mut Command) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.as_std_mut().process_group(0);
-    }
-}
-
-fn signal_git_process_group(process_group_id: Option<u32>, signal: i32) {
-    #[cfg(unix)]
-    if let Some(pid) = process_group_id {
-        // SAFETY: run_git_capped assigns every child to its own process group.
-        unsafe {
-            libc::kill(-(pid as i32), signal);
-        }
-    }
-    #[cfg(not(unix))]
-    let _ = (process_group_id, signal);
-}
-
-struct GitProcessGroupGuard(Option<u32>);
-
-impl GitProcessGroupGuard {
-    fn disarm(&mut self) {
-        self.0 = None;
-    }
-}
-
-impl Drop for GitProcessGroupGuard {
-    fn drop(&mut self) {
-        #[cfg(unix)]
-        signal_git_process_group(self.0, libc::SIGKILL);
-    }
-}
-
-async fn terminate_git_process_group(
-    child: &mut tokio::process::Child,
-    process_group_id: Option<u32>,
-) {
-    #[cfg(unix)]
-    signal_git_process_group(process_group_id, libc::SIGTERM);
-    let reaped = matches!(
-        tokio::time::timeout(Duration::from_millis(500), child.wait()).await,
-        Ok(Ok(_))
-    );
-    #[cfg(unix)]
-    signal_git_process_group(process_group_id, libc::SIGKILL);
-    if !reaped {
-        let _ = child.start_kill();
-        let _ = child.wait().await;
-    }
-}
-
 async fn run_git_capped(
     command: Command,
     timeout: Duration,
@@ -1929,7 +1882,7 @@ async fn run_git_capped_with_stdout_policy(
     max_bytes: usize,
     stdout_policy: GitStdoutPolicy,
 ) -> Result<GitResult, String> {
-    configure_git_process_group(&mut command);
+    configure_process_group(&mut command);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -1939,7 +1892,7 @@ async fn run_git_capped_with_stdout_policy(
         .spawn()
         .map_err(|e| format!("Failed to execute git: {}", e))?;
     let process_group_id = child.id();
-    let mut process_group_guard = GitProcessGroupGuard(process_group_id);
+    let mut process_group_guard = ProcessGroupGuard::new(process_group_id);
     let mut stdout = child
         .stdout
         .take()
@@ -1955,7 +1908,7 @@ async fn run_git_capped_with_stdout_policy(
     let status = match tokio::time::timeout(timeout, child.wait()).await {
         Ok(result) => result.map_err(|e| format!("git wait failed: {e}"))?,
         Err(_) => {
-            terminate_git_process_group(&mut child, process_group_id).await;
+            terminate_process_group(&mut child, process_group_id, GIT_TERMINATION_GRACE).await;
             process_group_guard.disarm();
             stdout_task.abort();
             stderr_task.abort();
@@ -1971,11 +1924,11 @@ async fn run_git_capped_with_stdout_policy(
     let drained = tokio::time::timeout(Duration::from_millis(100), &mut drain_task).await;
     let (out_join, err_join) = match drained {
         Ok(results) => {
-            terminate_git_process_group(&mut child, process_group_id).await;
+            terminate_process_group(&mut child, process_group_id, GIT_TERMINATION_GRACE).await;
             results.map_err(|error| format!("git output drain task failed: {error}"))?
         }
         Err(_) => {
-            terminate_git_process_group(&mut child, process_group_id).await;
+            terminate_process_group(&mut child, process_group_id, GIT_TERMINATION_GRACE).await;
             match tokio::time::timeout(Duration::from_secs(1), &mut drain_task).await {
                 Ok(result) => {
                     result.map_err(|error| format!("git output drain task failed: {error}"))?
@@ -2018,7 +1971,7 @@ async fn run_git_patch_capped(
     patch: Vec<u8>,
     stdout_policy: GitStdoutPolicy,
 ) -> Result<GitResult, String> {
-    configure_git_process_group(&mut command);
+    configure_process_group(&mut command);
     command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -2028,7 +1981,7 @@ async fn run_git_patch_capped(
         .spawn()
         .map_err(|error| format!("Failed to execute workspace lease patch command: {error}"))?;
     let process_group_id = child.id();
-    let mut process_group_guard = GitProcessGroupGuard(process_group_id);
+    let mut process_group_guard = ProcessGroupGuard::new(process_group_id);
     let mut stdin = child
         .stdin
         .take()
@@ -2057,7 +2010,7 @@ async fn run_git_patch_capped(
             stdin_task.abort();
             stdout_task.abort();
             stderr_task.abort();
-            terminate_git_process_group(&mut child, process_group_id).await;
+            terminate_process_group(&mut child, process_group_id, GIT_TERMINATION_GRACE).await;
             process_group_guard.disarm();
             return Err(format!(
                 "git apply timed out after {}s",
@@ -2077,11 +2030,11 @@ async fn run_git_patch_capped(
     let drained = tokio::time::timeout(Duration::from_millis(100), &mut drain_task).await;
     let (out_join, err_join) = match drained {
         Ok(results) => {
-            terminate_git_process_group(&mut child, process_group_id).await;
+            terminate_process_group(&mut child, process_group_id, GIT_TERMINATION_GRACE).await;
             results.map_err(|error| format!("git apply output drain task failed: {error}"))?
         }
         Err(_) => {
-            terminate_git_process_group(&mut child, process_group_id).await;
+            terminate_process_group(&mut child, process_group_id, GIT_TERMINATION_GRACE).await;
             match tokio::time::timeout(Duration::from_secs(1), &mut drain_task).await {
                 Ok(result) => result
                     .map_err(|error| format!("git apply output drain task failed: {error}"))?,
@@ -2147,13 +2100,9 @@ where
 }
 
 fn scrubbed_git_env() -> Vec<(String, String)> {
-    // Git lane extends the shared base allowlist with SSH_AUTH_SOCK (for
-    // ssh-agent-backed remotes) and pins GIT_TERMINAL_PROMPT=0. The base set
-    // and the scan mechanism are shared via `crate::redaction`; the git-only
-    // extras stay here so the policies are not unified into a superset.
-    let mut allow = crate::redaction::BASE_ENV_ALLOWLIST.to_vec();
-    allow.push("SSH_AUTH_SOCK");
-    let mut env = crate::redaction::scrub_env_to_allowlist(&allow);
+    // Union allowlist policy (base + SSH_AUTH_SOCK, shared with the shell
+    // lane via `crate::env_scrub`); git-only pinned variables stay here.
+    let mut env = crate::env_scrub::scrubbed_child_env();
     env.push(("GIT_TERMINAL_PROMPT".into(), "0".into()));
     env.push(("GIT_LITERAL_PATHSPECS".into(), "1".into()));
     env
@@ -4141,21 +4090,6 @@ async fn load_registered_workspace_lease<R: Runtime>(
         require_current_binding.then_some(binding.binding_id.as_str()),
     )
     .await
-}
-
-fn civil_from_days(days_since_epoch: i64) -> (i32, u32, u32) {
-    let z = days_since_epoch + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let day_of_era = z - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let mut year = year_of_era + era * 400;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_prime = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
-    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
-    year += i64::from(month <= 2);
-    (year as i32, month as u32, day as u32)
 }
 
 fn unix_ms_to_rfc3339(unix_ms: i64) -> String {

@@ -15,6 +15,7 @@ use tokio_util::sync::CancellationToken;
 
 #[cfg(test)]
 use crate::local_paths::is_overbroad_workspace_root;
+use crate::process_group::{configure_process_group, signal_process_group, ProcessGroupGuard};
 use crate::task_workspace_binding::{
     resolve_authorized_project_workspace, resolve_task_workspace_claim_authority,
     resolve_task_workspace_evaluation_claim_authority, AuthorizedProcessCwd,
@@ -1585,8 +1586,8 @@ fn append_shell_audit<R: Runtime>(app: &tauri::AppHandle<R>, input: ShellAuditIn
 }
 
 fn scrubbed_shell_env() -> Vec<(String, String)> {
-    // Shell lane uses exactly the shared minimal base allowlist (no extras).
-    crate::redaction::scrub_env_to_allowlist(crate::redaction::BASE_ENV_ALLOWLIST)
+    // Union allowlist policy (base + SSH_AUTH_SOCK) shared with the git lane.
+    crate::env_scrub::scrubbed_child_env()
 }
 
 #[cfg(not(unix))]
@@ -2037,14 +2038,14 @@ async fn execute_shell_in_workspace<R: Runtime>(
         .stderr(Stdio::piped())
         .kill_on_drop(true);
     let mut lifetime_marker = ShellLifetimeMarker::new()?;
-    configure_evaluation_process_group(&mut command);
+    configure_process_group(&mut command);
     execution.bind_command(&mut command)?;
     lifetime_marker.bind_command(&mut command)?;
     let mut child = command
         .spawn()
         .map_err(|err| fs_op_error(spawn_operation, cwd_path, roots, err))?;
     let process_group_id = child.id();
-    let mut process_group_guard = ShellProcessGroupGuard(process_group_id);
+    let mut process_group_guard = ProcessGroupGuard::new(process_group_id);
     let stdout = child
         .stdout
         .take()
@@ -2347,17 +2348,11 @@ fn bounded_evaluation_timeout_ms(
         .min(lease_bound))
 }
 
-fn configure_evaluation_process_group(command: &mut Command) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        // A dedicated process group lets authority loss reap ordinary shell
-        // descendants, not merely the direct `bash` child held by Tokio.
-        // Deliberate daemonization that changes session and clears every
-        // inherited marker is outside the native macOS process contract.
-        command.as_std_mut().process_group(0);
-    }
-}
+// A dedicated process group (crate::process_group::configure_process_group)
+// lets authority loss reap ordinary shell descendants, not merely the direct
+// `bash` child held by Tokio. Deliberate daemonization that changes session
+// and clears every inherited marker is outside the native macOS process
+// contract.
 
 #[cfg(unix)]
 struct ShellLifetimeMarker {
@@ -2721,19 +2716,9 @@ fn terminate_lifetime_marker_holders(path: &Path) -> Result<(), String> {
     }
 }
 
-#[cfg(unix)]
-fn signal_evaluation_process_group_with(process_group_id: Option<u32>, signal: libc::c_int) {
-    if let Some(pid) = process_group_id {
-        // SAFETY: the spawn command assigned the child to a dedicated group.
-        unsafe {
-            libc::kill(-(pid as i32), signal);
-        }
-    }
-}
-
 fn signal_evaluation_process_group(process_group_id: Option<u32>) {
     #[cfg(unix)]
-    signal_evaluation_process_group_with(process_group_id, libc::SIGKILL);
+    signal_process_group(process_group_id, libc::SIGKILL);
     #[cfg(not(unix))]
     let _ = process_group_id;
 }
@@ -2748,27 +2733,13 @@ fn evaluation_process_group_exists(process_group_id: Option<u32>) -> bool {
     result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
 }
 
-struct ShellProcessGroupGuard(Option<u32>);
-
-impl ShellProcessGroupGuard {
-    fn disarm(&mut self) {
-        self.0 = None;
-    }
-}
-
-impl Drop for ShellProcessGroupGuard {
-    fn drop(&mut self) {
-        signal_evaluation_process_group(self.0);
-    }
-}
-
 async fn terminate_evaluation_process_group(child: &mut Child, process_group_id: Option<u32>) {
     #[cfg(unix)]
     {
         // Give the shell's EXIT/TERM trap one short, fixed window to reap jobs
         // that deliberately moved into their own session before forcing the
         // original process group down.
-        signal_evaluation_process_group_with(process_group_id, libc::SIGTERM);
+        signal_process_group(process_group_id, libc::SIGTERM);
         let deadline =
             tokio::time::Instant::now() + Duration::from_millis(SHELL_TERMINATION_GRACE_MS);
         while evaluation_process_group_exists(process_group_id)
@@ -3570,10 +3541,29 @@ mod builtin_tools_contracts {
         assert!(!keys.contains("OPENAI_API_KEY"));
         assert!(!keys.contains("ANTHROPIC_API_KEY"));
         assert!(!keys.contains("COOKIE"));
+        // Union allowlist (A3): base set plus SSH_AUTH_SOCK shared with git.
         assert!(keys.iter().all(|key| matches!(
             *key,
-            "PATH" | "HOME" | "USER" | "LANG" | "TERM" | "TMPDIR" | "LC_ALL" | "LC_CTYPE"
+            "PATH"
+                | "HOME"
+                | "USER"
+                | "LANG"
+                | "TERM"
+                | "TMPDIR"
+                | "LC_ALL"
+                | "LC_CTYPE"
+                | "SSH_AUTH_SOCK"
         )));
+    }
+
+    #[test]
+    fn shell_env_scrub_excludes_provider_secrets() {
+        std::env::set_var("OPENAI_API_KEY", "sk-test-secret");
+        std::env::set_var("ANTHROPIC_API_KEY", "sk-test-secret");
+        let env = scrubbed_shell_env();
+        let keys = env.into_iter().map(|(key, _)| key).collect::<Vec<_>>();
+        assert!(!keys.contains(&"OPENAI_API_KEY".to_string()));
+        assert!(!keys.contains(&"ANTHROPIC_API_KEY".to_string()));
     }
 
     #[test]
@@ -3633,7 +3623,7 @@ mod builtin_tools_contracts {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .kill_on_drop(true);
-        configure_evaluation_process_group(&mut command);
+        configure_process_group(&mut command);
         let mut child = command.spawn().expect("spawn process-group fixture");
         tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -3661,7 +3651,7 @@ mod builtin_tools_contracts {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .kill_on_drop(true);
-        configure_evaluation_process_group(&mut command);
+        configure_process_group(&mut command);
         let mut child = command.spawn().expect("spawn successful leader fixture");
         let process_group_id = child.id();
         let status = child.wait().await.expect("wait for successful leader");
@@ -3721,13 +3711,13 @@ pathlib.Path(os.environ["OFFISIM_TEST_MARKER"]).write_text("escaped")
             .stderr(Stdio::piped())
             .kill_on_drop(true);
         let mut lifetime_marker = ShellLifetimeMarker::new().expect("create lifetime marker");
-        configure_evaluation_process_group(&mut command);
+        configure_process_group(&mut command);
         lifetime_marker
             .bind_command(&mut command)
             .expect("bind lifetime marker");
         let mut child = command.spawn().expect("spawn double-fork fixture");
         let process_group_id = child.id();
-        let mut process_group_guard = ShellProcessGroupGuard(process_group_id);
+        let mut process_group_guard = ProcessGroupGuard::new(process_group_id);
         let stdout = child.stdout.take().expect("capture double-fork stdout");
         let stderr = child.stderr.take().expect("capture double-fork stderr");
         let mut stdout_reader = tokio::spawn(read_bounded_pipe(stdout, 1024));
@@ -3854,7 +3844,7 @@ os.execve("/bin/sh", ["sh", "-c", command], {})
             .stderr(Stdio::null())
             .kill_on_drop(true);
         let mut lifetime_marker = ShellLifetimeMarker::new().expect("create lifetime marker");
-        configure_evaluation_process_group(&mut command);
+        configure_process_group(&mut command);
         lifetime_marker
             .bind_command(&mut command)
             .expect("bind lifetime marker");
@@ -3862,7 +3852,7 @@ os.execve("/bin/sh", ["sh", "-c", command], {})
             .spawn()
             .expect("spawn marker-stripping daemon fixture");
         let process_group_id = child.id();
-        let mut process_group_guard = ShellProcessGroupGuard(process_group_id);
+        let mut process_group_guard = ProcessGroupGuard::new(process_group_id);
         let status = tokio::time::timeout(Duration::from_secs(2), child.wait())
             .await
             .expect("fixture shell must observe the daemon ready marker")
@@ -3906,13 +3896,13 @@ os.execve("/bin/sh", ["sh", "-c", command], {})
             .stderr(Stdio::null())
             .kill_on_drop(true);
         let mut lifetime_marker = ShellLifetimeMarker::new().expect("create lifetime marker");
-        configure_evaluation_process_group(&mut command);
+        configure_process_group(&mut command);
         lifetime_marker
             .bind_command(&mut command)
             .expect("bind lifetime marker");
         let mut child = command.spawn().expect("spawn raw tcsh command");
         let process_group_id = child.id();
-        let mut process_group_guard = ShellProcessGroupGuard(process_group_id);
+        let mut process_group_guard = ProcessGroupGuard::new(process_group_id);
         let status = child.wait().await.expect("wait for raw tcsh command");
         assert!(status.success(), "raw tcsh command must remain supported");
         terminate_evaluation_process_group(&mut child, process_group_id).await;
@@ -3954,9 +3944,9 @@ os.execve("/bin/sh", ["sh", "-c", command], {})
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .kill_on_drop(true);
-        configure_evaluation_process_group(&mut command);
+        configure_process_group(&mut command);
         let mut child = command.spawn().expect("spawn trusted verification fixture");
-        let guard = ShellProcessGroupGuard(child.id());
+        let guard = ProcessGroupGuard::new(child.id());
         let status = child
             .wait()
             .await
