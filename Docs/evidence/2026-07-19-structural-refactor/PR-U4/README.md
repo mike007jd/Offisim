@@ -9,8 +9,9 @@
 - `OfficeScene2D` now schedules the animation frame and invokes six ordered pure render passes: background, zones, flows, shelf, companion, and employees. Hit collection remains a once-per-frame assignment after the passes.
 - `OfficeScene3D` delegates employee drag state to `useEmployeeDrag` and imports the flow-packet components from their own file.
 - The shared projection module owns chip-tone ink, active flow target derivation, and 2D/3D flow-lane geometry. Renderer-specific colors remain local.
-- The moved `FlowPacket` body has the same normalized SHA-256 before and after: `75e659546f5cde6d1d842a7cd07e1a84deeb8f6f0300a913b52f47f4f86`.
-- The moved drag-listener inventory has the same normalized SHA-256 before and after: `12f972de1707eed0f011170b6e352477125668efa4198e5f60201a52f47f4f86`.
+- The moved `FlowPacket` body has the same normalized SHA-256 before and after: `c6aa8dc9bf86ec4bbabf07f9fd992d388b4472d3f12e49263811afaab8b0786d`. Normalization: base `OfficeScene3D.tsx` lines 242-309 at `f105efc2` vs head `flow-packets-3d.tsx` lines 5-72, with the leading `export ` keyword removed (the only textual difference from the move); a plain `diff` of the two normalized extracts is empty.
+- The moved drag-listener inventory has the same normalized SHA-256 before and after: `b55185d05136ec3d3294ee1beb679f1e2e5ce8e62b8fff56a1cdec292c42126c`. Normalization: the ordered list of `window`/`document`/`gl.domElement` `addEventListener`/`removeEventListener` call sites extracted from base `OfficeScene3D.tsx` at `f105efc2` and head `use-employee-drag.ts`; a plain `diff` of the two extracts is empty.
+- (Audit correction 2026-07-19: this evidence originally recorded a truncated 59-hex value for the first hash and a corrupted tail-merged value for the second; both were recomputed with the explicit method above. Code is unchanged.)
 
 ## §0 mechanical-equivalence audit
 
