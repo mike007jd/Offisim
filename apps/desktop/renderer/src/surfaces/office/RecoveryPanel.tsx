@@ -4,22 +4,16 @@ import {
   useInterruptedRunRecovery,
 } from '@/assistant/runtime/conversation-run-react.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { cn } from '@/lib/utils.js';
+import { cn, relativeTime } from '@/lib/utils.js';
 import type { InterruptedRunCard } from '@/runtime/recovery/reconcile-interrupted-runs.js';
 import { AlertTriangle, FileText, RotateCcw, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-function relativeTime(iso: string): string {
+/** Call-site adapter: parse the ISO start and keep the invalid-date label. */
+function startedAtLabel(iso: string): string {
   const ts = Date.parse(iso);
-  if (!Number.isFinite(ts)) return 'unknown start';
-  const deltaMs = Math.max(0, Date.now() - ts);
-  const minutes = Math.floor(deltaMs / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  return Number.isFinite(ts) ? relativeTime(ts) : 'unknown start';
 }
 
 function summarizeUsage(partialUsageJson: string | null): string {
@@ -112,7 +106,7 @@ export function RecoveryPanel() {
             <article key={card.runId} className="off-recovery-card">
               <div className="off-recovery-main">
                 <span className="off-recovery-title">{card.objective || 'Untitled run'}</span>
-                <span className="off-recovery-meta">Started {relativeTime(card.startedAt)}</span>
+                <span className="off-recovery-meta">Started {startedAtLabel(card.startedAt)}</span>
               </div>
               <span className={cn('off-recovery-badge', `is-${card.classification}`)}>
                 {card.classification === 'resumable' ? 'Can resume' : "Can't resume"}

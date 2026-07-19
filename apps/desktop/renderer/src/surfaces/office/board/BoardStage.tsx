@@ -12,7 +12,7 @@ import {
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import type { WorkspaceCheckpointRow } from '@/lib/tauri-commands.js';
-import { cn } from '@/lib/utils.js';
+import { cn, relativeTime } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
 import { useSetStageChrome } from '@/surfaces/office/stage-viewer/stage-chrome.js';
 import {
@@ -46,7 +46,6 @@ import {
   checkpointPathForDisplay,
   collapseReroutes,
   domainIcon,
-  formatRelativeTimestamp,
   getDisplaySummary,
   getEventLevel,
   groupByTime,
@@ -1135,7 +1134,7 @@ function BoardTimeline({
                   {summary.label}
                   {collapsedCount ? <em> ×{collapsedCount}</em> : null}
                 </span>
-                <time>{formatRelativeTimestamp(record.at)}</time>
+                <time>{relativeTime(record.at)}</time>
                 {checkpoint ? (
                   <div className="off-board-checkpoint-actions">
                     <button

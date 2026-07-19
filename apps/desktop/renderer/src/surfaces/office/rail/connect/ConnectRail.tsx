@@ -81,6 +81,10 @@ function timeLabelFrom(iso: string): string {
   return compactAge(Date.parse(iso));
 }
 
+/** Single wording source for the persisted-thread and draft empty bodies
+ *  (component merge into one ThreadDetail shell is deferred to PR-U2). */
+const THREAD_EMPTY_COPY = 'No messages yet — your first message starts it.';
+
 /* ── List row ─────────────────────────────────────────────────────────────── */
 
 function ThreadAvatar({
@@ -759,9 +763,7 @@ function PersistedThreadDetail({
       <div className="off-ws-conv-scroll" ref={scrollRef}>
         <section className="off-ws-messages">
           {rows.length === 0 ? (
-            <div className="off-connect-thread-empty">
-              No messages yet — your first message starts it.
-            </div>
+            <div className="off-connect-thread-empty">{THREAD_EMPTY_COPY}</div>
           ) : (
             rows.map((row) => (
               <MessageRow
@@ -897,9 +899,7 @@ function DraftThreadDetail({
       </header>
       <div className="off-ws-conv-scroll">
         <section className="off-ws-messages">
-          <div className="off-connect-thread-empty">
-            No messages yet — your first message starts it.
-          </div>
+          <div className="off-connect-thread-empty">{THREAD_EMPTY_COPY}</div>
         </section>
       </div>
       <Composer

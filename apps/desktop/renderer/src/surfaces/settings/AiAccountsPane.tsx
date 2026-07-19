@@ -18,6 +18,7 @@ import {
   invokeCommand,
 } from '@/lib/tauri-commands.js';
 import { openFirstRunGuide } from '@/surfaces/onboarding/first-run-state.js';
+import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import type {
   AiAccountDescriptor,
   AiModelCatalogEntry,
@@ -755,9 +756,12 @@ export function AiAccountsPane() {
                     </div>
                   ))}
                   {!providerQuery.isLoading && !providerQuery.isError && !providerConfigs.length ? (
-                    <div className="off-set-provider-empty">
-                      No API providers yet. Add one to make its models available to employees.
-                    </div>
+                    <EmptyState
+                      className="is-compact"
+                      icon={Bot}
+                      title="No API providers yet"
+                      description="Add one to make its models available to employees."
+                    />
                   ) : null}
                 </div>
               </div>
@@ -1016,9 +1020,12 @@ export function AiAccountsPane() {
                 </section>
               </>
             ) : (
-              <div className="off-set-provider-empty">
-                No API activity yet. Add a provider above, then run a task to see usage here.
-              </div>
+              <EmptyState
+                className="is-compact"
+                icon={Info}
+                title="No API activity yet"
+                description="Add a provider above, then run a task to see usage here."
+              />
             )}
           </div>
         </section>

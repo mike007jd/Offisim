@@ -38,6 +38,7 @@ import {
   recordEmployeeVersionOnSave,
   useEmployeeMemories,
 } from '@/surfaces/personnel/personnel-data.js';
+import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronDown,
@@ -295,7 +296,7 @@ function EmployeeDockPopover({
             ))}
           </ul>
         ) : (
-          <p className="off-team-pop-sub">No employee memory yet.</p>
+          <EmptyState className="is-compact" icon={Sparkles} title="No employee memory yet." />
         )}
       </section>
       <div className="off-team-pop-actions">

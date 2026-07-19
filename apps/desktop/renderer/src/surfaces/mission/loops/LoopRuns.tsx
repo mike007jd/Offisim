@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useLoopRuns } from '@/data/loops.js';
+import { relativeTime } from '@/lib/utils.js';
 import {
   EmptyState,
   ErrorState,
@@ -14,15 +15,10 @@ import { History } from 'lucide-react';
  * while this view only lists title / goal / status / updated time.
  */
 
+/** Call-site adapter: parse the ISO timestamp for the shared relativeTime. */
 function timeAgo(iso: string): string {
   const then = Date.parse(iso);
-  if (Number.isNaN(then)) return '';
-  const mins = Math.floor((Date.now() - then) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  return Number.isNaN(then) ? '' : relativeTime(then);
 }
 
 type RunStatusTone = 'is-ok' | 'is-accent' | 'is-warn' | 'is-danger';

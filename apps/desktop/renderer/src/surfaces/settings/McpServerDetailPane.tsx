@@ -7,6 +7,7 @@ import { Button } from '@/design-system/primitives/button.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { cn } from '@/lib/utils.js';
+import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Play, RefreshCw, ShieldCheck, Wrench, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -356,9 +357,12 @@ export function McpServerDetailPane({
         </div>
         <CardBlock>
           {tools.length === 0 ? (
-            <div className="off-set-empty-line">
-              No tools discovered yet. Connect or refresh this server to read its live tool catalog.
-            </div>
+            <EmptyState
+              className="is-compact"
+              icon={Wrench}
+              title="No tools discovered yet"
+              description="Connect or refresh this server to read its live tool catalog."
+            />
           ) : (
             <div className="off-set-mcp-tool-list">
               {tools.map((tool, index) => {
