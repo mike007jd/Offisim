@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   CapsLabel,
   CardBlock,
@@ -74,7 +75,7 @@ export function McpServersPane() {
     selectedServerId === null ? null : servers.find((server) => server.id === selectedServerId);
 
   async function refreshServers() {
-    await queryClient.invalidateQueries({ queryKey: ['settings', 'mcp-servers'] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.settingsMcpServers() });
   }
 
   async function commitServer(values: McpServerFormValues) {

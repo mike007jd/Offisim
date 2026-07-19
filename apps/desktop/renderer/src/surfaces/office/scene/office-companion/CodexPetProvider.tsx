@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   type CodexPetCatalog,
   type CodexPetMetadata,
@@ -54,7 +55,7 @@ export function CodexPetProvider({ children }: { readonly children: ReactNode })
   const selectedPetId = useUiState((state) => state.officeCompanionPetId);
   const setSelectedPetId = useUiState((state) => state.setOfficeCompanionPetId);
   const catalogQuery = useQuery({
-    queryKey: ['codex-pets'],
+    queryKey: queryKeys.codexPets(),
     queryFn: () => invokeCommand('codex_pets_list'),
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,

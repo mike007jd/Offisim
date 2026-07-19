@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use tauri::{ipc::Channel, AppHandle, Manager};
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 
-use crate::agent_host_runtime::{AgentHostLane, HostError};
+use crate::agent_host_runtime::{codex_binary_path, inspect_codex_cli, AgentHostLane, HostError};
 use crate::engine_skill_overlay::{
     materialize_engine_context_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
 };
@@ -1648,74 +1648,8 @@ pub(crate) async fn status_impl(
     _app: AppHandle,
     _include_usage: bool,
 ) -> Result<CodexAgentStatusResponse, String> {
-    inspect_codex_cli().await
-}
-
-async fn inspect_codex_cli() -> Result<CodexAgentStatusResponse, String> {
     let checked_at = rfc3339_now()?;
-    let capabilities = orchestration_capabilities();
-    let Some(binary) = find_codex_binary() else {
-        return Ok(CodexAgentStatusResponse {
-            engine_id: ENGINE_ID.into(),
-            display_name: "Codex CLI".into(),
-            state: "not-installed".into(),
-            version: None,
-            status_reason: Some("Install Codex CLI to run Codex tasks.".into()),
-            login_command: "codex login".into(),
-            docs_url: "https://developers.openai.com/codex/auth".into(),
-            checked_at,
-            capabilities,
-        });
-    };
-
-    let version_output = tokio::process::Command::new(&binary)
-        .arg("--version")
-        .output()
-        .await;
-    let version = match version_output {
-        Ok(output) if output.status.success() => first_nonempty_line(&output.stdout),
-        _ => None,
-    };
-    if version.is_none() {
-        return Ok(CodexAgentStatusResponse {
-            engine_id: ENGINE_ID.into(),
-            display_name: "Codex CLI".into(),
-            state: "unavailable".into(),
-            version: None,
-            status_reason: Some("Codex CLI is installed but could not report its version.".into()),
-            login_command: "codex login".into(),
-            docs_url: "https://developers.openai.com/codex/auth".into(),
-            checked_at,
-            capabilities,
-        });
-    }
-
-    let login_status = tokio::process::Command::new(&binary)
-        .args(["login", "status"])
-        .output()
-        .await;
-    let (state, status_reason) = match login_status {
-        Ok(output) if output.status.success() => ("ready", None),
-        Ok(_) => (
-            "not-signed-in",
-            Some("Sign in with `codex login`; credentials remain managed by Codex CLI.".into()),
-        ),
-        Err(_) => (
-            "unavailable",
-            Some("Codex CLI login status could not be checked.".into()),
-        ),
-    };
-    Ok(CodexAgentStatusResponse {
-        engine_id: ENGINE_ID.into(),
-        display_name: "Codex CLI".into(),
-        state: state.into(),
-        version,
-        status_reason,
-        login_command: "codex login".into(),
-        docs_url: "https://developers.openai.com/codex/auth".into(),
-        checked_at,
-        capabilities,
-    })
+    Ok(inspect_codex_cli(checked_at, orchestration_capabilities()).await)
 }
 
 fn orchestration_capabilities() -> Value {
@@ -1735,14 +1669,6 @@ fn orchestration_capabilities() -> Value {
             "fileChanges": true,
         },
     })
-}
-
-fn first_nonempty_line(bytes: &[u8]) -> Option<String> {
-    String::from_utf8_lossy(bytes)
-        .lines()
-        .map(str::trim)
-        .find(|line| !line.is_empty())
-        .map(str::to_string)
 }
 
 fn validate_execution_target(target: &CodexExecutionTarget) -> Result<(), String> {
@@ -1960,58 +1886,6 @@ fn neutral_cwd(app: &AppHandle) -> Result<PathBuf, String> {
     std::fs::create_dir_all(&path)
         .map_err(|_| "Offisim could not prepare its Codex runtime directory.".to_string())?;
     Ok(path)
-}
-
-fn codex_binary_path() -> Result<PathBuf, String> {
-    find_codex_binary().ok_or_else(|| "Codex CLI is not installed or is not on PATH.".into())
-}
-
-fn find_codex_binary() -> Option<PathBuf> {
-    if let Some(candidate) = std::env::var_os("PATH").and_then(|path| {
-        std::env::split_paths(&path)
-            .map(|directory| directory.join("codex"))
-            .find(|candidate| codex_binary_is_executable(candidate))
-    }) {
-        return std::fs::canonicalize(&candidate).ok().or(Some(candidate));
-    }
-
-    // Finder-launched macOS apps do not inherit the user's interactive PATH.
-    // Ask the user's configured shell for the command path without evaluating
-    // any renderer-provided text, then still require a real executable file.
-    let shell = std::env::var_os("SHELL")?;
-    let output = std::process::Command::new(shell)
-        .args(["-lic", "command -v codex"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .rev()
-        .map(str::trim)
-        .filter(|value| value.starts_with('/'))
-        .map(PathBuf::from)
-        .find(|candidate| codex_binary_is_executable(candidate))
-        .and_then(|candidate| std::fs::canonicalize(&candidate).ok().or(Some(candidate)))
-}
-
-fn codex_binary_is_executable(candidate: &Path) -> bool {
-    let Ok(metadata) = std::fs::metadata(candidate) else {
-        return false;
-    };
-    if !metadata.is_file() {
-        return false;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        metadata.permissions().mode() & 0o111 != 0
-    }
-    #[cfg(not(unix))]
-    {
-        true
-    }
 }
 
 pub(super) fn rfc3339_now() -> Result<String, String> {

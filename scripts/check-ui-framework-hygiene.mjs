@@ -558,7 +558,7 @@ const requiredChecks = [
   // aggregate, covered by the collaboration flow + presentation harnesses.
   {
     label: 'Market registry install receipt',
-    file: 'apps/desktop/renderer/src/surfaces/market/market-data.ts',
+    file: 'apps/desktop/renderer/src/data/market/queries.ts',
     patterns: [/reportRegistryInstallReceipt/, /\.reportInstall\(/, /installReceiptError/],
   },
   {
@@ -603,7 +603,7 @@ const requiredChecks = [
   },
   {
     label: 'Market install schema version',
-    file: 'apps/desktop/renderer/src/surfaces/market/market-data.ts',
+    file: 'apps/desktop/renderer/src/data/market/queries.ts',
     patterns: [/schemaVersion:\s*'2026-03'/],
   },
   {

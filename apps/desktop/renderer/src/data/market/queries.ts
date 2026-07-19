@@ -1,5 +1,5 @@
 import { reposOrNull } from '@/data/adapters.js';
-import { secretDecrypt, secretEncrypt } from '@/lib/local-secret.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import {
@@ -16,7 +16,6 @@ import {
   type InstallPlan,
   InstallService,
   type InstalledPackageRow,
-  type MaterializeResult,
   type RuntimeEnvironment,
   artifactBytesToBase64,
   buildPackageArtifact,
@@ -28,251 +27,34 @@ import {
   type ListingSummary,
   type PublishDraft,
   RegistryApiError,
-  RegistryClient,
+  type RegistryClient,
   type VersionSummary,
 } from '@offisim/registry-client';
 import type { SkillRow } from '@offisim/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { registryClient, registryConfig } from './registry-client.js';
+import type {
+  ConfirmPackageInstallResult,
+  FsScope,
+  InstallBindingValues,
+  InstalledPackage,
+  ListingKind,
+  ManifestAssetKind,
+  MarketListing,
+  NetScope,
+  PackageManifest,
+  PendingPackageInstall,
+  PublishPackageRequest,
+  PublishSource,
+  PublishedDraft,
+  PublishedPackageResult,
+  RegistryConnectionState,
+  RiskClass,
+} from './types.js';
 
 /**
- * Market surface view-model + local query layer. Kept isolated from the shared
- * `@/data` contracts so the Market 1:1 redesign can carry the rich registry
- * shape (install state, permissions, lineage, changelog, drafts) without
- * widening the shared `Listing` type. Installed/manage state must come from
- * repositories or show an empty/auth-unavailable state.
+ * Market registry, package install, and publish data layer.
  */
-
-export type ListingKind = 'employee' | 'skill' | 'template' | 'layout' | 'prefab' | 'bundle';
-
-/** Only employees and skills can be installed; other kinds are catalog-only. */
-export const INSTALLABLE_KINDS = new Set<ListingKind>(['employee', 'skill']);
-
-/** Marketplace mode: browse the registry vs. manage local packages/drafts. */
-export type MarketMode = 'explore' | 'manage';
-/** Manage sub-view. */
-export type ManageView = 'installed' | 'updates' | 'published';
-
-type RiskClass = 'data' | 'logic' | 'system';
-type FsScope = 'none' | 'workspace' | 'system';
-type NetScope = 'none' | 'read' | 'full';
-type SecretScope = 'none' | 'declared';
-
-interface ListingPermissions {
-  risk: RiskClass;
-  filesystem: FsScope;
-  network: NetScope;
-  secrets: SecretScope;
-}
-
-interface ListingRequirements {
-  capabilities: string[];
-  mcps: string[];
-  models: string[];
-  /** Minimum runtime semver, e.g. ">=0.7.0". */
-  runtime: string;
-  schema: number;
-}
-
-interface ListingLineage {
-  /** Origin slug, e.g. "growth-tools/teardown". */
-  origin: string;
-  /** Version this package was forked from, null when original. */
-  forkedFrom: string | null;
-}
-
-type ChangelogEntryKind = 'added' | 'fixed' | 'breaking' | 'note';
-
-interface ChangelogVersion {
-  version: string;
-  date: string;
-  entries: Array<{ kind: ChangelogEntryKind; text: string }>;
-}
-
-/** One required model-profile binding slot surfaced in the install flow. */
-export interface BindingSlot {
-  id: string;
-  /** Role label, e.g. "analyst". */
-  role: string;
-  hint: string;
-  required: boolean;
-  suggestions: string[];
-}
-
-export type InstallBindingValues = Record<string, string | undefined>;
-
-export interface MarketListing {
-  id: string;
-  kind: ListingKind;
-  /** Package slug, e.g. "growth-tools.teardown". */
-  slug: string;
-  name: string;
-  summary: string;
-  description: string;
-  /** "@handle" creator (without the @). */
-  handle: string;
-  creatorName: string;
-  /** Publisher is verified by the registry. */
-  verified: boolean;
-  rating: number;
-  installs: number;
-  version: string;
-  /** All published versions, newest first. */
-  versions: string[];
-  publishedLabel: string;
-  tags: string[];
-  license: string;
-  /** Avatar gradient endpoints for employee covers. */
-  avatarA?: string;
-  avatarB?: string;
-  /** Two-letter initials for employee covers. */
-  initials?: string;
-  /** Tag glyphs for the employee cover viz. */
-  coverTags?: string[];
-  /** Whether the package is installed in the active company. */
-  installed: boolean;
-  permissions: ListingPermissions;
-  requirements: ListingRequirements;
-  lineage: ListingLineage;
-  changelog: ChangelogVersion[];
-  /** Screenshot URLs for the detail carousel. */
-  screenshots: string[];
-  /** Binding slots for the install Configure step. */
-  bindings: BindingSlot[];
-  /**
-   * Real registry artifact URL for installable packages. Fixture/catalog rows
-   * intentionally leave this unset so the UI cannot fake a successful install.
-   */
-  installArtifactUrl?: string | null;
-  installSource?: 'registry' | 'file';
-  packageVersionId?: string | null;
-  artifactSha256?: string | null;
-  artifactSizeBytes?: number | null;
-}
-
-/** A locally installed package row (Manage · Installed). */
-export interface InstalledPackage {
-  id: string;
-  /** Package id slug, e.g. "offisim-labs/frontend-engineer". */
-  packageId: string;
-  version: string;
-  installedLabel: string;
-  /** Origin listing id; null for sideloaded packages shown as local-only state. */
-  originListingId: string | null;
-  /** Latest available version when an update exists. */
-  latestVersion: string | null;
-  /** Update-check lifecycle. */
-  checkState: 'idle' | 'checking' | 'error';
-}
-
-export type DraftStatus = 'draft' | 'validated' | 'submitted' | 'approved' | 'rejected';
-
-/** A published / draft package row (Manage · Published). */
-export interface PublishedDraft {
-  id: string;
-  title: string;
-  summary: string | null;
-  kind: ListingKind;
-  updatedLabel: string;
-  status: DraftStatus;
-}
-
-/** A company asset that can be packaged for publish (employee or skill). */
-export interface PublishSource {
-  id: string;
-  kind: 'employee' | 'skill';
-  /** Display name, e.g. "Senior Frontend Engineer". */
-  name: string;
-  /** Slug used to seed the package id, e.g. "frontend-engineer". */
-  slug: string;
-  description?: string;
-  payload?: Readonly<Record<string, unknown>>;
-  publishable: boolean;
-  unavailableReason?: string;
-}
-
-export interface PublishPackageRequest {
-  source: PublishSource;
-  title: string;
-  version: string;
-  summary: string;
-  readme?: string;
-  license: string;
-  riskClass: RiskClass;
-  tags: string[];
-}
-
-export interface PublishedPackageResult {
-  draftId: string;
-  moderationJobId: string;
-  status: 'queued' | 'pending_review';
-}
-
-export interface ConfirmPackageInstallResult extends MaterializeResult {
-  installReceiptId?: string;
-  installReceiptError?: string;
-}
-
-export interface RegistryConnectionState {
-  connected: boolean;
-  reason:
-    | 'connected'
-    | 'registry-config-missing'
-    | 'auth-not-configured'
-    | 'creator-missing'
-    | 'platform-unreachable'
-    | 'desktop-runtime-unavailable';
-  baseUrl?: string;
-}
-
-export interface PendingPackageInstall {
-  installTxnId: string;
-  plan: InstallPlan;
-  listing: MarketListing;
-  service: InstallService;
-}
-
-type PackageManifest = InstallPlan['manifest'];
-type ManifestAssetKind = PackageManifest['package']['kind'];
-
-export interface RarityTone {
-  /** rarity color token reference. */
-  rc: string;
-  rcs: string;
-}
-
-/** 1:1 with prototype getRarityColor(kind). */
-export function getRarityTone(kind: ListingKind): RarityTone {
-  switch (kind) {
-    case 'employee':
-      return { rc: 'var(--off-accent)', rcs: 'var(--off-accent-surface)' };
-    case 'skill':
-      return { rc: 'var(--off-violet)', rcs: 'var(--off-violet-surface)' };
-    case 'template':
-      return { rc: 'var(--off-violet)', rcs: 'var(--off-violet-surface)' };
-    case 'layout':
-      return { rc: 'var(--off-danger)', rcs: 'var(--off-danger-surface)' };
-    case 'prefab':
-      return { rc: 'var(--off-warn)', rcs: 'var(--off-warn-surface)' };
-    default:
-      return { rc: 'var(--off-ink-3)', rcs: 'var(--off-surface-sunken)' };
-  }
-}
-
-export function compactInstalls(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
-}
-
-export function canInstallListing(listing: MarketListing): boolean {
-  // Require a usable install route, not just an artifact URL: a registry
-  // listing whose artifact lacks a packageVersionId has installSource
-  // undefined and the install flow rejects it, so it must render the locked
-  // state rather than an Install button that always errors.
-  return (
-    INSTALLABLE_KINDS.has(listing.kind) &&
-    Boolean(listing.installArtifactUrl) &&
-    Boolean(listing.installSource)
-  );
-}
 
 const DESKTOP_INSTALL_ENVIRONMENT: RuntimeEnvironment = {
   runtimeVersion: '1.0.0',
@@ -591,128 +373,6 @@ async function installedPackagesToVm(
  * Registry client
  * ------------------------------------------------------------------------- */
 
-const MARKETPLACE_BASE_URL_STORAGE_KEY = 'offisim.marketplace.baseUrl';
-const MARKETPLACE_TOKEN_STORAGE_KEY = 'offisim.marketplace.apiToken';
-
-interface RegistryConfig {
-  baseUrl: string;
-  authToken?: string;
-}
-
-function trimEnv(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim().replace(/\/$/u, '') : null;
-}
-
-function storedMarketplaceBaseUrl(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return trimEnv(window.localStorage.getItem(MARKETPLACE_BASE_URL_STORAGE_KEY));
-  } catch {
-    return null;
-  }
-}
-
-function buildRegistryBaseUrl(): string | null {
-  return (
-    trimEnv(import.meta.env.VITE_OFFISIM_REGISTRY_BASE_URL) ??
-    trimEnv(import.meta.env.VITE_OFFISIM_PLATFORM_BASE_URL)
-  );
-}
-
-function configuredRegistryBaseUrl(): string | null {
-  return storedMarketplaceBaseUrl() ?? buildRegistryBaseUrl();
-}
-
-export interface MarketplaceConnectionSettings {
-  baseUrl: string;
-  source: 'custom' | 'build' | 'none';
-  tokenConfigured: boolean;
-}
-
-export function marketplaceConnectionSettings(): MarketplaceConnectionSettings {
-  const stored = storedMarketplaceBaseUrl();
-  const build = buildRegistryBaseUrl();
-  return {
-    baseUrl: stored ?? build ?? '',
-    source: stored ? 'custom' : build ? 'build' : 'none',
-    tokenConfigured: marketplaceTokenConfigured(),
-  };
-}
-
-export function writeMarketplaceBaseUrl(baseUrl: string | null): void {
-  if (typeof window === 'undefined') return;
-  const normalized = trimEnv(baseUrl);
-  try {
-    if (normalized) window.localStorage.setItem(MARKETPLACE_BASE_URL_STORAGE_KEY, normalized);
-    else window.localStorage.removeItem(MARKETPLACE_BASE_URL_STORAGE_KEY);
-  } catch {
-    // The following connection refresh surfaces storage failures as unchanged state.
-  }
-}
-
-/** Raw localStorage value (still sealed). Empty/absent → undefined. */
-function rawStoredMarketplaceToken(): string | undefined {
-  if (typeof window === 'undefined') return undefined;
-  try {
-    return window.localStorage.getItem(MARKETPLACE_TOKEN_STORAGE_KEY)?.trim() || undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * The usable (decrypted) marketplace token. The value is stored sealed at rest
- * (S1/S2) via `secret_encrypt`; `secretDecrypt` passes legacy plaintext through
- * unchanged, so this works for both old and new stored values. Async because it
- * crosses the Tauri command boundary.
- */
-async function storedMarketplaceToken(): Promise<string | undefined> {
-  const raw = rawStoredMarketplaceToken();
-  if (raw === undefined) return undefined;
-  const plaintext = (await secretDecrypt(raw)).trim();
-  return plaintext || undefined;
-}
-
-/**
- * Presence check only — does NOT need to decrypt. Whether the stored value is a
- * sealed envelope or legacy plaintext, its existence means a token is set. Stays
- * synchronous so render-path callers don't have to await.
- */
-function marketplaceTokenConfigured(): boolean {
-  return rawStoredMarketplaceToken() !== undefined;
-}
-
-export async function writeMarketplaceToken(token: string | null): Promise<void> {
-  if (typeof window === 'undefined') return;
-  try {
-    const trimmed = token?.trim() ?? '';
-    if (trimmed) {
-      // Seal before it ever touches localStorage (S1/S2).
-      const sealed = await secretEncrypt(trimmed);
-      window.localStorage.setItem(MARKETPLACE_TOKEN_STORAGE_KEY, sealed);
-    } else {
-      window.localStorage.removeItem(MARKETPLACE_TOKEN_STORAGE_KEY);
-    }
-  } catch {
-    // Storage can be unavailable in hardened preview contexts; callers refresh
-    // registry state and surface the resulting connection status.
-  }
-}
-
-async function registryConfig(): Promise<RegistryConfig | null> {
-  const baseUrl = configuredRegistryBaseUrl();
-  if (!baseUrl) return null;
-  return { baseUrl, authToken: await storedMarketplaceToken() };
-}
-
-function registryClient(config: RegistryConfig): RegistryClient {
-  return new RegistryClient({
-    baseUrl: config.baseUrl,
-    authToken: config.authToken,
-    credentials: 'omit',
-  });
-}
-
 function installReposWithVault<T extends object>(
   repos: T,
 ): T & {
@@ -961,7 +621,7 @@ function draftToVm(draft: PublishDraft): PublishedDraft {
 
 export function useMarketListings(companyId?: string | null) {
   return useQuery({
-    queryKey: ['market-listings', companyId ?? 'preview'],
+    queryKey: queryKeys.marketListings(companyId),
     queryFn: async () => {
       const registryListings = await loadRegistryListings(companyId);
       if (registryListings) return registryListings;
@@ -972,7 +632,7 @@ export function useMarketListings(companyId?: string | null) {
 
 export function useInstalledPackages(companyId?: string | null) {
   return useQuery({
-    queryKey: ['market-installed', companyId ?? 'preview'],
+    queryKey: queryKeys.marketInstalled(companyId),
     queryFn: async () => {
       const repos = await reposOrNull();
       if (!repos) return [];
@@ -985,7 +645,7 @@ export function useInstalledPackages(companyId?: string | null) {
 
 export function usePublishedDrafts(enabled = true) {
   return useQuery({
-    queryKey: ['market-drafts'],
+    queryKey: queryKeys.marketDrafts(),
     queryFn: async () => {
       const config = await registryConfig();
       if (config?.authToken) {
@@ -1000,7 +660,7 @@ export function usePublishedDrafts(enabled = true) {
 
 export function useRegistryConnection() {
   return useQuery({
-    queryKey: ['market-registry-connection'],
+    queryKey: queryKeys.marketRegistryConnection(),
     queryFn: async (): Promise<RegistryConnectionState> => {
       const repos = await reposOrNull();
       const config = await registryConfig();
@@ -1076,8 +736,8 @@ export function usePublishPackage() {
       };
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['market-drafts'] });
-      void queryClient.invalidateQueries({ queryKey: ['market-listings'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketDrafts() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketListingsAll() });
     },
   });
 }
@@ -1148,7 +808,7 @@ export function usePrepareRegistryInstall(companyId?: string | null) {
 
 export function usePublishSources(companyId?: string | null) {
   return useQuery({
-    queryKey: ['market-publish-sources', companyId ?? 'preview'],
+    queryKey: queryKeys.marketPublishSources(companyId),
     queryFn: async () => {
       const repos = await reposOrNull();
       if (!repos) return [];
@@ -1301,16 +961,16 @@ export function useConfirmPackageInstall(companyId?: string | null) {
       };
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['market-listings', companyId ?? 'preview'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketListings(companyId) });
       void queryClient.invalidateQueries({
-        queryKey: ['market-installed', companyId ?? 'preview'],
+        queryKey: queryKeys.marketInstalled(companyId),
       });
       if (companyId) {
-        void queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
-        void queryClient.invalidateQueries({ queryKey: ['office-layout', companyId] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.officeLayout(companyId) });
       }
-      void queryClient.invalidateQueries({ queryKey: ['company-templates'] });
-      void queryClient.invalidateQueries({ queryKey: ['office-scene'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.companyTemplates() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.officeScene() });
     },
   });
 }

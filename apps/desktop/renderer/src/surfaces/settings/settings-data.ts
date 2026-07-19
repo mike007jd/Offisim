@@ -1,6 +1,7 @@
 import { isTauriRuntime, reposOrNull } from '@/data/adapters.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { inferMcpGrantRiskClass } from '@/data/mcp-risk.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 /**
  * Settings-surface view-models and local query hooks.
@@ -705,7 +706,7 @@ function externalEmployeeFromRow(row: EmployeeRow): ExternalEmployee {
 
 export function useMcpServers() {
   return useQuery<McpServer[]>({
-    queryKey: ['settings', 'mcp-servers'],
+    queryKey: queryKeys.settingsMcpServers(),
     queryFn: loadMcpServers,
     placeholderData: [],
     refetchOnMount: 'always',
@@ -714,7 +715,7 @@ export function useMcpServers() {
 
 export function useMcpToolGrants(companyId: string | null, employeeId: string | null) {
   return useQuery<McpToolGrant[]>({
-    queryKey: ['settings', 'mcp-tool-grants', companyId, employeeId],
+    queryKey: queryKeys.settingsMcpToolGrants(companyId, employeeId),
     queryFn: () => loadMcpToolGrants(companyId ?? '', employeeId ?? ''),
     enabled: Boolean(companyId && employeeId),
     placeholderData: [],
@@ -723,7 +724,7 @@ export function useMcpToolGrants(companyId: string | null, employeeId: string | 
 
 export function useExternalEmployees(companyId: string | null) {
   return useQuery({
-    queryKey: ['settings', 'external-employees', companyId],
+    queryKey: queryKeys.settingsExternalEmployees(companyId),
     queryFn: async () => {
       if (!companyId) return [];
       const repos = await reposOrNull();
