@@ -60,7 +60,8 @@ const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
 /** Call-site adapter: parse the ISO timestamp for the shared relativeTime. */
 function timeAgo(iso: string): string {
   const then = Date.parse(iso);
-  return Number.isNaN(then) ? '' : relativeTime(then);
+  const now = Date.now();
+  return Number.isNaN(then) ? '' : relativeTime(Math.min(then, now), now);
 }
 
 const SCHEDULE_LABELS: ReadonlyArray<{

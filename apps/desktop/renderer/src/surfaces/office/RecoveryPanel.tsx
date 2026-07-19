@@ -13,7 +13,8 @@ import { toast } from 'sonner';
 /** Call-site adapter: parse the ISO start and keep the invalid-date label. */
 function startedAtLabel(iso: string): string {
   const ts = Date.parse(iso);
-  return Number.isFinite(ts) ? relativeTime(ts) : 'unknown start';
+  const now = Date.now();
+  return Number.isFinite(ts) ? relativeTime(Math.min(ts, now), now) : 'unknown start';
 }
 
 function summarizeUsage(partialUsageJson: string | null): string {

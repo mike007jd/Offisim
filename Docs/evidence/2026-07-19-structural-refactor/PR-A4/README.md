@@ -63,3 +63,9 @@ All safely reachable changed states passed visual layout acceptance. The expecte
 - `pnpm --filter @offisim/desktop build` rebuilt the exact current-head release `.app` successfully at the path above. Executable SHA-256: `14a04075e51d41756a475826bd1083684b5dd5b33aaedcc8b121b702764a2a39`; `codesign --verify --deep --strict` PASS; notarization skipped because the machine has no notarization environment credentials.
 - Fresh-profile AI Accounts remains unavailable without redirecting the hard-coded `~/.offisim` storage root or destructively replacing global account state; the product has no test-profile/storage override. The prior new-company proof confirms providers/activity are global, not company-scoped.
 - Loop Runs time and Recovery time remain blocked because their UI requires a real loop run and a real interrupted agent run respectively. No paid/API run or fabricated DB state was introduced. A4 therefore remains `completed_with_risks`, not fully accepted for those three unreachable states.
+
+## 2026-07-20 independent audit correction
+
+- A current Kimi K3 read-only audit identified a real boundary defect in the pre-existing shared `relativeTime`: using `Math.round` could render threshold artifacts such as `60 min. ago`, `24 hr. ago`, or `7 days ago` at the end of a unit interval. A4 newly adopted that helper on four surfaces, so the defect was corrected in this branch rather than accepted as inherited behavior.
+- The implementation now uses signed truncation, preserving past/future direction while keeping the selected unit below its next threshold. Direct current-Node checks cover both directions at the minute, hour, and day boundaries and return `59 min.`, `23 hr.`, and `6 days` respectively.
+- GitNexus upstream impact for `relativeTime` was LOW with no indexed execution-flow expansion. Full Node/Rust/release/live results for the corrected head are recorded in the final acceptance addendum after rebuilding the exact release app.

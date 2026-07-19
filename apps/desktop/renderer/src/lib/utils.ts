@@ -44,14 +44,13 @@ export function relativeTime(at: number, from = Date.now()): string {
   if (abs < 60_000) return 'now';
   const fmt = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'short' });
   for (const [unit, ms] of RELATIVE_UNITS) {
-    if (abs >= ms) return fmt.format(Math.round(diff / ms), unit);
+    if (abs >= ms) return fmt.format(Math.trunc(diff / ms), unit);
   }
   return 'now';
 }
 
 /** Tightest age label for chat rows and bubbles: "now", "5m", "3h", "2d".
- *  The single wording source for every compact timestamp (Office rail,
- *  Connect list/bubbles, workspace board) so "now" never drifts per surface. */
+ *  Use where the surrounding copy already establishes that the value is an age. */
 export function compactAge(atMs: number, from = Date.now()): string {
   if (!Number.isFinite(atMs)) return '';
   const diff = Math.max(0, from - atMs);

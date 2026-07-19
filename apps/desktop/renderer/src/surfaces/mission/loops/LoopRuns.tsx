@@ -18,7 +18,8 @@ import { History } from 'lucide-react';
 /** Call-site adapter: parse the ISO timestamp for the shared relativeTime. */
 function timeAgo(iso: string): string {
   const then = Date.parse(iso);
-  return Number.isNaN(then) ? '' : relativeTime(then);
+  const now = Date.now();
+  return Number.isNaN(then) ? '' : relativeTime(Math.min(then, now), now);
 }
 
 type RunStatusTone = 'is-ok' | 'is-accent' | 'is-warn' | 'is-danger';

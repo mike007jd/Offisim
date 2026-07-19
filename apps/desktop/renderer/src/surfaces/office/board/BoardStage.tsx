@@ -1064,6 +1064,7 @@ function BoardTimeline({
     return baselines;
   }, [allRecords]);
   const groups = useMemo(() => groupByTime(allRecords), [allRecords]);
+  const renderedAt = Date.now();
   const rewind = useCallback(
     async (checkpoint: WorkspaceCheckpointRow) => {
       setRewindingId(checkpoint.checkpointId);
@@ -1134,7 +1135,7 @@ function BoardTimeline({
                   {summary.label}
                   {collapsedCount ? <em> ×{collapsedCount}</em> : null}
                 </span>
-                <time>{relativeTime(record.at)}</time>
+                <time>{relativeTime(Math.min(record.at, renderedAt), renderedAt)}</time>
                 {checkpoint ? (
                   <div className="off-board-checkpoint-actions">
                     <button
