@@ -1,0 +1,22 @@
+{
+  "base": "origin/main",
+  "oldRoot": "packages/shared-types/src/dramaturgy",
+  "newRoot": "packages/dramaturgy/src",
+  "comparison": "TypeScript AST top-level function bodies and variable initializers, exact source text",
+  "allRuntimeDeclarations": 73,
+  "exportedRuntimeDeclarations": 32,
+  "exportedFunctions": 21,
+  "exportedConstants": 11,
+  "mismatches": [],
+  "files": {
+    "ambient.ts": { "declarations": 29, "exact": 29 },
+    "beat-composer.ts": { "declarations": 20, "exact": 20 },
+    "character-motion.ts": { "declarations": 3, "exact": 3 },
+    "mission-projection.ts": { "declarations": 3, "exact": 3 },
+    "modes.ts": { "declarations": 4, "exact": 4 },
+    "office-projection.ts": { "declarations": 2, "exact": 2 },
+    "performance.ts": { "declarations": 5, "exact": 5 },
+    "profiles.ts": { "declarations": 2, "exact": 2 },
+    "staging.ts": { "declarations": 5, "exact": 5 }
+  }
+}

@@ -348,17 +348,35 @@ const rawUnicode = parseUnifiedDiffFiles([
 ]);
 assert.equal(rawUnicode.files[0]?.path, '文件.ts', 'quoted raw Unicode paths must remain intact');
 
-const workspacePanelSource = readFileSync(
-  new URL('../apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx', import.meta.url),
-  'utf8',
-);
-const stageViewerSource = readFileSync(
-  new URL(
-    '../apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx',
-    import.meta.url,
+const workspacePanelSource = [
+  readFileSync(
+    new URL('../apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx', import.meta.url),
+    'utf8',
   ),
-  'utf8',
-);
+  readFileSync(
+    new URL(
+      '../apps/desktop/renderer/src/surfaces/office/workspace-panel/GitTab.tsx',
+      import.meta.url,
+    ),
+    'utf8',
+  ),
+].join('\n');
+const stageViewerSource = [
+  readFileSync(
+    new URL(
+      '../apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx',
+      import.meta.url,
+    ),
+    'utf8',
+  ),
+  readFileSync(
+    new URL(
+      '../apps/desktop/renderer/src/surfaces/office/stage-viewer/views/ChangesView.tsx',
+      import.meta.url,
+    ),
+    'utf8',
+  ),
+].join('\n');
 const reviewStageSource = readFileSync(
   new URL(
     '../apps/desktop/renderer/src/surfaces/office/board/ReviewWorkbenchStage.tsx',

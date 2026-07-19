@@ -9,6 +9,7 @@
  */
 import { reposOrNull } from '@/data/adapters.js';
 import { buildEmployeeSystemPrompt } from '@/data/employee-persona.js';
+import { queryKeys } from '@/data/query-keys.js';
 import type { Employee } from '@/data/types.js';
 import {
   type BodyType,
@@ -267,7 +268,7 @@ interface MemoryEntry {
 
 export function useEmployeeMemories(employeeId: string | null) {
   return useQuery({
-    queryKey: ['personnel', 'memories', employeeId],
+    queryKey: queryKeys.employeeMemories(employeeId),
     queryFn: async () => {
       if (!employeeId) return [];
       const repos = await reposOrNull();
@@ -322,7 +323,7 @@ export function useCreateEmployeeMemory(employeeId: string | null) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['personnel', 'memories', employeeId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employeeMemories(employeeId) });
     },
   });
 }
@@ -347,7 +348,7 @@ export function useUpdateEmployeeMemory() {
       return employeeId;
     },
     onSuccess: (employeeId) => {
-      queryClient.invalidateQueries({ queryKey: ['personnel', 'memories', employeeId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employeeMemories(employeeId) });
     },
   });
 }
@@ -362,7 +363,7 @@ export function useDeleteEmployeeMemory() {
       return employeeId;
     },
     onSuccess: (employeeId) => {
-      queryClient.invalidateQueries({ queryKey: ['personnel', 'memories', employeeId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employeeMemories(employeeId) });
     },
   });
 }
@@ -470,7 +471,7 @@ function employeeHistoryFromRows(rows: EmployeeVersionRow[]): EmployeeHistory | 
 
 export function useEmployeeVersions(employeeId: string | null) {
   return useQuery({
-    queryKey: ['personnel', 'versions', employeeId],
+    queryKey: queryKeys.employeeVersions(employeeId),
     queryFn: async () => {
       if (!employeeId) return null;
       const repos = await reposOrNull();
@@ -551,8 +552,8 @@ export function useRollbackEmployeeVersion(employeeId: string | null) {
       await versionService.rollbackToVersion(employeeId, version);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['personnel', 'versions', employeeId] });
-      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employeeVersions(employeeId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employeesAll() });
     },
   });
 }

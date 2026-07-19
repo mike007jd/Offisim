@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Mutex,
@@ -10,13 +10,20 @@ use serde::Serialize;
 use tauri::ipc::Channel;
 
 use crate::agent_host_runtime::HostError;
+#[cfg(test)]
+use crate::agent_host_stream::RUN_STREAM_BUFFER_LIMIT;
+use crate::agent_host_stream::{
+    send_published_stream_entry, send_stream_entry, RunStreamBufferedEvent, RunStreamCore,
+    RunStreamCursorError, RunStreamEvent, RunStreamPolicy, RunStreamReplayStep, RunStreamSendError,
+};
 
 use super::types::PiAgentHostEvent;
 
 pub(super) static PI_RUN_STREAMS: Lazy<Mutex<HashMap<String, PiRunStreamState>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 static PI_STREAM_SUBSCRIBER_ID: AtomicU64 = AtomicU64::new(1);
-pub(super) const PI_RUN_STREAM_BUFFER_LIMIT: usize = 4096;
+#[cfg(test)]
+pub(super) const PI_RUN_STREAM_BUFFER_LIMIT: usize = RUN_STREAM_BUFFER_LIMIT;
 const PI_RUN_STREAM_REPLAY_OVERFLOW: &str =
     "Pi Agent stream replay exceeded its bounded pending buffer; retry reattach from the last durable cursor.";
 pub(super) const PI_RUN_STREAM_TERMINAL_TTL: Duration =
@@ -29,26 +36,23 @@ pub(super) fn pi_run_streams_guard(
 }
 
 pub(super) struct PiRunStreamState {
-    next_cursor: u64,
-    pub(super) events: VecDeque<PiRunStreamBufferedEvent>,
+    core: RunStreamCore<PiAgentHostEvent>,
     workspace_unavailable_declarations: Vec<PiAgentHostEvent>,
-    subscribers: HashMap<u64, PiRunStreamSubscriber>,
     terminal: Option<PiRunStreamTerminal>,
     finished_at: Option<Instant>,
 }
 
-struct PiRunStreamSubscriber {
-    channel: Channel<PiAgentHostEvent>,
-    replaying: bool,
-    pending: VecDeque<PiRunStreamBufferedEvent>,
-    overflowed: bool,
-}
+impl RunStreamEvent for PiAgentHostEvent {
+    fn stream_cursor(cursor: u64) -> Self {
+        Self::StreamCursor { cursor }
+    }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct PiRunStreamBufferedEvent {
-    pub(super) cursor: u64,
-    event: PiAgentHostEvent,
+    fn is_terminal(&self) -> bool {
+        matches!(
+            self,
+            Self::MessageEnd { .. } | Self::Result { .. } | Self::Error { .. }
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -73,10 +77,8 @@ pub struct PiRunStreamSnapshot {
 impl PiRunStreamState {
     fn new() -> Self {
         Self {
-            next_cursor: 1,
-            events: VecDeque::new(),
+            core: RunStreamCore::new(RunStreamPolicy::PI),
             workspace_unavailable_declarations: Vec::new(),
-            subscribers: HashMap::new(),
             terminal: None,
             finished_at: None,
         }
@@ -86,15 +88,22 @@ impl PiRunStreamState {
         PiRunStreamSnapshot {
             request_id: request_id.to_string(),
             running: self.terminal.is_none(),
-            cursor: self.next_cursor.saturating_sub(1),
-            buffered: self.events.len(),
+            cursor: self.core.cursor(),
+            buffered: self.core.buffered(),
             terminal: self.terminal.clone(),
         }
     }
 
     #[cfg(test)]
     pub(super) fn subscriber_count(&self) -> usize {
-        self.subscribers.len()
+        self.core.subscriber_count()
+    }
+
+    #[cfg(test)]
+    pub(super) fn events(
+        &self,
+    ) -> &std::collections::VecDeque<RunStreamBufferedEvent<PiAgentHostEvent>> {
+        self.core.events()
     }
 }
 
@@ -173,9 +182,7 @@ pub(super) fn finish_run_stream_at(
             message,
         });
         state.finished_at = Some(finished_at);
-        state
-            .subscribers
-            .retain(|_, subscriber| subscriber.replaying);
+        state.core.mark_terminal();
     }
 }
 
@@ -185,7 +192,7 @@ pub(crate) fn publish_host_event(
     event: PiAgentHostEvent,
     send_label: &str,
 ) -> Result<(), HostError> {
-    let mut stream_cursor = None;
+    let mut stream_entry = None;
     let mut stream_subscribers = Vec::new();
     if let Some(request_id) = request_id {
         let mut streams = pi_run_streams_guard();
@@ -205,41 +212,15 @@ pub(crate) fn publish_host_event(
             // an impossible bound/unavailable transition instead of hiding it.
             state.workspace_unavailable_declarations.push(event.clone());
         }
-        let cursor = state.next_cursor;
-        state.next_cursor = state.next_cursor.saturating_add(1);
-        let buffered_event = PiRunStreamBufferedEvent {
-            cursor,
-            event: event.clone(),
-        };
-        state.events.push_back(buffered_event.clone());
-        while state.events.len() > PI_RUN_STREAM_BUFFER_LIMIT {
-            state.events.pop_front();
-        }
-        stream_cursor = Some(cursor);
-        for (id, subscriber) in &mut state.subscribers {
-            if subscriber.replaying {
-                if !subscriber.overflowed {
-                    if subscriber.pending.len() >= PI_RUN_STREAM_BUFFER_LIMIT {
-                        subscriber.pending.clear();
-                        subscriber.overflowed = true;
-                    } else {
-                        subscriber.pending.push_back(buffered_event.clone());
-                    }
-                }
-            } else {
-                stream_subscribers.push((*id, subscriber.channel.clone()));
-            }
-        }
+        let published = state.core.publish(event.clone());
+        stream_entry = published.entry;
+        stream_subscribers = published.subscribers;
     }
 
-    if let Some(cursor) = stream_cursor {
+    if let Some(entry) = stream_entry.as_ref() {
         let mut dead_subscribers = Vec::new();
         for (id, subscriber) in stream_subscribers {
-            if subscriber.send(event.clone()).is_err()
-                || subscriber
-                    .send(PiAgentHostEvent::StreamCursor { cursor })
-                    .is_err()
-            {
+            if send_published_stream_entry(&subscriber, entry).is_err() {
                 dead_subscribers.push(id);
             }
         }
@@ -247,7 +228,7 @@ pub(crate) fn publish_host_event(
             if let Some(request_id) = request_id {
                 if let Some(state) = pi_run_streams_guard().get_mut(request_id) {
                     for id in dead_subscribers {
-                        state.subscribers.remove(&id);
+                        state.core.remove_subscriber(id);
                     }
                 }
             }
@@ -260,7 +241,7 @@ pub(crate) fn publish_host_event(
                 return Err(HostError::Request(format!("{send_label}: {err}")));
             }
             eprintln!("[pi-agent-host] dropped stale renderer channel for {send_label}: {err}");
-        } else if let Some(cursor) = stream_cursor {
+        } else if let Some(cursor) = stream_entry.as_ref().map(|entry| entry.cursor) {
             if let Err(err) = on_event.send(PiAgentHostEvent::StreamCursor { cursor }) {
                 eprintln!(
                     "[pi-agent-host] dropped stale renderer channel for {send_label} cursor: {err}"
@@ -292,21 +273,18 @@ pub(crate) fn release_stream(request_id: String) -> Result<(), String> {
 
 fn remove_stream_subscriber(request_id: &str, subscriber_id: u64) {
     if let Some(state) = pi_run_streams_guard().get_mut(request_id) {
-        state.subscribers.remove(&subscriber_id);
+        state.core.remove_subscriber(subscriber_id);
     }
 }
 
 fn send_buffered_stream_event(
     on_event: &Channel<PiAgentHostEvent>,
-    entry: PiRunStreamBufferedEvent,
+    entry: RunStreamBufferedEvent<PiAgentHostEvent>,
 ) -> Result<(), String> {
-    let cursor = entry.cursor;
-    on_event
-        .send(entry.event)
-        .map_err(|err| format!("Replay Pi Agent stream event: {err}"))?;
-    on_event
-        .send(PiAgentHostEvent::StreamCursor { cursor })
-        .map_err(|err| format!("Replay Pi Agent stream cursor: {err}"))
+    send_stream_entry(on_event, &entry, RunStreamPolicy::PI).map_err(|error| match error {
+        RunStreamSendError::Event(error) => format!("Replay Pi Agent stream event: {error}"),
+        RunStreamSendError::Cursor(error) => format!("Replay Pi Agent stream cursor: {error}"),
+    })
 }
 
 fn finish_stream_subscriber_replay(
@@ -315,39 +293,24 @@ fn finish_stream_subscriber_replay(
     on_event: &Channel<PiAgentHostEvent>,
 ) -> Result<(), String> {
     loop {
-        let pending = {
+        let step = {
             let mut streams = pi_run_streams_guard();
             let Some(state) = streams.get_mut(request_id) else {
                 return Ok(());
             };
-            let terminal = state.terminal.is_some();
-            let Some(subscriber) = state.subscribers.get(&subscriber_id) else {
-                return Ok(());
-            };
-            if subscriber.overflowed {
-                state.subscribers.remove(&subscriber_id);
+            state.core.next_pending(subscriber_id)
+        };
+        match step {
+            RunStreamReplayStep::Event(entry) => {
+                if let Err(error) = send_buffered_stream_event(on_event, entry) {
+                    remove_stream_subscriber(request_id, subscriber_id);
+                    return Err(error);
+                }
+            }
+            RunStreamReplayStep::Overflowed => {
                 return Err(PI_RUN_STREAM_REPLAY_OVERFLOW.into());
             }
-            if subscriber.pending.is_empty() {
-                if terminal {
-                    state.subscribers.remove(&subscriber_id);
-                } else if let Some(subscriber) = state.subscribers.get_mut(&subscriber_id) {
-                    subscriber.replaying = false;
-                }
-                return Ok(());
-            }
-            state
-                .subscribers
-                .get_mut(&subscriber_id)
-                .expect("subscriber checked above")
-                .pending
-                .pop_front()
-        };
-        if let Some(entry) = pending {
-            if let Err(error) = send_buffered_stream_event(on_event, entry) {
-                remove_stream_subscriber(request_id, subscriber_id);
-                return Err(error);
-            }
+            RunStreamReplayStep::Complete => return Ok(()),
         }
     }
 }
@@ -356,7 +319,7 @@ fn next_replay_event(
     request_id: &str,
     cursor: u64,
     replay_through: u64,
-) -> Result<Option<PiRunStreamBufferedEvent>, String> {
+) -> Result<Option<RunStreamBufferedEvent<PiAgentHostEvent>>, String> {
     if cursor >= replay_through {
         return Ok(None);
     }
@@ -364,18 +327,17 @@ fn next_replay_event(
     let state = streams
         .get(request_id)
         .ok_or_else(|| format!("No live Pi Agent stream for request {request_id}"))?;
-    let expected_cursor = cursor.saturating_add(1);
-    let entry = state
-        .events
-        .iter()
-        .find(|entry| entry.cursor == expected_cursor)
-        .cloned()
-        .ok_or_else(|| {
-            format!(
+    state
+        .core
+        .next_replay_event_exact(cursor, replay_through)
+        .map_err(|error| match error {
+            RunStreamCursorError::Gap { expected_cursor } => format!(
                 "Pi Agent stream replay gap at cursor {expected_cursor}; retry from the last durable cursor."
-            )
-        })?;
-    Ok(Some(entry))
+            ),
+            RunStreamCursorError::Ahead { .. } => {
+                unreachable!("next replay cursor cannot be ahead after the replay bound check")
+            }
+        })
 }
 
 pub(crate) fn reattach_stream(
@@ -390,33 +352,26 @@ pub(crate) fn reattach_stream(
         let state = streams
             .get_mut(&request_id)
             .ok_or_else(|| format!("No live Pi Agent stream for request {request_id}"))?;
-        let replay_through = state.next_cursor.saturating_sub(1);
-        if replay_after > replay_through {
-            return Err(format!(
-                "Pi Agent stream cursor {replay_after} is ahead of live cursor {replay_through}."
-            ));
-        }
-        if replay_after < replay_through
-            && state
-                .events
-                .front()
-                .is_none_or(|entry| entry.cursor > replay_after.saturating_add(1))
-        {
-            return Err(format!(
-                "Pi Agent stream replay gap after cursor {replay_after}; retry from a retained durable cursor."
-            ));
-        }
+        let replay_through = state.core.cursor();
+        state
+            .core
+            .validate_replay_cursor(replay_after)
+            .map_err(|error| match error {
+                RunStreamCursorError::Ahead {
+                    cursor,
+                    live_cursor,
+                } => format!(
+                    "Pi Agent stream cursor {cursor} is ahead of live cursor {live_cursor}."
+                ),
+                RunStreamCursorError::Gap { .. } => format!(
+                    "Pi Agent stream replay gap after cursor {replay_after}; retry from a retained durable cursor."
+                ),
+            })?;
         let subscriber_id = if state.terminal.is_none() {
             let subscriber_id = PI_STREAM_SUBSCRIBER_ID.fetch_add(1, Ordering::Relaxed);
-            state.subscribers.insert(
-                subscriber_id,
-                PiRunStreamSubscriber {
-                    channel: on_event.clone(),
-                    replaying: true,
-                    pending: VecDeque::new(),
-                    overflowed: false,
-                },
-            );
+            state
+                .core
+                .insert_subscriber(subscriber_id, on_event.clone(), true);
             Some(subscriber_id)
         } else {
             None

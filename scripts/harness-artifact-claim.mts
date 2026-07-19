@@ -13,17 +13,10 @@
  */
 import type { ClaimableArtifact } from '../apps/desktop/renderer/src/assistant/runtime/scene-cue-projection.js';
 import { resolveArtifactClaim } from '../apps/desktop/renderer/src/surfaces/office/stage-viewer/artifact-claim.js';
+import { createHarness } from './lib/harness-runner.mjs';
 
-let failures = 0;
-let checks = 0;
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) console.log(`  ✓ ${name}`);
-  else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const h = createHarness();
+const { check } = h;
 
 console.log('artifact-claim gate');
 
@@ -177,9 +170,10 @@ console.log('\n[priority] url outranks path');
   );
 }
 
-console.log(`\nartifact-claim: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`artifact-claim gate FAILED with ${failures} failure(s)`);
-  process.exit(1);
+console.log(`\nartifact-claim: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`artifact-claim gate FAILED with ${h.failures} failure(s)`);
+} else {
+  console.log('artifact-claim gate PASSED');
 }
-console.log('artifact-claim gate PASSED');
+h.report();

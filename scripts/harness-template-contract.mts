@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Template contract gate (source plan §15 "Template fixtures").
  *
@@ -27,19 +31,7 @@ import {
   serializeTemplatePersona,
 } from '../packages/core/src/browser.js';
 import { SYSTEM_ZONE_TEMPLATES } from '../packages/shared-types/src/index.js';
-
-let failures = 0;
-let checks = 0;
-
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const check = h.check;
 
 function parseJson(raw: string | null): Record<string, unknown> {
   if (!raw) return {};
@@ -339,9 +331,11 @@ for (const t of templates) {
   }
 }
 
-console.log(`\ntemplate-contract: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`template-contract gate FAILED with ${failures} failure(s)`);
+console.log(`\ntemplate-contract: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`template-contract gate FAILED with ${h.failures} failure(s)`);
   process.exit(1);
 }
 console.log('template-contract gate PASSED');
+
+if (!process.exitCode) h.report();

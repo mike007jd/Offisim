@@ -45,7 +45,7 @@ const officeRuntimeSource = readFileSync(
 );
 assert.match(
   officeRuntimeSource,
-  /!run\.attemptId\s*\|\|\s*isConversationRunActive\(run\.phase\)[\s\S]*?invalidateQueries\(\{\s*queryKey:\s*\['messages',\s*threadId\]/u,
+  /!run\.attemptId\s*\|\|\s*isConversationRunActive\(run\.phase\)[\s\S]*?invalidateQueries\(\{\s*queryKey:\s*queryKeys\.messages\(threadId\)/u,
   'terminal Turns must refresh durable messages before a later Turn replaces liveMessages',
 );
 

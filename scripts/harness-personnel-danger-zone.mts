@@ -29,10 +29,16 @@ check('an already-removed employee falls back to the first current employee', ()
   assert.equal(nextEmployeeIdAfterDelete(['alex', 'mara'], 'missing'), 'alex');
 });
 
-const personnelSurface = readFileSync(
-  join(root, 'apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx'),
-  'utf8',
-);
+const personnelSurface = [
+  readFileSync(
+    join(root, 'apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx'),
+    'utf8',
+  ),
+  readFileSync(
+    join(root, 'apps/desktop/renderer/src/surfaces/personnel/EmployeeDetail.tsx'),
+    'utf8',
+  ),
+].join('\n');
 const schema = readFileSync(join(root, 'packages/db-local/src/schema.sql'), 'utf8');
 
 check('the routine save bar contains Reset and Save but no Delete action', () => {
@@ -66,7 +72,10 @@ check('delete is guarded against double submission and refreshes the roster', ()
   assert.match(personnelSurface, /if \(isDeleting\) return/);
   assert.match(personnelSurface, /await repos\.employees\.delete\(employee\.id\)/);
   assert.match(personnelSurface, /onDeleted\(\)/);
-  assert.match(personnelSurface, /invalidateQueries\(\{ queryKey: \['employees', companyId\] \}\)/);
+  assert.match(
+    personnelSurface,
+    /invalidateQueries\(\{ queryKey: queryKeys\.employees\(companyId\) \}\)/,
+  );
 });
 
 check('post-delete selection uses the visible roster and failure is not rendered twice', () => {

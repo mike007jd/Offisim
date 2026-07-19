@@ -6,7 +6,7 @@ import type {
   InstalledPackage,
   PublishedDraft,
   RegistryConnectionState,
-} from '../apps/desktop/renderer/src/surfaces/market/market-data.js';
+} from '../apps/desktop/renderer/src/data/market/types.js';
 import {
   filterInstalledPackages,
   filterPublishedDrafts,

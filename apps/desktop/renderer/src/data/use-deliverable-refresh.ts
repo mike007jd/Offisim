@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import type { AgentRunEvent } from '@offisim/shared-types';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,7 +27,7 @@ export function useDeliverableRefresh(threadId: string | null): void {
       if (!run || run.type !== 'artifact.created') return;
       if (run.threadId !== threadId) return;
       void queryClient.invalidateQueries({
-        queryKey: ['deliverables', companyId, threadId],
+        queryKey: queryKeys.deliverables(companyId, threadId),
       });
     });
     return off;

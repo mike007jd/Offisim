@@ -26,6 +26,10 @@ const paths = {
   schema: `${ROOT}/packages/db-local/src/schema.sql`,
   commands: `${ROOT}/apps/desktop/renderer/src/lib/tauri-commands.ts`,
   runtime: `${ROOT}/apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`,
+  runtimePersistence: `${ROOT}/apps/desktop/renderer/src/runtime/agent-run-persistence.ts`,
+  runtimeHostEventDispatch: `${ROOT}/apps/desktop/renderer/src/runtime/host-event-dispatch.ts`,
+  runtimeRunContext: `${ROOT}/apps/desktop/renderer/src/runtime/run-context.ts`,
+  runtimeWorkspaceBinding: `${ROOT}/apps/desktop/renderer/src/runtime/workspace-binding.ts`,
   conversationController: `${ROOT}/apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.ts`,
   recovery: `${ROOT}/apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.ts`,
   missionController: `${ROOT}/apps/desktop/renderer/src/runtime/mission/mission-run-controller.ts`,
@@ -933,6 +937,10 @@ function verifySqlOracle(schemaSql: string): void {
 function verifyWireAndRuntimeContracts(): void {
   const commands = source(paths.commands);
   const runtime = source(paths.runtime);
+  const runtimePersistence = source(paths.runtimePersistence);
+  const runtimeHostEventDispatch = source(paths.runtimeHostEventDispatch);
+  const runtimeRunContext = source(paths.runtimeRunContext);
+  const runtimeWorkspaceBinding = source(paths.runtimeWorkspaceBinding);
   const recovery = source(paths.recovery);
   const tools = source(paths.tools);
   const git = [paths.gitRoot, paths.gitAllowlist].map(source).join('\n');
@@ -1113,9 +1121,9 @@ function verifyWireAndRuntimeContracts(): void {
   );
 
   const persistedRunContext = sliceBetween(
-    runtime,
-    'interface PersistedRunContext',
-    'interface SharedHostStreamState',
+    runtimeRunContext,
+    'export interface PersistedRunContext',
+    'export function parseRunContext',
     'persisted runtime context',
   );
   assertContains(
@@ -1144,9 +1152,9 @@ function verifyWireAndRuntimeContracts(): void {
     'persisted runtime context',
   );
   const projectionBuilder = sliceBetween(
-    runtime,
-    'function projectWorkspaceBinding',
-    'function bindingMatchesRun',
+    runtimeWorkspaceBinding,
+    'export function projectWorkspaceBinding',
+    'export function bindingMatchesRun',
     'runtime workspace projection',
   );
   assertContains(
@@ -1155,17 +1163,19 @@ function verifyWireAndRuntimeContracts(): void {
     'runtime workspace projection',
   );
   assert.equal(
-    runtime.split('runtimeContext.workspaceBinding = projectWorkspaceBinding(event)').length - 1,
+    runtimeHostEventDispatch.split(
+      'state.runtimeContext.workspaceBinding = projectWorkspaceBinding(event)',
+    ).length - 1,
     1,
     'the shared live/reattach consumer must persist only the safe projection',
   );
   assert.equal(
-    runtime.split('this.consumeSharedHostEvent({').length - 1,
+    runtime.split('void dispatchHostEvent(event, hostEventContext);').length - 1,
     2,
-    'live and reattached streams must both use the same typed host-event consumer',
+    'live and reattached streams must both use the same typed host-event dispatcher',
   );
   assert.ok(
-    !runtime.includes('runtimeContext.workspaceBinding = event'),
+    !`${runtime}\n${runtimeHostEventDispatch}`.includes('runtimeContext.workspaceBinding = event'),
     'the ephemeral workspaceBound claim must never be assigned directly to runtime_context',
   );
   assertContains(
@@ -1173,21 +1183,29 @@ function verifyWireAndRuntimeContracts(): void {
     'replay_workspace_bound_for_request(&app, &request_id)',
     'reattach workspace authority replay',
   );
+  const reattachRuntime = sliceBetween(
+    runtime,
+    'async reattachLiveRuns(',
+    'private async runNativeTurn(',
+    'reattach runtime',
+  );
   assert.ok(
-    runtime.indexOf("if (event.kind === 'workspaceBound')") <
-      runtime.indexOf('this.invokeReattach('),
+    reattachRuntime.indexOf('const bufferedHostEventContext = {') <
+      reattachRuntime.indexOf('this.invokeReattach('),
     'reattach must install the workspaceBound handler before requesting replay',
   );
 
   assert.equal(
-    runtime.split('this.persistArtifact(agentEvent, state.workspaceGate.claim)').length - 1,
+    runtimeHostEventDispatch.split(
+      'active.persistArtifact(agentEvent, active.state.workspaceGate.claim)',
+    ).length - 1,
     1,
     'the shared live/reattach artifact path must pass the complete ephemeral claim',
   );
   const artifactPersistence = sliceBetween(
-    runtime,
-    'private async persistArtifact(',
-    'private async persistMcpToolCall(',
+    runtimePersistence,
+    'async persistArtifact(',
+    'async persistMcpToolCall(',
     'artifact persistence',
   );
   assertContains(
@@ -1221,8 +1239,8 @@ function verifyWireAndRuntimeContracts(): void {
     'optional Turn availability declaration requirement',
   );
   assertContains(
-    runtime,
-    'canConsumeWorkspaceEvent(state.workspaceGate, event, input.policy)',
+    runtimeHostEventDispatch,
+    'canConsumeWorkspaceEvent(ctx.state.workspaceGate, event, ctx.policy)',
     'runtime events cannot mutate an interrupted row before workspace binding',
   );
   assertContains(
@@ -1235,8 +1253,16 @@ function verifyWireAndRuntimeContracts(): void {
     'resolveWorkspaceRequirement(input, commandName)',
     'workspace requirement',
   );
-  assertContains(runtime, 'input.missionId?.trim()', 'Mission workspace requirement');
-  assertContains(runtime, 'input.directDelegation', 'delegation workspace requirement');
+  assertContains(
+    runtimeWorkspaceBinding,
+    'input.missionId?.trim()',
+    'Mission workspace requirement',
+  );
+  assertContains(
+    runtimeWorkspaceBinding,
+    'input.directDelegation',
+    'delegation workspace requirement',
+  );
   assertContains(runtime, 'workspaceRequirement,', 'workspace requirement backend request');
   const projectPreflight = source(
     `${ROOT}/apps/desktop/renderer/src/runtime/require-project-workspace.ts`,
@@ -1247,8 +1273,8 @@ function verifyWireAndRuntimeContracts(): void {
     'renderer project ownership preflight',
   );
   assertContains(
-    runtime,
-    "event.kind === 'workspaceUnavailable'",
+    runtimeHostEventDispatch,
+    "const workspaceUnavailable: HostEventHandler<'workspaceUnavailable'>",
     'live and reattach workspace unavailable handling',
   );
   assertContains(
@@ -1319,13 +1345,16 @@ function verifyWireAndRuntimeContracts(): void {
   const runNativeTurn = sliceBetween(
     runtime,
     'private async runNativeTurn(',
-    '/** Mark the root run terminal',
+    'async queueMessage(threadId:',
     'desktop run persistence boundary',
   );
   const rootReadbackIndex = runNativeTurn.indexOf(
     'const openedRoot = await this.repos.agentRuns.findById(runScope.runId)',
   );
-  const finalAbortCheckIndex = runNativeTurn.indexOf('throwIfRunAborted(signal)', rootReadbackIndex);
+  const finalAbortCheckIndex = runNativeTurn.indexOf(
+    'throwIfRunAborted(signal)',
+    rootReadbackIndex,
+  );
   const nativeInvokeIndex = runNativeTurn.indexOf('hostCommandStarted = true', rootReadbackIndex);
   assert.ok(
     rootReadbackIndex >= 0 &&
@@ -1345,8 +1374,8 @@ function verifyWireAndRuntimeContracts(): void {
     'pre-native Stop/error terminalizes an already-open root',
   );
   const rootTerminal = sliceBetween(
-    runtime,
-    'private async persistRootTerminal(',
+    runtimePersistence,
+    'async persistRootTerminal(',
     '/** Persist a delegation run',
     'atomic root terminal persistence',
   );
@@ -1925,7 +1954,12 @@ function verifyWorkspaceBindingStreamGate(): void {
     'reattach must decide policy from the atomic command snapshot',
   );
   const runtime = source(paths.runtime);
-  assertContains(runtime, 'claim.access === expected.access', 'workspace binding access gate');
+  const runtimeHostEventDispatch = source(paths.runtimeHostEventDispatch);
+  assertContains(
+    source(paths.runtimeWorkspaceBinding),
+    'claim.access === expected.access',
+    'workspace binding access gate',
+  );
   assert.equal(
     runtime.split('this.invokeAbort(requestId)').length - 1,
     1,
@@ -1946,7 +1980,7 @@ function verifyWorkspaceBindingStreamGate(): void {
     'binding rejection must await backend termination before returning from the runtime boundary',
   );
   assertContains(
-    runtime,
+    runtimeHostEventDispatch,
     'isSameWorkspaceBindingClaim(state.workspaceGate.claim, event)',
     'bound claim replacement gate',
   );

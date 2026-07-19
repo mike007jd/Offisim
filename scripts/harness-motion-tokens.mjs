@@ -1,26 +1,16 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createHarness, repoRoot } from './lib/harness-runner.mjs';
 
-const ROOT = join(fileURLToPath(new URL('..', import.meta.url)));
+const ROOT = repoRoot;
 const CSS_PATH = join(ROOT, 'apps/desktop/renderer/src/styles/motion.css');
 const TS_PATH = join(ROOT, 'apps/desktop/renderer/src/styles/motion-tokens.ts');
 const motionCss = readFileSync(CSS_PATH, 'utf8');
 const motionTs = readFileSync(TS_PATH, 'utf8');
 
-let failures = 0;
-let checks = 0;
-
-function check(name, condition, detail) {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const h = createHarness();
+const { check } = h;
 
 function parseCssDuration(name) {
   const match = new RegExp(`--off-motion-${name}:\\s*([\\d.]+)(ms|s)\\s*;`).exec(motionCss);
@@ -84,9 +74,10 @@ for (const name of ['off-spin', 'off-pulse', 'off-shimmer']) {
   check(`${name} shared keyframe exists`, new RegExp(`@keyframes\\s+${name}\\b`).test(motionCss));
 }
 
-console.log(`\n${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`motion-tokens gate FAILED (${failures} failing)`);
-  process.exit(1);
+console.log(`\n${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`motion-tokens gate FAILED (${h.failures} failing)`);
+} else {
+  console.log('motion-tokens gate OK');
 }
-console.log('motion-tokens gate OK');
+h.report();

@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Mission → office-beat projection gate (M3 UX-007, PRD §24.4).
  *
@@ -9,7 +13,7 @@
  * the shared beat lifecycle (no forked beat system) and that an empty / non-
  * theatrical stream stages nothing (a plain chat is unchanged).
  *
- * Pure Node via tsx against shared-types source — no DOM, no 3D, no renderer, no
+ * Pure Node via tsx against dramaturgy source — no DOM, no 3D, no renderer, no
  * Pi. Mirrors the agent-run office-projection gate.
  */
 import {
@@ -18,18 +22,8 @@ import {
   beatLifespanMs,
   projectMissionEventToBeat,
   projectMissionEvents,
-} from '../packages/shared-types/src/index.js';
-
-let failures = 0;
-let checks = 0;
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) console.log(`  ✓ ${name}`);
-  else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+} from '../packages/dramaturgy/src/index.js';
+const check = h.check;
 
 const MISSION = 'mission-1';
 const THREAD = 'thread-1';
@@ -224,7 +218,7 @@ console.log('\n[scope] optional employee binding; default mission-level actor');
   check('bound mission beat carries the acting employee', withEmp?.beat.employeeId === 'emp-7');
 }
 
-console.log(`\nmission-office-projection: ${checks - failures}/${checks} passed`);
+console.log(`\nmission-office-projection: ${h.checks - h.failures}/${h.checks} passed`);
 
 // ── Inject-proof: break the FAIL → failure mapping and confirm the gate trips.
 console.log('\n[inject-proof] a broken FAIL→failure mapping must fail the gate');
@@ -233,18 +227,16 @@ console.log('\n[inject-proof] a broken FAIL→failure mapping must fail the gate
   // The REAL mapping is failure. Assert the WRONG kind to simulate a regression
   // and prove this gate would catch it (we expect this single check to fail).
   const wouldMisclassify = failBeat?.kind === 'complete';
-  if (wouldMisclassify) {
-    console.error('  ✗ inject-proof: FAIL was (wrongly) projected as a completion beat');
-    failures += 1;
-  } else {
-    console.log(
-      '  ✓ inject-proof active: if FAIL→failure were broken to FAIL→complete, the gate above would fail',
-    );
-  }
+  check(
+    'inject-proof active: if FAIL→failure were broken to FAIL→complete, the gate above would fail',
+    !wouldMisclassify,
+  );
 }
 
-if (failures > 0) {
-  console.error(`mission-office-projection gate FAILED with ${failures} failure(s)`);
+if (h.failures > 0) {
+  console.error(`mission-office-projection gate FAILED with ${h.failures} failure(s)`);
   process.exit(1);
 }
 console.log('mission-office-projection gate PASSED');
+
+if (!process.exitCode) h.report();

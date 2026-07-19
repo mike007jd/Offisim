@@ -9,10 +9,34 @@ const json = (path) => JSON.parse(read(path));
 const rustFiles = ['manager.rs', 'protocol.rs', 'stream.rs', 'types.rs'].map((name) =>
   read(`apps/desktop/src-tauri/src/codex_agent_host/${name}`),
 );
-const rustHost = rustFiles.join('\n');
-const rustProduction = rustFiles
-  .map((value) => value.split(/\n#\[cfg\(test\)\]/u, 1)[0])
-  .join('\n');
+const agentHostRuntime = read('apps/desktop/src-tauri/src/agent_host_runtime.rs');
+const rustHost = [...rustFiles, agentHostRuntime].join('\n');
+// Strip every `#[cfg(test)]` item (brace-balanced), not just a tail split:
+// agent_host_runtime.rs has a mid-file test module with production code after it.
+const stripCfgTest = (source) => {
+  let out = '';
+  let rest = source;
+  for (;;) {
+    const marker = rest.indexOf('\n#[cfg(test)]');
+    if (marker === -1) return out + rest;
+    out += rest.slice(0, marker + 1);
+    const braceStart = rest.indexOf('{', marker);
+    if (braceStart === -1) return out;
+    let depth = 0;
+    let end = braceStart;
+    while (end < rest.length) {
+      const ch = rest[end];
+      if (ch === '{') depth += 1;
+      else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+      end += 1;
+    }
+    rest = rest.slice(end + 1);
+  }
+};
+const rustProduction = [...rustFiles, agentHostRuntime].map(stripCfgTest).join('\n');
 const shared = read('packages/shared-types/src/runtime/ai-account.ts');
 const runtime = read('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 const provenance = read('apps/desktop/renderer/src/runtime/execution-provenance.ts');
@@ -112,6 +136,7 @@ assert.doesNotMatch(
 
 for (const retained of [
   'turn/interrupt',
+  'thread/backgroundTerminals/clean',
   'thread/start',
   'thread/resume',
   'item/reasoning/summaryTextDelta',
@@ -123,5 +148,6 @@ for (const retained of [
 }
 assert.match(rustHost, /native-agent-home-redacted/u);
 assert.match(rustHost, /Bearer\\s\+|\[secret-redacted\]/u);
+assert.match(rustHost, /Self::Interrupted\(_\)\s*=>\s*"aborted"/u);
 
 console.log('codex orchestration adapter contract OK');

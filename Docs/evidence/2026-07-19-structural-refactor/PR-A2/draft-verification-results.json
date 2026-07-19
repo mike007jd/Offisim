@@ -1,0 +1,302 @@
+[
+  {
+    "file": "scripts/harness-collaboration-profile.mts",
+    "id": "collaboration-profile",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 8,
+    "draftChecks": 8,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-collaboration-repo-contract.mts",
+    "id": "collaboration-repo-contract",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 36,
+    "draftChecks": 36,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-computer-rich-detail.mts",
+    "id": "computer-rich-detail",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 8,
+    "draftChecks": 8,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-connect-chat-flow.mts",
+    "id": "connect-chat-flow",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 11,
+    "draftChecks": 11,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-dramaturgy-stress.mts",
+    "id": "dramaturgy-stress",
+    "status": "MISMATCH",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 13,
+    "draftChecks": 13,
+    "firstDiff": "  ✓ per-frame compute < 8ms (got 0.124ms)"
+  },
+  {
+    "file": "scripts/harness-employee-version-on-save.mts",
+    "id": "employee-version-on-save",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 14,
+    "draftChecks": 14,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-eval-suite.mts",
+    "id": "eval-suite",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 8,
+    "draftChecks": 8,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-loop-authoring-flow.mts",
+    "id": "loop-authoring-flow",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 19,
+    "draftChecks": 19,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-loop-compiler.mts",
+    "id": "loop-compiler",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 23,
+    "draftChecks": 23,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-loop-graph-projection.mts",
+    "id": "loop-graph-projection",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 18,
+    "draftChecks": 18,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-loop-office-invocation.mts",
+    "id": "loop-office-invocation",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 20,
+    "draftChecks": 20,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-loop-repository.mts",
+    "id": "loop-repository",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 10,
+    "draftChecks": 10,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-mcp-bridge-extension.mts",
+    "id": "mcp-bridge-extension",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 25,
+    "draftChecks": 25,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-mcp-host-channel.mts",
+    "id": "mcp-host-channel",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 7,
+    "draftChecks": 7,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-mission-evaluators.mts",
+    "id": "mission-evaluators",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 15,
+    "draftChecks": 15,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-mission-loop-controller.mts",
+    "id": "mission-loop-controller",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 18,
+    "draftChecks": 18,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-mission-office-projection.mts",
+    "id": "mission-office-projection",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 27,
+    "draftChecks": 27,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-mission-recovery.mts",
+    "id": "mission-recovery",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 16,
+    "draftChecks": 16,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-mission-reload.mts",
+    "id": "mission-reload",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 19,
+    "draftChecks": 19,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-mission-run-controller.mts",
+    "id": "mission-run-controller",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 11,
+    "draftChecks": 11,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-office-projection.mts",
+    "id": "office-projection",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 50,
+    "draftChecks": 50,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-pi-collaboration-runtime.mts",
+    "id": "pi-collaboration-runtime",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 107,
+    "draftChecks": 107,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-playbook-validation.mts",
+    "id": "playbook-validation",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 43,
+    "draftChecks": 43,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-prompt-enhance.mts",
+    "id": "prompt-enhance",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 63,
+    "draftChecks": 63,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-run-recovery.mts",
+    "id": "run-recovery",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 34,
+    "draftChecks": 34,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-scene-cue.mts",
+    "id": "scene-cue",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 87,
+    "draftChecks": 87,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-scene-staging.mts",
+    "id": "scene-staging",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 34,
+    "draftChecks": 34,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-stage-preview-targets.mts",
+    "id": "stage-preview-targets",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 33,
+    "draftChecks": 33,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-template-contract.mts",
+    "id": "template-contract",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 861,
+    "draftChecks": 861,
+    "firstDiff": null
+  },
+  {
+    "file": "scripts/harness-workspace-lease.mts",
+    "id": "workspace-lease",
+    "status": "OK",
+    "baseCode": 0,
+    "draftCode": 0,
+    "baseChecks": 21,
+    "draftChecks": 21,
+    "firstDiff": null
+  }
+]

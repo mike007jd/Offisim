@@ -15,6 +15,7 @@
 // harness backend).
 
 import { reposOrNull } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   type CollaborationServiceRepos,
   type CollaborationThreadSummary,
@@ -29,24 +30,6 @@ import type {
   CollaborationReplyPolicy,
 } from '@offisim/shared-types';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-// ---------------------------------------------------------------------------
-// Query keys
-// ---------------------------------------------------------------------------
-
-/**
- * Connect query-key factory. Namespaced under `'connect'` so a Connect
- * invalidation can never collide with the legacy `['ws', ...]` project-chat keys
- * or the `['threads', projectId]` Office keys.
- */
-const connectKeys = {
-  /** Active company threads (list view), newest activity first. */
-  threads: (companyId: string | null) => ['connect', 'threads', companyId] as const,
-  /** One thread's persisted message transcript (oldest → newest). */
-  messages: (threadId: string | null) => ['connect', 'messages', threadId] as const,
-  /** A thread's active members (group settings). */
-  members: (threadId: string | null) => ['connect', 'members', threadId] as const,
-};
 
 // ---------------------------------------------------------------------------
 // Service accessor
@@ -138,7 +121,7 @@ function messageToView(message: CollaborationMessage): ConnectViewMessage {
  */
 export function useConnectThreads(companyId: string | null) {
   return useQuery<CollaborationThreadSummary[]>({
-    queryKey: connectKeys.threads(companyId),
+    queryKey: queryKeys.connectThreads(companyId),
     queryFn: async () => {
       if (!companyId) return [];
       const service = await getCollaborationService();
@@ -158,7 +141,7 @@ export function useConnectThreads(companyId: string | null) {
  */
 export function useConnectMessages(threadId: string | null) {
   return useQuery<ConnectViewMessage[]>({
-    queryKey: connectKeys.messages(threadId),
+    queryKey: queryKeys.connectMessages(threadId),
     queryFn: async () => {
       if (!threadId) return [];
       const service = await getCollaborationService();
@@ -184,7 +167,7 @@ export function useConnectMessages(threadId: string | null) {
 /** A thread's active members (group settings panel). */
 export function useConnectMembers(threadId: string | null) {
   return useQuery<CollaborationMember[]>({
-    queryKey: connectKeys.members(threadId),
+    queryKey: queryKeys.connectMembers(threadId),
     queryFn: async () => {
       if (!threadId) return [];
       const service = await getCollaborationService();
@@ -211,8 +194,8 @@ export function invalidateConnectThread(
   companyId: string | null,
   threadId: string,
 ): void {
-  void queryClient.invalidateQueries({ queryKey: connectKeys.messages(threadId) });
-  void queryClient.invalidateQueries({ queryKey: connectKeys.threads(companyId) });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.connectMessages(threadId) });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.connectThreads(companyId) });
 }
 
 // ---------------------------------------------------------------------------
@@ -242,7 +225,7 @@ export function useGetOrCreateDirect(companyId: string | null) {
       return thread.threadId;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: connectKeys.threads(companyId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connectThreads(companyId) });
     },
   });
 }
@@ -272,7 +255,7 @@ export function useCreateGroup(companyId: string | null) {
       return thread.threadId;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: connectKeys.threads(companyId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connectThreads(companyId) });
     },
   });
 }
@@ -295,8 +278,8 @@ export function useUpdateMembers(companyId: string | null) {
       return service.updateMembers({ threadId, addEmployeeIds, removeMemberIds });
     },
     onSuccess: (_members, vars) => {
-      void queryClient.invalidateQueries({ queryKey: connectKeys.members(vars.threadId) });
-      void queryClient.invalidateQueries({ queryKey: connectKeys.threads(companyId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connectMembers(vars.threadId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connectThreads(companyId) });
     },
   });
 }
@@ -312,7 +295,7 @@ export function useArchiveThread(companyId: string | null) {
       else await service.unarchive(threadId);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: connectKeys.threads(companyId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connectThreads(companyId) });
     },
   });
 }
@@ -333,7 +316,7 @@ export function useUpdateThreadProfile(companyId: string | null) {
       await service.updateCapabilityProfile(threadId, capabilityProfile);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: connectKeys.threads(companyId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connectThreads(companyId) });
     },
   });
 }
@@ -348,7 +331,7 @@ export function useMarkRead(companyId: string | null) {
       await service.markRead(threadId, messageId);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: connectKeys.threads(companyId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connectThreads(companyId) });
     },
   });
 }

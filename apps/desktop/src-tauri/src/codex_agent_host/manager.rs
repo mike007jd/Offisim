@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use tauri::{ipc::Channel, AppHandle, Manager};
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 
-use crate::agent_host_runtime::{AgentHostLane, HostError};
+use crate::agent_host_runtime::{codex_binary_path, inspect_codex_cli, AgentHostLane, HostError};
 use crate::engine_skill_overlay::{
     materialize_engine_context_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
 };
@@ -1304,9 +1304,15 @@ pub(super) async fn abort_impl(app: AppHandle, request_id: String) -> Result<(),
                 ),
             )
             .await;
-            tokio::time::timeout(INTERRUPT_TERMINAL_TIMEOUT, run.stream.wait_outcome())
-                .await
-                .ok()
+            let background_terminals_cleaned =
+                clean_native_background_terminals(&run.connection, &thread_id).await;
+            let native_terminal =
+                tokio::time::timeout(INTERRUPT_TERMINAL_TIMEOUT, run.stream.wait_outcome())
+                    .await
+                    .ok();
+            background_terminals_cleaned
+                .then_some(native_terminal)
+                .flatten()
         } else {
             None
         };
@@ -1327,6 +1333,20 @@ pub(super) async fn abort_impl(app: AppHandle, request_id: String) -> Result<(),
         run.connection.terminate().await;
     }
     Ok(())
+}
+
+async fn clean_native_background_terminals(connection: &CodexConnection, thread_id: &str) -> bool {
+    matches!(
+        tokio::time::timeout(
+            INTERRUPT_ACK_TIMEOUT,
+            connection.request(
+                "thread/backgroundTerminals/clean",
+                json!({"threadId": thread_id}),
+            ),
+        )
+        .await,
+        Ok(Ok(_))
+    )
 }
 
 pub(super) async fn answer_impl(
@@ -1649,74 +1669,8 @@ pub(crate) async fn status_impl(
     _app: AppHandle,
     _include_usage: bool,
 ) -> Result<CodexAgentStatusResponse, String> {
-    inspect_codex_cli().await
-}
-
-async fn inspect_codex_cli() -> Result<CodexAgentStatusResponse, String> {
     let checked_at = rfc3339_now()?;
-    let capabilities = orchestration_capabilities();
-    let Some(binary) = find_codex_binary() else {
-        return Ok(CodexAgentStatusResponse {
-            engine_id: ENGINE_ID.into(),
-            display_name: "Codex CLI".into(),
-            state: "not-installed".into(),
-            version: None,
-            status_reason: Some("Install Codex CLI to run Codex tasks.".into()),
-            login_command: "codex login".into(),
-            docs_url: "https://developers.openai.com/codex/auth".into(),
-            checked_at,
-            capabilities,
-        });
-    };
-
-    let version_output = tokio::process::Command::new(&binary)
-        .arg("--version")
-        .output()
-        .await;
-    let version = match version_output {
-        Ok(output) if output.status.success() => first_nonempty_line(&output.stdout),
-        _ => None,
-    };
-    if version.is_none() {
-        return Ok(CodexAgentStatusResponse {
-            engine_id: ENGINE_ID.into(),
-            display_name: "Codex CLI".into(),
-            state: "unavailable".into(),
-            version: None,
-            status_reason: Some("Codex CLI is installed but could not report its version.".into()),
-            login_command: "codex login".into(),
-            docs_url: "https://developers.openai.com/codex/auth".into(),
-            checked_at,
-            capabilities,
-        });
-    }
-
-    let login_status = tokio::process::Command::new(&binary)
-        .args(["login", "status"])
-        .output()
-        .await;
-    let (state, status_reason) = match login_status {
-        Ok(output) if output.status.success() => ("ready", None),
-        Ok(_) => (
-            "not-signed-in",
-            Some("Sign in with `codex login`; credentials remain managed by Codex CLI.".into()),
-        ),
-        Err(_) => (
-            "unavailable",
-            Some("Codex CLI login status could not be checked.".into()),
-        ),
-    };
-    Ok(CodexAgentStatusResponse {
-        engine_id: ENGINE_ID.into(),
-        display_name: "Codex CLI".into(),
-        state: state.into(),
-        version,
-        status_reason,
-        login_command: "codex login".into(),
-        docs_url: "https://developers.openai.com/codex/auth".into(),
-        checked_at,
-        capabilities,
-    })
+    Ok(inspect_codex_cli(checked_at, orchestration_capabilities()).await)
 }
 
 fn orchestration_capabilities() -> Value {
@@ -1736,14 +1690,6 @@ fn orchestration_capabilities() -> Value {
             "fileChanges": true,
         },
     })
-}
-
-fn first_nonempty_line(bytes: &[u8]) -> Option<String> {
-    String::from_utf8_lossy(bytes)
-        .lines()
-        .map(str::trim)
-        .find(|line| !line.is_empty())
-        .map(str::to_string)
 }
 
 fn validate_execution_target(target: &CodexExecutionTarget) -> Result<(), String> {
@@ -1959,58 +1905,6 @@ fn neutral_cwd(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-fn codex_binary_path() -> Result<PathBuf, String> {
-    find_codex_binary().ok_or_else(|| "Codex CLI is not installed or is not on PATH.".into())
-}
-
-fn find_codex_binary() -> Option<PathBuf> {
-    if let Some(candidate) = std::env::var_os("PATH").and_then(|path| {
-        std::env::split_paths(&path)
-            .map(|directory| directory.join("codex"))
-            .find(|candidate| codex_binary_is_executable(candidate))
-    }) {
-        return std::fs::canonicalize(&candidate).ok().or(Some(candidate));
-    }
-
-    // Finder-launched macOS apps do not inherit the user's interactive PATH.
-    // Ask the user's configured shell for the command path without evaluating
-    // any renderer-provided text, then still require a real executable file.
-    let shell = std::env::var_os("SHELL")?;
-    let output = std::process::Command::new(shell)
-        .args(["-lic", "command -v codex"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .rev()
-        .map(str::trim)
-        .filter(|value| value.starts_with('/'))
-        .map(PathBuf::from)
-        .find(|candidate| codex_binary_is_executable(candidate))
-        .and_then(|candidate| std::fs::canonicalize(&candidate).ok().or(Some(candidate)))
-}
-
-fn codex_binary_is_executable(candidate: &Path) -> bool {
-    let Ok(metadata) = std::fs::metadata(candidate) else {
-        return false;
-    };
-    if !metadata.is_file() {
-        return false;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        metadata.permissions().mode() & 0o111 != 0
-    }
-    #[cfg(not(unix))]
-    {
-        true
-    }
-}
-
 pub(super) fn rfc3339_now() -> Result<String, String> {
     let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -2175,7 +2069,11 @@ mod tests {
         let script = root.join("codex-app-server-fixture");
         let transcript_literal =
             serde_json::to_string(transcript.to_string_lossy().as_ref()).unwrap();
-        let body = script_body.replace("__TRANSCRIPT__", &transcript_literal);
+        let background_pid_literal =
+            serde_json::to_string(root.join("background.pid").to_string_lossy().as_ref()).unwrap();
+        let body = script_body
+            .replace("__TRANSCRIPT__", &transcript_literal)
+            .replace("__BACKGROUND_PID__", &background_pid_literal);
         std::fs::write(&script, body).unwrap();
         let mut permissions = std::fs::metadata(&script).unwrap().permissions();
         permissions.set_mode(0o700);
@@ -2276,6 +2174,58 @@ send({"method": "thread/tokenUsage/updated", "params": {"threadId": "thread-1", 
 send({"method": "turn/completed", "params": {"threadId": "thread-1", "turn": {"id": "turn-1", "status": "completed"}}})
 time.sleep(30)
 "##;
+
+    #[cfg(unix)]
+    const BACKGROUND_TERMINAL_CLEAN_FIXTURE: &str = r#"#!/usr/bin/python3
+import json
+import subprocess
+import sys
+import time
+
+TRANSCRIPT = __TRANSCRIPT__
+BACKGROUND_PID = __BACKGROUND_PID__
+
+background = subprocess.Popen(
+    ["sleep", "30"],
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    start_new_session=True,
+)
+with open(BACKGROUND_PID, "w", encoding="utf-8") as handle:
+    handle.write(str(background.pid))
+
+def record(direction, message):
+    with open(TRANSCRIPT, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"direction": direction, "message": message}, separators=(",", ":")) + "\n")
+
+def read_message():
+    line = sys.stdin.readline()
+    if not line:
+        sys.exit(0)
+    message = json.loads(line)
+    record("in", message)
+    return message
+
+def respond(request, result):
+    message = {"id": request["id"], "result": result}
+    record("out", message)
+    sys.stdout.write(json.dumps(message, separators=(",", ":")) + "\n")
+    sys.stdout.flush()
+
+request = read_message()
+assert request["method"] == "initialize"
+respond(request, {"userAgent": "codex-cli/0.144.5", "codexHome": "/native/codex-home", "platformFamily": "unix", "platformOs": "macos"})
+
+notification = read_message()
+assert notification["method"] == "initialized" and "id" not in notification
+
+request = read_message()
+assert request["method"] == "thread/backgroundTerminals/clean"
+assert request["params"] == {"threadId": "thread-clean"}
+respond(request, {})
+time.sleep(30)
+"#;
 
     #[cfg(unix)]
     const ASK_POLICY_FIXTURE: &str = r#"#!/usr/bin/python3
@@ -2405,6 +2355,46 @@ time.sleep(30)
             native_session_id: None,
             competitive_draft: None,
         }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn stop_cleans_codex_background_terminals_before_reaping_the_app_server() {
+        let root = unique_test_dir("background-terminal-clean");
+        let (binary, transcript_path) =
+            write_scripted_app_server(&root, BACKGROUND_TERMINAL_CLEAN_FIXTURE);
+        let connection = CodexConnection::spawn(&binary, None, &root, None, None, None)
+            .await
+            .unwrap();
+
+        assert!(clean_native_background_terminals(&connection, "thread-clean").await);
+        let background_pid = std::fs::read_to_string(root.join("background.pid"))
+            .unwrap()
+            .parse::<i32>()
+            .unwrap();
+        assert_eq!(unsafe { libc::kill(background_pid, 0) }, 0);
+        connection.terminate().await;
+        let disappeared = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if unsafe { libc::kill(background_pid, 0) } != 0 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        assert!(
+            disappeared.is_ok(),
+            "detached Codex descendant {background_pid} survived connection termination"
+        );
+
+        let transcript = read_transcript(&transcript_path);
+        assert!(transcript.iter().any(|entry| {
+            entry["direction"] == "in"
+                && entry["message"]["method"] == "thread/backgroundTerminals/clean"
+                && entry["message"]["params"] == json!({"threadId": "thread-clean"})
+        }));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]

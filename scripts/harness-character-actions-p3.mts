@@ -2,16 +2,16 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import type {
-  CharacterPerformanceState,
-  SceneBeat,
-  TimedAgentRunEvent,
-} from '@offisim/shared-types';
 import {
   composeBeats,
   performanceForBeat,
   performanceForRoutine,
   projectOfficeStaging,
+} from '@offisim/dramaturgy';
+import type {
+  CharacterPerformanceState,
+  SceneBeat,
+  TimedAgentRunEvent,
 } from '@offisim/shared-types';
 import { MeshoptDecoder } from 'meshoptimizer';
 import { AnimationMixer, type Object3D, Vector3 } from 'three';
