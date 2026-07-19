@@ -25,14 +25,15 @@ mod registry;
 #[path = "binding/resume_compat.rs"]
 mod resume_compat;
 
+#[allow(unused_imports)]
+pub(crate) use persistence::resolve_task_workspace_binding;
 pub(crate) use persistence::{
     __cmd__task_workspace_evaluation_lease_acquire, __cmd__task_workspace_evaluation_lease_release,
     mark_orphaned_bindings_revoked, replay_workspace_bound_for_request,
-    resolve_task_workspace_binding, resolve_task_workspace_claim_authority,
-    resolve_task_workspace_evaluation_claim_authority, resolve_task_workspace_for_turn,
-    revoke_task_workspace_binding, task_workspace_evaluation_lease_acquire,
-    task_workspace_evaluation_lease_release, validate_task_workspace_binding_authority,
-    workspace_bound_event,
+    resolve_task_workspace_claim_authority, resolve_task_workspace_evaluation_claim_authority,
+    resolve_task_workspace_for_turn, revoke_task_workspace_binding,
+    task_workspace_evaluation_lease_acquire, task_workspace_evaluation_lease_release,
+    validate_task_workspace_binding_authority, workspace_bound_event,
 };
 #[cfg(test)]
 pub(crate) use project_crud::test_task_workspace_binding;
