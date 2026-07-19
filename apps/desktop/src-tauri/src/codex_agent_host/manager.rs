@@ -1304,9 +1304,15 @@ pub(super) async fn abort_impl(app: AppHandle, request_id: String) -> Result<(),
                 ),
             )
             .await;
-            tokio::time::timeout(INTERRUPT_TERMINAL_TIMEOUT, run.stream.wait_outcome())
-                .await
-                .ok()
+            let background_terminals_cleaned =
+                clean_native_background_terminals(&run.connection, &thread_id).await;
+            let native_terminal =
+                tokio::time::timeout(INTERRUPT_TERMINAL_TIMEOUT, run.stream.wait_outcome())
+                    .await
+                    .ok();
+            background_terminals_cleaned
+                .then_some(native_terminal)
+                .flatten()
         } else {
             None
         };
@@ -1327,6 +1333,20 @@ pub(super) async fn abort_impl(app: AppHandle, request_id: String) -> Result<(),
         run.connection.terminate().await;
     }
     Ok(())
+}
+
+async fn clean_native_background_terminals(connection: &CodexConnection, thread_id: &str) -> bool {
+    matches!(
+        tokio::time::timeout(
+            INTERRUPT_ACK_TIMEOUT,
+            connection.request(
+                "thread/backgroundTerminals/clean",
+                json!({"threadId": thread_id}),
+            ),
+        )
+        .await,
+        Ok(Ok(_))
+    )
 }
 
 pub(super) async fn answer_impl(
@@ -2049,7 +2069,11 @@ mod tests {
         let script = root.join("codex-app-server-fixture");
         let transcript_literal =
             serde_json::to_string(transcript.to_string_lossy().as_ref()).unwrap();
-        let body = script_body.replace("__TRANSCRIPT__", &transcript_literal);
+        let background_pid_literal =
+            serde_json::to_string(root.join("background.pid").to_string_lossy().as_ref()).unwrap();
+        let body = script_body
+            .replace("__TRANSCRIPT__", &transcript_literal)
+            .replace("__BACKGROUND_PID__", &background_pid_literal);
         std::fs::write(&script, body).unwrap();
         let mut permissions = std::fs::metadata(&script).unwrap().permissions();
         permissions.set_mode(0o700);
@@ -2150,6 +2174,58 @@ send({"method": "thread/tokenUsage/updated", "params": {"threadId": "thread-1", 
 send({"method": "turn/completed", "params": {"threadId": "thread-1", "turn": {"id": "turn-1", "status": "completed"}}})
 time.sleep(30)
 "##;
+
+    #[cfg(unix)]
+    const BACKGROUND_TERMINAL_CLEAN_FIXTURE: &str = r#"#!/usr/bin/python3
+import json
+import subprocess
+import sys
+import time
+
+TRANSCRIPT = __TRANSCRIPT__
+BACKGROUND_PID = __BACKGROUND_PID__
+
+background = subprocess.Popen(
+    ["sleep", "30"],
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    start_new_session=True,
+)
+with open(BACKGROUND_PID, "w", encoding="utf-8") as handle:
+    handle.write(str(background.pid))
+
+def record(direction, message):
+    with open(TRANSCRIPT, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"direction": direction, "message": message}, separators=(",", ":")) + "\n")
+
+def read_message():
+    line = sys.stdin.readline()
+    if not line:
+        sys.exit(0)
+    message = json.loads(line)
+    record("in", message)
+    return message
+
+def respond(request, result):
+    message = {"id": request["id"], "result": result}
+    record("out", message)
+    sys.stdout.write(json.dumps(message, separators=(",", ":")) + "\n")
+    sys.stdout.flush()
+
+request = read_message()
+assert request["method"] == "initialize"
+respond(request, {"userAgent": "codex-cli/0.144.5", "codexHome": "/native/codex-home", "platformFamily": "unix", "platformOs": "macos"})
+
+notification = read_message()
+assert notification["method"] == "initialized" and "id" not in notification
+
+request = read_message()
+assert request["method"] == "thread/backgroundTerminals/clean"
+assert request["params"] == {"threadId": "thread-clean"}
+respond(request, {})
+time.sleep(30)
+"#;
 
     #[cfg(unix)]
     const ASK_POLICY_FIXTURE: &str = r#"#!/usr/bin/python3
@@ -2279,6 +2355,46 @@ time.sleep(30)
             native_session_id: None,
             competitive_draft: None,
         }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn stop_cleans_codex_background_terminals_before_reaping_the_app_server() {
+        let root = unique_test_dir("background-terminal-clean");
+        let (binary, transcript_path) =
+            write_scripted_app_server(&root, BACKGROUND_TERMINAL_CLEAN_FIXTURE);
+        let connection = CodexConnection::spawn(&binary, None, &root, None, None, None)
+            .await
+            .unwrap();
+
+        assert!(clean_native_background_terminals(&connection, "thread-clean").await);
+        let background_pid = std::fs::read_to_string(root.join("background.pid"))
+            .unwrap()
+            .parse::<i32>()
+            .unwrap();
+        assert_eq!(unsafe { libc::kill(background_pid, 0) }, 0);
+        connection.terminate().await;
+        let disappeared = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if unsafe { libc::kill(background_pid, 0) } != 0 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        assert!(
+            disappeared.is_ok(),
+            "detached Codex descendant {background_pid} survived connection termination"
+        );
+
+        let transcript = read_transcript(&transcript_path);
+        assert!(transcript.iter().any(|entry| {
+            entry["direction"] == "in"
+                && entry["message"]["method"] == "thread/backgroundTerminals/clean"
+                && entry["message"]["params"] == json!({"threadId": "thread-clean"})
+        }));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]

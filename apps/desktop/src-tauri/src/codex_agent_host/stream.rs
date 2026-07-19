@@ -27,7 +27,11 @@ impl RunOutcome {
     pub(super) fn status(&self) -> &'static str {
         match self {
             Self::Completed(_) => "completed",
-            Self::Interrupted(_) => "interrupted",
+            // Stream snapshots are the cross-engine Stop contract consumed by
+            // DesktopAgentRuntime; Pi and Claude both expose user Stop as
+            // `aborted`. Keep the internal outcome/message vocabulary while
+            // projecting the same engine-neutral terminal status.
+            Self::Interrupted(_) => "aborted",
             Self::Failed(_) => "failed",
         }
     }
@@ -727,7 +731,7 @@ mod tests {
                 .terminal
                 .as_ref()
                 .map(|terminal| terminal.status.as_str()),
-            Some("interrupted")
+            Some("aborted")
         );
         {
             let delivered = delivered.lock().unwrap();
@@ -868,7 +872,15 @@ mod tests {
     fn late_native_output_is_rejected_after_user_stop() {
         let stream = test_stream();
         assert!(stream.finish_interrupted("user stop"));
-        let terminal_cursor = stream.snapshot().cursor;
+        let terminal_snapshot = stream.snapshot();
+        assert_eq!(
+            terminal_snapshot
+                .terminal
+                .as_ref()
+                .map(|terminal| terminal.status.as_str()),
+            Some("aborted")
+        );
+        let terminal_cursor = terminal_snapshot.cursor;
         stream.publish(CodexAgentHostEvent::MessageDelta {
             delta: "late".into(),
             channel: Some("final".into()),

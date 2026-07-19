@@ -136,6 +136,7 @@ assert.doesNotMatch(
 
 for (const retained of [
   'turn/interrupt',
+  'thread/backgroundTerminals/clean',
   'thread/start',
   'thread/resume',
   'item/reasoning/summaryTextDelta',
@@ -147,5 +148,6 @@ for (const retained of [
 }
 assert.match(rustHost, /native-agent-home-redacted/u);
 assert.match(rustHost, /Bearer\\s\+|\[secret-redacted\]/u);
+assert.match(rustHost, /Self::Interrupted\(_\)\s*=>\s*"aborted"/u);
 
 console.log('codex orchestration adapter contract OK');
