@@ -1,17 +1,19 @@
+import {
+  useInstalledPackages,
+  usePublishedDrafts,
+  useRegistryConnection,
+} from '@/data/market/queries.js';
+import type {
+  DraftStatus,
+  InstalledPackage,
+  ManageView,
+  PublishedDraft,
+} from '@/data/market/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { ExternalLink, Loader2, Settings2, Store, UploadCloud } from 'lucide-react';
-import {
-  type DraftStatus,
-  type InstalledPackage,
-  type ManageView,
-  type PublishedDraft,
-  useInstalledPackages,
-  usePublishedDrafts,
-  useRegistryConnection,
-} from './market-data.js';
 import {
   filterInstalledPackages,
   filterPublishedDrafts,

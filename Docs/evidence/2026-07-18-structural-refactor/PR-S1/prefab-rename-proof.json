@@ -1,0 +1,20 @@
+{
+  "base": "origin/main",
+  "oldRoot": "packages/renderer",
+  "newRoot": "packages/prefab",
+  "byteIdentical": [
+    "src/prefab/builtin-catalog.ts",
+    "src/prefab/default-zone-layouts.ts",
+    "src/prefab/index.ts",
+    "src/prefab/prefab-event-router.ts",
+    "src/prefab/state-machines.ts",
+    "tsconfig.json"
+  ],
+  "intentionalMetadataChanges": [
+    "package.json package name: @offisim/renderer -> @offisim/prefab",
+    "src/index.ts package header comment only"
+  ],
+  "sourceImportSitesUpdated": 6,
+  "dependencyManifestsUpdated": 2,
+  "staleOldReferencesInCodeConfigOrProductDocs": 0
+}

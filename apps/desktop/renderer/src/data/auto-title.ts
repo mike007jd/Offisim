@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { reposOrNull } from './adapters.js';
+import { queryKeys } from './query-keys.js';
 
 /** Persisted default title for a freshly created chat thread (DB schema default
  *  + core auto-title fallback contract). A thread still carrying this value has
@@ -82,8 +83,8 @@ export async function autoTitleThreadFromFirstMessage(input: {
   const result = await repos.chatThreads.updateTitle(input.threadId, title, { byUser: false });
   if (!result.persisted || result.title_set_by_user === 1) return null;
   await Promise.all([
-    input.queryClient.invalidateQueries({ queryKey: ['threads', input.projectId] }),
-    input.queryClient.invalidateQueries({ queryKey: ['unfinished-threads'] }),
+    input.queryClient.invalidateQueries({ queryKey: queryKeys.threads(input.projectId) }),
+    input.queryClient.invalidateQueries({ queryKey: queryKeys.unfinishedThreads() }),
   ]);
   return result.title;
 }

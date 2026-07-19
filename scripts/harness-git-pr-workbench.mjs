@@ -34,7 +34,13 @@ requireText(
   'push binding must pin origin/current branch',
 );
 
-const uiPath = 'apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx';
+const uiPaths = [
+  'apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx',
+  'apps/desktop/renderer/src/surfaces/office/workspace-panel/FilesTab.tsx',
+  'apps/desktop/renderer/src/surfaces/office/workspace-panel/ProjectsTab.tsx',
+  'apps/desktop/renderer/src/surfaces/office/workspace-panel/GitTab.tsx',
+];
+const uiSource = uiPaths.map(source).join('\n');
 for (const contract of [
   "useState('')",
   'Stage selected',
@@ -50,7 +56,9 @@ for (const contract of [
   'operation(scope.projectId)',
   'isCurrentProjectScope(scope)',
 ]) {
-  requireText(uiPath, contract, `missing Git/PR UI contract: ${contract}`);
+  if (!uiSource.includes(contract)) {
+    failures.push(`${uiPaths.join(', ')}: missing Git/PR UI contract: ${contract}`);
+  }
 }
 
 requireText(

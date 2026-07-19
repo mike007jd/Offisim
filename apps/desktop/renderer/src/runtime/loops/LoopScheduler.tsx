@@ -1,6 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { startLoopAsParallelProjectRun } from '@/assistant/runtime/loop-send-execution.js';
 import { buildLoopService, useLoops } from '@/data/loops.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { getRepos } from '@/runtime/repos.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
@@ -85,7 +86,7 @@ export function LoopScheduler() {
           toast.error(`Scheduled Loop failed: ${loop.title}`);
         } finally {
           inFlightRef.current.delete(loop.loopId);
-          await queryClient.invalidateQueries({ queryKey: ['loops', companyId] });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.loops(companyId) });
         }
       }),
     );

@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   useDeliverables,
   useEmployeeMcpTools,
@@ -116,7 +117,7 @@ export function useThreadCapabilities(
   const deliverables = useDeliverables(threadId);
   const git = useGitWorkbench(projectId);
   const computerStatus = useQuery({
-    queryKey: ['computer-driver-status'],
+    queryKey: queryKeys.computerDriverStatus(),
     queryFn: loadComputerDriverStatus,
   });
 

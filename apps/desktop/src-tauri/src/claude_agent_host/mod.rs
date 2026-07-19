@@ -9,7 +9,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{
     append_sidecar_audit, dev_workspace_root, required_text, sidecar_script_path, trusted_host_env,
-    AgentHostLane, HostError, SidecarAudit,
+    AgentHostCliStatusResponse, AgentHostLane, HostError, SidecarAudit,
 };
 use crate::engine_skill_overlay::{
     materialize_engine_context_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
@@ -129,22 +129,7 @@ pub(crate) struct ClaudeAgentEnhanceRequest {
     source_provenance: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct ClaudeAgentStatusResponse {
-    pub(crate) engine_id: String,
-    pub(crate) display_name: String,
-    pub(crate) state: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) version: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) status_reason: Option<String>,
-    pub(crate) login_command: String,
-    pub(crate) docs_url: String,
-    pub(crate) source_url: String,
-    pub(crate) checked_at: String,
-    pub(crate) capabilities: serde_json::Value,
-}
+pub(crate) type ClaudeAgentStatusResponse = AgentHostCliStatusResponse;
 
 fn empty_response() -> PiAgentHostResponse {
     PiAgentHostResponse {

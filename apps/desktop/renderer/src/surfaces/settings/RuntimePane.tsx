@@ -1,5 +1,6 @@
 import { type SceneDropDiagnostic, useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { CapsLabel, CardBlock } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -72,7 +73,7 @@ export function RuntimePane() {
   const [lastVaultExport, setLastVaultExport] = useState<LocalExportResult | null>(null);
   const [lastSceneDiagnostic, setLastSceneDiagnostic] = useState<LocalExportResult | null>(null);
   const vaultQuery = useQuery({
-    queryKey: ['settings', 'runtime-vault-status'],
+    queryKey: queryKeys.settingsRuntimeVaultStatus(),
     queryFn: loadRuntimeVaultStatus,
   });
   const vaultStatus = vaultQuery.data;
