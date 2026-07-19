@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   type TokenBudgetSettings,
   loadTokenBudgets,
@@ -23,7 +24,7 @@ export function TokenBudgetSettingsCard() {
   const companyId = useUiState((state) => state.companyId) || null;
   const queryClient = useQueryClient();
   const budgets = useQuery({
-    queryKey: ['token-budgets', companyId],
+    queryKey: queryKeys.tokenBudgets(companyId),
     queryFn: () => loadTokenBudgets(companyId),
     enabled: companyId !== null,
   });
@@ -40,8 +41,8 @@ export function TokenBudgetSettingsCard() {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['token-budgets', companyId] }),
-        queryClient.invalidateQueries({ queryKey: ['run-cost'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.tokenBudgets(companyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.runCostAll() }),
       ]);
       toast.success('Token budget alerts updated');
     },

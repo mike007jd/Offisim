@@ -1,7 +1,7 @@
 /**
  * Dramaturgy performance + child-run stress gate (Phase 6, source plan §15).
  *
- * Two guarantees, pure Node via tsx against shared-types source:
+ * Two guarantees, pure Node via tsx against dramaturgy source:
  *  1. PERFORMANCE — a 30-employee, deep-tree run's live staging pipeline
  *     (compose → project → mode) stays within a per-frame compute budget so it
  *     never blocks the render loop, and is byte-identical run-to-run.
@@ -20,7 +20,7 @@ import {
   applyDramaturgyMode,
   composeBeats,
   projectOfficeStaging,
-} from '../packages/shared-types/src/index.js';
+} from '../packages/dramaturgy/src/index.js';
 
 let failures = 0;
 let checks = 0;

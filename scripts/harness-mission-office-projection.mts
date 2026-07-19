@@ -9,7 +9,7 @@
  * the shared beat lifecycle (no forked beat system) and that an empty / non-
  * theatrical stream stages nothing (a plain chat is unchanged).
  *
- * Pure Node via tsx against shared-types source — no DOM, no 3D, no renderer, no
+ * Pure Node via tsx against dramaturgy source — no DOM, no 3D, no renderer, no
  * Pi. Mirrors the agent-run office-projection gate.
  */
 import {
@@ -18,7 +18,7 @@ import {
   beatLifespanMs,
   projectMissionEventToBeat,
   projectMissionEvents,
-} from '../packages/shared-types/src/index.js';
+} from '../packages/dramaturgy/src/index.js';
 
 let failures = 0;
 let checks = 0;

@@ -5,19 +5,21 @@
  * project session and one global next-boundary timer. Scheduler state survives
  * surface switches; a long unmounted gap is rebased by the pure reducer with no
  * catch-up burst. This module owns wall-clock/timer mechanics only — the actual
- * decisions live in shared-types and remain replayable.
+ * decisions live in @offisim/dramaturgy and remain replayable.
  */
 import {
-  type AmbientActorAvailability,
-  type AmbientActorDirection,
-  type AmbientActorHome,
-  type AmbientRoutePlanner,
-  type AmbientSchedulerState,
-  type DramaturgyMode,
-  type StagingPrefab,
   advanceAmbientScheduler,
   ambientPolicyForMode,
   compareStrings as cmpString,
+} from '@offisim/dramaturgy';
+import type {
+  AmbientActorAvailability,
+  AmbientActorDirection,
+  AmbientActorHome,
+  AmbientRoutePlanner,
+  AmbientSchedulerState,
+  DramaturgyMode,
+  StagingPrefab,
 } from '@offisim/shared-types';
 import { useEffect, useId, useMemo, useSyncExternalStore } from 'react';
 

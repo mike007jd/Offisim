@@ -13,7 +13,7 @@
  *  - performanceForBeat is total (every beat kind → a defined layered state) and
  *    refines work gesture from the tool-fact activity kind.
  *
- * Pure Node via tsx against shared-types source — no DOM, no renderer, no Pi.
+ * Pure Node via tsx against dramaturgy source — no DOM, no renderer, no Pi.
  */
 import {
   type CharacterPerformanceState,
@@ -23,7 +23,7 @@ import {
   performanceForBeat,
   reserveStaging,
   worldAnchorsFor,
-} from '../packages/shared-types/src/index.js';
+} from '../packages/dramaturgy/src/index.js';
 
 let failures = 0;
 let checks = 0;

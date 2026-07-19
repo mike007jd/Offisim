@@ -1,6 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useAgentRuntimeModels } from '@/assistant/composer/usePiAgentModels.js';
 import { reposOrNull } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   useCompanies,
   useDeliverables,
@@ -165,7 +166,7 @@ export function FirstRunGuide() {
       const repos = await reposOrNull();
       if (!repos) throw new Error('Engine setup requires the desktop app.');
       await repos.employees.update(employee.id, { model: preferredModel.value });
-      await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
       toast.success(`${preferredModel.name} is ready for ${employee.name}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Engine setup failed');

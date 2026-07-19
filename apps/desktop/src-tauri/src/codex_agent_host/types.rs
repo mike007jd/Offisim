@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub(crate) use crate::agent_host_runtime::AgentHostCliStatusResponse as CodexAgentStatusResponse;
+
 use crate::git::CompetitiveDraftContext;
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -313,20 +315,4 @@ pub struct CodexRunStreamSnapshot {
     pub buffered: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal: Option<CodexRunStreamTerminal>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodexAgentStatusResponse {
-    pub engine_id: String,
-    pub display_name: String,
-    pub state: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub version: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status_reason: Option<String>,
-    pub login_command: String,
-    pub docs_url: String,
-    pub checked_at: String,
-    pub capabilities: serde_json::Value,
 }

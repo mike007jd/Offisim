@@ -12,9 +12,7 @@ import {
 } from '../apps/desktop/renderer/src/runtime/employee-project-memory.js';
 
 const platformRequire = createRequire(new URL('../apps/platform/package.json', import.meta.url));
-const coreBrowserUrl = pathToFileURL(
-  platformRequire.resolve('@offisim/core/dist/browser.js'),
-).href;
+const coreBrowserUrl = pathToFileURL(platformRequire.resolve('@offisim/core/dist/browser.js')).href;
 type CoreBrowserModule = typeof import('@offisim/core/browser');
 const { createMemoryRepositories } = (await import(coreBrowserUrl)) as CoreBrowserModule;
 
@@ -36,7 +34,7 @@ const claudeHost = read('apps/desktop/src-tauri/src/claude_agent_host/mod.rs');
 const overlay = read('apps/desktop/src-tauri/src/engine_skill_overlay.rs');
 const persona = read('apps/desktop/renderer/src/data/employee-persona.ts');
 const childSupervisor = read('scripts/pi-child-supervisor.mjs');
-const desktopRuntime = read('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
+const agentRunPersistence = read('apps/desktop/renderer/src/runtime/agent-run-persistence.ts');
 
 check(
   schema.includes('CREATE TABLE IF NOT EXISTS employee_project_memories'),
@@ -77,7 +75,7 @@ check(
   'Pi child resource loaders append the delegated employee experience',
 );
 check(
-  desktopRuntime.includes('after delegated run terminal'),
+  agentRunPersistence.includes('after delegated run terminal'),
   'delegated child terminals participate in automatic distillation',
 );
 

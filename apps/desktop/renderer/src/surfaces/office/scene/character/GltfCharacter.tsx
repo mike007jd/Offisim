@@ -1,10 +1,6 @@
 import type { ResolvedAppearance } from '@/lib/avatar.js';
-import {
-  CHARACTER_WALK_ANIMATION_TIME_SCALE,
-  type CharacterPerformanceState,
-  type CharacterStatus,
-  performanceForStatus,
-} from '@offisim/shared-types';
+import { CHARACTER_WALK_ANIMATION_TIME_SCALE, performanceForStatus } from '@offisim/dramaturgy';
+import type { CharacterPerformanceState, CharacterStatus } from '@offisim/shared-types';
 import { useAnimations } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';

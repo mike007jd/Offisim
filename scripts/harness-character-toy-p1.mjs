@@ -59,9 +59,13 @@ const requiredPropNodes = [...reachableAccessories]
   .sort();
 const avatar = await text(join(ROOT, 'apps/desktop/renderer/src/lib/avatar.ts'));
 const adapters = await text(join(ROOT, 'apps/desktop/renderer/src/data/adapters.ts'));
-const personnelSurface = await text(
-  join(ROOT, 'apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx'),
-);
+const personnelSurface = (
+  await Promise.all([
+    text(join(ROOT, 'apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx')),
+    text(join(ROOT, 'apps/desktop/renderer/src/surfaces/personnel/EmployeeDetail.tsx')),
+    text(join(ROOT, 'apps/desktop/renderer/src/surfaces/personnel/HireEmployeeDialog.tsx')),
+  ])
+).join('\n');
 const appearanceTab = await text(
   join(ROOT, 'apps/desktop/renderer/src/surfaces/personnel/AppearanceTab.tsx'),
 );
