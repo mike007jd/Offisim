@@ -1,5 +1,6 @@
 import type { ConversationRunPhase } from '@/assistant/runtime/conversation-run-controller.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
+import { queryKeys } from '@/data/query-keys.js';
 import type {
   ReviewAnnotation,
   ReviewDecision,
@@ -331,7 +332,7 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
   );
   const hasLiveMissionRuns = activeMissionRuns.some((run) => run.companyId === companyId);
   const runs = useQuery({
-    queryKey: ['task-board', companyId],
+    queryKey: queryKeys.taskBoard(companyId),
     queryFn: async () => {
       if (!companyId) return { rows: [], attemptRunIds: [] as string[] };
       const repos = await getRepos();
@@ -763,7 +764,7 @@ export async function hydrateEventlessWorkspaceLeaseDiffs(
 export function workspaceLeaseReviewsQueryOptions(projectIds: readonly string[]) {
   const scopeProjectIds = [...new Set(projectIds.filter(Boolean))].sort();
   return {
-    queryKey: ['workspace-lease-reviews', scopeProjectIds] as const,
+    queryKey: queryKeys.workspaceLeaseReviews(scopeProjectIds),
     queryFn: async () => {
       const repos = await getRepos();
       const perProject = await Promise.all(

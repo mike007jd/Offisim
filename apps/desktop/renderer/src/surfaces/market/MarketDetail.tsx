@@ -1,3 +1,4 @@
+import { INSTALLABLE_KINDS, type MarketListing } from '@/data/market/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Chip } from '@/design-system/grammar/Chip.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -20,12 +21,7 @@ import {
 import { motion } from 'motion/react';
 import { type CSSProperties, useState } from 'react';
 import { kindIcon } from './MarketCover.js';
-import {
-  INSTALLABLE_KINDS,
-  type MarketListing,
-  canInstallListing,
-  getRarityTone,
-} from './market-data.js';
+import { canInstallListing, getRarityTone } from './market-presentation.js';
 
 interface MarketDetailProps {
   listing: MarketListing;

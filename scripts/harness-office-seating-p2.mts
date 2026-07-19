@@ -427,7 +427,7 @@ check(
 check(
   'zone reassign commits shared cache only after repository success',
   queries.includes('onSuccess: ({ employeeId, zoneId, persisted })') &&
-    queries.includes("setQueryData<Employee[]>(['employees', companyId]") &&
+    queries.includes('setQueryData<Employee[]>(queryKeys.employees(companyId)') &&
     !queries.includes('previousEmployees'),
 );
 check(

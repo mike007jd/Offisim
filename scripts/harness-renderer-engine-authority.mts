@@ -270,13 +270,16 @@ assert.deepEqual(
 );
 
 const runtimeSource = source('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
+const executionSelectionSource = source(
+  '../apps/desktop/renderer/src/runtime/execution-selection.ts',
+);
 assert.match(runtimeSource, /readonly capabilities: RuntimeEngineCapabilityManifest/u);
 assert.match(runtimeSource, /getEngineCapabilities\(engineId: string\)/u);
 assert.match(runtimeSource, /context\?\.requestId !== answer\.requestId/u);
 assert.match(runtimeSource, /context\.executionTarget\?\.engineId/u);
 assert.doesNotMatch(runtimeSource, /adapters\.size\s*!==\s*1/u);
-assert.match(runtimeSource, /modelId: 'engine-managed'/u);
-assert.match(runtimeSource, /modelSource: \{ kind: 'native' \}/u);
+assert.match(executionSelectionSource, /modelId: 'engine-managed'/u);
+assert.match(executionSelectionSource, /modelSource: \{ kind: 'native' \}/u);
 
 const composerSource = source(
   '../apps/desktop/renderer/src/assistant/composer/ComposerSettingsMenu.tsx',

@@ -4,6 +4,7 @@ import {
   employeeSeniorityLabel,
   employeeTrackRecordLabel,
 } from '@/data/employee-seniority.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -67,7 +68,7 @@ interface ExperienceData {
 
 function useEmployeeExperience(employeeId: string, companyId: string) {
   return useQuery({
-    queryKey: ['personnel', 'experience', employeeId],
+    queryKey: queryKeys.employeeExperience(employeeId),
     queryFn: async (): Promise<ExperienceData> => {
       const repos = await getRepos();
       const [memories, projects, runs, attempts] = await Promise.all([
@@ -195,8 +196,8 @@ export function ExperienceTab({
 
   const refresh = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['personnel', 'experience', employeeId] }),
-      queryClient.invalidateQueries({ queryKey: ['employee-seniority', companyId] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.employeeExperience(employeeId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.employeeSeniorityCompany(companyId) }),
     ]);
   };
 

@@ -147,6 +147,18 @@ const desktopRuntimeSource = readFileSync(
   ),
   'utf8',
 );
+const agentRunPersistenceSource = readFileSync(
+  fileURLToPath(
+    new URL('../apps/desktop/renderer/src/runtime/agent-run-persistence.ts', import.meta.url),
+  ),
+  'utf8',
+);
+const hostEventDispatchSource = readFileSync(
+  fileURLToPath(
+    new URL('../apps/desktop/renderer/src/runtime/host-event-dispatch.ts', import.meta.url),
+  ),
+  'utf8',
+);
 const chatMessageEventsSource = readFileSync(
   fileURLToPath(
     new URL('../apps/desktop/renderer/src/data/chat-message-events.ts', import.meta.url),
@@ -394,10 +406,13 @@ check('terminal host streams remain eligible for renderer replay and DB reconcil
   );
   assert.doesNotMatch(reattachBody, /if \(!snapshot\?\.running\) continue/u);
   assert.match(reattachBody, /this\.invokeReattach/u);
-  assert.match(reattachBody, /event\.kind === 'result'/u);
+  assert.match(
+    hostEventDispatchSource,
+    /const result: HostEventHandler<'result'>[\s\S]*?active\.onResult\(event\)/u,
+  );
   assert.match(
     reattachBody,
-    /status: 'failed',[\s\S]*?text: accumulatedContentText,[\s\S]*?error: event\.message/u,
+    /onError: \(errorEvent:[\s\S]*?status: 'failed',[\s\S]*?text: accumulatedContentText,[\s\S]*?error: errorEvent\.message/u,
     'failed reattach terminal must preserve the host error separately from partial assistant text',
   );
   assert.match(reattachBody, /pendingTerminalCheckpoint/u);
@@ -407,7 +422,7 @@ check('terminal host streams remain eligible for renderer replay and DB reconcil
   const checkpointBody = reattachBody.slice(checkpointStart, checkpointEnd);
   const commitDefinition = checkpointBody.indexOf('const commit = () =>');
   const queuedCommit = checkpointBody.indexOf('this.persistQueue.enqueueTerminalCheckpoint');
-  const terminalPersist = checkpointBody.indexOf('this.persistRootTerminal(');
+  const terminalPersist = checkpointBody.indexOf('this.persistQueue.persistRootTerminal(');
   const publishDefinition = checkpointBody.indexOf('const publishTerminal = (): void =>');
   const publishAfterCommit = checkpointBody.indexOf(
     'const outcome = commit().then(publishTerminal)',
@@ -422,10 +437,13 @@ check('terminal host streams remain eligible for renderer replay and DB reconcil
       publishAfterCommit > publishDefinition,
     'reattach must publish terminal UI only after the single durable terminal checkpoint commits',
   );
-  const terminalStart = desktopRuntimeSource.indexOf('private async persistRootTerminal(');
-  const terminalEnd = desktopRuntimeSource.indexOf('/** Persist a delegation run', terminalStart);
+  const terminalStart = agentRunPersistenceSource.indexOf('async persistRootTerminal(');
+  const terminalEnd = agentRunPersistenceSource.indexOf(
+    '/** Persist a delegation run',
+    terminalStart,
+  );
   assert.ok(terminalStart >= 0 && terminalEnd > terminalStart);
-  const terminalBody = desktopRuntimeSource.slice(terminalStart, terminalEnd);
+  const terminalBody = agentRunPersistenceSource.slice(terminalStart, terminalEnd);
   const transaction = terminalBody.indexOf('await this.repos.asyncTransact(');
   const rootStatusWrite = terminalBody.indexOf('tx.agentRuns.updateStatus(rootRunId, status');
   const contextWrite = terminalBody.indexOf('tx.agentRuns.updateRuntimeContext(');
@@ -464,15 +482,15 @@ check('terminal host streams remain eligible for renderer replay and DB reconcil
 });
 
 check('empty reload terminals retain the last durable assistant checkpoint', () => {
-  const projectionStart = desktopRuntimeSource.indexOf(
-    'private async buildLiveConversationTerminalMessage(',
+  const projectionStart = agentRunPersistenceSource.indexOf(
+    'async buildLiveConversationTerminalMessage(',
   );
-  const projectionEnd = desktopRuntimeSource.indexOf(
-    'private async persistRunStreamCursor(',
+  const projectionEnd = agentRunPersistenceSource.indexOf(
+    'async persistRootTerminal(',
     projectionStart,
   );
   assert.ok(projectionStart >= 0 && projectionEnd > projectionStart);
-  const projectionBody = desktopRuntimeSource.slice(projectionStart, projectionEnd);
+  const projectionBody = agentRunPersistenceSource.slice(projectionStart, projectionEnd);
   assert.match(projectionBody, /loadPersistedChatMessageWithRepositories\(\{/u);
   assert.match(projectionBody, /messageId: projection\.assistantMessageId/u);
   assert.match(projectionBody, /terminal\.text\.trim\(\) \|\| existing\?\.body\.trim\(\)/u);

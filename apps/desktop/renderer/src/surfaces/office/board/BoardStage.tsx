@@ -1,6 +1,14 @@
 import { useUiState } from '@/app/ui-state.js';
 import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
 import { useInterruptedRunRecovery } from '@/assistant/runtime/conversation-run-react.js';
+import {
+  type TaskBoardRow,
+  type TaskBoardStatus,
+  type WorkspaceLeaseReviewRow,
+  useProjectWorkspaceLeaseReviews,
+  useTaskBoard,
+  workspaceLeaseReviewsQueryOptions,
+} from '@/data/board/task-board-data.js';
 import { useCompanyEmployees, useProjects } from '@/data/queries.js';
 import { cn } from '@/lib/utils.js';
 import { getRepos } from '@/runtime/repos.js';
@@ -26,14 +34,6 @@ import { BoardDrawer } from './BoardDrawer.js';
 import { BoardTimeline } from './BoardTimeline.js';
 import { CompetitiveDraftDialog } from './CompetitiveDraftDialog.js';
 import { startCompetitiveDraft } from './competitive-draft-actions.js';
-import {
-  type TaskBoardRow,
-  type TaskBoardStatus,
-  type WorkspaceLeaseReviewRow,
-  useProjectWorkspaceLeaseReviews,
-  useTaskBoard,
-  workspaceLeaseReviewsQueryOptions,
-} from './task-board-data.js';
 import { useWorkspaceLeaseDecisionVersion } from './use-workspace-lease-decision.js';
 import {
   type WorkspaceLeaseReviewOutcome,
