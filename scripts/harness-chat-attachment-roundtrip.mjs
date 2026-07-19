@@ -89,6 +89,10 @@ function codexEmptyImageWireShape() {
     new URL('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts', import.meta.url),
     'utf8',
   );
+  const hostEventDispatchSource = readFileSync(
+    new URL('../apps/desktop/renderer/src/runtime/host-event-dispatch.ts', import.meta.url),
+    'utf8',
+  );
   const commandTypesSource = readFileSync(
     new URL('../apps/desktop/renderer/src/lib/tauri-commands.ts', import.meta.url),
     'utf8',
@@ -116,7 +120,7 @@ function codexEmptyImageWireShape() {
     /images: Array<\{ data: string; mimeType: string \}>;/.test(commandTypesSource) &&
     /artifact_paths: Option<Vec<String>>/.test(codexTypesSource) &&
     /projected_file_change_paths/.test(codexProtocolSource) &&
-    /rootRun\('artifact\.created'/.test(runtimeSource);
+    /rootRun\('artifact\.created'/.test(hostEventDispatchSource);
   if (!ok) {
     console.error('[chat-attachment-roundtrip] FAIL Codex empty image wire shape');
     return false;

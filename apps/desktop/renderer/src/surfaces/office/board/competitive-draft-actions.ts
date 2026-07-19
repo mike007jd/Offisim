@@ -1,8 +1,8 @@
 import { conversationRunController } from '@/assistant/runtime/conversation-run-controller.js';
+import type { WorkspaceLeaseReviewRow } from '@/data/board/task-board-data.js';
 import { distillCompetitiveDraftLoserMemory } from '@/runtime/employee-project-memory.js';
 import { getRepos } from '@/runtime/repos.js';
 import type { CompetitiveDraftAttemptRow, CompetitiveDraftGroupRow } from '@offisim/core/browser';
-import type { WorkspaceLeaseReviewRow } from './task-board-data.js';
 import { reviewWorkspaceLease } from './workspace-lease-actions.js';
 
 export interface StartCompetitiveDraftInput {

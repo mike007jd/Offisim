@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * MCP host park-channel oracle (Epic B, B2) — the host→Rust mcpCall round-trip.
  *
@@ -17,22 +21,8 @@
 
 import assert from 'node:assert/strict';
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
-
-let passed = 0;
-let failed = 0;
 const TOTAL = 7;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 function makeChannel(timeoutMs?: number, keepTimeoutRef = false) {
   const emitted: Array<Record<string, unknown>> = [];
@@ -135,11 +125,13 @@ async function main(): Promise<void> {
     assert.match(String(result.error), /slow-server\.slow_tool/);
   });
 
-  console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
-  if (failed > 0 || passed !== TOTAL) process.exit(1);
+  console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
+  if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
 }
 
-main().catch((err) => {
+await main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+if (!process.exitCode) h.report();

@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * PE1 gate — wire employee versions on a normal Profile/Appearance save.
  *
@@ -25,19 +29,7 @@ import './harness-employee-version-on-save.loader-register.mjs';
 
 import { recordEmployeeVersionOnSave } from '../apps/desktop/renderer/src/surfaces/personnel/personnel-data.js';
 import { createMemoryRepositories } from '../packages/core/src/browser.js';
-
-let failures = 0;
-let checks = 0;
-
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const check = h.check;
 
 function parseSnapshot(raw: string): Record<string, unknown> {
   return JSON.parse(raw) as Record<string, unknown>;
@@ -138,12 +130,14 @@ async function main(): Promise<void> {
   );
 
   console.log(
-    `\n${failures === 0 ? 'PASS' : 'FAIL'} — ${checks - failures}/${checks} checks passed`,
+    `\n${h.failures === 0 ? 'PASS' : 'FAIL'} — ${h.checks - h.failures}/${h.checks} checks passed`,
   );
-  if (failures > 0) process.exit(1);
+  if (h.failures > 0) process.exit(1);
 }
 
-main().catch((err) => {
+await main().catch((err) => {
   console.error('harness crashed:', err);
   process.exit(1);
 });
+
+if (!process.exitCode) h.report();

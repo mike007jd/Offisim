@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 import type {
   ConversationRunSnapshot,
   ConversationRunsSnapshot,
@@ -15,9 +19,9 @@ import { groupedWorkload } from '../apps/desktop/renderer/src/assistant/runtime/
  * place with no anchor, and approval/failure react in place. Deterministic, so
  * 2D and 3D direct the same actor to the same place.
  *
- * Pure Node via tsx against shared-types source — no DOM, no renderer, no Pi.
+ * Pure Node via tsx against dramaturgy source — no DOM, no renderer, no Pi.
  */
-import type { SceneBeat } from '../packages/shared-types/src/index.js';
+import type { SceneBeat } from '../packages/dramaturgy/src/index.js';
 import {
   IDLE_PERFORMANCE,
   type StagingPrefab,
@@ -25,18 +29,8 @@ import {
   composeBeats,
   performanceForBeat,
   projectOfficeStaging,
-} from '../packages/shared-types/src/index.js';
-
-let failures = 0;
-let checks = 0;
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) console.log(`  ✓ ${name}`);
-  else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+} from '../packages/dramaturgy/src/index.js';
+const check = h.check;
 
 const THREAD = 'thread-1';
 const ROOT = 'root-1';
@@ -842,9 +836,11 @@ console.log('\n[acceptance] snapshot → projection → grouped bubble');
   );
 }
 
-console.log(`\noffice-projection: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`office-projection gate FAILED with ${failures} failure(s)`);
+console.log(`\noffice-projection: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`office-projection gate FAILED with ${h.failures} failure(s)`);
   process.exit(1);
 }
 console.log('office-projection gate PASSED');
+
+if (!process.exitCode) h.report();

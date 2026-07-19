@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { useEmployees } from '@/data/queries.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { CapsLabel, CardBlock, StatusPill } from '@/design-system/grammar/index.js';
@@ -164,8 +165,8 @@ export function McpServerDetailPane({
 
   async function refreshGrantViews() {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['settings', 'mcp-tool-grants'] }),
-      queryClient.invalidateQueries({ queryKey: ['employee-mcp-tools'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.settingsMcpToolGrantsAll() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.employeeMcpToolsAll() }),
     ]);
   }
 

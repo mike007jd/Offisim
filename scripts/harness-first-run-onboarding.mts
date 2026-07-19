@@ -28,7 +28,7 @@ assert.ok(FIRST_RUN_EXAMPLE_PROMPT.length < 500, 'example request must stay ligh
 const sourceFiles = await Promise.all(
   [
     'apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx',
-    'apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx',
+    'apps/desktop/renderer/src/surfaces/office/workspace-panel/ProjectsTab.tsx',
     'apps/desktop/renderer/src/surfaces/office/rail/ThreadList.tsx',
     'apps/desktop/renderer/src/surfaces/settings/AiAccountsPane.tsx',
   ].map((path) => readFile(resolve(root, path), 'utf8')),

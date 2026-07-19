@@ -2,7 +2,6 @@ use serde::Serialize;
 use sqlx::SqlitePool;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex, MutexGuard};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent, WebviewBuilder};
 use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Rect, Runtime, State, Webview,
@@ -575,10 +574,8 @@ fn append_audit<R: Runtime>(
 }
 
 fn now_unix_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
-        .unwrap_or_default()
+    // Canonical clock is i64 (non-negative in practice); this lane keeps u64.
+    crate::time_util::now_unix_ms() as u64
 }
 
 fn emit_snapshot<R: Runtime>(

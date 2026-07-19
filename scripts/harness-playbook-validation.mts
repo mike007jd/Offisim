@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Playbook validation oracle (PRD §25.2, §20.3, §26.2 — slices PB-001..004).
  *
@@ -45,23 +49,7 @@ import {
 } from '../packages/core/src/runtime/mission/playbook/validate.ts';
 import type { MissionPlaybook } from '../packages/shared-types/src/index.ts';
 import type { RuntimeCapabilities } from '../packages/shared-types/src/index.ts';
-
-let passed = 0;
-let failed = 0;
-const checks: string[] = [];
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  checks.push(name);
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 const registry = createDefaultEvaluatorRegistry();
 
@@ -911,9 +899,11 @@ await check('INJECT-PROOF (§18.1): an all-required:false playbook is REJECTED',
   );
 });
 
-const total = checks.length;
-if (failed > 0) {
-  console.error(`\nplaybook-validation: ${passed}/${total} passed (${failed} failed)`);
+const total = h.checks;
+if (h.failures > 0) {
+  console.error(`\nplaybook-validation: ${(h.checks - h.failures)}/${total} passed (${h.failures} failed)`);
   process.exit(1);
 }
 console.log(`\nplaybook-validation: ${total}/${total} passed`);
+
+if (!process.exitCode) h.report();

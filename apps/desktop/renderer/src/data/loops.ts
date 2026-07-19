@@ -1,6 +1,7 @@
 import { buildEnhanceRequest, runEnhance } from '@/assistant/enhance/service.js';
 import { createTauriEnhanceTransport } from '@/assistant/enhance/tauri-enhance-transport.js';
 import { reposOrNull } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   type CreateLoopInput,
   type LoopCompileInput,
@@ -69,14 +70,6 @@ export function buildLoopService(repos: RuntimeRepositories): LoopService {
     newId: () => generateId('loop'),
   });
 }
-
-const loopKeys = {
-  list: (companyId: string | null) => ['loops', companyId] as const,
-  detail: (loopId: string | null) => ['loop', loopId] as const,
-  revisions: (loopId: string | null) => ['loop-revisions', loopId] as const,
-  revision: (revisionId: string | null) => ['loop-revision', revisionId] as const,
-  runs: (companyId: string | null) => ['loop-runs', companyId] as const,
-};
 
 export interface LoopRunView extends LoopInvocationRow {
   loopTitle: string;
@@ -147,7 +140,7 @@ function createLoopCompileModel(opts?: {
 /** All loops for a company — feeds the `/loop` searchable picker. */
 export function useLoops(companyId: string | null) {
   return useQuery<LoopDefinition[]>({
-    queryKey: loopKeys.list(companyId),
+    queryKey: queryKeys.loops(companyId),
     queryFn: async () => {
       if (!companyId) return [];
       const repos = await reposOrNull();
@@ -163,7 +156,7 @@ export function useLoops(companyId: string | null) {
 /** Only executions materialized from Loops; ordinary company Missions never appear here. */
 export function useLoopRuns(companyId: string | null) {
   return useQuery<LoopRunView[]>({
-    queryKey: loopKeys.runs(companyId),
+    queryKey: queryKeys.loopRuns(companyId),
     queryFn: async () => {
       if (!companyId) return [];
       const repos = await reposOrNull();
@@ -218,7 +211,7 @@ export function useConfigureLoopSchedule(companyId: string | null) {
       if (!repos) throw new Error('Scheduling a Loop needs the desktop app.');
       return buildLoopService(repos).configureSchedule(input.loopId, input.intervalMinutes);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: loopKeys.list(companyId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.loops(companyId) }),
   });
 }
 
@@ -276,7 +269,7 @@ export async function compileLoopPreview(input: {
 /** A single loop definition (its title/summary/status/current revision). */
 export function useLoop(loopId: string | null) {
   return useQuery<LoopDefinition | null>({
-    queryKey: loopKeys.detail(loopId),
+    queryKey: queryKeys.loop(loopId),
     queryFn: async () => {
       if (!loopId) return null;
       return getLoopDefinition(loopId);
@@ -288,7 +281,7 @@ export function useLoop(loopId: string | null) {
 /** All revisions of a loop, newest-first (the version menu / picker). */
 export function useLoopRevisions(loopId: string | null) {
   return useQuery<LoopRevision[]>({
-    queryKey: loopKeys.revisions(loopId),
+    queryKey: queryKeys.loopRevisions(loopId),
     queryFn: async () => {
       if (!loopId) return [];
       const repos = await reposOrNull();
@@ -317,7 +310,7 @@ export function useCreateLoop(companyId: string | null) {
       return buildLoopService(repos).createLoop({ companyId, ...input });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: loopKeys.list(companyId) });
+      qc.invalidateQueries({ queryKey: queryKeys.loops(companyId) });
     },
   });
 }
@@ -360,8 +353,8 @@ export function useUpdateLoopDraftSummary(companyId: string | null) {
       });
     },
     onSuccess: (updated) => {
-      qc.setQueryData(loopKeys.detail(updated.loopId), updated);
-      qc.setQueryData<LoopDefinition[] | undefined>(loopKeys.list(companyId), (rows) =>
+      qc.setQueryData(queryKeys.loop(updated.loopId), updated);
+      qc.setQueryData<LoopDefinition[] | undefined>(queryKeys.loops(companyId), (rows) =>
         rows?.map((row) => (row.loopId === updated.loopId ? updated : row)),
       );
     },
@@ -381,9 +374,9 @@ export function useSaveLoopRevision(companyId: string | null) {
       return buildLoopService(repos).saveCompiledRevision(input);
     },
     onSuccess: (_result, vars) => {
-      qc.invalidateQueries({ queryKey: loopKeys.detail(vars.loopId) });
-      qc.invalidateQueries({ queryKey: loopKeys.revisions(vars.loopId) });
-      qc.invalidateQueries({ queryKey: loopKeys.list(companyId) });
+      qc.invalidateQueries({ queryKey: queryKeys.loop(vars.loopId) });
+      qc.invalidateQueries({ queryKey: queryKeys.loopRevisions(vars.loopId) });
+      qc.invalidateQueries({ queryKey: queryKeys.loops(companyId) });
     },
   });
 }
@@ -398,11 +391,11 @@ export function useSelectLoopRevision(companyId: string | null) {
       return buildLoopService(repos).selectRevision(input.loopId, input.revisionId);
     },
     onSuccess: (_result, vars) => {
-      qc.invalidateQueries({ queryKey: loopKeys.detail(vars.loopId) });
+      qc.invalidateQueries({ queryKey: queryKeys.loop(vars.loopId) });
       // The editor re-hydrates from `revisions.data` keyed by the new current id;
       // without this the re-hydration reads a stale list and flickers back.
-      qc.invalidateQueries({ queryKey: loopKeys.revisions(vars.loopId) });
-      qc.invalidateQueries({ queryKey: loopKeys.list(companyId) });
+      qc.invalidateQueries({ queryKey: queryKeys.loopRevisions(vars.loopId) });
+      qc.invalidateQueries({ queryKey: queryKeys.loops(companyId) });
     },
   });
 }
@@ -417,7 +410,7 @@ export function useArchiveLoop(companyId: string | null) {
       return buildLoopService(repos).archiveLoop(loopId);
     },
     onSuccess: (_result, _loopId) => {
-      qc.invalidateQueries({ queryKey: loopKeys.list(companyId) });
+      qc.invalidateQueries({ queryKey: queryKeys.loops(companyId) });
     },
   });
 }
@@ -468,7 +461,7 @@ export function useDuplicateLoop(companyId: string | null) {
       return copy;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: loopKeys.list(companyId) });
+      qc.invalidateQueries({ queryKey: queryKeys.loops(companyId) });
     },
   });
 }

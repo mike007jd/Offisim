@@ -3,11 +3,12 @@ import {
   type AgentRuntimeModelOption,
   useAgentRuntimeModels,
 } from '@/assistant/composer/usePiAgentModels.js';
+import { SelectableCard } from '@/components/SelectableCard.js';
 import { reposOrNull } from '@/data/adapters.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   type ProjectChatThreadRow,
   loadProjectChatThreadRows,
-  projectChatThreadRowsQueryKey,
   useEmployees,
   useMessages,
   useOfficeLayout,
@@ -385,15 +386,15 @@ export function TeamDock() {
       return { employee, model, thinkingLevel };
     },
     onSuccess: ({ employee, model, thinkingLevel }) => {
-      queryClient.setQueryData<Employee[]>(['employees', companyId], (current) =>
+      queryClient.setQueryData<Employee[]>(queryKeys.employees(companyId), (current) =>
         current?.map((candidate) =>
           candidate.id === employee.id
             ? { ...candidate, model: model || null, thinkingLevel }
             : candidate,
         ),
       );
-      queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
-      queryClient.invalidateQueries({ queryKey: ['personnel', 'versions', employee.id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employeeVersions(employee.id) });
       toast.success(`${employee.name} model updated`);
     },
     onError: (error) => {
@@ -410,12 +411,12 @@ export function TeamDock() {
       const existingThread = threads.data?.find((thread) => thread.employeeId === employee.id);
       if (existingThread) return { kind: 'existing', threadId: existingThread.id };
       const cachedRows = queryClient.getQueryData<ProjectChatThreadRow[]>(
-        projectChatThreadRowsQueryKey(projectId),
+        queryKeys.threads(projectId),
       );
       const cachedExisting = cachedRows?.find((thread) => thread.employee_id === employee.id);
       if (cachedExisting) return { kind: 'existing', threadId: cachedExisting.thread_id };
       const currentRows = await queryClient.fetchQuery({
-        queryKey: projectChatThreadRowsQueryKey(projectId),
+        queryKey: queryKeys.threads(projectId),
         queryFn: () => loadProjectChatThreadRows(projectId),
         staleTime: 5_000,
       });
@@ -507,9 +508,11 @@ export function TeamDock() {
           return (
             <Popover key={employee.id}>
               <PopoverTrigger asChild>
-                <button
+                <SelectableCard
                   type="button"
-                  className={cn('off-team-card off-focusable', active && 'is-active')}
+                  selected={active}
+                  selectedClassName="is-active"
+                  className="off-team-card off-focusable"
                 >
                   <EmployeeAvatar
                     seed={employee.id}
@@ -544,7 +547,7 @@ export function TeamDock() {
                       {PRESENCE_TEXT[presence]}
                     </span>
                   </span>
-                </button>
+                </SelectableCard>
               </PopoverTrigger>
               <PopoverContent align="start" className="off-team-popover">
                 <EmployeeDockPopover

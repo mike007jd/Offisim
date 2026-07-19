@@ -18,16 +18,18 @@ import {
 } from '@/runtime/mission/mission-events.js';
 import { runtimeEventBus } from '@/runtime/repos.js';
 import {
-  type AgentRunEvent,
   DRAMATURGY_VERSION,
-  type MissionBeatProjection,
-  type MissionLifecycleKind,
-  type RuntimeEvent,
-  type SceneBeat,
-  type TimedAgentRunEvent,
   composeBeats,
   isBeatLive,
   projectMissionEventToBeat,
+} from '@offisim/dramaturgy';
+import type {
+  AgentRunEvent,
+  MissionBeatProjection,
+  MissionLifecycleKind,
+  RuntimeEvent,
+  SceneBeat,
+  TimedAgentRunEvent,
 } from '@offisim/shared-types';
 import { useMemo, useSyncExternalStore } from 'react';
 

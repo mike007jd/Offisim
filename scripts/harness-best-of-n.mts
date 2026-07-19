@@ -19,7 +19,10 @@ const gitWorktreeOps = read(
 const review = read('apps/desktop/renderer/src/surfaces/office/board/ReviewWorkbenchStage.tsx');
 const dialog = read('apps/desktop/renderer/src/surfaces/office/board/CompetitiveDraftDialog.tsx');
 const board = read('apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx');
-const stage = read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx');
+const stage = [
+  read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx'),
+  read('apps/desktop/renderer/src/surfaces/office/stage-viewer/views/ChangesView.tsx'),
+].join('\n');
 const uiState = read('apps/desktop/renderer/src/app/ui-state.ts');
 const recovery = read('apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.ts');
 const recoveryHook = read('apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.ts');

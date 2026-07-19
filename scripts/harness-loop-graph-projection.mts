@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Loop graph projection + layout oracle (PR-09). Proves the PURE adapter + ELK
  * layout the read-only `LoopGraphPanel` renders, WITHOUT a DOM or React Flow
@@ -36,21 +40,7 @@ import type {
   LoopNode,
   LoopValidationFinding,
 } from '../packages/shared-types/src/index.ts';
-
-let passed = 0;
-let failed = 0;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 // ---------------------------------------------------------------------------
 // ELK factory (node bundle; worker-less constructor)
@@ -657,11 +647,13 @@ async function run(): Promise<void> {
     assert.ok(findingCodes(p).includes('graph.dangling_edge'));
   });
 
-  console.log(`\n${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
+  console.log(`\n${(h.checks - h.failures)} passed, ${h.failures} failed`);
+  if (h.failures > 0) process.exit(1);
 }
 
-run().catch((err) => {
+await run().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+if (!process.exitCode) h.report();

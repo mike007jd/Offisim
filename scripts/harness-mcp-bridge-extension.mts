@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * MCP bridge extension oracle (Epic B, B3) — the agent-facing 3 meta tools + the
  * write-tool execute-time confirm gate.
@@ -19,22 +23,8 @@
 import assert from 'node:assert/strict';
 import { parseToolRichDetail } from '../packages/shared-types/src/index.js';
 import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
-
-let passed = 0;
-let failed = 0;
 const TOTAL = 25;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 type Tool = Record<string, unknown> & { name: string };
 type ToolExecutionCtx = { ui?: { confirm?: () => Promise<boolean> | boolean } };
@@ -711,11 +701,13 @@ async function main(): Promise<void> {
     assert.ok(!preview.includes('ghp_abcdef1234567890'), 'token value must be masked');
   });
 
-  console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
-  if (failed > 0 || passed !== TOTAL) process.exit(1);
+  console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
+  if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
 }
 
-main().catch((err) => {
+await main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+if (!process.exitCode) h.report();

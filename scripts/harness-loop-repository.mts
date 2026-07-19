@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Loop repository / service oracle (PR-07). Drives the LoopService + in-memory
  * Loop repos and asserts the persistence invariants:
@@ -23,21 +27,7 @@ import {
 } from '../packages/core/src/loops/loop-service.ts';
 import type { LoopCompileModel, LoopModelOutput } from '../packages/core/src/loops/types.ts';
 import { createMemoryRepositories } from '../packages/core/src/runtime/memory-repositories.ts';
-
-let passed = 0;
-let failed = 0;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 function makeDeps(): LoopServiceDeps {
   let idSeq = 0;
@@ -493,8 +483,10 @@ await check('Loop schedule is opt-in, persists next/last state, and never backfi
   assert.equal(manual.nextRunAt, undefined);
 });
 
-if (failed > 0) {
-  console.error(`\nloop-repository: ${passed} passed, ${failed} failed`);
+if (h.failures > 0) {
+  console.error(`\nloop-repository: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
   process.exit(1);
 }
-console.log(`\nloop-repository: ${passed} checks passed`);
+console.log(`\nloop-repository: ${(h.checks - h.failures)} checks passed`);
+
+if (!process.exitCode) h.report();

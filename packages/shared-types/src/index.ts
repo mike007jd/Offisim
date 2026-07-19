@@ -360,25 +360,11 @@ export type {
   VisualPhase,
   VisualProp,
 } from './dramaturgy/beat-composer.js';
-export {
-  BEAT_PRIORITY,
-  DEFAULT_TIMING,
-  DRAMATURGY_VERSION,
-  beatLifespanMs,
-  composeBeats,
-  isBeatLive,
-  resourceSeverityRank,
-  surfacedResourceSeverity,
-} from './dramaturgy/beat-composer.js';
 export type {
   MissionBeatPhase,
   MissionBeatProjection,
   MissionLifecycleEvent,
   MissionLifecycleKind,
-} from './dramaturgy/mission-projection.js';
-export {
-  projectMissionEventToBeat,
-  projectMissionEvents,
 } from './dramaturgy/mission-projection.js';
 export type {
   ActorStaging,
@@ -387,12 +373,6 @@ export type {
   StagingPrefab,
   StagingRequest,
   WorldAnchor,
-} from './dramaturgy/staging.js';
-export {
-  BUILTIN_PREFAB_AFFORDANCES,
-  builtinPrefabAffordances,
-  reserveStaging,
-  worldAnchorsFor,
 } from './dramaturgy/staging.js';
 export type {
   CharacterPerformanceState,
@@ -406,27 +386,9 @@ export type {
   SocialGesture,
   WorkGesture,
 } from './dramaturgy/performance.js';
-export {
-  IDLE_PERFORMANCE,
-  performanceForBeat,
-  performanceForRoutine,
-  performanceForStatus,
-} from './dramaturgy/performance.js';
 export type { EmployeeStaging } from './dramaturgy/office-projection.js';
-export { currentBeatsByEmployee, projectOfficeStaging } from './dramaturgy/office-projection.js';
-export { animationTempoForRole } from './dramaturgy/profiles.js';
-export {
-  CHARACTER_TURN_RATE_PER_SECOND,
-  CHARACTER_WALK_ANIMATION_TIME_SCALE,
-  CHARACTER_WALK_SPEED_UNITS_PER_SECOND,
-} from './dramaturgy/character-motion.js';
 export type { DramaturgyMode, DramaturgyModeOptions } from './dramaturgy/modes.js';
 export type { AmbientModePolicy } from './dramaturgy/modes.js';
-export {
-  DEFAULT_MAX_WALKERS,
-  ambientPolicyForMode,
-  applyDramaturgyMode,
-} from './dramaturgy/modes.js';
 export type {
   AmbientActivity,
   AmbientActivityPhase,
@@ -443,13 +405,6 @@ export type {
   AmbientSchedulerInput,
   AmbientSchedulerSnapshot,
   AmbientSchedulerState,
-} from './dramaturgy/ambient.js';
-export {
-  AMBIENT_SCHEDULER_VERSION,
-  AMBIENT_TIMING,
-  advanceAmbientScheduler,
-  ambientActivityPhase,
-  compareStrings,
 } from './dramaturgy/ambient.js';
 export type {
   EmployeePerformanceAction,

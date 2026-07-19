@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Loop → Office Send invocation oracle (PR-10). Drives the PURE send-time
  * materializer (`apps/desktop/renderer/.../loop-office-invocation.ts`) over
@@ -59,21 +63,7 @@ import {
 } from '../packages/core/src/browser.ts';
 import type { LoopCompileModel, LoopModelOutput } from '../packages/core/src/loops/types.ts';
 import { createMemoryRepositories } from '../packages/core/src/runtime/memory-repositories.ts';
-
-let passed = 0;
-let failed = 0;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 // ---------------------------------------------------------------------------
 // Deterministic deps + fixtures
@@ -1061,5 +1051,7 @@ await check(
   },
 );
 
-console.log(`\nLoop Office invocation: ${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+console.log(`\nLoop Office invocation: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+if (h.failures > 0) process.exit(1);
+
+if (!process.exitCode) h.report();
