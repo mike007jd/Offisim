@@ -147,6 +147,12 @@ const desktopRuntimeSource = readFileSync(
   ),
   'utf8',
 );
+const hostEventDispatchSource = readFileSync(
+  fileURLToPath(
+    new URL('../apps/desktop/renderer/src/runtime/host-event-dispatch.ts', import.meta.url),
+  ),
+  'utf8',
+);
 const chatMessageEventsSource = readFileSync(
   fileURLToPath(
     new URL('../apps/desktop/renderer/src/data/chat-message-events.ts', import.meta.url),
@@ -394,10 +400,13 @@ check('terminal host streams remain eligible for renderer replay and DB reconcil
   );
   assert.doesNotMatch(reattachBody, /if \(!snapshot\?\.running\) continue/u);
   assert.match(reattachBody, /this\.invokeReattach/u);
-  assert.match(reattachBody, /event\.kind === 'result'/u);
+  assert.match(
+    hostEventDispatchSource,
+    /const result: HostEventHandler<'result'>[\s\S]*?active\.onResult\(event\)/u,
+  );
   assert.match(
     reattachBody,
-    /status: 'failed',[\s\S]*?text: accumulatedContentText,[\s\S]*?error: event\.message/u,
+    /onError: \(errorEvent:[\s\S]*?status: 'failed',[\s\S]*?text: accumulatedContentText,[\s\S]*?error: errorEvent\.message/u,
     'failed reattach terminal must preserve the host error separately from partial assistant text',
   );
   assert.match(reattachBody, /pendingTerminalCheckpoint/u);

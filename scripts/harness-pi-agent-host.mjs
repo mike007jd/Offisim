@@ -1131,6 +1131,10 @@ const desktopAgentRuntimeSource = readFileSync(
   'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
   'utf8',
 );
+const hostEventDispatchSource = readFileSync(
+  'apps/desktop/renderer/src/runtime/host-event-dispatch.ts',
+  'utf8',
+);
 const activityDataSource = readFileSync(
   'apps/desktop/renderer/src/surfaces/office/board/activity-data.ts',
   'utf8',
@@ -1150,8 +1154,8 @@ assert(
   'the bundled root host must preserve silent full-project verification fallback when LSP is unavailable',
 );
 assert(
-  /WORKSPACE_DIAGNOSTICS_UPDATED_EVENT/.test(desktopAgentRuntimeSource) &&
-    /const persisted = await this\.persistWorkspaceDiagnostics/.test(desktopAgentRuntimeSource) &&
+  /WORKSPACE_DIAGNOSTICS_UPDATED_EVENT/.test(hostEventDispatchSource) &&
+    /const persisted = await active\.persistWorkspaceDiagnostics/.test(hostEventDispatchSource) &&
     /runtimeEventBus\.on\(WORKSPACE_DIAGNOSTICS_UPDATED_EVENT/.test(activityDataSource),
   'DesktopAgentRuntime must persist before emitting the neutral diagnostics event that refreshes the existing timeline',
 );
@@ -1571,7 +1575,9 @@ assert(
 assert(
   /'lifecycle'/.test(wireSource) &&
     /Lifecycle \{/.test(rustHostSource) &&
-    /event\.kind === 'lifecycle'/.test(desktopAgentRuntimeSource),
+    /const lifecycle: HostEventHandler<'lifecycle'>[\s\S]*?active\.handleControlLifecycle\(event\.payload\)/.test(
+      hostEventDispatchSource,
+    ),
   'wire v11 must decode lifecycle events on Node, Rust, and renderer sides',
 );
 assert(

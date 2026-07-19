@@ -16,7 +16,6 @@ import { distillTerminalRunMemory } from '@/runtime/employee-project-memory.js';
 import { requireProjectWorkspaceForRun } from '@/runtime/require-project-workspace.js';
 import {
   agentRunEvent,
-  engineActivity,
   llmStreamChunk,
   toolExecutionTelemetry,
 } from '@offisim/core/browser';
@@ -30,6 +29,7 @@ import {
   type AiExecutionTarget,
   type AiRuntimeStatus,
   type RunFailureKind,
+  type RuntimeEvent,
   type RuntimeEngineCapabilityManifest,
   WORKSPACE_DIAGNOSTICS_UPDATED_EVENT,
   type WorkspaceDiagnosticsUpdatedPayload,
@@ -51,12 +51,13 @@ import {
 } from './execution-selection.js';
 import {
   agentLifecycleEvent,
-  agentUiRequestEvent,
-  agentUiRequestResolvedEvent,
-  missionEvaluationSubmittedEvent,
-  parseWorkspaceDiagnosticsPayload,
-  workspaceDiagnosticsUpdatedEvent,
 } from './host-event-factories.js';
+import {
+  type ActiveHostEventContext,
+  type BufferedHostEventContext,
+  type HostEventStreamState,
+  dispatchHostEvent,
+} from './host-event-dispatch.js';
 import {
   type NativeAgentCommandTransport,
   createNativeAgentCommandTransport,
@@ -86,23 +87,15 @@ import {
 } from './thread-execution-authority.js';
 import { persistThreadRuntimeStatus } from './thread-runtime-status.js';
 import {
-  type WorkspaceBindingStreamGate,
-  type WorkspaceStreamConsumptionPolicy,
   acceptWorkspaceBinding,
   acceptWorkspaceUnavailable,
-  canConsumeWorkspaceEvent,
   createWorkspaceBindingGate,
   rejectWorkspaceBinding,
 } from './workspace-binding-stream-gate.js';
 import {
-  notableWorkspaceProvenanceForBinding,
-  workspaceProvenanceForUnavailable,
-} from './workspace-provenance.js';
-import {
   bindingMatchesRun,
   isSameWorkspaceBindingClaim,
   isSameWorkspaceUnavailable,
-  projectWorkspaceBinding,
   resolveWorkspaceRequirement,
   validateCompetitiveDraftContext,
   workspaceUnavailableMatchesRun,
@@ -639,12 +632,6 @@ function piRunScope(
   };
 }
 
-function toolStatus(status: PiAgentHostEvent & { kind: 'tool' }) {
-  if (status.status === 'failed') return 'error' as const;
-  if (status.status === 'completed') return 'completed' as const;
-  return 'started' as const;
-}
-
 function createWorkspaceStatusEmitter({
   engineId,
   companyId,
@@ -718,38 +705,6 @@ function attachmentImageDowngradeNotice(engineId: string): string {
   return engineId === 'api'
     ? 'The selected API model does not support image input. Images remain visible in the timeline but were not sent to the employee.'
     : `${engineId} does not support image input in Offisim. Images remain visible in the timeline but were not sent to the employee.`;
-}
-
-interface SharedHostStreamState {
-  workspaceGate: WorkspaceBindingStreamGate<TaskWorkspaceBindingClaim, WorkspaceUnavailableEvent>;
-  runtimeContext: Partial<PersistedRunContext>;
-  contentText: string;
-  reasoningText: string;
-  readonly startedAtByTool: Map<string, number>;
-  readonly inFlightToolCallIds: Set<string>;
-}
-
-interface SharedHostEventConsumer {
-  event: PiAgentHostEvent;
-  state: SharedHostStreamState;
-  policy: WorkspaceStreamConsumptionPolicy;
-  expectedWorkspace: {
-    projectId: string | null;
-    access: 'read' | 'write' | null;
-    threadId: string;
-    turnId: string;
-    requestId: string;
-  };
-  workspaceRequirement: WorkspaceRequirement;
-  runScope: ReturnType<typeof piRunScope>;
-  employeeId: string | null;
-  rootRun: (type: AgentRunEvent['type'], payload: AgentRunEvent['payload']) => AgentRunEvent;
-  emitRootBus: (event: AgentRunEvent) => void;
-  emitWorkspaceStatus: (provenance: WorkspaceProvenance) => void;
-  onWorkspaceAccepted: () => void;
-  onRejected: (message: string) => void;
-  onStarted: (event: Extract<PiAgentHostEvent, { kind: 'started' }>) => void;
-  persistContext: () => void;
 }
 
 function throwIfRunAborted(signal?: AbortSignal): void {
@@ -1067,395 +1022,6 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
 
   private enqueuePersist(work: () => Promise<void>, label = 'agent runtime persistence'): void {
     this.persistQueue.enqueue(label, work);
-  }
-
-  /** Consume every non-terminal host fact through one typed state machine.
-   * Live execute and reattach supply only their genuinely different checkpoint
-   * and terminal behavior; workspace/tool/UI/run semantics stay identical. */
-  private consumeSharedHostEvent(input: SharedHostEventConsumer): boolean {
-    const {
-      event,
-      state,
-      expectedWorkspace,
-      workspaceRequirement,
-      runScope,
-      employeeId,
-      rootRun,
-      emitRootBus,
-    } = input;
-
-    if (event.kind === 'workspaceBound') {
-      const matchesExpectedTurn = Boolean(
-        expectedWorkspace.projectId &&
-          expectedWorkspace.access &&
-          bindingMatchesRun(event, {
-            companyId: this.companyId,
-            projectId: expectedWorkspace.projectId,
-            threadId: expectedWorkspace.threadId,
-            turnId: expectedWorkspace.turnId,
-            requestId: expectedWorkspace.requestId,
-            access: expectedWorkspace.access,
-          }),
-      );
-      const matchesBoundClaim =
-        state.workspaceGate.status !== 'bound' ||
-        isSameWorkspaceBindingClaim(state.workspaceGate.claim, event);
-      state.workspaceGate = acceptWorkspaceBinding(
-        state.workspaceGate,
-        event,
-        matchesExpectedTurn,
-        matchesBoundClaim,
-      );
-      if (state.workspaceGate.status === 'rejected') {
-        input.onRejected('Backend returned a workspace binding for a different Turn.');
-        return true;
-      }
-      state.runtimeContext.workspaceBinding = projectWorkspaceBinding(event);
-      state.runtimeContext.workspaceAvailability = 'bound';
-      const workspaceProvenance = notableWorkspaceProvenanceForBinding(event);
-      if (workspaceProvenance) {
-        state.runtimeContext.workspaceProvenance = workspaceProvenance;
-        input.emitWorkspaceStatus(workspaceProvenance);
-      } else {
-        state.runtimeContext.workspaceProvenance = undefined;
-      }
-      input.onWorkspaceAccepted();
-      input.persistContext();
-      return true;
-    }
-
-    if (event.kind === 'workspaceUnavailable') {
-      const matchesExpectedTurn = Boolean(
-        expectedWorkspace.projectId &&
-          workspaceUnavailableMatchesRun(event, {
-            projectId: expectedWorkspace.projectId,
-            threadId: expectedWorkspace.threadId,
-            turnId: expectedWorkspace.turnId,
-            requestId: expectedWorkspace.requestId,
-          }),
-      );
-      const matchesUnavailable =
-        state.workspaceGate.status !== 'unavailable' ||
-        isSameWorkspaceUnavailable(state.workspaceGate.unavailable, event);
-      state.workspaceGate = acceptWorkspaceUnavailable(
-        state.workspaceGate,
-        event,
-        matchesExpectedTurn,
-        matchesUnavailable,
-      );
-      if (state.workspaceGate.status === 'rejected') {
-        input.onRejected('Backend returned an unavailable workspace state for a different Turn.');
-        return true;
-      }
-      state.runtimeContext.workspaceBinding = null;
-      state.runtimeContext.workspaceAvailability = 'unavailable';
-      state.runtimeContext.workspaceProvenance = workspaceProvenanceForUnavailable(
-        event,
-        workspaceRequirement,
-      );
-      input.onWorkspaceAccepted();
-      input.emitWorkspaceStatus(state.runtimeContext.workspaceProvenance);
-      input.persistContext();
-      if (workspaceRequirement === 'required') {
-        input.onRejected('This run requires an available Project folder.');
-      }
-      return true;
-    }
-
-    if (!canConsumeWorkspaceEvent(state.workspaceGate, event, input.policy)) {
-      if (input.policy !== 'terminal-reconcile' && state.workspaceGate.status !== 'rejected') {
-        state.workspaceGate = rejectWorkspaceBinding(state.workspaceGate);
-        input.onRejected(
-          `Backend emitted unsafe ${event.kind} activity without a task workspace binding.`,
-        );
-      }
-      return true;
-    }
-
-    if (event.kind === 'started') {
-      input.onStarted(event);
-      if (this.engineId === 'api') {
-        this.flushPendingControls(expectedWorkspace.threadId, expectedWorkspace.requestId);
-      }
-      return true;
-    }
-    if (event.kind === 'lifecycle') {
-      this.handleControlLifecycle(event.payload);
-      runtimeEventBus.emit(
-        agentLifecycleEvent(this.companyId, expectedWorkspace.threadId, {
-          requestId: expectedWorkspace.requestId,
-          runId: runScope.runId,
-          event: event.event,
-          data:
-            event.payload && typeof event.payload === 'object'
-              ? (event.payload as Record<string, unknown>)
-              : {},
-        }),
-      );
-      return true;
-    }
-    if (event.kind === 'messageDelta') {
-      if (!event.delta) return true;
-      const channel = event.channel === 'reasoning' ? 'reasoning' : 'content';
-      if (channel === 'reasoning') state.reasoningText += event.delta;
-      else state.contentText += event.delta;
-      runtimeEventBus.emit(
-        llmStreamChunk(
-          this.companyId,
-          expectedWorkspace.threadId,
-          this.engineId,
-          event.delta,
-          channel,
-          runScope,
-        ),
-      );
-      return true;
-    }
-    if (event.kind === 'messageEnd') {
-      if (event.text) state.contentText = event.text;
-      return true;
-    }
-    if (event.kind === 'tool') {
-      const wasInFlight = state.inFlightToolCallIds.has(event.toolCallId);
-      if (event.status === 'started' || event.status === 'running') {
-        state.inFlightToolCallIds.add(event.toolCallId);
-      } else {
-        state.inFlightToolCallIds.delete(event.toolCallId);
-      }
-      if (wasInFlight !== state.inFlightToolCallIds.has(event.toolCallId)) {
-        state.runtimeContext.inFlightToolCallIds = [...state.inFlightToolCallIds];
-        input.persistContext();
-      }
-      const startedAt = state.startedAtByTool.get(event.toolCallId) ?? Date.now();
-      if (event.status === 'started') state.startedAtByTool.set(event.toolCallId, startedAt);
-      const completedAt =
-        event.status === 'completed' || event.status === 'failed' ? Date.now() : undefined;
-      runtimeEventBus.emit(
-        toolExecutionTelemetry(this.companyId, expectedWorkspace.threadId, {
-          toolCallId: event.toolCallId,
-          toolName: event.toolName,
-          toolType: 'builtin',
-          evidenceClass: 'sdk-native',
-          threadId: expectedWorkspace.threadId,
-          nodeName: this.engineId,
-          employeeId: employeeId ?? undefined,
-          startedAt,
-          completedAt,
-          durationMs:
-            event.durationMs ?? (completedAt ? Math.max(0, completedAt - startedAt) : undefined),
-          status: toolStatus(event),
-          detail: event.detail,
-          errorType:
-            event.status === 'failed'
-              ? (event.detail ?? `${this.engineId}_tool_failed`)
-              : undefined,
-          chatConversationKey: runScope.conversationKey,
-          chatRunId: runScope.runId,
-        }),
-      );
-      if (event.status === 'started') {
-        emitRootBus(
-          rootRun('tool.started', {
-            toolCallId: event.toolCallId,
-            toolName: event.toolName,
-            status: 'started',
-            detail: event.detail,
-          }),
-        );
-      } else if (event.status === 'completed' || event.status === 'failed') {
-        emitRootBus(
-          rootRun('tool.completed', {
-            toolCallId: event.toolCallId,
-            toolName: event.toolName,
-            status: event.status,
-            detail: event.detail,
-          }),
-        );
-      }
-      if (
-        this.engineId === 'codex' &&
-        event.status === 'completed' &&
-        event.toolName === 'file_change' &&
-        event.artifactPaths?.length
-      ) {
-        for (const [index, rawPath] of event.artifactPaths.entries()) {
-          const path = rawPath.trim();
-          if (!path) continue;
-          const title = path.split(/[\\/]/).pop() || path;
-          const artifactEvent = rootRun('artifact.created', {
-            deliverableId: `artifact-${runScope.runId}-${event.toolCallId}-${index}`,
-            path,
-            title,
-            kind: 'file',
-          });
-          this.enqueuePersist(() => this.persistArtifact(artifactEvent, state.workspaceGate.claim));
-        }
-      }
-      return true;
-    }
-    if (event.kind === 'uiRequest') {
-      runtimeEventBus.emit(
-        agentUiRequestEvent(this.companyId, expectedWorkspace.threadId, {
-          engineId: this.engineId,
-          requestId: expectedWorkspace.requestId,
-          runId: expectedWorkspace.turnId,
-          id: event.id,
-          method: event.method,
-          title: event.title,
-          message: event.message,
-          options: event.options,
-          placeholder: event.placeholder,
-          prefill: event.prefill,
-          params: event.params,
-        }),
-      );
-      if (event.method === 'confirm') {
-        emitRootBus(
-          rootRun('approval.requested', {
-            uiRequestId: event.id,
-            title: event.title,
-            message: event.message,
-          }),
-        );
-      }
-      return true;
-    }
-    if (event.kind === 'uiRequestResolved') {
-      runtimeEventBus.emit(
-        agentUiRequestResolvedEvent(this.companyId, expectedWorkspace.threadId, {
-          engineId: this.engineId,
-          requestId: expectedWorkspace.requestId,
-          runId: expectedWorkspace.turnId,
-          id: event.id,
-          resolution: event.resolution,
-        }),
-      );
-      return true;
-    }
-    if (event.kind === 'agentRun') {
-      if (event.runType === WORKSPACE_DIAGNOSTICS_UPDATED_EVENT) {
-        const diagnostics = parseWorkspaceDiagnosticsPayload(event.payload);
-        if (!diagnostics) return true;
-        const payload: WorkspaceDiagnosticsUpdatedPayload = {
-          ...diagnostics,
-          requestId: expectedWorkspace.requestId,
-          runId: event.rootRunId,
-          ...(event.runId !== event.rootRunId ? { childRunId: event.runId } : {}),
-        };
-        this.enqueuePersist(async () => {
-          const persisted = await this.persistWorkspaceDiagnostics(
-            event,
-            expectedWorkspace.projectId,
-            payload,
-          );
-          if (persisted) {
-            runtimeEventBus.emit(
-              workspaceDiagnosticsUpdatedEvent(this.companyId, event.threadId, payload),
-            );
-          }
-        });
-        return true;
-      }
-      if (event.runType === 'mcp.tool.called') {
-        this.enqueuePersist(() => this.persistMcpToolCall(event, employeeId));
-        return true;
-      }
-      if (event.runType === 'workspace.lease.snapshot') {
-        this.enqueuePersist(() =>
-          this.persistWorkspaceLeaseSnapshot(event, expectedWorkspace.projectId),
-        );
-        return true;
-      }
-      if (event.runType === 'workspace.checkpoint') {
-        const payload =
-          event.payload && typeof event.payload === 'object'
-            ? (event.payload as Record<string, unknown>)
-            : {};
-        const checkpointId =
-          typeof payload.checkpointId === 'string' ? payload.checkpointId : event.runId;
-        const step = typeof payload.step === 'number' ? payload.step : null;
-        const changedPaths = Array.isArray(payload.changedPaths)
-          ? payload.changedPaths.filter((path): path is string => typeof path === 'string')
-          : [];
-        runtimeEventBus.emit(
-          engineActivity(this.companyId, event.threadId, {
-            runId: event.runId,
-            engineId:
-              this.engineId === 'codex'
-                ? 'codex-engine'
-                : this.engineId === 'claude'
-                  ? 'claude-engine'
-                  : 'openai-engine',
-            employeeId: event.employeeId ?? event.runId,
-            employeeName: event.employeeId ?? event.runId,
-            taskRunId: event.rootRunId,
-            kind: 'checkpoint',
-            status: 'completed',
-            activityId: checkpointId,
-            label: step === null ? 'Workspace checkpoint' : `Workspace checkpoint · Step ${step}`,
-            detail:
-              changedPaths.length > 0
-                ? `${changedPaths.length} changed file${changedPaths.length === 1 ? '' : 's'}`
-                : 'Workspace baseline',
-          }),
-        );
-        this.enqueuePersist(() =>
-          this.persistWorkspaceCheckpoint(event, expectedWorkspace.projectId),
-        );
-        return true;
-      }
-      if (event.runType === 'evaluation_submitted') {
-        const payload = (event.payload ?? {}) as {
-          criterionId?: string;
-          summary?: string;
-          evidenceRefs?: string[];
-        };
-        if (typeof payload.criterionId === 'string' && payload.criterionId.trim()) {
-          runtimeEventBus.emit(
-            missionEvaluationSubmittedEvent(this.companyId, event.threadId, {
-              runId: event.runId,
-              rootRunId: event.rootRunId,
-              criterionId: payload.criterionId,
-              summary: typeof payload.summary === 'string' ? payload.summary : '',
-              evidenceRefs: Array.isArray(payload.evidenceRefs)
-                ? payload.evidenceRefs.filter((ref): ref is string => typeof ref === 'string')
-                : [],
-            }),
-          );
-        }
-        return true;
-      }
-      if (event.runType === 'mission_state_query') return true;
-      const agentPayload =
-        event.runType === 'run.started'
-          ? {
-              ...(event.payload && typeof event.payload === 'object' ? event.payload : {}),
-              // Child run events do not carry Project identity over the Pi wire.
-              // The accepted workspace binding is the backend-verified authority
-              // used by lease registration, so persist that exact Project here.
-              projectId: expectedWorkspace.projectId,
-            }
-          : event.payload;
-      const agentEvent = {
-        threadId: event.threadId,
-        rootRunId: event.rootRunId,
-        runId: event.runId,
-        ...(event.parentRunId ? { parentRunId: event.parentRunId } : {}),
-        ...(event.employeeId ? { employeeId: event.employeeId } : {}),
-        ...(event.relation ? { relation: event.relation } : {}),
-        ...(event.workKind ? { workKind: event.workKind } : {}),
-        type: event.runType,
-        payload: agentPayload,
-      } as AgentRunEvent;
-      if (event.runType === 'artifact.created') {
-        this.enqueuePersist(() => this.persistArtifact(agentEvent, state.workspaceGate.claim));
-      } else {
-        runtimeEventBus.emit(agentRunEvent(this.companyId, agentEvent));
-        this.enqueuePersist(() => this.persistAgentRun(agentEvent));
-      }
-      return true;
-    }
-    return false;
   }
 
   private queueRunStreamCursor(
@@ -1863,7 +1429,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         TaskWorkspaceBindingClaim,
         WorkspaceUnavailableEvent
       >();
-      const sharedHostState: SharedHostStreamState = {
+      const sharedHostState: HostEventStreamState = {
         workspaceGate: workspaceBindingGate,
         runtimeContext,
         contentText: accumulatedContentText,
@@ -2016,91 +1582,24 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         event: PiAgentHostEvent,
         consumptionPolicy: 'bound-required' | 'workspace-optional' | 'terminal-reconcile',
       ): void => {
-        progressWatchdog?.recordProgress();
-        if (event.kind === 'uiRequest') {
-          streamAwaitingUser = true;
-          progressWatchdog?.pause();
-        }
-        if (event.kind === 'streamCursor') {
-          lastObservedStreamCursor = Math.max(lastObservedStreamCursor, event.cursor);
-          if (pendingTerminalCheckpoint) {
-            const terminal = pendingTerminalCheckpoint;
-            pendingTerminalCheckpoint = undefined;
-            queueTerminalCheckpoint(
-              `persist terminal checkpoint for ${row.run_id}`,
-              terminal,
-              event.cursor,
-            );
-            return;
-          }
-          this.queueRunStreamCursor(
-            row.run_id,
-            runtimeContext,
-            event.cursor,
-            buildConversationStreamCheckpoint({
-              projection: runtimeContext.conversationProjection,
-              threadId: row.thread_id,
-              employeeId: row.employee_id,
-              runId: row.run_id,
-              contentText: accumulatedContentText,
-              reasoningText: accumulatedReasoningText,
-              at: accumulatedMessageAt,
-              companyId: this.companyId,
-              projectId,
-              workspaceProvenance: runtimeContext.workspaceProvenance,
-            }),
-          );
-          return;
-        }
-        if (event.kind === 'executionPrepared') {
-          if (!executionAckAllowed) return;
-          if (!executionTarget) {
-            failReattachedBinding('The running task has no durable AI execution target.');
-            return;
-          }
-          let identity: TurnExecutionProvenance;
-          try {
-            identity = parsePreparedExecutionIdentity(event);
-          } catch (error) {
-            failReattachedBinding(error instanceof Error ? error.message : String(error));
-            return;
-          }
-          const existing = executionPreparations.get(event.prepareId);
-          if (existing) {
-            if (existing.targetDigest !== event.targetDigest) {
-              failReattachedBinding(
-                'Agent runtime reused an execution preparation id with another target.',
-              );
-            } else {
-              try {
-                assertSameExecutionAccount(existing.identity, identity);
-              } catch (error) {
-                failReattachedBinding(error instanceof Error ? error.message : String(error));
-              }
-            }
-            return;
-          }
-          const promise = this.confirmPreparedExecution(
-            event,
-            row.run_id,
-            requestId,
-            executionTarget,
-          );
-          executionPreparations.set(event.prepareId, {
-            targetDigest: event.targetDigest,
-            identity,
-            promise,
-          });
-          terminalCheckpointPromises.push(promise);
-          void promise.catch((error: unknown) => {
-            failReattachedBinding(error instanceof Error ? error.message : String(error));
-          });
-          return;
-        }
-        const sharedHandled = this.consumeSharedHostEvent({
-          event,
-          state: sharedHostState,
+        const hostEventContext = {
+          mode: 'reattach' as const,
+          phase: 'active' as const,
+          runId: row.run_id,
+          threadId: row.thread_id,
+          engineId: this.engineId,
+          companyId: this.companyId,
+          requestId,
+          projectId,
+          employeeId: row.employee_id,
+          activityEngineId:
+            this.engineId === 'codex'
+              ? 'codex-engine'
+              : this.engineId === 'claude'
+                ? 'claude-engine'
+                : 'openai-engine',
           policy: consumptionPolicy,
+          workspaceRequirement,
           expectedWorkspace: {
             projectId,
             access: expectedAccess,
@@ -2108,15 +1607,16 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             turnId: row.run_id,
             requestId,
           },
-          workspaceRequirement,
           runScope,
-          employeeId: row.employee_id,
-          rootRun,
-          emitRootBus,
-          emitWorkspaceStatus: emitWorkspaceStatusActivity,
+          state: sharedHostState,
+          recordProgress: () => progressWatchdog?.recordProgress(),
+          onUiRequestObserved: () => {
+            streamAwaitingUser = true;
+            progressWatchdog?.pause();
+          },
           onWorkspaceAccepted: () => {},
           onRejected: failReattachedBinding,
-          onStarted: (startedEvent) => {
+          onStarted: (startedEvent: Extract<PiAgentHostEvent, { kind: 'started' }>) => {
             const checkpoint = this.persistQueue.enqueueTerminalCheckpoint(
               `commit native session identity for ${row.run_id}`,
               () =>
@@ -2131,138 +1631,247 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             terminalCheckpointPromises.push(checkpoint);
             void checkpoint.catch(() => abortRejectedBinding());
           },
-          persistContext: () =>
-            this.enqueuePersist(() => this.persistRunContextPatch(row.run_id, runtimeContext)),
-        });
-        workspaceBindingGate = sharedHostState.workspaceGate;
-        accumulatedContentText = sharedHostState.contentText;
-        accumulatedReasoningText = sharedHostState.reasoningText;
-        if (sharedHandled) return;
-        if (event.kind === 'result') {
-          progressWatchdog?.stop();
-          this.progressWatchdogByRequest.delete(requestId);
-          terminalEventSeen = true;
-          if (this.abortedRequests.delete(requestId)) {
-            this.flushRunStreamCursor(row.run_id);
-            pendingTerminalCheckpoint = {
-              status: 'cancelled',
-              conversationTerminal: {
+          onExecutionPrepared: (
+            preparedEvent: Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>,
+          ) => {
+            if (!executionAckAllowed) return;
+            if (!executionTarget) {
+              failReattachedBinding('The running task has no durable AI execution target.');
+              return;
+            }
+            let identity: TurnExecutionProvenance;
+            try {
+              identity = parsePreparedExecutionIdentity(preparedEvent);
+            } catch (error) {
+              failReattachedBinding(error instanceof Error ? error.message : String(error));
+              return;
+            }
+            const existing = executionPreparations.get(preparedEvent.prepareId);
+            if (existing) {
+              if (existing.targetDigest !== preparedEvent.targetDigest) {
+                failReattachedBinding(
+                  'Agent runtime reused an execution preparation id with another target.',
+                );
+              } else {
+                try {
+                  assertSameExecutionAccount(existing.identity, identity);
+                } catch (error) {
+                  failReattachedBinding(error instanceof Error ? error.message : String(error));
+                }
+              }
+              return;
+            }
+            const promise = this.confirmPreparedExecution(
+              preparedEvent,
+              row.run_id,
+              requestId,
+              executionTarget,
+            );
+            executionPreparations.set(preparedEvent.prepareId, {
+              targetDigest: preparedEvent.targetDigest,
+              identity,
+              promise,
+            });
+            terminalCheckpointPromises.push(promise);
+            void promise.catch((error: unknown) => {
+              failReattachedBinding(error instanceof Error ? error.message : String(error));
+            });
+          },
+          onStreamCursor: (
+            cursorEvent: Extract<PiAgentHostEvent, { kind: 'streamCursor' }>,
+          ) => {
+            lastObservedStreamCursor = Math.max(lastObservedStreamCursor, cursorEvent.cursor);
+            if (pendingTerminalCheckpoint) {
+              const terminal = pendingTerminalCheckpoint;
+              pendingTerminalCheckpoint = undefined;
+              queueTerminalCheckpoint(
+                `persist terminal checkpoint for ${row.run_id}`,
+                terminal,
+                cursorEvent.cursor,
+              );
+              return;
+            }
+            this.queueRunStreamCursor(
+              row.run_id,
+              runtimeContext,
+              cursorEvent.cursor,
+              buildConversationStreamCheckpoint({
+                projection: runtimeContext.conversationProjection,
+                threadId: row.thread_id,
+                employeeId: row.employee_id,
                 runId: row.run_id,
+                contentText: accumulatedContentText,
+                reasoningText: accumulatedReasoningText,
+                at: accumulatedMessageAt,
+                companyId: this.companyId,
+                projectId,
+                workspaceProvenance: runtimeContext.workspaceProvenance,
+              }),
+            );
+          },
+          onResult: (resultEvent: Extract<PiAgentHostEvent, { kind: 'result' }>) => {
+            progressWatchdog?.stop();
+            this.progressWatchdogByRequest.delete(requestId);
+            terminalEventSeen = true;
+            if (this.abortedRequests.delete(requestId)) {
+              this.flushRunStreamCursor(row.run_id);
+              pendingTerminalCheckpoint = {
                 status: 'cancelled',
+                conversationTerminal: {
+                  runId: row.run_id,
+                  status: 'cancelled',
+                  text: accumulatedContentText,
+                  ...(accumulatedReasoningText.trim()
+                    ? { reasoning: accumulatedReasoningText.trim() }
+                    : {}),
+                },
+              };
+              if (this.inFlightByThread.get(row.thread_id) === requestId) {
+                this.inFlightByThread.delete(row.thread_id);
+              }
+              return;
+            }
+            let provenance: TurnExecutionProvenance;
+            try {
+              provenance = requireTurnExecutionProvenance(
+                resultEvent.response.provenance,
+                row.run_id,
+              );
+              if (!executionTarget) {
+                throw new Error('Agent runtime returned provenance without a durable target.');
+              }
+              assertSameExecutionAccount({ ...executionTarget, runId: row.run_id }, provenance);
+              assertSameExecutionAccount(
+                requirePreparedExecutionIdentity(executionPreparations, row.run_id),
+                provenance,
+              );
+            } catch (error) {
+              const summary = error instanceof Error ? error.message : String(error);
+              this.flushRunStreamCursor(row.run_id);
+              const conversationTerminal: LiveConversationTerminalPayload = {
+                runId: row.run_id,
+                status: 'failed',
                 text: accumulatedContentText,
                 ...(accumulatedReasoningText.trim()
                   ? { reasoning: accumulatedReasoningText.trim() }
                   : {}),
-              },
-            };
-            if (this.inFlightByThread.get(row.thread_id) === requestId) {
-              this.inFlightByThread.delete(row.thread_id);
+                failureKind: 'runtime',
+              };
+              pendingTerminalCheckpoint = {
+                status: 'failed',
+                failureKind: 'runtime',
+                summary,
+                conversationTerminal,
+              };
+              if (this.inFlightByThread.get(row.thread_id) === requestId) {
+                this.inFlightByThread.delete(row.thread_id);
+              }
+              return;
             }
-            return;
-          }
-          let provenance: TurnExecutionProvenance;
-          try {
-            provenance = requireTurnExecutionProvenance(event.response.provenance, row.run_id);
-            if (!executionTarget) {
-              throw new Error('Agent runtime returned provenance without a durable target.');
-            }
-            assertSameExecutionAccount({ ...executionTarget, runId: row.run_id }, provenance);
-            assertSameExecutionAccount(
-              requirePreparedExecutionIdentity(executionPreparations, row.run_id),
-              provenance,
-            );
-          } catch (error) {
-            const summary = error instanceof Error ? error.message : String(error);
+            runtimeContext.provenance = provenance;
+            this.enqueuePersist(() => this.persistRunContextPatch(row.run_id, runtimeContext));
             this.flushRunStreamCursor(row.run_id);
             const conversationTerminal: LiveConversationTerminalPayload = {
               runId: row.run_id,
-              status: 'failed',
-              text: accumulatedContentText,
-              ...(accumulatedReasoningText.trim()
-                ? { reasoning: accumulatedReasoningText.trim() }
+              status: 'completed',
+              text: resultEvent.response.text || accumulatedContentText,
+              ...(resultEvent.response.reasoning || accumulatedReasoningText
+                ? { reasoning: resultEvent.response.reasoning || accumulatedReasoningText }
                 : {}),
-              failureKind: 'runtime',
+              provenance,
             };
             pendingTerminalCheckpoint = {
-              status: 'failed',
-              failureKind: 'runtime',
-              summary,
+              status: 'completed',
+              ...(resultEvent.response.usage ? { usage: resultEvent.response.usage } : {}),
+              ...(conversationTerminal.text ? { summary: conversationTerminal.text } : {}),
               conversationTerminal,
             };
             if (this.inFlightByThread.get(row.thread_id) === requestId) {
               this.inFlightByThread.delete(row.thread_id);
             }
-            return;
-          }
-          runtimeContext.provenance = provenance;
-          this.enqueuePersist(() => this.persistRunContextPatch(row.run_id, runtimeContext));
-          this.flushRunStreamCursor(row.run_id);
-          const conversationTerminal: LiveConversationTerminalPayload = {
-            runId: row.run_id,
-            status: 'completed',
-            text: event.response.text || accumulatedContentText,
-            ...(event.response.reasoning || accumulatedReasoningText
-              ? { reasoning: event.response.reasoning || accumulatedReasoningText }
-              : {}),
-            provenance,
-          };
-          pendingTerminalCheckpoint = {
-            status: 'completed',
-            ...(event.response.usage ? { usage: event.response.usage } : {}),
-            ...(conversationTerminal.text ? { summary: conversationTerminal.text } : {}),
-            conversationTerminal,
-          };
-          if (this.inFlightByThread.get(row.thread_id) === requestId) {
-            this.inFlightByThread.delete(row.thread_id);
-          }
-          return;
-        }
-        if (event.kind === 'error') {
-          progressWatchdog?.stop();
-          this.progressWatchdogByRequest.delete(requestId);
-          terminalEventSeen = true;
-          this.flushRunStreamCursor(row.run_id);
-          if (this.abortedRequests.delete(requestId)) {
-            pendingTerminalCheckpoint = {
-              status: 'cancelled',
-              conversationTerminal: {
-                runId: row.run_id,
+          },
+          onError: (errorEvent: Extract<PiAgentHostEvent, { kind: 'error' }>) => {
+            progressWatchdog?.stop();
+            this.progressWatchdogByRequest.delete(requestId);
+            terminalEventSeen = true;
+            this.flushRunStreamCursor(row.run_id);
+            if (this.abortedRequests.delete(requestId)) {
+              pendingTerminalCheckpoint = {
                 status: 'cancelled',
-                text: accumulatedContentText,
-                ...(accumulatedReasoningText.trim()
-                  ? { reasoning: accumulatedReasoningText.trim() }
-                  : {}),
-              },
+                conversationTerminal: {
+                  runId: row.run_id,
+                  status: 'cancelled',
+                  text: accumulatedContentText,
+                  ...(accumulatedReasoningText.trim()
+                    ? { reasoning: accumulatedReasoningText.trim() }
+                    : {}),
+                },
+              };
+              if (this.inFlightByThread.get(row.thread_id) === requestId) {
+                this.inFlightByThread.delete(row.thread_id);
+              }
+              return;
+            }
+            // A host error message is this lane's free-text ORIGIN — classify the
+            // typed kind here (a provider 429 is token strain, not machinery),
+            // defaulting to 'runtime' for transport/host failures.
+            const failureKind = classifyRunFailure(errorEvent.message);
+            const conversationTerminal: LiveConversationTerminalPayload = {
+              runId: row.run_id,
+              status: 'failed',
+              text: accumulatedContentText,
+              error: errorEvent.message,
+              ...(accumulatedReasoningText.trim()
+                ? { reasoning: accumulatedReasoningText.trim() }
+                : {}),
+              failureKind,
+            };
+            pendingTerminalCheckpoint = {
+              status: 'failed',
+              failureKind,
+              summary: errorEvent.message,
+              conversationTerminal,
             };
             if (this.inFlightByThread.get(row.thread_id) === requestId) {
               this.inFlightByThread.delete(row.thread_id);
             }
-            return;
-          }
-          // A host error message is this lane's free-text ORIGIN — classify the
-          // typed kind here (a provider 429 is token strain, not machinery),
-          // defaulting to 'runtime' for transport/host failures.
-          const failureKind = classifyRunFailure(event.message);
-          const conversationTerminal: LiveConversationTerminalPayload = {
-            runId: row.run_id,
-            status: 'failed',
-            text: accumulatedContentText,
-            error: event.message,
-            ...(accumulatedReasoningText.trim()
-              ? { reasoning: accumulatedReasoningText.trim() }
-              : {}),
-            failureKind,
-          };
-          pendingTerminalCheckpoint = {
-            status: 'failed',
-            failureKind,
-            summary: event.message,
-            conversationTerminal,
-          };
-          if (this.inFlightByThread.get(row.thread_id) === requestId) {
-            this.inFlightByThread.delete(row.thread_id);
-          }
-        }
+          },
+          flushPendingControls: () =>
+            this.flushPendingControls(row.thread_id, requestId),
+          handleControlLifecycle: (payload: unknown) => this.handleControlLifecycle(payload),
+          persistContext: () =>
+            this.enqueuePersist(() => this.persistRunContextPatch(row.run_id, runtimeContext)),
+          enqueuePersist: (work: () => Promise<void>) => this.enqueuePersist(work),
+          persistArtifact: (agentEvent: AgentRunEvent, claim: TaskWorkspaceBindingClaim | null) =>
+            this.persistArtifact(agentEvent, claim),
+          persistWorkspaceDiagnostics: (
+            agentRunEvent: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+            fallbackProjectId: string | null,
+            payload: WorkspaceDiagnosticsUpdatedPayload,
+          ) => this.persistWorkspaceDiagnostics(agentRunEvent, fallbackProjectId, payload),
+          persistMcpToolCall: (
+            agentRunEvent: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+            employeeId: string | null,
+          ) => this.persistMcpToolCall(agentRunEvent, employeeId),
+          persistWorkspaceLeaseSnapshot: (
+            agentRunEvent: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+            fallbackProjectId: string | null,
+          ) => this.persistWorkspaceLeaseSnapshot(agentRunEvent, fallbackProjectId),
+          persistWorkspaceCheckpoint: (
+            agentRunEvent: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+            fallbackProjectId: string | null,
+          ) => this.persistWorkspaceCheckpoint(agentRunEvent, fallbackProjectId),
+          persistAgentRun: (agentEvent: AgentRunEvent) => this.persistAgentRun(agentEvent),
+          rootRun,
+          emitRootBus,
+          emitRuntimeEvent: (runtimeEvent: RuntimeEvent<any>) =>
+            runtimeEventBus.emit(runtimeEvent),
+          emitWorkspaceStatus: emitWorkspaceStatusActivity,
+        } satisfies ActiveHostEventContext;
+        void dispatchHostEvent(event, hostEventContext);
+        workspaceBindingGate = sharedHostState.workspaceGate;
+        accumulatedContentText = sharedHostState.contentText;
+        accumulatedReasoningText = sharedHostState.reasoningText;
       };
 
       let consumptionPolicy: 'bound-required' | 'workspace-optional' | 'terminal-reconcile' | null =
@@ -2272,13 +1881,14 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         TaskWorkspaceBindingClaim,
         WorkspaceUnavailableEvent
       >();
-      const onEvent = new Channel<PiAgentHostEvent>();
-      onEvent.onmessage = (event) => {
-        if (consumptionPolicy) {
-          consumeEvent(event, consumptionPolicy);
-          return;
-        }
-        if (event.kind === 'workspaceBound') {
+      const bufferedHostEventContext = {
+        mode: 'reattach' as const,
+        phase: 'buffering' as const,
+        runId: row.run_id,
+        threadId: row.thread_id,
+        onWorkspaceBound: (
+          event: Extract<PiAgentHostEvent, { kind: 'workspaceBound' }>,
+        ) => {
           const matchesExpectedTurn = Boolean(
             projectId &&
               expectedAccess &&
@@ -2307,9 +1917,13 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
               historyId: event.historyId,
             });
             failReattachedBinding('Backend returned a workspace binding for a different Turn.');
-            return;
+            return false;
           }
-        } else if (event.kind === 'workspaceUnavailable') {
+          return true;
+        },
+        onWorkspaceUnavailable: (
+          event: Extract<PiAgentHostEvent, { kind: 'workspaceUnavailable' }>,
+        ) => {
           const matchesExpectedTurn = Boolean(
             projectId &&
               workspaceUnavailableMatchesRun(event, {
@@ -2333,10 +1947,19 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             failReattachedBinding(
               'Backend returned an unavailable workspace state for a different Turn.',
             );
-            return;
+            return false;
           }
+          return true;
+        },
+        bufferEvent: (event: PiAgentHostEvent) => bufferedEvents.push(event),
+      } satisfies BufferedHostEventContext;
+      const onEvent = new Channel<PiAgentHostEvent>();
+      onEvent.onmessage = (event) => {
+        if (consumptionPolicy) {
+          consumeEvent(event, consumptionPolicy);
+          return;
         }
-        bufferedEvents.push(event);
+        void dispatchHostEvent(event, bufferedHostEventContext);
       };
 
       this.inFlightByThread.set(row.thread_id, requestId);
@@ -2627,7 +2250,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       TaskWorkspaceBindingClaim,
       WorkspaceUnavailableEvent
     >();
-    const sharedHostState: SharedHostStreamState = {
+    const sharedHostState: HostEventStreamState = {
       workspaceGate: workspaceBindingGate,
       runtimeContext,
       contentText: finalText,
@@ -2648,33 +2271,72 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       return bindingAbortPromise;
     };
     const onEvent = new Channel<PiAgentHostEvent>();
-    onEvent.onmessage = (event) => {
-      progressWatchdog?.recordProgress();
-      if (event.kind === 'uiRequest') {
-        progressWatchdog?.pause();
-      }
-      if (event.kind === 'streamCursor') {
-        lastObservedStreamCursor = Math.max(lastObservedStreamCursor, event.cursor);
-        this.queueRunStreamCursor(
-          runScope.runId,
-          runtimeContext,
-          event.cursor,
-          buildConversationStreamCheckpoint({
-            projection: runtimeContext.conversationProjection,
-            threadId: input.threadId,
-            employeeId: input.employeeId,
-            runId: runScope.runId,
-            contentText: finalText,
-            reasoningText,
-            at: Date.parse(runtimeContext.createdAt ?? '') || Date.now(),
-            companyId: this.companyId,
-            projectId,
-            workspaceProvenance: runtimeContext.workspaceProvenance,
-          }),
+    const hostEventContext = {
+      mode: 'live' as const,
+      phase: 'active' as const,
+      runId: runScope.runId,
+      threadId: input.threadId,
+      engineId: this.engineId,
+      companyId: this.companyId,
+      requestId,
+      projectId,
+      employeeId: input.employeeId,
+      activityEngineId:
+        this.engineId === 'codex'
+          ? 'codex-engine'
+          : this.engineId === 'claude'
+            ? 'claude-engine'
+            : 'openai-engine',
+      policy:
+        workspaceRequirement === 'optional'
+          ? ('workspace-optional' as const)
+          : ('bound-required' as const),
+      workspaceRequirement,
+      expectedWorkspace: {
+        projectId,
+        access: rootAccess,
+        threadId: input.threadId,
+        turnId: runScope.runId,
+        requestId,
+      },
+      runScope,
+      state: sharedHostState,
+      recordProgress: () => progressWatchdog?.recordProgress(),
+      onUiRequestObserved: () => progressWatchdog?.pause(),
+      onWorkspaceAccepted: openRootRun,
+      onRejected: (message: string) => {
+        channelError ??= new Error(message);
+        void abortRejectedBinding();
+      },
+      onStarted: (startedEvent: Extract<PiAgentHostEvent, { kind: 'started' }>) => {
+        // A direct-delegation root is an orchestration shell, not a native Pi
+        // conversation. Its exact execution identity comes from the prepared
+        // child session below; there is no root session file/id to persist or
+        // resume as plain chat.
+        if (input.directDelegation || competitiveDraft) return;
+        const checkpoint = this.persistQueue.enqueueTerminalCheckpoint(
+          `commit native session identity for ${runScope.runId}`,
+          () =>
+            persistStartedNativeSessionIdentity({
+              repos: this.repos,
+              runId: runScope.runId,
+              runtimeContext,
+              event: startedEvent,
+              engineId: this.engineId,
+            }),
         );
-        return;
-      }
-      if (event.kind === 'executionPrepared') {
+        startedIdentityCheckpoints.push(checkpoint);
+        void checkpoint.catch((error) => {
+          channelError ??=
+            error instanceof Error
+              ? error
+              : new Error('Native Conversation session identity could not be saved.');
+          void abortRejectedBinding();
+        });
+      },
+      onExecutionPrepared: (
+        event: Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>,
+      ) => {
         if (!executionTarget) {
           channelError ??= new Error('Agent runtime prepared work without an execution target.');
           void abortRejectedBinding();
@@ -2720,66 +2382,28 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           channelError ??= error instanceof Error ? error : new Error(String(error));
           void abortRejectedBinding();
         });
-        return;
-      }
-      const workspacePolicy =
-        workspaceRequirement === 'optional' ? 'workspace-optional' : 'bound-required';
-      const sharedHandled = this.consumeSharedHostEvent({
-        event,
-        state: sharedHostState,
-        policy: workspacePolicy,
-        expectedWorkspace: {
-          projectId,
-          access: rootAccess,
-          threadId: input.threadId,
-          turnId: runScope.runId,
-          requestId,
-        },
-        workspaceRequirement,
-        runScope,
-        employeeId: input.employeeId,
-        rootRun,
-        emitRootBus,
-        emitWorkspaceStatus: emitWorkspaceStatusActivity,
-        onWorkspaceAccepted: openRootRun,
-        onRejected: (message) => {
-          channelError ??= new Error(message);
-          void abortRejectedBinding();
-        },
-        onStarted: (startedEvent) => {
-          // A direct-delegation root is an orchestration shell, not a native Pi
-          // conversation. Its exact execution identity comes from the prepared
-          // child session below; there is no root session file/id to persist or
-          // resume as plain chat.
-          if (input.directDelegation || competitiveDraft) return;
-          const checkpoint = this.persistQueue.enqueueTerminalCheckpoint(
-            `commit native session identity for ${runScope.runId}`,
-            () =>
-              persistStartedNativeSessionIdentity({
-                repos: this.repos,
-                runId: runScope.runId,
-                runtimeContext,
-                event: startedEvent,
-                engineId: this.engineId,
-              }),
-          );
-          startedIdentityCheckpoints.push(checkpoint);
-          void checkpoint.catch((error) => {
-            channelError ??=
-              error instanceof Error
-                ? error
-                : new Error('Native Conversation session identity could not be saved.');
-            void abortRejectedBinding();
-          });
-        },
-        persistContext: () =>
-          this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext)),
-      });
-      workspaceBindingGate = sharedHostState.workspaceGate;
-      finalText = sharedHostState.contentText;
-      reasoningText = sharedHostState.reasoningText;
-      if (sharedHandled) return;
-      if (event.kind === 'result') {
+      },
+      onStreamCursor: (event: Extract<PiAgentHostEvent, { kind: 'streamCursor' }>) => {
+        lastObservedStreamCursor = Math.max(lastObservedStreamCursor, event.cursor);
+        this.queueRunStreamCursor(
+          runScope.runId,
+          runtimeContext,
+          event.cursor,
+          buildConversationStreamCheckpoint({
+            projection: runtimeContext.conversationProjection,
+            threadId: input.threadId,
+            employeeId: input.employeeId,
+            runId: runScope.runId,
+            contentText: finalText,
+            reasoningText,
+            at: Date.parse(runtimeContext.createdAt ?? '') || Date.now(),
+            companyId: this.companyId,
+            projectId,
+            workspaceProvenance: runtimeContext.workspaceProvenance,
+          }),
+        );
+      },
+      onResult: (event: Extract<PiAgentHostEvent, { kind: 'result' }>) => {
         finalText = event.response.text || finalText;
         try {
           const provenance = requireRootResultProvenance(
@@ -2799,12 +2423,46 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           return;
         }
         this.flushRunStreamCursor(runScope.runId);
-        return;
-      }
-      if (event.kind === 'error') {
+      },
+      onError: (event: Extract<PiAgentHostEvent, { kind: 'error' }>) => {
         this.flushRunStreamCursor(runScope.runId);
         channelError = nonAuthorizingAgentHostError(event.message);
-      }
+      },
+      flushPendingControls: () => this.flushPendingControls(input.threadId, requestId),
+      handleControlLifecycle: (payload: unknown) => this.handleControlLifecycle(payload),
+      persistContext: () =>
+        this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext)),
+      enqueuePersist: (work: () => Promise<void>) => this.enqueuePersist(work),
+      persistArtifact: (event: AgentRunEvent, claim: TaskWorkspaceBindingClaim | null) =>
+        this.persistArtifact(event, claim),
+      persistWorkspaceDiagnostics: (
+        event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+        fallbackProjectId: string | null,
+        payload: WorkspaceDiagnosticsUpdatedPayload,
+      ) => this.persistWorkspaceDiagnostics(event, fallbackProjectId, payload),
+      persistMcpToolCall: (
+        event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+        employeeId: string | null,
+      ) => this.persistMcpToolCall(event, employeeId),
+      persistWorkspaceLeaseSnapshot: (
+        event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+        fallbackProjectId: string | null,
+      ) => this.persistWorkspaceLeaseSnapshot(event, fallbackProjectId),
+      persistWorkspaceCheckpoint: (
+        event: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
+        fallbackProjectId: string | null,
+      ) => this.persistWorkspaceCheckpoint(event, fallbackProjectId),
+      persistAgentRun: (event: AgentRunEvent) => this.persistAgentRun(event),
+      rootRun,
+      emitRootBus,
+      emitRuntimeEvent: (event: RuntimeEvent<any>) => runtimeEventBus.emit(event),
+      emitWorkspaceStatus: emitWorkspaceStatusActivity,
+    } satisfies ActiveHostEventContext;
+    onEvent.onmessage = (event) => {
+      void dispatchHostEvent(event, hostEventContext);
+      workspaceBindingGate = sharedHostState.workspaceGate;
+      finalText = sharedHostState.contentText;
+      reasoningText = sharedHostState.reasoningText;
     };
     const recoverStalledStream = async (allowReattach: boolean) => {
       const snapshot = await this.invokeStreamSnapshot(requestId);
