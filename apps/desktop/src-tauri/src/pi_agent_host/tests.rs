@@ -1832,7 +1832,7 @@ fn pi_agent_host_event_serializes_camel_case_for_renderer() {
 }
 
 #[test]
-fn pi_run_stream_buffers_events_and_terminal_snapshot() {
+fn pi_run_stream_semantics_terminal_policy() {
     let _stream_test_guard = pi_run_stream_test_guard();
     let request_id = format!(
         "test-stream-{}",
@@ -1842,9 +1842,19 @@ fn pi_run_stream_buffers_events_and_terminal_snapshot() {
             .as_nanos()
     );
     begin_run_stream(&request_id);
+
+    let delivered = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let delivered_for_channel = delivered.clone();
+    let channel: Channel<PiAgentHostEvent> = Channel::new(move |body| {
+        delivered_for_channel
+            .lock()
+            .expect("delivered events poisoned")
+            .push(body.deserialize().expect("decode delivered stream event"));
+        Ok(())
+    });
     publish_host_event(
         Some(&request_id),
-        None,
+        Some(&channel),
         PiAgentHostEvent::MessageDelta {
             delta: "hello".into(),
             channel: Some("content".into()),
@@ -1854,7 +1864,7 @@ fn pi_run_stream_buffers_events_and_terminal_snapshot() {
     .expect("publish buffered delta");
     publish_host_event(
         Some(&request_id),
-        None,
+        Some(&channel),
         PiAgentHostEvent::Tool {
             status: "completed".into(),
             tool_call_id: "call-1".into(),
@@ -1865,14 +1875,26 @@ fn pi_run_stream_buffers_events_and_terminal_snapshot() {
         "test stream tool",
     )
     .expect("publish buffered tool");
+    publish_host_event(
+        Some(&request_id),
+        Some(&channel),
+        PiAgentHostEvent::MessageEnd {
+            text: "hello".into(),
+            stop_reason: Some("completed".into()),
+            error_message: None,
+        },
+        "test stream terminal event",
+    )
+    .expect("publish terminal event before terminal snapshot");
     finish_run_stream(&request_id, "completed", None);
 
-    let streams = pi_run_streams_guard();
-    let state = streams.get(&request_id).expect("stream state exists");
-    let snapshot = state.snapshot(&request_id);
+    let snapshot = pi_run_streams_guard()
+        .get(&request_id)
+        .expect("stream state exists")
+        .snapshot(&request_id);
     assert!(!snapshot.running, "finished stream must not report running");
-    assert_eq!(snapshot.cursor, 2);
-    assert_eq!(snapshot.buffered, 2);
+    assert_eq!(snapshot.cursor, 3);
+    assert_eq!(snapshot.buffered, 3);
     assert_eq!(
         snapshot
             .terminal
@@ -1880,16 +1902,46 @@ fn pi_run_stream_buffers_events_and_terminal_snapshot() {
             .map(|terminal| terminal.status.as_str()),
         Some("completed")
     );
-    let replay = state
-        .events
+    let replay_count = pi_run_streams_guard()
+        .get(&request_id)
+        .expect("stream state exists")
+        .events()
         .iter()
         .filter(|entry| entry.cursor > 1)
-        .collect::<Vec<_>>();
+        .count();
     assert_eq!(
-        replay.len(),
-        1,
+        replay_count, 2,
         "cursor replay should skip already seen events"
     );
+
+    publish_host_event(
+        Some(&request_id),
+        Some(&channel),
+        PiAgentHostEvent::MessageDelta {
+            delta: "late".into(),
+            channel: Some("content".into()),
+        },
+        "test late Pi stream delta",
+    )
+    .expect("Pi preserves post-terminal publish behavior");
+
+    let snapshot = pi_run_streams_guard()
+        .get(&request_id)
+        .expect("stream state exists")
+        .snapshot(&request_id);
+    assert!(
+        !snapshot.running,
+        "late output must not reopen a terminal stream"
+    );
+    assert_eq!(snapshot.cursor, 4, "Pi currently buffers late output");
+    let delivered = delivered.lock().expect("delivered events poisoned");
+    assert_eq!(delivered.len(), 8);
+    assert_eq!(delivered[4]["kind"], "messageEnd");
+    assert_eq!(delivered[5]["kind"], "streamCursor");
+    assert_eq!(delivered[5]["cursor"], 3);
+    assert_eq!(delivered[6]["kind"], "messageDelta");
+    assert_eq!(delivered[7]["kind"], "streamCursor");
+    assert_eq!(delivered[7]["cursor"], 4);
 }
 
 #[test]
@@ -1945,7 +1997,7 @@ fn pi_run_stream_terminal_cleanup_and_release() {
 }
 
 #[test]
-fn pi_run_stream_reattach_replays_after_cursor_and_subscribes() {
+fn pi_run_stream_semantics_publish_subscribe_replay_cursor() {
     let _stream_test_guard = pi_run_stream_test_guard();
     let request_id = format!("test-stream-reattach-{}", unique_suffix());
     begin_run_stream(&request_id);
@@ -2210,7 +2262,7 @@ fn pi_run_stream_reattach_subscribes_before_replay_without_lock_send() {
 }
 
 #[test]
-fn pi_run_stream_reattach_pending_is_bounded_and_fails_closed() {
+fn pi_run_stream_semantics_bounded_pending_policy() {
     let _stream_test_guard = pi_run_stream_test_guard();
     let request_id = format!("test-stream-pending-bound-{}", unique_suffix());
     begin_run_stream(&request_id);
@@ -2267,7 +2319,7 @@ fn pi_run_stream_reattach_pending_is_bounded_and_fails_closed() {
     let state = streams
         .get(&request_id)
         .expect("bounded replay stream exists");
-    assert_eq!(state.events.len(), PI_RUN_STREAM_BUFFER_LIMIT);
+    assert_eq!(state.events().len(), PI_RUN_STREAM_BUFFER_LIMIT);
     assert!(
         state.subscriber_count() == 0,
         "overflowed replay subscriber must be removed so reattach can retry"
@@ -2275,8 +2327,40 @@ fn pi_run_stream_reattach_pending_is_bounded_and_fails_closed() {
 }
 
 #[test]
-fn pi_run_stream_reattach_rejects_evicted_cursor_gap() {
+fn pi_run_stream_semantics_cursor_validation_policy() {
     let _stream_test_guard = pi_run_stream_test_guard();
+
+    let ahead_request_id = format!("test-stream-ahead-{}", unique_suffix());
+    begin_run_stream(&ahead_request_id);
+    publish_host_event(
+        Some(&ahead_request_id),
+        None,
+        PiAgentHostEvent::MessageDelta {
+            delta: "only".into(),
+            channel: Some("content".into()),
+        },
+        "seed ahead cursor rejection",
+    )
+    .expect("publish ahead cursor seed");
+    let ahead_error = reattach_stream(
+        ahead_request_id.clone(),
+        Some(2),
+        Channel::new(|_body| Ok(())),
+    )
+    .expect_err("Pi must reject a cursor ahead of the live stream");
+    assert!(
+        ahead_error.contains("ahead of live cursor"),
+        "unexpected ahead cursor error: {ahead_error}"
+    );
+    assert_eq!(
+        pi_run_streams_guard()
+            .get(&ahead_request_id)
+            .expect("ahead stream exists")
+            .subscriber_count(),
+        0,
+        "ahead cursor rejection must not register a subscriber"
+    );
+
     let request_id = format!("test-stream-gap-{}", unique_suffix());
     begin_run_stream(&request_id);
     for index in 0..=PI_RUN_STREAM_BUFFER_LIMIT {

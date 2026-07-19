@@ -1,0 +1,48 @@
+{
+  "checkedAt": "2026-07-18T21:40:58+12:00",
+  "worktree": "/Users/haoshengli/worktrees/offisim-refactor-c",
+  "appPath": "/Users/haoshengli/worktrees/offisim-refactor-c/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app",
+  "binarySha256": "d037b0139b5c00c80ff62e95e6bbe00b20998b986d537015b65e9414e3d7daba",
+  "window": {
+    "pid": 26374,
+    "cgWindowNumber": 31062,
+    "title": "Offisim",
+    "bounds": { "x": 36, "y": 33, "width": 1440, "height": 890 },
+    "url": "tauri://localhost"
+  },
+  "cases": [
+    { "engine": "claude", "result": "C1-CLAUDE-FINAL-OK", "terminal": "complete", "screenshot": "01-claude-complete.png" },
+    { "engine": "codex", "result": "C1-CODEX-FINAL-OK", "terminal": "complete", "screenshot": "02-codex-complete.png" },
+    { "engine": "pi", "result": "C1-PI-FINAL-OK", "terminal": "complete", "screenshot": "03-pi-complete.png" },
+    {
+      "engine": "pi",
+      "scenario": "renderer reload during running bash tool",
+      "runningScreenshot": "04-pi-reattached-running.png",
+      "result": "C1-RECONNECT-FINAL-OK",
+      "resultOccurrences": 1,
+      "terminal": "complete",
+      "completeScreenshot": "05-pi-reattached-complete.png"
+    }
+  ],
+  "cleanup": {
+    "employeeBindingRestored": true,
+    "allEmployeesIdle": true,
+    "windowClosedWithComputerUse": true,
+    "pidExited": true,
+    "cgWindowAbsent": true
+  },
+  "screenshots": {
+    "01-claude-complete.png": "05c2f8b57f34691676a10ce6dcec5f40cfa8a6594fdfc51fa703dd898bac31e5",
+    "02-codex-complete.png": "0f4239bcc654ca553925e288696fe051eb498d65c4f625e87d4707ea377bcfda",
+    "03-pi-complete.png": "71168f7a4f18f73f12c72726edf1ff17b915dfcff4ab45de22937467192f43a5",
+    "04-pi-reattached-running.png": "86375fecbec27bcca17bfe8f77520fba351955ab145cf9c4a0c207755448c91d",
+    "05-pi-reattached-complete.png": "9ddd914e6f25ecb7fae11447b9af152b98c39c588adeb3d2bd62bd2cbf9a23c6"
+  },
+  "planDeviation": {
+    "roadmapPath": "apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "actualOfficialBuildPath": "apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app",
+    "reason": "The official package build fixes --target aarch64-apple-darwin; the roadmap path does not exist.",
+    "literalRoadmapPathGatePassed": false,
+    "actualOfficialArtifactVerified": true
+  }
+}
