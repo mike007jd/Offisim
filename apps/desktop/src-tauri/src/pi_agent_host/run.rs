@@ -17,6 +17,9 @@ use crate::agent_host_runtime::{
     sidecar_script_path, HostError, SidecarAudit,
 };
 use crate::in_flight::InFlightRegistry;
+use crate::process_group::{
+    configure_process_group, signal_process_group, terminate_process_group, ProcessGroupGuard,
+};
 use crate::sidecar_stderr::{
     read_capped_line, read_capped_to_end, sanitized_stderr, MAX_SIDECAR_OUTPUT_BYTES,
 };
@@ -227,67 +230,14 @@ pub(super) fn authorize_mcp_frame(profile: McpBridgeProfile) -> Result<(), HostE
     )))
 }
 
-fn configure_sidecar_process_group(command: &mut Command) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.as_std_mut().process_group(0);
-    }
-}
-
-#[cfg(unix)]
-fn signal_sidecar_process_group(process_group_id: Option<u32>, signal: i32) {
-    if let Some(pid) = process_group_id {
-        // SAFETY: the sidecar command assigns the child to a dedicated group.
-        unsafe {
-            libc::kill(-(pid as i32), signal);
-        }
-    }
-}
-
-#[cfg(not(unix))]
-fn signal_sidecar_process_group(process_group_id: Option<u32>, _signal: i32) {
-    let _ = process_group_id;
-}
-
-struct SidecarProcessGroupGuard(Option<u32>);
-
-impl SidecarProcessGroupGuard {
-    fn disarm(&mut self) {
-        self.0 = None;
-    }
-}
-
-impl Drop for SidecarProcessGroupGuard {
-    fn drop(&mut self) {
-        #[cfg(unix)]
-        signal_sidecar_process_group(self.0, libc::SIGKILL);
-    }
-}
-
-async fn terminate_sidecar_process_group(child: &mut Child, process_group_id: Option<u32>) {
-    #[cfg(unix)]
-    signal_sidecar_process_group(process_group_id, libc::SIGTERM);
-
-    let reaped = matches!(
-        tokio::time::timeout(SIDECAR_GRACEFUL_SHUTDOWN_TIMEOUT, child.wait()).await,
-        Ok(Ok(_))
-    );
-
-    #[cfg(unix)]
-    signal_sidecar_process_group(process_group_id, libc::SIGKILL);
-    if !reaped {
-        let _ = child.start_kill();
-        let _ = child.wait().await;
-    }
-}
-
 async fn finish_sidecar_process_group(child: &mut Child, process_group_id: Option<u32>) {
     // A successful group leader exit is not proof that same-group descendants
     // ended. Clear them before accepting the terminal response and reap the
     // leader again harmlessly if the main loop already waited it.
     #[cfg(unix)]
-    signal_sidecar_process_group(process_group_id, libc::SIGKILL);
+    signal_process_group(process_group_id, libc::SIGKILL);
+    #[cfg(not(unix))]
+    let _ = process_group_id;
     let _ = child.wait().await;
 }
 
@@ -346,7 +296,7 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
     if authorized_process.is_none() {
         command.current_dir(cwd);
     }
-    configure_sidecar_process_group(&mut command);
+    configure_process_group(&mut command);
     if let Some(execution) = authorized_process.as_ref() {
         execution
             .bind_command(&mut command)
@@ -361,7 +311,7 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
         ))
     })?;
     let process_group_id = child.id();
-    let mut process_group_guard = SidecarProcessGroupGuard(process_group_id);
+    let mut process_group_guard = ProcessGroupGuard::new(process_group_id);
     let result = async {
         let mut stdin = child
             .stdin
@@ -671,7 +621,12 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
     if result.is_err() {
         // Give Node a bounded SIGTERM window to abort host-tracked Bash calls,
         // then hard-kill any remaining same-group descendants.
-        terminate_sidecar_process_group(&mut child, process_group_id).await;
+        terminate_process_group(
+            &mut child,
+            process_group_id,
+            SIDECAR_GRACEFUL_SHUTDOWN_TIMEOUT,
+        )
+        .await;
     } else {
         finish_sidecar_process_group(&mut child, process_group_id).await;
     }

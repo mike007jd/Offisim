@@ -13,6 +13,7 @@ use tokio::io::{AsyncWriteExt, BufReader, BufWriter};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{oneshot, Mutex as AsyncMutex, Notify};
 
+use crate::process_group::{configure_process_group, signal_process_group};
 use crate::sidecar_stderr::{read_capped_line, MAX_SIDECAR_OUTPUT_BYTES};
 use crate::task_workspace_binding::AuthorizedProcessCwd;
 
@@ -1305,27 +1306,6 @@ fn validate_binary(binary: &Path) -> Result<(), CodexHostError> {
     }
     Ok(())
 }
-
-fn configure_process_group(command: &mut Command) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.as_std_mut().process_group(0);
-    }
-}
-
-#[cfg(unix)]
-fn signal_process_group(process_group_id: Option<u32>, signal: i32) {
-    if let Some(pid) = process_group_id {
-        // SAFETY: every child is launched into a dedicated process group above.
-        unsafe {
-            libc::kill(-(pid as i32), signal);
-        }
-    }
-}
-
-#[cfg(not(unix))]
-fn signal_process_group(_process_group_id: Option<u32>, _signal: i32) {}
 
 fn required_string<'a>(
     object: &'a Map<String, Value>,
