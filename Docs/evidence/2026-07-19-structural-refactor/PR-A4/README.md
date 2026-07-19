@@ -55,3 +55,11 @@ All safely reachable changed states passed visual layout acceptance. The expecte
 - Temporary company `A4 Round 2 QA`: archived through the product UI and removed from the active company list. The product offers Archive rather than permanent delete, so the archived company remains as product-managed archived data.
 - Temporary loops: `Check status, then stop` and the earlier longer-title visual-check loop were both archived through the product UI. The product offers Archive rather than delete, so both remain as archived records inside the archived temporary company.
 - No source file, database file, fixture, provider, existing company, real agent run, commit, or remote state was changed.
+
+## Current-commit rebuild proof
+
+- Checked at: 2026-07-19 NZST.
+- Current branch head `ac2ae6b8` differs from the visually accepted `811a91e8` only by this evidence README and screenshots; no product source changed between them.
+- `pnpm --filter @offisim/desktop build` rebuilt the exact current-head release `.app` successfully at the path above. Executable SHA-256: `14a04075e51d41756a475826bd1083684b5dd5b33aaedcc8b121b702764a2a39`; `codesign --verify --deep --strict` PASS; notarization skipped because the machine has no notarization environment credentials.
+- Fresh-profile AI Accounts remains unavailable without redirecting the hard-coded `~/.offisim` storage root or destructively replacing global account state; the product has no test-profile/storage override. The prior new-company proof confirms providers/activity are global, not company-scoped.
+- Loop Runs time and Recovery time remain blocked because their UI requires a real loop run and a real interrupted agent run respectively. No paid/API run or fabricated DB state was introduced. A4 therefore remains `completed_with_risks`, not fully accepted for those three unreachable states.
