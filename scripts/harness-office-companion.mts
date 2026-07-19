@@ -375,9 +375,11 @@ assert.doesNotMatch(scene2d, /hitsRef\.current\.push\(\{[^}]*companion/s);
 assert.equal((scene3d.match(/<OfficeCompanion3D/g) ?? []).length, 1);
 
 const uiState = readText('apps/desktop/renderer/src/app/ui-state.ts');
-const stageViewer = readText(
-  'apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx',
-);
+const stageViewer = [
+  readText('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx'),
+  readText('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageTopBar.tsx'),
+  readText('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewMenu.tsx'),
+].join('\n');
 assert.match(uiState, /OFFICE_COMPANION_STORAGE_KEY/);
 assert.match(uiState, /persistOfficeCompanionEnabled/);
 assert.match(uiState, /OFFICE_COMPANION_PET_STORAGE_KEY/);

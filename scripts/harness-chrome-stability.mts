@@ -13,7 +13,10 @@ const officeStage = read('apps/desktop/renderer/src/surfaces/office/OfficeStage.
 const workspacePanel = read('apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx');
 const chatRail = read('apps/desktop/renderer/src/surfaces/office/ChatRail.tsx');
 const teamDock = read('apps/desktop/renderer/src/surfaces/office/TeamDock.tsx');
-const stageViewer = read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx');
+const stageViewer = [
+  read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx'),
+  read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageTopBar.tsx'),
+].join('\n');
 const runPill = read('apps/desktop/renderer/src/assistant/parts/RunPipelinePill.tsx');
 const workspaceNav = read('apps/desktop/renderer/src/design-system/shell/WorkspaceNav.tsx');
 const shellCss = read('apps/desktop/renderer/src/design-system/shell/shell.css');

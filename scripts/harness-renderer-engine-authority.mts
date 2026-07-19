@@ -309,9 +309,11 @@ assert.match(approvalSource, /type=\{question\.isSecret \? 'password' : 'text'\}
 assert.match(approvalSource, /Do not log answer state/u);
 
 const runtimeTabSource = source('../apps/desktop/renderer/src/surfaces/personnel/RuntimeTab.tsx');
-const personnelSource = source(
-  '../apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx',
-);
+const personnelSource = [
+  source('../apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx'),
+  source('../apps/desktop/renderer/src/surfaces/personnel/EmployeeDetail.tsx'),
+  source('../apps/desktop/renderer/src/surfaces/personnel/HireEmployeeDialog.tsx'),
+].join('\n');
 assert.match(runtimeTabSource, /<span>Employee AI<\/span>/u);
 assert.match(runtimeTabSource, /const supportsReasoning = selectedOption\?\.reasoning === true/u);
 assert.match(runtimeTabSource, /\{supportsReasoning \? \(/u);
