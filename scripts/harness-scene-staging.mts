@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Scene staging gate (Phase 3, source plan §7 / §8).
  *
@@ -13,7 +17,7 @@
  *  - performanceForBeat is total (every beat kind → a defined layered state) and
  *    refines work gesture from the tool-fact activity kind.
  *
- * Pure Node via tsx against shared-types source — no DOM, no renderer, no Pi.
+ * Pure Node via tsx against dramaturgy source — no DOM, no renderer, no Pi.
  */
 import {
   type CharacterPerformanceState,
@@ -23,18 +27,8 @@ import {
   performanceForBeat,
   reserveStaging,
   worldAnchorsFor,
-} from '../packages/shared-types/src/index.js';
-
-let failures = 0;
-let checks = 0;
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) console.log(`  ✓ ${name}`);
-  else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+} from '../packages/dramaturgy/src/index.js';
+const check = h.check;
 
 const prefab = (
   instanceId: string,
@@ -334,9 +328,11 @@ console.log('\n[performance] layered state for every beat kind');
   );
 }
 
-console.log(`\nscene-staging: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`scene-staging gate FAILED with ${failures} failure(s)`);
+console.log(`\nscene-staging: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`scene-staging gate FAILED with ${h.failures} failure(s)`);
   process.exit(1);
 }
 console.log('scene-staging gate PASSED');
+
+if (!process.exitCode) h.report();

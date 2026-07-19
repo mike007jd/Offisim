@@ -1,3 +1,4 @@
+import { queryKeys } from '@/data/query-keys.js';
 import { getRepos } from '@/runtime/repos.js';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -17,7 +18,7 @@ export function useEmployeeSeniorityRoster(
   const employeeKey = employeeIds.join('\u0000');
 
   return useQuery({
-    queryKey: ['employee-seniority', companyId, employeeKey],
+    queryKey: queryKeys.employeeSeniority(companyId, employeeKey),
     queryFn: async (): Promise<EmployeeSeniorityRoster> => {
       const repos = await getRepos();
       const entries = await Promise.all(

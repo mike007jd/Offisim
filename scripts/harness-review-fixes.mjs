@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { harnessById, validateHarnessIds } from './harness-manifest.mjs';
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
 
@@ -32,27 +33,31 @@ function assertNoMatch(text, pattern, message) {
 }
 
 const rootPackage = JSON.parse(await source('package.json'));
+const reviewFixesCommand = harnessById.get('review-fixes')?.command ?? '';
 assert(
   rootPackage.scripts['build:pi-agent-host'],
   'The current API adapter host must be buildable.',
 );
 assert(
-  rootPackage.scripts['harness:review-fixes'].includes('harness:ai-account-catalog') &&
-    !rootPackage.scripts['harness:review-fixes'].includes('check:model-catalog-freshness'),
+  reviewFixesCommand.includes('harness:ai-account-catalog') &&
+    !reviewFixesCommand.includes('check:model-catalog-freshness'),
   'The architecture guard must validate dynamic Pi configuration without a closed-world catalog.',
 );
 assert(
-  rootPackage.scripts['harness:review-fixes'].includes('check:docs-truth'),
+  reviewFixesCommand.includes('check:docs-truth'),
   'The architecture guard must reject stale current docs and broken replacement links.',
 );
 assert(
-  rootPackage.scripts['harness:review-fixes'].includes('harness:visual-semantics'),
+  reviewFixesCommand.includes('harness:visual-semantics'),
   'The review gate must verify radius, presence, and error semantics.',
 );
 assert(
-  rootPackage.scripts.validate.includes('harness:pi-agent-host') &&
-    rootPackage.scripts.validate.includes('harness:runtime-conformance'),
+  validateHarnessIds.includes('pi-agent-host') && validateHarnessIds.includes('runtime-conformance'),
   'Validate must cover the production API adapter and neutral runtime conformance.',
+);
+assert(
+  rootPackage.scripts.validate.includes('node scripts/run-harnesses.mjs'),
+  'Validate must execute the manifest harness runner so validateHarnessIds stays a live gate.',
 );
 
 const desktopPackage = JSON.parse(await source('apps/desktop/package.json'));

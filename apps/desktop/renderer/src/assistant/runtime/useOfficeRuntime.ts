@@ -1,4 +1,5 @@
 import { autoTitleThreadFromFirstMessage } from '@/data/auto-title.js';
+import { queryKeys } from '@/data/query-keys.js';
 import type { ChatMessage, Employee, StagedAttachment } from '@/data/types.js';
 import type { AgentQueueBehavior } from '@/runtime/desktop-agent-runtime.js';
 import { resolveThreadModel } from '@/runtime/pi-thread-model-store.js';
@@ -96,7 +97,7 @@ export function useOfficeRuntime({
     // The controller keeps only the current Turn in `liveMessages`. Refresh the
     // durable projection as soon as that Turn reaches a terminal phase so the
     // next submit cannot make the previous prompt/answer disappear from view.
-    void queryClient.invalidateQueries({ queryKey: ['messages', threadId] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.messages(threadId) });
   }, [queryClient, run.attemptId, run.phase, threadId]);
   useEffect(() => {
     if (!companyId || !threadId) return;
@@ -198,8 +199,8 @@ export function useOfficeRuntime({
           onMessagePersisted: () => consumeStaged(attachmentScope, stagedIdsForTurn),
           onThreadTitleUpdated: () => {
             void Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['threads', projectId] }),
-              queryClient.invalidateQueries({ queryKey: ['unfinished-threads'] }),
+              queryClient.invalidateQueries({ queryKey: queryKeys.threads(projectId) }),
+              queryClient.invalidateQueries({ queryKey: queryKeys.unfinishedThreads() }),
             ]);
           },
           ...(loopExecution ? { loopExecution } : {}),

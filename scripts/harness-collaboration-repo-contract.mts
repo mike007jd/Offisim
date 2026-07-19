@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 // PR-02 — Collaboration repository/service contract harness.
 //
 // Runs the CollaborationService against the REAL collaboration SQL schema on
@@ -35,21 +39,7 @@ import type {
   CollaborationTurnRepository,
   NewCollaborationThread,
 } from '../packages/core/src/runtime/repositories.js';
-
-let passed = 0;
-let failed = 0;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 // --- Schema (subset of schema.sql needed to enforce the collaboration constraints) ---
 const SCHEMA_SQL = `
@@ -888,16 +878,18 @@ async function main(): Promise<void> {
   await runContract(betterBackend);
   await runContract(proxyBackend);
 
-  console.log(`\ncollaboration-repo contract: ${passed} passed, ${failed} failed`);
-  if (failed > 0) {
+  console.log(`\ncollaboration-repo contract: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+  if (h.failures > 0) {
     console.error('collaboration-repo contract: FAIL');
     process.exit(1);
   }
   console.log('collaboration-repo contract: PASS');
 }
 
-main().catch((err) => {
+await main().catch((err) => {
   console.error('collaboration-repo contract: FAIL');
   console.error(err instanceof assert.AssertionError ? err.message : err);
   process.exit(1);
 });
+
+if (!process.exitCode) h.report();

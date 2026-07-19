@@ -27,6 +27,7 @@ import {
   createLspDiagnosticsExtensionFactory,
 } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
 import { RUN_FAILURE_KINDS, classifyRunFailure } from './pi-agent-host-wire.mjs';
+import { validateHarnessIds } from './harness-manifest.mjs';
 import { childToolsForPermissionMode } from './pi-child-supervisor.mjs';
 import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
 import {
@@ -1131,8 +1132,12 @@ const desktopAgentRuntimeSource = readFileSync(
   'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
   'utf8',
 );
+const hostEventDispatchSource = readFileSync(
+  'apps/desktop/renderer/src/runtime/host-event-dispatch.ts',
+  'utf8',
+);
 const activityDataSource = readFileSync(
-  'apps/desktop/renderer/src/surfaces/office/board/activity-data.ts',
+  'apps/desktop/renderer/src/data/board/activity-data.ts',
   'utf8',
 );
 
@@ -1150,8 +1155,8 @@ assert(
   'the bundled root host must preserve silent full-project verification fallback when LSP is unavailable',
 );
 assert(
-  /WORKSPACE_DIAGNOSTICS_UPDATED_EVENT/.test(desktopAgentRuntimeSource) &&
-    /const persisted = await this\.persistWorkspaceDiagnostics/.test(desktopAgentRuntimeSource) &&
+  /WORKSPACE_DIAGNOSTICS_UPDATED_EVENT/.test(hostEventDispatchSource) &&
+    /const persisted = await active\.persistWorkspaceDiagnostics/.test(hostEventDispatchSource) &&
     /runtimeEventBus\.on\(WORKSPACE_DIAGNOSTICS_UPDATED_EVENT/.test(activityDataSource),
   'DesktopAgentRuntime must persist before emitting the neutral diagnostics event that refreshes the existing timeline',
 );
@@ -1162,8 +1167,12 @@ assert(
 );
 assert(!('provider:check' in rootPackage.scripts), 'provider:check must not be a validation gate');
 assert(
-  rootPackage.scripts.validate.includes('pnpm harness:pi-agent-host'),
+  validateHarnessIds.includes('pi-agent-host'),
   'validate must include the Pi Agent host harness',
+);
+assert(
+  rootPackage.scripts.validate.includes('node scripts/run-harnesses.mjs'),
+  'validate must execute the manifest harness runner so validateHarnessIds stays a live gate',
 );
 assert(
   rootPackage.scripts['check:pi-wire-contract'] === 'node scripts/check-pi-wire-contract.mjs',
@@ -1571,7 +1580,9 @@ assert(
 assert(
   /'lifecycle'/.test(wireSource) &&
     /Lifecycle \{/.test(rustHostSource) &&
-    /event\.kind === 'lifecycle'/.test(desktopAgentRuntimeSource),
+    /const lifecycle: HostEventHandler<'lifecycle'>[\s\S]*?active\.handleControlLifecycle\(event\.payload\)/.test(
+      hostEventDispatchSource,
+    ),
   'wire v11 must decode lifecycle events on Node, Rust, and renderer sides',
 );
 assert(
@@ -1608,9 +1619,7 @@ assert(
   /deferIntegration: directDelegation\.deferIntegration === true/.test(nodeHostSource) &&
     /options\.deferIntegration === true/.test(childSupervisorSource) &&
     /runTask\(task, signal, options\)/.test(childSupervisorSource) &&
-    /maybeIntegrateWrites\([\s\S]*options\.deferIntegration === true/.test(
-      childSupervisorSource,
-    ) &&
+    /maybeIntegrateWrites\([\s\S]*options\.deferIntegration === true/.test(childSupervisorSource) &&
     /confirmIntegration: retainForReview \? undefined : ctx\.confirmIntegration/.test(
       childSupervisorSource,
     ) &&
@@ -1637,10 +1646,8 @@ assert(
       desktopAgentRuntimeSource,
     ) &&
     desktopAgentRuntimeSource.indexOf('const pendingAbortDecision =') <
-      desktopAgentRuntimeSource.indexOf(
-        '...requireRootResultProvenance(',
-      ) &&
-    /if \(this\.abortedRequests\.has\(requestId\)\) \{[\s\S]*?this\.persistRootTerminal\(\s*runScope\.runId,\s*'cancelled'/.test(
+      desktopAgentRuntimeSource.indexOf('...requireRootResultProvenance(') &&
+    /if \(this\.abortedRequests\.has\(requestId\)\) \{[\s\S]*?this\.persistQueue\.persistRootTerminal\(\s*runScope\.runId,\s*'cancelled'/.test(
       desktopAgentRuntimeSource,
     ) &&
     /releaseRetainedStream\(requestId\)/.test(desktopAgentRuntimeSource),
@@ -1702,10 +1709,11 @@ assert(
     'apps/desktop/renderer/src/assistant/parts/PermissionApprovalBar.tsx',
     'utf8',
   );
-  const boardStageSource = readFileSync(
-    'apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx',
-    'utf8',
-  );
+  const boardStageSource = [
+    readFileSync('apps/desktop/renderer/src/surfaces/office/board/BoardStage.tsx', 'utf8'),
+    readFileSync('apps/desktop/renderer/src/surfaces/office/board/BoardCard.tsx', 'utf8'),
+    readFileSync('apps/desktop/renderer/src/surfaces/office/board/BoardDrawer.tsx', 'utf8'),
+  ].join('\n');
   const reviewWorkbenchStageSource = readFileSync(
     'apps/desktop/renderer/src/surfaces/office/board/ReviewWorkbenchStage.tsx',
     'utf8',
@@ -1728,7 +1736,7 @@ assert(
       /isLeaseReview && leaseDecisionComplete/.test(permissionApprovalSource) &&
       /pendingLeaseAction !== null/.test(permissionApprovalSource) &&
       /const outcome = await reviewWorkspaceLease/.test(permissionApprovalSource) &&
-      /queryKey: \['workspace-lease-reviews'\]/.test(permissionApprovalSource),
+      /queryKey: queryKeys\.workspaceLeaseReviewsAll\(\)/.test(permissionApprovalSource),
     'the pending-review permission notice must use the Board lease decision channel, stay actionable after restart, open the matching Board drawer, and refresh every active Board scope',
   );
   assert(

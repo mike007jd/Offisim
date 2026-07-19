@@ -1,4 +1,5 @@
 import { useAgentRuntimeModels } from '@/assistant/composer/usePiAgentModels.js';
+import { SelectableCard } from '@/components/SelectableCard.js';
 import { UI_DATA_COLORS } from '@/data/color-palette.js';
 import { useCompanyTemplates } from '@/data/queries.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
@@ -87,7 +88,7 @@ function EmployeeCard({
   const accent = employee.appearance?.accentColor ?? UI_DATA_COLORS.blue2;
   const clothing = employee.appearance?.clothingColor ?? UI_DATA_COLORS.ink3;
   return (
-    <div className="off-wiz-emp">
+    <SelectableCard as="div" selected={expanded} className="off-wiz-emp">
       <button
         type="button"
         className="off-wiz-emp-trigger off-focusable"
@@ -137,7 +138,7 @@ function EmployeeCard({
           <p>{employee.expertise}</p>
         </div>
       ) : null}
-    </div>
+    </SelectableCard>
   );
 }
 
@@ -309,13 +310,12 @@ export function CompanyCreationWizard({
         {templates.map((t, i) => {
           const active = i === safeIndex;
           return (
-            <label
+            <SelectableCard
+              as="label"
               key={t.id}
-              className={cn(
-                'off-wiz-card off-focusable',
-                active && 'is-active',
-                busy && 'is-disabled',
-              )}
+              selected={active}
+              selectedClassName="is-active"
+              className={cn('off-wiz-card off-focusable', busy && 'is-disabled')}
               style={active ? roleAccentStyle(t.accentHex) : undefined}
             >
               <input
@@ -337,7 +337,7 @@ export function CompanyCreationWizard({
               <span className="off-wiz-card-meta">
                 {t.isCustom ? 'Build in Studio' : `${t.employees.length} people`}
               </span>
-            </label>
+            </SelectableCard>
           );
         })}
       </div>

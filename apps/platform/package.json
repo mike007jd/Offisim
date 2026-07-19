@@ -17,7 +17,7 @@
     "@offisim/core": "workspace:*",
     "@offisim/db-platform": "workspace:*",
     "@offisim/install-core": "workspace:*",
-    "@offisim/renderer": "workspace:*",
+    "@offisim/prefab": "workspace:*",
     "better-auth": "^1.6.23",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.12.25",

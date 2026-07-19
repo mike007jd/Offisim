@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 import assert from 'node:assert/strict';
 import {
   DEFAULT_STAGE_SPLIT_LAYOUT,
@@ -20,21 +24,7 @@ import {
   resolveViewerKind,
   trustLevelFor,
 } from '../apps/desktop/renderer/src/surfaces/office/stage-preview/preview-target.js';
-
-let checks = 0;
-let failures = 0;
-
-function check(name: string, fn: () => void): void {
-  checks += 1;
-  try {
-    fn();
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failures += 1;
-    console.error(`  ✗ ${name}`);
-    console.error(error);
-  }
-}
+const check = h.checkAsync;
 
 function resetUiState(): void {
   useUiState.setState(useUiState.getInitialState(), true);
@@ -42,49 +32,49 @@ function resetUiState(): void {
 
 console.log('stage-preview-targets gate');
 
-check('resolver:md-extension-maps-markdown', () => {
+await check('resolver:md-extension-maps-markdown', () => {
   assert.equal(resolveViewerKind({ extension: 'md', hasText: true }), 'markdown');
 });
 
-check('resolver:mime-wins-over-extension', () => {
+await check('resolver:mime-wins-over-extension', () => {
   assert.equal(
     resolveViewerKind({ mimeType: 'application/pdf', extension: 'txt', hasText: true }),
     'pdf',
   );
 });
 
-check('resolver:unknown-binary-unsupported', () => {
+await check('resolver:unknown-binary-unsupported', () => {
   assert.equal(resolveViewerKind({ extension: 'bin', hasText: false }), 'unsupported');
 });
 
-check('resolver:text-fallback-when-hasText', () => {
+await check('resolver:text-fallback-when-hasText', () => {
   assert.equal(resolveViewerKind({ extension: 'unknown', hasText: true }), 'text');
 });
 
-check('resolver:glb-maps-model3d', () => {
+await check('resolver:glb-maps-model3d', () => {
   assert.equal(resolveViewerKind({ extension: 'glb', hasText: false }), 'model3d');
 });
 
-check('resolver:vrm-maps-model3d', () => {
+await check('resolver:vrm-maps-model3d', () => {
   assert.equal(resolveViewerKind({ extension: 'vrm', hasText: false }), 'model3d');
 });
 
-check('trust:workspace-file-is-workspace', () => {
+await check('trust:workspace-file-is-workspace', () => {
   const ref: PreviewSourceRef = { source: 'workspace-file', path: '/repo/a.md' };
   assert.equal(trustLevelFor(ref), 'workspace');
 });
 
-check('trust:deliverable-is-generated', () => {
+await check('trust:deliverable-is-generated', () => {
   const ref: PreviewSourceRef = { source: 'deliverable', deliverableId: 'del-1', threadId: null };
   assert.equal(trustLevelFor(ref), 'generated');
 });
 
-check('trust:computer-artifact-is-computer', () => {
+await check('trust:computer-artifact-is-computer', () => {
   const ref: PreviewSourceRef = { source: 'computer-artifact', path: '/repo/out.png' };
   assert.equal(trustLevelFor(ref), 'computer');
 });
 
-check('ui-state:preview-target-maps-preview-tab', () => {
+await check('ui-state:preview-target-maps-preview-tab', () => {
   const target: StageViewTarget = {
     kind: 'preview',
     ref: { source: 'workspace-file', path: '/repo/a.md' },
@@ -92,11 +82,11 @@ check('ui-state:preview-target-maps-preview-tab', () => {
   assert.equal(stageTabForTarget(target), 'preview');
 });
 
-check('ui-state:computer-target-maps-computer-tab', () => {
+await check('ui-state:computer-target-maps-computer-tab', () => {
   assert.equal(stageTabForTarget({ kind: 'computer', threadId: 'thread-1' }), 'computer');
 });
 
-check('ui-state:tab-id-stable-for-same-file', () => {
+await check('ui-state:tab-id-stable-for-same-file', () => {
   resetUiState();
   const target: StageViewTarget = {
     kind: 'preview',
@@ -109,7 +99,7 @@ check('ui-state:tab-id-stable-for-same-file', () => {
   assert.equal(state.activeStageTabId, 'preview:workspace-file:/repo/a.md');
 });
 
-check('ui-state:open-activate-close-roundtrip', () => {
+await check('ui-state:open-activate-close-roundtrip', () => {
   resetUiState();
   const previewTarget: StageViewTarget = {
     kind: 'preview',
@@ -132,7 +122,7 @@ check('ui-state:open-activate-close-roundtrip', () => {
   assert.deepEqual(useUiState.getState().stageView, { kind: 'scene' });
 });
 
-check('ui-state:split-view-pin-swap-close-roundtrip', () => {
+await check('ui-state:split-view-pin-swap-close-roundtrip', () => {
   resetUiState();
   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
   const reviewTabId = useUiState.getState().activeStageTabId;
@@ -154,7 +144,7 @@ check('ui-state:split-view-pin-swap-close-roundtrip', () => {
   assert.equal(useUiState.getState().activeStageTabId, reviewTabId);
 });
 
-check('ui-state:pinning-active-view-keeps-a-distinct-left-view', () => {
+await check('ui-state:pinning-active-view-keeps-a-distinct-left-view', () => {
   resetUiState();
   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
   const reviewTabId = useUiState.getState().activeStageTabId;
@@ -171,7 +161,7 @@ check('ui-state:pinning-active-view-keeps-a-distinct-left-view', () => {
   assert.equal(useUiState.getState().stageSplitTabId, null);
 });
 
-check('ui-state:game-and-board-restore-single-view', () => {
+await check('ui-state:game-and-board-restore-single-view', () => {
   resetUiState();
   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
   const reviewTabId = useUiState.getState().activeStageTabId;
@@ -194,7 +184,7 @@ check('ui-state:game-and-board-restore-single-view', () => {
   assert.equal(useUiState.getState().stageSplitTabId, null);
 });
 
-check('ui-state:board-and-game-reject-reverse-split-transitions', () => {
+await check('ui-state:board-and-game-reject-reverse-split-transitions', () => {
   resetUiState();
   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
   const reviewTabId = useUiState.getState().activeStageTabId;
@@ -217,7 +207,7 @@ check('ui-state:board-and-game-reject-reverse-split-transitions', () => {
   assert.notEqual(useUiState.getState().stageSplitTabId, reviewTabId);
 });
 
-check('ui-state:split-layout-survives-pane-unmount-and-remount', () => {
+await check('ui-state:split-layout-survives-pane-unmount-and-remount', () => {
   resetUiState();
   useUiState.getState().setStageSplitLayout({ 'stage-primary': 63, 'stage-secondary': 37 });
   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
@@ -235,7 +225,7 @@ check('ui-state:split-layout-survives-pane-unmount-and-remount', () => {
   });
 });
 
-check('ui-state:split-layout-storage-restores-after-restart', () => {
+await check('ui-state:split-layout-storage-restores-after-restart', () => {
   const values = new Map<string, string>();
   const storage = {
     getItem: (key: string) => values.get(key) ?? null,
@@ -260,7 +250,7 @@ function resolved(
   return { ref, viewerKind, trustLevel: trustLevelFor(ref), meta };
 }
 
-check('data:workspace-md-loads-text-lane', () => {
+await check('data:workspace-md-loads-text-lane', () => {
   assert.equal(
     planPreviewLoad(
       resolved({ source: 'workspace-file', path: '/repo/README.md' }, 'markdown', {
@@ -274,7 +264,7 @@ check('data:workspace-md-loads-text-lane', () => {
   );
 });
 
-check('data:mp4-routes-stream-no-read', () => {
+await check('data:mp4-routes-stream-no-read', () => {
   assert.equal(
     planPreviewLoad(
       resolved({ source: 'workspace-file', path: '/repo/demo.mp4' }, 'video', {
@@ -287,7 +277,7 @@ check('data:mp4-routes-stream-no-read', () => {
   );
 });
 
-check('data:mp3-routes-stream-no-read', () => {
+await check('data:mp3-routes-stream-no-read', () => {
   assert.equal(
     planPreviewLoad(
       resolved({ source: 'workspace-file', path: '/repo/audio.mp3' }, 'audio', {
@@ -300,7 +290,7 @@ check('data:mp3-routes-stream-no-read', () => {
   );
 });
 
-check('data:avi-routes-stream-for-codec-fallback', () => {
+await check('data:avi-routes-stream-for-codec-fallback', () => {
   assert.equal(
     planPreviewLoad(
       resolved({ source: 'workspace-file', path: '/repo/legacy.avi' }, 'video', {
@@ -313,28 +303,28 @@ check('data:avi-routes-stream-for-codec-fallback', () => {
   );
 });
 
-check('data:media-stream-url-encodes-path-and-project', () => {
+await check('data:media-stream-url-encodes-path-and-project', () => {
   assert.equal(
     mediaStreamUrl('/repo/My File.mp4', 'proj-1'),
     'offisim-media://localhost/file?path=%2Frepo%2FMy+File.mp4&projectId=proj-1',
   );
 });
 
-check('data:docx-extension-official-mime', () => {
+await check('data:docx-extension-official-mime', () => {
   assert.equal(
     mimeForPreviewExtension('docx'),
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   );
 });
 
-check('data:docx-zip-sniff-prefers-official-mime', () => {
+await check('data:docx-zip-sniff-prefers-official-mime', () => {
   assert.equal(
     resolvePreviewMimeType('application/zip', 'docx'),
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   );
 });
 
-check('data:xlsx-routes-bytes', () => {
+await check('data:xlsx-routes-bytes', () => {
   assert.equal(
     planPreviewLoad(
       resolved({ source: 'workspace-file', path: '/repo/book.xlsx' }, 'spreadsheet', {
@@ -348,7 +338,7 @@ check('data:xlsx-routes-bytes', () => {
   );
 });
 
-check('data:html-deliverable-inline-html', () => {
+await check('data:html-deliverable-inline-html', () => {
   assert.equal(
     planPreviewLoad(
       resolved(
@@ -362,7 +352,7 @@ check('data:html-deliverable-inline-html', () => {
   );
 });
 
-check('data:browser-localhost-embeds-url', () => {
+await check('data:browser-localhost-embeds-url', () => {
   assert.equal(
     planPreviewLoad(
       resolved({ source: 'browser', url: 'http://localhost:5173/' }, 'browser', {
@@ -374,7 +364,7 @@ check('data:browser-localhost-embeds-url', () => {
   );
 });
 
-check('data:browser-external-falls-to-screenshot', () => {
+await check('data:browser-external-falls-to-screenshot', () => {
   assert.equal(
     planPreviewLoad(
       resolved({ source: 'browser', url: 'https://example.com/' }, 'browser', {
@@ -387,21 +377,21 @@ check('data:browser-external-falls-to-screenshot', () => {
   );
 });
 
-check('csv:quoted-comma', () => {
+await check('csv:quoted-comma', () => {
   assert.deepEqual(parseCsvRows('name,notes\nA,"hello, world"'), [
     ['name', 'notes'],
     ['A', 'hello, world'],
   ]);
 });
 
-check('csv:escaped-quote', () => {
+await check('csv:escaped-quote', () => {
   assert.deepEqual(parseCsvRows('name,quote\nA,"say ""hi"""'), [
     ['name', 'quote'],
     ['A', 'say "hi"'],
   ]);
 });
 
-check('csv:crlf', () => {
+await check('csv:crlf', () => {
   assert.deepEqual(parseCsvRows('a,b\r\n1,2\r\n3,4'), [
     ['a', 'b'],
     ['1', '2'],
@@ -409,9 +399,11 @@ check('csv:crlf', () => {
   ]);
 });
 
-console.log(`\nstage-preview-targets: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`stage-preview-targets gate FAILED with ${failures} failure(s)`);
+console.log(`\nstage-preview-targets: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`stage-preview-targets gate FAILED with ${h.failures} failure(s)`);
   process.exit(1);
 }
 console.log('stage-preview-targets gate PASSED');
+
+if (!process.exitCode) h.report();

@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Loop authoring-flow oracle (PR-08). Drives the PURE, deterministic pieces of the
  * prompt-first Loops editor headlessly — no DOM, no Tauri, no live model:
@@ -55,21 +59,7 @@ import type {
   LoopModelOutput,
 } from '../packages/core/src/loops/types.ts';
 import { createMemoryRepositories } from '../packages/core/src/runtime/memory-repositories.ts';
-
-let passed = 0;
-let failed = 0;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 const PROFILE = 'software-development';
 const GENERAL_PROFILE = 'general-work';
@@ -742,5 +732,7 @@ await check('BUG-2: an in-flight compile blocks a second compile even with answe
   assert.equal(await guardedCompile({ q1: 'y' }), 'ran', 'once idle, the answers path runs again');
 });
 
-console.log(`\nLoop authoring flow: ${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+console.log(`\nLoop authoring flow: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+if (h.failures > 0) process.exit(1);
+
+if (!process.exitCode) h.report();

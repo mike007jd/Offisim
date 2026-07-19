@@ -1,7 +1,11 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Dramaturgy performance + child-run stress gate (Phase 6, source plan §15).
  *
- * Two guarantees, pure Node via tsx against shared-types source:
+ * Two guarantees, pure Node via tsx against dramaturgy source:
  *  1. PERFORMANCE — a 30-employee, deep-tree run's live staging pipeline
  *     (compose → project → mode) stays within a per-frame compute budget so it
  *     never blocks the render loop, and is byte-identical run-to-run.
@@ -20,18 +24,8 @@ import {
   applyDramaturgyMode,
   composeBeats,
   projectOfficeStaging,
-} from '../packages/shared-types/src/index.js';
-
-let failures = 0;
-let checks = 0;
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) console.log(`  ✓ ${name}`);
-  else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+} from '../packages/dramaturgy/src/index.js';
+const check = h.check;
 
 const THREAD = 'thread-stress';
 const ROOT = 'root-stress';
@@ -241,9 +235,11 @@ console.log('\n[stress] valid hierarchy, no anchor collisions, no movement spam'
   }
 }
 
-console.log(`\ndramaturgy-stress: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`dramaturgy-stress gate FAILED with ${failures} failure(s)`);
+console.log(`\ndramaturgy-stress: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`dramaturgy-stress gate FAILED with ${h.failures} failure(s)`);
   process.exit(1);
 }
 console.log('dramaturgy-stress gate PASSED');
+
+if (!process.exitCode) h.report();

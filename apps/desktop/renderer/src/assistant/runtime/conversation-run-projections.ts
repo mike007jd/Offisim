@@ -1,9 +1,5 @@
-import {
-  type SceneBeat,
-  type SurfacedResourceSeverity,
-  resourceSeverityRank,
-  surfacedResourceSeverity,
-} from '@offisim/shared-types';
+import { resourceSeverityRank, surfacedResourceSeverity } from '@offisim/dramaturgy';
+import type { SceneBeat, SurfacedResourceSeverity } from '@offisim/shared-types';
 import {
   type ConversationRunsSnapshot,
   isConversationRunActive,

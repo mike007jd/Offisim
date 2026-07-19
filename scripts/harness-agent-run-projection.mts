@@ -17,19 +17,10 @@ import {
   parseToolRichDetail,
   projectAgentRun,
 } from '../packages/shared-types/src/index.js';
+import { createHarness } from './lib/harness-runner.mjs';
 
-let failures = 0;
-let checks = 0;
-
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const h = createHarness();
+const { check } = h;
 
 const THREAD = 'thread-1';
 const ROOT = 'root-1';
@@ -466,9 +457,10 @@ console.log('\n[determinism] same stream → byte-identical projection');
   check('two runs produce identical projection', a === b);
 }
 
-console.log(`\nagent-run-projection: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`agent-run-projection gate FAILED with ${failures} failure(s)`);
-  process.exit(1);
+console.log(`\nagent-run-projection: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`agent-run-projection gate FAILED with ${h.failures} failure(s)`);
+} else {
+  console.log('agent-run-projection gate PASSED');
 }
-console.log('agent-run-projection gate PASSED');
+h.report();

@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Loop compiler oracle (PR-07). Drives the deterministic compiler core — the
  * software-development profile, the generic IR validator, the repair/needs_input
@@ -22,9 +26,6 @@ import type {
 import { validateLoopIR } from '../packages/core/src/loops/validate.ts';
 import type { LoopIR } from '../packages/shared-types/src/loops/ir.ts';
 
-let passed = 0;
-let failed = 0;
-
 for (const asset of softwareDevelopmentProfile.referenceAssets) {
   for (const [, target] of asset.content.matchAll(/\[[^\]]+\]\(([^)]+\.md)\)/gu)) {
     assert.ok(
@@ -33,18 +34,7 @@ for (const asset of softwareDevelopmentProfile.referenceAssets) {
     );
   }
 }
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 /** A model that returns a fixed output regardless of input (deterministic). */
 function fixedModel(output: LoopModelOutput): LoopCompileModel {
@@ -653,8 +643,10 @@ await check('buildLoopExecutionPacket is deterministic for the same revision', a
   );
 });
 
-if (failed > 0) {
-  console.error(`\nloop-compiler: ${passed} passed, ${failed} failed`);
+if (h.failures > 0) {
+  console.error(`\nloop-compiler: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
   process.exit(1);
 }
-console.log(`\nloop-compiler: ${passed} checks passed`);
+console.log(`\nloop-compiler: ${(h.checks - h.failures)} checks passed`);
+
+if (!process.exitCode) h.report();

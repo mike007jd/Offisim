@@ -21,7 +21,8 @@ assert.equal(build.status, 0, build.stderr || build.stdout);
 const [
   entry,
   rust,
-  commands,
+  commandInvocations,
+  commandDefinitions,
   tauriCommands,
   runtime,
   permissions,
@@ -33,6 +34,7 @@ const [
   readText('scripts/tauri-claude-agent-host.entry.mjs'),
   readText('apps/desktop/src-tauri/src/claude_agent_host/mod.rs'),
   readText('apps/desktop/src-tauri/src/claude_agent_host/commands.rs'),
+  readText('apps/desktop/src-tauri/src/agent_host_runtime.rs'),
   readText('apps/desktop/renderer/src/lib/tauri-commands.ts'),
   readText('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts'),
   readText('apps/desktop/src-tauri/permissions/agent-bridges.toml'),
@@ -41,6 +43,7 @@ const [
   readText('apps/desktop/src-tauri/tauri.conf.json').then(JSON.parse),
   readText('scripts/prepare-desktop-cargo-test.mjs'),
 ]);
+const commands = `${commandInvocations}\n${commandDefinitions}`;
 
 assert.equal(packageJson.dependencies?.['@anthropic-ai/claude-agent-sdk'], undefined);
 assert.equal(packageJson.dependencies?.['@anthropic-ai/sdk'], undefined);
