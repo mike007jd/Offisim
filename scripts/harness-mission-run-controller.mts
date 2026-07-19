@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * MissionRunController oracle (PRD §16.2 / §16.3 / §19 / §5, slice MS-005 + MS-006).
  *
@@ -58,22 +62,8 @@ import {
 } from '../packages/core/src/browser.js';
 import { createDeliverablesMemoryRepos } from '../packages/core/src/runtime/repos/deliverables/memory.ts';
 import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mission/memory.ts';
-
-let passed = 0;
-let failed = 0;
 const TOTAL = 11;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 // ---------------------------------------------------------------------------
 // In-memory test doubles.
@@ -984,7 +974,9 @@ await check(
 
 // ---------------------------------------------------------------------------
 
-console.log(`mission-run-controller: ${passed}/${TOTAL} passed`);
-if (failed > 0 || passed !== TOTAL) {
+console.log(`mission-run-controller: ${(h.checks - h.failures)}/${TOTAL} passed`);
+if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) {
   process.exitCode = 1;
 }
+
+if (!process.exitCode) h.report();

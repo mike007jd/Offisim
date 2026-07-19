@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Durable Mission Recovery oracle (PRD §22, slice M4 — DR-001..006).
  *
@@ -59,22 +63,8 @@ import {
   type MissionMemoryRepos,
   createMissionMemoryRepos,
 } from '../packages/core/src/runtime/repos/mission/memory.ts';
-
-let passed = 0;
-let failed = 0;
 const TOTAL = 16;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 // ---------------------------------------------------------------------------
 // Deterministic id/clock + repos + service, mirroring the mission harnesses.
@@ -785,8 +775,10 @@ await check(
   },
 );
 
-if (failed > 0) {
-  console.error(`\nmission-recovery: ${passed}/${TOTAL} passed (${failed} failed)`);
+if (h.failures > 0) {
+  console.error(`\nmission-recovery: ${(h.checks - h.failures)}/${TOTAL} passed (${h.failures} failed)`);
   process.exit(1);
 }
-console.log(`\nmission-recovery: ${passed}/${TOTAL} passed`);
+console.log(`\nmission-recovery: ${(h.checks - h.failures)}/${TOTAL} passed`);
+
+if (!process.exitCode) h.report();

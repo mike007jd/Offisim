@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Prompt Enhance deterministic harness (PR-06).
  *
@@ -39,19 +43,7 @@ import {
   buildEnhanceRequest,
   runEnhance,
 } from '../apps/desktop/renderer/src/assistant/enhance/service.js';
-
-let failures = 0;
-let checks = 0;
-
-function check(name: string, condition: boolean, detail?: string): void {
-  checks += 1;
-  if (condition) {
-    console.log(`  ✓ ${name}`);
-  } else {
-    failures += 1;
-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
+const check = h.check;
 
 console.log('prompt-enhance gate');
 
@@ -409,9 +401,11 @@ const ROSTER = [
   );
 }
 
-console.log(`\nprompt-enhance: ${checks - failures}/${checks} checks passed`);
-if (failures > 0) {
-  console.error(`prompt-enhance gate FAILED with ${failures} failing check(s)`);
+console.log(`\nprompt-enhance: ${h.checks - h.failures}/${h.checks} checks passed`);
+if (h.failures > 0) {
+  console.error(`prompt-enhance gate FAILED with ${h.failures} failing check(s)`);
   process.exit(1);
 }
 console.log('prompt-enhance gate OK');
+
+if (!process.exitCode) h.report();

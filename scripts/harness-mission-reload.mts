@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Renderer-reload Mission convergence oracle.
  *
@@ -39,26 +43,12 @@ import type {
   NewAgentRun,
   NewRuntimeSessionLink,
 } from '../packages/core/src/runtime/repositories.ts';
-
-let passed = 0;
-let failed = 0;
 const TOTAL = 19;
 const COMPANY_ID = 'company-reload';
 const PROJECT_ID = 'project-reload';
 const THREAD_ID = 'thread-reload';
 const FINISHED_AT = '2026-07-14T05:00:00.000Z';
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 function deterministicDeps(): MissionServiceDeps {
   let id = 0;
@@ -926,5 +916,7 @@ await check(
   },
 );
 
-console.log(`\nMission reload harness: ${passed}/${TOTAL} passed`);
-if (failed > 0 || passed !== TOTAL) process.exitCode = 1;
+console.log(`\nMission reload harness: ${(h.checks - h.failures)}/${TOTAL} passed`);
+if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exitCode = 1;
+
+if (!process.exitCode) h.report();

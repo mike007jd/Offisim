@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Mission Evaluator oracle (PRD §20, slice MS-003).
  *
@@ -27,23 +31,7 @@ import type {
   EvaluationContext,
   EvaluationResult,
 } from '../packages/core/src/runtime/mission/evaluators/types.ts';
-
-let passed = 0;
-let failed = 0;
-const checks: string[] = [];
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  checks.push(name);
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 // ---------------------------------------------------------------------------
 // In-memory EvaluationContext test double. Capabilities are served from a
@@ -411,9 +399,11 @@ await check(
   },
 );
 
-const total = checks.length;
-if (failed > 0) {
-  console.error(`\nmission-evaluators: ${passed}/${total} passed (${failed} failed)`);
+const total = h.checks;
+if (h.failures > 0) {
+  console.error(`\nmission-evaluators: ${(h.checks - h.failures)}/${total} passed (${h.failures} failed)`);
   process.exit(1);
 }
-console.log(`\nmission-evaluators: ${passed}/${total} passed`);
+console.log(`\nmission-evaluators: ${(h.checks - h.failures)}/${total} passed`);
+
+if (!process.exitCode) h.report();

@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 // PR-05 — Connect chat FLOW harness (deterministic data/flow layer, NOT the live
 // model). It proves the renderer-facing Connect flow contract the Messenger/
 // Contacts UI depends on, WITHOUT a Pi model or a Tauri runtime:
@@ -35,21 +39,7 @@ import {
   createCollaborationService,
 } from '../packages/core/src/runtime/collaboration/collaboration-service.js';
 import { createCollaborationDrizzleRepos } from '../packages/core/src/runtime/repos/collaboration/drizzle.js';
-
-let passed = 0;
-let failed = 0;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 // Subset of schema.sql needed to enforce chat_threads isolation + the four
 // collaboration tables (same DDL as the PR-02 repo-contract harness).
@@ -541,16 +531,18 @@ async function main(): Promise<void> {
     assert.notEqual(t1, t2, 'broken draft yields two threads — the real check would FAIL');
   });
 
-  console.log(`\nconnect-chat-flow: ${passed} passed, ${failed} failed`);
-  if (failed > 0) {
+  console.log(`\nconnect-chat-flow: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+  if (h.failures > 0) {
     console.error('connect-chat-flow: FAIL');
     process.exit(1);
   }
   console.log('connect-chat-flow: PASS');
 }
 
-main().catch((err) => {
+await main().catch((err) => {
   console.error('connect-chat-flow: FAIL');
   console.error(err instanceof assert.AssertionError ? err.message : err);
   process.exit(1);
 });
+
+if (!process.exitCode) h.report();

@@ -1,0 +1,4009 @@
+diff --git a/scripts/harness-agent-run-usage.mjs b/scripts/harness-agent-run-usage.mjs
+index 89b518f2..79fbf217 100644
+--- a/scripts/harness-agent-run-usage.mjs
++++ b/scripts/harness-agent-run-usage.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { resolveApiRunUsage } from './agent-run-usage.mjs';
+ 
+@@ -218,3 +222,5 @@ assert.equal(
+ console.log('PASS: provider actual cost outranks verified catalog estimate');
+ console.log('PASS: missing token and price fields remain absent/unavailable');
+ console.log('PASS: generation lookup is bounded, exact-model scoped, and failure tolerant');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-ai-account-catalog.mjs b/scripts/harness-ai-account-catalog.mjs
+index 18ffe211..0d2b2221 100644
+--- a/scripts/harness-ai-account-catalog.mjs
++++ b/scripts/harness-ai-account-catalog.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { defaultApiModelForAccount, projectApiAccountCatalog } from './ai-account-catalog.mjs';
+ 
+@@ -146,3 +150,5 @@ assert.doesNotMatch(serialized, /(?:apiKey|rawCredentialSource|auth\.json|models
+ assert.doesNotMatch(serialized, /unconfigured|subscription-provider/u);
+ 
+ console.log('PASS dynamic AI account catalog (multi-provider, arbitrary leaves, safe payload)');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-ai-account-configuration.mjs b/scripts/harness-ai-account-configuration.mjs
+index cf1ab851..318bda7d 100644
+--- a/scripts/harness-ai-account-configuration.mjs
++++ b/scripts/harness-ai-account-configuration.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { spawnSync } from 'node:child_process';
+ import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+@@ -133,3 +137,5 @@ try {
+ }
+ 
+ console.log('PASS dynamic API provider configuration (multi-provider, Pi-owned secrets, safe output)');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-ai-account-usage.mts b/scripts/harness-ai-account-usage.mts
+index 800ebcb7..f7bb571b 100644
+--- a/scripts/harness-ai-account-usage.mts
++++ b/scripts/harness-ai-account-usage.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import Database from 'better-sqlite3';
+ import { loadAiAccountUsageFromDatabase } from '../apps/desktop/renderer/src/data/ai-account-usage.js';
+@@ -275,3 +279,5 @@ assert.deepEqual(
+ console.log(
+   '✓ ai-account-usage: root-only monthly accounting stays isolated by engine/account/billing lane',
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-best-of-n.mts b/scripts/harness-best-of-n.mts
+index d3037e9e..5a8b133c 100644
+--- a/scripts/harness-best-of-n.mts
++++ b/scripts/harness-best-of-n.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { fileURLToPath } from 'node:url';
+@@ -294,3 +298,5 @@ try {
+   console.error(error);
+   process.exitCode = 1;
+ }
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-budget-nudge.mts b/scripts/harness-budget-nudge.mts
+index fdc0b838..75e9561b 100644
+--- a/scripts/harness-budget-nudge.mts
++++ b/scripts/harness-budget-nudge.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import {
+@@ -93,3 +97,5 @@ assert.match(
+ console.log(
+   '[harness-budget-nudge] 88% -> exactly one remaining-budget convergence prompt; 100% -> hard stop with budget failure unchanged',
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-character-actions-p3.mts b/scripts/harness-character-actions-p3.mts
+index 557652ee..f850413a 100644
+--- a/scripts/harness-character-actions-p3.mts
++++ b/scripts/harness-character-actions-p3.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import { readFile, readdir, stat } from 'node:fs/promises';
+ import { fileURLToPath } from 'node:url';
+ import { NodeIO } from '@gltf-transform/core';
+@@ -906,3 +910,5 @@ if (failures > 0) {
+ console.log(
+   `PASS harness-character-actions-p3 — ${animations.length} real GLB clips, procedural provenance, root/track integrity, semantic anchors`,
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-character-clip-map.mts b/scripts/harness-character-clip-map.mts
+index b7667f91..11294beb 100644
+--- a/scripts/harness-character-clip-map.mts
++++ b/scripts/harness-character-clip-map.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import { readFileSync } from 'node:fs';
+ import type {
+   CharacterPerformanceState,
+@@ -241,3 +245,5 @@ if (failures > 0) {
+ console.log(
+   `PASS harness-character-clip-map — ${states} states total+deterministic, ${CLIP_NAMES.length} clips in sync with manifest`,
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-character-toy-p0.mjs b/scripts/harness-character-toy-p0.mjs
+index efad9403..b513aead 100644
+--- a/scripts/harness-character-toy-p0.mjs
++++ b/scripts/harness-character-toy-p0.mjs
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env node
+ 
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import { spawnSync } from 'node:child_process';
+ import { fileURLToPath } from 'node:url';
+ 
+@@ -8,4 +12,7 @@ const harness = fileURLToPath(
+ );
+ const result = spawnSync(process.execPath, [harness], { stdio: 'inherit' });
+ if (result.error) throw result.error;
++if (result.status === 0) h.report();
+ process.exit(result.status ?? 1);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-character-toy-p1-runtime.mts b/scripts/harness-character-toy-p1-runtime.mts
+index 253ec8ba..6c71ccfc 100644
+--- a/scripts/harness-character-toy-p1-runtime.mts
++++ b/scripts/harness-character-toy-p1-runtime.mts
+@@ -1,4 +1,8 @@
+ #!/usr/bin/env tsx
++
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
+ import { runToyCharacterRuntimeOracle } from '../apps/desktop/renderer/src/surfaces/office/scene/character/toy-character-oracle.ts';
+ 
+ const bodyUrl = new URL(
+@@ -7,3 +11,5 @@ const bodyUrl = new URL(
+ );
+ await runToyCharacterRuntimeOracle(bodyUrl);
+ console.log('PASS harness-character-toy-p1-runtime');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-character-toy-p1.mjs b/scripts/harness-character-toy-p1.mjs
+index eb1da512..817504f6 100644
+--- a/scripts/harness-character-toy-p1.mjs
++++ b/scripts/harness-character-toy-p1.mjs
+@@ -1,4 +1,8 @@
+ #!/usr/bin/env node
++
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
+ import { spawnSync } from 'node:child_process';
+ import { createHash } from 'node:crypto';
+ import { existsSync } from 'node:fs';
+@@ -482,12 +486,17 @@ const runtimeOracle = spawnSync(
+   ],
+   { cwd: ROOT, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 },
+ );
++const runtimeOracleDetail = [
++  runtimeOracle.error?.message,
++  runtimeOracle.stdout?.replace(/\nall 0 checks passed\n$/u, '\n'),
++  runtimeOracle.stderr,
++]
++  .filter(Boolean)
++  .join('\n');
+ check(
+   'executable runtime oracle covers exact scales, blink/reduced-motion, prop precedence, and garments',
+   runtimeOracle.status === 0,
+-  [runtimeOracle.error?.message, runtimeOracle.stdout, runtimeOracle.stderr]
+-    .filter(Boolean)
+-    .join('\n'),
++  runtimeOracleDetail,
+ );
+ const rigFrameSource = character.slice(
+   character.indexOf('useFrame((state, delta)'),
+@@ -549,3 +558,5 @@ console.log(
+   }`,
+ );
+ if (failures.length > 0) process.exit(1);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-chat-attachment-roundtrip.mjs b/scripts/harness-chat-attachment-roundtrip.mjs
+index fc1fdfb9..58107dca 100644
+--- a/scripts/harness-chat-attachment-roundtrip.mjs
++++ b/scripts/harness-chat-attachment-roundtrip.mjs
+@@ -1,4 +1,8 @@
+ #!/usr/bin/env node
++
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
+ import { readFileSync } from 'node:fs';
+ /**
+  * Deterministic round-trip fixture for `add-chat-attachment-end-to-end`.
+@@ -240,3 +244,5 @@ const ok = [
+ ].every(Boolean);
+ console.log(JSON.stringify({ suite: 'chat-attachment-roundtrip', ok }, null, 2));
+ if (!ok) process.exit(1);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-chat-persistence.mts b/scripts/harness-chat-persistence.mts
+index 82305ace..83ff272a 100644
+--- a/scripts/harness-chat-persistence.mts
++++ b/scripts/harness-chat-persistence.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import {
+@@ -1337,3 +1341,5 @@ if (failed.length > 0) {
+   process.exit(1);
+ }
+ console.log(`chat-persistence harness passed: ${allScenarios.length}/${allScenarios.length}`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-chrome-stability.mts b/scripts/harness-chrome-stability.mts
+index b443ad46..36999015 100644
+--- a/scripts/harness-chrome-stability.mts
++++ b/scripts/harness-chrome-stability.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { join } from 'node:path';
+@@ -191,3 +195,5 @@ check(
+ );
+ 
+ console.log(`\nChrome stability harness: ${passed}/10 checks passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-claude-agent-host.mjs b/scripts/harness-claude-agent-host.mjs
+index c99a75e4..e179211a 100644
+--- a/scripts/harness-claude-agent-host.mjs
++++ b/scripts/harness-claude-agent-host.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { spawn, spawnSync } from 'node:child_process';
+ import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+@@ -357,3 +361,5 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
+ }
+ 
+ console.log('Claude CLI orchestration host harness passed.');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-codex-app-server-contract.mjs b/scripts/harness-codex-app-server-contract.mjs
+index b0875357..59d3ff7f 100644
+--- a/scripts/harness-codex-app-server-contract.mjs
++++ b/scripts/harness-codex-app-server-contract.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { existsSync, readFileSync } from 'node:fs';
+ import { dirname, join, resolve } from 'node:path';
+@@ -125,3 +129,5 @@ assert.match(rustHost, /native-agent-home-redacted/u);
+ assert.match(rustHost, /Bearer\\s\+|\[secret-redacted\]/u);
+ 
+ console.log('codex orchestration adapter contract OK');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-collaboration-profile.mts b/scripts/harness-collaboration-profile.mts
+index 31884990..adbcaa3d 100644
+--- a/scripts/harness-collaboration-profile.mts
++++ b/scripts/harness-collaboration-profile.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Collaboration profile oracle (Epic E, E1) — the `collaboration_read` read-only
+  * boundary for Connect.
+@@ -21,41 +25,27 @@ import {
+   collaborationToolAllowlist,
+   normalizeCollaborationProfile,
+ } from './pi-agent-permission-modes.mts';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 8;
+-
+-function check(name: string, run: () => void): void {
+-  try {
+-    run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ console.log('harness:collaboration-profile — Connect read-only boundary (E1)\n');
+ 
+-check('(1) strict profile → zero tools (unchanged daily chat)', () => {
++await check('(1) strict profile → zero tools (unchanged daily chat)', () => {
+   assert.deepEqual(collaborationToolAllowlist('strict'), []);
+ });
+ 
+-check('(2) collaboration_read → no filesystem built-ins without a source grant', () => {
++await check('(2) collaboration_read → no filesystem built-ins without a source grant', () => {
+   assert.deepEqual(collaborationToolAllowlist('collaboration_read'), []);
+ });
+ 
+-check('(3) normalize defaults unknown/undefined → strict', () => {
++await check('(3) normalize defaults unknown/undefined → strict', () => {
+   assert.equal(normalizeCollaborationProfile(undefined), 'strict');
+   assert.equal(normalizeCollaborationProfile('nonsense'), 'strict');
+   assert.equal(normalizeCollaborationProfile('collaboration_read'), 'collaboration_read');
+   assert.equal(normalizeCollaborationProfile('strict'), 'strict');
+ });
+ 
+-check('(4) INVARIANT: collaboration_read allowlist ∩ forbidden = ∅', () => {
++await check('(4) INVARIANT: collaboration_read allowlist ∩ forbidden = ∅', () => {
+   assert.deepEqual(collaborationForbiddenIntersection(COLLABORATION_READ_TOOL_ALLOWLIST), []);
+   assert.deepEqual(
+     collaborationForbiddenIntersection(collaborationToolAllowlist('collaboration_read')),
+@@ -63,12 +53,12 @@ check('(4) INVARIANT: collaboration_read allowlist ∩ forbidden = ∅', () => {
+   );
+ });
+ 
+-check('(5) the forbidden check DETECTS a breach', () => {
++await check('(5) the forbidden check DETECTS a breach', () => {
+   const breach = collaborationForbiddenIntersection(['read', 'write', 'bash', 'grep']);
+   assert.deepEqual(breach.sort(), ['bash', 'write']);
+ });
+ 
+-check('(6) forbidden set covers write / shell / mission / publish / delegate', () => {
++await check('(6) forbidden set covers write / shell / mission / publish / delegate', () => {
+   for (const t of [
+     'write',
+     'edit',
+@@ -84,7 +74,7 @@ check('(6) forbidden set covers write / shell / mission / publish / delegate', (
+   }
+ });
+ 
+-check('(7) the read allowlist exposes no execution/mutation tool', () => {
++await check('(7) the read allowlist exposes no execution/mutation tool', () => {
+   for (const t of COLLABORATION_READ_TOOL_ALLOWLIST) {
+     assert.ok(
+       !(COLLABORATION_FORBIDDEN_TOOLS as readonly string[]).includes(t),
+@@ -93,7 +83,7 @@ check('(7) the read allowlist exposes no execution/mutation tool', () => {
+   }
+ });
+ 
+-check('(8) collaboration_read MCP meta tools still avoid the forbidden set', () => {
++await check('(8) collaboration_read MCP meta tools still avoid the forbidden set', () => {
+   const withMcpMeta = [
+     ...collaborationToolAllowlist('collaboration_read'),
+     'mcp_search_tools',
+@@ -103,5 +93,7 @@ check('(8) collaboration_read MCP meta tools still avoid the forbidden set', ()
+   assert.deepEqual(collaborationForbiddenIntersection(withMcpMeta), []);
+ });
+ 
+-console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
+-if (failed > 0 || passed !== TOTAL) process.exit(1);
++console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
++if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-collaboration-repo-contract.mts b/scripts/harness-collaboration-repo-contract.mts
+index 48215b52..83a26a27 100644
+--- a/scripts/harness-collaboration-repo-contract.mts
++++ b/scripts/harness-collaboration-repo-contract.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ // PR-02 — Collaboration repository/service contract harness.
+ //
+ // Runs the CollaborationService against the REAL collaboration SQL schema on
+@@ -35,21 +39,7 @@ import type {
+   CollaborationTurnRepository,
+   NewCollaborationThread,
+ } from '../packages/core/src/runtime/repositories.js';
+-
+-let passed = 0;
+-let failed = 0;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ // --- Schema (subset of schema.sql needed to enforce the collaboration constraints) ---
+ const SCHEMA_SQL = `
+@@ -888,16 +878,18 @@ async function main(): Promise<void> {
+   await runContract(betterBackend);
+   await runContract(proxyBackend);
+ 
+-  console.log(`\ncollaboration-repo contract: ${passed} passed, ${failed} failed`);
+-  if (failed > 0) {
++  console.log(`\ncollaboration-repo contract: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
++  if (h.failures > 0) {
+     console.error('collaboration-repo contract: FAIL');
+     process.exit(1);
+   }
+   console.log('collaboration-repo contract: PASS');
+ }
+ 
+-main().catch((err) => {
++await main().catch((err) => {
+   console.error('collaboration-repo contract: FAIL');
+   console.error(err instanceof assert.AssertionError ? err.message : err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-computer-rich-detail.mts b/scripts/harness-computer-rich-detail.mts
+index 36961ae6..ac0f2693 100644
+--- a/scripts/harness-computer-rich-detail.mts
++++ b/scripts/harness-computer-rich-detail.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Computer rich-detail contract gate.
+  *
+@@ -7,22 +11,8 @@
+  */
+ import assert from 'node:assert/strict';
+ import { mergeToolRichDetail, parseToolRichDetail } from '../packages/shared-types/src/index.js';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 8;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ console.log('harness:computer-rich-detail — computer tool detail parsing\n');
+ 
+@@ -143,5 +133,7 @@ await check('computer:coordinates-parsed', () => {
+   assert.deepEqual(detail.coordinates, { x: 42, y: 7 });
+ });
+ 
+-console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
+-if (failed > 0 || passed !== TOTAL) process.exit(1);
++console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
++if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-connect-chat-flow.mts b/scripts/harness-connect-chat-flow.mts
+index 63b98669..0f346351 100644
+--- a/scripts/harness-connect-chat-flow.mts
++++ b/scripts/harness-connect-chat-flow.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ // PR-05 — Connect chat FLOW harness (deterministic data/flow layer, NOT the live
+ // model). It proves the renderer-facing Connect flow contract the Messenger/
+ // Contacts UI depends on, WITHOUT a Pi model or a Tauri runtime:
+@@ -35,21 +39,7 @@ import {
+   createCollaborationService,
+ } from '../packages/core/src/runtime/collaboration/collaboration-service.js';
+ import { createCollaborationDrizzleRepos } from '../packages/core/src/runtime/repos/collaboration/drizzle.js';
+-
+-let passed = 0;
+-let failed = 0;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ // Subset of schema.sql needed to enforce chat_threads isolation + the four
+ // collaboration tables (same DDL as the PR-02 repo-contract harness).
+@@ -541,16 +531,18 @@ async function main(): Promise<void> {
+     assert.notEqual(t1, t2, 'broken draft yields two threads — the real check would FAIL');
+   });
+ 
+-  console.log(`\nconnect-chat-flow: ${passed} passed, ${failed} failed`);
+-  if (failed > 0) {
++  console.log(`\nconnect-chat-flow: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
++  if (h.failures > 0) {
+     console.error('connect-chat-flow: FAIL');
+     process.exit(1);
+   }
+   console.log('connect-chat-flow: PASS');
+ }
+ 
+-main().catch((err) => {
++await main().catch((err) => {
+   console.error('connect-chat-flow: FAIL');
+   console.error(err instanceof assert.AssertionError ? err.message : err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-conversation-deletion.mts b/scripts/harness-conversation-deletion.mts
+index 8905b503..6d79d80b 100644
+--- a/scripts/harness-conversation-deletion.mts
++++ b/scripts/harness-conversation-deletion.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import Database from 'better-sqlite3';
+@@ -288,3 +292,5 @@ sqlite.close();
+ console.log(
+   'conversation-deletion harness passed: preflight precedes delete; active bindings and retained leases roll back atomically',
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-conversation-run-controller.mts b/scripts/harness-conversation-run-controller.mts
+index e5e168fc..f4321b09 100644
+--- a/scripts/harness-conversation-run-controller.mts
++++ b/scripts/harness-conversation-run-controller.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import type { RuntimeEvent, VaultRef, WorkspaceProvenance } from '@offisim/shared-types';
+ import {
+@@ -3217,3 +3221,5 @@ if (failed.length > 0) {
+   process.exit(1);
+ }
+ console.log(`conversation-run-controller harness passed: ${scenarios.length}/${scenarios.length}`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-doc-engine-csv-security.mts b/scripts/harness-doc-engine-csv-security.mts
+index 2ab83586..f6140ee7 100644
+--- a/scripts/harness-doc-engine-csv-security.mts
++++ b/scripts/harness-doc-engine-csv-security.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import { exportDocument } from '../packages/doc-engine/src/export.js';
+ 
+ const result = await exportDocument(
+@@ -76,3 +80,5 @@ function parseCsvRows(csvText: string): string[][] {
+   }
+   return rows;
+ }
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-doc-engine-parsers.mjs b/scripts/harness-doc-engine-parsers.mjs
+index 181b1967..24f1685a 100644
+--- a/scripts/harness-doc-engine-parsers.mjs
++++ b/scripts/harness-doc-engine-parsers.mjs
+@@ -1,4 +1,8 @@
+ #!/usr/bin/env node
++
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
+ /**
+  * Deterministic doc-engine importer harness.
+  *
+@@ -146,7 +150,9 @@ function checkExpectations(parsed, scenario) {
+   return { ok: failures.length === 0, failures };
+ }
+ 
+-main().catch((err) => {
++await main().catch((err) => {
+   console.error(err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-doc-engine-xlsx-limits.mts b/scripts/harness-doc-engine-xlsx-limits.mts
+index 017f8c64..189b29dd 100644
+--- a/scripts/harness-doc-engine-xlsx-limits.mts
++++ b/scripts/harness-doc-engine-xlsx-limits.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Deterministic doc-engine XLSX importer cap harness (audit item D2).
+  *
+@@ -133,7 +137,9 @@ async function main(): Promise<void> {
+   console.log('Doc engine XLSX limits harness passed.');
+ }
+ 
+-main().catch((err) => {
++await main().catch((err) => {
+   console.error(err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-dramaturgy-stress.mts b/scripts/harness-dramaturgy-stress.mts
+index 2342ef3f..ed1195a5 100644
+--- a/scripts/harness-dramaturgy-stress.mts
++++ b/scripts/harness-dramaturgy-stress.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Dramaturgy performance + child-run stress gate (Phase 6, source plan §15).
+  *
+@@ -21,17 +25,7 @@ import {
+   composeBeats,
+   projectOfficeStaging,
+ } from '../packages/shared-types/src/index.js';
+-
+-let failures = 0;
+-let checks = 0;
+-function check(name: string, condition: boolean, detail?: string): void {
+-  checks += 1;
+-  if (condition) console.log(`  ✓ ${name}`);
+-  else {
+-    failures += 1;
+-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+-  }
+-}
++const check = h.check;
+ 
+ const THREAD = 'thread-stress';
+ const ROOT = 'root-stress';
+@@ -241,9 +235,11 @@ console.log('\n[stress] valid hierarchy, no anchor collisions, no movement spam'
+   }
+ }
+ 
+-console.log(`\ndramaturgy-stress: ${checks - failures}/${checks} checks passed`);
+-if (failures > 0) {
+-  console.error(`dramaturgy-stress gate FAILED with ${failures} failure(s)`);
++console.log(`\ndramaturgy-stress: ${h.checks - h.failures}/${h.checks} checks passed`);
++if (h.failures > 0) {
++  console.error(`dramaturgy-stress gate FAILED with ${h.failures} failure(s)`);
+   process.exit(1);
+ }
+ console.log('dramaturgy-stress gate PASSED');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-employee-memory.mts b/scripts/harness-employee-memory.mts
+index 33c58d0e..80fb4c4a 100644
+--- a/scripts/harness-employee-memory.mts
++++ b/scripts/harness-employee-memory.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { createRequire } from 'node:module';
+@@ -233,3 +237,5 @@ checks += 2;
+ db.close();
+ 
+ console.log(`[employee-memory] ${checks} deterministic checks passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-employee-seniority.mts b/scripts/harness-employee-seniority.mts
+index 9fd953e0..f93dec03 100644
+--- a/scripts/harness-employee-seniority.mts
++++ b/scripts/harness-employee-seniority.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import {
+   SENIORITY_THRESHOLDS,
+@@ -45,3 +49,5 @@ const normalized = deriveEmployeeSeniority({
+ assert.equal(normalized.careerMarks, 2, 'invalid counters normalize without adding state');
+ 
+ console.log('harness:employee-seniority — PASS (9 checks)');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-employee-version-on-save.mts b/scripts/harness-employee-version-on-save.mts
+index 1c588bfd..0cec3183 100644
+--- a/scripts/harness-employee-version-on-save.mts
++++ b/scripts/harness-employee-version-on-save.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * PE1 gate — wire employee versions on a normal Profile/Appearance save.
+  *
+@@ -25,19 +29,7 @@ import './harness-employee-version-on-save.loader-register.mjs';
+ 
+ import { recordEmployeeVersionOnSave } from '../apps/desktop/renderer/src/surfaces/personnel/personnel-data.js';
+ import { createMemoryRepositories } from '../packages/core/src/browser.js';
+-
+-let failures = 0;
+-let checks = 0;
+-
+-function check(name: string, condition: boolean, detail?: string): void {
+-  checks += 1;
+-  if (condition) {
+-    console.log(`  ✓ ${name}`);
+-  } else {
+-    failures += 1;
+-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+-  }
+-}
++const check = h.check;
+ 
+ function parseSnapshot(raw: string): Record<string, unknown> {
+   return JSON.parse(raw) as Record<string, unknown>;
+@@ -138,12 +130,14 @@ async function main(): Promise<void> {
+   );
+ 
+   console.log(
+-    `\n${failures === 0 ? 'PASS' : 'FAIL'} — ${checks - failures}/${checks} checks passed`,
++    `\n${h.failures === 0 ? 'PASS' : 'FAIL'} — ${h.checks - h.failures}/${h.checks} checks passed`,
+   );
+-  if (failures > 0) process.exit(1);
++  if (h.failures > 0) process.exit(1);
+ }
+ 
+-main().catch((err) => {
++await main().catch((err) => {
+   console.error('harness crashed:', err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-eval-suite.mts b/scripts/harness-eval-suite.mts
+index 46d61adb..406ebe83 100644
+--- a/scripts/harness-eval-suite.mts
++++ b/scripts/harness-eval-suite.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Eval suite oracle (Epic H, H1) — proves the real-task eval definition is sound.
+  *
+@@ -21,22 +25,8 @@ import {
+   summarizeLedger,
+   validateEvalSuite,
+ } from './eval-suite.mts';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 8;
+-
+-function check(name: string, run: () => void): void {
+-  try {
+-    run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ const baseTask: EvalTask = {
+   id: 't',
+@@ -51,32 +41,32 @@ const baseTask: EvalTask = {
+ 
+ console.log('harness:eval-suite — real-task agent UX eval definition (H1)\n');
+ 
+-check('(1) the shipped suite is well-formed (no problems)', () => {
++await check('(1) the shipped suite is well-formed (no problems)', () => {
+   assert.deepEqual(validateEvalSuite(EVAL_SUITE), []);
+ });
+ 
+-check('(2) validator catches a duplicate id', () => {
++await check('(2) validator catches a duplicate id', () => {
+   const problems = validateEvalSuite([baseTask, { ...baseTask }]);
+   assert.ok(problems.some((p) => p.includes('duplicate task id')));
+ });
+ 
+-check('(3) validator catches a task with no ground-truth', () => {
++await check('(3) validator catches a task with no ground-truth', () => {
+   const problems = validateEvalSuite([{ ...baseTask, groundTruth: [] }]);
+   assert.ok(problems.some((p) => p.includes('no ground-truth')));
+ });
+ 
+-check('(4) validator catches a task with no stop condition', () => {
++await check('(4) validator catches a task with no stop condition', () => {
+   const problems = validateEvalSuite([{ ...baseTask, stopConditions: [] }]);
+   assert.ok(problems.some((p) => p.includes('no stop condition')));
+ });
+ 
+-check('(5) validator catches a missing category', () => {
++await check('(5) validator catches a missing category', () => {
+   // A single research task is missing the other 7 required categories.
+   const problems = validateEvalSuite([baseTask]);
+   assert.ok(problems.some((p) => p.includes('missing eval category "mission"')));
+ });
+ 
+-check('(6) all 8 capability categories are covered', () => {
++await check('(6) all 8 capability categories are covered', () => {
+   const categories = new Set(EVAL_SUITE.map((t) => t.category));
+   for (const cat of [
+     'research',
+@@ -92,14 +82,14 @@ check('(6) all 8 capability categories are covered', () => {
+   }
+ });
+ 
+-check('(7) every task is ground-truth-anchored, never self-report only', () => {
++await check('(7) every task is ground-truth-anchored, never self-report only', () => {
+   for (const t of EVAL_SUITE) {
+     assert.ok(t.groundTruth.length >= 1, `${t.id} needs a deterministic check`);
+     assert.equal(t.requiresLive, true);
+   }
+ });
+ 
+-check('(8) summarizeLedger tallies outcomes', () => {
++await check('(8) summarizeLedger tallies outcomes', () => {
+   const results: EvalResult[] = [
+     { taskId: 'a', outcome: 'pass', groundTruthMet: true, evidence: [] },
+     { taskId: 'b', outcome: 'fail', groundTruthMet: false, evidence: [] },
+@@ -114,5 +104,7 @@ check('(8) summarizeLedger tallies outcomes', () => {
+   assert.equal(ledger.summary.skipped, 0);
+ });
+ 
+-console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
+-if (failed > 0 || passed !== TOTAL) process.exit(1);
++console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
++if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-execution-provenance.mts b/scripts/harness-execution-provenance.mts
+index 82271e4f..642f8c00 100644
+--- a/scripts/harness-execution-provenance.mts
++++ b/scripts/harness-execution-provenance.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { randomUUID } from 'node:crypto';
+ import { existsSync, readFileSync } from 'node:fs';
+@@ -510,3 +514,5 @@ check('native Stop coalesces transport and snapshot arbitration for one request'
+ });
+ 
+ console.log(`execution-provenance gate passed (${checks} checks)`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-execution-target-gate.mjs b/scripts/harness-execution-target-gate.mjs
+index 2ce2f4a5..95e80d9f 100644
+--- a/scripts/harness-execution-target-gate.mjs
++++ b/scripts/harness-execution-target-gate.mjs
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env node
+ 
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { createHash } from 'node:crypto';
+ import { readFileSync } from 'node:fs';
+@@ -333,3 +337,5 @@ checks += 1;
+ 
+ console.log(`execution-target-gate: ${checks}/${checks} checks passed`);
+ console.log('execution-target-gate OK');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-first-run-onboarding.mts b/scripts/harness-first-run-onboarding.mts
+index 03dc1223..da07ae6c 100644
+--- a/scripts/harness-first-run-onboarding.mts
++++ b/scripts/harness-first-run-onboarding.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFile } from 'node:fs/promises';
+ import { dirname, resolve } from 'node:path';
+@@ -63,3 +67,5 @@ assert.match(commandSource, /project_demo_workspace_prepare/u);
+ assert.match(commandSource, /PROJECT_BRIEF\.md/u);
+ 
+ console.log('first-run-onboarding: 21/21 checks passed');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-git-pr-workbench.mjs b/scripts/harness-git-pr-workbench.mjs
+index e7da5613..d797f1f2 100644
+--- a/scripts/harness-git-pr-workbench.mjs
++++ b/scripts/harness-git-pr-workbench.mjs
+@@ -1,4 +1,8 @@
+ #!/usr/bin/env node
++
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
+ import { readFileSync } from 'node:fs';
+ import { resolve } from 'node:path';
+ import { fileURLToPath } from 'node:url';
+@@ -71,3 +75,5 @@ if (failures.length > 0) {
+ }
+ 
+ console.log('[harness-git-pr-workbench] ok — user Git/PR loop, ask gates, and agent boundary');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-git-source-security.mts b/scripts/harness-git-source-security.mts
+index 40548e5d..e089224a 100644
+--- a/scripts/harness-git-source-security.mts
++++ b/scripts/harness-git-source-security.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { Buffer } from 'node:buffer';
+ import { readFileSync } from 'node:fs';
+@@ -358,3 +362,5 @@ function tarHeader(name: string, size: number, type = '0'): Buffer {
+   header.write(`${checksum.toString(8).padStart(6, '0')}\0 `, 148, 8, 'ascii');
+   return header;
+ }
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-git-workbench-parser.mts b/scripts/harness-git-workbench-parser.mts
+index 198ff181..9a2ae88f 100644
+--- a/scripts/harness-git-workbench-parser.mts
++++ b/scripts/harness-git-workbench-parser.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import {
+@@ -421,3 +425,5 @@ assert.match(officeCssSource, /\.off-gw-pr-create[\s\S]*white-space: nowrap/u);
+ console.log(
+   'git-workbench-parser: porcelain, structured review, stage ownership, and stable anchors passed',
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-install-core-integrity.mts b/scripts/harness-install-core-integrity.mts
+index c5fe0ab2..3d81314a 100644
+--- a/scripts/harness-install-core-integrity.mts
++++ b/scripts/harness-install-core-integrity.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Install-core hardening oracle harness.
+  *
+@@ -574,3 +578,5 @@ console.log(
+ );
+ 
+ console.log('\nAll install-core integrity harness checks passed.');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-live-agent-run.mjs b/scripts/harness-live-agent-run.mjs
+index 92820939..49d7647e 100644
+--- a/scripts/harness-live-agent-run.mjs
++++ b/scripts/harness-live-agent-run.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ // S10 — Real agent run end-to-end (live host, creds-gated).
+ //
+ // Drives the production Pi agent lane headlessly: payload asks the agent to use
+@@ -88,6 +92,8 @@ async function main() {
+   }
+ }
+ 
+-main().catch((error) => {
++await main().catch((error) => {
+   emitFail(error instanceof Error ? error.message : String(error));
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-live-ask-gate.mjs b/scripts/harness-live-ask-gate.mjs
+index cf6717ae..5d49f2b9 100644
+--- a/scripts/harness-live-ask-gate.mjs
++++ b/scripts/harness-live-ask-gate.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ // S12 — Live Ask human-in-the-loop pause → decide (live host, creds-gated).
+ //
+ // payload permissionMode:"ask" + `rm -rf ./scratch` of a sentinel created in the
+@@ -109,6 +113,8 @@ async function main() {
+   }
+ }
+ 
+-main().catch((error) => {
++await main().catch((error) => {
+   emitFail(error instanceof Error ? error.message : String(error));
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-live-auto-gate.mjs b/scripts/harness-live-auto-gate.mjs
+index 92e9c748..5798a645 100644
+--- a/scripts/harness-live-auto-gate.mjs
++++ b/scripts/harness-live-auto-gate.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ // S11 — Live Auto gate blocks a catastrophic command (live host, creds-gated).
+ //
+ // payload permissionMode:"auto" + an exact catastrophic shell command
+@@ -103,6 +107,8 @@ async function main() {
+   }
+ }
+ 
+-main().catch((error) => {
++await main().catch((error) => {
+   emitFail(error instanceof Error ? error.message : String(error));
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-live-mcp-approval-gate.mjs b/scripts/harness-live-mcp-approval-gate.mjs
+index 0f140acd..e3960e46 100644
+--- a/scripts/harness-live-mcp-approval-gate.mjs
++++ b/scripts/harness-live-mcp-approval-gate.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ // Live MCP approval gate: Node Pi host pauses a write-class MCP tool call,
+ // receives a uiResponse, then emits mcpCall and resumes with mcpResult.
+ //
+@@ -90,6 +94,8 @@ async function main() {
+   emitPass({ sawUiRequest: true, sawMcpCall: true });
+ }
+ 
+-main().catch((error) => {
++await main().catch((error) => {
+   emitFail(error instanceof Error ? error.message : String(error));
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-loop-authoring-flow.mts b/scripts/harness-loop-authoring-flow.mts
+index 00ebc1ac..d0300ae4 100644
+--- a/scripts/harness-loop-authoring-flow.mts
++++ b/scripts/harness-loop-authoring-flow.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Loop authoring-flow oracle (PR-08). Drives the PURE, deterministic pieces of the
+  * prompt-first Loops editor headlessly — no DOM, no Tauri, no live model:
+@@ -55,21 +59,7 @@ import type {
+   LoopModelOutput,
+ } from '../packages/core/src/loops/types.ts';
+ import { createMemoryRepositories } from '../packages/core/src/runtime/memory-repositories.ts';
+-
+-let passed = 0;
+-let failed = 0;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ const PROFILE = 'software-development';
+ const GENERAL_PROFILE = 'general-work';
+@@ -742,5 +732,7 @@ await check('BUG-2: an in-flight compile blocks a second compile even with answe
+   assert.equal(await guardedCompile({ q1: 'y' }), 'ran', 'once idle, the answers path runs again');
+ });
+ 
+-console.log(`\nLoop authoring flow: ${passed} passed, ${failed} failed`);
+-if (failed > 0) process.exit(1);
++console.log(`\nLoop authoring flow: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
++if (h.failures > 0) process.exit(1);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-loop-compiler.mts b/scripts/harness-loop-compiler.mts
+index 5090aab4..017a84c8 100644
+--- a/scripts/harness-loop-compiler.mts
++++ b/scripts/harness-loop-compiler.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Loop compiler oracle (PR-07). Drives the deterministic compiler core — the
+  * software-development profile, the generic IR validator, the repair/needs_input
+@@ -22,9 +26,6 @@ import type {
+ import { validateLoopIR } from '../packages/core/src/loops/validate.ts';
+ import type { LoopIR } from '../packages/shared-types/src/loops/ir.ts';
+ 
+-let passed = 0;
+-let failed = 0;
+-
+ for (const asset of softwareDevelopmentProfile.referenceAssets) {
+   for (const [, target] of asset.content.matchAll(/\[[^\]]+\]\(([^)]+\.md)\)/gu)) {
+     assert.ok(
+@@ -33,18 +34,7 @@ for (const asset of softwareDevelopmentProfile.referenceAssets) {
+     );
+   }
+ }
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ /** A model that returns a fixed output regardless of input (deterministic). */
+ function fixedModel(output: LoopModelOutput): LoopCompileModel {
+@@ -653,8 +643,10 @@ await check('buildLoopExecutionPacket is deterministic for the same revision', a
+   );
+ });
+ 
+-if (failed > 0) {
+-  console.error(`\nloop-compiler: ${passed} passed, ${failed} failed`);
++if (h.failures > 0) {
++  console.error(`\nloop-compiler: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+   process.exit(1);
+ }
+-console.log(`\nloop-compiler: ${passed} checks passed`);
++console.log(`\nloop-compiler: ${(h.checks - h.failures)} checks passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-loop-graph-projection.mts b/scripts/harness-loop-graph-projection.mts
+index c9a28800..699fe1f0 100644
+--- a/scripts/harness-loop-graph-projection.mts
++++ b/scripts/harness-loop-graph-projection.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Loop graph projection + layout oracle (PR-09). Proves the PURE adapter + ELK
+  * layout the read-only `LoopGraphPanel` renders, WITHOUT a DOM or React Flow
+@@ -36,21 +40,7 @@ import type {
+   LoopNode,
+   LoopValidationFinding,
+ } from '../packages/shared-types/src/index.ts';
+-
+-let passed = 0;
+-let failed = 0;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ // ---------------------------------------------------------------------------
+ // ELK factory (node bundle; worker-less constructor)
+@@ -657,11 +647,13 @@ async function run(): Promise<void> {
+     assert.ok(findingCodes(p).includes('graph.dangling_edge'));
+   });
+ 
+-  console.log(`\n${passed} passed, ${failed} failed`);
+-  if (failed > 0) process.exit(1);
++  console.log(`\n${(h.checks - h.failures)} passed, ${h.failures} failed`);
++  if (h.failures > 0) process.exit(1);
+ }
+ 
+-run().catch((err) => {
++await run().catch((err) => {
+   console.error(err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-loop-office-invocation.mts b/scripts/harness-loop-office-invocation.mts
+index 64a5ae8b..3810e935 100644
+--- a/scripts/harness-loop-office-invocation.mts
++++ b/scripts/harness-loop-office-invocation.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Loop → Office Send invocation oracle (PR-10). Drives the PURE send-time
+  * materializer (`apps/desktop/renderer/.../loop-office-invocation.ts`) over
+@@ -59,21 +63,7 @@ import {
+ } from '../packages/core/src/browser.ts';
+ import type { LoopCompileModel, LoopModelOutput } from '../packages/core/src/loops/types.ts';
+ import { createMemoryRepositories } from '../packages/core/src/runtime/memory-repositories.ts';
+-
+-let passed = 0;
+-let failed = 0;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ // ---------------------------------------------------------------------------
+ // Deterministic deps + fixtures
+@@ -1061,5 +1051,7 @@ await check(
+   },
+ );
+ 
+-console.log(`\nLoop Office invocation: ${passed} passed, ${failed} failed`);
+-if (failed > 0) process.exit(1);
++console.log(`\nLoop Office invocation: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
++if (h.failures > 0) process.exit(1);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-loop-repository.mts b/scripts/harness-loop-repository.mts
+index f93a794d..44d1408b 100644
+--- a/scripts/harness-loop-repository.mts
++++ b/scripts/harness-loop-repository.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Loop repository / service oracle (PR-07). Drives the LoopService + in-memory
+  * Loop repos and asserts the persistence invariants:
+@@ -23,21 +27,7 @@ import {
+ } from '../packages/core/src/loops/loop-service.ts';
+ import type { LoopCompileModel, LoopModelOutput } from '../packages/core/src/loops/types.ts';
+ import { createMemoryRepositories } from '../packages/core/src/runtime/memory-repositories.ts';
+-
+-let passed = 0;
+-let failed = 0;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ function makeDeps(): LoopServiceDeps {
+   let idSeq = 0;
+@@ -493,8 +483,10 @@ await check('Loop schedule is opt-in, persists next/last state, and never backfi
+   assert.equal(manual.nextRunAt, undefined);
+ });
+ 
+-if (failed > 0) {
+-  console.error(`\nloop-repository: ${passed} passed, ${failed} failed`);
++if (h.failures > 0) {
++  console.error(`\nloop-repository: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+   process.exit(1);
+ }
+-console.log(`\nloop-repository: ${passed} checks passed`);
++console.log(`\nloop-repository: ${(h.checks - h.failures)} checks passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-manifest.mjs b/scripts/harness-manifest.mjs
+index 61193e1d..d754468c 100644
+--- a/scripts/harness-manifest.mjs
++++ b/scripts/harness-manifest.mjs
+@@ -29,6 +29,7 @@ export const harnessManifest = Object.freeze([
+     "id": "codex-app-server-contract",
+     "file": "scripts/harness-codex-app-server-contract.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-codex-app-server-contract.mjs"
+   },
+@@ -36,6 +37,7 @@ export const harnessManifest = Object.freeze([
+     "id": "claude-agent-host",
+     "file": "scripts/harness-claude-agent-host.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-claude-agent-host.mjs"
+   },
+@@ -54,6 +56,7 @@ export const harnessManifest = Object.freeze([
+     "id": "doc-engine",
+     "file": "scripts/harness-doc-engine-parsers.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-doc-engine-parsers.mjs"
+   },
+@@ -63,6 +66,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-git-workbench-parser.mts"
+   },
+@@ -71,6 +75,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-chat-attachment-roundtrip.mjs",
+     "runner": "node",
+     "cwdFilter": "@offisim/core",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm --filter @offisim/core exec tsc --project tsconfig.json",
+@@ -83,6 +88,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-best-of-n.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-best-of-n.mts"
+   },
+@@ -91,6 +97,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-project-workspace.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-project-workspace.mts"
+   },
+@@ -98,6 +105,7 @@ export const harnessManifest = Object.freeze([
+     "id": "workspace-panel-project-gate",
+     "file": "scripts/harness-workspace-panel-project-gate.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-workspace-panel-project-gate.mjs"
+   },
+@@ -106,6 +114,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-platform-zod-contract.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-platform-zod-contract.mts"
+   },
+@@ -115,6 +124,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-conversation-run-controller.mts"
+   },
+@@ -124,6 +134,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-conversation-deletion.mts"
+   },
+@@ -133,6 +144,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-thread-lifecycle-guard.mts"
+   },
+@@ -142,6 +154,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-workspace-chat-presentation.mts"
+   },
+@@ -152,6 +165,7 @@ export const harnessManifest = Object.freeze([
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
+     "nodeOptions": "--import $PWD/scripts/harness-chat-persistence.loader-register.mjs",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm --filter @offisim/platform exec env NODE_OPTIONS=\"--import $PWD/scripts/harness-chat-persistence.loader-register.mjs\" tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-chat-persistence.mts",
+@@ -165,6 +179,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-semantic-title-repository.mts"
+   },
+@@ -183,6 +198,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-pi-permission-modes.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-pi-permission-modes.mts"
+   },
+@@ -191,6 +207,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-install-core-integrity.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-install-core-integrity.mts"
+   },
+@@ -200,6 +217,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-workspace-repo-contract.mts"
+   },
+@@ -209,6 +227,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-collaboration-repo-contract.mts"
+   },
+@@ -217,6 +236,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-collaboration-profile.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-collaboration-profile.mts"
+   },
+@@ -225,6 +245,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-eval-suite.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-eval-suite.mts"
+   },
+@@ -232,6 +253,7 @@ export const harnessManifest = Object.freeze([
+     "id": "review-fixes",
+     "file": "scripts/harness-review-fixes.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "node scripts/harness-review-fixes.mjs",
+@@ -253,6 +275,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-settings-status-coordinator.mts"
+   },
+@@ -262,6 +285,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-ai-account-usage.mts"
+   },
+@@ -269,6 +293,7 @@ export const harnessManifest = Object.freeze([
+     "id": "ai-account-catalog",
+     "file": "scripts/harness-ai-account-catalog.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-ai-account-catalog.mjs"
+   },
+@@ -276,6 +301,7 @@ export const harnessManifest = Object.freeze([
+     "id": "ai-account-configuration",
+     "file": "scripts/harness-ai-account-configuration.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-ai-account-configuration.mjs"
+   },
+@@ -300,6 +326,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-template-contract.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-template-contract.mts"
+   },
+@@ -309,6 +336,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-first-run-onboarding.mts"
+   },
+@@ -327,6 +355,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-run-cost-scope.mts",
+@@ -339,6 +368,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-staged-compaction.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/core",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm --filter @offisim/core exec tsc --project tsconfig.json",
+@@ -351,6 +381,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-computer-rich-detail.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-computer-rich-detail.mts"
+   },
+@@ -359,6 +390,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-runtime-conformance.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-runtime-conformance.mts"
+   },
+@@ -368,6 +400,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-execution-provenance.mts"
+   },
+@@ -377,6 +410,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-renderer-engine-authority.mts"
+   },
+@@ -405,6 +439,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-stage-preview-targets.mts",
+@@ -418,6 +453,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-native-stage-sessions.mts"
+   },
+@@ -436,6 +472,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-scene-staging.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-scene-staging.mts"
+   },
+@@ -445,6 +482,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-projection.mts"
+   },
+@@ -453,6 +491,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-mission-office-projection.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-mission-office-projection.mts"
+   },
+@@ -470,6 +509,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-dramaturgy-stress.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-dramaturgy-stress.mts"
+   },
+@@ -479,6 +519,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-scene-cue.mts"
+   },
+@@ -488,6 +529,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-character-clip-map.mts"
+   },
+@@ -497,6 +539,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-character-actions-p3.mts"
+   },
+@@ -506,6 +549,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-visual-language-p4.mts"
+   },
+@@ -515,6 +559,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-ambient-p5.mts"
+   },
+@@ -524,6 +569,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-companion.mts"
+   },
+@@ -533,6 +579,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-diorama-p6.mts"
+   },
+@@ -542,6 +589,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-scene-quality.mts"
+   },
+@@ -551,6 +599,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-seating-p2.mts"
+   },
+@@ -560,6 +609,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-employee-version-on-save.mts",
+@@ -574,6 +624,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-employee-seniority.mts"
+   },
+@@ -583,6 +634,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-employee-memory.mts"
+   },
+@@ -600,6 +652,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-mission-evaluators.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-mission-evaluators.mts"
+   },
+@@ -608,6 +661,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-mission-loop-controller.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-mission-loop-controller.mts",
+@@ -620,6 +674,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-budget-nudge.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/core",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm --filter @offisim/core exec tsc --project tsconfig.json",
+@@ -633,6 +688,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-mission-run-controller.mts"
+   },
+@@ -641,6 +697,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-mission-recovery.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-mission-recovery.mts"
+   },
+@@ -650,6 +707,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-mission-reload.mts"
+   },
+@@ -659,6 +717,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-run-recovery.mts"
+   },
+@@ -668,6 +727,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-task-board-child-tree.mts"
+   },
+@@ -677,6 +737,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-workspace-lease.mts"
+   },
+@@ -686,6 +747,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-workspace-lease-decisions.mts"
+   },
+@@ -694,6 +756,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-playbook-validation.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-playbook-validation.mts"
+   },
+@@ -702,6 +765,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-loop-compiler.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-loop-compiler.mts"
+   },
+@@ -710,6 +774,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-loop-repository.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-loop-repository.mts",
+@@ -732,6 +797,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-loop-graph-projection.mts"
+   },
+@@ -741,6 +807,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-loop-office-invocation.mts"
+   },
+@@ -750,6 +817,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-loop-authoring-flow.mts"
+   },
+@@ -759,6 +827,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-market-surface.mts"
+   },
+@@ -768,6 +837,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-personnel-danger-zone.mts"
+   },
+@@ -777,6 +847,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-chrome-stability.mts"
+   },
+@@ -786,6 +857,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm check:ui-hygiene",
+@@ -799,6 +871,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-prompt-enhance.mts"
+   },
+@@ -808,6 +881,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-pi-collaboration-runtime.mts"
+   },
+@@ -817,6 +891,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-connect-chat-flow.mts"
+   },
+@@ -824,6 +899,7 @@ export const harnessManifest = Object.freeze([
+     "id": "pi-agent-host",
+     "file": "scripts/harness-pi-agent-host.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": true,
+     "steps": [
+       "pnpm harness:execution-provenance",
+@@ -841,6 +917,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-stream-watchdog.mts"
+   },
+@@ -848,6 +925,7 @@ export const harnessManifest = Object.freeze([
+     "id": "agent-run-usage",
+     "file": "scripts/harness-agent-run-usage.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-agent-run-usage.mjs"
+   },
+@@ -855,6 +933,7 @@ export const harnessManifest = Object.freeze([
+     "id": "pi-bash-process-tree",
+     "file": "scripts/harness-pi-bash-process-tree.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-pi-bash-process-tree.mjs"
+   },
+@@ -863,6 +942,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-pi-delegation-integration.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-pi-delegation-integration.mts"
+   },
+@@ -871,6 +951,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-pi-loop-until-green.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-pi-loop-until-green.mts"
+   },
+@@ -879,6 +960,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-mcp-host-channel.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-mcp-host-channel.mts"
+   },
+@@ -888,6 +970,7 @@ export const harnessManifest = Object.freeze([
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
+     "tsconfig": "../../apps/desktop/renderer/tsconfig.json",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-mcp-grant-risk-class.mts"
+   },
+@@ -896,6 +979,7 @@ export const harnessManifest = Object.freeze([
+     "file": "scripts/harness-mcp-bridge-extension.mts",
+     "runner": "tsx",
+     "cwdFilter": "@offisim/platform",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "pnpm --filter @offisim/platform exec tsx ../../scripts/harness-mcp-bridge-extension.mts"
+   },
+@@ -903,6 +987,7 @@ export const harnessManifest = Object.freeze([
+     "id": "mcp-bridge-sdk",
+     "file": "scripts/harness-mcp-bridge-sdk.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-mcp-bridge-sdk.mjs"
+   },
+@@ -910,6 +995,7 @@ export const harnessManifest = Object.freeze([
+     "id": "live-agent-run",
+     "file": "scripts/harness-live-agent-run.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-live-agent-run.mjs"
+   },
+@@ -917,6 +1003,7 @@ export const harnessManifest = Object.freeze([
+     "id": "live-auto-gate",
+     "file": "scripts/harness-live-auto-gate.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-live-auto-gate.mjs"
+   },
+@@ -924,6 +1011,7 @@ export const harnessManifest = Object.freeze([
+     "id": "live-ask-gate",
+     "file": "scripts/harness-live-ask-gate.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-live-ask-gate.mjs"
+   },
+@@ -931,6 +1019,7 @@ export const harnessManifest = Object.freeze([
+     "id": "live-mcp-approval-gate",
+     "file": "scripts/harness-live-mcp-approval-gate.mjs",
+     "runner": "node",
++    "sharedRunner": true,
+     "composite": false,
+     "command": "node scripts/harness-live-mcp-approval-gate.mjs"
+   }
+diff --git a/scripts/harness-market-surface.mts b/scripts/harness-market-surface.mts
+index 4b8c9414..d4bdfb77 100644
+--- a/scripts/harness-market-surface.mts
++++ b/scripts/harness-market-surface.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { join } from 'node:path';
+@@ -185,3 +189,5 @@ check('endpoint and token live only in Service Connections settings', () => {
+ });
+ 
+ console.log(`\nMarket surface harness: ${passed}/10 checks passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mcp-bridge-extension.mts b/scripts/harness-mcp-bridge-extension.mts
+index 6b4c65f3..ddd6066d 100644
+--- a/scripts/harness-mcp-bridge-extension.mts
++++ b/scripts/harness-mcp-bridge-extension.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * MCP bridge extension oracle (Epic B, B3) — the agent-facing 3 meta tools + the
+  * write-tool execute-time confirm gate.
+@@ -19,22 +23,8 @@
+ import assert from 'node:assert/strict';
+ import { parseToolRichDetail } from '../packages/shared-types/src/index.js';
+ import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 25;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ type Tool = Record<string, unknown> & { name: string };
+ type ToolExecutionCtx = { ui?: { confirm?: () => Promise<boolean> | boolean } };
+@@ -711,11 +701,13 @@ async function main(): Promise<void> {
+     assert.ok(!preview.includes('ghp_abcdef1234567890'), 'token value must be masked');
+   });
+ 
+-  console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
+-  if (failed > 0 || passed !== TOTAL) process.exit(1);
++  console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
++  if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
+ }
+ 
+-main().catch((err) => {
++await main().catch((err) => {
+   console.error(err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mcp-bridge-sdk.mjs b/scripts/harness-mcp-bridge-sdk.mjs
+index eadc7790..a546707f 100644
+--- a/scripts/harness-mcp-bridge-sdk.mjs
++++ b/scripts/harness-mcp-bridge-sdk.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import {
+   DefaultResourceLoader,
+@@ -123,3 +127,5 @@ try {
+ } finally {
+   session.dispose();
+ }
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mcp-grant-risk-class.mts b/scripts/harness-mcp-grant-risk-class.mts
+index 6f110239..9ea6abf1 100644
+--- a/scripts/harness-mcp-grant-risk-class.mts
++++ b/scripts/harness-mcp-grant-risk-class.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { createRequire } from 'node:module';
+@@ -248,3 +252,5 @@ assert.match(
+ );
+ 
+ console.log('✓ mcp-grant-risk-class: inference and persisted grant risk checks passed');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mcp-host-channel.mts b/scripts/harness-mcp-host-channel.mts
+index 66663229..5a001c06 100644
+--- a/scripts/harness-mcp-host-channel.mts
++++ b/scripts/harness-mcp-host-channel.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * MCP host park-channel oracle (Epic B, B2) — the host→Rust mcpCall round-trip.
+  *
+@@ -17,22 +21,8 @@
+ 
+ import assert from 'node:assert/strict';
+ import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 7;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ function makeChannel(timeoutMs?: number, keepTimeoutRef = false) {
+   const emitted: Array<Record<string, unknown>> = [];
+@@ -135,11 +125,13 @@ async function main(): Promise<void> {
+     assert.match(String(result.error), /slow-server\.slow_tool/);
+   });
+ 
+-  console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
+-  if (failed > 0 || passed !== TOTAL) process.exit(1);
++  console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
++  if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
+ }
+ 
+-main().catch((err) => {
++await main().catch((err) => {
+   console.error(err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mission-evaluators.mts b/scripts/harness-mission-evaluators.mts
+index 7e507c2a..cc695667 100644
+--- a/scripts/harness-mission-evaluators.mts
++++ b/scripts/harness-mission-evaluators.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Mission Evaluator oracle (PRD §20, slice MS-003).
+  *
+@@ -27,23 +31,7 @@ import type {
+   EvaluationContext,
+   EvaluationResult,
+ } from '../packages/core/src/runtime/mission/evaluators/types.ts';
+-
+-let passed = 0;
+-let failed = 0;
+-const checks: string[] = [];
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  checks.push(name);
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ // ---------------------------------------------------------------------------
+ // In-memory EvaluationContext test double. Capabilities are served from a
+@@ -411,9 +399,11 @@ await check(
+   },
+ );
+ 
+-const total = checks.length;
+-if (failed > 0) {
+-  console.error(`\nmission-evaluators: ${passed}/${total} passed (${failed} failed)`);
++const total = h.checks;
++if (h.failures > 0) {
++  console.error(`\nmission-evaluators: ${(h.checks - h.failures)}/${total} passed (${h.failures} failed)`);
+   process.exit(1);
+ }
+-console.log(`\nmission-evaluators: ${passed}/${total} passed`);
++console.log(`\nmission-evaluators: ${(h.checks - h.failures)}/${total} passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mission-loop-controller.mts b/scripts/harness-mission-loop-controller.mts
+index 4f62348d..30e8914b 100644
+--- a/scripts/harness-mission-loop-controller.mts
++++ b/scripts/harness-mission-loop-controller.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * MissionLoopController oracle (PRD §19, slice MS-004).
+  *
+@@ -47,22 +51,8 @@ import {
+   createMissionService,
+ } from '../packages/core/src/runtime/mission/mission-service.ts';
+ import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mission/memory.ts';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 18;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ // ---------------------------------------------------------------------------
+ // Deterministic id/clock + repos + service, mirroring harness-mission-service.
+@@ -951,8 +941,10 @@ await check('A2: evaluator ERROR (infra) → blocked; repair counter does NOT mo
+   assert.equal(verdicts[0]?.verdict, 'ERROR', 'the recorded verdict is ERROR');
+ });
+ 
+-if (failed > 0) {
+-  console.error(`\nmission-loop-controller: ${passed}/${TOTAL} passed (${failed} failed)`);
++if (h.failures > 0) {
++  console.error(`\nmission-loop-controller: ${(h.checks - h.failures)}/${TOTAL} passed (${h.failures} failed)`);
+   process.exit(1);
+ }
+-console.log(`\nmission-loop-controller: ${passed}/${TOTAL} passed`);
++console.log(`\nmission-loop-controller: ${(h.checks - h.failures)}/${TOTAL} passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mission-office-projection.mts b/scripts/harness-mission-office-projection.mts
+index ae997c3c..b606e2e9 100644
+--- a/scripts/harness-mission-office-projection.mts
++++ b/scripts/harness-mission-office-projection.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Mission → office-beat projection gate (M3 UX-007, PRD §24.4).
+  *
+@@ -19,17 +23,7 @@ import {
+   projectMissionEventToBeat,
+   projectMissionEvents,
+ } from '../packages/shared-types/src/index.js';
+-
+-let failures = 0;
+-let checks = 0;
+-function check(name: string, condition: boolean, detail?: string): void {
+-  checks += 1;
+-  if (condition) console.log(`  ✓ ${name}`);
+-  else {
+-    failures += 1;
+-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+-  }
+-}
++const check = h.check;
+ 
+ const MISSION = 'mission-1';
+ const THREAD = 'thread-1';
+@@ -224,7 +218,7 @@ console.log('\n[scope] optional employee binding; default mission-level actor');
+   check('bound mission beat carries the acting employee', withEmp?.beat.employeeId === 'emp-7');
+ }
+ 
+-console.log(`\nmission-office-projection: ${checks - failures}/${checks} passed`);
++console.log(`\nmission-office-projection: ${h.checks - h.failures}/${h.checks} passed`);
+ 
+ // ── Inject-proof: break the FAIL → failure mapping and confirm the gate trips.
+ console.log('\n[inject-proof] a broken FAIL→failure mapping must fail the gate');
+@@ -233,18 +227,16 @@ console.log('\n[inject-proof] a broken FAIL→failure mapping must fail the gate
+   // The REAL mapping is failure. Assert the WRONG kind to simulate a regression
+   // and prove this gate would catch it (we expect this single check to fail).
+   const wouldMisclassify = failBeat?.kind === 'complete';
+-  if (wouldMisclassify) {
+-    console.error('  ✗ inject-proof: FAIL was (wrongly) projected as a completion beat');
+-    failures += 1;
+-  } else {
+-    console.log(
+-      '  ✓ inject-proof active: if FAIL→failure were broken to FAIL→complete, the gate above would fail',
+-    );
+-  }
++  check(
++    'inject-proof active: if FAIL→failure were broken to FAIL→complete, the gate above would fail',
++    !wouldMisclassify,
++  );
+ }
+ 
+-if (failures > 0) {
+-  console.error(`mission-office-projection gate FAILED with ${failures} failure(s)`);
++if (h.failures > 0) {
++  console.error(`mission-office-projection gate FAILED with ${h.failures} failure(s)`);
+   process.exit(1);
+ }
+ console.log('mission-office-projection gate PASSED');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mission-recovery.mts b/scripts/harness-mission-recovery.mts
+index 97e0f747..ac4825f2 100644
+--- a/scripts/harness-mission-recovery.mts
++++ b/scripts/harness-mission-recovery.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Durable Mission Recovery oracle (PRD §22, slice M4 — DR-001..006).
+  *
+@@ -59,22 +63,8 @@ import {
+   type MissionMemoryRepos,
+   createMissionMemoryRepos,
+ } from '../packages/core/src/runtime/repos/mission/memory.ts';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 16;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ // ---------------------------------------------------------------------------
+ // Deterministic id/clock + repos + service, mirroring the mission harnesses.
+@@ -785,8 +775,10 @@ await check(
+   },
+ );
+ 
+-if (failed > 0) {
+-  console.error(`\nmission-recovery: ${passed}/${TOTAL} passed (${failed} failed)`);
++if (h.failures > 0) {
++  console.error(`\nmission-recovery: ${(h.checks - h.failures)}/${TOTAL} passed (${h.failures} failed)`);
+   process.exit(1);
+ }
+-console.log(`\nmission-recovery: ${passed}/${TOTAL} passed`);
++console.log(`\nmission-recovery: ${(h.checks - h.failures)}/${TOTAL} passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mission-reload.mts b/scripts/harness-mission-reload.mts
+index 38088d41..3cf5bb3a 100644
+--- a/scripts/harness-mission-reload.mts
++++ b/scripts/harness-mission-reload.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Renderer-reload Mission convergence oracle.
+  *
+@@ -39,26 +43,12 @@ import type {
+   NewAgentRun,
+   NewRuntimeSessionLink,
+ } from '../packages/core/src/runtime/repositories.ts';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 19;
+ const COMPANY_ID = 'company-reload';
+ const PROJECT_ID = 'project-reload';
+ const THREAD_ID = 'thread-reload';
+ const FINISHED_AT = '2026-07-14T05:00:00.000Z';
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ function deterministicDeps(): MissionServiceDeps {
+   let id = 0;
+@@ -926,5 +916,7 @@ await check(
+   },
+ );
+ 
+-console.log(`\nMission reload harness: ${passed}/${TOTAL} passed`);
+-if (failed > 0 || passed !== TOTAL) process.exitCode = 1;
++console.log(`\nMission reload harness: ${(h.checks - h.failures)}/${TOTAL} passed`);
++if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exitCode = 1;
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-mission-run-controller.mts b/scripts/harness-mission-run-controller.mts
+index 808fabb6..6d0a9a01 100644
+--- a/scripts/harness-mission-run-controller.mts
++++ b/scripts/harness-mission-run-controller.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * MissionRunController oracle (PRD §16.2 / §16.3 / §19 / §5, slice MS-005 + MS-006).
+  *
+@@ -58,22 +62,8 @@ import {
+ } from '../packages/core/src/browser.js';
+ import { createDeliverablesMemoryRepos } from '../packages/core/src/runtime/repos/deliverables/memory.ts';
+ import { createMissionMemoryRepos } from '../packages/core/src/runtime/repos/mission/memory.ts';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 11;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ // ---------------------------------------------------------------------------
+ // In-memory test doubles.
+@@ -984,7 +974,9 @@ await check(
+ 
+ // ---------------------------------------------------------------------------
+ 
+-console.log(`mission-run-controller: ${passed}/${TOTAL} passed`);
+-if (failed > 0 || passed !== TOTAL) {
++console.log(`mission-run-controller: ${(h.checks - h.failures)}/${TOTAL} passed`);
++if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) {
+   process.exitCode = 1;
+ }
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-native-stage-sessions.mts b/scripts/harness-native-stage-sessions.mts
+index 125e7dd7..cf93e473 100644
+--- a/scripts/harness-native-stage-sessions.mts
++++ b/scripts/harness-native-stage-sessions.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { fileURLToPath } from 'node:url';
+@@ -392,3 +396,5 @@ for (const [label, rendererSource, nativeSource] of [
+ }
+ 
+ console.log('native-stage-sessions: PASS (targets, lifecycle, ACL, 16 typed commands)');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-office-ambient-p5.mts b/scripts/harness-office-ambient-p5.mts
+index e27e9c81..dbe89b50 100644
+--- a/scripts/harness-office-ambient-p5.mts
++++ b/scripts/harness-office-ambient-p5.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import { readFile } from 'node:fs/promises';
+ import {
+   type SceneCueInput,
+@@ -1088,3 +1092,5 @@ if (failures > 0) {
+   process.exit(1);
+ }
+ console.log(`\noffice-ambient-p5: ${checks}/${checks} checks passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-office-companion.mts b/scripts/harness-office-companion.mts
+index d8767862..46bd1624 100644
+--- a/scripts/harness-office-companion.mts
++++ b/scripts/harness-office-companion.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { existsSync, readFileSync, readdirSync } from 'node:fs';
+ import { fileURLToPath } from 'node:url';
+@@ -478,3 +482,5 @@ assert.ok(averageMs < 1, `companion sampling average ${averageMs.toFixed(4)}ms e
+ console.log(
+   `office-companion: PASS (determinism, priority, route cache, 2D/3D, reduced motion, assets; ${averageMs.toFixed(4)}ms/sample)`,
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-office-diorama-p6.mts b/scripts/harness-office-diorama-p6.mts
+index 55d17327..ef4d12de 100644
+--- a/scripts/harness-office-diorama-p6.mts
++++ b/scripts/harness-office-diorama-p6.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFile } from 'node:fs/promises';
+ import { fileURLToPath } from 'node:url';
+@@ -400,3 +404,5 @@ check('art bible records instancing policy', artBible.includes('InstancedMesh'))
+ console.log(
+   `office diorama P6 harness: ${passed}/${passed} passed (${floorPropCount} floor props)`,
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-office-projection.mts b/scripts/harness-office-projection.mts
+index 662ba343..3e5baf8d 100644
+--- a/scripts/harness-office-projection.mts
++++ b/scripts/harness-office-projection.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import type {
+   ConversationRunSnapshot,
+   ConversationRunsSnapshot,
+@@ -26,17 +30,7 @@ import {
+   performanceForBeat,
+   projectOfficeStaging,
+ } from '../packages/shared-types/src/index.js';
+-
+-let failures = 0;
+-let checks = 0;
+-function check(name: string, condition: boolean, detail?: string): void {
+-  checks += 1;
+-  if (condition) console.log(`  ✓ ${name}`);
+-  else {
+-    failures += 1;
+-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+-  }
+-}
++const check = h.check;
+ 
+ const THREAD = 'thread-1';
+ const ROOT = 'root-1';
+@@ -842,9 +836,11 @@ console.log('\n[acceptance] snapshot → projection → grouped bubble');
+   );
+ }
+ 
+-console.log(`\noffice-projection: ${checks - failures}/${checks} checks passed`);
+-if (failures > 0) {
+-  console.error(`office-projection gate FAILED with ${failures} failure(s)`);
++console.log(`\noffice-projection: ${h.checks - h.failures}/${h.checks} checks passed`);
++if (h.failures > 0) {
++  console.error(`office-projection gate FAILED with ${h.failures} failure(s)`);
+   process.exit(1);
+ }
+ console.log('office-projection gate PASSED');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-office-scene-quality.mts b/scripts/harness-office-scene-quality.mts
+index c12519d8..9a3af22f 100644
+--- a/scripts/harness-office-scene-quality.mts
++++ b/scripts/harness-office-scene-quality.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFile } from 'node:fs/promises';
+ import { fileURLToPath } from 'node:url';
+@@ -498,3 +502,5 @@ check(
+ assert.equal(passed, EXPECTED_CHECKS, 'office scene quality check count changed');
+ console.log(`\n${passed}/${EXPECTED_CHECKS} checks passed`);
+ console.log('office scene quality gate OK');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-office-seating-p2.mts b/scripts/harness-office-seating-p2.mts
+index bb852afa..b614ae44 100644
+--- a/scripts/harness-office-seating-p2.mts
++++ b/scripts/harness-office-seating-p2.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Office Toy Performance P2 oracle — identity-stable seats and observable moves.
+  *
+@@ -441,3 +445,5 @@ if (failures > 0) {
+   process.exit(1);
+ }
+ console.log('office-seating-p2 gate PASSED');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-office-visual-language-p4.mts b/scripts/harness-office-visual-language-p4.mts
+index 497f705e..53066bca 100644
+--- a/scripts/harness-office-visual-language-p4.mts
++++ b/scripts/harness-office-visual-language-p4.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import { readFile } from 'node:fs/promises';
+ import type {
+   CharacterStatus,
+@@ -808,3 +812,5 @@ check(
+ 
+ console.log(`\noffice-visual-language-p4: ${checks - failures}/${checks} checks passed`);
+ if (failures > 0) process.exitCode = 1;
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-personnel-danger-zone.mts b/scripts/harness-personnel-danger-zone.mts
+index ee3b7bcb..b2140e91 100644
+--- a/scripts/harness-personnel-danger-zone.mts
++++ b/scripts/harness-personnel-danger-zone.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { join } from 'node:path';
+@@ -103,3 +107,5 @@ check('employee-owned mutable state is removed with the employee', () => {
+ });
+ 
+ console.log(`\nPersonnel Danger Zone harness: ${passed}/11 checks passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-pi-agent-host.mjs b/scripts/harness-pi-agent-host.mjs
+index e5de3b52..fd0122b7 100644
+--- a/scripts/harness-pi-agent-host.mjs
++++ b/scripts/harness-pi-agent-host.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import { spawnSync } from 'node:child_process';
+ import {
+   chmodSync,
+@@ -2014,3 +2018,5 @@ console.log(
+     2,
+   ),
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-pi-bash-process-tree.mjs b/scripts/harness-pi-bash-process-tree.mjs
+index 0117101e..f483111d 100644
+--- a/scripts/harness-pi-bash-process-tree.mjs
++++ b/scripts/harness-pi-bash-process-tree.mjs
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env node
+ 
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { dirname, join } from 'node:path';
+@@ -201,8 +205,10 @@ async function main() {
+   console.log('Pi task-scoped Bash Rust-bridge harness: PASS');
+ }
+ 
+-main().catch((error) => {
++await main().catch((error) => {
+   console.error('Pi task-scoped Bash Rust-bridge harness: FAIL');
+   console.error(error instanceof Error ? error.stack : error);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-pi-collaboration-runtime.mts b/scripts/harness-pi-collaboration-runtime.mts
+index bc21cf88..3dd1bcaf 100644
+--- a/scripts/harness-pi-collaboration-runtime.mts
++++ b/scripts/harness-pi-collaboration-runtime.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Pi Collaboration runtime deterministic harness (PR-03).
+  *
+@@ -72,18 +76,7 @@ function extractNamedAsyncFunction(source: string, name: string): string {
+   }
+   return '';
+ }
+-
+-let failures = 0;
+-let checks = 0;
+-function check(name: string, condition: boolean, detail?: string): void {
+-  checks += 1;
+-  if (condition) {
+-    console.log(`  ✓ ${name}`);
+-  } else {
+-    failures += 1;
+-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+-  }
+-}
++const check = h.check;
+ 
+ console.log('pi-collaboration-runtime gate');
+ 
+@@ -1167,9 +1160,11 @@ await (async () => {
+   );
+ }
+ 
+-console.log(`\npi-collaboration-runtime: ${checks - failures}/${checks} checks passed`);
+-if (failures > 0) {
+-  console.error(`pi-collaboration-runtime gate FAILED with ${failures} failing check(s)`);
++console.log(`\npi-collaboration-runtime: ${h.checks - h.failures}/${h.checks} checks passed`);
++if (h.failures > 0) {
++  console.error(`pi-collaboration-runtime gate FAILED with ${h.failures} failing check(s)`);
+   process.exit(1);
+ }
+ console.log('pi-collaboration-runtime gate OK');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-pi-delegation-integration.mts b/scripts/harness-pi-delegation-integration.mts
+index 4f669f7c..9a20c3be 100644
+--- a/scripts/harness-pi-delegation-integration.mts
++++ b/scripts/harness-pi-delegation-integration.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { execFileSync } from 'node:child_process';
+ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+@@ -831,3 +835,5 @@ try {
+ } finally {
+   rmSync(repo, { recursive: true, force: true });
+ }
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-pi-loop-until-green.mts b/scripts/harness-pi-loop-until-green.mts
+index fdf0c2d0..bcdebdc6 100644
+--- a/scripts/harness-pi-loop-until-green.mts
++++ b/scripts/harness-pi-loop-until-green.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { createChildSupervisor, createDelegationLimits } from './pi-child-supervisor.mjs';
+ 
+@@ -193,3 +197,5 @@ assert.equal(singlePass.verifyCalls, 0);
+ assert.ok(singlePass.lines.some((line) => line.runType === 'run.completed'));
+ 
+ console.log('[harness-pi-loop-until-green] ok: retry-green, stuck, budget, single-pass');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-pi-permission-modes.mts b/scripts/harness-pi-permission-modes.mts
+index 4d55a4a5..5bae1d5a 100644
+--- a/scripts/harness-pi-permission-modes.mts
++++ b/scripts/harness-pi-permission-modes.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Gate test for the Pi agent permission modes (plan / ask / auto / full).
+  *
+@@ -169,3 +173,5 @@ if (failures.length > 0) {
+   process.exit(1);
+ }
+ console.log(`✓ pi-permission-modes: ${passed} checks passed, 0 failed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-platform-auth-boundaries.mts b/scripts/harness-platform-auth-boundaries.mts
+index 27889e83..9d73aaab 100644
+--- a/scripts/harness-platform-auth-boundaries.mts
++++ b/scripts/harness-platform-auth-boundaries.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import { execFileSync } from 'node:child_process';
+ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+ import { tmpdir } from 'node:os';
+@@ -495,3 +499,5 @@ expectMarketplaceWriteRoutesHaveApiTokenBoundaries();
+ expectPrivateLibraryRouteIsSessionOnly();
+ 
+ console.log('Platform auth boundary harness passed.');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-platform-body-limit-security.mts b/scripts/harness-platform-body-limit-security.mts
+index dc8cbf34..94d83f3d 100644
+--- a/scripts/harness-platform-body-limit-security.mts
++++ b/scripts/harness-platform-body-limit-security.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync, readdirSync } from 'node:fs';
+ import { join } from 'node:path';
+@@ -77,3 +81,5 @@ async function main(): Promise<void> {
+ }
+ 
+ await main();
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-platform-moderation.mts b/scripts/harness-platform-moderation.mts
+index a388b52d..2aafe9e1 100644
+--- a/scripts/harness-platform-moderation.mts
++++ b/scripts/harness-platform-moderation.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ // PL3 — a generic in-transaction failure during moderation must transition the
+ // job off `processing` (→ failed) and the draft back to a resubmittable `draft`,
+ // instead of stranding the job in `processing` forever (the claim gate only
+@@ -119,3 +123,5 @@ async function expectGenericFailureMarksJobFailedAndDraftResubmittable() {
+ await expectGenericFailureMarksJobFailedAndDraftResubmittable();
+ 
+ console.log('Platform moderation failure-transition harness passed.');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-platform-zod-contract.mts b/scripts/harness-platform-zod-contract.mts
+index 8a8e70c3..142c5880 100644
+--- a/scripts/harness-platform-zod-contract.mts
++++ b/scripts/harness-platform-zod-contract.mts
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env node
+ 
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import { errorHandler } from '../apps/platform/src/middleware/error-handler.js';
+ import {
+   DraftCreateSchema,
+@@ -104,3 +108,5 @@ assert(
+ );
+ 
+ console.log('PASS harness:platform-zod-contract');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-playbook-validation.mts b/scripts/harness-playbook-validation.mts
+index 40f2e05b..15e8ad76 100644
+--- a/scripts/harness-playbook-validation.mts
++++ b/scripts/harness-playbook-validation.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Playbook validation oracle (PRD §25.2, §20.3, §26.2 — slices PB-001..004).
+  *
+@@ -45,23 +49,7 @@ import {
+ } from '../packages/core/src/runtime/mission/playbook/validate.ts';
+ import type { MissionPlaybook } from '../packages/shared-types/src/index.ts';
+ import type { RuntimeCapabilities } from '../packages/shared-types/src/index.ts';
+-
+-let passed = 0;
+-let failed = 0;
+-const checks: string[] = [];
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  checks.push(name);
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ const registry = createDefaultEvaluatorRegistry();
+ 
+@@ -911,9 +899,11 @@ await check('INJECT-PROOF (§18.1): an all-required:false playbook is REJECTED',
+   );
+ });
+ 
+-const total = checks.length;
+-if (failed > 0) {
+-  console.error(`\nplaybook-validation: ${passed}/${total} passed (${failed} failed)`);
++const total = h.checks;
++if (h.failures > 0) {
++  console.error(`\nplaybook-validation: ${(h.checks - h.failures)}/${total} passed (${h.failures} failed)`);
+   process.exit(1);
+ }
+ console.log(`\nplaybook-validation: ${total}/${total} passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-project-workspace.mts b/scripts/harness-project-workspace.mts
+index 690bb4e6..4d32fe53 100644
+--- a/scripts/harness-project-workspace.mts
++++ b/scripts/harness-project-workspace.mts
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env node
+ 
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { fileURLToPath } from 'node:url';
+@@ -2052,3 +2056,5 @@ try {
+   console.error(error instanceof Error ? error.message : error);
+   process.exit(1);
+ }
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-prompt-enhance.mts b/scripts/harness-prompt-enhance.mts
+index 4531567a..8414d677 100644
+--- a/scripts/harness-prompt-enhance.mts
++++ b/scripts/harness-prompt-enhance.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Prompt Enhance deterministic harness (PR-06).
+  *
+@@ -39,19 +43,7 @@ import {
+   buildEnhanceRequest,
+   runEnhance,
+ } from '../apps/desktop/renderer/src/assistant/enhance/service.js';
+-
+-let failures = 0;
+-let checks = 0;
+-
+-function check(name: string, condition: boolean, detail?: string): void {
+-  checks += 1;
+-  if (condition) {
+-    console.log(`  ✓ ${name}`);
+-  } else {
+-    failures += 1;
+-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+-  }
+-}
++const check = h.check;
+ 
+ console.log('prompt-enhance gate');
+ 
+@@ -409,9 +401,11 @@ const ROSTER = [
+   );
+ }
+ 
+-console.log(`\nprompt-enhance: ${checks - failures}/${checks} checks passed`);
+-if (failures > 0) {
+-  console.error(`prompt-enhance gate FAILED with ${failures} failing check(s)`);
++console.log(`\nprompt-enhance: ${h.checks - h.failures}/${h.checks} checks passed`);
++if (h.failures > 0) {
++  console.error(`prompt-enhance gate FAILED with ${h.failures} failing check(s)`);
+   process.exit(1);
+ }
+ console.log('prompt-enhance gate OK');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-registry-client-security.mts b/scripts/harness-registry-client-security.mts
+index 1dc1f9db..46ac0425 100644
+--- a/scripts/harness-registry-client-security.mts
++++ b/scripts/harness-registry-client-security.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import {
+   REGISTRY_CLIENT_MAX_JSON_BYTES,
+@@ -83,3 +87,5 @@ async function main(): Promise<void> {
+ }
+ 
+ await main();
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-renderer-engine-authority.mts b/scripts/harness-renderer-engine-authority.mts
+index 4bc38370..e19c7cfd 100644
+--- a/scripts/harness-renderer-engine-authority.mts
++++ b/scripts/harness-renderer-engine-authority.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { fileURLToPath } from 'node:url';
+@@ -319,3 +323,5 @@ assert.match(personnelSource, /thinking_level: model && supportsReasoning && thi
+ assert.match(personnelSource, /\{supportsReasoning \? \(/u);
+ 
+ console.log('renderer engine authority gate OK');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-review-fixes.mjs b/scripts/harness-review-fixes.mjs
+index 288071fa..e77fe5f5 100644
+--- a/scripts/harness-review-fixes.mjs
++++ b/scripts/harness-review-fixes.mjs
+@@ -1,4 +1,8 @@
+ #!/usr/bin/env node
++
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
+ import { access, readFile } from 'node:fs/promises';
+ import { resolve } from 'node:path';
+ import { harnessById, validateHarnessIds } from './harness-manifest.mjs';
+@@ -227,3 +231,5 @@ for (const removedPath of [
+ }
+ 
+ console.log('harness-review-fixes: engine gateway and API account guards passed');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-run-cost-scope.mts b/scripts/harness-run-cost-scope.mts
+index bf4b26d7..17e59192 100644
+--- a/scripts/harness-run-cost-scope.mts
++++ b/scripts/harness-run-cost-scope.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import Database from 'better-sqlite3';
+@@ -647,3 +651,5 @@ db.close();
+ console.log(
+   '[harness-run-cost-scope] ok — month/task/account lanes stay isolated; subscription tasks show local tokens/duration without API cost',
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-run-recovery.mts b/scripts/harness-run-recovery.mts
+index dcbbd7ca..a6ab8391 100644
+--- a/scripts/harness-run-recovery.mts
++++ b/scripts/harness-run-recovery.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Durable Resume oracle (Epic A, DR-003 / slice A2) — startup interrupted-run
+  * reconciliation over `agent_runs`.
+@@ -47,22 +51,8 @@ import {
+ } from '../apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.js';
+ import { MemoryAgentRunRepository } from '../packages/core/src/runtime/repos/agent-runs/memory.ts';
+ import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 34;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ const FIXED_NOW = '2026-06-27T12:00:00.000Z';
+ const now = () => FIXED_NOW;
+@@ -1160,11 +1150,13 @@ async function main(): Promise<void> {
+     assert.equal(row?.finished_at, null);
+   });
+ 
+-  console.log(`\n${passed}/${TOTAL} checks passed${failed ? `, ${failed} FAILED` : ''}.`);
+-  if (failed > 0 || passed !== TOTAL) process.exit(1);
++  console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
++  if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
+ }
+ 
+-main().catch((err) => {
++await main().catch((err) => {
+   console.error(err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-runtime-conformance.mts b/scripts/harness-runtime-conformance.mts
+index 8b63e605..dd8bb188 100644
+--- a/scripts/harness-runtime-conformance.mts
++++ b/scripts/harness-runtime-conformance.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Runtime Conformance Harness (PRD §27, RD-006).
+  *
+@@ -686,4 +690,6 @@ async function main(): Promise<void> {
+   console.log('runtime-conformance gate PASSED');
+ }
+ 
+-void main();
++await main();
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-scene-cue.mts b/scripts/harness-scene-cue.mts
+index d11632cd..d723c0ff 100644
+--- a/scripts/harness-scene-cue.mts
++++ b/scripts/harness-scene-cue.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import type {
+   ConversationRunSnapshot,
+   ConversationRunsSnapshot,
+@@ -56,18 +60,7 @@ import {
+ // classifier — this harness locks the two implementations equal.
+ // @ts-expect-error plain .mjs module without type declarations
+ import { classifyRunFailure as classifyRunFailureMjs } from './pi-agent-host-wire.mjs';
+-
+-let checks = 0;
+-let failures = 0;
+-function check(name: string, condition: boolean, detail?: string): void {
+-  checks += 1;
+-  if (condition) {
+-    console.log(`  ✓ ${name}`);
+-  } else {
+-    failures += 1;
+-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+-  }
+-}
++const check = h.check;
+ 
+ const THREAD = 'thread-1';
+ const PRJ = 'prj';
+@@ -1065,9 +1058,11 @@ console.log('\n[high concurrency] 58 active runs');
+   );
+ }
+ 
+-console.log(`\nscene-cue: ${checks - failures}/${checks} checks passed`);
+-if (failures > 0) {
+-  console.error(`scene-cue gate FAILED with ${failures} failure(s)`);
++console.log(`\nscene-cue: ${h.checks - h.failures}/${h.checks} checks passed`);
++if (h.failures > 0) {
++  console.error(`scene-cue gate FAILED with ${h.failures} failure(s)`);
+   process.exit(1);
+ }
+ console.log('scene-cue gate PASSED');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-scene-staging.mts b/scripts/harness-scene-staging.mts
+index 85c11239..74118556 100644
+--- a/scripts/harness-scene-staging.mts
++++ b/scripts/harness-scene-staging.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Scene staging gate (Phase 3, source plan §7 / §8).
+  *
+@@ -24,17 +28,7 @@ import {
+   reserveStaging,
+   worldAnchorsFor,
+ } from '../packages/shared-types/src/index.js';
+-
+-let failures = 0;
+-let checks = 0;
+-function check(name: string, condition: boolean, detail?: string): void {
+-  checks += 1;
+-  if (condition) console.log(`  ✓ ${name}`);
+-  else {
+-    failures += 1;
+-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+-  }
+-}
++const check = h.check;
+ 
+ const prefab = (
+   instanceId: string,
+@@ -334,9 +328,11 @@ console.log('\n[performance] layered state for every beat kind');
+   );
+ }
+ 
+-console.log(`\nscene-staging: ${checks - failures}/${checks} checks passed`);
+-if (failures > 0) {
+-  console.error(`scene-staging gate FAILED with ${failures} failure(s)`);
++console.log(`\nscene-staging: ${h.checks - h.failures}/${h.checks} checks passed`);
++if (h.failures > 0) {
++  console.error(`scene-staging gate FAILED with ${h.failures} failure(s)`);
+   process.exit(1);
+ }
+ console.log('scene-staging gate PASSED');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-semantic-title-repository.mts b/scripts/harness-semantic-title-repository.mts
+index 1c2d9b05..01c52de8 100644
+--- a/scripts/harness-semantic-title-repository.mts
++++ b/scripts/harness-semantic-title-repository.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import Database from 'better-sqlite3';
+ import { drizzle as drizzleProxy } from 'drizzle-orm/sqlite-proxy';
+@@ -91,3 +95,5 @@ for (let index = 0; index < 50; index += 1) {
+ }
+ 
+ console.log('semantic-title repository gate passed: 50 async rename/claim interleavings');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-settings-status-coordinator.mts b/scripts/harness-settings-status-coordinator.mts
+index bcfc6219..9f271240 100644
+--- a/scripts/harness-settings-status-coordinator.mts
++++ b/scripts/harness-settings-status-coordinator.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { LatestRequestCoordinator } from '../apps/desktop/renderer/src/surfaces/settings/latest-request-coordinator.js';
+ 
+@@ -58,3 +62,5 @@ assert.deepEqual(errors, [], 'a superseded request must not surface a stale erro
+ assert.deepEqual(applied, ['saved-status', 'latest-refresh-status']);
+ 
+ console.log('✓ settings-status-coordinator: out-of-order status responses stay monotonic');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-stage-preview-targets.mts b/scripts/harness-stage-preview-targets.mts
+index 456818fb..dedb29e3 100644
+--- a/scripts/harness-stage-preview-targets.mts
++++ b/scripts/harness-stage-preview-targets.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import {
+   DEFAULT_STAGE_SPLIT_LAYOUT,
+@@ -20,21 +24,7 @@ import {
+   resolveViewerKind,
+   trustLevelFor,
+ } from '../apps/desktop/renderer/src/surfaces/office/stage-preview/preview-target.js';
+-
+-let checks = 0;
+-let failures = 0;
+-
+-function check(name: string, fn: () => void): void {
+-  checks += 1;
+-  try {
+-    fn();
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failures += 1;
+-    console.error(`  ✗ ${name}`);
+-    console.error(error);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ function resetUiState(): void {
+   useUiState.setState(useUiState.getInitialState(), true);
+@@ -42,49 +32,49 @@ function resetUiState(): void {
+ 
+ console.log('stage-preview-targets gate');
+ 
+-check('resolver:md-extension-maps-markdown', () => {
++await check('resolver:md-extension-maps-markdown', () => {
+   assert.equal(resolveViewerKind({ extension: 'md', hasText: true }), 'markdown');
+ });
+ 
+-check('resolver:mime-wins-over-extension', () => {
++await check('resolver:mime-wins-over-extension', () => {
+   assert.equal(
+     resolveViewerKind({ mimeType: 'application/pdf', extension: 'txt', hasText: true }),
+     'pdf',
+   );
+ });
+ 
+-check('resolver:unknown-binary-unsupported', () => {
++await check('resolver:unknown-binary-unsupported', () => {
+   assert.equal(resolveViewerKind({ extension: 'bin', hasText: false }), 'unsupported');
+ });
+ 
+-check('resolver:text-fallback-when-hasText', () => {
++await check('resolver:text-fallback-when-hasText', () => {
+   assert.equal(resolveViewerKind({ extension: 'unknown', hasText: true }), 'text');
+ });
+ 
+-check('resolver:glb-maps-model3d', () => {
++await check('resolver:glb-maps-model3d', () => {
+   assert.equal(resolveViewerKind({ extension: 'glb', hasText: false }), 'model3d');
+ });
+ 
+-check('resolver:vrm-maps-model3d', () => {
++await check('resolver:vrm-maps-model3d', () => {
+   assert.equal(resolveViewerKind({ extension: 'vrm', hasText: false }), 'model3d');
+ });
+ 
+-check('trust:workspace-file-is-workspace', () => {
++await check('trust:workspace-file-is-workspace', () => {
+   const ref: PreviewSourceRef = { source: 'workspace-file', path: '/repo/a.md' };
+   assert.equal(trustLevelFor(ref), 'workspace');
+ });
+ 
+-check('trust:deliverable-is-generated', () => {
++await check('trust:deliverable-is-generated', () => {
+   const ref: PreviewSourceRef = { source: 'deliverable', deliverableId: 'del-1', threadId: null };
+   assert.equal(trustLevelFor(ref), 'generated');
+ });
+ 
+-check('trust:computer-artifact-is-computer', () => {
++await check('trust:computer-artifact-is-computer', () => {
+   const ref: PreviewSourceRef = { source: 'computer-artifact', path: '/repo/out.png' };
+   assert.equal(trustLevelFor(ref), 'computer');
+ });
+ 
+-check('ui-state:preview-target-maps-preview-tab', () => {
++await check('ui-state:preview-target-maps-preview-tab', () => {
+   const target: StageViewTarget = {
+     kind: 'preview',
+     ref: { source: 'workspace-file', path: '/repo/a.md' },
+@@ -92,11 +82,11 @@ check('ui-state:preview-target-maps-preview-tab', () => {
+   assert.equal(stageTabForTarget(target), 'preview');
+ });
+ 
+-check('ui-state:computer-target-maps-computer-tab', () => {
++await check('ui-state:computer-target-maps-computer-tab', () => {
+   assert.equal(stageTabForTarget({ kind: 'computer', threadId: 'thread-1' }), 'computer');
+ });
+ 
+-check('ui-state:tab-id-stable-for-same-file', () => {
++await check('ui-state:tab-id-stable-for-same-file', () => {
+   resetUiState();
+   const target: StageViewTarget = {
+     kind: 'preview',
+@@ -109,7 +99,7 @@ check('ui-state:tab-id-stable-for-same-file', () => {
+   assert.equal(state.activeStageTabId, 'preview:workspace-file:/repo/a.md');
+ });
+ 
+-check('ui-state:open-activate-close-roundtrip', () => {
++await check('ui-state:open-activate-close-roundtrip', () => {
+   resetUiState();
+   const previewTarget: StageViewTarget = {
+     kind: 'preview',
+@@ -132,7 +122,7 @@ check('ui-state:open-activate-close-roundtrip', () => {
+   assert.deepEqual(useUiState.getState().stageView, { kind: 'scene' });
+ });
+ 
+-check('ui-state:split-view-pin-swap-close-roundtrip', () => {
++await check('ui-state:split-view-pin-swap-close-roundtrip', () => {
+   resetUiState();
+   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+   const reviewTabId = useUiState.getState().activeStageTabId;
+@@ -154,7 +144,7 @@ check('ui-state:split-view-pin-swap-close-roundtrip', () => {
+   assert.equal(useUiState.getState().activeStageTabId, reviewTabId);
+ });
+ 
+-check('ui-state:pinning-active-view-keeps-a-distinct-left-view', () => {
++await check('ui-state:pinning-active-view-keeps-a-distinct-left-view', () => {
+   resetUiState();
+   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+   const reviewTabId = useUiState.getState().activeStageTabId;
+@@ -171,7 +161,7 @@ check('ui-state:pinning-active-view-keeps-a-distinct-left-view', () => {
+   assert.equal(useUiState.getState().stageSplitTabId, null);
+ });
+ 
+-check('ui-state:game-and-board-restore-single-view', () => {
++await check('ui-state:game-and-board-restore-single-view', () => {
+   resetUiState();
+   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+   const reviewTabId = useUiState.getState().activeStageTabId;
+@@ -194,7 +184,7 @@ check('ui-state:game-and-board-restore-single-view', () => {
+   assert.equal(useUiState.getState().stageSplitTabId, null);
+ });
+ 
+-check('ui-state:board-and-game-reject-reverse-split-transitions', () => {
++await check('ui-state:board-and-game-reject-reverse-split-transitions', () => {
+   resetUiState();
+   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+   const reviewTabId = useUiState.getState().activeStageTabId;
+@@ -217,7 +207,7 @@ check('ui-state:board-and-game-reject-reverse-split-transitions', () => {
+   assert.notEqual(useUiState.getState().stageSplitTabId, reviewTabId);
+ });
+ 
+-check('ui-state:split-layout-survives-pane-unmount-and-remount', () => {
++await check('ui-state:split-layout-survives-pane-unmount-and-remount', () => {
+   resetUiState();
+   useUiState.getState().setStageSplitLayout({ 'stage-primary': 63, 'stage-secondary': 37 });
+   useUiState.getState().openStageView({ kind: 'changes', path: 'src/App.tsx' });
+@@ -235,7 +225,7 @@ check('ui-state:split-layout-survives-pane-unmount-and-remount', () => {
+   });
+ });
+ 
+-check('ui-state:split-layout-storage-restores-after-restart', () => {
++await check('ui-state:split-layout-storage-restores-after-restart', () => {
+   const values = new Map<string, string>();
+   const storage = {
+     getItem: (key: string) => values.get(key) ?? null,
+@@ -260,7 +250,7 @@ function resolved(
+   return { ref, viewerKind, trustLevel: trustLevelFor(ref), meta };
+ }
+ 
+-check('data:workspace-md-loads-text-lane', () => {
++await check('data:workspace-md-loads-text-lane', () => {
+   assert.equal(
+     planPreviewLoad(
+       resolved({ source: 'workspace-file', path: '/repo/README.md' }, 'markdown', {
+@@ -274,7 +264,7 @@ check('data:workspace-md-loads-text-lane', () => {
+   );
+ });
+ 
+-check('data:mp4-routes-stream-no-read', () => {
++await check('data:mp4-routes-stream-no-read', () => {
+   assert.equal(
+     planPreviewLoad(
+       resolved({ source: 'workspace-file', path: '/repo/demo.mp4' }, 'video', {
+@@ -287,7 +277,7 @@ check('data:mp4-routes-stream-no-read', () => {
+   );
+ });
+ 
+-check('data:mp3-routes-stream-no-read', () => {
++await check('data:mp3-routes-stream-no-read', () => {
+   assert.equal(
+     planPreviewLoad(
+       resolved({ source: 'workspace-file', path: '/repo/audio.mp3' }, 'audio', {
+@@ -300,7 +290,7 @@ check('data:mp3-routes-stream-no-read', () => {
+   );
+ });
+ 
+-check('data:avi-routes-stream-for-codec-fallback', () => {
++await check('data:avi-routes-stream-for-codec-fallback', () => {
+   assert.equal(
+     planPreviewLoad(
+       resolved({ source: 'workspace-file', path: '/repo/legacy.avi' }, 'video', {
+@@ -313,28 +303,28 @@ check('data:avi-routes-stream-for-codec-fallback', () => {
+   );
+ });
+ 
+-check('data:media-stream-url-encodes-path-and-project', () => {
++await check('data:media-stream-url-encodes-path-and-project', () => {
+   assert.equal(
+     mediaStreamUrl('/repo/My File.mp4', 'proj-1'),
+     'offisim-media://localhost/file?path=%2Frepo%2FMy+File.mp4&projectId=proj-1',
+   );
+ });
+ 
+-check('data:docx-extension-official-mime', () => {
++await check('data:docx-extension-official-mime', () => {
+   assert.equal(
+     mimeForPreviewExtension('docx'),
+     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+   );
+ });
+ 
+-check('data:docx-zip-sniff-prefers-official-mime', () => {
++await check('data:docx-zip-sniff-prefers-official-mime', () => {
+   assert.equal(
+     resolvePreviewMimeType('application/zip', 'docx'),
+     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+   );
+ });
+ 
+-check('data:xlsx-routes-bytes', () => {
++await check('data:xlsx-routes-bytes', () => {
+   assert.equal(
+     planPreviewLoad(
+       resolved({ source: 'workspace-file', path: '/repo/book.xlsx' }, 'spreadsheet', {
+@@ -348,7 +338,7 @@ check('data:xlsx-routes-bytes', () => {
+   );
+ });
+ 
+-check('data:html-deliverable-inline-html', () => {
++await check('data:html-deliverable-inline-html', () => {
+   assert.equal(
+     planPreviewLoad(
+       resolved(
+@@ -362,7 +352,7 @@ check('data:html-deliverable-inline-html', () => {
+   );
+ });
+ 
+-check('data:browser-localhost-embeds-url', () => {
++await check('data:browser-localhost-embeds-url', () => {
+   assert.equal(
+     planPreviewLoad(
+       resolved({ source: 'browser', url: 'http://localhost:5173/' }, 'browser', {
+@@ -374,7 +364,7 @@ check('data:browser-localhost-embeds-url', () => {
+   );
+ });
+ 
+-check('data:browser-external-falls-to-screenshot', () => {
++await check('data:browser-external-falls-to-screenshot', () => {
+   assert.equal(
+     planPreviewLoad(
+       resolved({ source: 'browser', url: 'https://example.com/' }, 'browser', {
+@@ -387,21 +377,21 @@ check('data:browser-external-falls-to-screenshot', () => {
+   );
+ });
+ 
+-check('csv:quoted-comma', () => {
++await check('csv:quoted-comma', () => {
+   assert.deepEqual(parseCsvRows('name,notes\nA,"hello, world"'), [
+     ['name', 'notes'],
+     ['A', 'hello, world'],
+   ]);
+ });
+ 
+-check('csv:escaped-quote', () => {
++await check('csv:escaped-quote', () => {
+   assert.deepEqual(parseCsvRows('name,quote\nA,"say ""hi"""'), [
+     ['name', 'quote'],
+     ['A', 'say "hi"'],
+   ]);
+ });
+ 
+-check('csv:crlf', () => {
++await check('csv:crlf', () => {
+   assert.deepEqual(parseCsvRows('a,b\r\n1,2\r\n3,4'), [
+     ['a', 'b'],
+     ['1', '2'],
+@@ -409,9 +399,11 @@ check('csv:crlf', () => {
+   ]);
+ });
+ 
+-console.log(`\nstage-preview-targets: ${checks - failures}/${checks} checks passed`);
+-if (failures > 0) {
+-  console.error(`stage-preview-targets gate FAILED with ${failures} failure(s)`);
++console.log(`\nstage-preview-targets: ${h.checks - h.failures}/${h.checks} checks passed`);
++if (h.failures > 0) {
++  console.error(`stage-preview-targets gate FAILED with ${h.failures} failure(s)`);
+   process.exit(1);
+ }
+ console.log('stage-preview-targets gate PASSED');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-staged-compaction.mts b/scripts/harness-staged-compaction.mts
+index d4f67b23..813a6b6c 100644
+--- a/scripts/harness-staged-compaction.mts
++++ b/scripts/harness-staged-compaction.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { microCompactMessages } from '../packages/core/dist/index.js';
+ import type { LlmMessage, LlmRequest, RuntimeContext } from '../packages/core/dist/index.js';
+@@ -252,3 +256,5 @@ assert.deepEqual(
+ console.log(
+   '[harness-staged-compaction] prune -> microcompact -> full compact passed; exact tool pairs and protected current turn remain valid; full compact calls reduced',
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-stream-watchdog.mts b/scripts/harness-stream-watchdog.mts
+index b1944847..2ff69770 100644
+--- a/scripts/harness-stream-watchdog.mts
++++ b/scripts/harness-stream-watchdog.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { resolve } from 'node:path';
+@@ -366,3 +370,5 @@ assert(
+ console.log(
+   '[harness-stream-watchdog] fault injection passed: idle recovery; quiet-tool keepalive then completion/stall; progress reset; all native lanes wired',
+ );
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-task-board-child-tree.mts b/scripts/harness-task-board-child-tree.mts
+index cdd26673..2b331774 100644
+--- a/scripts/harness-task-board-child-tree.mts
++++ b/scripts/harness-task-board-child-tree.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import type { AgentEventRow, AgentRunRow } from '@offisim/core/browser';
+ import type { WorkspaceLeaseLifecycleRow } from '../apps/desktop/renderer/src/lib/tauri-commands.js';
+@@ -611,3 +615,5 @@ assert.equal(isolatedProject[0]?.phase, null, 'foreign Project events cannot enr
+ assert.deepEqual(isolatedProject[0]?.changedPaths, [], 'Project scope prevents event diff leakage');
+ 
+ console.log('✓ task-board-child-tree: root expansion and child metadata checks passed');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-template-contract.mts b/scripts/harness-template-contract.mts
+index 19e1373f..8e335380 100644
+--- a/scripts/harness-template-contract.mts
++++ b/scripts/harness-template-contract.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Template contract gate (source plan §15 "Template fixtures").
+  *
+@@ -27,19 +31,7 @@ import {
+   serializeTemplatePersona,
+ } from '../packages/core/src/browser.js';
+ import { SYSTEM_ZONE_TEMPLATES } from '../packages/shared-types/src/index.js';
+-
+-let failures = 0;
+-let checks = 0;
+-
+-function check(name: string, condition: boolean, detail?: string): void {
+-  checks += 1;
+-  if (condition) {
+-    console.log(`  ✓ ${name}`);
+-  } else {
+-    failures += 1;
+-    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+-  }
+-}
++const check = h.check;
+ 
+ function parseJson(raw: string | null): Record<string, unknown> {
+   if (!raw) return {};
+@@ -339,9 +331,11 @@ for (const t of templates) {
+   }
+ }
+ 
+-console.log(`\ntemplate-contract: ${checks - failures}/${checks} checks passed`);
+-if (failures > 0) {
+-  console.error(`template-contract gate FAILED with ${failures} failure(s)`);
++console.log(`\ntemplate-contract: ${h.checks - h.failures}/${h.checks} checks passed`);
++if (h.failures > 0) {
++  console.error(`template-contract gate FAILED with ${h.failures} failure(s)`);
+   process.exit(1);
+ }
+ console.log('template-contract gate PASSED');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-thread-lifecycle-guard.mts b/scripts/harness-thread-lifecycle-guard.mts
+index 3143b1b4..fef9abd6 100644
+--- a/scripts/harness-thread-lifecycle-guard.mts
++++ b/scripts/harness-thread-lifecycle-guard.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { ThreadLifecycleGuard } from '../apps/desktop/renderer/src/runtime/thread-lifecycle-guard.ts';
+ 
+@@ -36,3 +40,5 @@ assert.ok(afterRuns, 'mutation becomes available after the exclusive run stops')
+ afterRuns();
+ 
+ console.log('thread lifecycle guard harness: 10/10 passed');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-token-budget-alerts.mts b/scripts/harness-token-budget-alerts.mts
+index 0bb384b5..102ce888 100644
+--- a/scripts/harness-token-budget-alerts.mts
++++ b/scripts/harness-token-budget-alerts.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ import { computeTokenBudgetAlerts } from '../apps/desktop/renderer/src/data/token-budget-policy.ts';
+@@ -101,3 +105,5 @@ assert.match(officeStageSource, /taskAccountingPresentation\(runCost\.data\)/);
+ assert.match(usageCoverageSource, /≥/);
+ 
+ console.log('token-budget-alerts: 13 checks passed');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-visual-semantics.mts b/scripts/harness-visual-semantics.mts
+index 74201a03..de7d1104 100644
+--- a/scripts/harness-visual-semantics.mts
++++ b/scripts/harness-visual-semantics.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync, readdirSync, statSync } from 'node:fs';
+ import { extname, join, relative, resolve } from 'node:path';
+@@ -210,3 +214,5 @@ for (const file of sourceFiles('apps/desktop/renderer/src', new Set(['.css'])))
+ }
+ 
+ console.log('[harness-visual-semantics] ok');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-web-fetch-security.mts b/scripts/harness-web-fetch-security.mts
+index 0cae4216..bde21099 100644
+--- a/scripts/harness-web-fetch-security.mts
++++ b/scripts/harness-web-fetch-security.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import {
+   WEB_FETCH_MAX_BODY_BYTES,
+   readWebFetchTextWithLimit,
+@@ -39,7 +43,10 @@ try {
+   );
+ } catch {
+   console.log('Web fetch security harness passed.');
++  h.report();
+   process.exit(0);
+ }
+ 
+ throw new Error('web_fetch accepted an oversized response body');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-web-search-security.mts b/scripts/harness-web-search-security.mts
+index 985b986c..9a744b8b 100644
+--- a/scripts/harness-web-search-security.mts
++++ b/scripts/harness-web-search-security.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import {
+   WEB_SEARCH_MAX_BODY_BYTES,
+   createWebSearchTool,
+@@ -60,3 +64,5 @@ async function expectRejects(fn: Promise<unknown>, message: string): Promise<voi
+   }
+   throw new Error(message);
+ }
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-workspace-chat-presentation.mts b/scripts/harness-workspace-chat-presentation.mts
+index 4a113b95..dece89fa 100644
+--- a/scripts/harness-workspace-chat-presentation.mts
++++ b/scripts/harness-workspace-chat-presentation.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { runWorkspaceDisclosureMarkupOracle } from '../apps/desktop/renderer/scripts/workspace-disclosure-markup-oracle.js';
+ import { formatWorkspaceProvenance } from '../apps/desktop/renderer/src/assistant/presentation/workspace-provenance.js';
+@@ -390,3 +394,5 @@ if (failed.length > 0) {
+   process.exit(1);
+ }
+ console.log(`workspace-chat-presentation harness passed: ${scenarios.length}/${scenarios.length}`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-workspace-lease-decisions.mts b/scripts/harness-workspace-lease-decisions.mts
+index f9950da3..6f77fbf3 100644
+--- a/scripts/harness-workspace-lease-decisions.mts
++++ b/scripts/harness-workspace-lease-decisions.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { WorkspaceLeaseDecisionCoordinator } from '../apps/desktop/renderer/src/surfaces/office/board/workspace-lease-decision-coordinator.js';
+ 
+@@ -43,3 +47,5 @@ await oppositeDecisionReturnsActualOutcome('discard', 'merge', 'discarded');
+ console.log('  ✓ concurrent discard then merge reports discarded to both entries');
+ 
+ console.log('workspace-lease-decisions: 2/2 checks passed');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-workspace-lease.mts b/scripts/harness-workspace-lease.mts
+index fe2f6f03..ad029c36 100644
+--- a/scripts/harness-workspace-lease.mts
++++ b/scripts/harness-workspace-lease.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ /**
+  * Isolated Parallel Write oracle (PRD §23, slice M5 — WI-001..006).
+  *
+@@ -51,22 +55,8 @@ import {
+   type WorkspaceCheckpoint,
+   type WorkspaceCheckpointRollback,
+ } from '../packages/core/dist/browser.js';
+-
+-let passed = 0;
+-let failed = 0;
+ const TOTAL = 21;
+-
+-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
+-  try {
+-    await run();
+-    passed += 1;
+-    console.log(`  ✓ ${name}`);
+-  } catch (error) {
+-    failed += 1;
+-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+-    console.error(`  ✗ ${name}\n    ${message}`);
+-  }
+-}
++const check = h.checkAsync;
+ 
+ // ---------------------------------------------------------------------------
+ // Deterministic id / clock, mirroring the mission harnesses.
+@@ -905,8 +895,10 @@ await check('machine -z path lists preserve spaces, newlines, and secret-shaped
+   );
+ });
+ 
+-if (failed > 0) {
+-  console.error(`\nworkspace-lease: ${passed}/${TOTAL} passed (${failed} failed)`);
++if (h.failures > 0) {
++  console.error(`\nworkspace-lease: ${(h.checks - h.failures)}/${TOTAL} passed (${h.failures} failed)`);
+   process.exit(1);
+ }
+-console.log(`\nworkspace-lease: ${passed}/${TOTAL} passed`);
++console.log(`\nworkspace-lease: ${(h.checks - h.failures)}/${TOTAL} passed`);
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-workspace-panel-project-gate.mjs b/scripts/harness-workspace-panel-project-gate.mjs
+index 4c8488af..c3b32189 100644
+--- a/scripts/harness-workspace-panel-project-gate.mjs
++++ b/scripts/harness-workspace-panel-project-gate.mjs
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ import assert from 'node:assert/strict';
+ import { readFileSync } from 'node:fs';
+ 
+@@ -248,3 +252,5 @@ assert.doesNotMatch(
+ );
+ 
+ console.log('workspace-panel-project-gate: PASS');
++
++if (!process.exitCode) h.report();
+diff --git a/scripts/harness-workspace-repo-contract.mts b/scripts/harness-workspace-repo-contract.mts
+index 83709b9a..fe4a878f 100644
+--- a/scripts/harness-workspace-repo-contract.mts
++++ b/scripts/harness-workspace-repo-contract.mts
+@@ -1,3 +1,7 @@
++import { createHarness } from './lib/harness-runner.mjs';
++
++const h = createHarness();
++
+ // W0-C — Repository contract-test harness (GPT-5.5 audit remediation, Wave 0).
+ //
+ // Runs the SAME storage-consistency assertions against BOTH SQLite repo backends:
+@@ -123,8 +127,10 @@ async function main(): Promise<void> {
+   console.log('workspace-repo contract: PASS');
+ }
+ 
+-main().catch((err) => {
++await main().catch((err) => {
+   console.error('workspace-repo contract: FAIL');
+   console.error(err instanceof assert.AssertionError ? err.message : err);
+   process.exit(1);
+ });
++
++if (!process.exitCode) h.report();

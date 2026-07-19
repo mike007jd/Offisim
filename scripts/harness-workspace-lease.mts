@@ -1,3 +1,7 @@
+import { createHarness } from './lib/harness-runner.mjs';
+
+const h = createHarness();
+
 /**
  * Isolated Parallel Write oracle (PRD §23, slice M5 — WI-001..006).
  *
@@ -51,22 +55,8 @@ import {
   type WorkspaceCheckpoint,
   type WorkspaceCheckpointRollback,
 } from '../packages/core/dist/browser.js';
-
-let passed = 0;
-let failed = 0;
 const TOTAL = 21;
-
-async function check(name: string, run: () => void | Promise<void>): Promise<void> {
-  try {
-    await run();
-    passed += 1;
-    console.log(`  ✓ ${name}`);
-  } catch (error) {
-    failed += 1;
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    console.error(`  ✗ ${name}\n    ${message}`);
-  }
-}
+const check = h.checkAsync;
 
 // ---------------------------------------------------------------------------
 // Deterministic id / clock, mirroring the mission harnesses.
@@ -905,8 +895,10 @@ await check('machine -z path lists preserve spaces, newlines, and secret-shaped 
   );
 });
 
-if (failed > 0) {
-  console.error(`\nworkspace-lease: ${passed}/${TOTAL} passed (${failed} failed)`);
+if (h.failures > 0) {
+  console.error(`\nworkspace-lease: ${(h.checks - h.failures)}/${TOTAL} passed (${h.failures} failed)`);
   process.exit(1);
 }
-console.log(`\nworkspace-lease: ${passed}/${TOTAL} passed`);
+console.log(`\nworkspace-lease: ${(h.checks - h.failures)}/${TOTAL} passed`);
+
+if (!process.exitCode) h.report();
