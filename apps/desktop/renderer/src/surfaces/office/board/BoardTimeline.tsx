@@ -1,3 +1,4 @@
+import { type ActivityRecord, useActivityRecords } from '@/data/board/activity-data.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import type { WorkspaceCheckpointRow } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
@@ -11,7 +12,6 @@ import { History } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  type ActivityRecord,
   checkpointPathForDisplay,
   collapseReroutes,
   domainIcon,
@@ -19,8 +19,7 @@ import {
   getDisplaySummary,
   getEventLevel,
   groupByTime,
-  useActivityRecords,
-} from './activity-data.js';
+} from './activity-presentation.js';
 import { rewindWorkspaceCheckpoint } from './workspace-checkpoint-actions.js';
 
 export function BoardTimeline({

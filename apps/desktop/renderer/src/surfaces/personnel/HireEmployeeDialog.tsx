@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { useAgentRuntimeModels } from '@/assistant/composer/usePiAgentModels.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { useReassignEmployee } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -91,7 +92,7 @@ export function HireEmployeeDialog({
           throw assignmentError;
         }
       }
-      await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
       useUiState.getState().selectEmployee(employee_id);
       toast.success(`${name.trim()} hired`);
       onOpenChange(false);

@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { OfficeThread } from '@/assistant/OfficeThread.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { deriveThreadTitle } from '@/data/auto-title.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   useDeliverables,
   useEmployees,
@@ -110,7 +111,7 @@ export function ChatRail() {
         });
       }
       markDraftPersisted();
-      await queryClient.invalidateQueries({ queryKey: ['threads', projectId] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.threads(projectId) });
       toast.success('Conversation created');
     },
     [projectId, selectedThreadId, employeesById, markDraftPersisted, queryClient],

@@ -6,10 +6,10 @@ import {
   useUiState,
 } from '@/app/ui-state.js';
 import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
+import { useProjectWorkspaceLeaseReviews } from '@/data/board/task-board-data.js';
 import type { TaskAccountingPresentation } from '@/data/task-accounting-presentation.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
-import { useProjectWorkspaceLeaseReviews } from '@/surfaces/office/board/task-board-data.js';
 import {
   type PreviewSourceRef,
   previewRefViewerKind,

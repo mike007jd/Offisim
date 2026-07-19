@@ -472,7 +472,7 @@ const runCostHookSource = querySource.match(
 )?.[0];
 assert.ok(runCostHookSource, 'useRunCost source must be present');
 assert.ok(runCostHookSource.includes('runtimeEventBus.on(RUN_COST_UPDATED_EVENT'));
-assert.ok(runCostHookSource.includes("queryKey: ['run-cost', companyId]"));
+assert.ok(runCostHookSource.includes('queryKey: queryKeys.runCostCompany(companyId)'));
 assert.ok(
   !runCostHookSource.includes('refetchInterval'),
   'run cost must not use unconditional polling',

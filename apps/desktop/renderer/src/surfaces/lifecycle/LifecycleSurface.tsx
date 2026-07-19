@@ -1,6 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { deleteCompanyDeep } from '@/data/local-data-deletion.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { useCompanies } from '@/data/queries.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
@@ -127,9 +128,9 @@ export function LifecycleSurface() {
       throw error;
     }
 
-    await queryClient.invalidateQueries({ queryKey: ['companies'] });
-    await queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
-    await queryClient.invalidateQueries({ queryKey: ['projects', companyId] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.companies() });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.employees(companyId) });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.projects(companyId) });
 
     await activateCompanyScope({
       companyId,

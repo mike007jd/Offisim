@@ -1,4 +1,9 @@
 import { SelectableCard } from '@/components/SelectableCard.js';
+import type {
+  TaskBoardRow,
+  TaskBoardStatus,
+  WorkspaceLeaseReviewRow,
+} from '@/data/board/task-board-data.js';
 import type { Employee } from '@/data/types.js';
 import {
   type UsageTokenSummary,
@@ -11,7 +16,6 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { GitCompareArrows, Link2, RotateCcw, Swords, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { TaskBoardRow, TaskBoardStatus, WorkspaceLeaseReviewRow } from './task-board-data.js';
 import type { WorkspaceLeaseReviewOutcome } from './workspace-lease-actions.js';
 
 const TITLE_MAX = 88;

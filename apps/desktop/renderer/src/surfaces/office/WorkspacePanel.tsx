@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { initGitRepository } from '@/data/git-workbench.js';
 import { useGitWorkbench, useProjects } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import type { Project } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs.js';
@@ -16,7 +17,7 @@ import { toast } from 'sonner';
 import { ProjectDialog } from './ProjectDialog.js';
 import { FilesTab } from './workspace-panel/FilesTab.js';
 import { GitTab } from './workspace-panel/GitTab.js';
-import { compactPath, ProjectsTab } from './workspace-panel/ProjectsTab.js';
+import { ProjectsTab, compactPath } from './workspace-panel/ProjectsTab.js';
 
 type PanelTab = 'projects' | 'files' | 'git';
 
@@ -84,9 +85,9 @@ export function WorkspacePanel() {
         },
       });
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['projects', companyId] }),
-        queryClient.invalidateQueries({ queryKey: ['project-files', targetProject.id] }),
-        queryClient.invalidateQueries({ queryKey: ['git-workbench', targetProject.id] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects(companyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectFiles(targetProject.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.gitWorkbench(targetProject.id) }),
       ]);
       setProject(targetProject.id);
       setTab('files');
@@ -108,8 +109,8 @@ export function WorkspacePanel() {
     try {
       await initGitRepository(project.id);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['git-workbench', project.id] }),
-        queryClient.invalidateQueries({ queryKey: ['project-files', project.id] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.gitWorkbench(project.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectFiles(project.id) }),
       ]);
       setTab('git');
       toast.success('Initialized an empty git repository');
@@ -123,8 +124,8 @@ export function WorkspacePanel() {
   async function rescanWorkspace() {
     if (!project) return;
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['project-files', project.id] }),
-      queryClient.invalidateQueries({ queryKey: ['git-workbench', project.id] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.projectFiles(project.id) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitWorkbench(project.id) }),
     ]);
     toast.success('Workspace refreshed');
   }

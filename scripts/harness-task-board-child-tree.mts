@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import type { AgentEventRow, AgentRunRow } from '@offisim/core/browser';
-import type { WorkspaceLeaseLifecycleRow } from '../apps/desktop/renderer/src/lib/tauri-commands.js';
 import {
   WORKSPACE_LEASE_ACTION_EVENT,
   WORKSPACE_LEASE_SNAPSHOT_EVENT,
@@ -12,7 +11,8 @@ import {
   flattenTaskRows,
   hydrateEventlessWorkspaceLeaseDiffs,
   workspaceLeaseReviewsQueryOptions,
-} from '../apps/desktop/renderer/src/surfaces/office/board/task-board-data.js';
+} from '../apps/desktop/renderer/src/data/board/task-board-data.js';
+import type { WorkspaceLeaseLifecycleRow } from '../apps/desktop/renderer/src/lib/tauri-commands.js';
 
 assert.deepEqual(
   workspaceLeaseReviewsQueryOptions(['project-b', 'project-a', 'project-b']).queryKey,

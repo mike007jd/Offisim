@@ -1,14 +1,10 @@
 import { SelectableCard } from '@/components/SelectableCard.js';
+import { INSTALLABLE_KINDS, type MarketListing } from '@/data/market/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Download, Star } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { MarketCover, kindIcon } from './MarketCover.js';
-import {
-  INSTALLABLE_KINDS,
-  type MarketListing,
-  compactInstalls,
-  getRarityTone,
-} from './market-data.js';
+import { compactInstalls, getRarityTone } from './market-presentation.js';
 
 interface MarketCardProps {
   listing: MarketListing;

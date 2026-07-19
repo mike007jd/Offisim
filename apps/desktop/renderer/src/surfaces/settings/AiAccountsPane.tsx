@@ -4,6 +4,7 @@ import {
   type ApiUsageSnapshot,
   loadAiAccountUsage,
 } from '@/data/ai-account-usage.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { CapsLabel, StatusPill } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
@@ -458,21 +459,21 @@ export function AiAccountsPane() {
   const desktopAvailable = isTauriRuntime();
   const queryClient = useQueryClient();
   const runtimeQuery = useQuery({
-    queryKey: ['settings', 'agent-runtime-status'],
+    queryKey: queryKeys.settingsAgentRuntimeStatus(),
     queryFn: loadRuntimeStatus,
     enabled: desktopAvailable,
     staleTime: 60_000,
     retry: false,
   });
   const providerQuery = useQuery({
-    queryKey: ['settings', 'pi-provider-config'],
+    queryKey: queryKeys.settingsPiProviderConfig(),
     queryFn: () => invokeCommand('pi_agent_status'),
     enabled: desktopAvailable,
     staleTime: 60_000,
     retry: false,
   });
   const accountingQuery = useQuery({
-    queryKey: ['settings', 'ai-account-usage'],
+    queryKey: queryKeys.settingsAiAccountUsage(),
     queryFn: loadAiAccountUsage,
     enabled: desktopAvailable,
     staleTime: 60_000,
@@ -547,13 +548,13 @@ export function AiAccountsPane() {
     setSavingProvider(true);
     try {
       const next = await invokeCommand('pi_agent_save_provider', { config });
-      queryClient.setQueryData<PiAgentStatusResponse>(['settings', 'pi-provider-config'], next);
+      queryClient.setQueryData<PiAgentStatusResponse>(queryKeys.settingsPiProviderConfig(), next);
       setForm((current) => ({ ...current, apiKey: '', keepExistingApiKey: true }));
       setSelection({ mode: 'edit', id: config.providerId });
       loadedProviderRef.current = null;
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['settings', 'agent-runtime-status'] }),
-        queryClient.invalidateQueries({ queryKey: ['agent-runtime', 'models'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.settingsAgentRuntimeStatus() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.agentRuntimeModels() }),
       ]);
       toast.success('Provider saved to Pi models.json.');
     } catch (error) {
@@ -619,7 +620,7 @@ export function AiAccountsPane() {
         : 'ready';
   const refresh = async () => {
     await Promise.all([runtimeQuery.refetch(), providerQuery.refetch(), accountingQuery.refetch()]);
-    await queryClient.invalidateQueries({ queryKey: ['agent-runtime', 'models'] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.agentRuntimeModels() });
   };
 
   return (

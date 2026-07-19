@@ -1,13 +1,14 @@
+import { useRegistryConnection } from '@/data/market/queries.js';
+import {
+  marketplaceConnectionSettings,
+  writeMarketplaceBaseUrl,
+  writeMarketplaceToken,
+} from '@/data/market/registry-client.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { CapsLabel, FieldRow } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { Input } from '@/design-system/primitives/input.js';
-import {
-  marketplaceConnectionSettings,
-  useRegistryConnection,
-  writeMarketplaceBaseUrl,
-  writeMarketplaceToken,
-} from '@/surfaces/market/market-data.js';
 import { marketConnectionCopy } from '@/surfaces/market/market-presentation.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, CircleAlert, KeyRound, Link2 } from 'lucide-react';
@@ -35,10 +36,10 @@ export function AdvancedConnectionsPane() {
   const [saving, setSaving] = useState(false);
 
   async function refreshConnection() {
-    await queryClient.invalidateQueries({ queryKey: ['market-registry-connection'] });
-    await queryClient.invalidateQueries({ queryKey: ['market-drafts'] });
-    await queryClient.invalidateQueries({ queryKey: ['market-listings'] });
-    await queryClient.invalidateQueries({ queryKey: ['market-installed'] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.marketRegistryConnection() });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.marketDrafts() });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.marketListingsAll() });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.marketInstalledAll() });
   }
 
   async function saveConnection() {

@@ -1,3 +1,4 @@
+import type { TaskBoardRow, WorkspaceLeaseReviewRow } from '@/data/board/task-board-data.js';
 import type { Employee } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -14,7 +15,6 @@ import {
   X,
 } from 'lucide-react';
 import { taskTitle } from './BoardCard.js';
-import type { TaskBoardRow, WorkspaceLeaseReviewRow } from './task-board-data.js';
 
 function competitiveHistoryStatus(status: CompetitiveDraftGroupRow['status']): string {
   if (status === 'drafting') return 'Drafting in parallel';

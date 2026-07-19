@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import { useProjectWorkspaceLeaseReviews, useTaskBoard } from '@/data/board/task-board-data.js';
 import {
   type CommandExecResult,
   commitGitChanges,
@@ -12,6 +13,7 @@ import {
   switchGitBranch,
   viewPullRequest,
 } from '@/data/git-workbench.js';
+import { queryKeys } from '@/data/query-keys.js';
 import type { GitFileChange, GitWorkbench } from '@/data/types.js';
 import { parseUnifiedDiffFiles } from '@/data/unified-diff.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
@@ -30,10 +32,6 @@ import { Input } from '@/design-system/primitives/input.js';
 import { Textarea } from '@/design-system/primitives/textarea.js';
 import { cn } from '@/lib/utils.js';
 import { useReviewPrPrefill } from '@/surfaces/office/board/review-pr-prefill.js';
-import {
-  useProjectWorkspaceLeaseReviews,
-  useTaskBoard,
-} from '@/surfaces/office/board/task-board-data.js';
 import { useQueryClient } from '@tanstack/react-query';
 import { GitBranch, GitCompareArrows, GitPullRequest, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -175,7 +173,7 @@ export function GitTab({
   };
 
   const refreshGit = async (targetProjectId: string) => {
-    await queryClient.invalidateQueries({ queryKey: ['git-workbench', targetProjectId] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.gitWorkbench(targetProjectId) });
   };
 
   const execute = async (
