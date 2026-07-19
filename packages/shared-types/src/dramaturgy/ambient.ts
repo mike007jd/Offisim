@@ -7,6 +7,7 @@ export type AmbientActivityPhase = 'outbound' | 'dwell' | 'return';
 
 export interface AmbientActorAvailability {
   readonly employeeId: string;
+  /** A real run/beat/status/staging currently owns this employee. */
   readonly busy: boolean;
 }
 
@@ -20,6 +21,7 @@ export interface AmbientActorHome {
 
 export interface AmbientEmployeeClock {
   readonly employeeId: string;
+  /** Number of due/attempt decisions already consumed. */
   readonly sequence: number;
   readonly nextDueAt: number;
 }
@@ -64,7 +66,9 @@ export interface AmbientSchedulerInput {
   readonly prefabs: readonly StagingPrefab[];
   readonly blockedAnchorIds?: readonly string[];
   readonly policy: AmbientModePolicy;
+  /** Renderer-supplied real route oracle; null means the target is unreachable. */
   readonly routeFor?: AmbientRoutePlanner;
+  /** Stable revision of route bounds/obstacles; changes cancel active choreography. */
   readonly routeSignature?: string;
 }
 
@@ -76,6 +80,7 @@ export interface AmbientRoutePoint {
 export interface AmbientRouteRequest {
   readonly from: AmbientRoutePoint;
   readonly to: AmbientRoutePoint;
+  /** Furniture interaction anchors may intentionally touch an inflated obstacle. */
   readonly allowBlockedTarget: boolean;
 }
 
@@ -98,5 +103,6 @@ export interface AmbientActorDirection {
 export interface AmbientSchedulerSnapshot {
   readonly state: AmbientSchedulerState;
   readonly directions: readonly AmbientActorDirection[];
+  /** Exact next due/phase boundary; Infinity means no timer is needed. */
   readonly nextWakeAt: number;
 }
