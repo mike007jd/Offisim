@@ -10,14 +10,14 @@
  *  - parallel fan-out is flagged; director roots stage nothing; movement
  *    cooldown downgrades a relocation to in-place rather than dropping the beat.
  *
- * Pure Node via tsx against shared-types source — no DOM, no renderer, no Pi.
+ * Pure Node via tsx against dramaturgy source — no DOM, no renderer, no Pi.
  */
 import {
   type RunFailureKind,
   type SceneBeat,
   type TimedAgentRunEvent,
   composeBeats,
-} from '../packages/shared-types/src/index.js';
+} from '../packages/dramaturgy/src/index.js';
 import { createHarness } from './lib/harness-runner.mjs';
 
 const h = createHarness();

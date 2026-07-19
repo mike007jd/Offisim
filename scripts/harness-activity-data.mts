@@ -18,17 +18,19 @@ import type {
   ActivityPayloadValue,
   ActivityRecord,
   ActivitySourcePage,
-} from '../apps/desktop/renderer/src/surfaces/office/board/activity-data.js';
+} from '../apps/desktop/renderer/src/data/board/activity-data.js';
 import {
   MAX_MCP_VALUE_CHARS,
-  checkpointPathForDisplay,
   displayActorName,
-  getDisplaySummary,
   meetingRecordFromRow,
   mergeActivityPage,
   redactSecrets,
   sanitizeMcpActivityValue,
-} from '../apps/desktop/renderer/src/surfaces/office/board/activity-data.js';
+} from '../apps/desktop/renderer/src/data/board/activity-data.js';
+import {
+  checkpointPathForDisplay,
+  getDisplaySummary,
+} from '../apps/desktop/renderer/src/surfaces/office/board/activity-presentation.js';
 import { createHarness } from './lib/harness-runner.mjs';
 
 const h = createHarness();

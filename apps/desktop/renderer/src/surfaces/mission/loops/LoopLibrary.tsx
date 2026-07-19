@@ -1,6 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { openLoopInOffice } from '@/assistant/composer/open-loop-in-office.js';
 import { startLoopAsParallelProjectRun } from '@/assistant/runtime/loop-send-execution.js';
+import { SelectableCard } from '@/components/SelectableCard.js';
 import {
   useArchiveLoop,
   useConfigureLoopSchedule,
@@ -242,7 +243,7 @@ function LoopCard({
   }
 
   return (
-    <li className="off-loop-card">
+    <SelectableCard as="li" className="off-loop-card">
       <button type="button" className="off-loop-card-main off-focusable" onClick={onOpen}>
         <div className="off-loop-card-top">
           <span className="off-loop-card-title">{loop.title}</span>
@@ -379,6 +380,6 @@ function LoopCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </li>
+    </SelectableCard>
   );
 }

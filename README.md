@@ -120,7 +120,8 @@ Current application/package shape:
 - `apps/desktop/renderer` — internal Vite + React WebView renderer owned by the desktop app; currently a clean new-design mount point
 - `apps/platform` — registry/auth/review/install support API
 - `packages/core` — local domain logic, repos, tools, install, and audit contracts
-- `packages/renderer` — scene tokens, layout engine, prefab/state logic
+- `packages/prefab` — scene tokens, layout engine, prefab/state logic
+- `packages/dramaturgy` — deterministic Office beat, staging, performance, and ambient logic
 - `packages/asset-schema` / `install-core` / `registry-client` / `db-*` / `shared-types` / `doc-engine` — contracts and support layers
 
 ## Document map
@@ -187,7 +188,7 @@ If a task is about...
 - **runtime behavior, orchestration, local state, installs** → start with `CLAUDE.md`, the **Live contracts** above, and `packages/db-local/src/schema.sql`
 - **visual language or marketplace presentation** → start with `Docs/UI_FRAMEWORK_STACK.md` and `Docs/design/`
 - **user flows, trust, readability, accessibility** → start with the per-surface prototypes in `Docs/design/`
-- **office scene / layout / prefabs** → start with `packages/renderer` (scene tokens, layout engine, prefab/state logic) and `Docs/design/offisim-office-layout-v3-prototype.html`
+- **office scene / layout / prefabs** → start with `packages/prefab` (scene tokens, layout engine, prefab/state logic), `packages/dramaturgy` (deterministic staging/performance), and `Docs/design/offisim-office-layout-v3-prototype.html`
 - **platform publish / listing / versions / reviews** → start with `apps/platform/src/routes/` and `packages/db-platform/src/schema.ts`
 
 ## Important guardrails

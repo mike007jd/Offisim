@@ -1045,6 +1045,7 @@ export const harnessSourceImports = Object.freeze([
   "scripts/harness-beat-composer.mts::../packages/shared-types/src/index.js",
   "scripts/harness-scene-staging.mts::../packages/shared-types/src/index.js",
   "scripts/harness-office-projection.mts::../packages/shared-types/src/index.js",
+  "scripts/harness-office-projection.mts::../packages/dramaturgy/src/index.js",
   "scripts/harness-mission-office-projection.mts::../packages/shared-types/src/index.js",
   "scripts/harness-mcp-bridge-extension.mts::../packages/shared-types/src/index.js",
   "scripts/harness-dramaturgy-modes.mts::../packages/shared-types/src/index.js",

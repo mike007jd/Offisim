@@ -270,13 +270,16 @@ assert.deepEqual(
 );
 
 const runtimeSource = source('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
+const executionSelectionSource = source(
+  '../apps/desktop/renderer/src/runtime/execution-selection.ts',
+);
 assert.match(runtimeSource, /readonly capabilities: RuntimeEngineCapabilityManifest/u);
 assert.match(runtimeSource, /getEngineCapabilities\(engineId: string\)/u);
 assert.match(runtimeSource, /context\?\.requestId !== answer\.requestId/u);
 assert.match(runtimeSource, /context\.executionTarget\?\.engineId/u);
 assert.doesNotMatch(runtimeSource, /adapters\.size\s*!==\s*1/u);
-assert.match(runtimeSource, /modelId: 'engine-managed'/u);
-assert.match(runtimeSource, /modelSource: \{ kind: 'native' \}/u);
+assert.match(executionSelectionSource, /modelId: 'engine-managed'/u);
+assert.match(executionSelectionSource, /modelSource: \{ kind: 'native' \}/u);
 
 const composerSource = source(
   '../apps/desktop/renderer/src/assistant/composer/ComposerSettingsMenu.tsx',
@@ -306,9 +309,11 @@ assert.match(approvalSource, /type=\{question\.isSecret \? 'password' : 'text'\}
 assert.match(approvalSource, /Do not log answer state/u);
 
 const runtimeTabSource = source('../apps/desktop/renderer/src/surfaces/personnel/RuntimeTab.tsx');
-const personnelSource = source(
-  '../apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx',
-);
+const personnelSource = [
+  source('../apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx'),
+  source('../apps/desktop/renderer/src/surfaces/personnel/EmployeeDetail.tsx'),
+  source('../apps/desktop/renderer/src/surfaces/personnel/HireEmployeeDialog.tsx'),
+].join('\n');
 assert.match(runtimeTabSource, /<span>Employee AI<\/span>/u);
 assert.match(runtimeTabSource, /const supportsReasoning = selectedOption\?\.reasoning === true/u);
 assert.match(runtimeTabSource, /\{supportsReasoning \? \(/u);

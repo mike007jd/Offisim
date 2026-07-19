@@ -1,3 +1,9 @@
+import type {
+  PublishPackageRequest,
+  PublishSource,
+  PublishedDraft,
+  RegistryConnectionState,
+} from '@/data/market/types.js';
 import { FieldRow } from '@/design-system/grammar/FieldRow.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -18,12 +24,6 @@ import { type KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { type Control, Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import type {
-  PublishPackageRequest,
-  PublishSource,
-  PublishedDraft,
-  RegistryConnectionState,
-} from './market-data.js';
 import { marketConnectionCopy } from './market-presentation.js';
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
