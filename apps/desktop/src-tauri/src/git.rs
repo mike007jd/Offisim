@@ -2100,9 +2100,7 @@ where
 }
 
 fn scrubbed_git_env() -> Vec<(String, String)> {
-    // Union allowlist policy (base + SSH_AUTH_SOCK, shared with the shell
-    // lane via `crate::env_scrub`); git-only pinned variables stay here.
-    let mut env = crate::env_scrub::scrubbed_child_env();
+    let mut env = crate::env_scrub::scrubbed_child_env(&["SSH_AUTH_SOCK"]);
     env.push(("GIT_TERMINAL_PROMPT".into(), "0".into()));
     env.push(("GIT_LITERAL_PATHSPECS".into(), "1".into()));
     env
@@ -8109,10 +8107,12 @@ mod tests {
     fn scrubbed_git_env_excludes_provider_secrets() {
         std::env::set_var("OPENAI_API_KEY", "sk-test-secret");
         std::env::set_var("ANTHROPIC_API_KEY", "sk-test-secret");
+        std::env::set_var("SSH_AUTH_SOCK", "/tmp/offisim-test-agent.sock");
         let env = scrubbed_git_env();
         let keys = env.into_iter().map(|(key, _)| key).collect::<Vec<_>>();
         assert!(!keys.contains(&"OPENAI_API_KEY".to_string()));
         assert!(!keys.contains(&"ANTHROPIC_API_KEY".to_string()));
+        assert!(keys.contains(&"SSH_AUTH_SOCK".to_string()));
         assert!(keys.contains(&"GIT_TERMINAL_PROMPT".to_string()));
     }
 

@@ -15,8 +15,8 @@
 //! callers remain byte-for-byte identical to their previous in-file copies.
 
 /// Minimal base allowlist of environment variables both the shell and git
-/// scrubbers retain. The unified union policy (base + `SSH_AUTH_SOCK`) lives
-/// in `crate::env_scrub`; this const must stay the shared base subset.
+/// scrubbers retain. Lane-specific additions such as Git's `SSH_AUTH_SOCK`
+/// remain owned by each caller in `crate::env_scrub`.
 pub(crate) const BASE_ENV_ALLOWLIST: &[&str] = &[
     "PATH", "HOME", "USER", "LANG", "TERM", "TMPDIR", "LC_ALL", "LC_CTYPE",
 ];
