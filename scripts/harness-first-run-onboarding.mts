@@ -55,10 +55,14 @@ assert.match(guideSource, /add a Pi API provider and exact model/u);
 assert.match(guideSource, /requestReady && liveObserved/u);
 assert.match(guideSource, /option\.selectionKind === 'api-model'/u);
 
-const commandSource = await readFile(
-  resolve(root, 'apps/desktop/src-tauri/src/task_workspace_binding.rs'),
-  'utf8',
-);
+const commandSource = (
+  await Promise.all(
+    [
+      'apps/desktop/src-tauri/src/task_workspace_binding.rs',
+      'apps/desktop/src-tauri/src/binding/project_crud.rs',
+    ].map((path) => readFile(resolve(root, path), 'utf8')),
+  )
+).join('\n');
 assert.match(commandSource, /project_demo_workspace_prepare/u);
 assert.match(commandSource, /PROJECT_BRIEF\.md/u);
 
