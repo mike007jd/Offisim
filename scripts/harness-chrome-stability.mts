@@ -4,6 +4,13 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NAV_ENTRIES } from '../apps/desktop/renderer/src/app/nav-registry.js';
 import { runPipelinePresentation } from '../apps/desktop/renderer/src/assistant/parts/run-pipeline-presentation.js';
+import {
+  OFFICE_LAYOUT_BREAKPOINTS,
+  OFFICE_PANEL_SIZES,
+  officeRailTierForWidth,
+  officeRailsCanCoexist,
+  responsiveOfficeRailState,
+} from '../apps/desktop/renderer/src/surfaces/office/office-layout.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
@@ -33,10 +40,18 @@ function check(name: string, run: () => void) {
 
 check('Office rails use resizable zero-collapse panels with synchronized state', () => {
   assert.match(officeSurface, /<Group[\s\S]*orientation="horizontal"/);
-  assert.match(officeSurface, /id="office-workspace"[\s\S]*collapsible[\s\S]*collapsedSize="0%"/);
   assert.match(officeSurface, /if \(!stageMaximized\) setLeftCollapsed\(size\.inPixels === 0\)/);
   assert.match(officeSurface, /if \(!stageMaximized\) setRightCollapsed\(size\.inPixels === 0\)/);
-  assert.match(officeSurface, /id="office-conversations"[\s\S]*collapsedSize="0%"/);
+  assert.equal(
+    officeSurface.match(/collapsedSize=\{0\}/g)?.length,
+    2,
+    'both rails collapse to a numeric zero width',
+  );
+  assert.doesNotMatch(
+    officeSurface,
+    /collapsedSize="/,
+    'collapse size is numeric zero, never a percentage string',
+  );
   assert.match(officeCss, /\.off-office-aux-panel\s*{[\s\S]*overflow:\s*hidden/);
   assert.match(officeCss, /\.off-office-resize-handle\.is-hidden\s*{\s*display:\s*none/);
   assert.doesNotMatch(
@@ -44,6 +59,134 @@ check('Office rails use resizable zero-collapse panels with synchronized state',
     /grid-area:\s*(workspace|stage|team|chat)/,
     'retired outer-grid placement would push panel children into implicit rows',
   );
+});
+
+check('Office panels use the pixel sizing contract', () => {
+  const workspacePanelJsx =
+    officeSurface.match(/id="office-workspace"[\s\S]*?<\/Panel>/)?.[0] ?? '';
+  assert.deepEqual(OFFICE_PANEL_SIZES.workspace, { default: 296, min: 244, max: 360 });
+  assert.match(workspacePanelJsx, /defaultSize=\{OFFICE_PANEL_SIZES\.workspace\.default\}/);
+  assert.match(workspacePanelJsx, /minSize=\{OFFICE_PANEL_SIZES\.workspace\.min\}/);
+  assert.match(workspacePanelJsx, /maxSize=\{OFFICE_PANEL_SIZES\.workspace\.max\}/);
+  assert.match(workspacePanelJsx, /groupResizeBehavior="preserve-pixel-size"/);
+  const centerPanelJsx = officeSurface.match(/id="office-stage"[\s\S]*?<\/Panel>/)?.[0] ?? '';
+  assert.deepEqual(OFFICE_PANEL_SIZES.stage, { min: 620 });
+  assert.match(centerPanelJsx, /minSize=\{OFFICE_PANEL_SIZES\.stage\.min\}/);
+  assert.match(centerPanelJsx, /groupResizeBehavior="preserve-relative-size"/);
+  const conversationPanelJsx =
+    officeSurface.match(/id="office-conversations"[\s\S]*?<\/Panel>/)?.[0] ?? '';
+  assert.deepEqual(OFFICE_PANEL_SIZES.conversations, { default: 448, min: 400, max: 560 });
+  assert.match(conversationPanelJsx, /defaultSize=\{OFFICE_PANEL_SIZES\.conversations\.default\}/);
+  assert.match(conversationPanelJsx, /minSize=\{OFFICE_PANEL_SIZES\.conversations\.min\}/);
+  assert.match(conversationPanelJsx, /maxSize=\{OFFICE_PANEL_SIZES\.conversations\.max\}/);
+  assert.match(conversationPanelJsx, /groupResizeBehavior="preserve-pixel-size"/);
+  assert.doesNotMatch(
+    officeSurface,
+    /(?:defaultSize|minSize|maxSize)="/,
+    'panel sizes are numeric pixels, never percentages',
+  );
+});
+
+check('responsive rail tiers collapse and restore around the wide layout', () => {
+  assert.deepEqual(OFFICE_LAYOUT_BREAKPOINTS, { compactMax: 1100, wideMin: 1366 });
+  assert.equal(officeRailTierForWidth(1366), 'wide');
+  assert.equal(officeRailTierForWidth(1365), 'mid');
+  assert.equal(officeRailTierForWidth(1101), 'mid');
+  assert.equal(officeRailTierForWidth(1100), 'compact');
+  assert.deepEqual(responsiveOfficeRailState('wide', { left: false, right: true }), {
+    left: false,
+    right: true,
+  });
+  assert.deepEqual(responsiveOfficeRailState('mid', { left: false, right: false }), {
+    left: true,
+    right: false,
+  });
+  assert.deepEqual(responsiveOfficeRailState('mid', { left: false, right: true }), {
+    left: true,
+    right: true,
+  });
+  assert.deepEqual(responsiveOfficeRailState('compact', { left: false, right: false }), {
+    left: true,
+    right: true,
+  });
+  assert.equal(officeRailsCanCoexist(1265), false);
+  assert.equal(officeRailsCanCoexist(1266), true);
+  assert.match(
+    officeSurface,
+    /preResponsiveRails/,
+    'the pre-responsive rail state is preserved for wide-mode restore',
+  );
+  assert.match(
+    officeSurface,
+    /responsiveOfficeRailState\(/,
+    'responsive rail state is derived from the shared layout policy',
+  );
+  assert.match(
+    stageViewer,
+    /!officeRailsCanCoexist\(window\.innerWidth\)/,
+    'opening a rail swaps the other one whenever all three panel minimums cannot coexist',
+  );
+  assert.doesNotMatch(
+    [officeSurface, workspacePanel, chatRail].join('\n'),
+    /48px|icon-rail|off-rail-icon/,
+    'no 48px icon rail is introduced at narrow widths',
+  );
+});
+
+check('height ownership is unbroken from the Group to the rails', () => {
+  assert.match(officeCss, /\.off-office\s*{[^}]*position:\s*absolute;[^}]*inset:\s*0/s);
+  assert.match(officeCss, /\.off-office-center\s*{[^}]*min-height:\s*0/s);
+  assert.match(officeCss, /\.off-ws-panel\s*{[^}]*height:\s*100%[^}]*min-height:\s*0/s);
+  assert.match(
+    officeCss,
+    /\.off-rail\s*{[^}]*height:\s*100%[^}]*grid-template-rows:\s*auto minmax\(0, 1fr\)/s,
+    'the chat rail owns its height so the composer pins to the rail bottom',
+  );
+  assert.match(
+    officeCss,
+    /\.off-thread\s*{[^}]*height:\s*100%[^}]*display:\s*flex;[^}]*flex-direction:\s*column/s,
+  );
+  assert.match(
+    officeCss,
+    /\.off-thread-viewport\s*{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto/s,
+    'the message viewport is the sole vertical scroller of a thread',
+  );
+  assert.doesNotMatch(
+    officeCss,
+    /\.off-office\s*{[^}]*overflow:\s*(auto|scroll)/s,
+    'the Office root never becomes a scroller',
+  );
+});
+
+check('Team dock keeps a sole horizontal card scroller and a count-only label', () => {
+  assert.match(
+    officeCss,
+    /\.off-team\s*{[^}]*overflow:\s*hidden/s,
+    'the dock itself never scrolls or leaks horizontally',
+  );
+  assert.doesNotMatch(
+    officeCss.match(/\.off-team\s*{[^}]*}/gs)?.join('\n') ?? '',
+    /overflow:\s*visible|overflow-x:\s*auto/,
+    'no late overflow:visible or dock-level scroller regression',
+  );
+  assert.match(
+    officeCss,
+    /\.off-dock-strip\s*{[^}]*flex:\s*1;[^}]*min-width:\s*0;[^}]*overflow-x:\s*auto/s,
+    'the card strip is the only horizontal scroller',
+  );
+  assert.match(officeCss, /\.off-dock-label\s*{[^}]*flex:\s*none/s);
+  assert.match(officeCss, /\.off-dock-tools\s*{[^}]*flex:\s*none/s);
+  assert.doesNotMatch(
+    teamDock,
+    /companyModelSummary|modelSummary/,
+    'the dock label carries no model summary',
+  );
+  assert.match(
+    teamDock,
+    /<span className="off-dock-count">{rosterSize} people<\/span>/,
+    'the dock label is only TEAM and the person count',
+  );
+  assert.doesNotMatch(teamDock, /addEventListener\('wheel'|onWheel/, 'no JS wheel interception');
 });
 
 check('the two rail toggles live only in Office top chrome', () => {
@@ -193,4 +336,4 @@ check(
   },
 );
 
-console.log(`\nChrome stability harness: ${passed}/10 checks passed`);
+console.log(`\nChrome stability harness: ${passed} checks passed`);

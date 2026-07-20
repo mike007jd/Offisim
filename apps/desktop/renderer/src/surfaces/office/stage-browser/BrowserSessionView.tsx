@@ -17,6 +17,13 @@ import { ArrowLeft, ArrowRight, Globe2, LockKeyhole, RefreshCw, ShieldCheck } fr
 import { useEffect, useRef, useState } from 'react';
 import './browser-session.css';
 import { newestBrowserSnapshot } from './browser-session-state.js';
+import {
+  NATIVE_SURFACE_OVERLAY_SELECTOR,
+  type NativeSurfaceRect,
+  anyOverlayIntersectsHost,
+  computeVisibleNativeBounds,
+  sameNativeBounds,
+} from './native-bounds.js';
 
 type BrowserTarget = Extract<StageViewTarget, { kind: 'browser-session' }>;
 
@@ -36,14 +43,10 @@ function normalizeAddress(value: string): string {
   return url.toString();
 }
 
-function boundsFor(element: HTMLElement): BrowserSessionBounds {
-  const rect = element.getBoundingClientRect();
-  return {
-    x: Math.max(0, Math.round(rect.left)),
-    y: Math.max(0, Math.round(rect.top)),
-    width: Math.max(120, Math.round(rect.width)),
-    height: Math.max(80, Math.round(rect.height)),
-  };
+function collectOverlayRects(): NativeSurfaceRect[] {
+  return Array.from(document.querySelectorAll(NATIVE_SURFACE_OVERLAY_SELECTOR)).map((element) =>
+    element.getBoundingClientRect(),
+  );
 }
 
 export function BrowserSessionView({ target }: { target: BrowserTarget }) {
@@ -79,7 +82,12 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
     sessionLeaseRef.current = lease;
     let unlisten: UnlistenFn | undefined;
     let poll = 0;
-    let resizeFrame = 0;
+    let syncFrame = 0;
+    let created = false;
+    let syncInFlight = false;
+    let syncQueued = false;
+    let lastSentBounds: BrowserSessionBounds | null = null;
+    let lastVisible: boolean | null = null;
 
     const acceptSnapshot = (next: BrowserSessionSnapshot) => {
       if (next.sessionId !== target.sessionId || !lease.isCurrent()) return;
@@ -88,24 +96,115 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
       else if (next.error) setError(next.error);
     };
 
-    const syncBounds = () => {
+    // The native child WebView always paints above the main WebView, so the
+    // only correct tools are its bounds and its visibility: track the host's
+    // visible rect (host ∩ app viewport, logical coordinates), hide on zero
+    // area or when an application overlay intersects the host, and resync on
+    // restore. Updates are RAF-coalesced and only sent when the rounded
+    // logical bounds actually change by at least 1px.
+    const syncOnce = async () => {
       if (!lease.isCurrent() || !host.isConnected) return;
-      void lease
-        .runIfCurrent(() =>
-          invokeCommand('browser_session_set_bounds', {
-            sessionId: target.sessionId,
-            scope,
-            bounds: boundsFor(host),
-          }),
-        )
-        .catch(() => {});
+      const rect = host.getBoundingClientRect();
+      const bounds = computeVisibleNativeBounds(rect, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+      const visible = bounds !== null && !anyOverlayIntersectsHost(rect, collectOverlayRects());
+      if (!created) {
+        // A child WebView is visible as soon as Tauri creates or reattaches it.
+        // Do not create while its host is clipped or covered, otherwise it can
+        // flash above the very overlay that is meant to hide it.
+        if (!bounds || !visible) return;
+        created = true;
+        try {
+          const initial = await lease.runIfCurrent(() =>
+            invokeCommand('browser_session_create', {
+              sessionId: target.sessionId,
+              scope,
+              url: normalizeAddress(target.initialUrl),
+              bounds,
+            }),
+          );
+          if (!lease.isCurrent()) return;
+          if (initial) acceptSnapshot(initial);
+          lastSentBounds = bounds;
+          lastVisible = true;
+          if (poll === 0) {
+            poll = window.setInterval(() => {
+              if (!lease.isCurrent()) return;
+              void invokeCommand('browser_session_snapshot', {
+                sessionId: target.sessionId,
+                scope,
+              })
+                .then(acceptSnapshot)
+                .catch(() => {});
+            }, 750);
+          }
+        } catch (cause) {
+          created = false;
+          if (lease.isCurrent()) setError(cause instanceof Error ? cause.message : String(cause));
+          return;
+        }
+      } else if (bounds && !sameNativeBounds(bounds, lastSentBounds)) {
+        const sent = await lease
+          .runIfCurrent(() =>
+            invokeCommand('browser_session_set_bounds', {
+              sessionId: target.sessionId,
+              scope,
+              bounds,
+            }),
+          )
+          .then(() => true)
+          .catch(() => false);
+        if (!lease.isCurrent()) return;
+        if (sent) lastSentBounds = bounds;
+        else if (visible) return;
+      }
+      if (visible !== lastVisible) {
+        const sent = await lease
+          .runIfCurrent(() =>
+            invokeCommand('browser_session_set_visible', {
+              sessionId: target.sessionId,
+              scope,
+              visible,
+            }),
+          )
+          .then(() => true)
+          .catch(() => false);
+        if (sent) lastVisible = visible;
+      }
     };
 
-    const observer = new ResizeObserver(() => {
-      window.cancelAnimationFrame(resizeFrame);
-      resizeFrame = window.requestAnimationFrame(syncBounds);
-    });
+    const syncNativeSurface = () => {
+      if (syncInFlight) {
+        syncQueued = true;
+        return;
+      }
+      syncInFlight = true;
+      void (async () => {
+        try {
+          do {
+            syncQueued = false;
+            await syncOnce();
+          } while (syncQueued && lease.isCurrent());
+        } finally {
+          syncInFlight = false;
+        }
+      })();
+    };
+
+    const scheduleSync = () => {
+      window.cancelAnimationFrame(syncFrame);
+      syncFrame = window.requestAnimationFrame(syncNativeSurface);
+    };
+
+    const observer = new ResizeObserver(scheduleSync);
     observer.observe(host);
+    // Portal overlays mount as direct children of <body>; watching only that
+    // level catches overlay open/close without deep-subtree noise.
+    const overlayObserver = new MutationObserver(scheduleSync);
+    overlayObserver.observe(document.body, { childList: true });
+    window.addEventListener('resize', scheduleSync);
 
     void (async () => {
       try {
@@ -117,44 +216,18 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
           return;
         }
         unlisten = nextUnlisten;
-        const initial = await lease.runIfCurrent(() =>
-          invokeCommand('browser_session_create', {
-            sessionId: target.sessionId,
-            scope,
-            url: normalizeAddress(target.initialUrl),
-            bounds: boundsFor(host),
-          }),
-        );
-        if (!lease.isCurrent() || !initial) return;
-        acceptSnapshot(initial);
-        await lease.runIfCurrent(() =>
-          invokeCommand('browser_session_set_visible', {
-            sessionId: target.sessionId,
-            scope,
-            visible: true,
-          }),
-        );
-        if (!lease.isCurrent()) return;
-        syncBounds();
-        if (!lease.isCurrent()) return;
-        poll = window.setInterval(() => {
-          if (!lease.isCurrent()) return;
-          void invokeCommand('browser_session_snapshot', {
-            sessionId: target.sessionId,
-            scope,
-          })
-            .then(acceptSnapshot)
-            .catch(() => {});
-        }, 750);
+        scheduleSync();
       } catch (cause) {
         if (lease.isCurrent()) setError(cause instanceof Error ? cause.message : String(cause));
       }
     })();
 
     return () => {
-      window.cancelAnimationFrame(resizeFrame);
+      window.cancelAnimationFrame(syncFrame);
       window.clearInterval(poll);
       observer.disconnect();
+      overlayObserver.disconnect();
+      window.removeEventListener('resize', scheduleSync);
       unlisten?.();
       if (sessionLeaseRef.current === lease) sessionLeaseRef.current = null;
       lease.release();

@@ -6,6 +6,13 @@ import { CANVAS_FONT_TOKENS } from '../apps/desktop/renderer/src/styles/visual-t
 import { syncOfficeCanvasBackingStore } from '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.js';
 import { newestBrowserSnapshot } from '../apps/desktop/renderer/src/surfaces/office/stage-browser/browser-session-state.js';
 import {
+  NATIVE_SURFACE_OVERLAY_SELECTOR,
+  anyOverlayIntersectsHost,
+  computeVisibleNativeBounds,
+  rectsIntersect,
+  sameNativeBounds,
+} from '../apps/desktop/renderer/src/surfaces/office/stage-browser/native-bounds.js';
+import {
   bytesToBase64,
   terminalReplayStep,
 } from '../apps/desktop/renderer/src/surfaces/office/stage-terminal/terminal-replay.js';
@@ -356,12 +363,121 @@ assert.doesNotMatch(terminalSource, /localStorage|sessionStorage/);
 const browserSource = read(
   'apps/desktop/renderer/src/surfaces/office/stage-browser/BrowserSessionView.tsx',
 );
+const nativeBoundsSource = read(
+  'apps/desktop/renderer/src/surfaces/office/stage-browser/native-bounds.ts',
+);
 const browserNativeSource = read('apps/desktop/src-tauri/src/browser_session.rs');
 assert.match(browserSource, /Only http:\/\/ and https:\/\//);
 assert.match(browserSource, /No local access/);
 assert.match(browserSource, /ResizeObserver/);
 assert.match(browserSource, /nextUnlisten\(\)/, 'late browser listeners dispose themselves');
 assert.match(browserSource, /runIfLatest/, 'browser cleanup is generation-gated');
+assert.doesNotMatch(
+  `${browserSource}\n${nativeBoundsSource}`,
+  /Math\.max\(\s*(120|80)\b/,
+  'no forced native minimum bounds',
+);
+assert.doesNotMatch(
+  `${browserSource}\n${nativeBoundsSource}`,
+  /devicePixelRatio/,
+  'native bounds stay in Tauri logical coordinates',
+);
+assert.match(
+  browserSource,
+  /requestAnimationFrame/,
+  'ResizeObserver/geometry updates are coalesced through requestAnimationFrame',
+);
+assert.match(
+  browserSource,
+  /sameNativeBounds/,
+  'bounds are only re-sent when rounded logical bounds change',
+);
+assert.match(
+  browserSource,
+  /computeVisibleNativeBounds/,
+  'native bounds derive from the host rect intersected with the viewport',
+);
+assert.match(
+  browserSource,
+  /visible !== lastVisible/,
+  'zero-area and overlay-blocked hosts hide the native WebView instead of sending zero bounds',
+);
+assert.match(
+  browserSource,
+  /MutationObserver/,
+  'application overlays trigger a native visibility resync',
+);
+assert.match(
+  browserSource,
+  /NATIVE_SURFACE_OVERLAY_SELECTOR/,
+  'overlay detection reuses the shared portal-surface contract',
+);
+assert.match(
+  browserSource,
+  /if \(!bounds \|\| !visible\) return/,
+  'a native child is never created while clipped or covered by an overlay',
+);
+assert.match(
+  browserSource,
+  /else if \(visible\) return/,
+  'a failed bounds update cannot reveal a native child at stale geometry',
+);
+{
+  const viewport = { width: 1280, height: 800 };
+  assert.deepEqual(
+    computeVisibleNativeBounds({ left: 100, top: 50, right: 700, bottom: 500 }, viewport),
+    { x: 100, y: 50, width: 600, height: 450 },
+  );
+  assert.deepEqual(
+    computeVisibleNativeBounds({ left: -40, top: 60, right: 300, bottom: 400 }, viewport),
+    { x: 0, y: 60, width: 300, height: 340 },
+    'the host rect is clipped to the app viewport',
+  );
+  assert.deepEqual(
+    computeVisibleNativeBounds({ left: 1200, top: 100, right: 1400, bottom: 400 }, viewport),
+    { x: 1200, y: 100, width: 80, height: 300 },
+    'a partially offscreen host keeps only its visible area',
+  );
+  assert.equal(
+    computeVisibleNativeBounds({ left: 1300, top: 100, right: 1400, bottom: 400 }, viewport),
+    null,
+    'a fully offscreen host reports no visible area',
+  );
+  assert.equal(
+    computeVisibleNativeBounds({ left: 100, top: 100, right: 100, bottom: 400 }, viewport),
+    null,
+    'a zero-width host reports no visible area',
+  );
+  assert.equal(
+    sameNativeBounds({ x: 1, y: 2, width: 3, height: 4 }, { x: 1, y: 2, width: 3, height: 4 }),
+    true,
+  );
+  assert.equal(
+    sameNativeBounds({ x: 1, y: 2, width: 3, height: 4 }, { x: 2, y: 2, width: 3, height: 4 }),
+    false,
+    'a 1px logical change is a bounds change',
+  );
+  assert.equal(sameNativeBounds(null, null), true);
+  assert.equal(sameNativeBounds(null, { x: 0, y: 0, width: 1, height: 1 }), false);
+  const hostRect = { left: 100, top: 100, right: 400, bottom: 400 };
+  assert.equal(
+    anyOverlayIntersectsHost(hostRect, [{ left: 300, top: 120, right: 520, bottom: 320 }]),
+    true,
+    'an overlay intersecting the host must appear above the native surface',
+  );
+  assert.equal(
+    anyOverlayIntersectsHost(hostRect, [{ left: 500, top: 120, right: 720, bottom: 320 }]),
+    false,
+    'a non-intersecting overlay does not hide the native surface',
+  );
+  assert.equal(anyOverlayIntersectsHost(hostRect, []), false);
+  assert.equal(rectsIntersect(hostRect, hostRect), true);
+  assert.equal(
+    NATIVE_SURFACE_OVERLAY_SELECTOR,
+    '[data-radix-popper-content-wrapper]',
+    'the overlay contract tracks the shared Radix portal surface',
+  );
+}
 const stageViewerSource = [
   read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/stage-viewer/views/ChangesView.tsx'),
@@ -392,4 +508,6 @@ for (const [label, rendererSource, nativeSource] of [
   );
 }
 
-console.log('native-stage-sessions: PASS (targets, lifecycle, ACL, 16 typed commands)');
+console.log(
+  'native-stage-sessions: PASS (targets, lifecycle, ACL, 16 typed commands, native bounds contract)',
+);

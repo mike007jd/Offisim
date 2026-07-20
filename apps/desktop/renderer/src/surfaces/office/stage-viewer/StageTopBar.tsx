@@ -10,6 +10,7 @@ import { useProjectWorkspaceLeaseReviews } from '@/data/board/task-board-data.js
 import type { TaskAccountingPresentation } from '@/data/task-accounting-presentation.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
+import { officeRailsCanCoexist } from '@/surfaces/office/office-layout.js';
 import {
   type PreviewSourceRef,
   previewRefViewerKind,
@@ -80,14 +81,14 @@ export function StageTopBar() {
   ).size;
   const toggleLeftRail = () => {
     const expanding = leftRailCollapsed;
-    if (expanding && window.matchMedia('(max-width: 1100px)').matches) {
+    if (expanding && !officeRailsCanCoexist(window.innerWidth)) {
       setRightRailCollapsed(true);
     }
     setLeftRailCollapsed(!leftRailCollapsed);
   };
   const toggleRightRail = () => {
     const expanding = rightRailCollapsed;
-    if (expanding && window.matchMedia('(max-width: 1100px)').matches) {
+    if (expanding && !officeRailsCanCoexist(window.innerWidth)) {
       setLeftRailCollapsed(true);
     }
     setRightRailCollapsed(!rightRailCollapsed);

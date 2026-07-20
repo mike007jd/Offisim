@@ -5,7 +5,6 @@ import {
 } from '@/assistant/composer/usePiAgentModels.js';
 import { SelectableCard } from '@/components/SelectableCard.js';
 import { reposOrNull } from '@/data/adapters.js';
-import { queryKeys } from '@/data/query-keys.js';
 import {
   type ProjectChatThreadRow,
   loadProjectChatThreadRows,
@@ -16,6 +15,7 @@ import {
   useThreads,
   useUpdateEmployeeEnabled,
 } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import type { ChatThread, Employee, EmployeePresence } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
@@ -110,29 +110,6 @@ function employeeModelState(
     value,
     invalid: models !== undefined && !option,
   };
-}
-
-function companyModelSummary(
-  employees: readonly Employee[],
-  models: readonly AgentRuntimeModelOption[] | undefined,
-): string {
-  const counts = new Map<string, number>();
-  for (const employee of employees) {
-    const state = employeeModelState(employee, models);
-    const label = state.invalid ? 'Conversation model' : state.label;
-    counts.set(label, (counts.get(label) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .sort(([labelA, countA], [labelB, countB]) => countB - countA || labelA.localeCompare(labelB))
-    .slice(0, 3)
-    .map(([label, count]) =>
-      label === 'Conversation model'
-        ? `${count} use conversation model`
-        : label === 'External'
-          ? `${count} external`
-          : `${count} use ${label}`,
-    )
-    .join(' · ');
 }
 
 function EmployeeDockPopover({
@@ -486,15 +463,12 @@ export function TeamDock() {
   // list-options control once the roster is large enough to need it.
   const rosterSize = employees.data?.length ?? 0;
   const showListControls = rosterSize > 6;
-  const modelSummary = companyModelSummary(employees.data ?? [], models.data);
 
   return (
     <div className={cn('off-team relative', collapsed && 'is-collapsed')} aria-label="Team">
       <div className="off-dock-label">
         <span className="off-dock-title">Team</span>
-        <span className="off-dock-count">
-          {rosterSize} people{modelSummary ? ` · ${modelSummary}` : ''}
-        </span>
+        <span className="off-dock-count">{rosterSize} people</span>
       </div>
 
       <div className="off-dock-strip">
