@@ -1586,8 +1586,7 @@ fn append_shell_audit<R: Runtime>(app: &tauri::AppHandle<R>, input: ShellAuditIn
 }
 
 fn scrubbed_shell_env() -> Vec<(String, String)> {
-    // Union allowlist policy (base + SSH_AUTH_SOCK) shared with the git lane.
-    crate::env_scrub::scrubbed_child_env()
+    crate::env_scrub::scrubbed_child_env(&[])
 }
 
 #[cfg(not(unix))]
@@ -3535,25 +3534,18 @@ mod builtin_tools_contracts {
 
     #[test]
     fn shell_env_scrub_uses_minimal_allowlist() {
+        std::env::set_var("SSH_AUTH_SOCK", "/tmp/offisim-test-agent.sock");
         let env = scrubbed_shell_env();
         let keys: std::collections::HashSet<_> = env.iter().map(|(key, _)| key.as_str()).collect();
 
         assert!(!keys.contains("OPENAI_API_KEY"));
         assert!(!keys.contains("ANTHROPIC_API_KEY"));
         assert!(!keys.contains("COOKIE"));
-        // Union allowlist (A3): base set plus SSH_AUTH_SOCK shared with git.
         assert!(keys.iter().all(|key| matches!(
             *key,
-            "PATH"
-                | "HOME"
-                | "USER"
-                | "LANG"
-                | "TERM"
-                | "TMPDIR"
-                | "LC_ALL"
-                | "LC_CTYPE"
-                | "SSH_AUTH_SOCK"
+            "PATH" | "HOME" | "USER" | "LANG" | "TERM" | "TMPDIR" | "LC_ALL" | "LC_CTYPE"
         )));
+        assert!(!keys.contains("SSH_AUTH_SOCK"));
     }
 
     #[test]
