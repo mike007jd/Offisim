@@ -278,7 +278,59 @@ tests(4591+)先行随迁。
 
 ---
 
-## 3. 审计约定(Fable 额度恢复后)
+## 3. 合同修订(2026-07-19,计划所有者拍板,覆盖上文冲突条款)
+
+执行方 2026-07-19 上报四处计划-现实冲突,证据成立,修订如下:
+
+1. **A1/A2 日志一致性**:「迁移前后 log 逐字节一致」收窄为
+   「check 行(✓/✗)与退出码逐字节一致;旧自定义统计/摘要行允许替换为
+   runner 标准摘要行」。锚点 `harness-runner.mjs` 保持不改。
+   **范围修订**:74 个无本地 check 骨架的 harness(conflict-classification
+   `noLocalRunnerChecks`)移出 A2 范围,保持原样;A2 仅迁移 30 个
+   `customSummaryRunnerChecks`。A3/A4 与 A1/A2 无实质依赖,解除冻结,
+   D1-D3 随 A3 解冻。
+2. **B2 live 验收措辞**:「app 重启后 reattach 续流」更正为「重启后运行
+   身份保持、状态落为 interrupted/CAN RESUME、可手动恢复且无重复副作用」。
+   不引入持久 broker/自动续跑(计划外架构,产品上也不要)。B2 以
+   非回归证据(与 B1 基线行为一致)满足验收;B3 随之解封。
+3. **S1 验收线**:「shared-types 回归零逻辑」收窄为「dramaturgy/ 目录零
+   运行时函数」(已达成)。shared-types 其余 48 个非类型守卫运行时函数
+   记为 S3 候选(需 ownership 设计,另立计划,不在本轮)。
+4. **U5 远端 publish**:当前环境 registry 端点为故意不可路由占位
+   (prelaunch 无真实 registry),远端 publish 改为不可执行项;验收 =
+   本地 install/Board/Activity live 通过 + publish 表单完整可达且离线态
+   文案正确(已达成)。真实 registry 上线后另补一次远端回归。
+
+## 4. 审计结果(2026-07-19,Fable 全量审毕)
+
+14 PR 全审(B2/C1 由计划所有者逐行审,其余 7 路并行独立复核,均为全量非抽样)。
+**零 blocker。** 判定与合并前提:
+
+- **直接可合(无前提)**:#90 B1、#91 C1、#92 B2、#97 B3、#93 U1、
+  #103 U5、#100 U2、#101 U3、#98 S2。
+- **合并前小修**:
+  - #94 A1:补「validate 必含 run-harnesses.mjs」断言×3
+    (harness-pi-agent-host.mjs:1166 / harness-review-fixes.mjs:55 /
+    harness-stream-watchdog.mts:362);同步锚点 checkAsync 失败行改为
+    带完整 stack 的多行输出(锚点已由所有者在 main 工作树修订并自测)。
+  - #96 S1:回补被剥离的 18 处残留类型 JSDoc(重点 SceneBeat 字段注释与
+    lifecycle replay 契约段,base beat-composer.ts:143-161;另 ambient×6、
+    staging×5、mission-projection×3 等)。
+  - #95 C2(建议):harness-codex-app-server-contract.mjs 对
+    agentHostRuntime 语料同样剥 `#[cfg(test)]` 段。
+  - #102 U4(建议):证据 README 两个畸形 SHA(59 位)重算修正。
+- **批准偏离(记录在案)**:B2 用注入回调替代 ctx.mode 内部分支(优于原
+  spec);B3 随迁 buildLiveConversationTerminalMessage;U3 九卡清单换 2
+  (静态无选中态卡出圈,换真可选中卡,语义更正);S2 按实际 4 函数+3 常量
+  逐字随迁(原「纯 interface」假设不实)。
+- **A2 后续**:#99 为历史阻塞证据(已被 §3 修订消解),按修订范围执行
+  30 个 customSummaryRunnerChecks 迁移(worktree 留存草稿可复用),完成后
+  A3/A4、D1-D3 依序推进。
+- 建议合并顺序(栈内严格按序,栈间任意):B 链 #90→#92→#97;C 链
+  #91→#95;U 链 #93→#103、#100→#101、#102;S 链 #96(修后)→#98;
+  A 链 #94(修后)。merge 一律等用户批准。
+
+## 5. 审计约定(Fable 额度恢复后)
 
 - 逐 PR 审:diff 与本文档规格逐条对照;「纯移动」PR 用
   move-detection diff 核对新旧内容一致;B2/C1 两个高风险 PR 逐行审。
