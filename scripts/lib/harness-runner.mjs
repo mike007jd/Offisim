@@ -87,9 +87,8 @@ export function createHarness(title) {
       console.log(`  ✓ ${name}`);
     } catch (error) {
       failures += 1;
-      const detail =
-        error instanceof Error ? (error.stack ?? error.message) : String(error);
-      console.error(`  ✗ ${name}\n    ${detail.split('\n').join('\n    ')}`);
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(`  ✗ ${name} — ${detail}`);
     }
   }
 
