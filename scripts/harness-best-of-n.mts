@@ -26,7 +26,7 @@ const stage = [
 const uiState = read('apps/desktop/renderer/src/app/ui-state.ts');
 const recovery = read('apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.ts');
 const recoveryHook = read('apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.ts');
-const gitBackend = read('apps/desktop/src-tauri/src/git.rs');
+const gitBackend = read('apps/desktop/src-tauri/src/git/lease.rs');
 const codexHost = read('apps/desktop/src-tauri/src/codex_agent_host/manager.rs');
 const claudeHost = read('apps/desktop/src-tauri/src/claude_agent_host/mod.rs');
 

@@ -36,7 +36,9 @@ const paths = {
   missionLoop: `${ROOT}/packages/core/src/runtime/mission/mission-loop-controller.ts`,
   evaluationContext: `${ROOT}/apps/desktop/renderer/src/runtime/mission/evaluation-context.ts`,
   tools: `${ROOT}/apps/desktop/src-tauri/src/builtin_tools.rs`,
-  git: `${ROOT}/apps/desktop/src-tauri/src/git.rs`,
+  gitRoot: `${ROOT}/apps/desktop/src-tauri/src/git.rs`,
+  gitAllowlist: `${ROOT}/apps/desktop/src-tauri/src/git/allowlist.rs`,
+  gitLease: `${ROOT}/apps/desktop/src-tauri/src/git/lease.rs`,
   binding: `${ROOT}/apps/desktop/src-tauri/src/task_workspace_binding.rs`,
   workspaceRecovery: `${ROOT}/apps/desktop/src-tauri/src/workspace_recovery.rs`,
   tauriLib: `${ROOT}/apps/desktop/src-tauri/src/lib.rs`,
@@ -941,7 +943,7 @@ function verifyWireAndRuntimeContracts(): void {
   const runtimeWorkspaceBinding = source(paths.runtimeWorkspaceBinding);
   const recovery = source(paths.recovery);
   const tools = source(paths.tools);
-  const git = source(paths.git);
+  const git = [paths.gitRoot, paths.gitAllowlist].map(source).join('\n');
   const binding = source(paths.binding);
   const workspaceRecovery = source(paths.workspaceRecovery);
   const tauriLib = source(paths.tauriLib);
@@ -1708,9 +1710,9 @@ function verifyRustBehavioralOracleNames(): void {
     [paths.tools, 'rejects_symlink_escape_before_write_target_resolution'],
     [paths.tools, 'anchored_write_rejects_swapped_parent_symlink_without_touching_outside'],
     [paths.tools, 'evaluator_bash_requires_explicit_lease_lane_and_backend_cwd'],
-    [paths.git, 'binding_git_lane_only_accepts_read_only_status'],
-    [paths.git, 'workspace_lease_agent_run_requires_exact_live_child_provenance'],
-    [paths.git, 'registration_insert_failure_rolls_back_worktree_and_branch'],
+    [paths.gitAllowlist, 'binding_git_lane_only_accepts_read_only_status'],
+    [paths.gitLease, 'workspace_lease_agent_run_requires_exact_live_child_provenance'],
+    [paths.gitLease, 'registration_insert_failure_rolls_back_worktree_and_branch'],
     [paths.binding, 'registry_enforces_scope_access_expiry_and_revoked_read_grace'],
     [paths.binding, 'revoked_read_grace_covers_terminal_stream_replay_window'],
     [paths.binding, 'binding_expiry_transition_is_idempotent_and_preserves_read_grace'],
