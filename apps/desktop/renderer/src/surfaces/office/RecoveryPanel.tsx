@@ -4,17 +4,15 @@ import {
   useInterruptedRunRecovery,
 } from '@/assistant/runtime/conversation-run-react.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { cn, relativeTime } from '@/lib/utils.js';
+import { cn, relativeTimeAgo } from '@/lib/utils.js';
 import type { InterruptedRunCard } from '@/runtime/recovery/reconcile-interrupted-runs.js';
 import { AlertTriangle, FileText, RotateCcw, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-/** Call-site adapter: parse the ISO start and keep the invalid-date label. */
 function startedAtLabel(iso: string): string {
   const ts = Date.parse(iso);
-  const now = Date.now();
-  return Number.isFinite(ts) ? relativeTime(Math.min(ts, now), now) : 'unknown start';
+  return Number.isFinite(ts) ? relativeTimeAgo(ts) : 'unknown start';
 }
 
 function summarizeUsage(partialUsageJson: string | null): string {

@@ -19,7 +19,6 @@ import {
   invokeCommand,
 } from '@/lib/tauri-commands.js';
 import { openFirstRunGuide } from '@/surfaces/onboarding/first-run-state.js';
-import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
 import type {
   AiAccountDescriptor,
   AiModelCatalogEntry,
@@ -520,6 +519,11 @@ export function AiAccountsPane() {
     setForm(formFromProvider(selectedProvider, templateById.get(selectedProvider.provider)));
   }, [selectedProvider, templateById]);
 
+  useEffect(() => {
+    if (!providerQuery.data || providerConfigs.length || selection.mode !== 'overview') return;
+    setSelection({ mode: 'add' });
+  }, [providerConfigs.length, providerQuery.data, selection.mode]);
+
   const updateForm = <K extends keyof ProviderFormState>(key: K, value: ProviderFormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
   const showAddProvider = (template?: PiAgentProviderTemplate) => {
@@ -752,12 +756,9 @@ export function AiAccountsPane() {
                     </div>
                   ))}
                   {!providerQuery.isLoading && !providerQuery.isError && !providerConfigs.length ? (
-                    <EmptyState
-                      className="is-compact"
-                      icon={Bot}
-                      title="No API providers yet"
-                      description="Add one to make its models available to employees."
-                    />
+                    <div className="off-set-provider-empty">
+                      No API providers yet. Add one to make its models available to employees.
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -1016,12 +1017,9 @@ export function AiAccountsPane() {
                 </section>
               </>
             ) : (
-              <EmptyState
-                className="is-compact"
-                icon={Info}
-                title="No API activity yet"
-                description="Add a provider above, then run a task to see usage here."
-              />
+              <div className="off-set-provider-empty">
+                No API activity yet. Add a provider above, then run a task to see usage here.
+              </div>
             )}
           </div>
         </section>

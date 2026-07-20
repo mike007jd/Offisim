@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
-import { cn, relativeTime } from '@/lib/utils.js';
+import { cn, relativeTimeAgo } from '@/lib/utils.js';
 import {
   EmptyState,
   ErrorState,
@@ -58,11 +58,9 @@ const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   archived: 'Archived',
 };
 
-/** Call-site adapter: parse the ISO timestamp for the shared relativeTime. */
 function timeAgo(iso: string): string {
   const then = Date.parse(iso);
-  const now = Date.now();
-  return Number.isNaN(then) ? '' : relativeTime(Math.min(then, now), now);
+  return Number.isNaN(then) ? '' : relativeTimeAgo(then);
 }
 
 const SCHEDULE_LABELS: ReadonlyArray<{

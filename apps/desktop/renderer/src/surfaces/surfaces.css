@@ -382,14 +382,6 @@
   text-align: center;
 }
 
-/* Inline empty states inside cards, lists, and popovers: keep the shared
-   grammar but drop the full-surface stretch and heavy padding. */
-.off-state.is-compact {
-  flex: none;
-  min-height: auto;
-  padding: var(--off-sp-4);
-}
-
 .off-state-glyph {
   display: grid;
   place-items: center;

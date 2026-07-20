@@ -1,7 +1,7 @@
 import { type ActivityRecord, useActivityRecords } from '@/data/board/activity-data.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import type { WorkspaceCheckpointRow } from '@/lib/tauri-commands.js';
-import { cn, relativeTime } from '@/lib/utils.js';
+import { cn, relativeTimeAgo } from '@/lib/utils.js';
 import {
   EmptyState,
   ErrorState,
@@ -53,7 +53,6 @@ export function BoardTimeline({
     return baselines;
   }, [allRecords]);
   const groups = useMemo(() => groupByTime(allRecords), [allRecords]);
-  const renderedAt = Date.now();
   const rewind = useCallback(
     async (checkpoint: WorkspaceCheckpointRow) => {
       setRewindingId(checkpoint.checkpointId);
@@ -124,7 +123,7 @@ export function BoardTimeline({
                   {summary.label}
                   {collapsedCount ? <em> ×{collapsedCount}</em> : null}
                 </span>
-                <time>{relativeTime(Math.min(record.at, renderedAt), renderedAt)}</time>
+                <time>{relativeTimeAgo(record.at)}</time>
                 {checkpoint ? (
                   <div className="off-board-checkpoint-actions">
                     <button

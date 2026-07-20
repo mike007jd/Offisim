@@ -49,8 +49,7 @@ function StateActions({
 interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
-  /** Optional supporting line; single-sentence empty states may omit it. */
-  description?: string;
+  description: string;
   /** Primary call to action, rendered as the emphasized button. */
   action?: EmptyStateAction;
   /** Optional lower-emphasis alternative shown beside the primary action. */
@@ -78,7 +77,7 @@ export function EmptyState({
         <Icon icon={icon} size="md" />
       </span>
       <p className="off-state-title">{title}</p>
-      {description ? <p className="off-state-desc">{description}</p> : null}
+      <p className="off-state-desc">{description}</p>
       <StateActions primary={action} secondary={secondaryAction} tertiary={tertiaryAction} />
       {detail ? <p className="off-state-detail">{detail}</p> : null}
     </div>
