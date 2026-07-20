@@ -125,7 +125,12 @@ assertNoMatch(
   'The Rust registry must not expose a duplicate provider transport lane.',
 );
 
-const workspaceBindingHost = await source('apps/desktop/src-tauri/src/task_workspace_binding.rs');
+const workspaceBindingHost = (
+  await Promise.all([
+    'apps/desktop/src-tauri/src/task_workspace_binding.rs',
+    'apps/desktop/src-tauri/src/binding/resume_compat.rs',
+  ].map(source))
+).join('\n');
 assertIncludesAll(
   workspaceBindingHost,
   [
