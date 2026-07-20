@@ -1377,8 +1377,20 @@ pub(super) async fn answer_impl(
     let cancel = cancelled.unwrap_or(false);
     let accept = confirmed.unwrap_or(false) && !cancel;
     let (response, resolution, interrupt_turn) = match &interaction.kind {
-        PendingInteractionKind::Command | PendingInteractionKind::FileChange => (
+        PendingInteractionKind::Command => (
             json!({"decision": approval_decision(cancel, accept)}),
+            if cancel { "cancelled" } else { "answered" },
+            cancel,
+        ),
+        PendingInteractionKind::FileChange { grant_root } => (
+            json!({
+                "decision": file_change_approval_decision(
+                    cancel,
+                    accept,
+                    grant_root.as_deref(),
+                    run.workspace_root.as_deref(),
+                )
+            }),
             if cancel { "cancelled" } else { "answered" },
             cancel,
         ),
@@ -1507,6 +1519,18 @@ fn approval_decision(cancel: bool, accept: bool) -> &'static str {
     }
 }
 
+fn file_change_approval_decision(
+    cancel: bool,
+    accept: bool,
+    grant_root: Option<&str>,
+    workspace_root: Option<&Path>,
+) -> &'static str {
+    let grant_is_authorized = grant_root.is_none_or(|grant_root| {
+        workspace_root.is_some_and(|root| path_is_authorized_in_workspace(grant_root, root, true))
+    });
+    approval_decision(cancel, accept && grant_is_authorized)
+}
+
 fn allowed_permission_subset(requested: &Value, workspace_root: Option<&Path>) -> Value {
     let Some(requested) = requested.as_object() else {
         return json!({});
@@ -1590,7 +1614,7 @@ fn permission_entry_is_within_workspace(entry: &Value, root: &Path) -> bool {
     }
 }
 
-fn path_is_authorized_in_workspace(raw: &str, root: &Path, allow_missing: bool) -> bool {
+pub(super) fn path_is_authorized_in_workspace(raw: &str, root: &Path, allow_missing: bool) -> bool {
     let Ok(canonical_root) = root.canonicalize() else {
         return false;
     };
@@ -2862,6 +2886,86 @@ time.sleep(30)
         assert!(granted.get("unknown").is_none());
         assert!(granted["fileSystem"].get("persistent").is_none());
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_change_grant_root_never_expands_the_project_workspace() {
+        let root = unique_test_dir("file-change-grant-root");
+        let outside = unique_test_dir("file-change-grant-outside");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+
+        assert_eq!(
+            file_change_approval_decision(false, true, None, Some(&root)),
+            "accept"
+        );
+        assert_eq!(
+            file_change_approval_decision(false, true, Some("src"), Some(&root)),
+            "accept"
+        );
+        assert_eq!(
+            file_change_approval_decision(
+                false,
+                true,
+                Some(&root.join("generated/new").to_string_lossy()),
+                Some(&root),
+            ),
+            "accept"
+        );
+        assert_eq!(
+            file_change_approval_decision(
+                false,
+                true,
+                Some(&outside.to_string_lossy()),
+                Some(&root),
+            ),
+            "decline"
+        );
+        assert_eq!(
+            file_change_approval_decision(false, true, Some("../escape"), Some(&root)),
+            "decline"
+        );
+        assert_eq!(
+            file_change_approval_decision(false, true, Some("src"), None),
+            "decline"
+        );
+        assert_eq!(
+            file_change_approval_decision(
+                true,
+                true,
+                Some(&outside.to_string_lossy()),
+                Some(&root),
+            ),
+            "cancel"
+        );
+
+        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn file_change_grant_root_rejects_a_symlink_escape() {
+        use std::os::unix::fs::symlink;
+
+        let root = unique_test_dir("file-change-grant-symlink-root");
+        let outside = unique_test_dir("file-change-grant-symlink-outside");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        symlink(&outside, root.join("escape")).unwrap();
+
+        assert_eq!(
+            file_change_approval_decision(
+                false,
+                true,
+                Some(&root.join("escape/new.txt").to_string_lossy()),
+                Some(&root),
+            ),
+            "decline"
+        );
+
+        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(outside).unwrap();
     }
 
     #[cfg(unix)]
