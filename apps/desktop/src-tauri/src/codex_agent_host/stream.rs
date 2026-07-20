@@ -47,7 +47,9 @@ impl RunOutcome {
 #[derive(Clone)]
 pub(super) enum PendingInteractionKind {
     Command,
-    FileChange,
+    FileChange {
+        grant_root: Option<String>,
+    },
     Permissions {
         requested_permissions: serde_json::Value,
     },
@@ -88,6 +90,7 @@ struct StreamInner {
     reasoning: String,
     latest_usage: Option<serde_json::Value>,
     item_phases: HashMap<String, String>,
+    file_change_authority: HashMap<String, bool>,
     pending_interactions: HashMap<String, PendingInteraction>,
     native_request_to_interaction: HashMap<String, String>,
     active_thread_id: Option<String>,
@@ -134,6 +137,7 @@ impl RunStream {
                 reasoning: String::new(),
                 latest_usage: None,
                 item_phases: HashMap::new(),
+                file_change_authority: HashMap::new(),
                 pending_interactions: HashMap::new(),
                 native_request_to_interaction: HashMap::new(),
                 active_thread_id: None,
@@ -320,6 +324,16 @@ impl RunStream {
                 .item_phases
                 .insert(item_id.to_string(), phase.to_string());
         }
+    }
+
+    pub(super) fn record_file_change_authority(&self, item_id: &str, authorized: bool) {
+        self.guard()
+            .file_change_authority
+            .insert(item_id.to_string(), authorized);
+    }
+
+    pub(super) fn file_change_is_authorized(&self, item_id: &str) -> Option<bool> {
+        self.guard().file_change_authority.get(item_id).copied()
     }
 
     pub(super) fn append_message_delta(&self, item_id: &str, delta: &str) -> String {

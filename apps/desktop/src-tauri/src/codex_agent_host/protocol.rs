@@ -17,7 +17,7 @@ use crate::process_group::{configure_process_group, signal_process_group};
 use crate::sidecar_stderr::{read_capped_line, MAX_SIDECAR_OUTPUT_BYTES};
 use crate::task_workspace_binding::AuthorizedProcessCwd;
 
-use super::manager::rfc3339_now;
+use super::manager::{path_is_authorized_in_workspace, rfc3339_now};
 use super::stream::{
     native_request_key, PendingInteraction, PendingInteractionKind, PendingUserInputQuestion,
     RunStream,
@@ -734,17 +734,6 @@ impl CodexConnection {
             validate_native_thread_scope(params, stream)?;
             return self.respond(id, current_time_response()?).await;
         }
-        let kind = match method {
-            "item/commandExecution/requestApproval" => PendingInteractionKind::Command,
-            "item/fileChange/requestApproval" => PendingInteractionKind::FileChange,
-            "item/permissions/requestApproval" => PendingInteractionKind::Permissions {
-                requested_permissions: params
-                    .get("permissions")
-                    .cloned()
-                    .ok_or(CodexHostError::Protocol)?,
-            },
-            _ => return self.respond_method_not_found(id).await,
-        };
         let thread_id = required_string(params, "threadId")?.to_string();
         let turn_id = required_string(params, "turnId")?.to_string();
         let item_id = required_string(params, "itemId")?.to_string();
@@ -753,6 +742,29 @@ impl CodexConnection {
             .and_then(Value::as_i64)
             .ok_or(CodexHostError::Protocol)?;
         validate_native_scope(stream, &thread_id, &turn_id)?;
+        let kind = match method {
+            "item/commandExecution/requestApproval" => PendingInteractionKind::Command,
+            "item/fileChange/requestApproval" => {
+                let grant_root = file_change_grant_root(params)?;
+                let grant_is_authorized = grant_root.as_deref().is_none_or(|grant_root| {
+                    self.workspace_root
+                        .as_deref()
+                        .is_some_and(|root| path_is_authorized_in_workspace(grant_root, root, true))
+                });
+                if !grant_is_authorized || stream.file_change_is_authorized(&item_id) != Some(true)
+                {
+                    return self.respond(id, json!({"decision": "decline"})).await;
+                }
+                PendingInteractionKind::FileChange { grant_root }
+            }
+            "item/permissions/requestApproval" => PendingInteractionKind::Permissions {
+                requested_permissions: params
+                    .get("permissions")
+                    .cloned()
+                    .ok_or(CodexHostError::Protocol)?,
+            },
+            _ => return self.respond_method_not_found(id).await,
+        };
         let approval_id = params
             .get("approvalId")
             .and_then(Value::as_str)
@@ -943,6 +955,15 @@ impl CodexConnection {
                     codex_home.as_deref(),
                 )?;
             }
+            "item/fileChange/patchUpdated" => {
+                required_scope(params, stream)?;
+                let item_id = required_string(params, "itemId")?;
+                let authorized = file_change_changes_are_authorized(
+                    params.get("changes").and_then(Value::as_array),
+                    self.workspace_root.as_deref(),
+                );
+                stream.record_file_change_authority(item_id, authorized);
+            }
             "item/agentMessage/delta" => {
                 required_scope(params, stream)?;
                 let item_id = required_string(params, "itemId")?;
@@ -1119,7 +1140,6 @@ impl CodexConnection {
             | "thread/compacted"
             | "item/reasoning/summaryPartAdded"
             | "item/reasoning/textDelta"
-            | "item/fileChange/patchUpdated"
             | "item/autoApprovalReview/started"
             | "item/autoApprovalReview/completed"
             | "model/verification"
@@ -1585,6 +1605,14 @@ fn optional_bool(object: &Map<String, Value>, field: &str) -> Result<bool, Codex
     }
 }
 
+fn file_change_grant_root(params: &Map<String, Value>) -> Result<Option<String>, CodexHostError> {
+    match params.get("grantRoot") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value.clone())),
+        Some(_) => Err(CodexHostError::Protocol),
+    }
+}
+
 fn safe_prompt_text(value: &str, codex_home: Option<&str>) -> String {
     truncate(&redact_sensitive_literals_with_home(value, codex_home))
 }
@@ -1629,6 +1657,15 @@ fn project_item(
 ) -> Result<(), CodexHostError> {
     let item_type = required_string(item, "type")?;
     let item_id = required_string(item, "id")?;
+    if item_type == "fileChange" {
+        stream.record_file_change_authority(
+            item_id,
+            file_change_changes_are_authorized(
+                item.get("changes").and_then(Value::as_array),
+                workspace_root,
+            ),
+        );
+    }
     if item_type == "agentMessage" {
         let phase = item.get("phase").and_then(Value::as_str);
         stream.record_item_phase(item_id, phase);
@@ -1780,6 +1817,22 @@ fn projected_file_change_paths(
         })
         .take(8)
         .collect()
+}
+
+fn file_change_changes_are_authorized(
+    changes: Option<&Vec<Value>>,
+    workspace_root: Option<&Path>,
+) -> bool {
+    let (Some(changes), Some(root)) = (changes, workspace_root) else {
+        return false;
+    };
+    !changes.is_empty()
+        && changes.iter().all(|change| {
+            change
+                .get("path")
+                .and_then(Value::as_str)
+                .is_some_and(|path| path_is_authorized_in_workspace(path, root, true))
+        })
 }
 
 fn normalize_tool_status(status: &str, completed: bool) -> &'static str {
@@ -2165,6 +2218,65 @@ mod tests {
         assert_eq!(request_timeout("turn/start"), Duration::from_secs(30));
         assert_eq!(request_timeout("thread/start"), Duration::from_secs(120));
         assert_eq!(request_timeout("thread/resume"), Duration::from_secs(120));
+    }
+
+    #[test]
+    fn file_change_grant_root_matches_the_current_codex_schema() {
+        assert_eq!(
+            file_change_grant_root(json!({}).as_object().unwrap()).unwrap(),
+            None
+        );
+        assert_eq!(
+            file_change_grant_root(json!({"grantRoot": null}).as_object().unwrap()).unwrap(),
+            None
+        );
+        assert_eq!(
+            file_change_grant_root(json!({"grantRoot": "/tmp/project"}).as_object().unwrap())
+                .unwrap()
+                .as_deref(),
+            Some("/tmp/project")
+        );
+        assert!(file_change_grant_root(json!({"grantRoot": 7}).as_object().unwrap()).is_err());
+    }
+
+    #[test]
+    fn file_change_approval_paths_fail_closed_outside_the_workspace() {
+        let root = std::env::temp_dir();
+        let inside = root.join("offisim-missing-nested/file.txt");
+        let inside_changes = json!([{
+            "path": inside.to_string_lossy(),
+            "kind": "add",
+            "diff": "+inside"
+        }]);
+        assert!(file_change_changes_are_authorized(
+            inside_changes.as_array(),
+            Some(&root),
+        ));
+
+        let outside_changes = json!([{
+            "path": "/Users/offisim-outside.txt",
+            "kind": "add",
+            "diff": "+outside"
+        }]);
+        assert!(!file_change_changes_are_authorized(
+            outside_changes.as_array(),
+            Some(&root),
+        ));
+
+        let traversal_changes = json!([{
+            "path": "../offisim-outside.txt",
+            "kind": "add",
+            "diff": "+outside"
+        }]);
+        assert!(!file_change_changes_are_authorized(
+            traversal_changes.as_array(),
+            Some(&root),
+        ));
+        assert!(!file_change_changes_are_authorized(None, Some(&root)));
+        assert!(!file_change_changes_are_authorized(
+            inside_changes.as_array(),
+            None,
+        ));
     }
 
     #[test]

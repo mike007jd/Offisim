@@ -150,4 +150,16 @@ assert.match(rustHost, /native-agent-home-redacted/u);
 assert.match(rustHost, /Bearer\\s\+|\[secret-redacted\]/u);
 assert.match(rustHost, /Self::Interrupted\(_\)\s*=>\s*"aborted"/u);
 
+assert.match(rustProduction, /grantRoot/u);
+assert.match(rustProduction, /FileChange\s*\{\s*grant_root:/u);
+assert.match(rustProduction, /accept\s*&&\s*grant_is_authorized/u);
+assert.match(
+  rustProduction,
+  /path_is_authorized_in_workspace\(grant_root,\s*root,\s*true\)/u,
+  'Codex file-change grantRoot must remain inside the effective Project workspace',
+);
+assert.match(rustProduction, /file_change_changes_are_authorized/u);
+assert.match(rustProduction, /file_change_is_authorized\(&item_id\)\s*!=\s*Some\(true\)/u);
+assert.match(rustProduction, /respond\(id,\s*json!\(\{"decision":\s*"decline"\}\)\)/u);
+
 console.log('codex orchestration adapter contract OK');
