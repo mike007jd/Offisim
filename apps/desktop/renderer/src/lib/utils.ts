@@ -49,6 +49,18 @@ export function relativeTime(at: number, from = Date.now()): string {
   return 'now';
 }
 
+/** Relative age label used by activity surfaces: "just now", "5m ago", "3h ago", "2d ago". */
+export function relativeTimeAgo(atMs: number, from = Date.now()): string {
+  const diff = Math.max(0, from - atMs);
+  const min = 60_000;
+  const hour = 60 * min;
+  const day = 24 * hour;
+  if (diff < min) return 'just now';
+  if (diff < hour) return `${Math.floor(diff / min)}m ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
+  return `${Math.floor(diff / day)}d ago`;
+}
+
 /** Tightest age label for chat rows and bubbles: "now", "5m", "3h", "2d".
  *  The single wording source for every compact timestamp (Office rail,
  *  Connect list/bubbles, workspace board) so "now" never drifts per surface. */

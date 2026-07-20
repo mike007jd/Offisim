@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useLoopRuns } from '@/data/loops.js';
+import { relativeTimeAgo } from '@/lib/utils.js';
 import {
   EmptyState,
   ErrorState,
@@ -16,13 +17,7 @@ import { History } from 'lucide-react';
 
 function timeAgo(iso: string): string {
   const then = Date.parse(iso);
-  if (Number.isNaN(then)) return '';
-  const mins = Math.floor((Date.now() - then) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  return Number.isNaN(then) ? '' : relativeTimeAgo(then);
 }
 
 type RunStatusTone = 'is-ok' | 'is-accent' | 'is-warn' | 'is-danger';

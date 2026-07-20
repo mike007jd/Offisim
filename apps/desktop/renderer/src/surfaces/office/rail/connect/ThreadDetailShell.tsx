@@ -34,6 +34,9 @@ import { ThreadAvatar } from './ThreadRow.js';
  *  row until the first message, so it never appears in the sidebar list. */
 type ConnectDraft = CompanyThreadDraft;
 
+/** Single wording source for persisted-thread and draft empty bodies. */
+const THREAD_EMPTY_COPY = 'No messages yet — your first message starts it.';
+
 function ThreadDetailShell({
   onBack,
   avatar,
@@ -288,9 +291,7 @@ export function PersistedThreadDetail({
       }
     >
       {rows.length === 0 ? (
-        <div className="off-connect-thread-empty">
-          No messages yet — your first message starts it.
-        </div>
+        <div className="off-connect-thread-empty">{THREAD_EMPTY_COPY}</div>
       ) : (
         rows.map((row) => (
           <MessageRow
@@ -393,9 +394,7 @@ export function DraftThreadDetail({
         />
       }
     >
-      <div className="off-connect-thread-empty">
-        No messages yet — your first message starts it.
-      </div>
+      <div className="off-connect-thread-empty">{THREAD_EMPTY_COPY}</div>
     </ThreadDetailShell>
   );
 }

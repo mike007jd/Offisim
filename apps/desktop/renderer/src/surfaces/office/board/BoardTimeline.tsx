@@ -1,7 +1,7 @@
 import { type ActivityRecord, useActivityRecords } from '@/data/board/activity-data.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import type { WorkspaceCheckpointRow } from '@/lib/tauri-commands.js';
-import { cn } from '@/lib/utils.js';
+import { cn, relativeTimeAgo } from '@/lib/utils.js';
 import {
   EmptyState,
   ErrorState,
@@ -15,7 +15,6 @@ import {
   checkpointPathForDisplay,
   collapseReroutes,
   domainIcon,
-  formatRelativeTimestamp,
   getDisplaySummary,
   getEventLevel,
   groupByTime,
@@ -124,7 +123,7 @@ export function BoardTimeline({
                   {summary.label}
                   {collapsedCount ? <em> ×{collapsedCount}</em> : null}
                 </span>
-                <time>{formatRelativeTimestamp(record.at)}</time>
+                <time>{relativeTimeAgo(record.at)}</time>
                 {checkpoint ? (
                   <div className="off-board-checkpoint-actions">
                     <button

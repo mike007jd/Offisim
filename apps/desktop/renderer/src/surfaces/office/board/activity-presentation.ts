@@ -356,19 +356,3 @@ export function collapseReroutes(records: ActivityRecord[]): TimelineRow[] {
   }
   return rows;
 }
-
-/* ── Timestamp formatting ────────────────────────────────────────────────── */
-
-/** Relative "2m ago" timestamp for the row. */
-export function formatRelativeTimestamp(at: number, now: number = Date.now()): string {
-  const diff = Math.max(0, now - at);
-  const min = 60 * 1000;
-  const hour = 60 * min;
-  const day = 24 * hour;
-  if (diff < min) return 'just now';
-  if (diff < hour) return `${Math.floor(diff / min)}m ago`;
-  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
-  return `${Math.floor(diff / day)}d ago`;
-}
-
-/* ── Query hook ──────────────────────────────────────────────────────────── */
