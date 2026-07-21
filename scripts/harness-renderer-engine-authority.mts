@@ -46,12 +46,20 @@ assert.deepEqual(
     [
       root('old-valid', '2026-07-17T00:00:00Z', codexTarget),
       root('new-valid', '2026-07-17T01:00:00Z', codexTarget),
-      root('newest-unprepared', '2026-07-17T02:00:00Z', undefined),
+      root('newest-unprepared', '2026-07-17T02:00:00Z', undefined, 'openai/gpt-5.6-sol'),
     ],
     'company-1',
   ),
   codexAuthority,
   'latest durable root must freeze the orchestration engine, not a model preset',
+);
+assert.deepEqual(
+  resolveAuthoritativeThreadExecutionAuthority(
+    [root('codex-actual-model', '2026-07-17T03:00:00Z', codexTarget, 'openai/gpt-5.6-sol')],
+    'company-1',
+  ),
+  codexAuthority,
+  'engine-reported Codex model diagnostics must not replace the engine-owned selector',
 );
 assert.deepEqual(planThreadExecutionSelection(codexAuthority, undefined, undefined), {
   requestedModel: undefined,
@@ -162,6 +170,24 @@ assert.deepEqual(openRouterSelection, {
   target: openRouterTarget,
   runtimeModelRef: 'openrouter-free/cohere/north-mini-code:free',
 });
+assert.deepEqual(
+  resolveAuthoritativeThreadExecutionAuthority(
+    [
+      root(
+        'api-selector',
+        '2026-07-17T04:00:00Z',
+        openRouterTarget,
+        'openrouter-free/cohere/north-mini-code:free',
+      ),
+    ],
+    'company-1',
+  ),
+  {
+    target: openRouterTarget,
+    runtimeModelRef: 'openrouter-free/cohere/north-mini-code:free',
+  },
+  'API tasks must preserve the exact catalog selector stored in the run context',
+);
 assert.throws(
   () =>
     resolveRuntimeExecutionSelection(

@@ -11,7 +11,7 @@ export interface DurableThreadRootRun {
 
 export interface DurableThreadExecutionAuthority {
   readonly target: AiExecutionTarget;
-  /** Exact native/catalog selector. Two presets may intentionally share one leaf model id. */
+  /** Exact engine/catalog selector. Two API presets may intentionally share one leaf model id. */
   readonly runtimeModelRef: string;
 }
 
@@ -22,7 +22,12 @@ function durableExecutionAuthority(
   try {
     const parsed = JSON.parse(raw) as { executionTarget?: unknown; model?: unknown };
     const target = validateExecutionTarget(parsed.executionTarget) ?? undefined;
-    const runtimeModelRef = typeof parsed.model === 'string' ? parsed.model.trim() : '';
+    const runtimeModelRef =
+      target?.modelSource?.kind === 'native'
+        ? target.engineId
+        : typeof parsed.model === 'string'
+          ? parsed.model.trim()
+          : '';
     return target && runtimeModelRef ? { target, runtimeModelRef } : undefined;
   } catch {
     return undefined;
