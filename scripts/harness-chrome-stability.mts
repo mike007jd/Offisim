@@ -197,7 +197,7 @@ check('Team dock keeps a sole horizontal card scroller and a count-only label', 
   );
   assert.match(
     teamDock,
-    /<span className="off-dock-count">{rosterSize} people<\/span>/,
+    /<span className="off-dock-count">\s*\{rosterSize\} \{rosterSize === 1 \? 'person' : 'people'\}\s*<\/span>/,
     'the dock label is only TEAM and the person count',
   );
   assert.doesNotMatch(teamDock, /addEventListener\('wheel'|onWheel/, 'no JS wheel interception');
