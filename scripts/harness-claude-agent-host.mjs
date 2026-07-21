@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -56,12 +65,23 @@ assert.match(entry, /allowUnsandboxedCommands: false/);
 assert.match(entry, /failIfUnavailable: true/);
 assert.match(entry, /subscription-run-diagnostic/);
 assert.match(entry, /订阅内 · 无 API 成本/);
+assert.doesNotMatch(entry, /OFFISIM_CLAUDE_EXECUTABLE/);
 assert.match(entry, new RegExp(SOURCE_URL.replaceAll('/', '\\/')));
 assert.match(entry, new RegExp(AUTH_URL.replaceAll('/', '\\/')));
 assert.match(rust, /CLAUDE_HOST_PROTOCOL_VERSION: u64 = 1/);
 assert.match(rust, /resolve_conversation_opaque_native_session_for_execute/);
 assert.match(rust, /validate_task_workspace_binding_authority/);
 assert.match(rust, /deny_unknown_fields/);
+assert.match(
+  rust,
+  /run_bound_sidecar\([\s\S]*?claude_env\(Some\(&cwd\)\)/u,
+  'bound Claude execute must pass the canonical authorized task workspace',
+);
+assert.match(
+  rust,
+  /workspace_binding:\s*None,[\s\S]*?env:\s*claude_env\(None\)/u,
+  'unbound Claude sidecars must not claim a task workspace boundary',
+);
 assert.match(commands, /pub async fn claude_agent_execute/);
 assert.match(commands, /pub fn claude_agent_abort/);
 assert.match(runtime, /const CLAUDE_ENGINE_RUNTIME[\s\S]*runtimeVersion: '1'/);
@@ -220,9 +240,15 @@ const fixtureRoot = await mkdtemp(join(tmpdir(), 'offisim-claude-host-harness-')
 try {
   const workspace = join(fixtureRoot, 'workspace');
   const skillPluginDir = join(fixtureRoot, 'offisim-skills-plugin');
-  const fakeClaude = join(fixtureRoot, 'claude');
+  const fakeClaude = join(fixtureRoot, '.local', 'bin', 'claude');
+  const maliciousClaude = join(workspace, 'claude');
+  const maliciousMarker = join(fixtureRoot, 'malicious-claude-ran');
   const argsLog = join(fixtureRoot, 'args.json');
-  await Promise.all([mkdir(workspace), mkdir(skillPluginDir)]);
+  await Promise.all([
+    mkdir(workspace),
+    mkdir(skillPluginDir),
+    mkdir(join(fixtureRoot, '.local', 'bin'), { recursive: true }),
+  ]);
   await writeFile(
     fakeClaude,
     `#!/usr/bin/env node
@@ -242,10 +268,18 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
 `,
   );
   await chmod(fakeClaude, 0o755);
+  await writeFile(
+    maliciousClaude,
+    `#!/usr/bin/env node\nimport { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(
+      maliciousMarker,
+    )}, 'executed');\n`,
+  );
+  await chmod(maliciousClaude, 0o755);
   const env = {
     HOME: fixtureRoot,
-    PATH: `/usr/bin:/bin:${process.env.PATH ?? ''}`,
-    OFFISIM_CLAUDE_EXECUTABLE: fakeClaude,
+    PATH: `.:${workspace}:/usr/bin:/bin:${process.env.PATH ?? ''}`,
+    OFFISIM_WORKSPACE_ROOT: await realpath(workspace),
+    OFFISIM_CLAUDE_EXECUTABLE: maliciousClaude,
     OFFISIM_CLAUDE_ARGS_LOG: argsLog,
     ANTHROPIC_API_KEY: 'must-not-leak-harness-secret',
   };
@@ -274,6 +308,7 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
     ],
   );
   assert.doesNotMatch(`${status.output}\n${status.errorOutput}`, /must-not-project|must-not-leak/);
+  await assert.rejects(readFile(maliciousMarker), /ENOENT/u);
   assert.equal(projection.accounts, undefined);
   assert.equal(projection.models, undefined);
 
@@ -360,7 +395,11 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
 
   const missing = await runHost({
     cwd: workspace,
-    env: { ...env, OFFISIM_CLAUDE_EXECUTABLE: join(fixtureRoot, 'missing') },
+    env: {
+      ...env,
+      HOME: join(fixtureRoot, 'missing-home'),
+      PATH: `.:${workspace}`,
+    },
     payload: { mode: 'status' },
   });
   assert.equal(missing.code, 0);

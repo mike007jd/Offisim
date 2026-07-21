@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
-import { access, readFile, stat } from 'node:fs/promises';
+import { access, readFile, realpath, stat } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { delimiter, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -35,7 +36,6 @@ const LANGUAGE_SERVERS = Object.freeze([
       'yarn.lock',
       'package-lock.json',
     ]),
-    needsWorkspaceTypeScript: true,
   },
   {
     id: 'vue',
@@ -196,32 +196,42 @@ function executableNames(name) {
   return process.platform === 'win32' ? [name, `${name}.cmd`, `${name}.exe`] : [name];
 }
 
-async function findExecutable(name, filePath, workspaceRoot, env) {
-  for (const directory of ancestorsWithin(dirname(filePath), workspaceRoot)) {
-    for (const executable of executableNames(name)) {
-      const local = join(directory, 'node_modules', '.bin', executable);
-      if (await isFile(local, process.platform !== 'win32')) return local;
-      const virtualEnvironment = join(directory, '.venv', 'bin', executable);
-      if (await isFile(virtualEnvironment, process.platform !== 'win32')) {
-        return virtualEnvironment;
-      }
-    }
-  }
-  for (const directory of String(env.PATH ?? '')
-    .split(delimiter)
-    .filter(Boolean)) {
-    for (const executable of executableNames(name)) {
-      const global = join(directory, executable);
-      if (await isFile(global, process.platform !== 'win32')) return global;
-    }
-  }
-  return null;
+function trustedExecutableDirectories() {
+  const home = homedir();
+  return [
+    dirname(process.execPath),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+    join(home, '.local', 'bin'),
+    join(home, '.cargo', 'bin'),
+    join(home, '.bun', 'bin'),
+    join(home, '.volta', 'bin'),
+    join(home, 'Library', 'pnpm'),
+  ];
 }
 
-async function findWorkspaceTypeScript(filePath, workspaceRoot) {
-  for (const directory of ancestorsWithin(dirname(filePath), workspaceRoot)) {
-    const tsserver = join(directory, 'node_modules', 'typescript', 'lib', 'tsserver.js');
-    if (await isFile(tsserver)) return tsserver;
+export async function resolveTrustedLanguageServerExecutable(
+  name,
+  workspaceRoot,
+  candidateDirectories,
+) {
+  const workspace = await realpath(resolve(workspaceRoot)).catch(() => resolve(workspaceRoot));
+  const pathDirectories = String(process.env.PATH ?? '')
+    .split(delimiter)
+    .filter(Boolean);
+  const directories = candidateDirectories ?? [
+    ...trustedExecutableDirectories(),
+    ...pathDirectories,
+  ];
+  for (const directory of [...new Set(directories)]) {
+    for (const executable of executableNames(name)) {
+      const candidate = join(directory, executable);
+      if (!(await isFile(candidate, process.platform !== 'win32'))) continue;
+      const canonical = await realpath(candidate).catch(() => null);
+      if (canonical && !insideWorkspace(workspace, canonical)) return canonical;
+    }
   }
   return null;
 }
@@ -460,12 +470,12 @@ class JsonRpcConnection {
 export class LanguageServerManager {
   constructor({
     cwd,
-    env = process.env,
+    executableResolver = resolveTrustedLanguageServerExecutable,
     initializeTimeoutMs = DEFAULT_INITIALIZE_TIMEOUT_MS,
     diagnosticTimeoutMs = DEFAULT_DIAGNOSTIC_TIMEOUT_MS,
   }) {
     this.cwd = resolve(cwd);
-    this.env = env;
+    this.executableResolver = executableResolver;
     this.initializeTimeoutMs = initializeTimeoutMs;
     this.diagnosticTimeoutMs = diagnosticTimeoutMs;
     this.sessions = new Map();
@@ -479,23 +489,21 @@ export class LanguageServerManager {
     const start = (async () => {
       let selected = null;
       for (const command of definition.commands) {
-        const executable = await findExecutable(command.name, filePath, this.cwd, this.env);
+        const executable = await this.executableResolver(command.name, this.cwd);
         if (executable) {
           selected = { ...command, executable };
           break;
         }
       }
       if (!selected) return null;
-      let initializationOptions = {};
-      if (definition.needsWorkspaceTypeScript) {
-        const tsserver = await findWorkspaceTypeScript(filePath, this.cwd);
-        if (tsserver) initializationOptions = { tsserver: { path: tsserver } };
-      }
+      // Never point a trusted language-server process at workspace-owned runtime code.
+      // The server's own TypeScript runtime remains available for diagnostics.
+      const initializationOptions = {};
       const processHandle = spawn(selected.executable, selected.args, {
         cwd: root,
         env: {
-          ...this.env,
-          PATH: [dirname(process.execPath), this.env.PATH].filter(Boolean).join(delimiter),
+          ...process.env,
+          PATH: [dirname(process.execPath), process.env.PATH].filter(Boolean).join(delimiter),
         },
         shell: false,
         stdio: ['pipe', 'pipe', 'ignore'],

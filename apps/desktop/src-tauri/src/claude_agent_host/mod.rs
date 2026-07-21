@@ -8,8 +8,8 @@ use tauri::{ipc::Channel, AppHandle};
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::{
-    append_sidecar_audit, dev_workspace_root, required_text, sidecar_script_path, trusted_host_env,
-    AgentHostCliStatusResponse, AgentHostLane, HostError, SidecarAudit,
+    append_sidecar_audit, base_env, dev_workspace_root, required_text, sidecar_script_path,
+    AgentHostCliStatusResponse, AgentHostLane, HostError, SidecarAudit, TRUSTED_HOST_ENV_WHITELIST,
 };
 use crate::engine_skill_overlay::{
     materialize_engine_context_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
@@ -295,7 +295,7 @@ async fn resolve_native_session<R: tauri::Runtime>(
 }
 
 fn claude_env(workspace_root: Option<&std::path::PathBuf>) -> HashMap<String, String> {
-    trusted_host_env(workspace_root, &[], "OFFISIM_CLAUDE_EXECUTABLE")
+    base_env(TRUSTED_HOST_ENV_WHITELIST, workspace_root)
 }
 
 fn execute_payload(
@@ -538,7 +538,7 @@ async fn do_execute<R: tauri::Runtime>(
             &cwd,
             &script_path,
             payload,
-            claude_env(dev_root.as_ref()),
+            claude_env(Some(&cwd)),
         )
         .await
     } else {
@@ -548,7 +548,7 @@ async fn do_execute<R: tauri::Runtime>(
                 script_path: &script_path,
                 cwd: &cwd,
                 workspace_binding: None,
-                env: claude_env(dev_root.as_ref()),
+                env: claude_env(None),
                 payload,
                 token: token.clone(),
                 on_event: Some(on_event),
@@ -693,7 +693,7 @@ async fn do_enhance<R: tauri::Runtime>(
             script_path: &script_path,
             cwd: &cwd,
             workspace_binding: None,
-            env: claude_env(dev_root.as_ref()),
+            env: claude_env(None),
             payload,
             token,
             on_event: Some(on_event),
@@ -761,7 +761,7 @@ pub(crate) async fn status_impl<R: tauri::Runtime>(
             script_path: &script_path,
             cwd: &cwd,
             workspace_binding: None,
-            env: claude_env(dev_root.as_ref()),
+            env: claude_env(None),
             payload: serde_json::json!({ "mode": "status" }),
             token: CancellationToken::new(),
             on_event: None,
@@ -845,6 +845,23 @@ mod tests {
         );
         assert!(validate_history_mode(true, None).is_err());
         assert!(validate_history_mode(false, Some("history")).is_err());
+    }
+
+    #[test]
+    fn claude_release_host_never_forwards_an_executable_override() {
+        assert!(!claude_env(None).contains_key("OFFISIM_CLAUDE_EXECUTABLE"));
+    }
+
+    #[test]
+    fn claude_release_host_scopes_workspace_env_to_bound_execute_only() {
+        let workspace = std::path::PathBuf::from("/tmp/offisim-authorized-workspace");
+        assert_eq!(
+            claude_env(Some(&workspace))
+                .get("OFFISIM_WORKSPACE_ROOT")
+                .map(String::as_str),
+            Some("/tmp/offisim-authorized-workspace")
+        );
+        assert!(!claude_env(None).contains_key("OFFISIM_WORKSPACE_ROOT"));
     }
 
     #[test]
