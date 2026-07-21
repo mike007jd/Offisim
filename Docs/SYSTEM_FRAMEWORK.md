@@ -1,14 +1,20 @@
 # System Framework
 
-Checked at: 2026-07-21 NZST
+Checked at: 2026-07-22 NZST
 
 This is the maintained system map for Offisim. It explains what runs where,
 which layer owns each responsibility, and which files are the source of truth
 when the implementation changes.
 
 Engine wording below means **source implemented** unless a published
-distribution is named. Historical release `.app` evidence keeps its original
-commit/hash; the current `1.1.1` candidate has release evidence pending.
+distribution is named. As of **2026-07-22**, `v1.1.1` is the latest stable
+published release. Version `1.1.2` is the current prepared patch candidate and
+is not yet published. Historical release `.app` evidence keeps its original
+commit/hash. `1.1.2` source contains the post-`v1.1.1` installed-app Codex
+launch correction; exact `1.1.2` release-app/distribution evidence is pending
+and must not reuse `v1.1.1` evidence to prove that fix path. Use ships/shipped
+wording only when the named published distribution’s exact release-app evidence
+proves that feature.
 
 ## Product Boundary
 
@@ -128,9 +134,10 @@ Source of truth:
   under `apps/desktop/renderer/src/surfaces`.
 - Runtime changes start from `Docs/HARNESS_ARCHITECTURE.md` and
   `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. API, Codex, and
-  Claude Code are source implemented. No run may mix engine lanes. Current
-  `1.1.1` candidate release evidence is pending; only published distributions
-  may use ships/shipped wording.
+  Claude Code are source implemented. No run may mix engine lanes. Exact
+  `1.1.2` release-app/distribution evidence is pending; use ships/shipped
+  wording only when the named published distribution’s exact release-app
+  evidence proves that feature.
 - Desktop command changes must preserve Rust-side workspace containment and run
   `cargo test --locked` in `apps/desktop/src-tauri`.
 - Platform route changes must run platform migration/auth/security gates when

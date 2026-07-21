@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2
+
+- Restored Codex CLI availability in signed installed-app builds by launching a private lifetime-bound copy of the validated native executable, avoiding the ESM /dev/fd resolution failure without weakening the existing no-symlink and TOCTOU defenses.
+- Updated applicable dependencies, including @hono/node-server 2.0.10, quinn-proto 0.11.16 with rand 0.10.2, serde_with 3.21.0, fast-uri 3.1.4, and sharp 0.35.3, to resolve the corresponding Dependabot advisories.
+
 ## 1.1.1
 
 - Fixed desktop install deep links so signed release builds reliably open the requested package flow.

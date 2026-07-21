@@ -1,11 +1,15 @@
 # Feature Catalog
 
-Checked at: 2026-07-21 NZST
+Checked at: 2026-07-22 NZST
 
 This catalog documents the product features that are currently expected to be
-maintained for Offisim prelaunch candidate `1.1.1`. Each feature entry names the
-user value, owner paths, persistence/contracts, and verification. Engine wording
-below means **source implemented** unless a published distribution is named.
+maintained for Offisim prepared patch candidate `1.1.2`. Each feature entry names
+the user value, owner paths, persistence/contracts, and verification. Engine
+wording below means **source implemented** unless a published distribution is
+named. As of **2026-07-22**, `v1.1.1` is the latest stable published release.
+Version `1.1.2` is the current prepared patch candidate and is not yet
+published. Use ships/shipped wording only when the named published
+distribution’s exact release-app evidence proves that feature.
 
 ## Company Lifecycle
 
@@ -86,9 +90,10 @@ Data/contracts:
   for Offisim-owned official entries and optional for user-configured models;
   external CLIs own their model selection.
 - Historical release `.app` evidence (for example 2026-07-17 T16 /
-  Claude orchestration) remains under the matching old commit and app SHA.
-  Current `1.1.1` candidate release evidence is pending. Do not use
-  ships/shipped wording until a published distribution exists.
+  Claude orchestration, and published `v1.1.1`) remains under the matching
+  commit and app SHA. `1.1.2` source contains the post-`v1.1.1` installed-app
+  Codex launch correction; exact `1.1.2` release-app/distribution evidence is
+  pending and must not reuse `v1.1.1` evidence to prove that fix path.
 
 Verification:
 
@@ -335,10 +340,11 @@ Verification:
 - `pnpm security:harness`
 - `pnpm platform:migration:drift` when platform schema changes
 - install-core or registry-client targeted harnesses when install contracts move
-- Current `1.1.1` candidate: source implementation and automated deep-link gate
-  are verified; macOS release cold-start and running-app invoke against an
-  `/Applications` install remain pending live evidence and must not be claimed
-  from harness-only results. Do not claim automatic install.
+- Prepared `1.1.2` candidate: source implementation and automated deep-link gate
+  are verified; macOS release cold-start and running-app invoke against a
+  notarized/installed `v1.1.2` `/Applications` target remain pending live
+  evidence and must not be claimed from harness-only results. Do not claim
+  automatic install.
 
 ## Studio
 

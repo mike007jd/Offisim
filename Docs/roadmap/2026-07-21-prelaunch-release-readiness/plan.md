@@ -2,7 +2,12 @@
 
 状态：`IN PROGRESS`
 
-当前候选版本：`1.1.1`（tag `v1.1.1`）。用户已显式授权 push、Apple 公证、GitHub Release、`/Applications` 安装以及公开仓库安全基线与 ruleset 变更；本轮目标是完成正式发布并保留可复现、可审查、可真实验收的证据。
+当前候选版本：`1.1.2`（prepared corrective candidate）。As of **2026-07-22**,
+`v1.1.1` is the latest stable published release；其 tag 指向历史发布 commit 且
+保持 unchanged。Version `1.1.2` is the current prepared patch candidate and is
+not yet published。`1.1.2` 的 tagging、notarization、GitHub publication、
+replacement installation 等待显式 `v1.1.2` authorization；本轮仅做机械版本/
+文档准备，不得写成 authorized candidate 或已发布。
 
 ## 已拍板执行方向
 
@@ -16,7 +21,7 @@
 | 字段 | 当前值 |
 |---|---|
 | `APP_ROOT` | `/Users/haoshengli/Seafile/WebWorkSpace/Offisim` |
-| `CANDIDATE_VERSION` | `1.1.1` |
+| `CANDIDATE_VERSION` | `1.1.2` |
 | `DEFAULT_BRANCH` | `main` |
 | `RELEASE_GATE_CMD` | `pnpm release:run` |
 | `BUILD_CMD` | `pnpm --filter @offisim/desktop build`（由 `release:run` 在清理产物后调用） |
@@ -35,7 +40,7 @@
 4. Conversation 与附件：语义标题、历史恢复、图片/文本附件被真实引擎消费，输出与来源可追溯。
 5. Mission / Loops / compare：自然语言生成 Loop、发送 Mission、执行/恢复、比稿、采纳与隔离 worktree 清理。
 6. 全 surface 日常使用：Office、Board/Timeline/Review/Compare、Conversation、Personnel、Market、Studio、Settings、Loops 在宽/窄窗口覆盖 onboarding/empty/loading/error/success。
-7. Distribution recovery：签名/公证/更新链、启动 safe mode、诊断导出与受控 reset；远程发布、公证提交、安装与实机验证已获授权，必须全部闭环并留证。
+7. Distribution recovery：签名/公证/更新链、启动 safe mode、诊断导出与受控 reset；`1.1.2` 的远程发布、公证提交、安装替换与实机验证等待显式 `v1.1.2` authorization，授权后必须全部闭环并留证，且不得复用 `v1.1.1` evidence 证明新修复路径。
 
 ## 完成口径
 
