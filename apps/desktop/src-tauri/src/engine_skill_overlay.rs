@@ -5,7 +5,52 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(test)]
+use std::cell::RefCell;
+
 static NEXT_OVERLAY_ID: AtomicU64 = AtomicU64::new(1);
+
+#[cfg(test)]
+thread_local! {
+    static AFTER_OVERLAY_ROOT_OPENED_HOOK: RefCell<Option<Box<dyn FnOnce(&Path)>>> =
+        RefCell::new(None);
+    static AFTER_OVERLAY_SKILLS_ROOT_OPENED_HOOK: RefCell<Option<Box<dyn FnOnce(&Path)>>> =
+        RefCell::new(None);
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+pub(crate) fn set_after_overlay_root_opened_hook(hook: impl FnOnce(&Path) + 'static) {
+    AFTER_OVERLAY_ROOT_OPENED_HOOK.with(|slot| {
+        *slot.borrow_mut() = Some(Box::new(hook));
+    });
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+pub(crate) fn set_after_overlay_skills_root_opened_hook(hook: impl FnOnce(&Path) + 'static) {
+    AFTER_OVERLAY_SKILLS_ROOT_OPENED_HOOK.with(|slot| {
+        *slot.borrow_mut() = Some(Box::new(hook));
+    });
+}
+
+#[cfg(test)]
+fn run_after_overlay_root_opened_hook(root: &Path) {
+    AFTER_OVERLAY_ROOT_OPENED_HOOK.with(|slot| {
+        if let Some(hook) = slot.borrow_mut().take() {
+            hook(root);
+        }
+    });
+}
+
+#[cfg(test)]
+fn run_after_overlay_skills_root_opened_hook(root: &Path) {
+    AFTER_OVERLAY_SKILLS_ROOT_OPENED_HOOK.with(|slot| {
+        if let Some(hook) = slot.borrow_mut().take() {
+            hook(root);
+        }
+    });
+}
 
 const PROJECT_SKILL_PREFIXES: &[&str] =
     &[".claude/skills/", ".agents/skills/", ".opencode/skills/"];
@@ -20,6 +65,8 @@ pub(crate) struct EngineSkillOverlay {
     root: PathBuf,
     load_path: PathBuf,
     project_experience_path: Option<PathBuf>,
+    #[cfg(unix)]
+    root_directory: fs::File,
 }
 
 pub(crate) struct ResolvedEngineSkill {
@@ -54,6 +101,11 @@ impl EngineSkillOverlay {
 
 impl Drop for EngineSkillOverlay {
     fn drop(&mut self) {
+        #[cfg(unix)]
+        if opened_directory_matches_path(&self.root_directory, &self.root) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+        #[cfg(not(unix))]
         let _ = fs::remove_dir_all(&self.root);
     }
 }
@@ -347,17 +399,253 @@ fn errno_location() -> *mut libc::c_int {
 }
 
 #[cfg(unix)]
-fn copy_open_file(source: &fs::File, destination: &Path) -> Result<(), String> {
+fn path_component(name: &std::ffi::OsStr, label: &str) -> Result<std::ffi::CString, String> {
+    use std::os::unix::ffi::OsStrExt;
+
+    if name.is_empty() || name.as_bytes() == b"." || name.as_bytes() == b".." {
+        return Err(format!("{label} is not a safe path component."));
+    }
+    std::ffi::CString::new(name.as_bytes()).map_err(|_| format!("{label} contains a NUL byte."))
+}
+
+#[cfg(unix)]
+fn inspect_entry_at(parent: &fs::File, name: &std::ffi::CString) -> Result<libc::stat, String> {
+    use std::os::fd::AsRawFd;
+
+    let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+    let result = unsafe {
+        libc::fstatat(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            stat.as_mut_ptr(),
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    };
+    if result < 0 {
+        return Err("Inspect engine skill overlay entry.".into());
+    }
+    Ok(unsafe { stat.assume_init() })
+}
+
+#[cfg(unix)]
+fn create_directory_at(
+    parent: &fs::File,
+    name: &std::ffi::OsStr,
+    label: &str,
+) -> Result<fs::File, String> {
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::unix::fs::MetadataExt;
+
+    let name = path_component(name, label)?;
+    let created = unsafe { libc::mkdirat(parent.as_raw_fd(), name.as_ptr(), 0o700) };
+    if created < 0 {
+        return Err(format!("Create {label}."));
+    }
+    let initial = inspect_entry_at(parent, &name)?;
+    let descriptor = unsafe {
+        libc::openat(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+        )
+    };
+    if descriptor < 0 {
+        return Err(format!("Open {label} without following symbolic links."));
+    }
+    let directory = fs::File::from(unsafe { OwnedFd::from_raw_fd(descriptor) });
+    let opened = directory
+        .metadata()
+        .map_err(|_| format!("Inspect opened {label}."))?;
+    let live = inspect_entry_at(parent, &name)?;
+    if initial.st_mode & libc::S_IFMT != libc::S_IFDIR
+        || live.st_mode & libc::S_IFMT != libc::S_IFDIR
+        || initial.st_dev as u64 != opened.dev()
+        || initial.st_ino as u64 != opened.ino()
+        || live.st_dev as u64 != opened.dev()
+        || live.st_ino as u64 != opened.ino()
+    {
+        return Err(format!("{label} changed during creation."));
+    }
+    Ok(directory)
+}
+
+#[cfg(unix)]
+fn create_file_at(
+    parent: &fs::File,
+    name: &std::ffi::OsStr,
+    mode: libc::mode_t,
+    label: &str,
+) -> Result<fs::File, String> {
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+
+    let name = path_component(name, label)?;
+    let descriptor = unsafe {
+        libc::openat(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            libc::O_WRONLY
+                | libc::O_CREAT
+                | libc::O_EXCL
+                | libc::O_NOFOLLOW
+                | libc::O_CLOEXEC
+                | libc::O_NONBLOCK,
+            mode as libc::c_uint,
+        )
+    };
+    if descriptor < 0 {
+        return Err(format!("Create {label}."));
+    }
+    Ok(fs::File::from(unsafe { OwnedFd::from_raw_fd(descriptor) }))
+}
+
+#[cfg(unix)]
+struct OpenedOverlayEntry {
+    parent: fs::File,
+    name: std::ffi::OsString,
+    entry: fs::File,
+    directory: bool,
+}
+
+#[cfg(unix)]
+fn remember_opened_entry(
+    entries: &mut Vec<OpenedOverlayEntry>,
+    parent: &fs::File,
+    name: &std::ffi::OsStr,
+    entry: &fs::File,
+    directory: bool,
+) -> Result<(), String> {
+    entries.push(OpenedOverlayEntry {
+        parent: parent
+            .try_clone()
+            .map_err(|_| "Retain engine overlay parent descriptor.".to_string())?,
+        name: name.to_os_string(),
+        entry: entry
+            .try_clone()
+            .map_err(|_| "Retain engine overlay entry descriptor.".to_string())?,
+        directory,
+    });
+    Ok(())
+}
+
+#[cfg(unix)]
+fn create_tracked_directory_at(
+    entries: &mut Vec<OpenedOverlayEntry>,
+    parent: &fs::File,
+    name: &std::ffi::OsStr,
+    label: &str,
+) -> Result<fs::File, String> {
+    let directory = create_directory_at(parent, name, label)?;
+    remember_opened_entry(entries, parent, name, &directory, true)?;
+    Ok(directory)
+}
+
+#[cfg(unix)]
+fn create_tracked_file_at(
+    entries: &mut Vec<OpenedOverlayEntry>,
+    parent: &fs::File,
+    name: &std::ffi::OsStr,
+    mode: libc::mode_t,
+    label: &str,
+) -> Result<fs::File, String> {
+    let file = create_file_at(parent, name, mode, label)?;
+    remember_opened_entry(entries, parent, name, &file, false)?;
+    Ok(file)
+}
+
+#[cfg(unix)]
+fn verify_opened_entries(entries: &[OpenedOverlayEntry]) -> Result<(), String> {
+    use std::os::unix::fs::MetadataExt;
+
+    for expected in entries {
+        let name = path_component(&expected.name, "engine overlay entry")?;
+        let live = inspect_entry_at(&expected.parent, &name)?;
+        let opened = expected
+            .entry
+            .metadata()
+            .map_err(|_| "Inspect retained engine overlay entry.".to_string())?;
+        let expected_type = if expected.directory {
+            libc::S_IFDIR
+        } else {
+            libc::S_IFREG
+        };
+        if live.st_mode & libc::S_IFMT != expected_type
+            || live.st_dev as u64 != opened.dev()
+            || live.st_ino as u64 != opened.ino()
+            || (!expected.directory && opened.nlink() != 1)
+        {
+            return Err("Engine skill overlay entry changed during materialization.".into());
+        }
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn opened_directory_matches_path(directory: &fs::File, path: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+
+    let Ok(opened) = directory.metadata() else {
+        return false;
+    };
+    let Ok(live) = fs::symlink_metadata(path) else {
+        return false;
+    };
+    !live.file_type().is_symlink()
+        && live.is_dir()
+        && live.dev() == opened.dev()
+        && live.ino() == opened.ino()
+}
+
+#[cfg(unix)]
+fn create_overlay_root() -> Result<(PathBuf, fs::File), String> {
+    let temp_parent = std::env::temp_dir()
+        .canonicalize()
+        .map_err(|_| "Resolve engine skill overlay parent.".to_string())?;
+    let parent = open_directory_without_symlinks(&temp_parent)?;
+    if !opened_directory_matches_path(&parent, &temp_parent) {
+        return Err("Engine skill overlay parent changed during access.".into());
+    }
+    let suffix = NEXT_OVERLAY_ID.fetch_add(1, Ordering::Relaxed);
+    let created_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "Create unique engine skill overlay id.".to_string())?
+        .as_nanos();
+    let name = format!(
+        "offisim-engine-skills-{}-{created_at}-{suffix}",
+        std::process::id()
+    );
+    let root_directory = create_directory_at(
+        &parent,
+        std::ffi::OsStr::new(&name),
+        "engine skill overlay root",
+    )?;
+    let root = temp_parent.join(name);
+    if !opened_directory_matches_path(&parent, &temp_parent)
+        || !opened_directory_matches_path(&root_directory, &root)
+    {
+        return Err("Engine skill overlay root changed during creation.".into());
+    }
+    Ok((root, root_directory))
+}
+
+#[cfg(unix)]
+fn copy_open_file(
+    source: &fs::File,
+    destination: &fs::File,
+    name: &std::ffi::OsStr,
+    entries: &mut Vec<OpenedOverlayEntry>,
+) -> Result<(), String> {
     use std::os::unix::fs::FileExt;
 
     let metadata = source
         .metadata()
         .map_err(|_| "Inspect opened employee skill file.".to_string())?;
-    let mut target = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(destination)
-        .map_err(|_| "Create engine skill overlay file.".to_string())?;
+    let mut target = create_tracked_file_at(
+        entries,
+        destination,
+        name,
+        0o600,
+        "engine skill overlay file",
+    )?;
     let mut offset = 0_u64;
     let mut buffer = [0_u8; 64 * 1024];
     loop {
@@ -381,7 +669,12 @@ fn copy_open_file(source: &fs::File, destination: &Path) -> Result<(), String> {
 }
 
 #[cfg(unix)]
-fn copy_directory_entries(source: &fs::File, destination: &Path, root: bool) -> Result<(), String> {
+fn copy_directory_entries(
+    source: &fs::File,
+    destination: &fs::File,
+    root: bool,
+    entries: &mut Vec<OpenedOverlayEntry>,
+) -> Result<(), String> {
     use std::ffi::CString;
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     use std::os::unix::ffi::OsStrExt;
@@ -407,17 +700,20 @@ fn copy_directory_entries(source: &fs::File, destination: &Path, root: bool) -> 
         let metadata = entry
             .metadata()
             .map_err(|_| "Inspect opened employee skill entry.".to_string())?;
-        let target = destination.join(&name);
         if metadata.is_dir() {
-            fs::create_dir(&target)
-                .map_err(|_| "Create engine skill overlay directory.".to_string())?;
-            copy_directory_entries(&entry, &target, false)?;
+            let target = create_tracked_directory_at(
+                entries,
+                destination,
+                &name,
+                "engine skill overlay directory",
+            )?;
+            copy_directory_entries(&entry, &target, false, entries)?;
         } else if metadata.is_file() {
             use std::os::unix::fs::MetadataExt;
             if metadata.nlink() != 1 {
                 return Err("Employee skill entry must be a single-linked regular file.".into());
             }
-            copy_open_file(&entry, &target)?;
+            copy_open_file(&entry, destination, &name, entries)?;
         } else {
             return Err("Employee skill tree contains an unsupported entry type.".into());
         }
@@ -425,20 +721,23 @@ fn copy_directory_entries(source: &fs::File, destination: &Path, root: bool) -> 
     Ok(())
 }
 
-fn copy_skill_tree(source: &ResolvedEngineSkill, destination: &Path) -> Result<(), String> {
-    fs::create_dir(destination)
-        .map_err(|_| "Create engine skill overlay directory.".to_string())?;
-    #[cfg(unix)]
-    {
-        copy_open_file(&source.skill_file, &destination.join("SKILL.md"))?;
-        copy_directory_entries(&source.source_directory, destination, true)?;
-        Ok(())
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = source;
-        Err("Secure employee skill overlays are unavailable on this platform.".into())
-    }
+#[cfg(unix)]
+fn copy_skill_tree(
+    source: &ResolvedEngineSkill,
+    destination: &fs::File,
+    name: &std::ffi::OsStr,
+    entries: &mut Vec<OpenedOverlayEntry>,
+) -> Result<(), String> {
+    let target =
+        create_tracked_directory_at(entries, destination, name, "engine skill overlay directory")?;
+    copy_open_file(
+        &source.skill_file,
+        &target,
+        std::ffi::OsStr::new("SKILL.md"),
+        entries,
+    )?;
+    copy_directory_entries(&source.source_directory, &target, true, entries)?;
+    Ok(())
 }
 
 pub(crate) fn materialize_engine_context_overlay(
@@ -452,82 +751,124 @@ pub(crate) fn materialize_engine_context_overlay(
     if skill_files.is_empty() && project_experience.is_none() {
         return Ok(None);
     }
-    let suffix = NEXT_OVERLAY_ID.fetch_add(1, Ordering::Relaxed);
-    let created_at = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| "Create unique engine skill overlay id.".to_string())?
-        .as_nanos();
-    let root = std::env::temp_dir().join(format!(
-        "offisim-engine-skills-{}-{created_at}-{suffix}",
-        std::process::id(),
-    ));
-    let mut root_builder = fs::DirBuilder::new();
+    #[cfg(not(unix))]
+    {
+        let _ = (skill_files, kind, project_experience);
+        return Err("Secure engine context overlays are unavailable on this platform.".into());
+    }
     #[cfg(unix)]
     {
-        use std::os::unix::fs::DirBuilderExt;
-        root_builder.mode(0o700);
-    }
-    root_builder
-        .create(&root)
-        .map_err(|_| "Create engine skill overlay.".to_string())?;
-    let mut project_experience_path = None;
-    let materialized = (|| {
-        let skills_root = match kind {
-            EngineSkillOverlayKind::CodexHome => root.join(".agents/skills"),
-            EngineSkillOverlayKind::ClaudePlugin => {
-                let manifest_dir = root.join(".claude-plugin");
-                fs::create_dir_all(&manifest_dir)
-                    .map_err(|_| "Create Claude skill plugin metadata directory.".to_string())?;
-                fs::write(
-                    manifest_dir.join("plugin.json"),
-                    r#"{"name":"offisim-employee-skills","description":"Skills selected by Offisim for this run","version":"1.0.0"}"#,
-                )
-                .map_err(|_| "Write Claude skill plugin manifest.".to_string())?;
-                root.join("skills")
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+        let (root, root_directory) = create_overlay_root()?;
+        #[cfg(test)]
+        run_after_overlay_root_opened_hook(&root);
+        let mut project_experience_path = None;
+        let mut opened_entries = Vec::new();
+        let materialized = (|| {
+            let (skills_root, _skills_root_path) = match kind {
+                EngineSkillOverlayKind::CodexHome => {
+                    let agents = create_tracked_directory_at(
+                        &mut opened_entries,
+                        &root_directory,
+                        std::ffi::OsStr::new(".agents"),
+                        "Codex overlay metadata directory",
+                    )?;
+                    (
+                        create_tracked_directory_at(
+                            &mut opened_entries,
+                            &agents,
+                            std::ffi::OsStr::new("skills"),
+                            "engine skills directory",
+                        )?,
+                        root.join(".agents/skills"),
+                    )
+                }
+                EngineSkillOverlayKind::ClaudePlugin => {
+                    let manifest_directory = create_tracked_directory_at(
+                        &mut opened_entries,
+                        &root_directory,
+                        std::ffi::OsStr::new(".claude-plugin"),
+                        "Claude skill plugin metadata directory",
+                    )?;
+                    let mut manifest = create_tracked_file_at(
+                        &mut opened_entries,
+                        &manifest_directory,
+                        std::ffi::OsStr::new("plugin.json"),
+                        0o600,
+                        "Claude skill plugin manifest",
+                    )?;
+                    manifest
+                        .write_all(
+                            r#"{"name":"offisim-employee-skills","description":"Skills selected by Offisim for this run","version":"1.0.0"}"#
+                                .as_bytes(),
+                        )
+                        .map_err(|_| "Write Claude skill plugin manifest.".to_string())?;
+                    (
+                        create_tracked_directory_at(
+                            &mut opened_entries,
+                            &root_directory,
+                            std::ffi::OsStr::new("skills"),
+                            "engine skills directory",
+                        )?,
+                        root.join("skills"),
+                    )
+                }
+            };
+            #[cfg(test)]
+            run_after_overlay_skills_root_opened_hook(&_skills_root_path);
+            for (index, skill_file) in skill_files.iter().enumerate() {
+                let source = skill_file
+                    .skill_file_path
+                    .parent()
+                    .ok_or_else(|| "Resolve employee skill directory.".to_string())?;
+                let name = safe_directory_name(source, index + 1);
+                copy_skill_tree(
+                    skill_file,
+                    &skills_root,
+                    std::ffi::OsStr::new(&name),
+                    &mut opened_entries,
+                )?;
             }
-        };
-        fs::create_dir_all(&skills_root)
-            .map_err(|_| "Create engine skills directory.".to_string())?;
-        for (index, skill_file) in skill_files.iter().enumerate() {
-            let source = skill_file
-                .skill_file_path
-                .parent()
-                .ok_or_else(|| "Resolve employee skill directory.".to_string())?;
-            copy_skill_tree(
-                skill_file,
-                &skills_root.join(safe_directory_name(source, index + 1)),
-            )?;
-        }
-        if let Some(project_experience) = project_experience {
-            let path = root.join("OFFISIM_PROJECT_EXPERIENCE.md");
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&path)
-                .map_err(|_| "Create employee Project experience overlay.".to_string())?;
-            file.write_all(project_experience.as_bytes())
-                .map_err(|_| "Write employee Project experience overlay.".to_string())?;
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
+            if let Some(project_experience) = project_experience {
+                let path = root.join("OFFISIM_PROJECT_EXPERIENCE.md");
+                let mut file = create_tracked_file_at(
+                    &mut opened_entries,
+                    &root_directory,
+                    std::ffi::OsStr::new("OFFISIM_PROJECT_EXPERIENCE.md"),
+                    0o600,
+                    "employee Project experience overlay",
+                )?;
+                file.write_all(project_experience.as_bytes())
+                    .map_err(|_| "Write employee Project experience overlay.".to_string())?;
                 file.set_permissions(fs::Permissions::from_mode(0o444))
                     .map_err(|_| {
                         "Make employee Project experience overlay read-only.".to_string()
                     })?;
+                project_experience_path = Some(path);
             }
-            project_experience_path = Some(path);
+            let metadata = root_directory
+                .metadata()
+                .map_err(|_| "Inspect completed engine skill overlay root.".to_string())?;
+            verify_opened_entries(&opened_entries)?;
+            if metadata.nlink() == 0 || !opened_directory_matches_path(&root_directory, &root) {
+                return Err("Engine skill overlay root changed during materialization.".into());
+            }
+            Ok::<(), String>(())
+        })();
+        if let Err(error) = materialized {
+            if opened_directory_matches_path(&root_directory, &root) {
+                let _ = fs::remove_dir_all(&root);
+            }
+            return Err(error);
         }
-        Ok::<(), String>(())
-    })();
-    if let Err(error) = materialized {
-        let _ = fs::remove_dir_all(&root);
-        return Err(error);
+        Ok(Some(EngineSkillOverlay {
+            load_path: root.clone(),
+            root,
+            project_experience_path,
+            root_directory,
+        }))
     }
-    Ok(Some(EngineSkillOverlay {
-        load_path: root.clone(),
-        root,
-        project_experience_path,
-    }))
 }
 
 #[cfg(test)]
