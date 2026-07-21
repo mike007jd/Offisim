@@ -101,6 +101,8 @@ function StageViewPane({
   split?: boolean;
 } & StageRunStatusProps) {
   const ownsChrome = tab === 'preview' && target?.kind === 'browser-session';
+  const boardLens = useUiState((state) => state.boardLens);
+  const accessibleTitle = tab === 'board' && boardLens === 'timeline' ? 'Timeline' : viewerTitle(tab);
   return (
     <StageChromeProvider>
       <section
@@ -109,7 +111,7 @@ function StageViewPane({
           split && 'is-split',
           ownsChrome && 'is-surface-chrome',
         )}
-        aria-label={split ? `Pinned ${viewerTitle(tab)} view` : `${viewerTitle(tab)} view`}
+        aria-label={split ? `Pinned ${accessibleTitle} view` : `${accessibleTitle} view`}
       >
         {ownsChrome ? null : (
           <StageViewerHead

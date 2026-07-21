@@ -421,7 +421,10 @@ export function StageViewerHead({
   const closeStageView = useUiState((s) => s.closeStageView);
   const closeStageTab = useUiState((s) => s.closeStageTab);
   const toggleStageSplitTab = useUiState((s) => s.toggleStageSplitTab);
+  const boardLens = useUiState((s) => s.boardLens);
   const chrome = useStageChrome();
+  const accessibleTitle =
+    tab === 'board' && boardLens === 'timeline' ? 'Timeline' : viewerTitle(tab);
   return (
     <div className="off-stage-viewer-head">
       <ViewerIcon tab={tab} />
@@ -450,7 +453,7 @@ export function StageViewerHead({
           type="button"
           className="off-stage-viewer-close off-focusable"
           onClick={() => (split && tabId ? closeStageTab(tabId) : closeStageView())}
-          aria-label={`Close ${viewerTitle(tab)} view`}
+          aria-label={`Close ${accessibleTitle} view`}
           title="Close view"
         >
           <Icon icon={X} size="sm" />
