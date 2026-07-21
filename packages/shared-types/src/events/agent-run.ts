@@ -556,7 +556,20 @@ function parseBrowserTitle(texts: readonly string[], url?: string): string | und
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean)) {
-      const labelled = line.match(/^(?:title|pageTitle)\s*[:=-]\s*(.+)$/i)?.[1]?.trim();
+      const lower = line.toLowerCase();
+      const prefix = lower.startsWith('pagetitle')
+        ? 'pagetitle'
+        : lower.startsWith('title')
+          ? 'title'
+          : undefined;
+      let labelled: string | undefined;
+      if (prefix) {
+        let cursor = prefix.length;
+        while (line[cursor] === ' ' || line[cursor] === '\t') cursor += 1;
+        if (line[cursor] === ':' || line[cursor] === '=' || line[cursor] === '-') {
+          labelled = line.slice(cursor + 1).trim();
+        }
+      }
       if (labelled) return labelled;
     }
   }

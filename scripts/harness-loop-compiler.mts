@@ -16,6 +16,7 @@ const h = createHarness();
 import assert from 'node:assert/strict';
 import {
   buildLoopExecutionPacket,
+  generalWorkProfile,
   softwareDevelopmentProfile,
 } from '../packages/core/src/loops/index.ts';
 import type {
@@ -48,6 +49,109 @@ function baseContext(inspected = true): LoopCompileInput['context'] {
     repository: { root: '/repo', defaultBranch: 'main', inspected },
   };
 }
+
+await check(
+  'general-work preserves cadence, actions, exit, retry, and escalation semantics',
+  async () => {
+    const sourcePrompt =
+      'Every weekday, review changed Markdown files, update stale project documentation, run the docs checks, and stop when all checks pass; after three failed attempts, ask me for help.';
+    const result = await generalWorkProfile.compile(
+      { sourcePrompt, context: baseContext() },
+      fixedModel({
+        structuredHints: { title: 'Docs upkeep', outcome: 'Docs stay current', tier: 'light' },
+      }),
+    );
+
+    assert.equal(result.status, 'ready');
+    assert.deepEqual(
+      result.ir?.nodes
+        .filter((node) => node.id.startsWith('n_step_'))
+        .map(({ kind, label }) => ({ kind, label })),
+      [
+        { kind: 'action', label: 'Review changed Markdown files' },
+        { kind: 'action', label: 'Update stale project documentation' },
+        { kind: 'action', label: 'Run the docs checks' },
+      ],
+    );
+    assert.equal(result.ir?.profileData?.cadence, 'Every weekday');
+    assert.equal(result.ir?.profileData?.retryLimit, 3);
+    assert.equal(result.ir?.nodes.find((node) => node.id === 'n_decide')?.label, 'All checks pass');
+    assert.equal(result.ir?.nodes.find((node) => node.id === 'n_help')?.label, 'Ask me for help');
+    assert.deepEqual(
+      result.ir?.edges.find((edge) => edge.id === 'e_retry'),
+      {
+        id: 'e_retry',
+        from: 'n_decide',
+        to: 'n_step_1',
+        kind: 'retry',
+        label: 'not yet',
+        maxRetries: 3,
+      },
+    );
+    assert.equal(
+      result.ir?.edges.find((edge) => edge.id === 'e_escalate')?.label,
+      'after 3 attempts',
+    );
+  },
+);
+
+await check('general-work parsing stays linear on adversarial whitespace', async () => {
+  const repeatedWhitespace = '\t'.repeat(2_000);
+  const prompts = [
+    `if ${repeatedWhitespace}!`,
+    `do${repeatedWhitespace}!`,
+    `do the work; after 3 failed attempts ${repeatedWhitespace}!`,
+    `every cycle, inspect${repeatedWhitespace}!, and stop when complete`,
+  ];
+  const startedAt = performance.now();
+  for (const sourcePrompt of prompts) {
+    const result = await generalWorkProfile.compile(
+      { sourcePrompt, context: baseContext() },
+      fixedModel({
+        structuredHints: {
+          title: 'Adversarial whitespace',
+          outcome: 'The parser returns deterministically',
+          tier: 'light',
+        },
+      }),
+    );
+    assert.equal(result.status, 'ready');
+  }
+  const elapsedMs = performance.now() - startedAt;
+  assert.ok(elapsedMs < 1_000, `adversarial parsing took ${elapsedMs.toFixed(1)}ms`);
+});
+
+await check('general-work preserves exit and escalation punctuation variants', async () => {
+  const compile = (sourcePrompt: string) =>
+    generalWorkProfile.compile(
+      { sourcePrompt, context: baseContext() },
+      fixedModel({
+        structuredHints: {
+          title: 'Parser semantics',
+          outcome: 'The requested flow is preserved',
+          tier: 'light',
+        },
+      }),
+    );
+
+  const whenever = await compile('review docs and stop whenever blocked');
+  assert.equal(whenever.status, 'ready');
+  assert.deepEqual(
+    whenever.ir?.nodes.filter((node) => node.id.startsWith('n_step_')).map((node) => node.label),
+    ['Review docs'],
+  );
+
+  for (const separator of [';', '.']) {
+    const escalated = await compile(
+      `review docs; after three failed attempts${separator} notify the owner`,
+    );
+    assert.equal(escalated.status, 'ready');
+    assert.equal(
+      escalated.ir?.nodes.find((node) => node.id === 'n_help')?.label,
+      'Notify the owner',
+    );
+  }
+});
 
 // ---------------------------------------------------------------------------
 // 1. Rough software request → valid IR with feedback/retry/exit/budget.
@@ -644,9 +748,9 @@ await check('buildLoopExecutionPacket is deterministic for the same revision', a
 });
 
 if (h.failures > 0) {
-  console.error(`\nloop-compiler: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+  console.error(`\nloop-compiler: ${h.checks - h.failures} passed, ${h.failures} failed`);
   process.exit(1);
 }
-console.log(`\nloop-compiler: ${(h.checks - h.failures)} checks passed`);
+console.log(`\nloop-compiler: ${h.checks - h.failures} checks passed`);
 
 if (!process.exitCode) h.report();

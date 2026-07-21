@@ -22,10 +22,17 @@ export function extractJsonFromLlm<T = unknown>(text: string): T | null {
   }
 
   // 2. Markdown code block: ```json ... ``` or ``` ... ```
-  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch?.[1]) {
+  const fenceStart = trimmed.indexOf('```');
+  if (fenceStart >= 0) {
+    let contentStart = fenceStart + 3;
+    if (trimmed.slice(contentStart, contentStart + 4).toLowerCase() === 'json') {
+      contentStart += 4;
+    }
+    while (/\s/u.test(trimmed[contentStart] ?? '')) contentStart += 1;
+    const fenceEnd = trimmed.indexOf('```', contentStart);
+    const codeBlock = fenceEnd >= 0 ? trimmed.slice(contentStart, fenceEnd).trim() : '';
     try {
-      return JSON.parse(codeBlockMatch[1].trim()) as T;
+      if (codeBlock) return JSON.parse(codeBlock) as T;
     } catch {
       // Fall through
     }

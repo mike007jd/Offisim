@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 export const PI_EXECUTION_ADAPTER = Object.freeze({ id: 'pi-agent', version: '0.80.9' });
 export const EXECUTION_TARGET_ACK_TIMEOUT_MS = 15_000;
@@ -32,7 +32,9 @@ function optionalModelSource(value) {
       throw new Error();
     }
   } catch {
-    throw executionError('Official API model provenance must include an HTTPS source and checkedAt.');
+    throw executionError(
+      'Official API model provenance must include an HTTPS source and checkedAt.',
+    );
   }
   return {
     kind: 'official-api',
@@ -92,7 +94,11 @@ async function providerAccountMaterial(authStorage, modelRegistry, model, provid
     resolvedSecret = resolved?.ok ? nonEmpty(resolved.apiKey) : undefined;
   }
   resolvedSecret ??= nonEmpty(await authStorage.getApiKey(provider, { includeFallback: true }));
-  return resolvedSecret ? `credential-generation:${resolvedSecret}` : undefined;
+  if (!resolvedSecret) return undefined;
+  const generationFingerprint = createHmac('sha256', resolvedSecret)
+    .update(`offisim:credential-generation:v1\0${provider}`)
+    .digest('hex');
+  return `credential-generation:hmac-sha256:${generationFingerprint}`;
 }
 
 export function runtimeModelRefFor(model) {

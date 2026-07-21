@@ -387,6 +387,21 @@ console.log('\n[D1] rich tool detail parsed by family');
       browser.screenshot?.mimeType === 'image/png' &&
       browser.screenshot.dataRef === 'data:image/png;base64,aGVsbG8=',
   );
+  const adversarialTitle = `title${'\t'.repeat(20_000)}x`;
+  const titleStartedAt = performance.now();
+  const boundedBrowser = parseToolRichDetail(
+    'mcp_call',
+    JSON.stringify({
+      content: [
+        { type: 'text', text: adversarialTitle },
+        { type: 'image', mimeType: 'image/png', data: 'aGVsbG8=' },
+      ],
+    }),
+  );
+  check(
+    'browser: adversarial title parsing stays linear',
+    boundedBrowser.family === 'browser' && performance.now() - titleStartedAt < 250,
+  );
   const textOnlyMcp = parseToolRichDetail(
     'mcp_call',
     JSON.stringify({ content: [{ type: 'text', text: 'https://example.com' }] }),

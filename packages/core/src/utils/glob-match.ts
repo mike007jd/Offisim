@@ -61,7 +61,7 @@ export function globToRegexPath(pattern: string, options?: { caseSensitive?: boo
     } else if (char === '?') {
       parts.push('.');
     } else {
-      parts.push(char.replace(/[.+^${}()|[\]\\]/u, '\\$&'));
+      parts.push('.+^${}()|[]\\'.includes(char) ? `\\${char}` : char);
     }
   }
   parts.push('$');

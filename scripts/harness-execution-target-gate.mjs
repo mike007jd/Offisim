@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   createChildSupervisor,
@@ -19,8 +19,11 @@ const modelSource = Object.freeze({
   checkedAt: '2026-07-14T00:00:00Z',
 });
 const secret = 'fixture-secret';
+const generationFingerprint = createHmac('sha256', secret)
+  .update(`offisim:credential-generation:v1\0${provider}`)
+  .digest('hex');
 const fingerprint = createHash('sha256')
-  .update(`${provider}\0api\0credential-generation:${secret}`)
+  .update(`${provider}\0api\0credential-generation:hmac-sha256:${generationFingerprint}`)
   .digest('hex')
   .slice(0, 16);
 const expectedTarget = Object.freeze({
