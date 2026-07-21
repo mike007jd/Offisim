@@ -31,7 +31,7 @@ export interface ReviewSummary {
   markdown: string;
 }
 
-export function emptyReviewWorkbenchState(revision: string): ReviewWorkbenchState {
+function emptyReviewWorkbenchState(revision: string): ReviewWorkbenchState {
   return { revision, decisions: {}, annotations: [], appliedReturnAnchors: [] };
 }
 

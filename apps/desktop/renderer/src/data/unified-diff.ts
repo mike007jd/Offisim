@@ -1,4 +1,4 @@
-export type UnifiedDiffFileStatus = 'modified' | 'added' | 'deleted' | 'renamed';
+type UnifiedDiffFileStatus = 'modified' | 'added' | 'deleted' | 'renamed';
 
 export interface UnifiedDiffLine {
   id: string;
@@ -44,7 +44,7 @@ export interface UnifiedDiffDocument {
   revision: string;
 }
 
-export interface UnifiedDiffInput {
+interface UnifiedDiffInput {
   path?: string;
   diff: string;
 }
@@ -391,12 +391,4 @@ export function buildUnifiedPatch(file: UnifiedDiffFile, hunkIds?: readonly stri
   return withTrailingNewline(
     [...file.headers, ...hunks.flatMap((hunk) => splitLines(hunk.patch))].join('\n'),
   );
-}
-
-export function buildReviewPatch(
-  file: UnifiedDiffFile,
-  hunk?: UnifiedDiffHunk | readonly string[],
-): string {
-  if (hunk === undefined) return buildUnifiedPatch(file);
-  return buildUnifiedPatch(file, 'id' in hunk ? [hunk.id] : hunk);
 }

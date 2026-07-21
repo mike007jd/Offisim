@@ -1,10 +1,7 @@
 import { buildEnhanceRequest, runEnhance } from '@/assistant/enhance/service.js';
 import { createTauriEnhanceTransport } from '@/assistant/enhance/tauri-enhance-transport.js';
 import { containsSensitiveText, redactSecrets } from '@/data/redact-secrets.js';
-export {
-  EMPLOYEE_MEMORY_TYPE_LABELS,
-  buildProjectExperienceSection,
-} from '@/data/employee-project-memory-format.js';
+export { buildProjectExperienceSection } from '@/data/employee-project-memory-format.js';
 import type {
   AgentRunRow,
   CompetitiveDraftAttemptRow,

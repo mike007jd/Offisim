@@ -2,7 +2,7 @@ import type { EmployeeProjectMemoryRow, EmployeeProjectMemoryType } from '@offis
 
 const EMPLOYEE_PROJECT_EXPERIENCE_TOKEN_BUDGET = 1_500;
 
-export const EMPLOYEE_MEMORY_TYPE_LABELS: Record<EmployeeProjectMemoryType, string> = {
+const EMPLOYEE_MEMORY_TYPE_LABELS: Record<EmployeeProjectMemoryType, string> = {
   pitfall: 'Pitfall',
   repository_preference: 'Repository preference',
   convention: 'Convention',

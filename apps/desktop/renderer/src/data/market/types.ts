@@ -13,7 +13,7 @@ export type ManageView = 'installed' | 'updates' | 'published';
 export type RiskClass = 'data' | 'logic' | 'system';
 export type FsScope = 'none' | 'workspace' | 'system';
 export type NetScope = 'none' | 'read' | 'full';
-export type SecretScope = 'none' | 'declared';
+type SecretScope = 'none' | 'declared';
 
 interface ListingPermissions {
   risk: RiskClass;

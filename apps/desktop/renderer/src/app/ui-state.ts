@@ -7,7 +7,7 @@ type WorkspaceKey = 'office' | 'market' | 'personnel';
 type OverlaySurface = 'mission' | 'settings' | 'studio' | 'lifecycle';
 export type SurfaceKey = WorkspaceKey | OverlaySurface;
 
-export interface SurfaceLeaveRequest {
+interface SurfaceLeaveRequest {
   from: SurfaceKey;
   to: SurfaceKey;
   /** Commit the already-requested transition after the surface confirms discard. */

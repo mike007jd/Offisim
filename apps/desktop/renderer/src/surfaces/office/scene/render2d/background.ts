@@ -8,7 +8,7 @@ export interface OccupiedRect {
   y1: number;
 }
 
-export interface EmployeeHit {
+interface EmployeeHit {
   kind: 'employee';
   employeeId: string;
   threadId: string | null;
@@ -17,7 +17,7 @@ export interface EmployeeHit {
   r: number;
 }
 
-export interface RectHit {
+interface RectHit {
   kind: 'drilldown' | 'delivery' | 'delivery-chip';
   x0: number;
   y0: number;
