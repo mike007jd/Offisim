@@ -90,10 +90,6 @@ export const ROLE_REGISTRY: readonly RoleEntry[] = [
 
 // ── Derived lookups (consumers use these, never maintain their own) ──
 
-export const ROLE_TO_DEPARTMENT: ReadonlyMap<RoleSlug, Department> = new Map(
-  ROLE_REGISTRY.map((r) => [r.slug, r.department]),
-);
-
 export const SYSTEM_ROLES: ReadonlySet<RoleSlug> = new Set(
   ROLE_REGISTRY.filter((r) => r.isSystem).map((r) => r.slug),
 );

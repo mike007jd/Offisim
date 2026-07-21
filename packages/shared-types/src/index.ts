@@ -505,7 +505,6 @@ export type {
 export type { RoleSlug, Department, RoleEntry } from './roles.js';
 export {
   ROLE_REGISTRY,
-  ROLE_TO_DEPARTMENT,
   SYSTEM_ROLES,
   ROLE_LABELS,
 } from './roles.js';
