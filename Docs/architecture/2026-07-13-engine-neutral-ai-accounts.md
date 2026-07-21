@@ -1,7 +1,7 @@
 # Engine-neutral AI Accounts and Native Session Boundaries
 
-Checked at: 2026-07-21 NZST
-Status: source implemented (Pi API plus Codex and Claude Code orchestration adapters); current `1.1.1` candidate verification pending. Historical 2026-07-17 release `.app` evidence is retained under its original commit/hash below and must not be reused as current-candidate proof.
+Checked at: 2026-07-22 NZST
+Status: source implemented (Pi API plus Codex and Claude Code orchestration adapters). As of **2026-07-22**, `v1.1.1` is the latest stable published release. Version `1.1.2` is the current prepared patch candidate and is not yet published. `1.1.2` source contains the post-`v1.1.1` installed-app Codex launch correction; exact `1.1.2` release-app/distribution evidence is pending and must not reuse `v1.1.1` or earlier evidence to prove that fix path. Use ships/shipped wording only when the named published distribution’s exact release-app evidence proves that feature.
 
 ## Current implementation truth
 
@@ -122,7 +122,7 @@ provenance/metrics contracts, and the exact current-worktree release `.app` have
 all been verified. Unsupported controls must remain absent. Dev UI or localhost
 evidence is insufficient.
 
-Historical (not current `1.1.1` candidate) API-engine release proof: exact
+Historical (not current `1.1.2` candidate) API-engine release proof: exact
 worktree binary SHA-256
 `b62ae06de3280d332b7f5ccc0a180e59fe901b5cfaf85352b1a6ea299693f206`,
 verified on 2026-07-15 AEST from a fresh current-baseline database through real file tools,
@@ -161,8 +161,10 @@ Settings verification used the same 2026-07-17 T16 exact arm64 release `.app`
 status, token/cost accounting separation, and window identity. Evidence:
 `Docs/evidence/2026-07-17-t16-final-release/README.md`.
 
-Current `1.1.1` candidate source is implemented; its release `.app` verification
-remains pending and must not reuse the historical hashes above as current proof.
+Prepared `1.1.2` candidate source is implemented, including the post-`v1.1.1`
+installed-app Codex launch correction. Exact `1.1.2` release-app/distribution
+evidence remains pending and must not reuse the historical or published
+`v1.1.1` hashes above as current proof of that fix path.
 
 ## Current references checked
 

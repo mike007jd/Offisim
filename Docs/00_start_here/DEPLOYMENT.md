@@ -13,10 +13,10 @@ Offisim deploys in two pieces with very different models:
 > `apps/web` SPA host or a standalone launcher — those were removed. The only
 > server here is the platform API.
 
-As of **2026-07-22**, `v1.1.0` is the latest stable published release and the
-GitHub repository is public. The current authorized candidate is `1.1.1`
-(tag `v1.1.1`). App Updates discovers stable releases through the user's
-existing authenticated GitHub CLI session.
+As of **2026-07-22**, `v1.1.1` is the latest stable published release and the
+GitHub repository is public. Version `1.1.2` is the current prepared patch
+candidate and is not yet published. App Updates discovers stable releases
+through the user's existing authenticated GitHub CLI session.
 
 ## Platform API — Docker (optional local backend)
 
@@ -89,12 +89,17 @@ under `output/release-evidence/`. `summary.releaseEvidence` is true only when
 summary records the skip and the run does **not** count as release evidence.
 
 Signed, notarized, stapled DMG and update ZIP artifacts are published from the
-repo root with `pnpm release:publish` when explicitly authorized. Current
-candidate example:
+repo root with `pnpm release:publish` only after explicit release authorization.
+Prepared `1.1.2` candidate example (not authorized and not executed):
 
 ```bash
-pnpm release:publish -- --tag v1.1.1 --target main
+pnpm release:publish -- --tag v1.1.2 --target main --notes-file Docs/releases/v1.1.2.md
 ```
+
+The historical `v1.1.1` publish command must not be re-run: `v1.1.1` is already
+the published Latest stable, and its tag points at the historical release
+commit that must remain unchanged. The `v1.1.2` command above awaits explicit
+`v1.1.2` authorization and has not been executed.
 
 Source contract: the publisher must run on branch `main`, after refreshing
 `origin/main`, with `HEAD` exactly equal to `origin/main`, and with the GitHub
@@ -111,10 +116,10 @@ substitute.
 `--draft` is for QA only. `--allow-dirty`, `--skip-build`, and `--skip-gates`
 are permitted only together with `--draft`; those escapes are not formal
 release evidence and must not be treated as a published distribution. The
-existing `v1.1.0` release is published and notarized. This document does **not**
-claim that the `v1.1.1` GitHub Release, notarized DMG, or update ZIP has already
-been published; the command path above is the authorized contract for producing
-them.
+existing `v1.1.1` release is published and notarized. This document does **not**
+claim that the `v1.1.2` GitHub Release, notarized DMG, or update ZIP has already
+been published; tagging, notarization, GitHub publication, and replacement
+installation await explicit `v1.1.2` authorization.
 
 When authorized, the command builds and signs `Offisim.app` with
 `Developer ID Application: Haosheng Li (9MP925J67C)` from the login keychain;

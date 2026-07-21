@@ -1,6 +1,6 @@
 [package]
 name = "offisim-desktop"
-version = "1.1.1"
+version = "1.1.2"
 description = "AI Company Simulator — Desktop Runtime"
 edition = "2021"
 
