@@ -1,0 +1,17 @@
+HIT_COUNT=12
+AXWindow	36,33 1440x887	Offisim
+AXButton	274,79 67x28	New
+AXButton	61,130 199x62	W6 Memory Lab R&D COMPANY
+
+ACTIVE
+AXButton	270,132 24x24	Rename W6 Memory Lab
+AXPopUpButton	298,130 28x28	Company actions for W6 Memory Lab
+AXButton	1108,83 154x34	Enter company
+AXPopUpButton	1268,86 28x28	Company actions for W6 Memory Lab
+AXButton	536,737 91x36	Archive
+AXGroup	36,65 1440x10	Notifications alt+T
+AXButton	44,41 16x16	
+AXButton	90,41 16x16	this button also has an action to zoom the window
+AXButton	67,41 16x16	
+MATCH=Enter company @ 1185,100
+PRESS_ERR=0

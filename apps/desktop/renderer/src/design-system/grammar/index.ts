@@ -10,6 +10,16 @@ export { Chip } from './Chip.js';
 export { FieldRow } from './FieldRow.js';
 export { IconButton } from './IconButton.js';
 export {
+  Drawer,
+  DrawerBody,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from './Drawer.js';
+export {
   EngineIdentity,
   EngineMark,
   type EngineKind,

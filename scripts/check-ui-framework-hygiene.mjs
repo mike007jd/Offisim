@@ -358,6 +358,22 @@ const checks = [
     pattern: /\b(?:window\.)?(?:alert|confirm|prompt)\s*\(/,
   },
   {
+    label: 'hand-rolled menu role outside primitives',
+    dirs: ['apps/desktop/renderer/src'],
+    pattern: /role=["']menu["']/,
+    excludePrefixes: ['apps/desktop/renderer/src/design-system/primitives/'],
+  },
+  {
+    label: 'hand-rolled board drawer aside shell',
+    dirs: ['apps/desktop/renderer/src/surfaces'],
+    pattern: /<aside\b[^>]*className=["'][^"']*off-board-drawer/,
+  },
+  {
+    label: 'hand-rolled workload drill aside shell',
+    dirs: ['apps/desktop/renderer/src/surfaces'],
+    pattern: /<aside\b[^>]*className=["'][^"']*off-drill\b/,
+  },
+  {
     label: 'unapproved motion package import',
     dirs: ['apps/desktop/renderer/src'],
     pattern:

@@ -7,6 +7,14 @@ import {
 import { workKindLabel } from '@/assistant/runtime/scene-cue-projection.js';
 import { useSceneCueFrame } from '@/assistant/runtime/scene-cue-react.js';
 import { useEmployees } from '@/data/queries.js';
+import {
+  Drawer,
+  DrawerBody,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/design-system/grammar/Drawer.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { useSceneStagingInputs } from '@/surfaces/office/scene/use-scene-staging-inputs.js';
@@ -128,191 +136,200 @@ function WorkloadDrilldownPanel({ employeeId }: { employeeId: string }) {
     .map(([kind, count]) => ({ label: workKindLabel(kind), count }));
 
   return (
-    <aside className="off-drill" aria-label={`Workload for ${name}`}>
-      <header className="off-drill-head">
-        <div className="off-drill-identity">
-          <span className="off-drill-name">{name}</span>
-          <span className="off-drill-role">{role}</span>
-        </div>
-        <button
-          type="button"
-          className="off-drill-close off-focusable"
-          onClick={closeWorkloadDrilldown}
-          aria-label="Close workload drawer"
-        >
-          <Icon icon={X} size="sm" />
-        </button>
-      </header>
+    <Drawer
+      open
+      modal={false}
+      onOpenChange={(next) => {
+        if (!next) closeWorkloadDrilldown();
+      }}
+    >
+      <DrawerContent
+        className="off-drill"
+        showClose={false}
+        aria-describedby={undefined}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+      >
+        <DrawerHeader className="off-drill-head">
+          <div className="off-drill-identity">
+            <DrawerTitle className="off-drill-name">{name}</DrawerTitle>
+            <span className="off-drill-role">{role}</span>
+          </div>
+          <DrawerClose className="off-drill-close off-focusable" aria-label="Close workload drawer">
+            <Icon icon={X} size="sm" />
+          </DrawerClose>
+        </DrawerHeader>
+        <DrawerBody className="off-drill-body">
+          <div className="off-drill-summary">
+            <span className="off-drill-summary-num">{projection.activeCount}</span>
+            <span className="off-drill-summary-label">
+              active {projection.activeCount === 1 ? 'run' : 'runs'}
+              {summary.total > projection.activeCount ? ` · ${summary.total} in set` : ''}
+            </span>
+          </div>
 
-      <div className="off-drill-body">
-        <div className="off-drill-summary">
-          <span className="off-drill-summary-num">{projection.activeCount}</span>
-          <span className="off-drill-summary-label">
-            active {projection.activeCount === 1 ? 'run' : 'runs'}
-            {summary.total > projection.activeCount ? ` · ${summary.total} in set` : ''}
-          </span>
-        </div>
-
-        {statusCells.length > 0 ? (
-          <section className="off-drill-section">
-            <h3 className="off-drill-h">
-              <Icon icon={Layers} size="sm" />
-              Status
-            </h3>
-            <div className="off-drill-chips">
-              {statusCells.map((cell) => (
-                <span key={cell.key} className={cn('off-drill-chip', `is-${cell.tone}`)}>
-                  {cell.label}
-                  <b>{cell.count}</b>
-                </span>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {workKindCells.length > 0 ? (
-          <section className="off-drill-section">
-            <h3 className="off-drill-h">Work</h3>
-            <div className="off-drill-chips">
-              {workKindCells.map((cell) => (
-                <span key={cell.label} className="off-drill-chip is-work">
-                  {cell.label}
-                  <b>{cell.count}</b>
-                </span>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {dominantLabel ? (
-          <section className="off-drill-section">
-            <h3 className="off-drill-h">Latest beat</h3>
-            <p className="off-drill-beat">{dominantLabel}</p>
-          </section>
-        ) : null}
-
-        {summary.priorityIssues.length > 0 ? (
-          <section className="off-drill-section">
-            <h3 className="off-drill-h">
-              <Icon icon={TriangleAlert} size="sm" />
-              Issues
-            </h3>
-            <ul className="off-drill-issues">
-              {summary.priorityIssues.map((issue, index) => (
-                <li
-                  key={`${issue.runId}-${issue.kind}`}
-                  className={cn('off-drill-issue', `is-${issue.severity}`)}
-                >
-                  <Icon icon={issueIcon(issue)} size="sm" />
-                  <span className="off-drill-issue-label">{issue.label}</span>
-                  <span className="off-drill-issue-tags">
-                    {/* Typed strain tag — joined to the resource cue by runId
-                        (identity, never list position); index 0 is only the
-                        fallback when a runId is missing on either side. */}
-                    {issue.kind === 'resource' &&
-                    resourceCue?.resourceKind &&
-                    (resourceCue.runId && issue.runId
-                      ? resourceCue.runId === issue.runId
-                      : index === 0) ? (
-                      <em className="off-drill-tag">{resourceCue.resourceKind}</em>
-                    ) : null}
-                    {issue.terminal ? <em className="off-drill-tag">terminal</em> : null}
-                    <em className="off-drill-tag">{issue.severity}</em>
+          {statusCells.length > 0 ? (
+            <section className="off-drill-section">
+              <h3 className="off-drill-h">
+                <Icon icon={Layers} size="sm" />
+                Status
+              </h3>
+              <div className="off-drill-chips">
+                {statusCells.map((cell) => (
+                  <span key={cell.key} className={cn('off-drill-chip', `is-${cell.tone}`)}>
+                    {cell.label}
+                    <b>{cell.count}</b>
                   </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-        {artifacts.length > 0 ? (
-          <section className="off-drill-section">
-            <h3 className="off-drill-h">
-              <Icon icon={Package} size="sm" />
-              Artifacts
-              <span className="off-drill-count">{summary.artifactCount}</span>
-            </h3>
-            <ul className="off-drill-list">
-              {artifacts.map((artifact, index) => (
-                <li
-                  key={`${artifact.deliverableId ?? artifact.path ?? artifact.title}-${index}`}
-                  className="off-drill-artifact"
-                >
-                  <button
-                    type="button"
-                    className="off-drill-row off-focusable"
-                    onClick={() => void openArtifactClaim(artifact, { openStageView, projectId })}
+          {workKindCells.length > 0 ? (
+            <section className="off-drill-section">
+              <h3 className="off-drill-h">Work</h3>
+              <div className="off-drill-chips">
+                {workKindCells.map((cell) => (
+                  <span key={cell.label} className="off-drill-chip is-work">
+                    {cell.label}
+                    <b>{cell.count}</b>
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {dominantLabel ? (
+            <section className="off-drill-section">
+              <h3 className="off-drill-h">Latest beat</h3>
+              <p className="off-drill-beat">{dominantLabel}</p>
+            </section>
+          ) : null}
+
+          {summary.priorityIssues.length > 0 ? (
+            <section className="off-drill-section">
+              <h3 className="off-drill-h">
+                <Icon icon={TriangleAlert} size="sm" />
+                Issues
+              </h3>
+              <ul className="off-drill-issues">
+                {summary.priorityIssues.map((issue, index) => (
+                  <li
+                    key={`${issue.runId}-${issue.kind}`}
+                    className={cn('off-drill-issue', `is-${issue.severity}`)}
                   >
-                    <Icon icon={artifact.path ? FileText : Package} size="sm" />
-                    <span className="off-drill-row-title">{artifact.title}</span>
-                    <Icon icon={ExternalLink} size="sm" className="off-drill-row-go" />
-                  </button>
-                  {artifact.path ? (
-                    // A path-bearing artifact can also be reviewed as a diff through
-                    // the existing `changes` target (PRD drilldown minimum action),
-                    // not only previewed inline.
+                    <Icon icon={issueIcon(issue)} size="sm" />
+                    <span className="off-drill-issue-label">{issue.label}</span>
+                    <span className="off-drill-issue-tags">
+                      {/* Typed strain tag — joined to the resource cue by runId
+                          (identity, never list position); index 0 is only the
+                          fallback when a runId is missing on either side. */}
+                      {issue.kind === 'resource' &&
+                      resourceCue?.resourceKind &&
+                      (resourceCue.runId && issue.runId
+                        ? resourceCue.runId === issue.runId
+                        : index === 0) ? (
+                        <em className="off-drill-tag">{resourceCue.resourceKind}</em>
+                      ) : null}
+                      {issue.terminal ? <em className="off-drill-tag">terminal</em> : null}
+                      <em className="off-drill-tag">{issue.severity}</em>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {artifacts.length > 0 ? (
+            <section className="off-drill-section">
+              <h3 className="off-drill-h">
+                <Icon icon={Package} size="sm" />
+                Artifacts
+                <span className="off-drill-count">{summary.artifactCount}</span>
+              </h3>
+              <ul className="off-drill-list">
+                {artifacts.map((artifact, index) => (
+                  <li
+                    key={`${artifact.deliverableId ?? artifact.path ?? artifact.title}-${index}`}
+                    className="off-drill-artifact"
+                  >
                     <button
                       type="button"
-                      className="off-drill-row-action off-focusable"
-                      title="Review changes"
-                      aria-label={`Review changes in ${artifact.title}`}
-                      onClick={() => openStageView({ kind: 'changes', path: artifact.path })}
+                      className="off-drill-row off-focusable"
+                      onClick={() => void openArtifactClaim(artifact, { openStageView, projectId })}
                     >
-                      <Icon icon={GitCompare} size="sm" />
+                      <Icon icon={artifact.path ? FileText : Package} size="sm" />
+                      <span className="off-drill-row-title">{artifact.title}</span>
+                      <Icon icon={ExternalLink} size="sm" className="off-drill-row-go" />
                     </button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+                    {artifact.path ? (
+                      // A path-bearing artifact can also be reviewed as a diff through
+                      // the existing `changes` target (PRD drilldown minimum action),
+                      // not only previewed inline.
+                      <button
+                        type="button"
+                        className="off-drill-row-action off-focusable"
+                        title="Review changes"
+                        aria-label={`Review changes in ${artifact.title}`}
+                        onClick={() => openStageView({ kind: 'changes', path: artifact.path })}
+                      >
+                        <Icon icon={GitCompare} size="sm" />
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-        {summary.approvalCount > 0 ? (
-          <section className="off-drill-section">
-            <h3 className="off-drill-h">
-              <Icon icon={HandHelping} size="sm" />
-              Approvals
-              <span className="off-drill-count">{summary.approvalCount}</span>
-            </h3>
-            <p className="off-drill-note">
-              {summary.approvalCount} run{summary.approvalCount === 1 ? '' : 's'} awaiting approval.
-            </p>
-          </section>
-        ) : null}
+          {summary.approvalCount > 0 ? (
+            <section className="off-drill-section">
+              <h3 className="off-drill-h">
+                <Icon icon={HandHelping} size="sm" />
+                Approvals
+                <span className="off-drill-count">{summary.approvalCount}</span>
+              </h3>
+              <p className="off-drill-note">
+                {summary.approvalCount} run{summary.approvalCount === 1 ? '' : 's'} awaiting
+                approval.
+              </p>
+            </section>
+          ) : null}
 
-        {runRows.length > 0 ? (
-          <section className="off-drill-section">
-            <h3 className="off-drill-h">
-              <Icon icon={MessageSquare} size="sm" />
-              Runs
-            </h3>
-            <ul className="off-drill-list">
-              {runRows.map((row) => (
-                <li key={row.runId}>
-                  <button
-                    type="button"
-                    className="off-drill-run off-focusable"
-                    onClick={() => openThread(row.threadId)}
-                    title="Open the owning thread"
-                  >
-                    <span className={cn('off-drill-run-state', `is-${row.state}`)} aria-hidden />
-                    <span className="off-drill-run-main">
-                      <span className="off-drill-run-title">
-                        {row.objective?.trim() || 'Working'}
+          {runRows.length > 0 ? (
+            <section className="off-drill-section">
+              <h3 className="off-drill-h">
+                <Icon icon={MessageSquare} size="sm" />
+                Runs
+              </h3>
+              <ul className="off-drill-list">
+                {runRows.map((row) => (
+                  <li key={row.runId}>
+                    <button
+                      type="button"
+                      className="off-drill-run off-focusable"
+                      onClick={() => openThread(row.threadId)}
+                      title="Open the owning thread"
+                    >
+                      <span className={cn('off-drill-run-state', `is-${row.state}`)} aria-hidden />
+                      <span className="off-drill-run-main">
+                        <span className="off-drill-run-title">
+                          {row.objective?.trim() || 'Working'}
+                        </span>
+                        {row.summary ? (
+                          <span className="off-drill-run-summary">{row.summary}</span>
+                        ) : null}
                       </span>
-                      {row.summary ? (
-                        <span className="off-drill-run-summary">{row.summary}</span>
-                      ) : null}
-                    </span>
-                    <Icon icon={MessageSquare} size="sm" className="off-drill-row-go" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-      </div>
-    </aside>
+                      <Icon icon={MessageSquare} size="sm" className="off-drill-row-go" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
   );
 }
 

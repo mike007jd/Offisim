@@ -32,7 +32,7 @@
 
 # UI 框架决策（2026-05-25）
 - 新 UI 框架 source of truth 是 `Docs/UI_FRAMEWORK_STACK.md`；设计 source of truth 是 `Docs/design/.v3-dna-brief.md` 和同目录原型。
-- Approved stack: React 19 + Vite + Tauri renderer, Tailwind CSS v4, shadcn/ui, assistant-ui, Motion for React (`motion/react`), lucide-react, TanStack Query, Zustand, React Hook Form + Zod, dnd-kit, TanStack Virtual, react-resizable-panels, cmdk, Sonner, Recharts。
+- Wired stack: React 19 + Vite + Tauri renderer, Tailwind CSS v4, shadcn/ui, assistant-ui, Motion for React (`motion/react`), lucide-react, TanStack Query, Zustand, React Hook Form + Zod, TanStack Virtual, react-resizable-panels, cmdk, Sonner, plus `@xyflow/react` + `elkjs`（仅 Loops graph）。dnd-kit / Recharts 已批准但未安装；真源见 `Docs/UI_FRAMEWORK_STACK.md`。
 - UI ownership 留在 `apps/desktop/renderer`。不要重建共享视觉 UI package；shared packages 只能承载类型、runtime/data contract，不承载视觉组件库。
 - Tailwind 只做 token/utility 编译层；shadcn 只做本地 accessible primitives；assistant-ui 只做 assistant surface/runtime primitives；Motion 只做统一动态语法。任何库都不能覆盖 Offisim V3 dense HUD 设计语言。
 - 禁止新引入非批准动画框架、组件套件或 CSS-in-JS 层，除非另有明确架构决策。
@@ -58,7 +58,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (22368 symbols, 47205 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (22364 symbols, 47210 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

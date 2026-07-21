@@ -1,6 +1,6 @@
 # Desktop Runtime Guidance
 
-Tauri 2 桌面壳，frontendDist 直接指 `../renderer/dist`。renderer 拥有新 UI framework：React 19 + Tailwind CSS v4 + shadcn/ui + assistant-ui + Motion for React + lucide-react + TanStack Query/Zustand/Form/Virtual + dnd-kit + react-resizable-panels + cmdk + Sonner。框架 source of truth 是 `../../Docs/UI_FRAMEWORK_STACK.md`。改 renderer 后直接跑 `pnpm --filter @offisim/desktop-renderer build` → `pnpm --filter @offisim/desktop build`。
+Tauri 2 桌面壳，frontendDist 直接指 `../renderer/dist`。renderer 拥有新 UI framework：React 19 + Tailwind CSS v4 + shadcn/ui + assistant-ui + Motion for React + lucide-react + TanStack Query/Zustand/Form/Virtual + react-resizable-panels + cmdk + Sonner，Loops graph 另用 `@xyflow/react` + `elkjs`。dnd-kit / Recharts 已批准但未安装。框架 source of truth 是 `../../Docs/UI_FRAMEWORK_STACK.md`。改 renderer 后直接跑 `pnpm --filter @offisim/desktop-renderer build` → `pnpm --filter @offisim/desktop build`。
 
 ## Capabilities & privileged invokes
 

@@ -1,7 +1,12 @@
 import type { FileNode } from '@/data/types.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/design-system/primitives/dropdown-menu.js';
 import { ExternalLink, FileText, FolderOpen } from 'lucide-react';
-import type { CSSProperties } from 'react';
 
 export interface FileContextMenuState {
   node: FileNode;
@@ -22,56 +27,55 @@ export function FileContextMenu({
   onPreview: (node: FileNode) => void;
   onReveal: (node: FileNode) => void;
 }) {
-  const style = {
-    left: state.x,
-    top: state.y,
-  } as CSSProperties;
-
   return (
-    <div
-      className="off-file-context-menu"
-      role="menu"
-      style={style}
-      onPointerDown={(event) => event.stopPropagation()}
+    <DropdownMenu
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      modal={false}
     >
-      {state.node.kind === 'file' ? (
-        <button
-          type="button"
-          role="menuitem"
-          className="off-file-context-item off-focusable"
-          onClick={() => {
-            onPreview(state.node);
-            onClose();
+      <DropdownMenuTrigger asChild>
+        <span
+          aria-hidden
+          className="off-file-context-anchor"
+          style={{ left: state.x, top: state.y }}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        side="bottom"
+        sideOffset={0}
+        collisionPadding={8}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+      >
+        {state.node.kind === 'file' ? (
+          <DropdownMenuItem
+            onSelect={() => {
+              onPreview(state.node);
+            }}
+          >
+            <Icon icon={FileText} size="sm" />
+            Preview in Stage
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem
+          onSelect={() => {
+            onOpen(state.node);
           }}
         >
-          <Icon icon={FileText} size="sm" />
-          Preview in Stage
-        </button>
-      ) : null}
-      <button
-        type="button"
-        role="menuitem"
-        className="off-file-context-item off-focusable"
-        onClick={() => {
-          onOpen(state.node);
-          onClose();
-        }}
-      >
-        <Icon icon={ExternalLink} size="sm" />
-        Open in Default App
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="off-file-context-item off-focusable"
-        onClick={() => {
-          onReveal(state.node);
-          onClose();
-        }}
-      >
-        <Icon icon={FolderOpen} size="sm" />
-        Show in Finder
-      </button>
-    </div>
+          <Icon icon={ExternalLink} size="sm" />
+          Open in Default App
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => {
+            onReveal(state.node);
+          }}
+        >
+          <Icon icon={FolderOpen} size="sm" />
+          Show in Finder
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

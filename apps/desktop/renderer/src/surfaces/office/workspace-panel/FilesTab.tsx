@@ -2,14 +2,14 @@ import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
 import { useProjectFiles } from '@/data/queries.js';
 import type { FileNode } from '@/data/types.js';
-import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
+import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
 import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { FileText, Folder, FolderClosed, FolderOpen } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { openStageFilePreview } from '../stage-viewer/file-preview.js';
 import { FileContextMenu, type FileContextMenuState } from './FileContextMenu.js';
@@ -35,22 +35,6 @@ export function FilesTab({
   const [query, setQuery] = useState('');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<FileContextMenuState | null>(null);
-
-  useEffect(() => {
-    if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
-    };
-    window.addEventListener('pointerdown', close);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', close);
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [contextMenu]);
 
   if (!workspaceRoot) {
     return (

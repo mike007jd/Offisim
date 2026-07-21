@@ -7,10 +7,11 @@ renderer at `apps/desktop/renderer` owns the new UI framework and design-system
 implementation.
 
 New UI work must follow `Docs/UI_FRAMEWORK_STACK.md` and the design source under
-`Docs/design`. The approved stack is React 19, Tailwind CSS v4, shadcn/ui,
+`Docs/design`. The wired stack is React 19, Tailwind CSS v4, shadcn/ui,
 assistant-ui, Motion for React (`motion/react`), lucide-react, TanStack Query,
-Zustand, React Hook Form + Zod, dnd-kit, TanStack Virtual,
-react-resizable-panels, cmdk, Sonner, and Recharts for small runtime charts.
+Zustand, React Hook Form + Zod, TanStack Virtual, react-resizable-panels, cmdk,
+Sonner, plus `@xyflow/react` + `elkjs` for Loops graph only. dnd-kit and Recharts
+are approved but not installed until a surface needs them.
 
 Do not create a standalone web product or a shared visual UI package. Visual
 components, styling, motion, assistant surface composition, and desktop layout
@@ -127,7 +128,7 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (22368 symbols, 47205 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (22364 symbols, 47210 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

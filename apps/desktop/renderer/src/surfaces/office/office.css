@@ -127,40 +127,16 @@
   padding-left: var(--off-sp-8);
 }
 
-.off-file-context-menu {
+/* Virtual anchor for Radix DropdownMenu positioned at the pointer. */
+.off-file-context-anchor {
   position: fixed;
-  z-index: var(--off-z-popover);
-  width: 208px;
-  padding: var(--off-sp-2);
-  border: 1px solid var(--off-line);
-  border-radius: var(--off-r-md);
-  background: var(--off-surface-glass-strong);
-  box-shadow: var(--off-elev-3);
-  backdrop-filter: blur(var(--off-blur-lg));
-}
-
-.off-file-context-item {
-  appearance: none;
-  width: 100%;
-  min-width: 0;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  gap: var(--off-sp-2);
-  padding: 0 var(--off-sp-3);
-  border: 1px solid transparent;
-  border-radius: var(--off-r-sm);
-  background: transparent;
-  color: var(--off-ink-2);
-  font-size: var(--off-fs-sm);
-  font-weight: 620;
-  text-align: left;
-}
-
-.off-file-context-item:hover {
-  border-color: var(--off-accent-ring);
-  background: var(--off-accent-surface);
-  color: var(--off-accent);
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Project management lives inside the existing left workspace column. It must
@@ -885,7 +861,7 @@
 .off-scene-delivery-chip i {
   flex: 0 0 auto;
   font-style: normal;
-  font-size: 8px;
+  font-size: var(--off-fs-xs);
   font-weight: 760;
   letter-spacing: 0.04em;
   color: var(--off-scene-artifact-color);
@@ -3129,9 +3105,8 @@
   color: var(--off-ink-1);
 }
 
-/* Workload drilldown drawer (INC-5): a read-only side inspector for one
-   employee's aggregated workload. Anchored top-right of the stage (mirrors the
-   RecoveryPanel idiom on the left); glass surface, scrollable body, no motion. */
+/* Workload drilldown drawer (INC-5): read-only side inspector. Positioning and
+   glass skin stay surface-local; structure/focus/Escape come from Drawer grammar. */
 .off-drill {
   position: absolute;
   top: 88px;
@@ -3139,22 +3114,15 @@
   z-index: var(--off-z-float);
   width: min(340px, calc(100% - (var(--off-sp-6) * 2)));
   max-height: min(600px, calc(100% - 160px));
-  display: flex;
-  flex-direction: column;
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-md);
   background: var(--off-surface-glass-strong);
   backdrop-filter: blur(var(--off-blur-lg));
-  box-shadow: var(--off-elev-3);
   overflow: hidden;
 }
 
 .off-drill-head {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--off-sp-3);
-  padding: var(--off-sp-4);
-  border-bottom: 1px solid var(--off-line);
+  border-bottom-color: var(--off-line);
 }
 
 .off-drill-identity {
@@ -3164,10 +3132,12 @@
   gap: 2px;
 }
 
-.off-drill-name {
+.off-drill .off-drill-name {
+  margin: 0;
   color: var(--off-ink-1);
   font-size: var(--off-fs-lg);
   font-weight: 700;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3179,6 +3149,7 @@
 }
 
 .off-drill-close {
+  position: static;
   margin-left: auto;
   flex: none;
   width: 26px;
@@ -3198,12 +3169,9 @@
 }
 
 .off-drill-body {
-  min-height: 0;
-  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: var(--off-sp-4);
-  padding: var(--off-sp-4);
 }
 
 .off-drill-summary {
@@ -3215,7 +3183,7 @@
 .off-drill-summary-num {
   color: var(--off-ink-1);
   font-family: var(--off-font-mono);
-  font-size: 22px;
+  font-size: var(--off-fs-xl);
   font-weight: 700;
   line-height: 1;
 }

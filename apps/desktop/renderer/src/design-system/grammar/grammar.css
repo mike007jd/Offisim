@@ -1171,3 +1171,85 @@ button.off-chip:hover {
   object-fit: cover;
   display: block;
 }
+
+/* Side drawer grammar — in-layout panel (no portal overlay). Surfaces add
+   positioning modifiers (e.g. `.off-board-drawer`). */
+.off-drawer {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  outline: none;
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-3);
+}
+
+.off-drawer-header {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-4);
+  border-bottom: 1px solid var(--off-line-soft);
+}
+
+.off-drawer-header > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.off-drawer-title {
+  margin: 3px 0 0;
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-base);
+  font-weight: 660;
+  line-height: 1.35;
+}
+
+.off-drawer-description {
+  margin: var(--off-sp-2) 0 0;
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-sm);
+  line-height: 1.45;
+}
+
+.off-drawer-body {
+  min-height: 0;
+  padding: var(--off-sp-4);
+  overflow: auto;
+}
+
+.off-drawer-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-3) var(--off-sp-4);
+  border-top: 1px solid var(--off-line-soft);
+}
+
+.off-drawer-close {
+  position: absolute;
+  top: var(--off-sp-3);
+  right: var(--off-sp-3);
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-sm);
+  background: transparent;
+  color: var(--off-ink-3);
+}
+
+.off-drawer-close:hover {
+  color: var(--off-ink-1);
+  background: var(--off-surface-sunken);
+}
+
+.off-drawer-close-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.off-drawer-left,
+.off-drawer-right {
+  position: relative;
+}

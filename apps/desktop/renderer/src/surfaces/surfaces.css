@@ -63,12 +63,16 @@
   border-color: var(--off-accent);
 }
 
+/* V3 `.icard` grammar base — toast / confirm / installable surfaces share this
+   skin (prototype `.icard`: line + r-lg + surface-1 + elev-3). */
+.off-icard,
 .off-toast {
   border: 1px solid var(--off-line) !important;
-  border-radius: var(--off-r-md) !important;
+  border-radius: var(--off-r-lg) !important;
   background: var(--off-surface-1) !important;
   color: var(--off-ink-1) !important;
   box-shadow: var(--off-elev-3) !important;
+  overflow: hidden;
 }
 
 .off-toast-title {
@@ -262,7 +266,7 @@
 
 .off-safe-mode h1 {
   margin: var(--off-sp-2) 0 0;
-  font-size: 28px;
+  font-size: var(--off-fs-xl);
   line-height: 1.15;
 }
 

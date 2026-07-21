@@ -41,7 +41,7 @@ export function AppProviders({ children }: AppProvidersProps) {
           offset={{ top: 'calc(var(--off-toolbar) + var(--off-sp-3))', right: 'var(--off-sp-5)' }}
           toastOptions={{
             classNames: {
-              toast: 'off-toast',
+              toast: 'off-icard off-toast',
               title: 'off-toast-title',
               description: 'off-toast-description',
               actionButton: 'off-toast-action',

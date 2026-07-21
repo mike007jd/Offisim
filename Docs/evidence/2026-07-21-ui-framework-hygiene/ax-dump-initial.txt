@@ -1,0 +1,9 @@
+windows: 1
+window: Offisim pos: Optional(<AXValue 0x74b8c9290> {value = x:36.000000 y:33.000000 type = kAXValueCGPointType}) size: Optional(<AXValue 0x74b8c8e70> {value = w:1440.000000 h:887.000000 type = kAXValueCGSizeType})
+1	AXGroup	
+1	AXButton	
+1	AXButton	
+2	AXGroup	
+1	AXButton	
+1	AXStaticText	
+TOTAL_ROWS=6

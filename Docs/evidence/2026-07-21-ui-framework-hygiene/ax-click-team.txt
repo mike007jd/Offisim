@@ -1,0 +1,55 @@
+HIT_COUNT=106
+AXWindow	36,33 1440x887	Offisim
+AXButton	48,77 57x29	Offisim — back to companies
+AXPopUpButton	117,77 158x29	Switch company
+AXGroup	496,74 520x35	Surfaces
+AXButton	500,77 76x29	Office
+AXButton	577,77 75x29	Loops
+AXButton	653,77 100x29	Personnel
+AXButton	762,77 81x29	Market
+AXButton	844,77 78x29	Studio
+AXButton	923,77 89x29	Settings
+AXGroup	36,119 296x801	Workspace panel
+AXTabGroup	48,130 150x26	Workspace panel
+AXRadioButton	48,130 65x26	Projects
+AXRadioButton	117,130 44x26	Files
+AXRadioButton	164,130 34x26	Git
+AXButton	291,129 28x28	Rescan workspace
+AXCheckBox	46,271 275x28	.git
+AXCheckBox	46,303 275x28	.offisim
+AXCheckBox	46,335 275x28	AGENTS.md
+AXCheckBox	46,367 275x28	d2-current-inside.txt
+AXCheckBox	46,399 275x28	README.md
+AXCheckBox	46,431 275x28	safe-build.sh
+AXButton	343,122 30x31	Collapse workspace
+AXGroup	377,122 566x31	Stage views
+AXButton	377,122 105x31	Game View
+AXButton	485,122 31x31	Board
+AXButton	519,122 31x31	Timeline
+AXPopUpButton	553,122 31x31	Open view
+AXButton	951,122 30x31	
+AXButton	987,122 30x31	Collapse conversations
+AXGroup	874,165 110x30	Game view render mode
+AXButton	875,166 54x28	3D
+AXButton	928,166 54x28	2D
+AXPopUpButton	989,165 30x30	View options
+AXGroup	333,824 694x96	Team
+AXPopUpButton	441,841 144x56	Alex Chen Codex engine · Codex CLI Developer
+
+WORKING
+AXPopUpButton	593,841 144x56	Maya Lin Claude engine · Claude Frontend
+
+IDLE
+AXPopUpButton	745,841 144x56	Marcus Johnson Backend
+
+IDLE
+AXPopUpButton	897,841 144x56	Kai Nakamura Fullstack
+
+IDLE
+AXPopUpButton	1049,841 144x56	Sophie Park Product Manager
+
+IDLE
+MATCH=Alex Chen Codex engine · Codex CLI Developer
+
+WORKING @ 513,869
+PRESS_ERR=0

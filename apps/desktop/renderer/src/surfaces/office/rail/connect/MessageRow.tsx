@@ -61,7 +61,13 @@ export function MessageRow({
             <i />
           </span>
           {onStop ? (
-            <button type="button" className="off-connect-turn-stop off-focusable" onClick={onStop}>
+            <button
+              type="button"
+              className="off-connect-turn-stop off-focusable"
+              aria-label="Stop"
+              title="Stop"
+              onClick={onStop}
+            >
               <Icon icon={Square} size="sm" />
             </button>
           ) : null}

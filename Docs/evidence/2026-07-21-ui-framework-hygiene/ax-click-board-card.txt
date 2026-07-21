@@ -1,0 +1,43 @@
+HIT_COUNT=243
+AXWindow	36,33 1440x887	Offisim
+AXButton	48,77 57x29	Offisim — back to companies
+AXPopUpButton	117,77 158x29	Switch company
+AXGroup	496,74 520x35	Surfaces
+AXButton	500,77 76x29	Office
+AXButton	577,77 75x29	Loops
+AXButton	653,77 100x29	Personnel
+AXButton	762,77 81x29	Market
+AXButton	844,77 78x29	Studio
+AXButton	923,77 89x29	Settings
+AXGroup	36,119 296x801	Workspace panel
+AXTabGroup	48,130 150x26	Workspace panel
+AXRadioButton	48,130 65x26	Projects
+AXRadioButton	117,130 44x26	Files
+AXRadioButton	164,130 34x26	Git
+AXButton	291,129 28x28	Rescan workspace
+AXCheckBox	46,271 275x28	.git
+AXCheckBox	46,303 275x28	.offisim
+AXCheckBox	46,335 275x28	AGENTS.md
+AXCheckBox	46,367 275x28	d2-current-inside.txt
+AXCheckBox	46,399 275x28	README.md
+AXCheckBox	46,431 275x28	safe-build.sh
+AXButton	343,122 30x31	Collapse workspace
+AXGroup	377,122 566x31	Stage views
+AXButton	377,122 30x31	Game View
+AXButton	411,122 74x31	Board
+AXButton	488,122 31x31	Timeline
+AXPopUpButton	522,122 31x31	Open view
+AXButton	951,122 30x31	
+AXButton	987,122 30x31	Collapse conversations
+AXButton	350,780 94x26	Return to Game View
+AXButton	519,684 25x25	Collapse scene preview
+AXGroup	333,157 694x666	Stage viewer
+AXGroup	333,157 694x666	Board view
+AXButton	989,161 28x29	Close Board view
+AXButton	877,271 220x57	Use the Write tool to create d1-checkpoint-current.txt in the project with exactly D1_CH…
+AXButton	877,334 209x22	Open conversation · Office
+AXButton	875,393 110x34	Competitive draft
+AXButton	877,449 220x57	Use the Write tool to create d1-checkpoint-current.txt in the project with exactly D1_CH…
+AXButton	877,512 209x22	Open conversation · Office
+MATCH=Use the Write tool to create d1-checkpoint-current.txt in the project with exactly D1_CH… @ 987,299
+PRESS_ERR=0

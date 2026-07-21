@@ -1,6 +1,6 @@
 # Offisim UI Framework Stack
 
-Last updated: 2026-07-20
+Last updated: 2026-07-21
 
 This is the source of truth for new Offisim desktop UI work. The canonical
 design source is `Docs/design/.v3-dna-brief.md` plus the Office V3 specimen.
@@ -35,8 +35,10 @@ Do not recreate a shared UI package for the new app. Shared packages may expose 
 | Virtualization | TanStack Virtual | Activity log, chat history, Market listings, long file/event lists. |
 | Panels | react-resizable-panels | Split panes and rail resizing; do not hand-roll splitter state. |
 | Command UI | cmdk | Command palette, slash command, quick switcher. |
-| Toasts | Sonner | Behavior layer only; visual skin must match V3 `.icard` grammar. |
-| Charts | Recharts | Small runtime/cost/usage charts only; avoid chart-library-driven visual language. |
+| Toasts | Sonner | Behavior layer only; visual skin must match V3 `.icard` grammar (renderer `.off-icard` / `.off-toast` shared base). |
+| Charts | Recharts (approved, not wired) | Reserved for small runtime/cost/usage charts only; do not install until a surface needs it. Avoid chart-library-driven visual language. |
+| Loop graph | `@xyflow/react` + `elkjs` | Loops IR projection only (`surfaces/mission/loops/graph`); never for general UI chrome or Office scene. |
+| Drag/drop | dnd-kit (approved, not wired) | Do not install until a surface has an approved keyboard path and visible drag state; see Hard Rules. |
 | 3D scene | three + @react-three/fiber | Scene layer only (Office 3D scene, Studio editor under `surfaces/office/scene` and `surfaces/studio`); never for general UI chrome. |
 | 3D scene helpers | @react-three/drei + @react-three/postprocessing | Scene-layer helpers/IBL/post effects only. Scene palette lives in `scene-colors.ts` / `scene-art-direction.ts` with explicit `raw-hex-allowed` exemptions — a parallel track to CSS tokens that must be synced manually on theme changes. |
 
@@ -48,7 +50,7 @@ Character assets. Office characters render from source-controlled, meshopt-compr
 
 1. `styles/`: `tokens.css`, Tailwind v4 entry, motion variables, density variables, global focus and reduced-motion rules.
 2. `design-system/primitives/`: shadcn-copied primitives, kept close to upstream but styled through tokens.
-3. `design-system/grammar/`: Offisim V3 grammar components: chip bar, caps label, status pill, card block, field row, dialog shell, popover shell.
+3. `design-system/grammar/`: Offisim V3 grammar components: chip bar, caps label, status pill, card block, field row, dialog shell, popover shell, in-layout drawer shell.
 4. `design-system/shell/`: titlebar, topbar, scope bar, workspace nav, iconbar, app frame.
 5. `assistant/`: assistant-ui runtime adapter, Thread skin, Composer skin, message parts, tool approval, run records, attachments.
 6. `surfaces/`: Office, Workspace, Market, Personnel, Settings, Activity, Lifecycle, States. Surfaces compose grammar; they do not define new chrome.

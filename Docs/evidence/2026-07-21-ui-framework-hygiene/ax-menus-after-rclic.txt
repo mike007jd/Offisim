@@ -1,0 +1,7 @@
+/tmp/offisim-ax-menus.swift:22:26: error: cannot find 'kAXMenusAttribute' in scope
+20 | }
+21 | // also system-wide menus owned by app
+22 | if let menus = copy(app, kAXMenusAttribute as String) as? [AXUIElement] {
+   |                          `- error: cannot find 'kAXMenusAttribute' in scope
+23 |   print("APP_MENUS", menus.count)
+24 |   for m in menus { walk(m, d: 0) }
