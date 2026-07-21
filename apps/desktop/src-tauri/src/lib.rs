@@ -446,7 +446,11 @@ pub fn run() {
                     let _ = app.deep_link().register_all();
                 }
 
-                // Listen for incoming deep link URLs
+                // Keep the plugin callback on every platform for URLs delivered
+                // after setup. macOS also receives the cold native Apple Event
+                // through `RunEvent::Opened` below, before configured windows
+                // finish being created; the bounded queue deduplicates the two
+                // routes if Tauri reports the same live URL through both.
                 {
                     use tauri_plugin_deep_link::DeepLinkExt;
                     let handle = app.handle().clone();
@@ -459,8 +463,11 @@ pub fn run() {
                     // into the same validated queue after registering the live
                     // callback. The queue/renderer handshake prevents a cold
                     // launch from racing the webview listener.
-                    if let Ok(Some(urls)) = app.deep_link().get_current() {
-                        deep_link::handle_deep_link_urls(app.handle(), urls);
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        if let Ok(Some(urls)) = app.deep_link().get_current() {
+                            deep_link::handle_deep_link_urls(app.handle(), urls);
+                        }
                     }
                 }
                 Ok(())
@@ -480,6 +487,10 @@ pub fn run() {
             tauri::RunEvent::Ready | tauri::RunEvent::Resumed => {
                 let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
                 let _ = ensure_main_window(app);
+            }
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Opened { urls } => {
+                deep_link::handle_deep_link_urls(app, urls);
             }
             tauri::RunEvent::Exit => {
                 app.state::<browser_session::BrowserSessionRegistry>()
