@@ -7,6 +7,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -14,40 +17,43 @@ concurrency:
 jobs:
   gates:
     name: Types / harness / security gates
-    runs-on: [self-hosted, Linux, X64, deck-ci]
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b0f76dfb45f55f8421693e4803ac7bb65143bd34 # v6
         with:
           dest: ${{ runner.temp }}/setup-pnpm
           version: 11.13.1
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24
+          node-version-file: .nvmrc
+          package-manager-cache: false
       - name: Release gates (node lane)
         run: |
-          mkdir -p "$HOME/.cache"
-          flock --verbose --wait 1800 "$HOME/.cache/deck-ci.lock" bash -eo pipefail <<'DECK_CI'
           pnpm install --frozen-lockfile
           node scripts/release-gates.mjs --lane=node
-          DECK_CI
 
   rust:
     name: Desktop Rust tests
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: macos-15
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b0f76dfb45f55f8421693e4803ac7bb65143bd34 # v6
         with:
           version: 11.13.1
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          workspaces: apps/desktop/src-tauri
+          toolchain: stable
       # tauri-build resolves frontendDist at compile time; tests do not need
       # real renderer assets, only an existing dist directory.
       - name: Stub renderer dist

@@ -32,6 +32,14 @@ const appPath = path.join(
   target,
   'release/bundle/macos/Offisim.app',
 );
+const bundledNodePath = path.join(appPath, 'Contents/Resources/resources/node/bin/node');
+const requiredNodeEntitlements = [
+  'com.apple.security.cs.allow-dyld-environment-variables',
+  'com.apple.security.cs.allow-jit',
+  'com.apple.security.cs.allow-unsigned-executable-memory',
+  'com.apple.security.cs.disable-executable-page-protection',
+  'com.apple.security.cs.disable-library-validation',
+];
 
 function parseArgs(argv) {
   const result = {
@@ -66,7 +74,7 @@ function credentialFreeEnv() {
   const env = { ...process.env, APPLE_SIGNING_IDENTITY: identity };
   for (const key of Object.keys(env)) {
     if (
-      /APPLE_(?:ID|PASSWORD|APP_SPECIFIC_PASSWORD|API_KEY|API_ISSUER)|GH_TOKEN|GITHUB_TOKEN/iu.test(
+      /APPLE_(?:ID|PASSWORD|APP_SPECIFIC_PASSWORD|API_KEY|API_ISSUER|CERTIFICATE|CERTIFICATE_PASSWORD)|KEYCHAIN_PASSWORD|GH_TOKEN|GITHUB_TOKEN/iu.test(
         key,
       )
     ) {
@@ -269,6 +277,55 @@ function verifyCodeSignature(pathname) {
     !details.stderr.includes(`Authority=${identity}`)
   ) {
     throw new Error('Offisim.app is not signed by the expected Developer ID');
+  }
+
+  assertRegularFile(bundledNodePath, 'bundled Node runtime');
+  run('/usr/bin/codesign', ['--verify', '--strict', '--verbose=2', bundledNodePath], {
+    label: 'verify bundled Node signature',
+  });
+  const nodeDetails = run('/usr/bin/codesign', ['-dv', '--verbose=4', bundledNodePath], {
+    label: 'verify bundled Node signing authority',
+  });
+  if (
+    !nodeDetails.stderr.includes('TeamIdentifier=9MP925J67C') ||
+    !nodeDetails.stderr.includes(`Authority=${identity}`) ||
+    !nodeDetails.stderr.includes('(runtime)') ||
+    !nodeDetails.stderr.includes('Timestamp=')
+  ) {
+    throw new Error(
+      'bundled Node is not Developer ID signed with hardened runtime and a secure timestamp',
+    );
+  }
+  const nodeEntitlements = run(
+    '/usr/bin/codesign',
+    ['-d', '--entitlements', ':-', bundledNodePath],
+    { label: 'verify bundled Node release entitlements' },
+  ).stdout;
+  if (nodeEntitlements.includes('com.apple.security.get-task-allow')) {
+    throw new Error('bundled Node requests the forbidden get-task-allow entitlement');
+  }
+  for (const entitlement of requiredNodeEntitlements) {
+    const pattern = new RegExp(
+      `<key>${entitlement.replaceAll('.', '\\.')}</key>\\s*<true\\s*/>`,
+      'u',
+    );
+    if (!pattern.test(nodeEntitlements)) {
+      throw new Error(`bundled Node is missing required release entitlement: ${entitlement}`);
+    }
+  }
+  const actualEntitlements = [
+    ...nodeEntitlements.matchAll(/<key>([^<]+)<\/key>/gu),
+  ].map((match) => match[1]);
+  const unexpectedEntitlements = actualEntitlements.filter(
+    (entitlement) => !requiredNodeEntitlements.includes(entitlement),
+  );
+  if (
+    actualEntitlements.length !== requiredNodeEntitlements.length ||
+    unexpectedEntitlements.length > 0
+  ) {
+    throw new Error(
+      `bundled Node contains unexpected release entitlements: ${unexpectedEntitlements.join(', ') || 'duplicate keys'}`,
+    );
   }
 }
 

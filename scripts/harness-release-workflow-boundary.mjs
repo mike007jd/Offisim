@@ -18,7 +18,12 @@
  * Node; tag must be v{version}, absent on origin before publish, and after publish
  * fetch + ^{commit} must equal source HEAD; app uses codesign --verify (never
  * --force --deep re-sign); notarytool log archived; DMG may codesign independently.
- * Positive (build-pi-agent-host): same .nvmrc Node fail-close before bundling.
+ * Positive (build-pi-agent-host): same .nvmrc Node fail-close before bundling;
+ * when APPLE_SIGNING_IDENTITY is set, resigns bundled Node with --timestamp
+ * --options runtime and node-release.plist (no get-task-allow).
+ * Positive (release-publish nested Node): verifies Developer ID Team/Authority,
+ * hardened runtime, rejects get-task-allow, and checks the five required
+ * runtime entitlements; still never --force --deep re-signs Offisim.app.
  * Positive (app_update): verify_distribution_app runs stapler validate before spctl.
  * Negative: no platform/renderer dev servers, no osascript, no shell `open` to
  * launch the app, no process/port killing.
@@ -32,11 +37,24 @@ const PUBLISH_TARGET = 'scripts/release-publish.mjs';
 const CONTRACT_TARGET = 'scripts/release-contract.mjs';
 const PI_HOST_BUILD_TARGET = 'scripts/build-pi-agent-host.mjs';
 const APP_UPDATE_TARGET = 'apps/desktop/src-tauri/src/app_update.rs';
+const NODE_RELEASE_ENTITLEMENTS_TARGET =
+  'apps/desktop/src-tauri/entitlements/node-release.plist';
+const REQUIRED_NODE_RELEASE_ENTITLEMENTS = [
+  'com.apple.security.cs.allow-dyld-environment-variables',
+  'com.apple.security.cs.allow-jit',
+  'com.apple.security.cs.allow-unsigned-executable-memory',
+  'com.apple.security.cs.disable-executable-page-protection',
+  'com.apple.security.cs.disable-library-validation',
+];
 const cleanSource = readFileSync(join(repoRoot, CLEAN_TARGET), 'utf8');
 const publishSource = readFileSync(join(repoRoot, PUBLISH_TARGET), 'utf8');
 const contractSource = readFileSync(join(repoRoot, CONTRACT_TARGET), 'utf8');
 const piHostBuildSource = readFileSync(join(repoRoot, PI_HOST_BUILD_TARGET), 'utf8');
 const appUpdateSource = readFileSync(join(repoRoot, APP_UPDATE_TARGET), 'utf8');
+const nodeReleaseEntitlementsSource = readFileSync(
+  join(repoRoot, NODE_RELEASE_ENTITLEMENTS_TARGET),
+  'utf8',
+);
 const h = createHarness('release-workflow-boundary gate');
 const { check } = h;
 
@@ -81,6 +99,7 @@ console.log(`reading ${PUBLISH_TARGET}`);
 console.log(`reading ${CONTRACT_TARGET}`);
 console.log(`reading ${PI_HOST_BUILD_TARGET}`);
 console.log(`reading ${APP_UPDATE_TARGET}`);
+console.log(`reading ${NODE_RELEASE_ENTITLEMENTS_TARGET}`);
 
 // --- required release:run workflow steps ---
 matchClean(
@@ -512,6 +531,78 @@ matchPublish(
   /codesign['"]\s*,\s*\[\s*['"]--force['"]\s*,\s*['"]--timestamp['"]\s*,\s*['"]--sign['"]/u,
   'DMG may be codesigned independently with --force --timestamp --sign',
 );
+
+// --- build-pi-agent-host: nested Node distribution resign under APPLE_SIGNING_IDENTITY ---
+matchPiHostBuild(
+  'pi-agent-host resigns bundled Node when APPLE_SIGNING_IDENTITY is set',
+  /APPLE_SIGNING_IDENTITY[\s\S]*?codesign[\s\S]*?['"]--sign['"]\s*,\s*identity/u,
+  'build-pi-agent-host must codesign --sign with APPLE_SIGNING_IDENTITY for bundled Node',
+);
+matchPiHostBuild(
+  'pi-agent-host Node resign uses --timestamp --options runtime',
+  /['"]--timestamp['"]\s*,\s*['"]--options['"]\s*,\s*['"]runtime['"]/u,
+  'bundled Node resign must pass --timestamp --options runtime',
+);
+matchPiHostBuild(
+  'pi-agent-host Node resign uses node-release.plist entitlements',
+  /apps\/desktop\/src-tauri\/entitlements\/node-release\.plist[\s\S]*?['"]--entitlements['"]\s*,\s*NODE_RELEASE_ENTITLEMENTS/u,
+  'bundled Node resign must use apps/desktop/src-tauri/entitlements/node-release.plist',
+);
+noMatch(
+  nodeReleaseEntitlementsSource,
+  NODE_RELEASE_ENTITLEMENTS_TARGET,
+  'node-release.plist does not grant get-task-allow',
+  /com\.apple\.security\.get-task-allow/u,
+  'node-release.plist must not contain com.apple.security.get-task-allow',
+);
+
+// --- release-publish: bundled Node Developer ID + hardened runtime + entitlements ---
+matchPublish(
+  'publisher verifies bundled Node Developer ID Team and Authority',
+  /nodeDetails[\s\S]*?TeamIdentifier=9MP925J67C[\s\S]*?Authority=\$\{identity\}/u,
+  'bundled Node must be checked for Developer ID TeamIdentifier and Authority',
+);
+matchPublish(
+  'publisher requires bundled Node hardened runtime marker',
+  /nodeDetails[\s\S]*?\(runtime\)[\s\S]*?Timestamp=[\s\S]*?bundled Node is not Developer ID signed with hardened runtime and a secure timestamp/u,
+  'bundled Node verification must require hardened runtime and a secure timestamp',
+);
+matchPublish(
+  'publisher rejects bundled Node get-task-allow',
+  /com\.apple\.security\.get-task-allow[\s\S]*?forbidden get-task-allow/u,
+  'publisher must fail-close when bundled Node requests get-task-allow',
+);
+{
+  const requiredListMatch = publishSource.match(
+    /const\s+requiredNodeEntitlements\s*=\s*\[([\s\S]*?)\]/u,
+  );
+  const listed = requiredListMatch
+    ? [...requiredListMatch[1].matchAll(/['"]([^'"]+)['"]/gu)].map((entry) => entry[1])
+    : [];
+  check(
+    'publisher requiredNodeEntitlements lists the five runtime entitlements',
+    listed.length === REQUIRED_NODE_RELEASE_ENTITLEMENTS.length &&
+      REQUIRED_NODE_RELEASE_ENTITLEMENTS.every((entitlement, index) => listed[index] === entitlement),
+    'requiredNodeEntitlements must exactly list the five Node release runtime entitlements',
+  );
+  matchPublish(
+    'publisher verifies each required bundled Node entitlement',
+    /for\s*\(\s*const\s+entitlement\s+of\s+requiredNodeEntitlements\s*\)[\s\S]*?missing required release entitlement/u,
+    'publisher must loop requiredNodeEntitlements and fail-close on any missing entitlement',
+  );
+  matchPublish(
+    'publisher rejects unexpected bundled Node entitlements',
+    /unexpectedEntitlements[\s\S]*?contains unexpected release entitlements/u,
+    'publisher must fail-close when bundled Node contains any entitlement outside the release allowlist',
+  );
+  for (const entitlement of REQUIRED_NODE_RELEASE_ENTITLEMENTS) {
+    check(
+      `node-release.plist grants ${entitlement}`,
+      nodeReleaseEntitlementsSource.includes(`<key>${entitlement}</key>`),
+      `${NODE_RELEASE_ENTITLEMENTS_TARGET} must grant ${entitlement}`,
+    );
+  }
+}
 
 // --- release-publish: notarytool log archived ---
 matchPublish(
