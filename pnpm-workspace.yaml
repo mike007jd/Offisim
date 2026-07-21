@@ -10,7 +10,7 @@ allowBuilds:
   'esbuild@0.25.12': true
   'esbuild@0.28.1': true
   'protobufjs@7.6.5': false
-  'sharp@0.34.5': false
+  'sharp@0.35.3': false
 
 minimumReleaseAgeExclude:
   - '@earendil-works/pi-agent-core@0.80.9'
@@ -21,7 +21,8 @@ minimumReleaseAgeExclude:
 overrides:
   drizzle-orm: 0.45.2
   kysely: ^0.28.17
-  fast-uri: ^3.1.2
+  fast-uri: 3.1.4
+  sharp: 0.35.3
   defu: ^6.1.5
   shell-quote: ^1.8.4
   vite: ^6.4.2
