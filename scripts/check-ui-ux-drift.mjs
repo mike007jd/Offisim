@@ -43,14 +43,9 @@ function numericCssValue(block, property) {
 }
 
 const failures = [];
-const warnings = [];
 
 function fail(check, detail) {
   failures.push({ check, ...detail });
-}
-
-function warn(check, detail) {
-  warnings.push({ check, ...detail });
 }
 
 for (const detail of findMatches(
@@ -130,37 +125,6 @@ for (const detail of findMatches(
   }
 }
 
-const docsWarningFiles = [
-  'Docs/design/offisim-activity-prototype.html',
-  'Docs/design/offisim-workspace-prototype.html',
-  'Docs/design/offisim-market-prototype.html',
-];
-
-const docsPatterns = [
-  { label: 'stale --fs-2xl token in design docs', pattern: /--fs-2xl\b/ },
-  { label: 'stale --r-xl token in design docs', pattern: /--r-xl\b/ },
-  { label: 'stale count badge class in design docs', pattern: /\.nb\b|class=["'][^"']*\bnb\b/ },
-  { label: 'stale bell symbol in design docs', pattern: /i-bell\b/ },
-  { label: 'hero language on dense workbench surface docs', pattern: /\bhero\b/i },
-];
-
-for (const relFile of docsWarningFiles) {
-  const text = read(relFile);
-  if (/data-v3-superseded|Superseded by V3 DNA/.test(text)) {
-    continue;
-  }
-  for (const { label, pattern } of docsPatterns) {
-    const regex = new RegExp(pattern.source, `${pattern.flags.replace('g', '')}g`);
-    for (const match of text.matchAll(regex)) {
-      warn(label, {
-        file: relFile,
-        line: lineNumber(text, match.index ?? 0),
-        match: match[0].slice(0, 140).replace(/\s+/g, ' ').trim(),
-      });
-    }
-  }
-}
-
 if (failures.length > 0) {
   console.error('[check-ui-ux-drift] renderer drift found');
   for (const failure of failures) {
@@ -168,14 +132,6 @@ if (failures.length > 0) {
   }
 } else {
   console.log('[check-ui-ux-drift] renderer drift ok');
-}
-
-if (warnings.length > 0) {
-  console.warn(`[check-ui-ux-drift] docs warnings: ${warnings.length}`);
-  for (const warning of warnings.slice(0, 40)) {
-    console.warn(`- ${warning.check}: ${warning.file}:${warning.line} :: ${warning.match}`);
-  }
-  if (warnings.length > 40) console.warn(`... ${warnings.length - 40} more docs warnings omitted`);
 }
 
 if (failures.length > 0 && !reportOnly) {

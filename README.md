@@ -1,7 +1,7 @@
 # Offisim
 
 ![License](https://img.shields.io/badge/license-MIT-0f172a)
-![Release](https://img.shields.io/badge/version-1.0.0--rc.1-2563eb)
+![Release](https://img.shields.io/badge/version-1.0.0--rc.2-2563eb)
 
 Offisim is a **local-first, open-source AI company runtime** plus a **platform/registry backend** for installable assets.
 

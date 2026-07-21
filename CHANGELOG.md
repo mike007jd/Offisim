@@ -5,6 +5,8 @@
 - Added a Developer ID signed and notarized release publisher with stapled DMG/ZIP artifacts and SHA-256 evidence.
 - Added private GitHub release checks and one-click updates through the user's existing authenticated `gh` CLI.
 - Added startup safe mode with sanitized diagnostic export, local-data reset, restart recovery, and Rust setup panic capture.
+- Closes the rc.1 “no in-app auto-update” limitation via Settings › App Updates (`gh` CLI authenticated path; see `Docs/00_start_here/DEPLOYMENT.md`).
+- AI Accounts is engine-neutral: Pi/API engines use Offisim-managed provider/model config; Codex/Claude Code remain CLI-owned (see `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`).
 
 ## 1.0.0-rc.1
 
