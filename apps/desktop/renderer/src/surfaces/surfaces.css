@@ -91,6 +91,31 @@
   border-radius: var(--off-r-sm) !important;
 }
 
+.off-deep-link-notice {
+  position: fixed;
+  top: calc(var(--off-toolbar) + var(--off-sp-3));
+  right: var(--off-sp-5);
+  z-index: var(--off-z-popover);
+  display: grid;
+  justify-items: start;
+  width: min(360px, calc(100vw - (2 * var(--off-sp-5))));
+  gap: var(--off-sp-2);
+  padding: var(--off-sp-4);
+}
+
+.off-deep-link-notice__title {
+  font-size: var(--off-fs-sm);
+  font-weight: 680;
+  color: var(--off-ink-1);
+}
+
+.off-deep-link-notice__description {
+  margin: 0;
+  font-size: var(--off-fs-meta);
+  line-height: var(--off-lh-copy);
+  color: var(--off-ink-3);
+}
+
 /* WKWebView (WebKit 26 / macOS Tahoe) can skip painting sonner's fixed
    toast list when toasts enter through an offscreen translateY transition:
    DOM and CSSOM stay correct (mounted, opacity 1, right rect) but the

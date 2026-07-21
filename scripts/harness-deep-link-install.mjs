@@ -14,6 +14,8 @@ import { createHarness, repoRoot } from './lib/harness-runner.mjs';
 const DEEP_LINK_RS = 'apps/desktop/src-tauri/src/deep_link.rs';
 const LIB_RS = 'apps/desktop/src-tauri/src/lib.rs';
 const CARGO_TOML = 'apps/desktop/src-tauri/Cargo.toml';
+const PERMISSION_TOML = 'apps/desktop/src-tauri/permissions/deep-link-install.toml';
+const CAPABILITY_JSON = 'apps/desktop/src-tauri/capabilities/deep-link-install.json';
 const BRIDGE_TS = 'apps/desktop/renderer/src/app/DeepLinkInstallBridge.tsx';
 const APP_TSX = 'apps/desktop/renderer/src/App.tsx';
 const MAIN_TSX = 'apps/desktop/renderer/src/main.tsx';
@@ -25,6 +27,8 @@ const HARNESS_SELF = 'scripts/harness-deep-link-install.mjs';
 const deepLinkRs = readFileSync(join(repoRoot, DEEP_LINK_RS), 'utf8');
 const libRs = readFileSync(join(repoRoot, LIB_RS), 'utf8');
 const cargoToml = readFileSync(join(repoRoot, CARGO_TOML), 'utf8');
+const permissionToml = readFileSync(join(repoRoot, PERMISSION_TOML), 'utf8');
+const capabilityJson = readFileSync(join(repoRoot, CAPABILITY_JSON), 'utf8');
 const bridgeTs = readFileSync(join(repoRoot, BRIDGE_TS), 'utf8');
 const appTsx = readFileSync(join(repoRoot, APP_TSX), 'utf8');
 const mainTsx = readFileSync(join(repoRoot, MAIN_TSX), 'utf8');
@@ -36,6 +40,8 @@ const intentBlock =
   /\/\/ Resolve the URL against current registry truth\.([\s\S]*?)async function handlePackageFile/u.exec(
     marketTsx,
   )?.[1];
+const macosOpenedArm =
+  /tauri::RunEvent::Opened\s*\{\s*urls\s*\}\s*=>\s*\{([\s\S]*?)\n\s*\}/u.exec(libRs)?.[1] ?? '';
 
 const h = createHarness('deep-link-install gate');
 const { check } = h;
@@ -50,6 +56,8 @@ function noMatch(source, target, name, pattern, detail) {
 
 console.log(`reading ${DEEP_LINK_RS}`);
 console.log(`reading ${LIB_RS}`);
+console.log(`reading ${PERMISSION_TOML}`);
+console.log(`reading ${CAPABILITY_JSON}`);
 console.log(`reading ${BRIDGE_TS}`);
 console.log(`reading ${APP_TSX}`);
 console.log(`reading ${MAIN_TSX}`);
@@ -62,6 +70,21 @@ match(
   'DeepLinkState queues while renderer is not ready',
   /fn\s+queue_until_renderer_ready[\s\S]*?if\s+inner\.renderer_ready\s*\{[\s\S]*?return\s+Ok\(\s*false\s*\)[\s\S]*?inner\.pending\.push\(payload\)[\s\S]*?Ok\(\s*true\s*\)/u,
   'queue_until_renderer_ready must push pending when renderer_ready is false',
+);
+
+match(
+  bridgeTs,
+  BRIDGE_TS,
+  'pending intent renders a declarative accessible notice',
+  /if\s*\(\s*!intent\s*\)\s*return\s+null[\s\S]*?<aside\s+className="off-deep-link-notice off-icard"\s+role="status"\s+aria-live="polite"/u,
+  'the notice must render directly from pending state without an imperative toast subscription',
+);
+noMatch(
+  bridgeTs,
+  BRIDGE_TS,
+  'deep-link notice does not depend on Sonner or animation timing',
+  /from\s+['"]sonner['"]|requestAnimationFrame|setToasterReady|useToasterReady/u,
+  'pending deep-link truth must stay visible without a transient notification bus or timing delay',
 );
 match(
   deepLinkRs,
@@ -113,6 +136,34 @@ match(
   'cold-start URLs must be read with get_current and enter the validated queue',
 );
 match(
+  libRs,
+  LIB_RS,
+  'macOS Opened arm handles deep links under cfg(macos)',
+  /#\[cfg\(target_os\s*=\s*"macos"\)\]\s*tauri::RunEvent::Opened\s*\{\s*urls\s*\}\s*=>\s*\{[\s\S]*?deep_link::handle_deep_link_urls\(\s*app\s*,\s*urls\s*\)/u,
+  '#[cfg(target_os = "macos")] must immediately guard RunEvent::Opened { urls } calling handle_deep_link_urls(app, urls)',
+);
+noMatch(
+  macosOpenedArm,
+  LIB_RS,
+  'macOS Opened arm does not create or reactivate the main window',
+  /ensure_main_window|set_activation_policy/u,
+  'cold Opened arrives before Tauri finishes creating configured windows, so this arm must only queue URLs',
+);
+match(
+  libRs,
+  LIB_RS,
+  'plugin on_open_url bridge remains live on macOS',
+  /deep_link\(\)\.on_open_url[\s\S]*?handle_deep_link_urls/u,
+  'on_open_url must remain registered on macOS for URLs delivered after setup',
+);
+match(
+  libRs,
+  LIB_RS,
+  'plugin get_current cold drain is cfg(not macos)',
+  /#\[cfg\(not\(target_os\s*=\s*"macos"\)\)\]\s*\{[\s\S]*?deep_link\(\)\.get_current\(\)[\s\S]*?handle_deep_link_urls/u,
+  'get_current must be guarded by #[cfg(not(target_os = "macos"))] because macOS cold URLs enter through RunEvent::Opened',
+);
+match(
   deepLinkRs,
   DEEP_LINK_RS,
   'emit failure requeues and clears ready',
@@ -155,6 +206,43 @@ match(
   'PageLoad Started marks renderer not-ready',
   /PageLoadEvent::Started[\s\S]*?deep_link::mark_renderer_not_ready\(\s*webview\.app_handle\(\)\s*\)/u,
   'main webview PageLoad Started must call mark_renderer_not_ready',
+);
+
+// --- 2b) Dedicated ACL for deep_link_mark_renderer_ready ---
+match(
+  permissionToml,
+  PERMISSION_TOML,
+  'permission identifier is deep-link-install',
+  /^\[\[permission\]\]\s*\nidentifier\s*=\s*"deep-link-install"/mu,
+  'permission file must declare identifier deep-link-install',
+);
+match(
+  permissionToml,
+  PERMISSION_TOML,
+  'permission allowlist is exactly deep_link_mark_renderer_ready',
+  /commands\.allow\s*=\s*\[\s*"deep_link_mark_renderer_ready"\s*\]/u,
+  'deep-link-install permission must allow only deep_link_mark_renderer_ready',
+);
+match(
+  capabilityJson,
+  CAPABILITY_JSON,
+  'capability identifier is offisim:deep-link-install',
+  /"identifier"\s*:\s*"offisim:deep-link-install"/u,
+  'capability must use identifier offisim:deep-link-install',
+);
+match(
+  capabilityJson,
+  CAPABILITY_JSON,
+  'capability targets main and main-live only',
+  /"webviews"\s*:\s*\[\s*"main"\s*,\s*"main-live"\s*\]/u,
+  'capability must target only main and main-live webviews',
+);
+match(
+  capabilityJson,
+  CAPABILITY_JSON,
+  'capability grants only deep-link-install',
+  /"permissions"\s*:\s*\[\s*"deep-link-install"\s*\]/u,
+  'capability must grant only the deep-link-install permission',
 );
 
 // --- 3) parse_install_url contract ---
@@ -322,14 +410,14 @@ match(
   bridgeTs,
   BRIDGE_TS,
   'navigator keeps an explicit persistent review notice',
-  /duration:\s*Number\.POSITIVE_INFINITY[\s\S]*?label:\s*['"]Open Market['"]/u,
+  /<aside[\s\S]*?Install link received[\s\S]*?<Button\s+size="sm"[\s\S]*?>\s*Open Market\s*<\/Button>/u,
   'the user must explicitly choose Open Market before the pending intent is reviewed',
 );
 match(
   bridgeTs,
   BRIDGE_TS,
   'navigator opens Market only from the explicit action callback',
-  /action:\s*canOpen[\s\S]*?label:\s*['"]Open Market['"][\s\S]*?onClick:\s*\(\)\s*=>\s*\{\s*setSurface\(\s*['"]market['"]\s*\)/u,
+  /<Button\s+size="sm"\s+onClick=\{\(\)\s*=>\s*setSurface\(\s*['"]market['"]\s*\)\}>\s*Open Market/u,
   'setSurface(market) must be nested under the explicit Open Market action',
 );
 check(

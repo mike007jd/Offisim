@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "deep-link-install"
+description = "Allow the renderer ready handshake that drains queued deep-link install intents."
+commands.allow = ["deep_link_mark_renderer_ready"]

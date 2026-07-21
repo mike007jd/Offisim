@@ -1,8 +1,8 @@
 import { useUiState } from '@/app/ui-state.js';
+import { Button } from '@/design-system/primitives/button.js';
 import { type DeepLinkInstallPayload, invokeCommand } from '@/lib/tauri-commands.js';
 import { listen } from '@tauri-apps/api/event';
-import { useEffect, useSyncExternalStore } from 'react';
-import { toast } from 'sonner';
+import { useSyncExternalStore } from 'react';
 
 interface DeepLinkInstallIntent extends DeepLinkInstallPayload {
   intentId: number;
@@ -91,35 +91,22 @@ export function DeepLinkInstallNavigator() {
   const surface = useUiState((state) => state.surface);
   const setSurface = useUiState((state) => state.setSurface);
 
-  useEffect(() => {
-    if (!intent) return;
-    const toastId = `deep-link-install-${intent.intentId}`;
-    const canOpen = Boolean(companyId && surface !== 'lifecycle');
-    const showNotice = () => {
-      toast.info('Install link received', {
-        id: toastId,
-        duration: Number.POSITIVE_INFINITY,
-        description: canOpen
-          ? 'Open Market to review the exact item and version. Nothing will install until you choose Install.'
-          : 'Finish company setup first. The install request will remain pending.',
-        action: canOpen
-          ? {
-              label: 'Open Market',
-              onClick: () => {
-                setSurface('market');
-                window.setTimeout(() => {
-                  if (useUiState.getState().surface !== 'market') showNotice();
-                }, 0);
-              },
-            }
-          : undefined,
-      });
-    };
-    showNotice();
-    return () => {
-      toast.dismiss(toastId);
-    };
-  }, [companyId, intent, setSurface, surface]);
+  if (!intent) return null;
+  const canOpen = Boolean(companyId && surface !== 'lifecycle');
 
-  return null;
+  return (
+    <aside className="off-deep-link-notice off-icard" role="status" aria-live="polite">
+      <div className="off-deep-link-notice__title">Install link received</div>
+      <p className="off-deep-link-notice__description">
+        {canOpen
+          ? 'Open Market to review the exact item and version. Nothing will install until you choose Install.'
+          : 'Finish company setup first. The install request will remain pending.'}
+      </p>
+      {canOpen ? (
+        <Button size="sm" onClick={() => setSurface('market')}>
+          Open Market
+        </Button>
+      ) : null}
+    </aside>
+  );
 }
