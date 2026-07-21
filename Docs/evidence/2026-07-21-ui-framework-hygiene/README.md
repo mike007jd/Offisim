@@ -18,14 +18,14 @@ Computer Use MCP was unavailable in the Cursor session. Live verify used macOS A
 
 | File | What |
 | --- | --- |
-| `01-office-initial.png` | Company selection |
-| `02-after-enter.png` | Office after Enter company |
-| `03-after-nav.png` | Settings → AI Accounts |
-| `04-board-stage.png` | Board stage |
-| `05c-file-context-menu.png` | Files Radix context menu (`Preview in Stage` / `Show in Finder` via AX) |
-| `06-team-menu.png` | TeamDock dropdown (Alex Chen) |
-| `07-office-final.png` | Office return |
-| `08b-board-drawer.png` | Board request detail Drawer (`Close request detail` / Subtasks / Verification via AX) |
+| `e01-office-initial.png` | Company selection |
+| `e02-after-enter.png` | Office after Enter company |
+| `e03-settings-ai-accounts.png` | Settings → AI Accounts |
+| `e04-board-stage.png` | Board stage |
+| `e05c-file-context-menu.png` | Files Radix context menu (`Preview in Stage` / `Show in Finder` via AX) |
+| `e06-team-menu.png` | TeamDock dropdown (Alex Chen) |
+| `e07-office-final.png` | Office return |
+| `e08b-board-drawer.png` | Board request detail Drawer (`Close request detail` / Subtasks / Verification via AX) |
 | `ax-*.txt` | Accessibility dumps / click logs |
 
-Transient misses (`05`, `05b`, `08`, `09`) kept as process evidence of failed attempts before successful `05c` / `08b`.
+Transient misses (`e05`, `e05b`, `e08`, `e09`) kept as process evidence of failed attempts before successful `05c` / `08b`.
