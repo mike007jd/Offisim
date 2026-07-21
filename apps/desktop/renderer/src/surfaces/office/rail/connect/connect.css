@@ -1530,7 +1530,6 @@
   font-weight: 560;
 }
 
-
 /* ── Connect (collaboration chat) — PR-05 ────────────────────────────────── */
 
 .off-connect-list-empty,
@@ -1539,6 +1538,13 @@
   text-align: center;
   color: var(--off-ink-4);
   font-size: var(--off-fs-meta);
+}
+
+.off-connect-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--off-sp-3);
 }
 
 .off-connect-thread-empty {

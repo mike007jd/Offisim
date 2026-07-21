@@ -655,6 +655,10 @@ export function AiAccountsPane() {
   );
   const refreshing =
     runtimeQuery.isFetching || providerQuery.isFetching || accountingQuery.isFetching;
+  // Single visible busy signal: before the first successful check the panehead
+  // meta owns it ("Checking…"); afterwards the refresh button owns it
+  // ("Refreshing…") while the meta keeps showing the last checked time.
+  const initialChecking = refreshing && !runtimeQuery.data;
   const pageState = refreshing
     ? 'checking'
     : runtimeQuery.isError
@@ -679,7 +683,7 @@ export function AiAccountsPane() {
         </div>
         <div className="off-set-panehead-aside">
           <span className="off-set-panehead-meta">
-            {pageState === 'checking'
+            {initialChecking
               ? 'Checking…'
               : `Checked ${checkedAtLabel(runtimeQuery.data?.checkedAt)}`}
           </span>
@@ -689,8 +693,8 @@ export function AiAccountsPane() {
             disabled={!desktopAvailable || refreshing || savingProvider}
             onClick={() => void refresh()}
           >
-            <Icon icon={RefreshCw} size="sm" />
-            {refreshing ? 'Refreshing' : 'Refresh'}
+            <Icon icon={RefreshCw} size="sm" className={refreshing ? 'off-spin' : undefined} />
+            {refreshing && !initialChecking ? 'Refreshing…' : 'Refresh'}
           </Button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { Icon } from '@/design-system/icons/Icon.js';
 import { RoomShell } from '@/surfaces/office/scene/r3d/RoomShell.js';
 import { SceneAnnotationScheduler } from '@/surfaces/office/scene/r3d/SceneAnnotation.js';
 import { SceneEnvironment } from '@/surfaces/office/scene/r3d/SceneEnvironment.js';
@@ -26,6 +27,7 @@ import {
 } from '@offisim/shared-types';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Loader2 } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ACESFilmicToneMapping, Vector3 } from 'three';
 import { useStudioStore } from './studio-store.js';
@@ -170,6 +172,18 @@ function SelectionFrame({
       ))}
     </group>
   );
+}
+
+/** Signals outward after the first rendered frame, so the host knows the
+ *  canvas warm-up (context + shader compile) is over. */
+function SceneReadySignal({ onReady }: { onReady: () => void }) {
+  const signaled = useRef(false);
+  useFrame(() => {
+    if (signaled.current) return;
+    signaled.current = true;
+    onReady();
+  });
+  return null;
 }
 
 /** Eased camera fly-to for zone focus (and back to the overview preset). */
@@ -522,101 +536,115 @@ export function StudioScene3D({
       }));
   }, [prefabs, focusZoneId]);
   const [dragging, setDragging] = useState(false);
+  // Warm-up overlay owned by THIS canvas mount: every fresh mount (company
+  // swap, loading-branch remount) starts covered and uncovers only after its
+  // own first rendered frame — no cross-mount ready-state leakage.
+  const [warm, setWarm] = useState(true);
 
   return (
-    <Canvas
-      shadows="soft"
-      dpr={[1, 2]}
-      camera={{
-        position: OFFICE_CAMERA_PRESET.position,
-        fov: OFFICE_CAMERA_PRESET.fov,
-        near: OFFICE_CAMERA_DEPTH.near,
-        far: OFFICE_CAMERA_DEPTH.far,
-      }}
-      gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
-      className="off-scene-canvas"
-    >
-      <SceneAnnotationScheduler />
-      <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
-      <SceneLighting />
-      <SceneEnvironment />
-      <RoomShell />
+    <>
+      <Canvas
+        shadows="soft"
+        dpr={[1, 2]}
+        camera={{
+          position: OFFICE_CAMERA_PRESET.position,
+          fov: OFFICE_CAMERA_PRESET.fov,
+          near: OFFICE_CAMERA_DEPTH.near,
+          far: OFFICE_CAMERA_DEPTH.far,
+        }}
+        gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.02 }}
+        className="off-scene-canvas"
+      >
+        <SceneAnnotationScheduler />
+        <SceneReadySignal onReady={() => setWarm(false)} />
+        <color attach="background" args={[LIGHT_SCENE_3D.sceneBackground]} />
+        <SceneLighting />
+        <SceneEnvironment />
+        <RoomShell />
 
-      {zoneDefs.map((zone) => {
-        const isFocused = zone.id === focusZoneId;
-        const zoneSelected = !focusZoneId && selection?.kind === 'zone' && selection.id === zone.id;
-        return (
-          <Fragment key={zone.id}>
-            <ZoneRug zone={zone} dimmed={Boolean(focusZoneId && !isFocused)} />
-            <ZoneCeilingLight zone={zone} />
-            {zoneSelected ? (
-              <SelectionFrame
-                cx={zone.cx}
-                cz={zone.cz}
-                w={zone.w}
-                d={zone.d}
-                color={LIGHT_SCENE_3D.selectionRing}
-                fill={0.07}
-              />
-            ) : null}
-            {editable && !focusZoneId && !placement ? (
-              <ZoneHitPlane
-                zone={zone}
-                onSelect={() => select({ kind: 'zone', id: zone.id })}
-                onEnterFocus={() => onEnterFocus(zone.id)}
-                onMove={onMoveZone}
-                onDragState={setDragging}
-              />
-            ) : null}
-          </Fragment>
-        );
-      })}
+        {zoneDefs.map((zone) => {
+          const isFocused = zone.id === focusZoneId;
+          const zoneSelected =
+            !focusZoneId && selection?.kind === 'zone' && selection.id === zone.id;
+          return (
+            <Fragment key={zone.id}>
+              <ZoneRug zone={zone} dimmed={Boolean(focusZoneId && !isFocused)} />
+              <ZoneCeilingLight zone={zone} />
+              {zoneSelected ? (
+                <SelectionFrame
+                  cx={zone.cx}
+                  cz={zone.cz}
+                  w={zone.w}
+                  d={zone.d}
+                  color={LIGHT_SCENE_3D.selectionRing}
+                  fill={0.07}
+                />
+              ) : null}
+              {editable && !focusZoneId && !placement ? (
+                <ZoneHitPlane
+                  zone={zone}
+                  onSelect={() => select({ kind: 'zone', id: zone.id })}
+                  onEnterFocus={() => onEnterFocus(zone.id)}
+                  onMove={onMoveZone}
+                  onDragState={setDragging}
+                />
+              ) : null}
+            </Fragment>
+          );
+        })}
 
-      {prefabs.map((vm) => {
-        const inFocusZone = vm.instance.zone_id === focusZoneId;
-        return (
-          <EditablePrefab
-            key={vm.instance.instance_id}
-            vm={vm}
-            zone={inFocusZone ? focusZone : null}
+        {prefabs.map((vm) => {
+          const inFocusZone = vm.instance.zone_id === focusZoneId;
+          return (
+            <EditablePrefab
+              key={vm.instance.instance_id}
+              vm={vm}
+              zone={inFocusZone ? focusZone : null}
+              obstacles={focusZoneObstacles}
+              selected={selection?.kind === 'object' && selection.id === vm.instance.instance_id}
+              editable={editable && inFocusZone && !placement}
+              onSelect={() => select({ kind: 'object', id: vm.instance.instance_id })}
+              onMove={onMoveObject}
+              onMoveRejected={onMoveRejected}
+              onDragState={setDragging}
+            />
+          );
+        })}
+
+        {placement ? (
+          <PlacementGhostController
+            zoneDefs={zoneDefs}
+            focusZone={focusZone}
             obstacles={focusZoneObstacles}
-            selected={selection?.kind === 'object' && selection.id === vm.instance.instance_id}
-            editable={editable && inFocusZone && !placement}
-            onSelect={() => select({ kind: 'object', id: vm.instance.instance_id })}
-            onMove={onMoveObject}
-            onMoveRejected={onMoveRejected}
-            onDragState={setDragging}
+            onCommit={onCommitPlacement}
+            onReject={onPlacementRejected}
+            onEnd={endPlacement}
           />
-        );
-      })}
+        ) : null}
 
-      {placement ? (
-        <PlacementGhostController
-          zoneDefs={zoneDefs}
-          focusZone={focusZone}
-          obstacles={focusZoneObstacles}
-          onCommit={onCommitPlacement}
-          onReject={onPlacementRejected}
-          onEnd={endPlacement}
+        <CameraFocusRig focusZone={focusZone} />
+        <OrbitControls
+          makeDefault
+          target={OFFICE_CAMERA_PRESET.target}
+          enabled={!dragging && !placement}
+          enableRotate
+          enablePan
+          enableDamping
+          dampingFactor={0.075}
+          minDistance={OFFICE_CAMERA_PRESET.minDistance}
+          maxDistance={OFFICE_CAMERA_PRESET.maxDistance}
+          minPolarAngle={OFFICE_CAMERA_PRESET.minPolarAngle}
+          maxPolarAngle={OFFICE_CAMERA_PRESET.maxPolarAngle}
         />
+        <ScenePostFx />
+      </Canvas>
+      {warm ? (
+        <output className="off-studio-loading">
+          <Icon icon={Loader2} size="md" className="off-spin" />
+          <span>Preparing office scene…</span>
+        </output>
       ) : null}
-
-      <CameraFocusRig focusZone={focusZone} />
-      <OrbitControls
-        makeDefault
-        target={OFFICE_CAMERA_PRESET.target}
-        enabled={!dragging && !placement}
-        enableRotate
-        enablePan
-        enableDamping
-        dampingFactor={0.075}
-        minDistance={OFFICE_CAMERA_PRESET.minDistance}
-        maxDistance={OFFICE_CAMERA_PRESET.maxDistance}
-        minPolarAngle={OFFICE_CAMERA_PRESET.minPolarAngle}
-        maxPolarAngle={OFFICE_CAMERA_PRESET.maxPolarAngle}
-      />
-      <ScenePostFx />
-    </Canvas>
+    </>
   );
 }
 
