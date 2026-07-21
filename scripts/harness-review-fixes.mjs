@@ -194,8 +194,9 @@ assertIncludesAll(
     "invokeCommand('agent_runtime_status'",
     "invokeCommand('pi_agent_save_provider'",
     "invokeCommand('pi_agent_open_config_folder'",
-    'API engines',
-    'Subscription tools',
+    'Subscription engines',
+    'API providers',
+    'off-set-provider-overview-row is-merged',
   ],
   'AI Accounts must combine safe status with the Pi-owned provider editor.',
 );

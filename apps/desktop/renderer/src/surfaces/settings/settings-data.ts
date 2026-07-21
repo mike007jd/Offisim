@@ -326,7 +326,10 @@ function mcpToolGrantFromRow(row: McpToolGrantRow): McpToolGrant {
   };
 }
 
-async function loadMcpToolGrants(companyId: string, employeeId: string): Promise<McpToolGrant[]> {
+export async function loadMcpToolGrants(
+  companyId: string,
+  employeeId: string,
+): Promise<McpToolGrant[]> {
   const repos = await reposOrNull();
   if (!repos?.mcpToolGrants) return [];
   const rows = await repos.mcpToolGrants.listByEmployee(companyId, employeeId);

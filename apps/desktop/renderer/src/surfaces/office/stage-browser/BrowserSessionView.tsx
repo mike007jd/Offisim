@@ -11,7 +11,6 @@ import {
   type NativeStageSessionLease,
   acquireNativeStageSessionLease,
 } from '@/surfaces/office/stage-viewer/StageSessionReconciler.js';
-import { useSetStageChrome } from '@/surfaces/office/stage-viewer/stage-chrome.js';
 import { type UnlistenFn, listen } from '@tauri-apps/api/event';
 import { ArrowLeft, ArrowRight, Globe2, LockKeyhole, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -56,18 +55,8 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
   const [snapshot, setSnapshot] = useState<BrowserSessionSnapshot | null>(null);
   const [address, setAddress] = useState(target.initialUrl);
   const [error, setError] = useState<string | null>(null);
-  const setChrome = useSetStageChrome();
   const visibleUrl = snapshot?.url || address || target.initialUrl;
   const isSecurePage = visibleUrl.startsWith('https://');
-
-  useEffect(() => {
-    setChrome({
-      title: snapshot?.title || target.title || 'Browser',
-      meta: snapshot?.url || target.initialUrl,
-      badge: 'You · Manual',
-    });
-    return () => setChrome(null);
-  }, [setChrome, snapshot?.title, snapshot?.url, target.initialUrl, target.title]);
 
   useEffect(() => {
     if (!snapshot?.url || document.activeElement === addressRef.current) return;
@@ -100,8 +89,10 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
     // only correct tools are its bounds and its visibility: track the host's
     // visible rect (host ∩ app viewport, logical coordinates), hide on zero
     // area or when an application overlay intersects the host, and resync on
-    // restore. Updates are RAF-coalesced and only sent when the rounded
-    // logical bounds actually change by at least 1px.
+    // restore. The host element is the dedicated grid track below the
+    // Browser-owned chrome, so its rect already excludes the chrome — no
+    // chrome measurement or pixel inset. Updates are RAF-coalesced and only
+    // sent when the rounded logical bounds actually change by at least 1px.
     const syncOnce = async () => {
       if (!lease.isCurrent() || !host.isConnected) return;
       const rect = host.getBoundingClientRect();
@@ -132,6 +123,11 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
           if (poll === 0) {
             poll = window.setInterval(() => {
               if (!lease.isCurrent()) return;
+              // Geometry resync rides the snapshot poll so a missed observer,
+              // a transiently failed bounds update, or a window/display
+              // transition converges back to the host rect instead of leaving
+              // the native child stuck over the chrome or short of the dock.
+              scheduleSync();
               void invokeCommand('browser_session_snapshot', {
                 sessionId: target.sessionId,
                 scope,
@@ -197,7 +193,6 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
       window.cancelAnimationFrame(syncFrame);
       syncFrame = window.requestAnimationFrame(syncNativeSurface);
     };
-
     const observer = new ResizeObserver(scheduleSync);
     observer.observe(host);
     // Portal overlays mount as direct children of <body>; watching only that
@@ -205,6 +200,13 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
     const overlayObserver = new MutationObserver(scheduleSync);
     overlayObserver.observe(document.body, { childList: true });
     window.addEventListener('resize', scheduleSync);
+    // The child WebView is positioned in native window coordinates. A scroll
+    // can move the DOM host without resizing it, so capture scrolls from every
+    // ancestor and the visual viewport instead of leaving the native surface
+    // behind at its previous coordinates.
+    document.addEventListener('scroll', scheduleSync, true);
+    window.visualViewport?.addEventListener('scroll', scheduleSync);
+    window.visualViewport?.addEventListener('resize', scheduleSync);
 
     void (async () => {
       try {
@@ -228,6 +230,9 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
       observer.disconnect();
       overlayObserver.disconnect();
       window.removeEventListener('resize', scheduleSync);
+      document.removeEventListener('scroll', scheduleSync, true);
+      window.visualViewport?.removeEventListener('scroll', scheduleSync);
+      window.visualViewport?.removeEventListener('resize', scheduleSync);
       unlisten?.();
       if (sessionLeaseRef.current === lease) sessionLeaseRef.current = null;
       lease.release();
@@ -242,6 +247,17 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
         .catch(() => {});
     };
   }, [target]);
+
+  useEffect(() => {
+    const focusLocation = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'l') return;
+      event.preventDefault();
+      addressRef.current?.focus();
+      addressRef.current?.select();
+    };
+    document.addEventListener('keydown', focusLocation);
+    return () => document.removeEventListener('keydown', focusLocation);
+  }, []);
 
   const navigate = async () => {
     const lease = sessionLeaseRef.current;
@@ -335,6 +351,11 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
               onChange={(event) => setAddress(event.currentTarget.value)}
               onBlur={() => {
                 if (snapshot?.url) setAddress(snapshot.url);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape') return;
+                setAddress(snapshot?.url || target.initialUrl);
+                event.currentTarget.blur();
               }}
               aria-label="Browser address"
               spellCheck={false}

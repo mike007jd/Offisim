@@ -263,6 +263,16 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   assert.ok(Number.isFinite(Date.parse(projection.checkedAt)));
   assert.deepEqual(projection.capabilities.permissionModes, ['plan', 'auto', 'full']);
   assert.equal(projection.capabilities.interactions.userInput, false);
+  assert.deepEqual(
+    projection.capabilities.interactionRoutes.computer.map((route) => [
+      route.id,
+      route.availability,
+    ]),
+    [
+      ['claude-native-computer', 'unsupported'],
+      ['offisim-computer', 'runtime-determined'],
+    ],
+  );
   assert.doesNotMatch(`${status.output}\n${status.errorOutput}`, /must-not-project|must-not-leak/);
   assert.equal(projection.accounts, undefined);
   assert.equal(projection.models, undefined);

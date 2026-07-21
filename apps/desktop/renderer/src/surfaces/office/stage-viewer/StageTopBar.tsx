@@ -260,6 +260,8 @@ export function StageTopBar() {
 
 /** Run state belongs to stage content, never to the view-tab strip. */
 export function StageRunStatusCluster({ isRunning, accounting }: StageRunStatusProps) {
+  if (!isRunning) return null;
+
   return (
     <div className="off-stage-status-cluster" data-stage-run-status aria-label="Stage run status">
       <RunPipelinePill />

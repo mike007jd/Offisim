@@ -95,16 +95,21 @@ export function CapabilityManifest({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="off-thread-pit off-focusable"
+          className="off-thread-pit off-thread-pit-quiet off-focusable"
+          aria-label={`Thread capabilities: ${available.length} ready, ${pending.length} need setup`}
           title="What this teammate can do in this thread"
         >
           <Icon icon={Boxes} size="sm" />
-          Tools
-          <span className="off-thread-pit-count">{available.length}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="off-thread-pit-pop" align="start">
         <div className="off-cap-manifest">
+          <div className="off-cap-manifest-head">
+            <span className="off-cap-manifest-title">Thread capabilities</span>
+            <span className="off-cap-manifest-count">
+              {available.length} ready{pending.length ? ` · ${pending.length} need setup` : ''}
+            </span>
+          </div>
           <CapabilitySection title="Available" capabilities={available} />
           <CapabilitySection title="Needs setup" capabilities={pending} />
         </div>

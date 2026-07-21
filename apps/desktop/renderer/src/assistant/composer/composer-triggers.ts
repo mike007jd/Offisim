@@ -1,4 +1,5 @@
 import { useUiState } from '@/app/ui-state.js';
+import type { PermissionMode } from '@/runtime/pi-thread-mode-store.js';
 import type {
   Unstable_DirectiveFormatter,
   Unstable_DirectiveSegment,
@@ -129,66 +130,172 @@ export function extractMentionedEmployeeIds(
 }
 
 /**
- * `/` commands. Each maps to a real `ui-state` action — no placeholder
- * commands. Read fresh state inside `execute` so the action always targets the
- * currently-open conversation.
+ * Slash palette groups, in display order. The assistant-ui slash adapter
+ * renders one flat, query-filtered list, so grouping is a presentation
+ * concern: every command carries a category and the popover inserts quiet
+ * group headers between runs of the same category.
+ */
+export type SlashCategory = 'commands' | 'skills' | 'tools' | 'modes' | 'navigation';
+
+export const SLASH_CATEGORY_LABEL: Record<SlashCategory, string> = {
+  commands: 'Commands',
+  skills: 'Skills',
+  tools: 'Tools & MCP',
+  modes: 'Modes',
+  navigation: 'Navigation',
+};
+
+export interface OfficeSlashCommand extends Unstable_SlashCommand {
+  readonly category: SlashCategory;
+}
+
+interface SlashSkillItem {
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+}
+
+interface SlashToolItem {
+  readonly id: string;
+  readonly serverName: string;
+  readonly toolName: string;
+  readonly title: string;
+  readonly description?: string;
+}
+
+export interface BuildSlashCommandsOptions {
+  /** Skills the thread's employee can run right now. */
+  readonly skills?: readonly SlashSkillItem[];
+  /** MCP tools granted to the thread's employee right now. */
+  readonly tools?: readonly SlashToolItem[];
+  /** Inserts an executable directive at the composer's caret. */
+  readonly insertText?: (text: string) => void;
+  /** Switches the thread's permission mode. */
+  readonly setMode?: (mode: PermissionMode) => void;
+}
+
+const MODE_COMMANDS: ReadonlyArray<{ mode: PermissionMode; label: string; description: string }> = [
+  { mode: 'plan', label: 'Plan mode', description: 'Read-only — investigate, no changes' },
+  { mode: 'ask', label: 'Ask mode', description: 'Read-only — approve changes and internet' },
+  { mode: 'auto', label: 'Auto mode', description: 'Runs in the Project — asks when needed' },
+  { mode: 'full', label: 'Full mode', description: 'No restrictions' },
+];
+
+/**
+ * `/` commands. Each maps to a real action — no placeholder commands. Read
+ * fresh state inside `execute` so the action always targets the currently-open
+ * conversation.
  *
  * `/loop` is the dedicated Loop reference path (PR-10) — it opens a searchable
  * Loop picker that inserts a structured, pinned-revision chip. `@` stays
  * people-only (employee mentions); the two never overload.
+ *
+ * `/skill …` and `/tool …` expand the items actually available to the thread's
+ * employee and insert an executable directive into the composer; the
+ * management routes stay as explicit "Manage …" entries instead of being the
+ * only outcome.
  */
-export function buildSlashCommands(): Unstable_SlashCommand[] {
-  return [
+export function buildSlashCommands(options: BuildSlashCommandsOptions = {}): OfficeSlashCommand[] {
+  const { skills = [], tools = [], insertText, setMode } = options;
+  const commands: OfficeSlashCommand[] = [
     {
       id: 'new',
+      category: 'commands',
       label: 'New conversation',
       description: 'Start a fresh team conversation',
       execute: () => useUiState.getState().openDraftThread(),
     },
     {
       id: 'loop',
+      category: 'commands',
       label: 'Reference a Loop',
       description: 'Insert a saved Loop to run when you Send',
       execute: () => openLoopPicker(),
     },
-    {
-      id: 'skill',
-      label: 'Skills',
-      description: 'Browse the skills employees can run',
-      execute: () => useUiState.getState().setSurface('personnel'),
-    },
-    {
-      id: 'tool',
-      label: 'Tools & MCP',
-      description: 'Manage MCP servers and tool grants',
-      execute: () => useUiState.getState().openSettings('mcp'),
-    },
+  ];
+
+  for (const skill of skills) {
+    commands.push({
+      id: `skill:${skill.name}`,
+      category: 'skills',
+      label: `/skill ${skill.name}`,
+      description: skill.description || 'Insert this skill directive',
+      execute: () => insertText?.(`/skill ${skill.name} `),
+    });
+  }
+  commands.push({
+    id: 'skill',
+    category: 'skills',
+    label: skills.length ? 'Manage skills' : 'Skills',
+    description: skills.length
+      ? 'Browse and assign skills in Personnel'
+      : 'Browse the skills employees can run',
+    execute: () => useUiState.getState().setSurface('personnel'),
+  });
+
+  for (const tool of tools) {
+    commands.push({
+      id: `tool:${tool.id}`,
+      category: 'tools',
+      label: `/tool ${tool.toolName}`,
+      description: `${tool.serverName} · ${tool.description || tool.title}`,
+      execute: () => insertText?.(`/tool ${tool.toolName} `),
+    });
+  }
+  commands.push({
+    id: 'tool',
+    category: 'tools',
+    label: tools.length ? 'Manage tools & MCP' : 'Tools & MCP',
+    description: tools.length
+      ? 'Manage MCP servers and tool grants'
+      : 'Connect MCP servers to grant tools',
+    execute: () => useUiState.getState().openSettings('mcp'),
+  });
+
+  if (setMode) {
+    for (const entry of MODE_COMMANDS) {
+      commands.push({
+        id: entry.mode,
+        category: 'modes',
+        label: entry.label,
+        description: entry.description,
+        execute: () => setMode(entry.mode),
+      });
+    }
+  }
+
+  commands.push(
     {
       id: 'browser',
+      category: 'navigation',
       label: 'Browser',
       description: 'See rendered browser pages from runs',
       execute: () => useUiState.getState().openBoard('timeline'),
     },
     {
       id: 'computer',
+      category: 'navigation',
       label: 'Computer Use',
       description: 'Set up the desktop-control capability',
       execute: () => useUiState.getState().openSettings('computer'),
     },
     {
       id: 'memory',
+      category: 'navigation',
       label: 'Memory',
       description: 'Open agent memory and reusable context',
       execute: () => useUiState.getState().setSurface('personnel'),
     },
     {
       id: 'output',
+      category: 'navigation',
       label: 'Outputs',
       description: 'View artifacts produced by runs',
       execute: () => useUiState.getState().openBoard('timeline'),
     },
     {
       id: 'inbox',
+      category: 'navigation',
       label: 'Open conversations',
       description: 'Return to the Office conversation list',
       execute: () => {
@@ -198,15 +305,19 @@ export function buildSlashCommands(): Unstable_SlashCommand[] {
     },
     {
       id: 'activity',
+      category: 'navigation',
       label: 'Activity log',
       description: 'Open the run activity log',
       execute: () => useUiState.getState().openBoard('timeline'),
     },
     {
       id: 'settings',
+      category: 'navigation',
       label: 'Settings',
       description: 'Open settings',
       execute: () => useUiState.getState().setSurface('settings'),
     },
-  ];
+  );
+
+  return commands;
 }

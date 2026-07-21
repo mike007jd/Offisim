@@ -8,6 +8,11 @@ import type { BrowserSessionBounds } from '@/lib/tauri-commands.js';
  * with the app viewport — in Tauri logical coordinates (CSS pixels; never
  * rescaled by the display pixel ratio) and hides the native surface whenever the
  * host has no visible area or an application overlay must appear above it.
+ *
+ * Chrome exclusion is a layout contract, not a measurement: the host element
+ * is the single grid track below every app-owned chrome row, so its DOMRect
+ * already excludes the chrome. No pixel inset, no chrome measuring, no
+ * platform-specific compensation is involved.
  */
 
 export interface NativeSurfaceRect {

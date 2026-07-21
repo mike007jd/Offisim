@@ -37,6 +37,19 @@ export type AiModelSource =
 
 export type RuntimeEnginePermissionMode = 'plan' | 'ask' | 'auto' | 'full';
 
+export type RuntimeInteractionRouteSource = 'engine-native' | 'offisim-local' | 'mcp';
+
+/** One interaction path an engine lane can expose. `runtime-determined` means
+ * the engine supports the route but live machine state (for example the local
+ * desktop driver) decides whether it is ready for this run. */
+export interface RuntimeInteractionRoute {
+  readonly id: string;
+  readonly source: RuntimeInteractionRouteSource;
+  readonly label: string;
+  readonly availability: 'available' | 'runtime-determined' | 'setup-required' | 'unsupported';
+  readonly reason?: string;
+}
+
 /** Product controls and event projections that one runtime actually supports. */
 export interface RuntimeEngineCapabilityManifest {
   readonly stop: boolean;
@@ -57,6 +70,12 @@ export interface RuntimeEngineCapabilityManifest {
     readonly reasoning: boolean;
     readonly toolCalls: boolean;
     readonly fileChanges: boolean;
+  };
+  /** Explicit route truth. Product surfaces must not infer native Browser or
+   * Computer Use support from an engine brand name. */
+  readonly interactionRoutes: {
+    readonly browser: readonly RuntimeInteractionRoute[];
+    readonly computer: readonly RuntimeInteractionRoute[];
   };
 }
 

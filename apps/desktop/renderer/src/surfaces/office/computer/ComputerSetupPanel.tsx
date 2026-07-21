@@ -1,12 +1,12 @@
 import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
-import { queryKeys } from '@/data/query-keys.js';
 import { useEmployees } from '@/data/queries.js';
-import { Select } from '@/design-system/grammar/Select.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { cn } from '@/lib/utils.js';
+import { getDesktopAgentRuntime } from '@/runtime/desktop-agent-runtime.js';
 import {
   CUA_DRIVER_MCP_PRESET,
   type McpServer,
@@ -14,12 +14,15 @@ import {
   grantMcpTool,
   inferMcpGrantRiskClass,
   inferMcpGrantRiskSource,
+  loadMcpToolGrants,
   registerMcpServer,
-  revokeMcpTool,
   useMcpServers,
-  useMcpToolGrants,
 } from '@/surfaces/settings/settings-data.js';
-import { useQueryClient } from '@tanstack/react-query';
+import type {
+  RuntimeEngineCapabilityManifest,
+  RuntimeInteractionRouteSource,
+} from '@offisim/shared-types';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2,
   Copy,
@@ -28,11 +31,12 @@ import {
   PlugZap,
   RefreshCw,
   ShieldCheck,
-  Users,
+  UsersRound,
   Wrench,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { resolveComputerRoute } from './computer-route.js';
 import {
   CUA_DRIVER_DAEMON_COMMAND,
   CUA_DRIVER_DOCS_URL,
@@ -41,6 +45,17 @@ import {
   type ComputerDriverStatus,
   loadComputerDriverStatus,
 } from './computer-status.js';
+
+const ROUTE_SOURCE_LABELS: Readonly<Record<RuntimeInteractionRouteSource, string>> = {
+  'engine-native': 'Engine native',
+  'offisim-local': 'Offisim local',
+  mcp: 'MCP',
+};
+
+function engineDisplayLabel(engineId: string): string {
+  if (engineId === 'api') return 'API engines';
+  return `${engineId.charAt(0).toUpperCase()}${engineId.slice(1)} engine`;
+}
 
 function findComputerServer(servers: readonly McpServer[]) {
   return (
@@ -70,13 +85,42 @@ export function ComputerSetupPanel({
 }: ComputerSetupPanelProps) {
   const desktopAvailable = isTauriRuntime();
   const queryClient = useQueryClient();
+  const companyId = useUiState((state) => state.companyId);
   const serversQuery = useMcpServers();
   const servers = serversQuery.data ?? [];
   const computerServer = useMemo(() => findComputerServer(servers), [servers]);
   const [status, setStatus] = useState<ComputerDriverStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [engineCapabilities, setEngineCapabilities] = useState<
+    Readonly<Record<string, RuntimeEngineCapabilityManifest>>
+  >({});
   const ready = Boolean(status?.daemonRunning && computerServer?.status === 'connected');
+
+  useEffect(() => {
+    if (!companyId) {
+      setEngineCapabilities({});
+      return;
+    }
+    let cancelled = false;
+    void getDesktopAgentRuntime(companyId)
+      .then((runtime) => {
+        if (cancelled) return;
+        const next = Object.fromEntries(
+          ['codex', 'claude', 'api'].flatMap((engineId) => {
+            const manifest = runtime.getEngineCapabilities(engineId);
+            return manifest ? [[engineId, manifest] as const] : [];
+          }),
+        );
+        setEngineCapabilities(next);
+      })
+      .catch(() => {
+        if (!cancelled) setEngineCapabilities({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
 
   const refresh = useCallback(async () => {
     if (!desktopAvailable) return;
@@ -218,18 +262,93 @@ export function ComputerSetupPanel({
 
       {ready ? (
         <p className="off-computer-setup-copy">
-          Computer Use is connected. Only employees with granted tools can use it.
+          Offisim local Computer Use is connected for this Mac. Engine-native routes are used only
+          when the selected runtime explicitly declares them.
         </p>
       ) : null}
 
+      <ComputerRouteSettings capabilities={engineCapabilities} localDriverReady={ready} />
+
       {ready && computerServer ? (
-        <ComputerAccessSettings server={computerServer} onManageToolAccess={onManageToolAccess} />
+        <ComputerAccessPolicy server={computerServer} onManageToolAccess={onManageToolAccess} />
       ) : null}
     </section>
   );
 }
 
-function ComputerAccessSettings({
+function ComputerRouteSettings({
+  capabilities,
+  localDriverReady,
+}: {
+  capabilities: Readonly<Record<string, RuntimeEngineCapabilityManifest>>;
+  localDriverReady: boolean;
+}) {
+  const rows = ['codex', 'claude', 'api'].flatMap((engineId) => {
+    const manifest = capabilities[engineId];
+    if (!manifest) return [];
+    const resolution = resolveComputerRoute(manifest, localDriverReady);
+    return [{ engineId, resolution }] as const;
+  });
+  if (!rows.length) return null;
+  return (
+    <section className="off-computer-settings" aria-labelledby="off-computer-routes-title">
+      <div className="off-computer-settings-head">
+        <div>
+          <Icon icon={MonitorSmartphone} size="sm" />
+          <span>
+            <strong id="off-computer-routes-title">Computer routes</strong>
+            <small>Resolved per engine lane; never inferred from the brand.</small>
+          </span>
+        </div>
+      </div>
+      <div className="off-computer-route-list">
+        {rows.map(({ engineId, resolution }) => {
+          const effective = resolution.effective;
+          const native = resolution.routes.find((route) => route.source === 'engine-native');
+          return (
+            <div className="off-computer-route-row" key={engineId}>
+              <span
+                className={cn(
+                  'off-computer-access-icon',
+                  effective.availability === 'available' && 'is-on',
+                )}
+              >
+                <Icon
+                  icon={effective.availability === 'available' ? ShieldCheck : Wrench}
+                  size="sm"
+                />
+              </span>
+              <div>
+                <strong>{engineDisplayLabel(engineId)}</strong>
+                <small>
+                  {effective.label} ·{' '}
+                  {effective.availability === 'available'
+                    ? 'Available'
+                    : effective.availability === 'setup-required'
+                      ? 'Setup required'
+                      : 'Unsupported'}
+                </small>
+                {effective.reason ? <small>{effective.reason}</small> : null}
+                {native && native.id !== effective.id ? (
+                  <small>
+                    Engine native:{' '}
+                    {native.availability === 'available' ? 'Available' : 'Unavailable'}
+                    {native.reason ? ` — ${native.reason}` : ''}
+                  </small>
+                ) : null}
+              </div>
+              <span className="off-computer-route-source">
+                {ROUTE_SOURCE_LABELS[effective.source]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ComputerAccessPolicy({
   server,
   onManageToolAccess,
 }: {
@@ -239,55 +358,55 @@ function ComputerAccessSettings({
   const companyId = useUiState((state) => state.companyId);
   const queryClient = useQueryClient();
   const employees = useEmployees();
-  const employeeOptions = useMemo(
-    () =>
-      (employees.data ?? [])
-        .filter((employee) => !employee.disabled)
-        .map((employee) => ({ value: employee.id, label: employee.name })),
+  const activeEmployees = useMemo(
+    () => (employees.data ?? []).filter((employee) => !employee.disabled),
     [employees.data],
   );
-  const [employeeId, setEmployeeId] = useState(employeeOptions[0]?.value ?? '');
   const [updatingAccess, setUpdatingAccess] = useState(false);
-  const grants = useMcpToolGrants(companyId, employeeId || null);
   const tools = server.tools;
-  const grantedTools = useMemo(
-    () =>
-      new Set(
-        (grants.data ?? [])
-          .filter((grant) => grant.serverName === server.name)
-          .map((grant) => grant.toolName),
-      ),
-    [grants.data, server.name],
-  );
-  const grantedCount = tools.filter((tool) => grantedTools.has(tool.name)).length;
-  const allGranted = tools.length > 0 && grantedCount === tools.length;
+  const grants = useQueries({
+    queries: activeEmployees.map((employee) => ({
+      queryKey: queryKeys.settingsMcpToolGrants(companyId, employee.id),
+      queryFn: () => loadMcpToolGrants(companyId, employee.id),
+      enabled: Boolean(companyId),
+    })),
+  });
+  const enabledEmployees = activeEmployees.filter((_employee, index) => {
+    const grantedTools = new Set(
+      (grants[index]?.data ?? [])
+        .filter(
+          (grant) =>
+            grant.serverName === server.name &&
+            grant.scope === 'employee' &&
+            grant.projectId === null,
+        )
+        .map((grant) => grant.toolName),
+    );
+    return tools.length > 0 && tools.every((tool) => grantedTools.has(tool.name));
+  });
+  const allActiveEnabled =
+    activeEmployees.length > 0 && enabledEmployees.length === activeEmployees.length;
 
-  useEffect(() => {
-    if (!employeeOptions.some((option) => option.value === employeeId)) {
-      setEmployeeId(employeeOptions[0]?.value ?? '');
-    }
-  }, [employeeId, employeeOptions]);
-
-  async function toggleComputerAccess() {
-    if (!companyId || !employeeId || tools.length === 0) return;
+  async function allowAllActiveEmployees() {
+    if (!companyId || !activeEmployees.length || tools.length === 0) return;
     setUpdatingAccess(true);
     try {
-      if (allGranted) {
-        for (const tool of tools) {
-          await revokeMcpTool({
-            companyId,
-            employeeId,
-            serverName: server.name,
-            toolName: tool.name,
-          });
-        }
-        toast.success('Computer Use access revoked');
-      } else {
+      for (const [index, employee] of activeEmployees.entries()) {
+        const grantedTools = new Set(
+          (grants[index]?.data ?? [])
+            .filter(
+              (grant) =>
+                grant.serverName === server.name &&
+                grant.scope === 'employee' &&
+                grant.projectId === null,
+            )
+            .map((grant) => grant.toolName),
+        );
         for (const tool of tools) {
           if (grantedTools.has(tool.name)) continue;
           await grantMcpTool({
             companyId,
-            employeeId,
+            employeeId: employee.id,
             serverName: server.name,
             toolName: tool.name,
             riskClass: inferMcpGrantRiskClass(tool),
@@ -295,12 +414,12 @@ function ComputerAccessSettings({
             trustedServerId: server.id,
           });
         }
-        toast.success('Computer Use access granted', {
-          description: `${tools.length} discovered tools are available to the selected employee.`,
-        });
       }
+      toast.success('Computer Use enabled for active employees', {
+        description: `${activeEmployees.length} employees can request this Mac's local driver.`,
+      });
     } catch (error) {
-      toast.error('Computer Use access was not updated', {
+      toast.error('Computer Use access policy was not updated', {
         description: safeErrorMessage(error),
       });
     } finally {
@@ -316,48 +435,47 @@ function ComputerAccessSettings({
     <div className="off-computer-settings">
       <div className="off-computer-settings-head">
         <div>
-          <Icon icon={Users} size="sm" />
+          <Icon icon={UsersRound} size="sm" />
           <span>
-            <strong>Employee access</strong>
-            <small>Enforced by the runtime MCP tool-grant gate.</small>
+            <strong>Access policy</strong>
+            <small>
+              Machine availability is global; runtime grants remain the enforcement layer.
+            </small>
           </span>
         </div>
-        <Select
-          aria-label="Computer Use employee"
-          value={employeeId}
-          disabled={!employeeOptions.length}
-          onChange={(event) => setEmployeeId(event.target.value)}
-          options={
-            employeeOptions.length
-              ? employeeOptions
-              : [{ value: '', label: employees.isLoading ? 'Loading employees' : 'No employees' }]
-          }
-        />
       </div>
 
       <div className="off-computer-access-row">
-        <span className={cn('off-computer-access-icon', allGranted && 'is-on')}>
-          <Icon icon={allGranted ? ShieldCheck : Wrench} size="sm" />
+        <span className={cn('off-computer-access-icon', allActiveEnabled && 'is-on')}>
+          <Icon icon={allActiveEnabled ? ShieldCheck : Wrench} size="sm" />
         </span>
         <div>
-          <strong>{allGranted ? 'Computer Use allowed' : 'Computer Use restricted'}</strong>
+          <strong>
+            {allActiveEnabled ? 'All active employees enabled' : 'Some employees need access'}
+          </strong>
           <small>
-            {tools.length
-              ? `${grantedCount} of ${tools.length} discovered tools granted`
+            {activeEmployees.length
+              ? `${enabledEmployees.length} of ${activeEmployees.length} active employees · ${tools.length} driver tools`
               : 'No tools discovered; reconnect the driver to refresh its tool list.'}
           </small>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={
-            !companyId || !employeeId || !tools.length || updatingAccess || grants.isLoading
-          }
-          onClick={() => void toggleComputerAccess()}
-        >
-          {updatingAccess ? 'Updating…' : allGranted ? 'Revoke access' : 'Allow Computer Use'}
-        </Button>
+        {!allActiveEnabled ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={
+              !companyId ||
+              !activeEmployees.length ||
+              !tools.length ||
+              updatingAccess ||
+              grants.some((query) => query.isLoading)
+            }
+            onClick={() => void allowAllActiveEmployees()}
+          >
+            {updatingAccess ? 'Updating…' : 'Allow active employees'}
+          </Button>
+        ) : null}
       </div>
 
       {onManageToolAccess ? (
@@ -366,7 +484,7 @@ function ComputerAccessSettings({
           className="off-computer-manage-tools off-focusable"
           onClick={onManageToolAccess}
         >
-          Manage individual tools and risk levels in MCP settings
+          Manage employee exceptions, individual tools, and risk levels
           <Icon icon={ExternalLink} size="sm" />
         </button>
       ) : null}

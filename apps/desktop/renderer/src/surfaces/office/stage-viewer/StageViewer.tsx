@@ -100,20 +100,27 @@ function StageViewPane({
   tabId: string | null;
   split?: boolean;
 } & StageRunStatusProps) {
+  const ownsChrome = tab === 'preview' && target?.kind === 'browser-session';
   return (
     <StageChromeProvider>
       <section
-        className={cn('off-stage-viewer-pane', split && 'is-split')}
+        className={cn(
+          'off-stage-viewer-pane',
+          split && 'is-split',
+          ownsChrome && 'is-surface-chrome',
+        )}
         aria-label={split ? `Pinned ${viewerTitle(tab)} view` : `${viewerTitle(tab)} view`}
       >
-        <StageViewerHead
-          tab={tab}
-          target={target}
-          tabId={tabId}
-          split={split}
-          isRunning={isRunning}
-          accounting={accounting}
-        />
+        {ownsChrome ? null : (
+          <StageViewerHead
+            tab={tab}
+            target={target}
+            tabId={tabId}
+            split={split}
+            isRunning={isRunning}
+            accounting={accounting}
+          />
+        )}
         <div className="off-stage-viewer-body">
           <StageTabBody tab={tab} target={target} />
         </div>

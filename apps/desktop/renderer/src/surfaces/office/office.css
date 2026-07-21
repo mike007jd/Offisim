@@ -1519,6 +1519,10 @@
   overflow: hidden;
 }
 
+.off-stage-viewer-pane.is-surface-chrome {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .off-stage-split-handle {
   width: 2px;
   cursor: col-resize;
@@ -2559,6 +2563,50 @@
   flex: 1;
 }
 
+.off-computer-route-list {
+  display: grid;
+  gap: var(--off-sp-2);
+}
+
+.off-computer-route-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-3);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-sunken);
+}
+
+.off-computer-route-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.off-computer-route-row strong {
+  color: var(--off-ink-1);
+  font-size: var(--off-fs-sm);
+  font-weight: 680;
+}
+
+.off-computer-route-row small {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  line-height: 1.4;
+}
+
+.off-computer-route-source {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
+  font-weight: 680;
+  letter-spacing: var(--off-ls-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .off-computer-access-icon {
   width: 30px;
   height: 30px;
@@ -3437,17 +3485,14 @@
 
 .off-team-card {
   flex: none;
-  /* Content-sized: a fixed 132px left ~66px for text and truncated ordinary
-     names ("Mara Qui…"). The strip scrolls horizontally, so wider cards cost
-     nothing; very long names still ellipsize at the cap. */
-  width: auto;
-  min-width: 132px;
-  max-width: 200px;
-  height: 68px;
+  /* Fixed dock card: name + engine mark, truncated role, presence pill. The
+     strip scrolls horizontally, so the fixed width never squeezes content. */
+  width: 144px;
+  height: 56px;
   display: flex;
   align-items: center;
-  gap: var(--off-sp-3);
-  padding: 0 var(--off-sp-4);
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-3);
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);
   background: var(--off-surface-2);
@@ -3646,6 +3691,23 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.off-team-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  min-width: 0;
+}
+
+.off-team-name-row .off-team-name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Engine mark whose saved model fell out of the catalog. */
+.off-engine-mark.is-invalid {
+  opacity: 0.55;
 }
 
 .off-team-name {
@@ -4510,6 +4572,22 @@
   flex-direction: column;
   gap: var(--off-sp-6);
 }
+.off-cap-manifest-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--off-sp-3);
+}
+.off-cap-manifest-title {
+  font-size: var(--off-fs-sm);
+  font-weight: 680;
+  color: var(--off-ink-1);
+}
+.off-cap-manifest-count {
+  font-size: var(--off-fs-meta);
+  color: var(--off-ink-3);
+  font-weight: 560;
+}
 .off-cap-manifest-sec {
   display: flex;
   flex-direction: column;
@@ -4765,10 +4843,12 @@
   white-space: nowrap;
 }
 
-/* The consolidated settings chip carries a three-part summary
-   ("model · reasoning · mode") — give it more room than a plain chip. */
+/* The consolidated settings chip carries the current model leaf id (or the
+   engine's short name on orchestration lanes) — capped so Send always fits. */
 .off-composer-settings-chip {
-  max-width: 232px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 160px;
 }
 
 .off-composer-send {
@@ -4944,6 +5024,34 @@
 .off-composer-menu-meta {
   font-size: var(--off-fs-meta);
   color: var(--off-ink-4);
+}
+
+/* Drill-in layered picker: root rows carry a trailing chevron, drill layers
+   open with a back row. All layers share one menu surface (no side submenus). */
+.off-composer-menu-caret {
+  margin-left: auto;
+  display: inline-flex;
+  color: var(--off-ink-4);
+}
+
+.off-composer-menu-back {
+  font-weight: 640;
+}
+
+/* Slash palette group headers (Commands / Skills / Tools & MCP / Modes /
+   Navigation) — quiet separators between category runs in the flat list. */
+.off-trigger-group {
+  padding: var(--off-sp-2) var(--off-sp-2) 2px;
+  font-size: var(--off-fs-2xs);
+  font-weight: 680;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--off-ink-4);
+  user-select: none;
+}
+
+.off-trigger-group:first-child {
+  padding-top: 2px;
 }
 
 /* Live tool-activity strip (RunActivityStrip): builtin/MCP tool calls shown in
@@ -5479,6 +5587,15 @@
   font-weight: 640;
   transition: background var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
     var(--off-motion-ease), border-color var(--off-motion-fast) var(--off-motion-ease);
+}
+
+/* Quiet icon-only manifest entry — the noisy "Tools N" text chip is gone; the
+   count lives inside the popover header. */
+.off-thread-pit-quiet {
+  width: 26px;
+  padding: 0;
+  justify-content: center;
+  color: var(--off-ink-3);
 }
 
 .off-thread-pit:hover,
@@ -6870,6 +6987,7 @@
 }
 .off-dock-label {
   flex: none;
+  width: 96px;
   display: flex;
   flex-direction: column;
   justify-content: center;

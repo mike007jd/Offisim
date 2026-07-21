@@ -82,6 +82,10 @@ function GameViewControls() {
 export function OfficeStage() {
   const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
+  const stageView = useUiState((s) => s.stageView);
+  const stageOpenTabs = useUiState((s) => s.stageOpenTabs);
+  const activeStageTabId = useUiState((s) => s.activeStageTabId);
+  const stageSplitTabId = useUiState((s) => s.stageSplitTabId);
   const scenePipCollapsed = useUiState((s) => s.scenePipCollapsed);
   const setScenePipCollapsed = useUiState((s) => s.setScenePipCollapsed);
   const stageRef = useRef<HTMLElement>(null);
@@ -152,79 +156,90 @@ export function OfficeStage() {
   // which mounts OfficeScene3D directly, never sees it.
   const layout = useOfficeLayout(companyId);
   const emptyOffice = zoneDefsFromLayout(layout.data).length === 0;
-  const sceneIsPip = stagePrimaryTab !== 'game';
+  const splitTarget =
+    stagePrimaryTab !== 'board' && stageSplitTabId !== activeStageTabId
+      ? (stageOpenTabs.find((tab) => tab.id === stageSplitTabId)?.target ?? null)
+      : null;
+  const ownsNativeCanvas = (kind: string | undefined) =>
+    kind === 'browser-session' || kind === 'terminal-session' || kind === 'computer';
+  const nativeViewOwnsTheCanvas =
+    ownsNativeCanvas(stageView.kind) || ownsNativeCanvas(splitTarget?.kind);
+  const showScene = stagePrimaryTab === 'game' || !nativeViewOwnsTheCanvas;
+  const sceneIsPip = stagePrimaryTab !== 'game' && showScene;
   const sceneIsCollapsed =
     sceneIsPip && (scenePipCollapsed || (compactStage && !compactPipExpanded));
 
   return (
     <section ref={stageRef} className={cn('off-stage', isRunning && 'is-live')}>
       <StageTopBar />
-      <div
-        className={cn(
-          'off-scene-host',
-          stagePrimaryTab !== 'game' && 'is-pip',
-          stagePrimaryTab !== 'game' && scenePipCollapsed && 'is-collapsed',
-        )}
-      >
-        {sceneIsCollapsed ? null : sceneRenderMode === '3d' ? (
-          <Suspense fallback={<div className="off-scene-loading">Loading scene…</div>}>
-            <OfficeScene3D pip={sceneIsPip} />
-          </Suspense>
-        ) : (
-          <OfficeScene2D pip={sceneIsPip} />
-        )}
-        {stagePrimaryTab === 'game' ? (
-          <div className="off-scene-hud">
-            <StageRunStatusCluster isRunning={isRunning} accounting={accounting} />
-            <GameViewControls />
-          </div>
-        ) : null}
-        {emptyOffice ? (
-          // Honest empty office: the scene keeps its bare floor and seats
-          // nobody; this HTML overlay carries the guidance for both modes.
-          <EmptyState
-            icon={LayoutTemplate}
-            title="No office layout yet"
-            description="Open Studio to lay out your floor."
-            action={{ label: 'Open Studio', onClick: () => setSurface('studio') }}
-            className="off-scene-empty"
-          />
-        ) : null}
-        {stagePrimaryTab !== 'game' ? (
-          <div className="off-scene-pip-actions">
-            <button
-              type="button"
-              className="off-scene-pip-return off-focusable"
-              onClick={() => setStagePrimaryTab('game')}
-              aria-label="Return to Game View"
-              title="Return to Game View"
-            >
-              <Icon icon={PictureInPicture2} size="sm" />
-              <span>Game View</span>
-            </button>
-            <button
-              type="button"
-              className="off-scene-pip-collapse off-focusable"
-              onClick={() => {
-                if (compactStage) {
-                  if (sceneIsCollapsed) {
-                    setScenePipCollapsed(false);
-                    setCompactPipExpanded(true);
-                  } else {
-                    setCompactPipExpanded(false);
+      {showScene ? (
+        <div
+          className={cn(
+            'off-scene-host',
+            sceneIsPip && 'is-pip',
+            sceneIsPip && scenePipCollapsed && 'is-collapsed',
+          )}
+        >
+          {sceneIsCollapsed ? null : sceneRenderMode === '3d' ? (
+            <Suspense fallback={<div className="off-scene-loading">Loading scene…</div>}>
+              <OfficeScene3D pip={sceneIsPip} />
+            </Suspense>
+          ) : (
+            <OfficeScene2D pip={sceneIsPip} />
+          )}
+          {stagePrimaryTab === 'game' ? (
+            <div className="off-scene-hud">
+              <StageRunStatusCluster isRunning={isRunning} accounting={accounting} />
+              <GameViewControls />
+            </div>
+          ) : null}
+          {emptyOffice ? (
+            // Honest empty office: the scene keeps its bare floor and seats
+            // nobody; this HTML overlay carries the guidance for both modes.
+            <EmptyState
+              icon={LayoutTemplate}
+              title="No office layout yet"
+              description="Open Studio to lay out your floor."
+              action={{ label: 'Open Studio', onClick: () => setSurface('studio') }}
+              className="off-scene-empty"
+            />
+          ) : null}
+          {sceneIsPip ? (
+            <div className="off-scene-pip-actions">
+              <button
+                type="button"
+                className="off-scene-pip-return off-focusable"
+                onClick={() => setStagePrimaryTab('game')}
+                aria-label="Return to Game View"
+                title="Return to Game View"
+              >
+                <Icon icon={PictureInPicture2} size="sm" />
+                <span>Game View</span>
+              </button>
+              <button
+                type="button"
+                className="off-scene-pip-collapse off-focusable"
+                onClick={() => {
+                  if (compactStage) {
+                    if (sceneIsCollapsed) {
+                      setScenePipCollapsed(false);
+                      setCompactPipExpanded(true);
+                    } else {
+                      setCompactPipExpanded(false);
+                    }
+                    return;
                   }
-                  return;
-                }
-                setScenePipCollapsed(!scenePipCollapsed);
-              }}
-              aria-label={sceneIsCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
-              title={sceneIsCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
-            >
-              <Icon icon={sceneIsCollapsed ? PictureInPicture2 : PanelBottomClose} size="sm" />
-            </button>
-          </div>
-        ) : null}
-      </div>
+                  setScenePipCollapsed(!scenePipCollapsed);
+                }}
+                aria-label={sceneIsCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
+                title={sceneIsCollapsed ? 'Expand scene preview' : 'Collapse scene preview'}
+              >
+                <Icon icon={sceneIsCollapsed ? PictureInPicture2 : PanelBottomClose} size="sm" />
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <StageAutoOpen />
       <StageSessionReconciler />
       <StageViewer isRunning={isRunning} accounting={accounting} />

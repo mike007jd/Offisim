@@ -26,27 +26,18 @@ export function RunPipelinePill() {
       null,
     [runs.activeRuns, selectedThreadId],
   );
-  const terminalRun = useMemo(() => {
-    const selectedRun = runs.runs.find((candidate) => candidate.threadId === selectedThreadId);
-    return selectedRun &&
-      (selectedRun.phase === 'completed' ||
-        selectedRun.phase === 'interrupted' ||
-        selectedRun.phase === 'failed')
-      ? selectedRun
-      : null;
-  }, [runs.runs, selectedThreadId]);
-  const run = activeRun ?? terminalRun;
+  const run = activeRun;
   const presentation = runPipelinePresentation(run?.phase ?? 'idle', run?.source ?? null);
 
   const assignee = useMemo(
     () => employees.data?.find((e) => e.id === run?.employeeId),
     [employees.data, run?.employeeId],
   );
-  const canStop = activeRun !== null;
+  if (!activeRun || presentation.phase === 'idle') return null;
 
   return (
     <div
-      className={cn('off-pipe', canStop && 'is-live')}
+      className={cn('off-pipe', 'is-live')}
       data-phase={presentation.phase}
       aria-live="polite"
       aria-label={`${presentation.phaseLabel}: ${presentation.completedStages} of ${presentation.totalStages} stages`}
@@ -84,17 +75,13 @@ export function RunPipelinePill() {
           {presentation.completedStages}/{presentation.totalStages}
         </span>
       </span>
-      {canStop ? (
-        <button
-          type="button"
-          className="off-pipe-stop off-focusable"
-          onClick={() => conversationRunController.stop(activeRun.threadId)}
-        >
-          Stop
-        </button>
-      ) : presentation.terminalLabel ? (
-        <span className="off-pipe-status">{presentation.terminalLabel}</span>
-      ) : null}
+      <button
+        type="button"
+        className="off-pipe-stop off-focusable"
+        onClick={() => conversationRunController.stop(activeRun.threadId)}
+      >
+        Stop
+      </button>
     </div>
   );
 }

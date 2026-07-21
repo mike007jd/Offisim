@@ -396,7 +396,7 @@ function OfficeComposer({
   return (
     <ComposerPrimitive.Unstable_TriggerPopoverRoot>
       <div className="off-composer-trigger-host">
-        <ComposerTriggers employees={employees} />
+        <ComposerTriggers employees={employees} threadId={threadId} employeeId={scopeEmployeeId} />
         <LoopPicker />
         <ComposerPrimitive.Root
           ref={composerRef}

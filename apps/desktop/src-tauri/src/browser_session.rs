@@ -59,6 +59,79 @@ impl BrowserBounds {
     }
 }
 
+fn offset_bounds_in_parent(bounds: BrowserBounds, x: f64, y: f64) -> BrowserBounds {
+    BrowserBounds {
+        x: bounds.x + x,
+        y: bounds.y + y,
+        ..bounds
+    }
+}
+
+#[cfg(target_os = "macos")]
+async fn host_viewport_inset<R: Runtime>(host_webview: &Webview<R>) -> Result<(f64, f64), String> {
+    let window = host_webview.window();
+    let native_window = window.clone();
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    window
+        .run_on_main_thread(move || {
+            let result = native_window
+                .ns_window()
+                .map_err(|error| format!("read native browser window: {error}"))
+                .and_then(|handle| {
+                    if handle.is_null() {
+                        return Err("native browser window handle is unavailable".to_string());
+                    }
+                    // SAFETY: Tauri owns this live NSWindow. This closure runs
+                    // on AppKit's main thread and borrows it only for geometry.
+                    let window = unsafe { &*handle.cast::<objc2_app_kit::NSWindow>() };
+                    let frame = window.frame();
+                    let content = window.contentLayoutRect();
+                    Ok((
+                        content.origin.x.max(0.0),
+                        (frame.size.height - content.origin.y - content.size.height).max(0.0),
+                    ))
+                });
+            let _ = sender.send(result);
+        })
+        .map_err(|error| format!("schedule native browser geometry read: {error}"))?;
+    receiver
+        .await
+        .map_err(|_| "native browser geometry callback was dropped".to_string())?
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn host_viewport_inset<R: Runtime>(host_webview: &Webview<R>) -> Result<(f64, f64), String> {
+    let window = host_webview.window();
+    let host_size = host_webview
+        .size()
+        .map_err(|error| format!("read browser host WebView size: {error}"))?;
+    let outer_size = window
+        .outer_size()
+        .map_err(|error| format!("read browser window outer size: {error}"))?;
+    let scale_factor = window
+        .scale_factor()
+        .map_err(|error| format!("read browser window scale factor: {error}"))?;
+    if !scale_factor.is_finite() || scale_factor <= 0.0 {
+        return Err("browser window scale factor must be positive".to_string());
+    }
+    Ok((
+        f64::from(outer_size.width.saturating_sub(host_size.width)) / (2.0 * scale_factor),
+        f64::from(outer_size.height.saturating_sub(host_size.height)) / scale_factor,
+    ))
+}
+
+async fn bounds_in_parent_window<R: Runtime>(
+    host_webview: &Webview<R>,
+    bounds: BrowserBounds,
+) -> Result<BrowserBounds, String> {
+    // DOMRect coordinates start at the host WebView's viewport. Child
+    // WebViews are positioned from the parent window's outer content plane,
+    // so derive its platform decoration inset from the actual host and outer
+    // sizes instead of assuming a fixed title-bar height.
+    let (x, y) = host_viewport_inset(host_webview).await?;
+    Ok(offset_bounds_in_parent(bounds, x, y))
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserSessionSnapshot {
@@ -782,6 +855,7 @@ pub async fn browser_session_create<R: Runtime>(
     validate_scope(&crate::local_db::get_offisim_pool(&app)?, &scope).await?;
     let url = validated_navigation_url(&url)?;
     let bounds = bounds.validate()?;
+    let native_bounds = bounds_in_parent_window(&caller, bounds).await?;
     let reservation = registry.reserve(
         session_id.clone(),
         scope.clone(),
@@ -793,7 +867,7 @@ pub async fn browser_session_create<R: Runtime>(
     if let ReserveOutcome::Existing(access) = reservation {
         let webview = webview_for(&app, &access)?;
         webview
-            .set_bounds(bounds.native_rect())
+            .set_bounds(native_bounds.native_rect())
             .map_err(|error| format!("reattach browser bounds: {error}"))?;
         webview
             .show()
@@ -825,7 +899,10 @@ pub async fn browser_session_create<R: Runtime>(
     let label = browser_label(&session_id)?;
     let builder = WebviewBuilder::new(label, WebviewUrl::External(url.clone()))
         .accept_first_mouse(true)
-        .focused(true)
+        // The browser chrome lives in the main renderer WebView. A child that
+        // claims focus during creation makes the address field look fake and
+        // swallows the first keyboard interaction.
+        .focused(false)
         .incognito(false)
         .on_navigation(move |target| handle_navigation(&navigation_app, &navigation_id, target))
         .on_new_window(move |target, _features| {
@@ -859,8 +936,8 @@ pub async fn browser_session_create<R: Runtime>(
 
     let webview = match caller.window().add_child(
         builder,
-        LogicalPosition::new(bounds.x, bounds.y),
-        LogicalSize::new(bounds.width, bounds.height),
+        LogicalPosition::new(native_bounds.x, native_bounds.y),
+        LogicalSize::new(native_bounds.width, native_bounds.height),
     ) {
         Ok(webview) => webview,
         Err(error) => {
@@ -1032,8 +1109,13 @@ pub async fn browser_session_set_bounds<R: Runtime>(
 ) -> Result<BrowserSessionSnapshot, String> {
     let access = registry.active_access(&session_id, &scope)?;
     let bounds = bounds.validate()?;
-    webview_for(&app, &access)?
-        .set_bounds(bounds.native_rect())
+    let host_webview = app
+        .get_webview(&access.host_webview_label)
+        .ok_or_else(|| "browser host WebView is unavailable".to_string())?;
+    let native_bounds = bounds_in_parent_window(&host_webview, bounds).await?;
+    let webview = webview_for(&app, &access)?;
+    webview
+        .set_bounds(native_bounds.native_rect())
         .map_err(|error| {
             command_failed(&app, &session_id, format!("set browser bounds: {error}"))
         })?;
@@ -1189,6 +1271,26 @@ mod tests {
         for denied in ["", "../main", "a:b", "contains space", "💥"] {
             assert!(browser_label(denied).is_err(), "accepted {denied}");
         }
+    }
+
+    #[test]
+    fn renderer_bounds_are_offset_to_native_parent_coordinates() {
+        let bounds = BrowserBounds {
+            x: 24.0,
+            y: 48.0,
+            width: 640.0,
+            height: 480.0,
+        };
+        let adjusted = offset_bounds_in_parent(bounds, 1.0, 28.0);
+        let rect = adjusted.native_rect();
+        assert_eq!(
+            rect.position,
+            tauri::Position::Logical(LogicalPosition::new(25.0, 76.0))
+        );
+        assert_eq!(
+            rect.size,
+            tauri::Size::Logical(LogicalSize::new(640.0, 480.0))
+        );
     }
 
     #[test]

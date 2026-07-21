@@ -9,3 +9,11 @@ export { SearchInput } from './SearchInput.js';
 export { Chip } from './Chip.js';
 export { FieldRow } from './FieldRow.js';
 export { IconButton } from './IconButton.js';
+export {
+  EngineIdentity,
+  EngineMark,
+  type EngineKind,
+  engineKindFromId,
+  engineLabel,
+  engineShortLabel,
+} from './EngineMark.js';

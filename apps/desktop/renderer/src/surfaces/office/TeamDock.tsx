@@ -18,6 +18,7 @@ import {
 import { queryKeys } from '@/data/query-keys.js';
 import type { ChatThread, Employee, EmployeePresence } from '@/data/types.js';
 import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
+import { EngineMark, engineKindFromId, engineLabel } from '@/design-system/grammar/EngineMark.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -477,6 +478,16 @@ export function TeamDock() {
           const active = Boolean(thread && thread.id === selectedThreadId);
           const presence = presenceFor(employee, thread);
           const modelState = employeeModelState(employee, models.data);
+          const modelOption = employee.model
+            ? models.data?.find((candidate) => candidate.value === employee.model)
+            : undefined;
+          const engineKind = engineKindFromId(
+            modelOption?.engineId ?? (modelState.invalid ? employee.model : null),
+            employee.kind === 'external' ? employee.brandLabel : null,
+          );
+          const engineTooltip = modelState.invalid
+            ? 'Saved model unavailable; following the conversation model'
+            : `${engineLabel(engineKind)} · ${modelState.label}`;
           const currentZone = zones.find((zone) => zone.id === employee.workstationId) ?? null;
           return (
             <Popover key={employee.id}>
@@ -492,29 +503,23 @@ export function TeamDock() {
                     appearance={employee.appearance}
                     colorA={employee.avatarA}
                     colorB={employee.avatarB}
-                    size={36}
+                    size={32}
                     brand={employee.kind === 'external'}
                   />
                   <span className="off-team-info">
-                    <span className="off-team-name">{employee.name}</span>
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className="off-team-role min-w-0">{employee.role}</span>
+                    <span className="off-team-name-row">
+                      <span className="off-team-name">{employee.name}</span>
                       {employee.model ? (
-                        <span
-                          className={cn(
-                            'max-w-24 shrink-0 truncate rounded-[var(--off-radius-status)] border border-[var(--off-line-soft)] bg-[var(--off-surface-sunken)] px-1.5 py-px font-mono text-xs leading-none text-[var(--off-ink-3)]',
-                            modelState.invalid && 'text-[var(--off-warn)]',
-                          )}
-                          title={
-                            modelState.invalid
-                              ? 'Saved model unavailable; following the conversation model'
-                              : modelState.label
-                          }
-                        >
-                          {modelState.invalid ? 'Model unavailable' : modelState.label}
-                        </span>
+                        <EngineMark
+                          engine={engineKind}
+                          size={16}
+                          label={engineTooltip}
+                          title={engineTooltip}
+                          className={modelState.invalid ? 'is-invalid' : undefined}
+                        />
                       ) : null}
                     </span>
+                    <span className="off-team-role min-w-0">{employee.role}</span>
                     <span className={cn('off-team-status', PRESENCE_CLS[presence])}>
                       <span className="off-team-dot" />
                       {PRESENCE_TEXT[presence]}

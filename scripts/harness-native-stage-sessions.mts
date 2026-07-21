@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import type { RuntimeEngineCapabilityManifest } from '@offisim/shared-types';
 import { stageTabForTarget, useUiState } from '../apps/desktop/renderer/src/app/ui-state.js';
 import { CANVAS_FONT_TOKENS } from '../apps/desktop/renderer/src/styles/visual-tokens.js';
+import { resolveComputerRoute } from '../apps/desktop/renderer/src/surfaces/office/computer/computer-route.js';
 import { syncOfficeCanvasBackingStore } from '../apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.js';
 import { newestBrowserSnapshot } from '../apps/desktop/renderer/src/surfaces/office/stage-browser/browser-session-state.js';
 import {
@@ -42,6 +44,58 @@ const browser = {
   initialUrl: 'https://example.com/',
   title: 'Browser',
 };
+
+const routeManifest = {
+  stop: true,
+  steer: true,
+  resume: true,
+  attachmentInput: { textFiles: true, images: 'supported' },
+  permissionModes: ['plan', 'auto', 'full'],
+  interactions: { approval: true, userInput: true },
+  interactionRoutes: {
+    browser: [
+      {
+        id: 'offisim-browser',
+        source: 'offisim-local',
+        label: 'Offisim Browser',
+        availability: 'available',
+      },
+    ],
+    computer: [
+      {
+        id: 'native-computer',
+        source: 'engine-native',
+        label: 'Native Computer',
+        availability: 'unsupported',
+        reason: 'Not exposed by this adapter.',
+      },
+      {
+        id: 'offisim-computer',
+        source: 'offisim-local',
+        label: 'Offisim Computer Use',
+        availability: 'runtime-determined',
+      },
+    ],
+  },
+  processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+} as const satisfies RuntimeEngineCapabilityManifest;
+
+assert.equal(
+  resolveComputerRoute(routeManifest, true).effective.id,
+  'offisim-computer',
+  'automatic Computer routing uses the declared available local route instead of guessing by engine brand',
+);
+assert.equal(
+  resolveComputerRoute(routeManifest, false).effective.availability,
+  'setup-required',
+  'a disconnected local driver remains a declared setup route',
+);
+assert.equal(
+  resolveComputerRoute(routeManifest, true).routes.find((route) => route.source === 'engine-native')
+    ?.availability,
+  'unsupported',
+  'the resolver preserves unsupported native route truth alongside the effective local route',
+);
 
 useUiState.setState({
   companyId: scope.companyId,
@@ -399,6 +453,31 @@ assert.match(
 );
 assert.match(
   browserSource,
+  /<div ref=\{hostRef\} className="off-browser-native-host"/,
+  'the native canvas tracks the dedicated host grid track below the Browser chrome',
+);
+assert.match(
+  browserSource,
+  /const rect = host\.getBoundingClientRect\(\)/,
+  'chrome exclusion is the host element layout contract, not a chrome measurement',
+);
+assert.doesNotMatch(
+  `${browserSource}\n${nativeBoundsSource}`,
+  /computeNativeContentRect|measureChromeContentHeight|chromeObserver/,
+  'no fragile chrome-content measuring: the host rect already excludes app-owned chrome',
+);
+assert.match(
+  browserSource,
+  /observer\.observe\(host\)/,
+  'host geometry changes trigger native bounds resynchronization',
+);
+assert.match(
+  browserSource,
+  /window\.setInterval\(\(\) => \{[\s\S]*?scheduleSync\(\);[\s\S]*?browser_session_snapshot/,
+  'the snapshot poll also resyncs geometry so missed or failed bounds updates converge',
+);
+assert.match(
+  browserSource,
   /visible !== lastVisible/,
   'zero-area and overlay-blocked hosts hide the native WebView instead of sending zero bounds',
 );
@@ -406,6 +485,11 @@ assert.match(
   browserSource,
   /MutationObserver/,
   'application overlays trigger a native visibility resync',
+);
+assert.match(
+  browserSource,
+  /document\.addEventListener\('scroll', scheduleSync, true\)/,
+  'ancestor scrolling resyncs the native child even when the DOM host size does not change',
 );
 assert.match(
   browserSource,
@@ -421,6 +505,36 @@ assert.match(
   browserSource,
   /else if \(visible\) return/,
   'a failed bounds update cannot reveal a native child at stale geometry',
+);
+assert.match(
+  browserSource,
+  /event\.key\.toLowerCase\(\) !== 'l'/,
+  'Cmd/Ctrl+L focuses the Offisim address bar even when the main renderer owns focus',
+);
+assert.match(
+  browserNativeSource,
+  /fn bounds_in_parent_window/,
+  'native placement converts renderer viewport bounds into parent window coordinates',
+);
+assert.match(
+  browserNativeSource,
+  /contentLayoutRect/,
+  'macOS native placement reads the actual unobscured content inset instead of hard-coding a title-bar height',
+);
+assert.match(
+  browserNativeSource,
+  /add_child\([\s\S]*?LogicalPosition::new\(native_bounds\.x, native_bounds\.y\)[\s\S]*?LogicalSize::new\(native_bounds\.width, native_bounds\.height\)/,
+  'native Browser creation offsets the renderer bounds into parent window coordinates',
+);
+assert.match(
+  browserNativeSource,
+  /browser_session_set_bounds[\s\S]*?\.set_bounds\(native_bounds\.native_rect\(\)\)/,
+  'native Browser updates preserve the same renderer-to-parent coordinate contract',
+);
+assert.match(
+  browserNativeSource,
+  /\.focused\(false\)/,
+  'creating the native child does not steal focus from the address bar',
 );
 {
   const viewport = { width: 1280, height: 800 };
@@ -482,6 +596,17 @@ const stageViewerSource = [
   read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/stage-viewer/views/ChangesView.tsx'),
 ].join('\n');
+const officeStageSource = read('apps/desktop/renderer/src/surfaces/office/OfficeStage.tsx');
+assert.match(
+  officeStageSource,
+  /nativeViewOwnsTheCanvas/,
+  'native Browser, Terminal, and Computer views replace the canvas instead of revealing the Game View PiP behind them',
+);
+assert.match(
+  officeStageSource,
+  /ownsNativeCanvas\(splitTarget\?\.kind\)/,
+  'a native Browser, Terminal, or Computer split pane also owns the canvas and suppresses Game View PiP',
+);
 assert.match(
   stageViewerSource,
   /<BrowserSessionView key=\{target\.sessionId\} target=\{target\} \/>/,

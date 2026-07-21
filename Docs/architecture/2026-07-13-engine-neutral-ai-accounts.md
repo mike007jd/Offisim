@@ -1,6 +1,6 @@
 # Engine-neutral AI Accounts and Native Session Boundaries
 
-Checked at: 2026-07-17 NZST
+Checked at: 2026-07-20 NZST
 Status: API engine plus Codex and Claude Code orchestration adapters implemented; Claude release-app proof is complete, while the corrected Codex lane still requires the later unified release-app live-verification batch
 
 ## Current implementation truth
@@ -34,6 +34,33 @@ conformance.
 Each adapter publishes a capability manifest. Controls for steer, resume,
 permission modes, approvals, user input, and process events are rendered only
 when the selected engine declares support.
+
+The same manifest declares Browser and Computer interaction routes. A route has
+an explicit source (`engine-native`, `offisim-local`, or `mcp`), availability,
+and reason. Product surfaces do not derive capabilities from the `codex`,
+`claude`, or `api` label. Computer routing prefers an explicitly available
+engine-native route and otherwise the declared Offisim local route. Settings
+shows that effective route and the unavailable alternatives as runtime truth;
+it does not expose a preference control until runtime dispatch can actually
+honour that choice.
+
+Offisim Browser is an Offisim-owned native child WebView for every engine lane.
+Its renderer canvas is exactly the dedicated host grid track below app-owned
+chrome; no component measures or subtracts chrome height. Rust converts that
+viewport rect to the native parent-window coordinate system. On macOS the
+conversion reads `NSWindow.contentLayoutRect`, so decorated and full-size
+content windows use their actual unobscured content inset rather than a fixed
+title-bar constant. The child yields focus while the user edits the Offisim
+address bar, and native
+Browser/Terminal/Computer views replace the Game View canvas rather than layer
+over it. Codex app-server currently does not expose a stable negotiated native
+Computer route to this adapter. Claude Computer Use requires an interactive CLI
+session and therefore is not exposed by the current non-interactive `claude -p`
+adapter. Both may still use the separately declared Offisim local Computer route.
+
+The local Computer driver is connected once per Mac. Employee-level MCP grants
+remain the runtime authorization gate, but are modeled as access policy and
+exceptions; they are not the ownership or availability of the machine driver.
 
 | Account | Execution | Primary usage display |
 |---|---|---|

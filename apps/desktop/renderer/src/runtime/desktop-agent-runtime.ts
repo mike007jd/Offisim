@@ -23,8 +23,8 @@ import {
   type AiExecutionTarget,
   type AiRuntimeStatus,
   type RunFailureKind,
-  type RuntimeEvent,
   type RuntimeEngineCapabilityManifest,
+  type RuntimeEvent,
   type WorkspaceDiagnosticsUpdatedPayload,
   type WorkspaceProvenance,
   classifyRunFailure,
@@ -512,6 +512,24 @@ const API_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     permissionModes: ['plan', 'ask', 'auto', 'full'],
     interactions: { approval: true, userInput: true },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+    interactionRoutes: {
+      browser: [
+        {
+          id: 'offisim-browser',
+          source: 'offisim-local',
+          label: 'Offisim Browser',
+          availability: 'available',
+        },
+      ],
+      computer: [
+        {
+          id: 'offisim-computer',
+          source: 'offisim-local',
+          label: 'Offisim local driver',
+          availability: 'runtime-determined',
+        },
+      ],
+    },
   },
 };
 
@@ -531,6 +549,32 @@ const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     permissionModes: ['plan', 'ask', 'auto', 'full'],
     interactions: { approval: true, userInput: true },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+    interactionRoutes: {
+      browser: [
+        {
+          id: 'offisim-browser',
+          source: 'offisim-local',
+          label: 'Offisim Browser',
+          availability: 'available',
+        },
+      ],
+      computer: [
+        {
+          id: 'codex-native-computer',
+          source: 'engine-native',
+          label: 'Codex Computer Use',
+          availability: 'unsupported',
+          reason:
+            'The current Codex app-server contract does not expose a negotiated Computer Use route.',
+        },
+        {
+          id: 'offisim-computer',
+          source: 'offisim-local',
+          label: 'Offisim local driver',
+          availability: 'runtime-determined',
+        },
+      ],
+    },
   },
 };
 
@@ -550,6 +594,32 @@ const CLAUDE_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     permissionModes: ['plan', 'auto', 'full'],
     interactions: { approval: false, userInput: false },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+    interactionRoutes: {
+      browser: [
+        {
+          id: 'offisim-browser',
+          source: 'offisim-local',
+          label: 'Offisim Browser',
+          availability: 'available',
+        },
+      ],
+      computer: [
+        {
+          id: 'claude-native-computer',
+          source: 'engine-native',
+          label: 'Claude Computer Use',
+          availability: 'unsupported',
+          reason:
+            'Claude Computer Use requires an interactive CLI session; this adapter uses non-interactive mode.',
+        },
+        {
+          id: 'offisim-computer',
+          source: 'offisim-local',
+          label: 'Offisim local driver',
+          availability: 'runtime-determined',
+        },
+      ],
+    },
   },
 };
 

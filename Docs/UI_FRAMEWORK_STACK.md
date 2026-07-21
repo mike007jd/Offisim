@@ -1,6 +1,6 @@
 # Offisim UI Framework Stack
 
-Last updated: 2026-07-13
+Last updated: 2026-07-20
 
 This is the source of truth for new Offisim desktop UI work. The canonical
 design source is `Docs/design/.v3-dna-brief.md` plus the Office V3 specimen.
@@ -60,7 +60,11 @@ Character assets. Office characters render from source-controlled, meshopt-compr
 - No non-approved animation framework, component suite, or CSS-in-JS layer for the desktop renderer without a new architecture decision.
 - No default shadcn visual language leaking directly into product surfaces.
 - No assistant-ui default thread skin in the product; use assistant-ui primitives/runtime with Offisim V3 rail grammar.
-- Settings uses one AI Accounts shell with separate API-engine and orchestration-engine sections. The API section provides safe Pi-managed provider/model editing and token/cost summaries; user-configured model source metadata is optional. The orchestration section exposes only external CLI install/login/version status and official guidance, with no model catalog, subscription-usage projection, or API-cost estimate. Runtime implementation detail stays secondary to the employee/task engine choice.
+- Settings uses one AI Accounts shell. Subscription-backed orchestration engines are the primary section; they expose only CLI install/login/version status and official guidance, with no Offisim model catalog, subscription-usage projection, or API-cost estimate. Pi-managed API providers are secondary, and each provider owns its configuration plus token/cost activity in one disclosure instead of duplicating provider and activity cards. User-configured model source metadata is optional.
+- Composer engine/model selection uses one anchored surface with in-place drill-down and Back navigation; a submenu never opens detached on the opposite side. The collapsed control shows only the useful engine or model identity. Capabilities, tools, MCP resources, skills, commands, and modes belong to `/` command discovery and the capability manifest, not permanent footer chips.
+- Engine and employee identities use shared grammar primitives. Team cards remain dense HUD inventory, with compact fixed geometry and the runtime brand mark attached to the engine label rather than encoded as ad-hoc text styling.
+- Native Browser, Terminal, and Computer surfaces own the full Stage canvas while active. A native child WebView must be bounded in parent-window coordinates, yield focus to its Offisim chrome, and never reveal the Game View or another surface through top/bottom gaps.
+- Computer availability is a machine-level connection. Employee MCP grants remain the policy enforcement layer, but Settings presents them as an access policy and exception surface, not as if the driver itself belonged to one employee. Browser and Computer routes are declared by the runtime capability manifest; UI must never infer native support from an engine brand.
 - No native select arrow chrome; use the V3 custom select/combobox skin.
 - No `--fs-2xl` or routine `--r-xl` equivalents outside explicitly approved dialog hero cases.
 - No `transition-all` as a motion system. Motion behavior must be named and centralized.

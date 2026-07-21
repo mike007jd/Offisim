@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,12 +15,25 @@ import {
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
+const sha256 = (path: string) =>
+  createHash('sha256').update(readFileSync(join(root, path))).digest('hex');
 
 const officeSurface = read('apps/desktop/renderer/src/surfaces/office/OfficeSurface.tsx');
 const officeStage = read('apps/desktop/renderer/src/surfaces/office/OfficeStage.tsx');
 const workspacePanel = read('apps/desktop/renderer/src/surfaces/office/WorkspacePanel.tsx');
 const chatRail = read('apps/desktop/renderer/src/surfaces/office/ChatRail.tsx');
 const teamDock = read('apps/desktop/renderer/src/surfaces/office/TeamDock.tsx');
+const composerSettings = read(
+  'apps/desktop/renderer/src/assistant/composer/ComposerSettingsMenu.tsx',
+);
+const composerTriggers = read('apps/desktop/renderer/src/assistant/composer/composer-triggers.ts');
+const capabilityManifest = read(
+  'apps/desktop/renderer/src/surfaces/office/rail/CapabilityManifest.tsx',
+);
+const aiAccounts = read('apps/desktop/renderer/src/surfaces/settings/AiAccountsPane.tsx');
+const engineMark = read('apps/desktop/renderer/src/design-system/grammar/EngineMark.tsx');
+const grammarCss = read('apps/desktop/renderer/src/design-system/grammar/grammar.css');
+const engineBrandProvenance = read('Docs/architecture/2026-07-21-engine-brand-assets.md');
 const stageViewer = [
   read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageViewer.tsx'),
   read('apps/desktop/renderer/src/surfaces/office/stage-viewer/StageTopBar.tsx'),
@@ -189,6 +203,75 @@ check('Team dock keeps a sole horizontal card scroller and a count-only label', 
   assert.doesNotMatch(teamDock, /addEventListener\('wheel'|onWheel/, 'no JS wheel interception');
 });
 
+check('Team and AI Accounts share official local engine identity assets', () => {
+  assert.match(teamDock, /<EngineMark[\s\S]*size=\{16\}/);
+  assert.match(aiAccounts, /<EngineMark[\s\S]*size=\{32\}/);
+  assert.match(officeCss, /\.off-team-card\s*{[^}]*width:\s*144px;[^}]*height:\s*56px/s);
+  assert.match(officeCss, /\.off-dock-label\s*{[^}]*width:\s*96px/s);
+  assert.doesNotMatch(teamDock, /Codex CLI<\/|Claude Code<\//);
+  assert.doesNotMatch(engineMark, /style=\{|CSSProperties|--off-provider-brand/);
+  assert.match(engineMark, /icon-codex-light\.png\?url/);
+  assert.match(engineMark, /claude_app_icon\.png\?url/);
+  assert.match(engineMark, /meta\.visual === 'image'[\s\S]*<img/);
+  assert.doesNotMatch(engineMark, /glyph:\s*['"]>_['"]|glyph:\s*['"]✳['"]/);
+  assert.match(
+    grammarCss,
+    /\.off-engine-mark-image\s*{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*object-fit:\s*contain/s,
+  );
+  assert.doesNotMatch(
+    grammarCss,
+    /\.off-engine-mark\[data-engine="(?:codex|claude)"\]\s*{[^}]*background:/s,
+  );
+  assert.equal(
+    sha256('apps/desktop/renderer/src/assets/brands/codex/icon-codex-light.png'),
+    'de7d43f3386105ab20952958c2c25beb0d903e2aeb6e1aef57c49a648c0d1c07',
+  );
+  assert.equal(
+    sha256('apps/desktop/renderer/src/assets/brands/claude/claude_app_icon.png'),
+    'c7b5642f810adfba78781592d9dec18d7eb376c7ebf403c4d882fb9d39f65408',
+  );
+  assert.match(engineBrandProvenance, /com\.openai\.codex[\s\S]*26\.715\.52143/);
+  assert.match(engineBrandProvenance, /com\.anthropic\.claudefordesktop[\s\S]*1\.22209\.3/);
+});
+
+check('composer settings drill in within one menu and preserve footer space', () => {
+  assert.doesNotMatch(composerSettings, /DropdownMenuSub/);
+  assert.match(composerSettings, /type PickerLayer = 'root' \| 'model' \| 'reasoning' \| 'mode'/);
+  assert.match(composerSettings, /ArrowLeft/);
+  assert.match(composerSettings, /modelLeafId\(effectiveModel\)/);
+  const trigger =
+    composerSettings.match(
+      /className="off-composer-chip off-composer-settings-chip[\s\S]*?<\/button>/,
+    )?.[0] ?? '';
+  assert.ok(trigger);
+  assert.doesNotMatch(trigger, /SlidersHorizontal/);
+  assert.equal(trigger.match(/<Icon/g)?.length, 1, 'the trigger keeps only its disclosure chevron');
+  const settingsChipCss = officeCss.match(/\.off-composer-settings-chip\s*{[^}]*}/s)?.[0] ?? '';
+  assert.match(settingsChipCss, /max-width:\s*160px/);
+  assert.match(settingsChipCss, /flex:\s*0 1 auto/);
+});
+
+check('composer capabilities are quiet and slash palette owns advanced actions', () => {
+  assert.match(capabilityManifest, /off-thread-pit-quiet/);
+  assert.match(capabilityManifest, /aria-label=\{`Thread capabilities:/);
+  assert.doesNotMatch(capabilityManifest, />\s*Tools\s*</);
+  for (const category of ['Commands', 'Skills', 'Tools & MCP', 'Modes', 'Navigation']) {
+    assert.ok(composerTriggers.includes(category), `missing slash category ${category}`);
+  }
+  assert.match(composerTriggers, /id: `skill:\$\{skill\.name\}`/);
+  assert.match(composerTriggers, /id: `tool:\$\{tool\.id\}`/);
+});
+
+check('AI Accounts prioritizes subscriptions and merges provider activity', () => {
+  const subscriptionIndex = aiAccounts.indexOf('<CapsLabel>Subscription engines</CapsLabel>');
+  const providerIndex = aiAccounts.indexOf('<CapsLabel>API providers</CapsLabel>');
+  assert.ok(subscriptionIndex >= 0 && providerIndex > subscriptionIndex);
+  assert.match(aiAccounts, /off-set-provider-overview-row is-merged/);
+  assert.match(aiAccounts, /off-set-provider-merged-body/);
+  assert.doesNotMatch(aiAccounts, /<CapsLabel>API account activity<\/CapsLabel>/i);
+  assert.doesNotMatch(aiAccounts, /off-set-pv-logo/);
+});
+
 check('the two rail toggles live only in Office top chrome', () => {
   assert.equal(stageViewer.match(/data-rail=/g)?.length, 2);
   assert.match(stageViewer, /data-rail="workspace"/);
@@ -251,19 +334,14 @@ check('run phases map to deterministic progress', () => {
   }
 });
 
-check('only controller-owned active runs receive Stop', () => {
-  assert.match(runPill, /const canStop = activeRun !== null/);
-  assert.match(
-    runPill,
-    /canStop \? \([\s\S]*conversationRunController\.stop\(activeRun\.threadId\)/,
-  );
-  assert.match(runPill, /selectedRun\.phase === 'completed'/);
-  assert.match(runPill, /selectedRun\.phase === 'interrupted'/);
-  assert.match(runPill, /selectedRun\.phase === 'failed'/);
-  assert.doesNotMatch(runPill, /if \(!run\) return null/);
+check('only controller-owned active runs render progress and receive Stop', () => {
+  assert.match(runPill, /const run = activeRun/);
+  assert.match(runPill, /if \(!activeRun \|\| presentation\.phase === 'idle'\) return null/);
+  assert.match(runPill, /conversationRunController\.stop\(activeRun\.threadId\)/);
+  assert.doesNotMatch(runPill, /terminalRun|selectedRun\.phase ===|presentation\.terminalLabel/);
 });
 
-check('idle and terminal states use meaningful status instead of a ghost Stop', () => {
+check('idle and terminal presentation remains defined but consumes no Stage chrome', () => {
   const idle = runPipelinePresentation('idle');
   const completed = runPipelinePresentation('completed');
   assert.equal(idle.phaseLabel, 'Ready');
@@ -271,7 +349,7 @@ check('idle and terminal states use meaningful status instead of a ghost Stop', 
   assert.equal(completed.phaseLabel, 'Complete');
   assert.equal(completed.terminalLabel, 'Done');
   assert.match(runPill, /run\?\.phase \?\? 'idle'/);
-  assert.match(runPill, /presentation\.terminalLabel \? \([\s\S]*off-pipe-status/);
+  assert.match(stageViewer, /if \(!isRunning\) return null/);
 });
 
 check(

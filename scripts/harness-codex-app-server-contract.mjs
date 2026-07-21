@@ -98,6 +98,7 @@ for (const field of [
   'orchestrationEngines',
   'permissionModes',
   'processEvents',
+  'interactionRoutes',
   'userInput',
   'fileChanges',
 ]) {
@@ -107,6 +108,8 @@ for (const field of [
     `missing capability/status field ${field}`,
   );
 }
+assert.match(rustProduction, /"id": "codex-native-computer"[\s\S]*"availability": "unsupported"/u);
+assert.match(rustProduction, /"id": "offisim-computer"[\s\S]*"availability": "runtime-determined"/u);
 assert.match(shared, /kind:\s*'native'/u);
 assert.match(provenance, /kind\s*===\s*'native'/u);
 assert.match(provenance, /sourceUrl.*undefined|!\('sourceUrl' in value\)/su);
@@ -124,8 +127,15 @@ assert.match(answerBody, /executionTarget\?\.engineId/u);
 assert.match(answerBody, /this\.adapter\(engineId\)\.answerUiRequest\(answer\)/u);
 assert.doesNotMatch(answerBody, /adapters\.size/u);
 
-assert.match(settings, /API engines?/iu);
-assert.match(settings, /Subscription tools?/iu);
+assert.match(settings, /Subscription engines?/iu);
+assert.match(settings, /API providers?/iu);
+assert.ok(
+  settings.indexOf('<CapsLabel>Subscription engines</CapsLabel>') <
+    settings.indexOf('<CapsLabel>API providers</CapsLabel>'),
+  'subscription engines must precede pay-as-you-go API providers',
+);
+assert.match(settings, /providerActivityMeta/u);
+assert.doesNotMatch(settings, /API ACCOUNT ACTIVITY/iu);
 assert.match(settings, /engine\.loginCommand/u);
 assert.match(settings, /No API cost|无 API 成本/iu);
 assert.match(settings, /docsUrl|developers\.openai\.com\/codex\/auth/u);

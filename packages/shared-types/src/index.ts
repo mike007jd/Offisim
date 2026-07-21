@@ -224,6 +224,8 @@ export type {
   OrchestrationEngineStatus,
   RuntimeEngineCapabilityManifest,
   RuntimeEnginePermissionMode,
+  RuntimeInteractionRoute,
+  RuntimeInteractionRouteSource,
   TurnExecutionProvenance,
 } from './runtime/ai-account.js';
 export {

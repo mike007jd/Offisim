@@ -1,5 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { aiAccountLaneKey, aiModelSourceLabel } from '@/data/ai-model-presentation.js';
+import { engineKindFromId, engineShortLabel } from '@/design-system/grammar/EngineMark.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import {
   DropdownMenu,
@@ -9,9 +10,6 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
 import {
@@ -31,6 +29,8 @@ import {
   Bot,
   Brain,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   type LucideIcon,
   MessageCircleQuestion,
@@ -40,7 +40,7 @@ import {
   TriangleAlert,
   Zap,
 } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type AgentRuntimeModelOption,
   useAgentRuntimeModels,
@@ -71,7 +71,9 @@ function modelOptionMeta(option: AgentRuntimeModelOption): string {
   if (option.selectionKind === 'orchestration-engine') {
     return 'External CLI · model managed by the engine';
   }
-  const parts = [option.modelId];
+  // The row's primary line is the model name; when name === modelId the meta
+  // line must not repeat it — only genuinely additional facts appear below.
+  const parts: string[] = option.name === option.modelId ? [] : [option.modelId];
   if (option.source) parts.push(aiModelSourceLabel(option.source));
   if (option.expiresAt) parts.push(`Expires ${catalogDateLabel(option.expiresAt)}`);
   else if (option.availabilityReason?.trim()) parts.push(option.availabilityReason.trim());
@@ -79,13 +81,19 @@ function modelOptionMeta(option: AgentRuntimeModelOption): string {
   return parts.join(' · ');
 }
 
+/** Model leaf id — the segment after the last `/` (e.g. `north-mini-code:free`). */
+function modelLeafId(option: AgentRuntimeModelOption): string {
+  return option.modelId.split('/').at(-1) || option.modelId;
+}
+
+type PickerLayer = 'root' | 'model' | 'reasoning' | 'mode';
+
 /**
  * Single composer chip consolidating the per-conversation run settings —
- * Model, Reasoning (thinking level), and Permission mode — behind one
- * dropdown with submenus, so the composer footer stays narrow and Send is
- * never pushed out of view. The chip summary always reflects the effective
- * choices. Zero assistant-ui dependency: everything is threadId-keyed store
- * state, so the same control drops into any composer (Office, Connect).
+ * Model, Reasoning (thinking level), and Permission mode — behind one menu
+ * with drill-in layers (no sideways submenus, so nothing flips direction near
+ * screen edges). Radix owns focus trap, Escape, and trigger focus restoration;
+ * layer switches keep the same menu surface and refocus the first row.
  */
 export function ComposerSettingsMenu({
   threadId,
@@ -109,6 +117,21 @@ export function ComposerSettingsMenu({
   const clearThreadThinking = usePiThreadThinkingStore((s) => s.clearThreadThinking);
   const threadAuthority = useThreadExecutionAuthority(threadId);
   const catalogUnavailable = models.isError && !models.data?.length;
+
+  const [layer, setLayer] = useState<PickerLayer>('root');
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Move focus to the first actionable row after a drill-in/back switch.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: layer is the re-run trigger, not a referenced value
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const first = contentRef.current?.querySelector<HTMLElement>(
+        '[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"])',
+      );
+      first?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [layer]);
 
   // Derive the effective model, account-grouped list, and reasoning support
   // once per change. The composer subtree re-renders on every keystroke and
@@ -226,52 +249,127 @@ export function ComposerSettingsMenu({
     .filter(Boolean)
     .join(' · ');
 
+  // API lane trigger: the exact model leaf id only. Orchestration lane: the
+  // engine's short name (no Offisim model selection exists there). Full
+  // details stay one hover away via `title`.
+  const triggerLabel = effectiveModel
+    ? orchestrationSelected
+      ? engineShortLabel(engineKindFromId(effectiveModel.engineId, effectiveModel.name))
+      : modelLeafId(effectiveModel)
+    : models.isLoading
+      ? 'Loading…'
+      : catalogUnavailable
+        ? 'No catalog'
+        : selectedModelUnavailable
+          ? 'Reselect'
+          : 'No model';
+
+  const drill = (next: PickerLayer) => (event: Event) => {
+    event.preventDefault();
+    setLayer(next);
+  };
+
+  const modelRowLabel = orchestrationSelected ? 'Engine' : 'Model';
+  const modelRowValue =
+    effectiveModel?.name ??
+    (catalogUnavailable
+      ? 'Catalog unavailable'
+      : selectedModelUnavailable
+        ? 'Reselect'
+        : 'Unavailable');
+
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) setLayer('root');
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           className="off-composer-chip off-composer-settings-chip off-focusable"
-          aria-label="Conversation settings"
+          aria-label={`Conversation settings: ${summary}`}
           title={summary}
         >
-          <Icon icon={SlidersHorizontal} size="sm" />
-          <span className="off-composer-chip-text">{summary}</span>
+          <span className="off-composer-chip-text">{triggerLabel}</span>
           <Icon icon={ChevronDown} size="sm" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="off-composer-menu">
-        {contextLabel ? (
+      <DropdownMenuContent
+        ref={contentRef}
+        align="end"
+        className={
+          layer === 'model' ? 'off-composer-menu off-composer-model-menu' : 'off-composer-menu'
+        }
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft' && layer !== 'root') {
+            event.preventDefault();
+            event.stopPropagation();
+            setLayer('root');
+          }
+        }}
+      >
+        {layer === 'root' ? (
           <>
-            <DropdownMenuLabel className="off-composer-menu-provider">
-              {contextLabel}
-            </DropdownMenuLabel>
+            {contextLabel ? (
+              <>
+                <DropdownMenuLabel className="off-composer-menu-provider">
+                  {contextLabel}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+            <DropdownMenuItem onSelect={drill('model')}>
+              <Icon icon={Bot} size="sm" />
+              <span className="off-composer-menu-row">
+                <span className="off-composer-menu-name">{modelRowLabel}</span>
+                <span className="off-composer-menu-meta">{modelRowValue}</span>
+              </span>
+              <span className="off-composer-menu-caret">
+                <Icon icon={ChevronRight} size="sm" />
+              </span>
+            </DropdownMenuItem>
+            {supportsReasoning ? (
+              <DropdownMenuItem onSelect={drill('reasoning')}>
+                <Icon icon={Brain} size="sm" />
+                <span className="off-composer-menu-row">
+                  <span className="off-composer-menu-name">Reasoning</span>
+                  <span className="off-composer-menu-meta">{thinkingLevelMeta(level).label}</span>
+                </span>
+                <span className="off-composer-menu-caret">
+                  <Icon icon={ChevronRight} size="sm" />
+                </span>
+              </DropdownMenuItem>
+            ) : null}
+            {showPermissionMode ? (
+              <DropdownMenuItem onSelect={drill('mode')}>
+                <Icon icon={MODE_META[mode].icon} size="sm" />
+                <span className="off-composer-menu-row">
+                  <span className="off-composer-menu-name">Mode</span>
+                  <span className="off-composer-menu-meta">{MODE_META[mode].label}</span>
+                </span>
+                <span className="off-composer-menu-caret">
+                  <Icon icon={ChevronRight} size="sm" />
+                </span>
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setSurface('settings')}>
+              <Icon icon={SlidersHorizontal} size="sm" />
+              Manage AI engines…
+            </DropdownMenuItem>
           </>
         ) : null}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <Icon icon={Bot} size="sm" />
-            <span className="off-composer-menu-row">
+
+        {layer === 'model' ? (
+          <>
+            <DropdownMenuItem onSelect={drill('root')} className="off-composer-menu-back">
+              <Icon icon={ChevronLeft} size="sm" />
               <span className="off-composer-menu-name">
-                {orchestrationSelected ? 'Engine' : 'Model'}
+                {orchestrationSelected ? 'Engine' : 'Engine and model'}
               </span>
-              <span className="off-composer-menu-meta">
-                {effectiveModel?.name ??
-                  (catalogUnavailable
-                    ? 'Catalog unavailable'
-                    : selectedModelUnavailable
-                      ? 'Reselect model'
-                      : 'Unavailable')}
-              </span>
-            </span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="off-composer-menu off-composer-model-menu">
-            <DropdownMenuLabel>
-              {orchestrationSelected
-                ? 'Engine for this conversation'
-                : 'Engine and model for this conversation'}
-            </DropdownMenuLabel>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             {lockedAuthority ? (
               <DropdownMenuLabel className="off-composer-menu-provider">
                 Locked to {durableModel?.accountName ?? 'AI engine'} ·{' '}
@@ -292,15 +390,26 @@ export function ComposerSettingsMenu({
             ) : (
               <DropdownMenuRadioGroup
                 value={modelRadioValue}
-                onValueChange={(value) => setThreadModel(threadId, value)}
+                onValueChange={(value) => {
+                  setThreadModel(threadId, value);
+                  setLayer('root');
+                }}
               >
                 {selectedModelUnavailable ? (
-                  <DropdownMenuRadioItem value={perThreadModel} disabled>
+                  <DropdownMenuRadioItem
+                    value={perThreadModel}
+                    disabled
+                    onSelect={(event) => event.preventDefault()}
+                  >
                     Selected model unavailable · choose another
                   </DropdownMenuRadioItem>
                 ) : null}
                 {!lockedAuthority ? (
-                  <DropdownMenuRadioItem value="" disabled={!defaultModel}>
+                  <DropdownMenuRadioItem
+                    value=""
+                    disabled={!defaultModel}
+                    onSelect={(event) => event.preventDefault()}
+                  >
                     {defaultModel ? `Default · ${defaultModel.name}` : 'Default model unavailable'}
                   </DropdownMenuRadioItem>
                 ) : null}
@@ -314,10 +423,14 @@ export function ComposerSettingsMenu({
                       {group.items.map((option) => {
                         const optionMeta = modelOptionMeta(option);
                         return (
-                          <DropdownMenuRadioItem key={option.value} value={option.value}>
+                          <DropdownMenuRadioItem
+                            key={option.value}
+                            value={option.value}
+                            onSelect={(event) => event.preventDefault()}
+                          >
                             <span className="off-composer-menu-row">
                               <span className="off-composer-menu-name">{option.name}</span>
-                              {option.selectionKind === 'api-model' ? (
+                              {optionMeta && optionMeta !== option.name ? (
                                 <span className="off-composer-menu-meta" title={optionMeta}>
                                   {optionMeta}
                                 </span>
@@ -335,70 +448,69 @@ export function ComposerSettingsMenu({
                 )}
               </DropdownMenuRadioGroup>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => setSurface('settings')}>
-              <Icon icon={SlidersHorizontal} size="sm" />
-              Manage AI engines…
-            </DropdownMenuItem>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        {supportsReasoning ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Icon icon={Brain} size="sm" />
-              <span className="off-composer-menu-row">
-                <span className="off-composer-menu-name">Reasoning</span>
-                <span className="off-composer-menu-meta">{thinkingLevelMeta(level).label}</span>
-              </span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="off-composer-menu off-composer-thinking-menu">
-              <DropdownMenuLabel>Thinking level</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={level}
-                onValueChange={(value) => setThreadThinking(threadId, value as ThinkingLevel)}
-              >
-                {reasoningLevels.map((value) => (
-                  <DropdownMenuRadioItem key={value} value={value}>
-                    <span className="off-composer-menu-row">
-                      <span className="off-composer-menu-name">
-                        {thinkingLevelMeta(value).label}
-                      </span>
-                      <span className="off-composer-menu-meta">
-                        {thinkingLevelMeta(value).meta}
-                      </span>
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+          </>
         ) : null}
-        {showPermissionMode ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Icon icon={MODE_META[mode].icon} size="sm" />
-              <span className="off-composer-menu-row">
-                <span className="off-composer-menu-name">Mode</span>
-                <span className="off-composer-menu-meta">{MODE_META[mode].label}</span>
-              </span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="off-composer-menu off-composer-mode-menu">
-              <DropdownMenuLabel>Permission mode</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={mode}
-                onValueChange={(value) => setThreadMode(threadId, value as PermissionMode)}
-              >
-                {supportedModes.map((value) => (
-                  <DropdownMenuRadioItem key={value} value={value}>
-                    <span className="off-composer-menu-row">
-                      <span className="off-composer-menu-name">{MODE_META[value].label}</span>
-                      <span className="off-composer-menu-meta">{MODE_META[value].meta}</span>
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+
+        {layer === 'reasoning' ? (
+          <>
+            <DropdownMenuItem onSelect={drill('root')} className="off-composer-menu-back">
+              <Icon icon={ChevronLeft} size="sm" />
+              <span className="off-composer-menu-name">Reasoning</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Thinking level</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={level}
+              onValueChange={(value) => {
+                setThreadThinking(threadId, value as ThinkingLevel);
+                setLayer('root');
+              }}
+            >
+              {reasoningLevels.map((value) => (
+                <DropdownMenuRadioItem
+                  key={value}
+                  value={value}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  <span className="off-composer-menu-row">
+                    <span className="off-composer-menu-name">{thinkingLevelMeta(value).label}</span>
+                    <span className="off-composer-menu-meta">{thinkingLevelMeta(value).meta}</span>
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        ) : null}
+
+        {layer === 'mode' ? (
+          <>
+            <DropdownMenuItem onSelect={drill('root')} className="off-composer-menu-back">
+              <Icon icon={ChevronLeft} size="sm" />
+              <span className="off-composer-menu-name">Mode</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Permission mode</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={mode}
+              onValueChange={(value) => {
+                setThreadMode(threadId, value as PermissionMode);
+                setLayer('root');
+              }}
+            >
+              {supportedModes.map((value) => (
+                <DropdownMenuRadioItem
+                  key={value}
+                  value={value}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  <span className="off-composer-menu-row">
+                    <span className="off-composer-menu-name">{MODE_META[value].label}</span>
+                    <span className="off-composer-menu-meta">{MODE_META[value].meta}</span>
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>

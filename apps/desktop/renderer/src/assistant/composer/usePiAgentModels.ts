@@ -47,6 +47,24 @@ const API_RUNTIME_CAPABILITIES: RuntimeEngineCapabilityManifest = {
   permissionModes: ['plan', 'ask', 'auto', 'full'],
   interactions: { approval: true, userInput: true },
   processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  interactionRoutes: {
+    browser: [
+      {
+        id: 'offisim-browser',
+        source: 'offisim-local',
+        label: 'Offisim Browser',
+        availability: 'available',
+      },
+    ],
+    computer: [
+      {
+        id: 'offisim-computer',
+        source: 'offisim-local',
+        label: 'Offisim local driver',
+        availability: 'runtime-determined',
+      },
+    ],
+  },
 };
 
 function isRuntimeStatus(value: unknown): value is AiRuntimeStatus {

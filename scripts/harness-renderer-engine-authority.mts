@@ -72,6 +72,24 @@ const capabilities = {
   attachmentInput: { textFiles: true, images: 'supported' as const },
   permissionModes: ['plan', 'ask', 'auto', 'full'] as const,
   interactions: { approval: true, userInput: true },
+  interactionRoutes: {
+    browser: [
+      {
+        id: 'offisim-browser',
+        source: 'offisim-local' as const,
+        label: 'Offisim Browser',
+        availability: 'available' as const,
+      },
+    ],
+    computer: [
+      {
+        id: 'offisim-computer',
+        source: 'offisim-local' as const,
+        label: 'Offisim Computer Use',
+        availability: 'runtime-determined' as const,
+      },
+    ],
+  },
   processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
 };
 const runtimeStatus: AiRuntimeStatus = {
@@ -290,8 +308,15 @@ assert.match(composerSource, /supportsReasoning \?/u);
 assert.match(composerSource, /showPermissionMode \?/u);
 
 const settingsSource = source('../apps/desktop/renderer/src/surfaces/settings/AiAccountsPane.tsx');
-assert.match(settingsSource, /API engines/u);
-assert.match(settingsSource, /Subscription tools/u);
+assert.match(settingsSource, /Subscription engines/u);
+assert.match(settingsSource, /API providers/u);
+assert.ok(
+  settingsSource.indexOf('<CapsLabel>Subscription engines</CapsLabel>') <
+    settingsSource.indexOf('<CapsLabel>API providers</CapsLabel>'),
+  'subscription engines must precede self-managed API providers',
+);
+assert.match(settingsSource, /off-set-provider-overview-row is-merged/u);
+assert.doesNotMatch(settingsSource, /<CapsLabel>API account activity<\/CapsLabel>/iu);
 assert.match(settingsSource, /engine\.loginCommand/u);
 assert.match(settingsSource, /new URL\(engine\.docsUrl\)/u);
 assert.match(settingsSource, /No API cost|无 API 成本/iu);

@@ -190,6 +190,29 @@
   margin-bottom: var(--off-sp-7);
 }
 
+/* AI Accounts header: title + description on the left, last-checked + Refresh
+   on the right — no redundant summary card underneath. */
+.off-set-panehead-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--off-sp-5);
+}
+
+.off-set-panehead-aside {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+}
+
+.off-set-panehead-meta {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+  font-weight: 520;
+  white-space: nowrap;
+}
+
 .off-set-panetitle {
   font-size: var(--off-fs-md);
   font-weight: 660;
@@ -703,18 +726,6 @@
   align-items: center;
 }
 
-.off-set-pv-logo {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--off-r-sm);
-  background: linear-gradient(135deg, var(--off-provider-brand-a), var(--off-provider-brand-b));
-  color: var(--off-accent-fg);
-  display: grid;
-  place-items: center;
-  font-weight: 720;
-  font-size: var(--off-fs-sm);
-}
-
 .off-set-pv-name {
   font-size: var(--off-fs-base);
   font-weight: 640;
@@ -911,6 +922,39 @@
   gap: var(--off-sp-2);
 }
 
+/* Merged provider card: configuration summary + inline expandable activity.
+   The head row keeps the original overview grid; the body opens below it. */
+.off-set-provider-overview-row.is-merged {
+  display: grid;
+  grid-template-columns: none;
+  align-items: stretch;
+  padding: 0;
+}
+
+.off-set-provider-merged-head {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 8px minmax(140px, 0.8fr) minmax(0, 1.2fr) auto;
+  align-items: center;
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-3) var(--off-sp-4);
+}
+
+.off-set-provider-merged-body {
+  min-width: 0;
+  display: grid;
+  gap: var(--off-sp-3);
+  padding: var(--off-sp-3) var(--off-sp-4) var(--off-sp-4);
+  border-top: 1px solid var(--off-line-soft);
+  background: var(--off-surface-1);
+}
+
+.off-set-provider-merged-usage {
+  min-width: 0;
+  display: grid;
+  gap: var(--off-sp-2);
+}
+
 .off-set-provider-overview-row {
   min-width: 0;
   display: grid;
@@ -981,7 +1025,7 @@
 
 .off-set-account-usage-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: var(--off-sp-3);
 }
 
@@ -1502,10 +1546,6 @@
   margin: 3px 0 0;
   color: var(--off-ink-3);
   font-size: var(--off-fs-sm);
-}
-
-.off-set-account-usage-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .off-set-account-usage-grid small {
