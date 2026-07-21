@@ -2,7 +2,7 @@
 
 状态：`IN PROGRESS`
 
-当前候选版本：`1.1.0`（tag 例 `v1.1.0`）。本轮目标不是发布到远程，而是把当前 `main` 收敛成可复现、可审查、可真实验收的本地候选版本。未经显式授权不 push、不创建 GitHub Release、不提交公证或改动生产/共享状态。
+当前候选版本：`1.1.1`（tag `v1.1.1`）。用户已显式授权 push、Apple 公证、GitHub Release、`/Applications` 安装以及公开仓库安全基线与 ruleset 变更；本轮目标是完成正式发布并保留可复现、可审查、可真实验收的证据。
 
 ## 已拍板执行方向
 
@@ -16,7 +16,7 @@
 | 字段 | 当前值 |
 |---|---|
 | `APP_ROOT` | `/Users/haoshengli/Seafile/WebWorkSpace/Offisim` |
-| `CANDIDATE_VERSION` | `1.1.0` |
+| `CANDIDATE_VERSION` | `1.1.1` |
 | `DEFAULT_BRANCH` | `main` |
 | `RELEASE_GATE_CMD` | `pnpm release:run` |
 | `BUILD_CMD` | `pnpm --filter @offisim/desktop build`（由 `release:run` 在清理产物后调用） |
@@ -35,7 +35,7 @@
 4. Conversation 与附件：语义标题、历史恢复、图片/文本附件被真实引擎消费，输出与来源可追溯。
 5. Mission / Loops / compare：自然语言生成 Loop、发送 Mission、执行/恢复、比稿、采纳与隔离 worktree 清理。
 6. 全 surface 日常使用：Office、Board/Timeline/Review/Compare、Conversation、Personnel、Market、Studio、Settings、Loops 在宽/窄窗口覆盖 onboarding/empty/loading/error/success。
-7. Distribution recovery：签名/公证/更新链的本地可验证部分、启动 safe mode、诊断导出与受控 reset；远程发布、公证提交只列待授权项。
+7. Distribution recovery：签名/公证/更新链、启动 safe mode、诊断导出与受控 reset；远程发布、公证提交、安装与实机验证已获授权，必须全部闭环并留证。
 
 ## 完成口径
 

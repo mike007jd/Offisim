@@ -8,7 +8,7 @@ when the implementation changes.
 
 Engine wording below means **source implemented** unless a published
 distribution is named. Historical release `.app` evidence keeps its original
-commit/hash; the current `1.1.0` candidate has release evidence pending.
+commit/hash; the current `1.1.1` candidate has release evidence pending.
 
 ## Product Boundary
 
@@ -129,7 +129,7 @@ Source of truth:
 - Runtime changes start from `Docs/HARNESS_ARCHITECTURE.md` and
   `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. API, Codex, and
   Claude Code are source implemented. No run may mix engine lanes. Current
-  `1.1.0` candidate release evidence is pending; only published distributions
+  `1.1.1` candidate release evidence is pending; only published distributions
   may use ships/shipped wording.
 - Desktop command changes must preserve Rust-side workspace containment and run
   `cargo test --locked` in `apps/desktop/src-tauri`.

@@ -1,12 +1,14 @@
 # Offisim
 
 ![License](https://img.shields.io/badge/license-MIT-0f172a)
-![Status](https://img.shields.io/badge/status-Prelaunch%20candidate%201.1.0-2563eb)
+![Status](https://img.shields.io/badge/status-Prelaunch%20candidate%201.1.1-2563eb)
 
 Offisim is a **local-first, MIT-licensed AI company runtime** plus a
 **platform/registry backend** for installable assets. The GitHub repository is
-currently **PRIVATE**; there is no public/open-source release yet. Clone and
-contribute only if you already have private-repo collaborator access.
+**public**. As of **2026-07-22**, `v1.1.0` is the latest stable published
+release; the current authorized candidate is `1.1.1` (tag `v1.1.1`) and is
+not yet published. App Updates discovers stable releases through the user's
+existing authenticated GitHub CLI session.
 
 The product is not a generic SaaS dashboard and not a literal game engine. It uses an office metaphor and game-grade presentation to make multi-agent work understandable, trustworthy, and alive.
 
@@ -23,7 +25,7 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Quick Start
 
-If you are a private-repo collaborator setting up a new machine, start here:
+If you are setting up a new machine, start here:
 
 1. Install exact `Node.js 24.18.0` (`.nvmrc` and root `engines`: `>=24.18.0 <25`; all local
    development and desktop builds use this pin) and enable `corepack`.
@@ -92,7 +94,7 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
    The production gateway currently implements the Pi API engine plus Codex and
    Claude Code CLI orchestration adapters in source. Pi and external CLI lanes
    coexist, but a run never mixes them. Historical release `.app` evidence is
-   retained under its original commit/hash; the current `1.1.0` candidate has
+   retained under its original commit/hash; the current `1.1.1` candidate has
    release evidence pending. Only a published distribution may claim shipped.
 4. **Packages are declarative and auditable.**
    1.0 does not allow install hooks, postinstall scripts, embedded secrets, or hidden shell bootstrap behavior.

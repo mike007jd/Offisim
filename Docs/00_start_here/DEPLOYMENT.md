@@ -13,10 +13,10 @@ Offisim deploys in two pieces with very different models:
 > `apps/web` SPA host or a standalone launcher — those were removed. The only
 > server here is the platform API.
 
-As of **2026-07-21** there is **no stable published release**. The GitHub
-repository is private, and App Updates will not discover a newer published
-version until an authorized `pnpm release:publish` creates one. Current
-candidate SemVer is `1.1.0` (tag `v1.1.0`).
+As of **2026-07-22**, `v1.1.0` is the latest stable published release and the
+GitHub repository is public. The current authorized candidate is `1.1.1`
+(tag `v1.1.1`). App Updates discovers stable releases through the user's
+existing authenticated GitHub CLI session.
 
 ## Platform API — Docker (optional local backend)
 
@@ -93,7 +93,7 @@ repo root with `pnpm release:publish` when explicitly authorized. Current
 candidate example:
 
 ```bash
-pnpm release:publish -- --tag v1.1.0 --target main
+pnpm release:publish -- --tag v1.1.1 --target main
 ```
 
 Source contract: the publisher must run on branch `main`, after refreshing
@@ -110,10 +110,11 @@ substitute.
 
 `--draft` is for QA only. `--allow-dirty`, `--skip-build`, and `--skip-gates`
 are permitted only together with `--draft`; those escapes are not formal
-release evidence and must not be treated as a published distribution. This
-document does **not** claim that any GitHub Release, notarized DMG, or update
-ZIP has already been published — the command path above is the contract for
-when publishing is explicitly authorized.
+release evidence and must not be treated as a published distribution. The
+existing `v1.1.0` release is published and notarized. This document does **not**
+claim that the `v1.1.1` GitHub Release, notarized DMG, or update ZIP has already
+been published; the command path above is the authorized contract for producing
+them.
 
 When authorized, the command builds and signs `Offisim.app` with
 `Developer ID Application: Haosheng Li (9MP925J67C)` from the login keychain;
@@ -129,7 +130,7 @@ Release builds do not include WebView devtools. Live-verify builds that need
 right-click → Inspect on the `.app` must be made with
 `pnpm --filter @offisim/desktop build:devtools` and must not be distributed.
 
-### Private-repository app updates
+### GitHub app updates
 
 Settings › App Updates checks and installs releases through the user's existing
 GitHub CLI login. Offisim invokes a fixed repository and fixed command surface;
@@ -140,13 +141,10 @@ Developer ID team, code signature, and Gatekeeper notarization
 (`xcrun stapler validate` before `spctl`) before the running
 `/Applications/Offisim.app` is replaced and restarted.
 
-Until a stable published release exists, App Updates currently finds no newer
-version.
-
-The official Tauri updater is intentionally not used while the repository is
-private: private GitHub release metadata and assets require authenticated HTTP
-requests, which would put a reusable GitHub credential in the desktop updater
-path. The decision and current-source check are recorded in
+The official Tauri updater is intentionally not used: the update path verifies
+GitHub release metadata and assets through the user's existing authenticated
+GitHub CLI session without putting a reusable GitHub credential in the desktop
+updater path. The decision and current-source check are recorded in
 [`2026-07-18-distribution-readiness.md`](../architecture/2026-07-18-distribution-readiness.md).
 
 See also: [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) · [RELEASE_GATES.md](./RELEASE_GATES.md)

@@ -1,5 +1,3 @@
-#[cfg(unix)]
-use rand::{rngs::OsRng, RngCore};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs::OpenOptions;

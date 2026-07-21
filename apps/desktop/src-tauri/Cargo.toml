@@ -1,6 +1,6 @@
 [package]
 name = "offisim-desktop"
-version = "1.1.0"
+version = "1.1.1"
 description = "AI Company Simulator — Desktop Runtime"
 edition = "2021"
 
@@ -41,6 +41,7 @@ tokio = { version = "1", features = ["process", "io-util", "sync", "time", "macr
 tokio-util = { version = "0.7", features = ["rt"] }
 thiserror = "1"
 rand = "0.8"
+tempfile = "3.27.0"
 # At-rest secret sealing for renderer-held tokens (local_secret.rs, S1/S2/S3).
 # chacha20poly1305 0.10.x is the current stable RustCrypto AEAD release
 # (0.11 is still an -rc as of 2026-06-24); base64 0.22 is the latest stable.

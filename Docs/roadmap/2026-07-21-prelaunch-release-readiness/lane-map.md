@@ -1,7 +1,7 @@
 # Prelaunch release readiness lane map
 
-当前候选版本：`1.1.0`。整体状态仍为 `IN PROGRESS`；未完成的 release / live /
-Kimi 项不得勾选。
+当前候选版本：`1.1.1`（tag `v1.1.1`）。整体状态仍为 `IN PROGRESS`；未完成的 release / live /
+Kimi 项不得勾选。仓库已 PUBLIC；`v1.1.0` 已于 2026-07-21 正式发布，不得把 `v1.1.1` 写成已发布。
 
 | Lane | Goal | Child loop / owner | Boundary | Dependency | Oracle | Risk | Status |
 |---|---|---|---|---|---|---|---|
@@ -24,7 +24,7 @@ Kimi 项不得勾选。
 
 ## Protected actions
 
-未经单独授权不执行：push、PR、GitHub Release、Apple notarization submit、安装/替换 `/Applications/Offisim.app`、生产/共享数据变更、删除用户 profile/native agent home。
+本轮已获授权：push、PR、GitHub Release、Apple notarization submit、安装/替换 `/Applications/Offisim.app`，以及隔离测试数据 reset。用户 profile、native agent home 和真实生产数据仍受保护，不得删除。
 
 ## 当前证据（2026-07-21）
 
@@ -32,4 +32,4 @@ Kimi 项不得勾选。
 - Rust：`cargo test --locked` 476/476 通过；`cargo fmt --check` 通过。
 - 安全与供应链：`pnpm security:harness` 通过；`pnpm audit:prod` 无已知漏洞。
 - UI/UX：Kimi K3 High 审计后仅修复两个可证实的视觉噪声点；UI hygiene、renderer typecheck、chrome stability 与 visual semantics 均通过。Post-fix release `.app` 的全 surface、宽/窄、5 态与 accessibility / 视觉 diff 证据仍待 L4/L6 取证，L4 不提前完成。
-- 当前 NO-GO 原因保留尚未完成的 clean candidate、L4 全 surface 取证与 release `.app` 三连真实验收，以及必须单独授权的 `/Applications` deep-link、Apple 公证、push / stable GitHub Release / public visibility 动作。
+- 当前 NO-GO 原因仅保留尚未完成的 clean candidate、L4 全 surface 取证、release `.app` 三连真实验收，以及已授权但尚未执行完成的 `/Applications` deep-link、Apple 公证、push / stable GitHub Release 动作。

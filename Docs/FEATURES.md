@@ -3,7 +3,7 @@
 Checked at: 2026-07-21 NZST
 
 This catalog documents the product features that are currently expected to be
-maintained for Offisim prelaunch candidate `1.1.0`. Each feature entry names the
+maintained for Offisim prelaunch candidate `1.1.1`. Each feature entry names the
 user value, owner paths, persistence/contracts, and verification. Engine wording
 below means **source implemented** unless a published distribution is named.
 
@@ -87,7 +87,7 @@ Data/contracts:
   external CLIs own their model selection.
 - Historical release `.app` evidence (for example 2026-07-17 T16 /
   Claude orchestration) remains under the matching old commit and app SHA.
-  Current `1.1.0` candidate release evidence is pending. Do not use
+  Current `1.1.1` candidate release evidence is pending. Do not use
   ships/shipped wording until a published distribution exists.
 
 Verification:
@@ -335,7 +335,7 @@ Verification:
 - `pnpm security:harness`
 - `pnpm platform:migration:drift` when platform schema changes
 - install-core or registry-client targeted harnesses when install contracts move
-- Current `1.1.0` candidate: source implementation and automated deep-link gate
+- Current `1.1.1` candidate: source implementation and automated deep-link gate
   are verified; macOS release cold-start and running-app invoke against an
   `/Applications` install remain pending live evidence and must not be claimed
   from harness-only results. Do not claim automatic install.

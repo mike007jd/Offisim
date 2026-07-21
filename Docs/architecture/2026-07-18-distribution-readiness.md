@@ -1,6 +1,6 @@
 # Offisim R2 distribution readiness (2026-07-18)
 
-Status: accepted implementation direction for the private prelaunch repository.
+Status: accepted implementation direction for the public prelaunch repository.
 
 ## Current-source check
 
@@ -27,12 +27,13 @@ references. Apple passwords, App Store keys, GitHub tokens, and updater private
 keys are neither accepted by the script nor stored in repo files. GitHub CLI and
 `notarytool` read their own keychain entries.
 
-### Updates for the private repository
+### GitHub CLI update boundary
 
-Do not use `tauri-plugin-updater` while GitHub Releases remain private. Its
-artifact signature is useful, but private release lookup/download would still
-require an authenticated HTTP header in the desktop update path. That is a
-long-lived credential embedding problem, not solved by updater artifact signing.
+Do not move update authentication or release access into the renderer or a
+reusable HTTP credential. The repository is public, but the narrow GitHub CLI
+path remains the approved boundary because it keeps account state in the user's
+existing CLI, fixes the repository and command surface, and avoids adding a
+second updater credential or trust path.
 
 Use the narrow native `app_update_check` / `app_update_install` commands instead:
 

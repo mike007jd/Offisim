@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.1
+
+- Fixed desktop install deep links so signed release builds reliably open the requested package flow.
+- Hardened Codex executable discovery and launch against path substitution and time-of-check/time-of-use attacks.
+- Hardened vault, secret-key, package, updater, ZIP, workspace, and skill-overlay file operations with descriptor-bound paths and safe rollback.
+- Removed the remaining high-severity JavaScript parser and command-execution findings reported by GitHub CodeQL.
+
+## 1.1.0
+
+- Shipped the engine-neutral macOS desktop workspace with isolated Pi/API, Codex CLI, and Claude Code CLI lanes.
+- Added persistent projects, conversations, sessions, native agent continuity, and engine-aware capabilities/account surfaces.
+- Added the dense desktop workflow across chat, files, terminal, Market, Loops, Memory, and Settings.
+- Published an Apple silicon build with Developer ID signing, Apple notarization, and SHA-256 sidecars.
+
 ## 1.0.0-rc.2
 
 - Added a Developer ID signed and notarized release publisher with stapled DMG/ZIP artifacts and SHA-256 evidence.

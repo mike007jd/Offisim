@@ -1,7 +1,7 @@
 # 下一轮 Roadmap:从功能完备到日常可用(2026-07-18)
 
 > **Historical correction (2026-07-21):** R2 最终落地的 App Updates 通道是
-> **private-repo GitHub CLI native commands**（Settings › App Updates 复用用户
+> **GitHub CLI native commands**（Settings › App Updates 复用用户
 > 已登录的 `gh`，不复制 token），**不是**官方 Tauri updater。下文 R2 条目里
 > 「Tauri updater 自动更新通道」是当时规划用语，保留原文作为历史记录；现行真源
 > 见 `Docs/architecture/2026-07-18-distribution-readiness.md` 与
