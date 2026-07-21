@@ -10,6 +10,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -70,7 +71,7 @@ function parseArgs(argv) {
   return result;
 }
 
-function credentialFreeEnv() {
+function credentialFreeEnv(trustedPathDirectories) {
   const env = { ...process.env, APPLE_SIGNING_IDENTITY: identity };
   for (const key of Object.keys(env)) {
     if (
@@ -81,20 +82,15 @@ function credentialFreeEnv() {
       delete env[key];
     }
   }
+  env.PATH = [...new Set(trustedPathDirectories)].join(path.delimiter);
   return env;
 }
 
-const env = credentialFreeEnv();
-
-function resolveTool(name, candidates = []) {
-  const pathCandidates = String(env.PATH ?? '')
-    .split(path.delimiter)
-    .filter(Boolean)
-    .map((directory) => path.join(directory, name));
-  for (const candidate of [...candidates, ...pathCandidates]) {
+function resolveTool(name, candidates) {
+  for (const candidate of candidates) {
     try {
       accessSync(candidate, constants.X_OK);
-      return candidate;
+      return realpathSync(candidate);
     } catch {
       // Continue until an executable candidate is found.
     }
@@ -103,7 +99,26 @@ function resolveTool(name, candidates = []) {
 }
 
 const ghPath = resolveTool('gh', ['/opt/homebrew/bin/gh', '/usr/local/bin/gh']);
-const pnpmPath = resolveTool('pnpm', ['/opt/homebrew/bin/pnpm', '/usr/local/bin/pnpm']);
+const pnpmPath = resolveTool('pnpm', [
+  path.join(path.dirname(process.execPath), 'pnpm'),
+  '/opt/homebrew/bin/pnpm',
+  '/usr/local/bin/pnpm',
+]);
+const cargoPath = resolveTool('cargo', [
+  path.join(os.homedir(), '.cargo', 'bin', 'cargo'),
+  '/opt/homebrew/bin/cargo',
+  '/usr/local/bin/cargo',
+]);
+const env = credentialFreeEnv([
+  path.dirname(process.execPath),
+  path.dirname(ghPath),
+  path.dirname(pnpmPath),
+  path.dirname(cargoPath),
+  '/usr/bin',
+  '/bin',
+  '/usr/sbin',
+  '/sbin',
+]);
 
 function run(command, args, { label = path.basename(command), forward = false, cwd = root } = {}) {
   console.log(`[release] ${label}`);
@@ -313,9 +328,9 @@ function verifyCodeSignature(pathname) {
       throw new Error(`bundled Node is missing required release entitlement: ${entitlement}`);
     }
   }
-  const actualEntitlements = [
-    ...nodeEntitlements.matchAll(/<key>([^<]+)<\/key>/gu),
-  ].map((match) => match[1]);
+  const actualEntitlements = [...nodeEntitlements.matchAll(/<key>([^<]+)<\/key>/gu)].map(
+    (match) => match[1],
+  );
   const unexpectedEntitlements = actualEntitlements.filter(
     (entitlement) => !requiredNodeEntitlements.includes(entitlement),
   );

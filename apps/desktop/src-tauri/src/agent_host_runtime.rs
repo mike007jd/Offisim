@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tauri::{path::BaseDirectory, AppHandle, Manager};
 
-const TRUSTED_HOST_ENV_WHITELIST: &[&str] = &[
+pub(crate) const TRUSTED_HOST_ENV_WHITELIST: &[&str] = &[
     "PATH",
     "HOME",
     "USER",

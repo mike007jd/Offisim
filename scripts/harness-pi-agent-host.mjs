@@ -8,6 +8,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -25,15 +26,27 @@ import { Type } from 'typebox';
 import {
   LanguageServerManager,
   createLspDiagnosticsExtensionFactory,
+  resolveTrustedLanguageServerExecutable,
 } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
 import { RUN_FAILURE_KINDS, classifyRunFailure } from './pi-agent-host-wire.mjs';
 import { validateHarnessIds } from './harness-manifest.mjs';
-import { childToolsForPermissionMode } from './pi-child-supervisor.mjs';
+import {
+  DELEGATION_DEFAULTS,
+  childToolsForPermissionMode,
+  createDelegationLimits,
+  normalizeDelegationLimitOverrides,
+} from './pi-child-supervisor.mjs';
 import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
 import {
   createTaskBashProcessRegistry,
   createTaskScopedAgentSessionFactory,
 } from './pi-task-bash-process-registry.mjs';
+import {
+  assertWorkspaceToolAllowed,
+  createProjectWorkspaceRequiredExtensionFactory,
+  normalizeExecuteWorkspace,
+  workspaceUnavailableSystemPrompt,
+} from './pi-workspace-policy.mjs';
 
 function readJson(path) {
   return JSON.parse(stripJsonComments(readFileSync(path, 'utf8'), { trailingCommas: true }));
@@ -132,6 +145,7 @@ async function verifyWorktreeCallChannel() {
 
 async function verifyLspDiagnosticsExtension() {
   const workspace = mkdtempSync(join(tmpdir(), 'offisim-lsp-diagnostics-'));
+  const trustedBin = mkdtempSync(join(tmpdir(), 'offisim-lsp-trusted-'));
   const executable = join(workspace, 'node_modules', '.bin', 'typescript-language-server');
   const tsserver = join(workspace, 'node_modules', 'typescript', 'lib', 'tsserver.js');
   const sourcePath = join(workspace, 'src', 'diagnostic.ts');
@@ -139,7 +153,7 @@ async function verifyLspDiagnosticsExtension() {
   mkdirSync(join(workspace, 'node_modules', 'typescript', 'lib'), { recursive: true });
   mkdirSync(join(workspace, 'src'), { recursive: true });
   writeFileSync(join(workspace, 'package.json'), '{"private":true}');
-  writeFileSync(tsserver, '// local TypeScript marker used by the LSP resolver\n');
+  writeFileSync(tsserver, 'throw new Error("workspace TypeScript runtime must never load");\n');
   writeFileSync(
     executable,
     String.raw`#!/usr/bin/env node
@@ -208,6 +222,24 @@ process.stdin.on('data', (chunk) => {
 `,
   );
   chmodSync(executable, 0o755);
+  assert(
+    (await resolveTrustedLanguageServerExecutable('typescript-language-server', workspace)) !==
+      executable,
+    'automatic diagnostics must never execute a project-controlled node_modules/.bin shim',
+  );
+  assert(
+    (await resolveTrustedLanguageServerExecutable('typescript-language-server', workspace, [
+      join(workspace, 'node_modules', '.bin'),
+    ])) === null,
+    'an absolute workspace directory in host PATH must not authorize a language server',
+  );
+  symlinkSync(executable, join(trustedBin, 'typescript-language-server'));
+  assert(
+    (await resolveTrustedLanguageServerExecutable('typescript-language-server', workspace, [
+      trustedBin,
+    ])) === null,
+    'a trusted-directory symlink must not escape back into workspace-controlled code',
+  );
 
   const install = (factory) => {
     const handlers = new Map();
@@ -240,7 +272,7 @@ process.stdin.on('data', (chunk) => {
     const emitted = [];
     const lspManager = new LanguageServerManager({
       cwd: workspace,
-      env: { ...process.env, PATH: '' },
+      executableResolver: async () => executable,
     });
     const lsp = install(
       createLspDiagnosticsExtensionFactory({
@@ -255,6 +287,10 @@ process.stdin.on('data', (chunk) => {
         emitted[0]?.counts?.error === 1 &&
         emitted[0]?.diagnostics?.[0]?.code === '2322',
       'a successful file edit must pull bounded, workspace-relative LSP diagnostics',
+    );
+    assert(
+      existsSync(tsserver),
+      'diagnostics must succeed without loading the workspace-controlled TypeScript runtime',
     );
     assert(
       lsp.messages[0]?.[0]?.display === false &&
@@ -279,7 +315,7 @@ process.stdin.on('data', (chunk) => {
     writeFileSync(sourcePath, 'const answer: number = "CRASH_ONCE TYPE_ERROR";\n');
     const restartManager = new LanguageServerManager({
       cwd: workspace,
-      env: { ...process.env, PATH: '' },
+      executableResolver: async () => executable,
       initializeTimeoutMs: 500,
       diagnosticTimeoutMs: 1_200,
     });
@@ -297,7 +333,7 @@ process.stdin.on('data', (chunk) => {
     writeFileSync(sourcePath, 'const malformed = "MALFORMED";\n');
     const malformedManager = new LanguageServerManager({
       cwd: workspace,
-      env: { ...process.env, PATH: '' },
+      executableResolver: async () => executable,
       initializeTimeoutMs: 500,
       diagnosticTimeoutMs: 1_200,
     });
@@ -316,7 +352,7 @@ process.stdin.on('data', (chunk) => {
     writeFileSync(sourcePath, 'const answer: number = "TYPE_ERROR";\n');
     const bundledTypeScriptFallback = new LanguageServerManager({
       cwd: workspace,
-      env: { ...process.env, PATH: '' },
+      executableResolver: async () => executable,
     });
     const fallbackTypeScriptResult = await bundledTypeScriptFallback.diagnoseFile(sourcePath);
     assert(
@@ -333,7 +369,7 @@ process.stdin.on('data', (chunk) => {
         emitDiagnostics: () => undefined,
         manager: new LanguageServerManager({
           cwd: workspace,
-          env: { ...process.env, PATH: '' },
+          executableResolver: async () => null,
           initializeTimeoutMs: 200,
           diagnosticTimeoutMs: 300,
         }),
@@ -367,6 +403,7 @@ process.stdin.on('data', (chunk) => {
     await fallback.factory.dispose();
   } finally {
     rmSync(workspace, { recursive: true, force: true });
+    rmSync(trustedBin, { recursive: true, force: true });
   }
 }
 
@@ -990,50 +1027,6 @@ async function verifyBoundWorkspaceTools() {
 
 await verifyBoundWorkspaceTools();
 
-function extractNamedFunction(source, name) {
-  const start = source.indexOf(`function ${name}(`);
-  assert(start >= 0, `could not find function ${name}`);
-  const parametersOpen = source.indexOf('(', start);
-  let parameterDepth = 0;
-  let parametersClose = -1;
-  for (let index = parametersOpen; index < source.length; index += 1) {
-    if (source[index] === '(') parameterDepth += 1;
-    if (source[index] === ')') {
-      parameterDepth -= 1;
-      if (parameterDepth === 0) {
-        parametersClose = index;
-        break;
-      }
-    }
-  }
-  assert(parametersClose >= 0, `could not find parameters for function ${name}`);
-  const open = source.indexOf('{', parametersClose);
-  let depth = 0;
-  for (let index = open; index < source.length; index += 1) {
-    if (source[index] === '{') depth += 1;
-    if (source[index] === '}') {
-      depth -= 1;
-      if (depth === 0) return source.slice(start, index + 1);
-    }
-  }
-  throw new Error(`could not extract function ${name}`);
-}
-
-function extractObjectLiteral(source, marker) {
-  const start = source.indexOf(marker);
-  assert(start >= 0, `could not find object marker ${marker}`);
-  const open = source.indexOf('{', start);
-  let depth = 0;
-  for (let index = open; index < source.length; index += 1) {
-    if (source[index] === '{') depth += 1;
-    if (source[index] === '}') {
-      depth -= 1;
-      if (depth === 0) return source.slice(open, index + 1);
-    }
-  }
-  throw new Error(`could not extract object marker ${marker}`);
-}
-
 function parseHostResult(stdout, label) {
   for (const line of stdout
     .split('\n')
@@ -1341,11 +1334,8 @@ assert(
   'workspaceUnavailable must be published before neutral cwd setup and before any sidecar started/message/tool event can exist',
 );
 
-const normalizeWorkspaceForHarness = Function(
-  `${extractNamedFunction(nodeHostSource, 'normalizeExecuteWorkspace')}; return normalizeExecuteWorkspace;`,
-)();
 assert(
-  normalizeWorkspaceForHarness({
+  normalizeExecuteWorkspace({
     workspaceRequirement: 'required',
     workspaceAvailability: 'bound',
     workspaceUnavailableReasonCode: null,
@@ -1380,27 +1370,22 @@ for (const [packet, expectedCode] of [
 ]) {
   if (!expectedCode) {
     assert(
-      normalizeWorkspaceForHarness(packet).reasonCode === 'ambiguous',
+      normalizeExecuteWorkspace(packet).reasonCode === 'ambiguous',
       'optional unavailable state must preserve its exact blocker reason',
     );
     continue;
   }
   let code;
   try {
-    normalizeWorkspaceForHarness(packet);
+    normalizeExecuteWorkspace(packet);
   } catch (error) {
     code = error?.code;
   }
   assert(code === expectedCode, `workspace state must fail with ${expectedCode}`);
 }
 
-const createWorkspaceRequiredForHarness = Function(
-  'PROJECT_WORKSPACE_REQUIRED_TOOL',
-  'ProjectWorkspaceRequiredParams',
-  `${extractNamedFunction(nodeHostSource, 'createProjectWorkspaceRequiredExtensionFactory')}; return createProjectWorkspaceRequiredExtensionFactory;`,
-)('project_workspace_required', {});
 let workspaceRequiredTool;
-createWorkspaceRequiredForHarness('none')({
+createProjectWorkspaceRequiredExtensionFactory('none')({
   registerTool(tool) {
     workspaceRequiredTool = tool;
   },
@@ -1416,9 +1401,22 @@ assert(
   'project_workspace_required must return the explicit no-candidate blocker and recovery action',
 );
 assert(
-  /function normalizeDelegationLimitOverrides\(value\)/.test(nodeHostSource) &&
-    /Number\.isSafeInteger\(requested\)/.test(nodeHostSource) &&
-    /Math\.min\(requested, DELEGATION_DEFAULTS\[key\]\)/.test(nodeHostSource) &&
+  workspaceUnavailableSystemPrompt('ambiguous').includes('project_workspace_required'),
+  'workspace-unavailable prompt must name the one allowed recovery tool',
+);
+assertWorkspaceToolAllowed(true, 'project_workspace_required');
+let workspaceIsolationCode;
+try {
+  assertWorkspaceToolAllowed(true, 'bash');
+} catch (error) {
+  workspaceIsolationCode = error?.code;
+}
+assert(
+  workspaceIsolationCode === 'workspace-isolation',
+  'workspace-unavailable execution must reject every non-recovery tool',
+);
+assert(
+  /normalizeDelegationLimitOverrides/.test(nodeHostSource) &&
     /delegationLimitOverrides === undefined[\s\S]*createDelegationLimits\(\)[\s\S]*createDelegationLimits\(delegationLimitOverrides\)/.test(
       nodeHostSource,
     ) &&
@@ -1427,29 +1425,11 @@ assert(
   'source and bundled Pi hosts must accept only positive integer delegation caps, clamp them to host defaults, and preserve the default constructor for absent/invalid packets',
 );
 
-const delegationDefaults = Function(
-  `return (${extractObjectLiteral(childSupervisorSource, 'export const DELEGATION_DEFAULTS')});`,
-)();
-const normalizeDelegationLimits = Function(
-  'DELEGATION_DEFAULTS',
-  'DELEGATION_LIMIT_KEYS',
-  `${extractNamedFunction(nodeHostSource, 'normalizeDelegationLimitOverrides')}; return normalizeDelegationLimitOverrides;`,
-)(delegationDefaults, [
-  'maxDepth',
-  'maxParallelPerDelegation',
-  'maxTotalChildren',
-  'maxTotalTokens',
-]);
-const buildDelegationLimits = Function(
-  'DELEGATION_DEFAULTS',
-  `${extractNamedFunction(childSupervisorSource, 'createDelegationLimits')}; return createDelegationLimits;`,
-)(delegationDefaults);
-
 assert(
-  normalizeDelegationLimits(undefined) === undefined,
+  normalizeDelegationLimitOverrides(undefined) === undefined,
   'absent delegationLimits must preserve the host default path',
 );
-const validDelegationOverrides = normalizeDelegationLimits({
+const validDelegationOverrides = normalizeDelegationLimitOverrides({
   maxDepth: 1,
   maxParallelPerDelegation: 99,
   maxTotalChildren: 8,
@@ -1458,22 +1438,22 @@ const validDelegationOverrides = normalizeDelegationLimits({
 assert(
   validDelegationOverrides?.maxDepth === 1 &&
     validDelegationOverrides.maxParallelPerDelegation ===
-      delegationDefaults.maxParallelPerDelegation &&
+      DELEGATION_DEFAULTS.maxParallelPerDelegation &&
     validDelegationOverrides.maxTotalChildren === 8 &&
     validDelegationOverrides.maxTotalTokens === 90_000,
   'valid delegation limits must tighten values below defaults and clamp values above defaults',
 );
-const effectiveDelegationLimits = buildDelegationLimits(validDelegationOverrides);
+const effectiveDelegationLimits = createDelegationLimits(validDelegationOverrides);
 assert(
   effectiveDelegationLimits.maxDepth === 1 &&
     effectiveDelegationLimits.maxParallelPerDelegation ===
-      delegationDefaults.maxParallelPerDelegation &&
+      DELEGATION_DEFAULTS.maxParallelPerDelegation &&
     effectiveDelegationLimits.maxTotalChildren === 8 &&
     effectiveDelegationLimits.maxTotalTokens === 90_000,
   'normalized overrides must reach createDelegationLimits unchanged',
 );
 
-const sharedConcurrency = buildDelegationLimits({
+const sharedConcurrency = createDelegationLimits({
   maxParallelPerDelegation: 2,
   maxTotalChildren: 8,
   maxTotalTokens: 100,
@@ -1520,7 +1500,7 @@ for (const invalidPacket of [
   { maxDepth: 1, childTimeoutMs: 1 },
 ]) {
   assert(
-    normalizeDelegationLimits(invalidPacket) === undefined,
+    normalizeDelegationLimitOverrides(invalidPacket) === undefined,
     `invalid delegation-limit packet must be ignored as a whole: ${JSON.stringify(invalidPacket)}`,
   );
 }

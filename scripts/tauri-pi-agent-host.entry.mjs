@@ -12,7 +12,6 @@ import {
   isToolCallEventType,
 } from '@earendil-works/pi-coding-agent';
 import stripJsonComments from 'strip-json-comments';
-import { Type } from 'typebox';
 import { createLspDiagnosticsExtensionFactory } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
 import {
   createWorkspaceCheckpointManager,
@@ -47,6 +46,7 @@ import {
   DELEGATION_DEFAULTS,
   createChildSupervisor,
   createDelegationLimits,
+  normalizeDelegationLimitOverrides,
 } from './pi-child-supervisor.mjs';
 import { createDelegationExtensionFactory } from './pi-delegation-extension.mjs';
 import {
@@ -64,6 +64,13 @@ import {
   createTaskBashProcessRegistry,
   createTaskScopedAgentSessionFactory,
 } from './pi-task-bash-process-registry.mjs';
+import {
+  PROJECT_WORKSPACE_REQUIRED_TOOL,
+  assertWorkspaceToolAllowed,
+  createProjectWorkspaceRequiredExtensionFactory,
+  normalizeExecuteWorkspace,
+  workspaceUnavailableSystemPrompt,
+} from './pi-workspace-policy.mjs';
 
 /**
  * Pi thinking levels (reasoning effort), least → most. The renderer already
@@ -76,115 +83,6 @@ import {
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
 const MCP_APPROVAL_TIMEOUT_MS = 75_000;
 const ROOT_CONTROL_CUSTOM_TYPE = 'offisim.control';
-const DELEGATION_LIMIT_KEYS = Object.freeze([
-  'maxDepth',
-  'maxParallelPerDelegation',
-  'maxTotalChildren',
-  'maxTotalTokens',
-]);
-const PROJECT_WORKSPACE_REQUIRED_TOOL = 'project_workspace_required';
-const ProjectWorkspaceRequiredParams = Type.Object({});
-
-function normalizeExecuteWorkspace(payload) {
-  const requirement = payload.workspaceRequirement;
-  const availability = payload.workspaceAvailability;
-  const reasonCode = payload.workspaceUnavailableReasonCode;
-  if (requirement !== 'required' && requirement !== 'optional') {
-    throw Object.assign(new Error('Pi work requests require a valid workspaceRequirement.'), {
-      code: 'invalid-request',
-    });
-  }
-  if (availability !== 'bound' && availability !== 'unavailable') {
-    throw Object.assign(new Error('Pi work requests require a valid workspaceAvailability.'), {
-      code: 'invalid-request',
-    });
-  }
-  if (availability === 'bound') {
-    if (reasonCode !== null) {
-      throw Object.assign(
-        new Error('A bound Pi work request cannot carry a workspace-unavailable reason.'),
-        { code: 'invalid-request' },
-      );
-    }
-    return { requirement, availability };
-  }
-  if (requirement !== 'optional') {
-    throw Object.assign(
-      new Error('A required Pi work request cannot run without a Project workspace.'),
-      { code: 'project-workspace-required' },
-    );
-  }
-  if (reasonCode !== 'none' && reasonCode !== 'ambiguous') {
-    throw Object.assign(
-      new Error('A workspace-unavailable Pi work request requires reason none or ambiguous.'),
-      { code: 'invalid-request' },
-    );
-  }
-  return { requirement, availability, reasonCode };
-}
-
-function workspaceUnavailableSystemPrompt(reasonCode) {
-  return [
-    'This Offisim turn has no authorized Project workspace.',
-    `Workspace recovery result: ${reasonCode}.`,
-    'You have no file, shell, Git, delegation, mission, skill, or MCP access in this turn.',
-    'Answer normally when the request can be handled from conversation context alone.',
-    `When the request truly requires any unavailable capability, call ${PROJECT_WORKSPACE_REQUIRED_TOOL} exactly once, then clearly tell the user to restore or reselect the Project folder.`,
-    'Never claim that you inspected, changed, ran, or verified project files in this state.',
-  ].join('\n');
-}
-
-function createProjectWorkspaceRequiredExtensionFactory(reasonCode) {
-  return (pi) => {
-    pi.registerTool({
-      name: PROJECT_WORKSPACE_REQUIRED_TOOL,
-      label: 'Project Workspace Required',
-      description:
-        'Use only when the user request truly requires project files, shell, Git, delegation, mission, skills, or MCP access and the Project workspace is unavailable.',
-      parameters: ProjectWorkspaceRequiredParams,
-      async execute() {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `PROJECT_WORKSPACE_REQUIRED reason=${reasonCode}. No Project folder is authorized for this turn. Ask the user to restore or reselect the Project folder; do not claim project work was completed.`,
-            },
-          ],
-        };
-      },
-    });
-  };
-}
-
-function assertWorkspaceToolAllowed(workspaceUnavailable, toolName) {
-  if (workspaceUnavailable && toolName !== PROJECT_WORKSPACE_REQUIRED_TOOL) {
-    throw Object.assign(
-      new Error(`Workspace-unavailable work must not execute tool "${toolName}".`),
-      { code: 'workspace-isolation' },
-    );
-  }
-}
-
-/**
- * Accept a delegation-limit override only when the whole packet is a known,
- * positive-safe-integer shape. One bad/unknown field discards the whole packet,
- * restoring host defaults; valid values can only tighten those defaults.
- */
-function normalizeDelegationLimitOverrides(value) {
-  if (value === undefined) return undefined;
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
-
-  const keys = Object.keys(value);
-  if (keys.some((key) => !DELEGATION_LIMIT_KEYS.includes(key))) return undefined;
-
-  const overrides = {};
-  for (const key of keys) {
-    const requested = value[key];
-    if (!Number.isSafeInteger(requested) || requested <= 0) return undefined;
-    overrides[key] = Math.min(requested, DELEGATION_DEFAULTS[key]);
-  }
-  return overrides;
-}
 
 function normalizeThinkingLevel(value) {
   return typeof value === 'string' && THINKING_LEVELS.includes(value) ? value : undefined;

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
 import { access, realpath } from 'node:fs/promises';
-import { delimiter, join } from 'node:path';
+import { delimiter, isAbsolute, join, relative, sep } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { createClaudeWorkspaceGuard } from './claude-workspace-guard.mjs';
@@ -74,19 +74,27 @@ function hostError(message, code = 'upstream') {
   return Object.assign(new Error(message), { code });
 }
 
-async function executable(path) {
+function insideWorkspace(workspaceRoot, path) {
+  if (!workspaceRoot) return false;
+  const rel = relative(workspaceRoot, path);
+  return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel));
+}
+
+async function executable(path, workspaceRoot) {
   if (!path) return undefined;
   try {
     await access(path, fsConstants.X_OK);
-    return path;
+    const canonical = await realpath(path);
+    return insideWorkspace(workspaceRoot, canonical) ? undefined : canonical;
   } catch {
     return undefined;
   }
 }
 
 async function resolveClaudeExecutable() {
-  const override = nonEmpty(process.env.OFFISIM_CLAUDE_EXECUTABLE);
-  if (override) return executable(override);
+  const workspaceRoot = await realpath(nonEmpty(process.env.OFFISIM_WORKSPACE_ROOT) ?? '').catch(
+    () => undefined,
+  );
   const candidates = [];
   const home = nonEmpty(process.env.HOME);
   if (home) candidates.push(join(home, '.local', 'bin', 'claude'));
@@ -95,7 +103,7 @@ async function resolveClaudeExecutable() {
   }
   candidates.push('/opt/homebrew/bin/claude', '/usr/local/bin/claude', '/usr/bin/claude');
   for (const candidate of [...new Set(candidates)]) {
-    const found = await executable(candidate);
+    const found = await executable(candidate, workspaceRoot);
     if (found) return found;
   }
   return undefined;

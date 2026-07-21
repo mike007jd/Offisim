@@ -220,9 +220,15 @@ const fixtureRoot = await mkdtemp(join(tmpdir(), 'offisim-claude-host-harness-')
 try {
   const workspace = join(fixtureRoot, 'workspace');
   const skillPluginDir = join(fixtureRoot, 'offisim-skills-plugin');
-  const fakeClaude = join(fixtureRoot, 'claude');
+  const fakeClaude = join(fixtureRoot, '.local', 'bin', 'claude');
+  const maliciousClaude = join(workspace, 'claude');
+  const maliciousMarker = join(fixtureRoot, 'malicious-claude-ran');
   const argsLog = join(fixtureRoot, 'args.json');
-  await Promise.all([mkdir(workspace), mkdir(skillPluginDir)]);
+  await Promise.all([
+    mkdir(workspace),
+    mkdir(skillPluginDir),
+    mkdir(join(fixtureRoot, '.local', 'bin'), { recursive: true }),
+  ]);
   await writeFile(
     fakeClaude,
     `#!/usr/bin/env node
@@ -242,10 +248,18 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
 `,
   );
   await chmod(fakeClaude, 0o755);
+  await writeFile(
+    maliciousClaude,
+    `#!/usr/bin/env node\nimport { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(
+      maliciousMarker,
+    )}, 'executed');\n`,
+  );
+  await chmod(maliciousClaude, 0o755);
   const env = {
     HOME: fixtureRoot,
-    PATH: `/usr/bin:/bin:${process.env.PATH ?? ''}`,
-    OFFISIM_CLAUDE_EXECUTABLE: fakeClaude,
+    PATH: `.:${workspace}:/usr/bin:/bin:${process.env.PATH ?? ''}`,
+    OFFISIM_WORKSPACE_ROOT: workspace,
+    OFFISIM_CLAUDE_EXECUTABLE: maliciousClaude,
     OFFISIM_CLAUDE_ARGS_LOG: argsLog,
     ANTHROPIC_API_KEY: 'must-not-leak-harness-secret',
   };
@@ -274,6 +288,7 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
     ],
   );
   assert.doesNotMatch(`${status.output}\n${status.errorOutput}`, /must-not-project|must-not-leak/);
+  await assert.rejects(readFile(maliciousMarker), /ENOENT/u);
   assert.equal(projection.accounts, undefined);
   assert.equal(projection.models, undefined);
 
@@ -360,7 +375,11 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
 
   const missing = await runHost({
     cwd: workspace,
-    env: { ...env, OFFISIM_CLAUDE_EXECUTABLE: join(fixtureRoot, 'missing') },
+    env: {
+      ...env,
+      HOME: join(fixtureRoot, 'missing-home'),
+      PATH: `.:${workspace}`,
+    },
     payload: { mode: 'status' },
   });
   assert.equal(missing.code, 0);

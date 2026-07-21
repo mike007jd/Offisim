@@ -37,8 +37,7 @@ const PUBLISH_TARGET = 'scripts/release-publish.mjs';
 const CONTRACT_TARGET = 'scripts/release-contract.mjs';
 const PI_HOST_BUILD_TARGET = 'scripts/build-pi-agent-host.mjs';
 const APP_UPDATE_TARGET = 'apps/desktop/src-tauri/src/app_update.rs';
-const NODE_RELEASE_ENTITLEMENTS_TARGET =
-  'apps/desktop/src-tauri/entitlements/node-release.plist';
+const NODE_RELEASE_ENTITLEMENTS_TARGET = 'apps/desktop/src-tauri/entitlements/node-release.plist';
 const REQUIRED_NODE_RELEASE_ENTITLEMENTS = [
   'com.apple.security.cs.allow-dyld-environment-variables',
   'com.apple.security.cs.allow-jit',
@@ -368,6 +367,21 @@ matchPublish(
 
 // --- release-publish: full release-gates.mjs (no lane slice) ---
 matchPublish(
+  'publisher resolves cargo from fixed candidates',
+  /const\s+cargoPath\s*=\s*resolveTool\(\s*['"]cargo['"]/u,
+  'publisher must resolve cargo before launching nested release gates',
+);
+matchPublish(
+  'publisher replaces inherited PATH with trusted tool directories',
+  /env\.PATH\s*=\s*\[\.\.\.new Set\(trustedPathDirectories\)\]\.join\(path\.delimiter\)/u,
+  'nested release gates must not inherit an attacker-controlled PATH',
+);
+matchPublish(
+  'publisher includes resolved pnpm and cargo directories in trusted PATH',
+  /path\.dirname\(pnpmPath\)[\s\S]*path\.dirname\(cargoPath\)/u,
+  'nested pnpm and cargo gates must resolve only through canonical tool directories',
+);
+matchPublish(
   'publisher invokes full scripts/release-gates.mjs',
   /\[\s*['"]scripts\/release-gates\.mjs['"]\s*\]/u,
   'must run scripts/release-gates.mjs with no --lane= argument',
@@ -582,7 +596,9 @@ matchPublish(
   check(
     'publisher requiredNodeEntitlements lists the five runtime entitlements',
     listed.length === REQUIRED_NODE_RELEASE_ENTITLEMENTS.length &&
-      REQUIRED_NODE_RELEASE_ENTITLEMENTS.every((entitlement, index) => listed[index] === entitlement),
+      REQUIRED_NODE_RELEASE_ENTITLEMENTS.every(
+        (entitlement, index) => listed[index] === entitlement,
+      ),
     'requiredNodeEntitlements must exactly list the five Node release runtime entitlements',
   );
   matchPublish(

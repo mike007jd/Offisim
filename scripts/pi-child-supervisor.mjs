@@ -83,6 +83,30 @@ export const DELEGATION_DEFAULTS = Object.freeze({
   maxTotalTokens: 2_000_000,
 });
 
+const DELEGATION_LIMIT_KEYS = Object.freeze([
+  'maxDepth',
+  'maxParallelPerDelegation',
+  'maxTotalChildren',
+  'maxTotalTokens',
+]);
+
+/** Accept only a complete known shape whose values can tighten host defaults. */
+export function normalizeDelegationLimitOverrides(value) {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+
+  const keys = Object.keys(value);
+  if (keys.some((key) => !DELEGATION_LIMIT_KEYS.includes(key))) return undefined;
+
+  const overrides = {};
+  for (const key of keys) {
+    const requested = value[key];
+    if (!Number.isSafeInteger(requested) || requested <= 0) return undefined;
+    overrides[key] = Math.min(requested, DELEGATION_DEFAULTS[key]);
+  }
+  return overrides;
+}
+
 /**
  * Shared, mutable limit state for one root run's whole delegation tree. Total
  * children, active delegated agents, and token usage are global across every
@@ -819,11 +843,7 @@ export function createChildSupervisor(ctx) {
     return withParentConcurrencySuspended(signal, async () => {
       const result = await runTask(task, signal, options);
       const integration = result.completed
-        ? await maybeIntegrateWrites(
-            [task],
-            [result.runId],
-            options.deferIntegration === true,
-          )
+        ? await maybeIntegrateWrites([task], [result.runId], options.deferIntegration === true)
         : '';
       return {
         text: capBytes(
