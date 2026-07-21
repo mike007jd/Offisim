@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@11.13.1",
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=24.18.0 <25"
   },
   "scripts": {
     "build": "turbo run build",
@@ -131,6 +131,8 @@
     "format": "biome format --write .",
     "clean": "turbo run clean && rm -rf node_modules",
     "release:run": "node scripts/run-clean-release.mjs",
+    "harness:release-workflow-boundary": "node scripts/run-harnesses.mjs --only release-workflow-boundary",
+    "harness:deep-link-install": "node scripts/run-harnesses.mjs --only deep-link-install",
     "release:publish": "node scripts/release-publish.mjs",
     "check:deadcode": "knip",
     "qa:loop": "node scripts/run-functional-test-loop.mjs",
@@ -156,7 +158,7 @@
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },
-  "version": "1.0.0-rc.2",
+  "version": "1.1.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -168,7 +170,7 @@
   },
   "author": "Offisim Contributors",
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "0.80.9",
+    "@earendil-works/pi-coding-agent": "0.80.10",
     "strip-json-comments": "5.0.3",
     "typebox": "1.1.38"
   }

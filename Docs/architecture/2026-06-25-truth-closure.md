@@ -5,10 +5,22 @@
 > not current: API Cost and subscription-native Usage are separate contracts.
 > Use [Engine-neutral AI Accounts](./2026-07-13-engine-neutral-ai-accounts.md).
 
-Checked at: 2026-06-25 NZST; updated 2026-06-29 NZST for MCP audit/runtime
+> **Implementation follow-up (2026-07-21):** **VM-002** (Artifact live writer on
+> `deliverables` via `publish_artifact` → `artifact.created` →
+> `AgentRunPersistence.persistArtifact`) and **VM-003** (cost panel reads
+> `agent_runs.usage_json` only; `llm_calls` is a FULLY-INERT production table) are
+> **complete**. The body below keeps the 2026-06-25 decision history and must not
+> be rewritten as if those gaps were still open. **Current storage/runtime truth**
+> is [inert-storage-ledger.md](../contracts/inert-storage-ledger.md) plus
+> [Engine-neutral AI Accounts](./2026-07-13-engine-neutral-ai-accounts.md).
+
+Checked at: 2026-06-25 NZST; updated 2026-06-29 NZST for MCP audit/runtime;
+implementation follow-up noted 2026-07-21 NZST.
 Status: accepted (Milestone M0, slice VM-001)
-Supersedes the conflicting acceptance assertions corrected below; does **not**
-change runtime code or storage schema (those land in VM-002 / VM-003).
+Supersedes the conflicting acceptance assertions corrected below. Historical note:
+as of VM-001 acceptance this ADR did **not** yet change runtime code or storage
+schema (those landed later in VM-002 / VM-003 — implemented/merged in current
+source; see follow-up above).
 
 ## Why
 

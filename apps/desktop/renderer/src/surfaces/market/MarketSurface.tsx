@@ -1,9 +1,14 @@
+import {
+  consumeDeepLinkInstallIntent,
+  useDeepLinkInstallIntent,
+} from '@/app/DeepLinkInstallBridge.js';
 import { useUiState } from '@/app/ui-state.js';
 import {
   describeFileImportError,
   useCancelPackageImport,
   useConfirmPackageInstall,
   useImportPackageFile,
+  useMarketListingById,
   useMarketListings,
   usePrepareRegistryInstall,
   usePublishPackage,
@@ -104,7 +109,9 @@ const ROW_HEIGHT = 196;
 export function MarketSurface() {
   const companyId = useUiState((s) => s.companyId);
   const openSettings = useUiState((s) => s.openSettings);
+  const deepLinkInstallIntent = useDeepLinkInstallIntent();
   const listings = useMarketListings(companyId);
+  const deepLinkListing = useMarketListingById(companyId, deepLinkInstallIntent?.listing_id);
   const sources = usePublishSources(companyId);
   const registryConnection = useRegistryConnection();
   const publishedDrafts = usePublishedDrafts(registryConnection.data?.connected === true);
@@ -131,6 +138,7 @@ export function MarketSurface() {
   );
   const [publishOpen, setPublishOpen] = useState(false);
   const [detailListingId, setDetailListingId] = useState<string | null>(null);
+  const [detailListingOverride, setDetailListingOverride] = useState<MarketListing | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const registryInstallAbortRef = useRef<AbortController | null>(null);
 
@@ -154,7 +162,10 @@ export function MarketSurface() {
     return sorted;
   }, [listings.data, kind, sort, query]);
 
-  const detailListing = (listings.data ?? []).find((l) => l.id === detailListingId) ?? null;
+  const detailListing =
+    (detailListingOverride?.id === detailListingId ? detailListingOverride : null) ??
+    (listings.data ?? []).find((listing) => listing.id === detailListingId) ??
+    null;
   const detailOpen = detailListing !== null && mode === 'explore';
 
   function resetFilters() {
@@ -197,8 +208,65 @@ export function MarketSurface() {
 
   function openDetail(listing: MarketListing) {
     selectListing(listing.id);
+    setDetailListingOverride(listing);
     setDetailListingId(listing.id);
   }
+
+  // Resolve the URL against current registry truth. The version is pinned by
+  // the external protocol: never substitute the latest version silently, and
+  // never bypass InstallDialog's permission/binding review.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: openDetail is a local command; the intent is consumed before it can be repeated.
+  useEffect(() => {
+    if (!deepLinkInstallIntent || !companyId || deepLinkListing.isLoading) return;
+    if (deepLinkListing.isError) {
+      consumeDeepLinkInstallIntent(deepLinkInstallIntent.intentId);
+      toast.error('Market item unavailable', {
+        description: 'The linked item is no longer listed or is not visible to this account.',
+      });
+      return;
+    }
+
+    setMode('explore');
+    const listing = deepLinkListing.data;
+    if (!listing) {
+      consumeDeepLinkInstallIntent(deepLinkInstallIntent.intentId);
+      const registryMissing = registryConnection.data?.reason === 'registry-config-missing';
+      toast.error(registryMissing ? 'Connect Market to use this link' : 'Market item unavailable', {
+        description: registryMissing
+          ? 'Add the catalog connection in Settings, then open the install link again.'
+          : 'The linked item is no longer listed or is not visible to this account.',
+        action: registryMissing
+          ? { label: 'Open settings', onClick: () => openSettings('advanced') }
+          : undefined,
+      });
+      return;
+    }
+    if (listing.version !== deepLinkInstallIntent.version) {
+      consumeDeepLinkInstallIntent(deepLinkInstallIntent.intentId);
+      openDetail(listing);
+      toast.error('Linked version unavailable', {
+        description: `This link requests ${deepLinkInstallIntent.version}; Market currently offers ${listing.version}. Nothing was installed.`,
+      });
+      return;
+    }
+    consumeDeepLinkInstallIntent(deepLinkInstallIntent.intentId);
+    openDetail(listing);
+    toast.info(listing.installed ? 'This item is already installed' : 'Review install request', {
+      description: listing.installed
+        ? 'The link opened the installed package details. Nothing was changed.'
+        : canInstallListing(listing)
+          ? 'Review the item and its permissions, then choose Install to continue.'
+          : 'This listing does not currently expose a verified package artifact.',
+    });
+  }, [
+    companyId,
+    deepLinkInstallIntent,
+    deepLinkListing.data,
+    deepLinkListing.isError,
+    deepLinkListing.isLoading,
+    registryConnection.data?.reason,
+    setMode,
+  ]);
 
   async function handlePackageFile(file: File | null | undefined) {
     if (!file) return;
@@ -417,7 +485,10 @@ export function MarketSurface() {
               key="market-detail"
               listing={detailListing}
               installed={detailListing.installed}
-              onClose={() => setDetailListingId(null)}
+              onClose={() => {
+                setDetailListingId(null);
+                setDetailListingOverride(null);
+              }}
               onInstall={() => void openInstall(detailListing)}
             />
           ) : null}

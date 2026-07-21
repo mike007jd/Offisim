@@ -35,7 +35,7 @@ Chat attachment IPC 归 `fs-shell` capability：`attachment_write` / `attachment
 
 Project workspace file browsing from the webview must use the sandboxed Tauri commands `project_list_dir` / `project_read_file` / `project_read_file_preview` with a selected project `workspace_root`. Do not use `tauri-plugin-fs` directly for repo/project paths; plugin-fs is for app-owned/vault paths, not arbitrary workspace traversal.
 
-Release/live validation is release `.app` only: rebuild `@offisim/desktop-renderer` and `@offisim/desktop`, launch the current worktree's exact `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app` path, then use Computer Use for window attach, interaction, screenshots, foregrounding, and closing. Do not use `open -b com.offisim.desktop` when multiple worktrees may share the bundle id, and do not use `osascript` / AppleScript as the desktop verification controller. Dev webview/browser results do not satisfy desktop runtime verification.
+Release/live validation is release `.app` only: rebuild `@offisim/desktop-renderer` and `@offisim/desktop`, launch the current worktree's exact `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app` path, then use Computer Use for window attach, interaction, screenshots, foregrounding, and closing. Do not use `open -b com.offisim.desktop` when multiple worktrees may share the bundle id, and do not use `osascript` / AppleScript as the desktop verification controller. Dev webview/browser results do not satisfy desktop runtime verification.
 
 ## AI Runtime Hosts
 

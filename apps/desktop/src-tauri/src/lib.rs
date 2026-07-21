@@ -224,6 +224,7 @@ pub fn run() {
             local_db::global_search,
             app_update::app_update_check,
             app_update::app_update_install,
+            deep_link::deep_link_mark_renderer_ready,
             startup_safety::startup_status,
             startup_safety::startup_export_diagnostics,
             startup_safety::startup_reset_local_data,
@@ -345,6 +346,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(mcp_bridge::init())
         .manage(startup_safety.clone())
+        .manage(deep_link::DeepLinkState::default())
         .manage(terminal_session::TerminalSessionRegistry::default())
         .manage(browser_session::BrowserSessionRegistry::default())
         .manage(task_workspace_binding::ProjectWorkspaceSelectionRegistry::default())
@@ -379,6 +381,9 @@ pub fn run() {
         .on_page_load(|webview, payload| {
             if !is_main_renderer_label(webview.label()) {
                 return;
+            }
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Started) {
+                deep_link::mark_renderer_not_ready(webview.app_handle());
             }
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                 let window = webview.window();
@@ -448,6 +453,15 @@ pub fn run() {
                     app.deep_link().on_open_url(move |event| {
                         deep_link::handle_deep_link_urls(&handle, event.urls().to_vec());
                     });
+                    // `on_open_url` covers links delivered while the process is
+                    // running. Tauri's startup contract exposes the URL that
+                    // launched a new process through `get_current`, so drain it
+                    // into the same validated queue after registering the live
+                    // callback. The queue/renderer handshake prevents a cold
+                    // launch from racing the webview listener.
+                    if let Ok(Some(urls)) = app.deep_link().get_current() {
+                        deep_link::handle_deep_link_urls(app.handle(), urls);
+                    }
                 }
                 Ok(())
             });

@@ -1,17 +1,21 @@
 # Offisim
 
 ![License](https://img.shields.io/badge/license-MIT-0f172a)
-![Release](https://img.shields.io/badge/version-1.0.0--rc.2-2563eb)
+![Status](https://img.shields.io/badge/status-Prelaunch%20candidate%201.1.0-2563eb)
 
-Offisim is a **local-first, open-source AI company runtime** plus a **platform/registry backend** for installable assets.
+Offisim is a **local-first, MIT-licensed AI company runtime** plus a
+**platform/registry backend** for installable assets. The GitHub repository is
+currently **PRIVATE**; there is no public/open-source release yet. Clone and
+contribute only if you already have private-repo collaborator access.
 
 The product is not a generic SaaS dashboard and not a literal game engine. It uses an office metaphor and game-grade presentation to make multi-agent work understandable, trustworthy, and alive.
 
 Run an AI company on your own machine: multi-agent orchestration, spatial office UI, installable assets, and a local-first runtime that keeps execution close to the user.
 
-## Release Quick Start
+## Optional Platform backend (Docker)
 
-Recommended Docker flow:
+Docker Compose starts only the optional Platform/registry API and Postgres. It
+does **not** launch the desktop product:
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build
@@ -19,9 +23,10 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Quick Start
 
-If you are pulling this repo onto a new machine, start here:
+If you are a private-repo collaborator setting up a new machine, start here:
 
-1. Install `Node.js >=22.19.0` and enable `corepack`.
+1. Install exact `Node.js 24.18.0` (`.nvmrc` and root `engines`: `>=24.18.0 <25`; all local
+   development and desktop builds use this pin) and enable `corepack`.
 2. Install `pnpm@11.13.1`.
 3. If you plan to run the desktop app, install Rust/Cargo and the Tauri system prerequisites for your OS.
 4. If you plan to run the platform API, install PostgreSQL and create a local database.
@@ -33,7 +38,7 @@ Common local entrypoints:
 - Recommended desktop flow: `pnpm --filter @offisim/desktop dev`
 - Desktop renderer dev server only: `pnpm --filter @offisim/desktop-renderer dev`
 - Platform API: `pnpm --filter @offisim/platform dev`
-- Docker stack: `docker compose -f docker/docker-compose.yml up --build`
+- Optional Platform backend Docker: `docker compose -f docker/docker-compose.yml up --build`
 
 ## Validation Policy
 
@@ -84,13 +89,15 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
 2. **Execution lives in the user's local runtime.**
    The marketplace is a registry and distribution surface, not the user's execution plane.
 3. **One engine lane owns each task.**
-   The production gateway currently ships the Pi API engine plus Codex and
-   Claude Code CLI orchestration adapters. Pi and external CLI lanes coexist,
-   but a run never mixes them.
+   The production gateway currently implements the Pi API engine plus Codex and
+   Claude Code CLI orchestration adapters in source. Pi and external CLI lanes
+   coexist, but a run never mixes them. Historical release `.app` evidence is
+   retained under its original commit/hash; the current `1.1.0` candidate has
+   release evidence pending. Only a published distribution may claim shipped.
 4. **Packages are declarative and auditable.**
    1.0 does not allow install hooks, postinstall scripts, embedded secrets, or hidden shell bootstrap behavior.
 5. **Desktop is the product environment.**
-   Offisim ships as a Tauri desktop app with an internal WebView renderer, not a standalone web runtime.
+   Offisim is built as a Tauri desktop app with an internal WebView renderer, not a standalone web runtime.
 
 ## 1.0 marketplace install scope
 
@@ -155,7 +162,10 @@ Current application/package shape:
 - Platform Postgres schema → `packages/db-platform/src/schema.ts`
 - A2A JSON-RPC → `packages/core/src/a2a/`
 - Desktop AI runtime → `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts` +
-  `apps/desktop/src-tauri/src/{pi_agent_host,codex_agent_host}/` (architecture:
+  `apps/desktop/src-tauri/src/{pi_agent_host,codex_agent_host,claude_agent_host}/` +
+  bundled API host `scripts/tauri-pi-agent-host.entry.mjs` /
+  `scripts/build-pi-agent-host.mjs` and Claude host entry
+  `scripts/tauri-claude-agent-host.entry.mjs` (architecture:
   `Docs/HARNESS_ARCHITECTURE.md`)
 
 ### Design source files

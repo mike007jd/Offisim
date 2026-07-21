@@ -604,6 +604,20 @@ async function loadRegistryListings(
   return search.items.map((summary) => registryListingToVm(summary, summary, installedRows));
 }
 
+async function loadRegistryListingById(
+  companyId: string | null | undefined,
+  listingId: string,
+): Promise<MarketListing | null> {
+  const config = await registryConfig();
+  if (!config) return null;
+  const repos = await reposOrNull();
+  const [detail, installedRows] = await Promise.all([
+    registryClient(config).getListingDetail(listingId),
+    repos && companyId ? repos.installedPackages.listByCompany(companyId) : [],
+  ]);
+  return registryListingToVm(detail, detail, installedRows);
+}
+
 function draftToVm(draft: PublishDraft): PublishedDraft {
   return {
     id: draft.draft_id,
@@ -627,6 +641,20 @@ export function useMarketListings(companyId?: string | null) {
       if (registryListings) return registryListings;
       return [] as MarketListing[];
     },
+  });
+}
+
+/** Resolve a deep-link target by its authoritative listing id. The browse query
+ * is paginated and must never decide whether an external listing exists. */
+export function useMarketListingById(
+  companyId: string | null | undefined,
+  listingId: string | null | undefined,
+) {
+  return useQuery({
+    queryKey: queryKeys.marketListing(companyId, listingId),
+    queryFn: () => loadRegistryListingById(companyId, listingId as string),
+    enabled: Boolean(companyId && listingId),
+    retry: false,
   });
 }
 

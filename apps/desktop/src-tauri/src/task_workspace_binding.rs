@@ -29,22 +29,27 @@ mod resume_compat;
 pub(crate) use persistence::resolve_task_workspace_binding;
 pub(crate) use persistence::{
     __cmd__task_workspace_evaluation_lease_acquire, __cmd__task_workspace_evaluation_lease_release,
-    mark_orphaned_bindings_revoked, replay_workspace_bound_for_request,
-    resolve_task_workspace_claim_authority, resolve_task_workspace_evaluation_claim_authority,
-    resolve_task_workspace_for_turn, revoke_task_workspace_binding,
-    task_workspace_evaluation_lease_acquire, task_workspace_evaluation_lease_release,
-    validate_task_workspace_binding_authority, workspace_bound_event,
+    __tauri_command_name_task_workspace_evaluation_lease_acquire,
+    __tauri_command_name_task_workspace_evaluation_lease_release, mark_orphaned_bindings_revoked,
+    replay_workspace_bound_for_request, resolve_task_workspace_claim_authority,
+    resolve_task_workspace_evaluation_claim_authority, resolve_task_workspace_for_turn,
+    revoke_task_workspace_binding, task_workspace_evaluation_lease_acquire,
+    task_workspace_evaluation_lease_release, validate_task_workspace_binding_authority,
+    workspace_bound_event,
 };
 #[cfg(test)]
 pub(crate) use project_crud::test_task_workspace_binding;
 pub use project_crud::{
     __cmd__project_create, __cmd__project_demo_workspace_prepare, __cmd__project_update,
-    __cmd__project_update_status, __cmd__project_workspace_select, project_create,
-    project_demo_workspace_prepare, project_update, project_update_status,
-    project_workspace_select,
+    __cmd__project_update_status, __cmd__project_workspace_select,
+    __tauri_command_name_project_create, __tauri_command_name_project_demo_workspace_prepare,
+    __tauri_command_name_project_update, __tauri_command_name_project_update_status,
+    __tauri_command_name_project_workspace_select, project_create, project_demo_workspace_prepare,
+    project_update, project_update_status, project_workspace_select,
 };
 pub use resume_compat::{
-    __cmd__task_workspace_resume_compatibility, task_workspace_resume_compatibility,
+    __cmd__task_workspace_resume_compatibility,
+    __tauri_command_name_task_workspace_resume_compatibility, task_workspace_resume_compatibility,
 };
 pub(crate) use resume_compat::{
     persist_conversation_native_session_reset, resolve_conversation_native_session_for_execute,

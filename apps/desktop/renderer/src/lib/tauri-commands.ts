@@ -30,6 +30,11 @@ export interface StartupDiagnosticExport {
   sizeBytes: number;
 }
 
+export interface DeepLinkInstallPayload {
+  listing_id: string;
+  version: string;
+}
+
 export interface AppUpdateStatus {
   status: 'available' | 'current' | 'gh-missing' | 'gh-auth-required' | 'unavailable';
   currentVersion: string;
@@ -862,6 +867,7 @@ type CommandSpec<TArgs, TResult> = {
 };
 
 export interface CommandMap {
+  deep_link_mark_renderer_ready: CommandSpec<undefined, DeepLinkInstallPayload[]>;
   startup_status: CommandSpec<undefined, StartupStatus>;
   startup_export_diagnostics: CommandSpec<undefined, StartupDiagnosticExport>;
   startup_reset_local_data: CommandSpec<undefined, void>;
@@ -875,7 +881,10 @@ export interface CommandMap {
     { title?: string | null },
     ProjectWorkspaceSelectionClaim | null
   >;
-  project_demo_workspace_prepare: CommandSpec<Record<string, never>, ProjectWorkspaceSelectionClaim>;
+  project_demo_workspace_prepare: CommandSpec<
+    Record<string, never>,
+    ProjectWorkspaceSelectionClaim
+  >;
   project_create: CommandSpec<{ input: ProjectCreateCommandInput }, void>;
   project_update: CommandSpec<{ input: ProjectUpdateCommandInput }, void>;
   project_update_status: CommandSpec<

@@ -42,6 +42,7 @@ use sandbox_path::{
     resolve_write_target, write_project_file_anchored_guarded, LineWindow,
 };
 pub(crate) use shell::__cmd__bash_execute;
+pub(crate) use shell::__tauri_command_name_bash_execute;
 pub use shell::bash_execute;
 pub(crate) use shell::{execute_trusted_task_bash, execute_trusted_verification};
 

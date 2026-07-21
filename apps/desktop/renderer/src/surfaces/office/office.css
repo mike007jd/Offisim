@@ -6965,7 +6965,7 @@
 }
 .off-dock-title {
   font-size: var(--off-fs-micro);
-  letter-spacing: 0;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 700;
   color: var(--off-ink-3);

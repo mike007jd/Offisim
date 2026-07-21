@@ -1,7 +1,7 @@
 # Engine-neutral AI Accounts and Native Session Boundaries
 
-Checked at: 2026-07-20 NZST
-Status: API engine plus Codex and Claude Code orchestration adapters implemented; Claude release-app proof is complete, while the corrected Codex lane still requires the later unified release-app live-verification batch
+Checked at: 2026-07-21 NZST
+Status: source implemented (Pi API plus Codex and Claude Code orchestration adapters); current `1.1.0` candidate verification pending. Historical 2026-07-17 release `.app` evidence is retained under its original commit/hash below and must not be reused as current-candidate proof.
 
 ## Current implementation truth
 
@@ -122,22 +122,30 @@ provenance/metrics contracts, and the exact current-worktree release `.app` have
 all been verified. Unsupported controls must remain absent. Dev UI or localhost
 evidence is insufficient.
 
-The current API-engine release proof is the exact worktree binary SHA-256
+Historical (not current `1.1.0` candidate) API-engine release proof: exact
+worktree binary SHA-256
 `b62ae06de3280d332b7f5ccc0a180e59fe901b5cfaf85352b1a6ea299693f206`,
 verified on 2026-07-15 AEST from a fresh current-baseline database through real file tools,
 Ask approval, Stop, restart recovery, and live Usage/Cost rendering.
 
 The earlier 2026-07-16 bundled Codex lane proof is superseded by the lane
 correction in `Docs/roadmap/2026-07-16-engine-lane-correction.md`; it must not be
-reused as evidence for the orchestration adapter. The corrected adapter requires
-the later unified release-app live-verification batch before it can be reported
-as release verified.
+reused as evidence for the orchestration adapter. Historical corrected Codex
+lane verification (2026-07-17 T16): commit `a88a7bd7` (merged main baseline
+`d33f5e6c`), exact arm64 release `.app`
+(`apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`),
+final executable SHA-256
+`04806f6c9003f764a74c8a3d0cf66b43662ee0e01228f6dda2c9f29cd687504f`, including a
+real Codex task with subscription token/duration projection. Evidence:
+`Docs/evidence/2026-07-17-t16-final-release/README.md`.
 
-The Claude Code adapter was release verified on 2026-07-17 NZST from the exact
-T07 worktree `.app`. The matched window, ready status, real CLI task, Bash tool
-event, token/duration projection, subscription no-API-cost label, and live Stop
-transition are recorded in
+Historical Claude Code adapter verification (2026-07-17 NZST T07): exact
+worktree `.app` with final app binary SHA-256
+`677e7cc685fa3e37b6cc3a3d6190b4882ad210ea1fb7469dc2c2d936754e17cb`. The matched
+window, ready status, real CLI task, Bash tool event, token/duration projection,
+subscription no-API-cost label, and live Stop transition are recorded in
 `Docs/evidence/2026-07-17-claude-orchestration/README.md`.
+T16 later reconfirmed Claude on the same exact arm64 release `.app` batch above.
 
 The corrected AI Accounts implementation restores Pi-owned provider editing in
 the API-engine section and keeps external CLI status in the orchestration-engine
@@ -147,9 +155,14 @@ receives only safe summaries and SHA-256-derived account identity. Any configure
 Pi provider/model is eligible without an Offisim allowlist. User-authored models
 may omit source provenance; supplied official provenance remains HTTPS + RFC3339
 checked at renderer, Rust ingress, and SQLite boundaries. The old OpenRouter-only
-configuration command has been removed. This corrected settings implementation
-still requires the later unified release-app live-verification batch and is not
-reported as release verified here.
+configuration command has been removed. Historical corrected AI Accounts /
+Settings verification used the same 2026-07-17 T16 exact arm64 release `.app`
+(commit/hash above), covering Pi API configuration plus Codex and Claude Ready
+status, token/cost accounting separation, and window identity. Evidence:
+`Docs/evidence/2026-07-17-t16-final-release/README.md`.
+
+Current `1.1.0` candidate source is implemented; its release `.app` verification
+remains pending and must not reuse the historical hashes above as current proof.
 
 ## Current references checked
 

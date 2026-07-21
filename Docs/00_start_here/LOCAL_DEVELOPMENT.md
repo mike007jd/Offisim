@@ -8,7 +8,7 @@ Hono platform/registry backend.
 
 | Tool | Version | Needed for |
 |------|---------|-----------|
-| Node.js | `>=22.19.0` (release bundle uses 24.x) | everything; enable `corepack` |
+| Node.js | exact `24.18.0` (`.nvmrc`; root `engines`: `>=24.18.0 <25`) | everything — local development and desktop builds; enable `corepack` |
 | pnpm | [`11.13.1`](https://www.npmjs.com/package/pnpm/v/11.13.1) (pinned in `packageManager`; official npm registry checked 2026-07-17) | install/build/scripts |
 | Rust + Cargo | stable (dev uses 1.93.x) | the desktop app (`apps/desktop`) |
 | Tauri system deps | per OS ([tauri.app prerequisites](https://tauri.app/start/prerequisites/)) | desktop build (WebKit, Xcode CLT on macOS, etc.) |
@@ -22,6 +22,7 @@ corepack prepare pnpm@11.13.1 --activate
 ## First-time setup
 
 ```bash
+# Private repo: clone only if you already have collaborator access.
 git clone https://github.com/mike007jd/Offisim.git
 cd Offisim
 cp .env.example .env.local
@@ -44,7 +45,7 @@ pnpm install
 | `pnpm --filter @offisim/desktop dev` | **Recommended** — full Tauri desktop app in dev |
 | `pnpm --filter @offisim/desktop-renderer dev` | renderer Vite dev server only (browser preview; not a release-equivalent path) |
 | `pnpm --filter @offisim/platform dev` | platform/registry/auth API on `:4100` |
-| `docker compose -f docker/docker-compose.yml up --build` | platform API + Postgres in containers |
+| `docker compose -f docker/docker-compose.yml up --build` | optional Platform API + Postgres only; does **not** start the desktop product |
 
 ## Build
 
@@ -65,7 +66,7 @@ pnpm --filter @offisim/desktop build
 ```
 
 The release bundle for live verification is the exact worktree path
-`apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`.
+`apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`.
 
 ## AI runtime engines (desktop)
 

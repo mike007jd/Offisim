@@ -222,6 +222,7 @@ async fn release_candidate(gh: &Path) -> Result<ReleaseCandidate, String> {
         .to_string();
     let version = Version::parse(&version_text)
         .map_err(|error| format!("Release update version is invalid: {error}"))?;
+    assert_release_tag_matches_version(&release.tag_name, &version_text)?;
     let checksum_name = format!("{}.sha256", archive.name);
     if !release
         .assets
@@ -238,6 +239,16 @@ async fn release_candidate(gh: &Path) -> Result<ReleaseCandidate, String> {
         archive_name,
         checksum_name,
     })
+}
+
+fn assert_release_tag_matches_version(tag_name: &str, version_text: &str) -> Result<(), String> {
+    let expected_tag = format!("v{version_text}");
+    if tag_name != expected_tag {
+        return Err(format!(
+            "Release tag {tag_name} does not match update asset version {version_text}."
+        ));
+    }
+    Ok(())
 }
 
 async fn download_verify_and_install(
@@ -350,6 +361,16 @@ async fn verify_distribution_app(app: &Path, expected_version: &str) -> Result<(
         return Err("The update is not signed by the expected Offisim Developer ID.".into());
     }
     run_checked(
+        "/usr/bin/xcrun",
+        vec![
+            OsString::from("stapler"),
+            OsString::from("validate"),
+            app.as_os_str().to_owned(),
+        ],
+        "Verify update notarization ticket",
+    )
+    .await?;
+    run_checked(
         "/usr/sbin/spctl",
         vec![
             OsString::from("-a"),
@@ -362,21 +383,25 @@ async fn verify_distribution_app(app: &Path, expected_version: &str) -> Result<(
     )
     .await?;
     let plist = app.join("Contents/Info.plist");
-    let version = run_checked(
-        "/usr/bin/plutil",
-        vec![
-            OsString::from("-extract"),
-            OsString::from("CFBundleShortVersionString"),
-            OsString::from("raw"),
-            OsString::from("-o"),
-            OsString::from("-"),
-            plist.as_os_str().to_owned(),
-        ],
-        "Read update version",
-    )
-    .await?;
-    if String::from_utf8_lossy(&version.stdout).trim() != expected_version {
-        return Err("The update bundle version does not match its release asset.".into());
+    for key in ["CFBundleShortVersionString", "CFBundleVersion"] {
+        let version = run_checked(
+            "/usr/bin/plutil",
+            vec![
+                OsString::from("-extract"),
+                OsString::from(key),
+                OsString::from("raw"),
+                OsString::from("-o"),
+                OsString::from("-"),
+                plist.as_os_str().to_owned(),
+            ],
+            &format!("Read update {key}"),
+        )
+        .await?;
+        if String::from_utf8_lossy(&version.stdout).trim() != expected_version {
+            return Err(format!(
+                "The update bundle {key} does not match its release asset."
+            ));
+        }
     }
     Ok(())
 }
@@ -502,6 +527,14 @@ mod tests {
             .and_then(|name| name.strip_suffix(&suffix))
             .and_then(|name| Version::parse(name).ok());
         assert_eq!(version, Some(Version::new(1, 2, 3)));
+        assert!(assert_release_tag_matches_version(&release.tag_name, "1.2.3").is_ok());
+    }
+
+    #[test]
+    fn update_release_tag_must_match_asset_version_exactly() {
+        assert!(assert_release_tag_matches_version("v1.2.3", "1.2.3").is_ok());
+        assert!(assert_release_tag_matches_version("v1.2.4", "1.2.3").is_err());
+        assert!(assert_release_tag_matches_version("1.2.3", "1.2.3").is_err());
     }
 
     #[test]

@@ -1,10 +1,11 @@
 # Feature Catalog
 
-Checked at: 2026-07-17 NZST
+Checked at: 2026-07-21 NZST
 
 This catalog documents the product features that are currently expected to be
-maintained for Offisim 1.0. Each feature entry names the user value, owner
-paths, persistence/contracts, and verification.
+maintained for Offisim prelaunch candidate `1.1.0`. Each feature entry names the
+user value, owner paths, persistence/contracts, and verification. Engine wording
+below means **source implemented** unless a published distribution is named.
 
 ## Company Lifecycle
 
@@ -73,8 +74,8 @@ Owner paths:
 
 Data/contracts:
 
-- The production gateway ships the Pi API engine plus Codex and Claude Code CLI
-  orchestration adapters.
+- The production gateway implements the Pi API engine plus Codex and Claude Code
+  CLI orchestration adapters in current source.
 - Each engine owns its native auth/session/compaction/tool loop. Offisim owns
   safe account/model metadata, effective-workspace authorization, Conversation
   persistence, and neutral desktop projection.
@@ -84,6 +85,10 @@ Data/contracts:
 - API models use the exact ids in Pi configuration. Source/checkedAt is strict
   for Offisim-owned official entries and optional for user-configured models;
   external CLIs own their model selection.
+- Historical release `.app` evidence (for example 2026-07-17 T16 /
+  Claude orchestration) remains under the matching old commit and app SHA.
+  Current `1.1.0` candidate release evidence is pending. Do not use
+  ships/shipped wording until a published distribution exists.
 
 Verification:
 
@@ -92,7 +97,7 @@ Verification:
 - `pnpm harness:claude-agent-host`
 - `pnpm harness:runtime-conformance`
 - `pnpm build:pi-agent-host`
-- release `.app` launch from exact worktree path
+- release `.app` launch from exact worktree path (current candidate pending)
 
 ## Workspace Files, Shell, Git, and Attachments
 
@@ -298,12 +303,15 @@ assets.
 Owner paths:
 
 - `apps/desktop/renderer/src/surfaces/market`
+- `apps/desktop/renderer/src/app/DeepLinkInstallBridge.tsx`
+- `apps/desktop/src-tauri/src/deep_link.rs`
 - `packages/asset-schema`
 - `packages/install-core`
 - `packages/registry-client`
 - `apps/platform/src/routes/market.ts`
 - `apps/platform/src/routes/publish.ts`
 - `apps/platform/src/routes/install.ts`
+- `scripts/harness-deep-link-install.mjs`
 
 Data/contracts:
 
@@ -311,12 +319,26 @@ Data/contracts:
 - Company templates, office layout packs, and prefab packs are preview-only.
 - Package manifests are declarative; install hooks and hidden scripts are not
   allowed.
+- `offisim://install?listing_id=&version=` is a strict OS deep-link contract:
+  Rust `parse_install_url` accepts only scheme `offisim`, host `install`, UUID
+  `listing_id`, and SemVer `version`; invalid URLs are dropped.
+- Cold-start / race handling: `DeepLinkState` queues payloads until the renderer
+  listens, then `deep_link_mark_renderer_ready` drains once; the renderer bridge
+  opens Market package detail for explicit review. A deep link **never**
+  auto-confirms download, import, or materialization — only a separate user
+  click on **Install** may proceed.
 
 Verification:
 
+- `pnpm harness:deep-link-install` (source + auto gate: parse → queue →
+  open-review; forbids auto-install)
 - `pnpm security:harness`
 - `pnpm platform:migration:drift` when platform schema changes
 - install-core or registry-client targeted harnesses when install contracts move
+- Current `1.1.0` candidate: source implementation and automated deep-link gate
+  are verified; macOS release cold-start and running-app invoke against an
+  `/Applications` install remain pending live evidence and must not be claimed
+  from harness-only results. Do not claim automatic install.
 
 ## Studio
 

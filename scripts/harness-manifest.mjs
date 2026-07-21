@@ -933,6 +933,20 @@ export const harnessManifest = Object.freeze([
     "runner": "node",
     "composite": false,
     "command": "node scripts/harness-live-mcp-approval-gate.mjs"
+  },
+  {
+    "id": "release-workflow-boundary",
+    "file": "scripts/harness-release-workflow-boundary.mjs",
+    "runner": "node",
+    "composite": false,
+    "command": "node scripts/harness-release-workflow-boundary.mjs"
+  },
+  {
+    "id": "deep-link-install",
+    "file": "scripts/harness-deep-link-install.mjs",
+    "runner": "node",
+    "composite": false,
+    "command": "node scripts/harness-deep-link-install.mjs"
   }
 ]);
 
@@ -1013,7 +1027,9 @@ export const validateHarnessIds = Object.freeze([
   "mcp-grant-risk-class",
   "mcp-bridge-extension",
   "mcp-bridge-sdk",
-  "pi-permission"
+  "pi-permission",
+  "release-workflow-boundary",
+  "deep-link-install"
 ]);
 
 /**

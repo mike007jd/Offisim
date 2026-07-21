@@ -112,7 +112,7 @@ T05 API account 的模型、费率与 Usage 来源已按当时官方资料核对
 1. [tasks.md](./tasks.md) 的 T00-T16 和 acceptance 全部完成。
 2. `cargo test` 与 `node scripts/release-gates.mjs --lane=node` 分 lane 通过；Node lane 不准备或调用 Cargo。
 3. `pnpm --filter @offisim/desktop build` 通过。
-4. 启动当前 worktree 精确路径的 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`。
+4. 启动当前 worktree 精确路径的 `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`。
 5. Computer Use 先记录 windowId / pid / title / bounds，再覆盖完整验收矩阵。
 6. fresh HOME 完整轮、第二 fresh HOME 抽查和 finding 修复后的精确回归均无未闭环问题。
 7. evidence 记录 checkedAt、commit SHA、App SHA、窗口 identity、步骤、截图和 PASS/BLOCKER。

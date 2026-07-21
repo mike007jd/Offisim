@@ -48,7 +48,7 @@
 - 本项目不允许把 dev webview、dev server、dev SPA、localhost 浏览器结果当作桌面端或端到端验收；这些只允许作为本地排查手段，不能写入 live verify / release verify 证据，也不能据此勾验收 task。
 - 所有桌面端 live verify / release verify 必须测 release `.app` 本体，并优先用 Computer Use 附着 release app 完成真实交互截图。
 - 用 Computer Use 测 Tauri 桌面端时，默认测 release `.app`，不要把 dev webview 结果当作最终桌面验收。
-- 验收前先执行桌面 release build，再启动 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`。
+- 验收前先执行桌面 release build，再启动 `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`。
 - 若 dev 能跑但 release `.app` 不可交互、黑屏、或 Computer Use 无法附着，按 release 桌面阻塞处理，先查清原因再继续依赖桌面验收结论。
 - 桌面 renderer 承载 `Docs/UI_FRAMEWORK_STACK.md` 定义的新 UI 框架。桌面验收直接构建当前 renderer 和 `@offisim/desktop`，不得引入外部桌面 UI 包或预构建 dist 路径。
 - release `.app` 启动必须用当前 worktree 的精确 `.app` 路径，不能用 `open -b com.offisim.desktop` 这类 bundle id 方式；多个 worktree 共享 bundle id 时会误附着旧包。

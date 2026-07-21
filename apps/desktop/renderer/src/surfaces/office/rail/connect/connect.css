@@ -374,6 +374,13 @@
   border-radius: var(--off-r-pill);
 }
 
+.off-conv-list-section-head .off-ws-im-nb {
+  background: var(--off-surface-2);
+  color: var(--off-ink-3);
+  border: 1px solid var(--off-line-soft);
+  font-weight: 680;
+}
+
 .off-ws-im-rd {
   flex: none;
   color: var(--off-ok);

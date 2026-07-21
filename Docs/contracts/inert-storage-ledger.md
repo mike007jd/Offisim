@@ -4,23 +4,31 @@ Status: informational ledger — **not an action list**. The local storage shape
 the current prelaunch SQLite baseline; see `storage-consistency-contracts.md`
 and `apps/desktop/CLAUDE.md` -> Local SQLite. Removing any table/column requires
 a deliberate baseline cleanup plus matching code/docs/harness updates, not a
-historical user-data migration. This file records, as of the 2026-06-24
-hygiene pass, which persisted structures are **inert in the shipping desktop app**
-after the LangGraph → Pi kernel migration.
+historical user-data migration. This file records which persisted structures are
+**inert (or partially inert) in the shipping desktop app** after the LangGraph →
+Pi/engine-neutral kernel migration.
 
-## Why these are inert
+Checked at: **2026-07-21**.
 
-The core services that used to write the orchestration tables
-(`ConversationBudgetService`, `MemoryService`, `DeliverablePersistenceService`, the
-recorded-call LLM middleware, `SummarizationMiddleware`) are still exported from
-`@offisim/core` but are **never instantiated/wired into `apps/desktop`** (the live Pi
-runtime). The corresponding legacy repository `create`/`insert` methods therefore have
-zero callers. The shipping live-orchestration tables are `agent_runs` (+ `agent_events`),
-written by `desktop-agent-runtime`; MCP calls are audited through the live
-`mcp_audit_log` writer.
+## Why some rows still look “alive” in the warehouse
 
-Classification: **WRITER-DEAD** = schema present, no live writer. **READER-DEAD** =
-written but never read. **FULLY-INERT** = neither writer nor reader in the shipping app.
+Core services that historically wrote orchestration tables
+(`ConversationBudgetService`, `MemoryService` auto-memory,
+`DeliverablePersistenceService`, the recorded-call LLM middleware,
+`SummarizationMiddleware`) may still be **exported** from `@offisim/core` and
+exist as repository/schema surface. **Warehouse export / schema presence is not a
+production writer.** A table is production-live only when the shipping desktop app
+instantiates and invokes a writer on a real run or user action. Legacy
+`create`/`insert` methods with zero production callers remain WRITER-DEAD even
+when the package still exports them.
+
+Classification:
+
+- **WRITER-DEAD** = schema present, no live production writer.
+- **READER-DEAD** = written but never read by a product surface.
+- **FULLY-INERT** = neither production writer nor product reader in the shipping app
+  (retention / cascade `DELETE` is not a product reader).
+- **LIVE** = production writer and/or product reader as noted per row.
 
 ## Local SQLite (`packages/db-local/src/schema.sql`)
 
@@ -30,16 +38,16 @@ written but never read. **FULLY-INERT** = neither writer nor reader in the shipp
 | `task_runs` | FULLY-INERT | `TaskRunRepository.create` zero callers; only memory-snapshot serialization references it. |
 | `tool_calls` | FULLY-INERT | `ToolCallRepository.create` zero callers; col `review_state` unused. Pi tool activity surfaces via `agent_events`. |
 | `handoff_events` | FULLY-INERT | Modeled LangGraph manager→employee handoffs; Pi delegation uses `agent_runs.parent_run_id`/`root_run_id`. |
-| `meeting_sessions` | FULLY-INERT | Meeting-subgraph removed; the Rust `sessions.rs` reader/writer commands were deleted in this pass. Calendar surface is honest-empty. |
-| `runtime_events` | FULLY-INERT | `EventRepository.insert` only called from unwired core services. |
+| `meeting_sessions` | WRITER-DEAD + **LIVE reader** | Meeting-subgraph / production writer removed. Board `activity-data.ts` still SELECTs the table. Calendar remains honest-empty (no live writer). |
+| `runtime_events` | WRITER-DEAD + **LIVE reader** | `EventRepository.insert` only called from unwired core services. Board `activity-data.ts` still SELECTs the table. |
 | `recovery_knowledge` | FULLY-INERT | LangGraph recovery/replan learning store (symptom/cause/fix_strategy). |
 | `file_history` | FULLY-INERT | LangGraph file-snapshot/resume store; cols `snapshot_id`/`backup_content`/`existed_before`. |
 | `node_summaries` | WRITER-DEAD | `nodeSummaries.create` zero callers; readers live only inside the unwired budget/synopsis services. |
 | `compact_summaries` | FULLY-INERT | `compactSummaries.create` is called only inside the unwired `SummarizationMiddleware`/`ConversationBudgetService`. |
-| `memory_entries` | WRITER-DEAD | `MemoryService` unwired; cols `reinforcement_count`/`last_reinforced_at`/`access_count`/`dedupe_key`. |
+| `memory_entries` | **LIVE** manual writer + **LIVE** reader | Personnel `personnel-data.ts` wires `memories.create` / `update` / `delete` / `findByOwner`. `MemoryService` automatic memory is still exported but **not** production-wired. |
 | `active_thread_interactions` | FULLY-INERT | LangGraph in-flight interaction pointer; superseded by `interaction_history` (live, HITL ask-mode). |
-| `llm_calls` | WRITER-DEAD, **LIVE reader** | ⚠️ `run-cost.ts` SELECTs it (joined with `model_cost_rates`) for the cost rollup shown in the UI, but no live writer exists → UI shows an empty/zero rollup. Feature gap, not dead code. |
-| `deliverables` | WRITER-DEAD, **LIVE reader** | ⚠️ `queries.ts` lists it for the Activity/Outputs UI, but `DeliverablePersistenceService` is unwired → no live writer. Cols `thread_id` vs `chat_thread_id` divergence. Feature gap. |
+| `llm_calls` | **FULLY-INERT** production table | Cost UI (`run-cost.ts`) reads only `agent_runs.usage_json`. Legacy `recordedLlmCall*` callers are not production-wired. Retention / cascade `DELETE` is not a product reader. |
+| `deliverables` | **LIVE** writer + **LIVE** reader | `publish_artifact` → `artifact.created` → `AgentRunPersistence.persistArtifact` writes rows. Outputs / Preview / Computer and related surfaces read them. |
 
 ### Employees A2A / external-agent columns (lower confidence)
 
@@ -54,24 +62,28 @@ before any removal.
 |-------|-------|-------|
 | `install_receipts` | writer-live, reader-thin | Has 1 insert site but no direct SELECT; read only indirectly via `user_library.install_receipt_id` FK. Likely intended as a write-mostly receipt log — confirm before treating as inert. |
 
-## Live tables (for contrast — do NOT touch)
+## Live tables (for contrast — do NOT touch casually)
 
 `companies`, `employees`, `projects`, `chat_threads`, `project_assignments`, `zones`,
 `prefab_instances`, `agent_runs`, `agent_events`, `mcp_audit_log`, `interaction_history`,
-`employee_versions`, `skills`, `model_cost_rates`, `settings`, `pi_messages`, and the
+`employee_versions`, `skills`, `model_cost_rates`, `settings`, `pi_messages`,
+`deliverables`, `memory_entries` (manual Personnel path), `graph_threads`, and the
 `install_*` family.
 
 ## Recommended follow-up (baseline schema cleanup)
 
-> Direction now set by `Docs/architecture/2026-06-25-truth-closure.md` (VM-001):
-> `deliverables` → reuse-and-fix as the Artifact store, live writer in **VM-002**;
-> cost rollup → repoint off `llm_calls` to aggregated `agent_runs.usage_json` in
-> **VM-003** (the legacy `llm_calls` writer is **not** revived).
+> Direction history: `Docs/architecture/2026-06-25-truth-closure.md` (VM-001)
+> decided Artifact reuse of `deliverables` and cost truth on `agent_runs.usage_json`.
+> **VM-002** (Artifact writer) and **VM-003** (cost reader repoint) are **done** as of
+> 2026-07-21; see the implementation follow-up banner on that ADR. Current inventory
+> truth is this ledger; product/runtime direction is
+> `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`.
 
-1. Decide per table: drop, or re-wire its writer (e.g. `deliverables` / `llm_calls` if
-   the Activity/Outputs and cost-rollup surfaces are meant to populate).
-2. The two LIVE-reader / dead-writer tables (`llm_calls`, `deliverables`) are the only
-   user-visible symptoms — they render empty surfaces today. Prioritize those.
+1. Decide per still-inert table: drop, or re-wire a deliberate production writer.
+2. There is no longer a user-visible “LIVE reader / dead writer” symptom pair on
+   `llm_calls` / `deliverables` — those gaps closed. Remaining WRITER-DEAD + LIVE
+   reader rows (`meeting_sessions`, `runtime_events`) are Board activity SELECTs over
+   empty writers, not cost/Outputs feature gaps.
 3. Bundle removals into a deliberate baseline cleanup: update `schema.sql`,
-   `schema.ts`, affected repositories, docs, and gates together. Do not add a
-   prelaunch compatibility migration.
+   `schema.ts`, affected repositories, docs, and gates **together**. Do not add a
+   prelaunch compatibility migration or migration debt.

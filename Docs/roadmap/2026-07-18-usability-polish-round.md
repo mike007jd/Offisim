@@ -1,5 +1,12 @@
 # 下一轮 Roadmap:从功能完备到日常可用(2026-07-18)
 
+> **Historical correction (2026-07-21):** R2 最终落地的 App Updates 通道是
+> **private-repo GitHub CLI native commands**（Settings › App Updates 复用用户
+> 已登录的 `gh`，不复制 token），**不是**官方 Tauri updater。下文 R2 条目里
+> 「Tauri updater 自动更新通道」是当时规划用语，保留原文作为历史记录；现行真源
+> 见 `Docs/architecture/2026-07-18-distribution-readiness.md` 与
+> `Docs/00_start_here/DEPLOYMENT.md`。
+
 背景:harness/IDE 七波(W1-W7)已全部合入,对照 2026-07 行业线标配无缺口、
 差异化(比稿/记忆/公司叙事)领先。但用户当日实机使用五分钟即遇启动 crash
 (老 build 撞新库)与舞台顶栏 tab 遮挡——**能力完备 ≠ 日常可用**。本轮主题:

@@ -57,6 +57,8 @@ export const queryKeys = {
   marketInstalled: (companyId?: string | null) =>
     ['market-installed', companyId ?? 'preview'] as const,
   marketInstalledAll: () => ['market-installed'] as const,
+  marketListing: (companyId?: string | null, listingId?: string | null) =>
+    ['market-listing', companyId ?? 'preview', listingId ?? 'none'] as const,
   marketListings: (companyId?: string | null) =>
     ['market-listings', companyId ?? 'preview'] as const,
   marketListingsAll: () => ['market-listings'] as const,

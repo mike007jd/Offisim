@@ -34,9 +34,7 @@
     }
   },
   "ignoreBinaries": [
-    "lsof",
-    "osascript",
-    "pgrep"
+    "lsof"
   ],
   "rules": {
     "files": "error",

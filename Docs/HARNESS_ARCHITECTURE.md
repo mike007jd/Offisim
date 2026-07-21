@@ -1,10 +1,14 @@
 # Desktop AI Runtime Harness Architecture
 
-Checked at: 2026-07-17 NZST
+Checked at: 2026-07-21 NZST
 
 This document describes the current production gateway, engine hosts, and the
 gates that prove them. Product/account/session/workspace decisions live in
 [Engine-neutral AI Accounts](./architecture/2026-07-13-engine-neutral-ai-accounts.md).
+
+Engine wording below means **source implemented** unless a published
+distribution is named. Historical release `.app` evidence keeps its original
+commit/hash; the current `1.1.0` candidate has release evidence pending.
 
 ## Production route
 
@@ -14,25 +18,25 @@ backend-authorized effective task workspace. Pi also resolves the selected API
 account/model; external CLIs retain their own model choice. The gateway routes to
 exactly one adapter:
 
-- **API** — shipped. The adapter uses the bundled host assembled from
-  `scripts/tauri-pi-agent-host.entry.mjs` and
+- **API** — source implemented. The adapter uses the bundled host assembled from
+  `scripts/tauri-pi-agent-host.entry.mjs`, `scripts/build-pi-agent-host.mjs`, and
   `apps/desktop/src-tauri/src/pi_agent_host/`. Pi SDK types remain an internal
   implementation detail of this API lane.
-- **Codex CLI orchestration** — implemented. The adapter uses
+- **Codex CLI orchestration** — source implemented. The adapter uses
   `apps/desktop/src-tauri/src/codex_agent_host/` to detect the user-installed CLI,
   start `codex app-server --stdio`, project its event stream, and support Stop and
   recovery. Offisim does not bundle a Codex binary.
-- **Claude Code orchestration** — implemented. The adapter uses
+- **Claude Code orchestration** — source implemented. The adapter uses
   `scripts/tauri-claude-agent-host.entry.mjs` and
   `apps/desktop/src-tauri/src/claude_agent_host/` to detect the user-installed
   CLI, start print-mode `stream-json`, project reasoning/tool/file-operation
   events, and support Stop and recovery. Offisim bundles neither the Claude Code
   CLI nor the Agent SDK.
 
-All three shipped adapters enter through the neutral `agent_runtime_*` Tauri
-commands and project neutral message, tool, approval, usage, and terminal events
-to assistant-ui, activity telemetry, and Office dramaturgy. A run never mixes
-engine lanes.
+All three source-implemented adapters enter through the neutral `agent_runtime_*`
+Tauri commands and project neutral message, tool, approval, usage, and terminal
+events to assistant-ui, activity telemetry, and Office dramaturgy. A run never
+mixes engine lanes.
 
 ## Native state and credential boundary
 
@@ -72,7 +76,9 @@ The retained runtime gates are responsibility-based:
 
 Release support still requires the exact current-worktree release `.app`, its
 binary hash, matched window identity, and Computer Use interaction.
-Dev webviews and localhost previews are not release evidence.
+Dev webviews and localhost previews are not release evidence. Historical
+2026-07-17 release `.app` proofs remain under their original commit/hash;
+current `1.1.0` candidate release evidence is pending.
 
 ## Historical boundary
 

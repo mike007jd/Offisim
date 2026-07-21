@@ -274,7 +274,7 @@
 - [x] 任务只记录 Codex 返回的 token 数与时长，并标注“订阅内 · 无 API 成本”。
 - [x] 不读取、复制、展示或持久化 raw OAuth/token。
 - [x] Codex 不可用时不静默切 API、Claude 或 Pi。
-- [ ] 纠偏后的 release `.app` 真实 Codex task 证据（按决定留到统一 live-verify 批次）。
+- [x] 纠偏后的 release `.app` 真实 Codex task 证据（统一 live-verify 见 T16：`Docs/evidence/2026-07-17-t16-final-release/README.md`）。
 
 ### Oracles
 
@@ -288,6 +288,7 @@
 - target 固定为 `codex / codex:local / subscription / engine-managed / native`；native source 在 renderer、Rust、SQLite 三层都不允许伪造 URL/checkedAt。
 - `answerUiRequest` 按 durable root 的 requestId 与 executionTarget.engineId 路由，第二个 adapter 注册后 Ask/审批不会退化成 adapter-count hard throw。
 - Node release gates、完整 Rust tests 与 release desktop build 已通过；本任务明确不做 live verify，因此本节不声称纠偏后的 release `.app` 已实机验证。
+- 后续统一 live-verify 已由 T16 exact arm64 release `.app` 闭环：`Docs/evidence/2026-07-17-t16-final-release/README.md`（含 corrected Codex real task）。
 
 ---
 
@@ -337,7 +338,7 @@
 - [x] 编排区只显示 CLI 检测、版本、登录命令、官方指引与“订阅内 · 无 API 成本”。
 - [x] renderer、日志与状态投影不返回原始 API key；保留 SHA-256 凭据代际指纹。
 - [x] composer、员工绑定、enhance、collaboration 统一消费动态模型选择。
-- [ ] 当前纠偏版本 release `.app` 实机验收（按本次决定留到统一 live-verify 批次）。
+- [x] 当前纠偏版本 release `.app` 实机验收（统一 live-verify 见 T16：`Docs/evidence/2026-07-17-t16-final-release/README.md`）。
 
 ### Oracles
 
@@ -350,6 +351,7 @@
 - Pi sidecar 隔离写入验证覆盖自定义 localhost endpoint、任意 model id、`0600`、`keepExistingApiKey` 与 stdout/stderr secret scan。
 - 动态 catalog、provider configuration、execution target/provenance、renderer authority、collaboration persistence 与 Pi host 聚焦门禁已通过。
 - 最终门禁日志：`node scripts/release-gates.mjs --lane=node` exit 0；完整 `cargo test --locked` 433 passed / exit 0；`pnpm --filter @offisim/desktop build` exit 0 并产出当前 worktree release `.app`。本任务明确不做 live verify，因此 T08 仍未完成、也不声称 release verified。
+- 后续统一 live-verify 已由 T16 exact arm64 release `.app` 闭环：`Docs/evidence/2026-07-17-t16-final-release/README.md`（含 AI Accounts/Settings 与 Pi/Codex/Claude）。
 
 ---
 

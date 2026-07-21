@@ -3,8 +3,8 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  accessSync,
   constants,
+  accessSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -17,12 +17,14 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readReleaseContract } from './release-contract.mjs';
 
 const filePath = fileURLToPath(import.meta.url);
 const root = path.resolve(path.dirname(filePath), '..');
 const identity = 'Developer ID Application: Haosheng Li (9MP925J67C)';
 const notaryProfile = 'offisim-notary';
 const repository = 'mike007jd/Offisim';
+const releaseBranch = 'main';
 const target = 'aarch64-apple-darwin';
 const appPath = path.join(
   root,
@@ -37,7 +39,7 @@ function parseArgs(argv) {
     draft: false,
     evidenceDir: null,
     notesFile: null,
-    releaseTarget: 'feat/r2-distribution-readiness',
+    releaseTarget: releaseBranch,
     skipBuild: false,
     skipGates: false,
     tag: null,
@@ -94,11 +96,6 @@ function resolveTool(name, candidates = []) {
 
 const ghPath = resolveTool('gh', ['/opt/homebrew/bin/gh', '/usr/local/bin/gh']);
 const pnpmPath = resolveTool('pnpm', ['/opt/homebrew/bin/pnpm', '/usr/local/bin/pnpm']);
-const cargoPath = resolveTool('cargo', [
-  path.join(os.homedir(), '.cargo/bin/cargo'),
-  '/opt/homebrew/bin/cargo',
-  '/usr/local/bin/cargo',
-]);
 
 function run(command, args, { label = path.basename(command), forward = false, cwd = root } = {}) {
   console.log(`[release] ${label}`);
@@ -130,12 +127,23 @@ function assertRegularFile(pathname, label) {
   }
 }
 
-function assertApp(pathname) {
+export function assertApp(pathname, expectedVersion) {
   const metadata = lstatSync(pathname);
   if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
     throw new Error('Offisim.app must be a real directory');
   }
-  assertRegularFile(path.join(pathname, 'Contents/Info.plist'), 'Offisim Info.plist');
+  const infoPlist = path.join(pathname, 'Contents/Info.plist');
+  assertRegularFile(infoPlist, 'Offisim Info.plist');
+  for (const key of ['CFBundleShortVersionString', 'CFBundleVersion']) {
+    const actualVersion = run('/usr/bin/plutil', ['-extract', key, 'raw', '-o', '-', infoPlist], {
+      label: `read Offisim.app ${key}`,
+    }).stdout.trim();
+    if (actualVersion !== expectedVersion) {
+      throw new Error(
+        `Offisim.app ${key} must exactly match source version ${expectedVersion}; found ${actualVersion}`,
+      );
+    }
+  }
 }
 
 function sha256(pathname) {
@@ -143,17 +151,69 @@ function sha256(pathname) {
 }
 
 function safeVersion() {
-  const config = JSON.parse(
-    readFileSync(path.join(root, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8'),
-  );
-  const version = String(config.version ?? '');
-  if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) {
-    throw new Error('tauri.conf.json version is not release-safe SemVer');
-  }
-  return version;
+  return readReleaseContract(root).version;
 }
 
-function assertPrerequisites(options) {
+function assertReleaseTag(options, version) {
+  const expectedTag = `v${version}`;
+  if (options.tag && options.tag !== expectedTag) {
+    throw new Error(`release tag must exactly match the source version: ${expectedTag}`);
+  }
+  const lookup = spawnSync(
+    '/usr/bin/git',
+    ['ls-remote', '--exit-code', '--tags', 'origin', `refs/tags/${expectedTag}`],
+    { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  if (lookup.error) throw lookup.error;
+  if (lookup.status === 0) {
+    throw new Error(`release tag already exists on origin: ${expectedTag}`);
+  }
+  if (lookup.status !== 2) {
+    throw new Error(`could not verify release tag availability: ${expectedTag}`);
+  }
+  return expectedTag;
+}
+
+function readReleaseSource(options) {
+  run('/usr/bin/git', ['fetch', '--quiet', 'origin', releaseBranch], {
+    label: `refresh origin/${releaseBranch}`,
+  });
+  const branch = run('/usr/bin/git', ['branch', '--show-current'], {
+    label: 'verify release branch',
+  }).stdout.trim();
+  if (branch !== releaseBranch) {
+    throw new Error(`release must run from ${releaseBranch}, found ${branch}`);
+  }
+  const commit = run('/usr/bin/git', ['rev-parse', '--verify', 'HEAD^{commit}'], {
+    label: 'resolve source commit',
+  }).stdout.trim();
+  const remoteCommit = run(
+    '/usr/bin/git',
+    ['rev-parse', '--verify', `origin/${releaseBranch}^{commit}`],
+    { label: `resolve origin/${releaseBranch}` },
+  ).stdout.trim();
+  if (commit !== remoteCommit) {
+    throw new Error(`release source HEAD must exactly match origin/${releaseBranch}`);
+  }
+  const releaseTargetCommit = run(
+    '/usr/bin/git',
+    ['rev-parse', '--verify', `${options.releaseTarget}^{commit}`],
+    { label: 'resolve GitHub release target' },
+  ).stdout.trim();
+  if (commit !== releaseTargetCommit) {
+    throw new Error('GitHub release target must resolve to the exact source HEAD');
+  }
+  if (!options.allowDirty) {
+    const dirty = run('/usr/bin/git', ['status', '--porcelain'], {
+      label: 'verify clean worktree',
+    }).stdout.trim();
+    if (dirty)
+      throw new Error('release worktree is dirty; commit first or use --allow-dirty for QA');
+  }
+  return { branch, commit, releaseTargetCommit };
+}
+
+function assertPrerequisites(options, version) {
   if (process.platform !== 'darwin') throw new Error('macOS release publishing requires macOS');
   for (const tool of [
     '/usr/bin/codesign',
@@ -177,18 +237,23 @@ function assertPrerequisites(options) {
   run(ghPath, ['auth', 'status', '--active', '--hostname', 'github.com'], {
     label: 'verify GitHub CLI login',
   });
-  const branch = run('/usr/bin/git', ['branch', '--show-current'], {
-    label: 'verify release branch',
-  }).stdout.trim();
-  if (branch !== 'feat/r2-distribution-readiness') {
-    throw new Error(`release must run from feat/r2-distribution-readiness, found ${branch}`);
+  if ((options.allowDirty || options.skipBuild || options.skipGates) && !options.draft) {
+    throw new Error(
+      '--allow-dirty, --skip-build, and --skip-gates are permitted only with --draft',
+    );
   }
-  if (!options.allowDirty) {
-    const dirty = run('/usr/bin/git', ['status', '--porcelain'], {
-      label: 'verify clean worktree',
-    }).stdout.trim();
-    if (dirty)
-      throw new Error('release worktree is dirty; commit first or use --allow-dirty for QA');
+  assertReleaseTag(options, version);
+  return readReleaseSource(options);
+}
+
+function assertSourceStillCurrent(source, options) {
+  const current = readReleaseSource(options);
+  if (
+    current.branch !== source.branch ||
+    current.commit !== source.commit ||
+    current.releaseTargetCommit !== source.releaseTargetCommit
+  ) {
+    throw new Error('release source changed after preflight; rebuild from the new source state');
   }
 }
 
@@ -228,6 +293,21 @@ function notarize(pathname, evidenceDir, label) {
   if (report.status !== 'Accepted') {
     throw new Error(`${label} notarization status was ${report.status ?? 'unknown'}`);
   }
+  const log = run(
+    '/usr/bin/xcrun',
+    [
+      'notarytool',
+      'log',
+      report.id,
+      '--keychain-profile',
+      notaryProfile,
+      '--output-format',
+      'json',
+    ],
+    { label: `archive ${label} notarization log` },
+  );
+  JSON.parse(log.stdout);
+  writeFileSync(path.join(evidenceDir, `notary-${label}-log.json`), log.stdout);
   writeFileSync(
     path.join(evidenceDir, `notary-${label}.json`),
     `${JSON.stringify({ id: report.id, status: report.status, message: report.message }, null, 2)}\n`,
@@ -288,8 +368,8 @@ function writeChecksums(artifacts) {
   return { dmgSha, dmgSidecar, zipSha, zipSidecar };
 }
 
-function publishDraft(options, version, artifacts, checksums, evidenceDir) {
-  const tag = options.tag ?? `v${version}`;
+function publishDraft(options, version, artifacts, checksums, evidenceDir, sourceCommit) {
+  const tag = `v${version}`;
   const title = options.title ?? `Offisim ${version}`;
   const notesFile = options.notesFile
     ? path.resolve(root, options.notesFile)
@@ -311,22 +391,44 @@ function publishDraft(options, version, artifacts, checksums, evidenceDir) {
     '--repo',
     repository,
     '--target',
-    options.releaseTarget,
+    sourceCommit,
     '--title',
     title,
     '--notes-file',
     notesFile,
   ];
   if (options.draft) args.push('--draft');
+  if (version.includes('-')) args.push('--prerelease');
   run(ghPath, args, {
     label: `create${options.draft ? ' draft' : ''} GitHub release`,
   });
   const release = run(
     ghPath,
-    ['release', 'view', tag, '--repo', repository, '--json', 'url,tagName,isDraft,assets'],
+    [
+      'release',
+      'view',
+      tag,
+      '--repo',
+      repository,
+      '--json',
+      'url,tagName,isDraft,isPrerelease,assets',
+    ],
     { label: 'verify GitHub release' },
   );
-  return JSON.parse(release.stdout);
+  const published = JSON.parse(release.stdout);
+  if (published.isDraft !== options.draft || published.isPrerelease !== version.includes('-')) {
+    throw new Error('GitHub release draft/prerelease state does not match the source version');
+  }
+  run('/usr/bin/git', ['fetch', '--force', 'origin', `refs/tags/${tag}:refs/tags/${tag}`], {
+    label: 'verify published release tag',
+  });
+  const tagCommit = run('/usr/bin/git', ['rev-parse', '--verify', `${tag}^{commit}`], {
+    label: 'resolve published release tag commit',
+  }).stdout.trim();
+  if (tagCommit !== sourceCommit) {
+    throw new Error('published release tag does not resolve to the exact source HEAD');
+  }
+  return published;
 }
 
 function runReleaseGates() {
@@ -338,19 +440,10 @@ function runReleaseGates() {
     label: 'typecheck renderer',
     forward: true,
   });
-  run(process.execPath, ['scripts/release-gates.mjs', '--lane=node'], {
-    label: 'run Node release gates',
+  run(process.execPath, ['scripts/release-gates.mjs'], {
+    label: 'run authoritative Node and Rust release gates',
     forward: true,
   });
-  run(pnpmPath, ['prepare:desktop-cargo-test'], {
-    label: 'prepare desktop cargo tests',
-    forward: true,
-  });
-  run(
-    cargoPath,
-    ['test', '--locked', '--manifest-path', 'apps/desktop/src-tauri/Cargo.toml', '--lib'],
-    { label: 'run desktop cargo library tests', forward: true },
-  );
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -362,7 +455,7 @@ export function main(argv = process.argv.slice(2)) {
   );
   const outputDir = path.join(evidenceDir, 'artifacts');
   mkdirSync(outputDir, { recursive: true });
-  assertPrerequisites(options);
+  const source = assertPrerequisites(options, version);
 
   if (!options.skipGates) runReleaseGates();
 
@@ -383,13 +476,9 @@ export function main(argv = process.argv.slice(2)) {
       { label: 'build release Offisim.app', forward: true },
     );
   }
-  assertApp(appPath);
+  assertApp(appPath, version);
+  assertSourceStillCurrent(source, options);
 
-  run(
-    '/usr/bin/codesign',
-    ['--force', '--deep', '--options', 'runtime', '--timestamp', '--sign', identity, appPath],
-    { label: 'sign release Offisim.app' },
-  );
   verifyCodeSignature(appPath);
 
   const notaryUpload = path.join(evidenceDir, `Offisim_${version}_notary.zip`);
@@ -404,17 +493,18 @@ export function main(argv = process.argv.slice(2)) {
   const dmgNotary = notarize(artifacts.dmgPath, evidenceDir, 'dmg');
   const dmgSpctl = stapleAndAssess(artifacts.dmgPath, 'dmg', 'open');
   const checksums = writeChecksums(artifacts);
-  const release = publishDraft(options, version, artifacts, checksums, evidenceDir);
-  const commit = run('/usr/bin/git', ['rev-parse', 'HEAD'], {
-    label: 'record source commit',
-  }).stdout.trim();
+  assertSourceStillCurrent(source, options);
+  const release = publishDraft(options, version, artifacts, checksums, evidenceDir, source.commit);
   const evidence = {
     schemaVersion: 1,
     checkedAt: new Date().toISOString(),
     repository,
-    branch: 'feat/r2-distribution-readiness',
-    commit,
+    branch: source.branch,
+    commit: source.commit,
+    releaseTarget: options.releaseTarget,
+    releaseTargetCommit: source.releaseTargetCommit,
     version,
+    prerelease: version.includes('-'),
     identity,
     notaryProfile,
     gates: options.skipGates ? 'skipped' : 'passed',

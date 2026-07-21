@@ -6,23 +6,23 @@ import {
   createReadStream,
   createWriteStream,
   mkdirSync,
-  openSync,
   readdirSync,
+  readlinkSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureDesktopCargoTestPrereqs } from './prepare-desktop-cargo-test.mjs';
+import { readReleaseContract } from './release-contract.mjs';
 import { RELEASE_GATES, gateCwd } from './release-gates.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
-const rendererPort = 5176;
-const platformPort = 4100;
-const appPath = path.join(root, 'apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app');
-const rendererLogPath = path.join(root, 'output/run-action-renderer-dev.log');
-const platformLogPath = path.join(root, 'output/run-action-platform-dev.log');
+const appPath = path.join(
+  root,
+  'apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app',
+);
 
 // Release gates are mandatory; see Docs/00_start_here/RELEASE_GATES.md.
 // `--skip-gates` exists for fast local iteration only — the evidence summary
@@ -39,70 +39,6 @@ function run(command, args, options = {}) {
   if (result.error) throw result.error;
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
-  }
-}
-
-function pidsForPort(port) {
-  try {
-    return execFileSync('lsof', ['-ti', `tcp:${port}`], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .split('\n')
-      .map((pid) => Number.parseInt(pid.trim(), 10))
-      .filter(Number.isInteger);
-  } catch {
-    return [];
-  }
-}
-
-function killPid(pid, signal = 'SIGTERM') {
-  try {
-    process.kill(pid, signal);
-  } catch {
-    // The process may already be gone.
-  }
-}
-
-function killPort(port) {
-  for (const pid of pidsForPort(port)) killPid(pid);
-}
-
-function killOffisimDesktop() {
-  spawnSync('osascript', ['-e', 'tell application "Offisim" to quit'], {
-    cwd: root,
-    stdio: 'ignore',
-  });
-  try {
-    const output = execFileSync('pgrep', ['-f', 'offisim-desktop'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    for (const pid of output.split('\n')) {
-      const parsed = Number.parseInt(pid.trim(), 10);
-      if (Number.isInteger(parsed)) killPid(parsed);
-    }
-  } catch {
-    // No existing desktop process.
-  }
-}
-
-function killOffisimPlatform() {
-  try {
-    const output = execFileSync(
-      'pgrep',
-      ['-f', '@offisim/platform dev|apps/platform/.+tsx.+watch src/index.ts'],
-      {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      },
-    );
-    for (const pid of output.split('\n')) {
-      const parsed = Number.parseInt(pid.trim(), 10);
-      if (Number.isInteger(parsed)) killPid(parsed);
-    }
-  } catch {
-    // No existing platform dev process.
   }
 }
 
@@ -177,14 +113,21 @@ async function hashAppBundle(bundlePath) {
       aggregate.update(relative);
       aggregate.update('\0');
       if (entry.isDirectory()) {
+        aggregate.update('directory\0');
         await walk(absolute);
       } else if (entry.isFile()) {
+        aggregate.update('file\0');
         await new Promise((resolve, reject) => {
           createReadStream(absolute)
             .on('data', (chunk) => aggregate.update(chunk))
             .on('end', resolve)
             .on('error', reject);
         });
+      } else if (entry.isSymbolicLink()) {
+        aggregate.update('symlink\0');
+        aggregate.update(readlinkSync(absolute));
+      } else {
+        throw new Error(`unsupported bundle entry type: ${relative}`);
       }
       aggregate.update('\0');
     }
@@ -194,7 +137,15 @@ async function hashAppBundle(bundlePath) {
 }
 
 function cleanBuildArtifacts() {
-  run('pnpm', ['--filter', './apps/**', '--filter', './packages/**', '--if-present', 'clean']);
+  run('pnpm', [
+    '--filter',
+    './apps/**',
+    '--filter',
+    './packages/**',
+    '--if-present',
+    'run',
+    'clean',
+  ]);
   for (const artifact of [
     '.turbo',
     'apps/desktop/.turbo',
@@ -206,77 +157,8 @@ function cleanBuildArtifacts() {
   }
 }
 
-function isPortOpen(host, port) {
-  return new Promise((resolve) => {
-    const socket = net.createConnection({ host, port });
-    socket.once('connect', () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once('error', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.setTimeout(1000, () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
-}
-
-async function waitForPort(port, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if ((await isPortOpen('127.0.0.1', port)) || (await isPortOpen('::1', port))) return;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error(`renderer dev server did not open port ${port} within ${timeoutMs}ms`);
-}
-
-async function waitForHttpOk(url, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) return;
-    } catch {
-      // Keep polling until the server is ready or the deadline expires.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error(`${url} did not return HTTP 2xx within ${timeoutMs}ms`);
-}
-
-async function startPlatformDev() {
-  mkdirSync(path.dirname(platformLogPath), { recursive: true });
-  const logFd = openSync(platformLogPath, 'a');
-  const child = spawn('pnpm', ['--filter', '@offisim/platform', 'dev'], {
-    cwd: root,
-    detached: true,
-    stdio: ['ignore', logFd, logFd],
-    env: process.env,
-  });
-  child.unref();
-  await waitForHttpOk(`http://localhost:${platformPort}/health`, 45_000);
-}
-
-async function startRendererDev() {
-  mkdirSync(path.dirname(rendererLogPath), { recursive: true });
-  const logFd = openSync(rendererLogPath, 'a');
-  const child = spawn('pnpm', ['--filter', '@offisim/desktop-renderer', 'dev'], {
-    cwd: root,
-    detached: true,
-    stdio: ['ignore', logFd, logFd],
-    env: {
-      ...process.env,
-      BROWSER: 'none',
-    },
-  });
-  child.unref();
-  await waitForPort(rendererPort, 45_000);
-}
-
 async function main() {
+  const releaseContract = readReleaseContract(root);
   const git = gitInfo();
   const evidenceDir = path.join(
     root,
@@ -290,11 +172,18 @@ async function main() {
     createdAt: new Date().toISOString(),
     gitCommit: git.commit,
     gitDirty: git.dirty,
+    releaseVersion: releaseContract.version,
+    nodeVersion: releaseContract.nodeVersion,
     gatesSkipped: skipGates,
     gates: [],
     appPath,
     bundleSha256: null,
     releaseEvidence: false,
+    evidenceDisqualifiers: [
+      ...(skipGates ? ['gates_skipped'] : []),
+      ...(git.dirty === true ? ['dirty_worktree'] : []),
+      ...(git.dirty === null ? ['git_state_unknown'] : []),
+    ],
   };
   const writeSummary = () => writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
 
@@ -305,8 +194,17 @@ async function main() {
     );
     writeSummary();
   } else {
+    if (git.dirty !== false) {
+      writeSummary();
+      console.error(
+        '[run-clean-release] release evidence requires a clean, readable Git worktree. ' +
+          'Use --skip-gates only for a non-evidence QA build.',
+      );
+      process.exit(1);
+    }
     console.log(`[run-clean-release] running release gates (evidence: ${evidenceDir})`);
     for (const gate of RELEASE_GATES) {
+      if (gate.name === 'cargo-test') ensureDesktopCargoTestPrereqs();
       console.log(`[run-clean-release] gate: ${gate.name}`);
       const result = await runGate(gate, gatesLogPath);
       summary.gates.push(result);
@@ -322,14 +220,6 @@ async function main() {
     console.log('[run-clean-release] all release gates green');
   }
 
-  console.log(
-    '[run-clean-release] stopping existing desktop app, platform, and renderer dev ports',
-  );
-  killOffisimDesktop();
-  killOffisimPlatform();
-  killPort(platformPort);
-  killPort(rendererPort);
-
   console.log('[run-clean-release] cleaning build artifacts');
   cleanBuildArtifacts();
 
@@ -338,22 +228,27 @@ async function main() {
 
   console.log('[run-clean-release] hashing release bundle');
   summary.bundleSha256 = await hashAppBundle(appPath);
-  summary.releaseEvidence = !skipGates;
+  const finalGit = gitInfo();
+  summary.finalGitCommit = finalGit.commit;
+  summary.finalGitDirty = finalGit.dirty;
+  if (finalGit.commit !== git.commit) {
+    summary.evidenceDisqualifiers.push('commit_changed_during_release');
+  }
+  if (finalGit.dirty !== false) {
+    summary.evidenceDisqualifiers.push(
+      finalGit.dirty === true ? 'worktree_changed_during_release' : 'final_git_state_unknown',
+    );
+  }
+  summary.releaseEvidence = summary.evidenceDisqualifiers.length === 0;
   writeSummary();
+  if (!skipGates && !summary.releaseEvidence) {
+    console.error('[run-clean-release] source changed during gates/build; evidence is invalid.');
+    process.exit(1);
+  }
   console.log(`[run-clean-release] bundle sha256: ${summary.bundleSha256}`);
   console.log(`[run-clean-release] evidence written to ${evidenceDir}`);
-
-  console.log('[run-clean-release] starting platform API on http://localhost:4100');
-  await startPlatformDev();
-
-  console.log('[run-clean-release] starting renderer dev server on http://localhost:5176');
-  await startRendererDev();
-
-  console.log('[run-clean-release] opening release Offisim.app');
-  run('open', ['-n', appPath], { stdio: 'inherit' });
-
   console.log(
-    `[run-clean-release] done. Platform log: ${platformLogPath}. Renderer dev log: ${rendererLogPath}`,
+    '[run-clean-release] done. Launch and verify the exact release app with Computer Use.',
   );
 }
 

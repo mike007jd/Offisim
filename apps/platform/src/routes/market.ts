@@ -112,6 +112,14 @@ async function buildListingDetail(db: PlatformDb, listing: ListingRow, creator: 
           changelog: latestVersion.changelog,
         }
       : undefined,
+    artifact: latestVersion
+      ? {
+          package_version_id: latestVersion.package_version_id,
+          artifact_url: latestVersion.artifact_url,
+          artifact_sha256: latestVersion.artifact_sha256,
+          artifact_size_bytes: latestVersion.artifact_size_bytes,
+        }
+      : undefined,
     requirements: {
       required_capabilities:
         (manifest?.requirements as Record<string, unknown>)?.required_capabilities ?? [],

@@ -26,7 +26,7 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 - Renderer only: `pnpm --filter @offisim/desktop-renderer typecheck && pnpm --filter @offisim/desktop-renderer build`
 - Desktop release: `pnpm --filter @offisim/desktop build`
 - Desktop live verification must use the exact release `.app` path from the
-  current worktree: `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`
+  current worktree: `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app`
 - Dev webviews, localhost browser checks, and bundle-id launches are not release
   verification.
 

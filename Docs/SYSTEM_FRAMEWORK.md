@@ -1,10 +1,14 @@
 # System Framework
 
-Checked at: 2026-07-17 NZST
+Checked at: 2026-07-21 NZST
 
 This is the maintained system map for Offisim. It explains what runs where,
 which layer owns each responsibility, and which files are the source of truth
 when the implementation changes.
+
+Engine wording below means **source implemented** unless a published
+distribution is named. Historical release `.app` evidence keeps its original
+commit/hash; the current `1.1.0` candidate has release evidence pending.
 
 ## Product Boundary
 
@@ -12,7 +16,8 @@ Offisim is a local-first desktop product with an optional registry backend.
 
 - The desktop app is the product runtime.
 - `DesktopAgentRuntimeGateway` is the only production engine entry. The Pi API
-  engine plus Codex and Claude Code CLI orchestration adapters are implemented.
+  engine plus Codex and Claude Code CLI orchestration adapters are implemented
+  in current source.
 - The platform API is registry/auth/install support, not the execution plane.
 - The renderer is internal to the desktop app, not a standalone web product.
 
@@ -28,8 +33,9 @@ single gateway defined by the current architecture decision.
 | Desktop renderer | `apps/desktop/renderer` | GUI shell, assistant-ui, 3D/2D work theater, AI Accounts/Models, Cost/Usage, Market, Personnel, Activity, Studio, Workspace | Raw credentials, native session files, canonical workspace authorization |
 | Production gateway | `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`, neutral `agent_runtime_*` commands | Resolve one engine lane, its applicable API account/model/billing identity, and project neutral events | Mixing engines in one run or accepting renderer-asserted trust roots |
 | Tauri shell | `apps/desktop/src-tauri` | Window lifecycle, local SQLite, command boundary, effective-workspace sandbox, shell/git/file safety, attachment store, MCP process bridge | Renderer-owned product state or unsealed credential projection |
-| API adapter host | `scripts/tauri-pi-agent-host.entry.mjs`, `apps/desktop/src-tauri/src/pi_agent_host/` | Bundled API execution, tools, delegation, stream, provenance, and usage projection | Product identity or a parallel provider-settings surface |
+| API adapter host | `scripts/tauri-pi-agent-host.entry.mjs`, `scripts/build-pi-agent-host.mjs`, `apps/desktop/src-tauri/src/pi_agent_host/` | Bundled API execution, tools, delegation, stream, provenance, and usage projection | Product identity or a parallel provider-settings surface |
 | Codex orchestration host | `apps/desktop/src-tauri/src/codex_agent_host/` | Detect user CLI/login/version, spawn native app-server, project event stream, session/approval/Stop/recovery, task tokens/duration | Bundling Codex, choosing its model, or copying OAuth/session/global memory |
+| Claude Code orchestration host | `scripts/tauri-claude-agent-host.entry.mjs`, `apps/desktop/src-tauri/src/claude_agent_host/` | Detect user Claude Code CLI/login/version, start print-mode `stream-json`, project reasoning/tool/file-operation events, Stop/recovery, task tokens/duration | Bundling Claude Code / Agent SDK, choosing its model, or copying OAuth/session/global memory |
 | Local data contracts | `packages/db-local`, `packages/core/src/runtime/repositories.ts` | Company/project/conversation/activity/install/vault state and the current prelaunch schema baseline | Raw engine credentials or native Agent Home contents |
 | Package/install contracts | `packages/asset-schema`, `packages/install-core`, `packages/registry-client`, `packages/shared-types` | Declarative package schema, install state machine, registry client validation, shared types | Install hooks, hidden postinstall execution |
 | Prefab engine | `packages/prefab` | Office layout, prefab geometry/state, scene tokens shared by renderer surfaces | Product data ownership |
@@ -45,7 +51,7 @@ single gateway defined by the current architecture decision.
 2. Renderer persists the user turn into local thread state.
 3. Renderer calls the runtime-neutral `agent_runtime_execute` gateway.
 4. Tauri validates the backend-issued effective task workspace and starts the
-   selected complete API or Codex adapter.
+   selected complete API, Codex, or Claude Code adapter.
 5. The selected engine owns native model execution, session storage,
    compaction, tool loop, stream protocol, retries, and native auth.
 6. Tauri forwards the engine's safe neutral event projection to the renderer.
@@ -59,7 +65,9 @@ Source of truth:
 - `Docs/architecture/2026-06-18-pi-agent-only-runtime.md` (superseded history)
 - `apps/desktop/src-tauri/src/pi_agent_host/`
 - `apps/desktop/src-tauri/src/codex_agent_host/`
+- `apps/desktop/src-tauri/src/claude_agent_host/`
 - `scripts/tauri-pi-agent-host.entry.mjs`
+- `scripts/tauri-claude-agent-host.entry.mjs`
 - `apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts`
 
 ### Workspace / File / Shell Tools
@@ -120,7 +128,9 @@ Source of truth:
   under `apps/desktop/renderer/src/surfaces`.
 - Runtime changes start from `Docs/HARNESS_ARCHITECTURE.md` and
   `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. API, Codex, and
-  Claude are shipped. No run may mix engine lanes.
+  Claude Code are source implemented. No run may mix engine lanes. Current
+  `1.1.0` candidate release evidence is pending; only published distributions
+  may use ships/shipped wording.
 - Desktop command changes must preserve Rust-side workspace containment and run
   `cargo test --locked` in `apps/desktop/src-tauri`.
 - Platform route changes must run platform migration/auth/security gates when
@@ -136,6 +146,7 @@ Source of truth:
 | Renderer UI | `pnpm validate`, `pnpm lint`, `pnpm check:ui-hygiene`, desktop renderer build; release `.app` live verification when behavior changes |
 | API adapter host | `pnpm harness:pi-agent-host`, `pnpm build:pi-agent-host`, desktop release build |
 | Codex orchestration host | `pnpm harness:codex-app-server-contract`, desktop release build |
+| Claude Code orchestration host | `pnpm harness:claude-agent-host`, desktop release build |
 | Tauri/Rust | `cargo test --locked` in `apps/desktop/src-tauri`, desktop release build |
 | Platform API | `pnpm security:harness`, `pnpm platform:migration:drift` when schema changes |
 | Release-bound change | Full `Docs/00_start_here/RELEASE_GATES.md` core gates plus release `.app` evidence |

@@ -1,4 +1,5 @@
 import { CommandPalette } from '@/app/CommandPalette.js';
+import { DeepLinkInstallNavigator } from '@/app/DeepLinkInstallBridge.js';
 import { UpdateNotifier } from '@/app/UpdateNotifier.js';
 import { useUiState } from '@/app/ui-state.js';
 import { AppFrame } from '@/design-system/shell/AppFrame.js';
@@ -45,6 +46,7 @@ export function App() {
         </AppFrame>
       )}
       <CommandPalette />
+      <DeepLinkInstallNavigator />
       <LoopScheduler />
       <UpdateNotifier />
     </CodexPetProvider>
