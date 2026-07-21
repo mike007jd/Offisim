@@ -8,9 +8,9 @@ Claude Code CLI orchestration adapters live at the desktop boundary.
 ## Gotchas
 
 - `HookRegistry` (**同步串行**, `await emit()` 阻塞流控用) ≠ `EventBus` (**异步 fire-and-forget**, 前缀订阅 UI 推送), 不要合并。pi 运行时常常两个都 emit
-- `Scratchpad` per-runtime 临时存储, 持久化用 `MemoryService`
+- `Scratchpad` 是 per-runtime 临时存储。员工项目经验的持久化走 `employee_project_memory`（见 renderer `employee-project-memory` / format helpers）；`MemoryService` 仍导出但未接线进 desktop gateway，不要当 live 写入路径。
 - Desktop AI 编排归 engine gateway 与具体 desktop host；core 只保留可审计的本地工具、repo、install、vault 和数据契约。不要在 core 内重建 boss/employee prompt loop。
-- `NodeContextMiddleware` 共享 1800 char budget (summary 1000 + pack 700), 两半独立查询独立截断, 不要加独立 middleware
+- `NodeContextMiddleware` / `SummarizationMiddleware` / `ConversationBudgetService` 仍在 core 导出，但未接线进 `DesktopAgentRuntimeGateway`；不要假定桌面运行时会实例化它们。若复用 middleware，其内部 1800 char budget（summary 1000 + pack 700）两半独立查询独立截断，不要另加平行 middleware。
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
 - 不要在 core 里另建 engine lane、credential store、session owner 或 model transport factory。API catalog 只承载 Pi 已配置的 safe exact-id 元数据（用户 source 可选，官方 source/checkedAt 严格）；外部 CLI 不进 Offisim model catalog。raw auth 与 native session/tool loop 归选中的 desktop engine。
@@ -23,13 +23,12 @@ Claude Code CLI orchestration adapters live at the desktop boundary.
 
 - Zone ID: DB 格式 `companyId::slug`, 用 `templateToZone(t, companyId)` normalize, `extractZoneSlug()` 提取。`companyId` 必填, preview/create 模式传 `STUDIO_PREVIEW_COMPANY_ID` / `WIZARD_PREVIEW_COMPANY_ID` sentinel (shared-types/zone.ts)。跨 company 重写用 `reparentZoneId(companyId, zoneId)` —— 注意 `normalizeZoneId` 对已含 `::` 的输入是 pass-through, 不能用来重锚。`saveZonesToDb` 用 `reparentZoneId` 强制按真实 companyId 重写 sentinel 前缀, DB 永远看不到 sentinel
 - Render layer zone 查找有意保持 strict `z.zoneId === zoneId`。**例外**: `StudioState.addZoneFromPreset` 用 `crypto.randomUUID()` 作 zoneId (raw UUID, 无 `::`), Studio 内部自洽, 保存时 `reparentZoneId` 重写。不要为了"一致性"把 raw UUID 改成 prefixed
-- 员工→zone 用 `resolveZoneForRole()` 按 targetRoles, 不要用 `ROLE_TO_DEPARTMENT`
+- 员工→zone 用 `resolveZoneForRole()` 按 targetRoles（`ROLE_TO_DEPARTMENT` 已删除，勿重建）
 - 模板 `CompanyTemplate.zones?` 自定义, 无时 fallback `SYSTEM_ZONE_TEMPLATES` (7)。用 `createZoneBlueprint()` 工厂
 - zones 约束: 必须有 `rest`+`meeting` archetype, role 不可多 zone, 所有 role 需匹配
 - `companies.description_json` 存公司描述 JSON(2026-05-29 从 `default_model_policy_json` rename — pre-launch 单基线 schema 允许 rename)
 - Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
 - Marketplace 安装：employee 已物化；skill 作为一等 asset（两层 schema）已落地——`install-core` materializer 写 `skills` DB 行 + vault SKILL.md，DB-backed UI 读取。**「agent 自助装/fork/写技能」整链已删**（2026-06-19 `fdc7acdc`，死代码，见 Skills 段）。company_template / office_layout / prefab 仍未完成。Skill 不嵌入 `employee.config_json.runtimeSkill`（字段已删）
-- `GitAutoCommitService` 桌面端专用, 浏览器 no-op
 
 ## Repository 三后端同步
 
@@ -40,7 +39,7 @@ Claude Code CLI orchestration adapters live at the desktop boundary.
 `packages/core/src/skills/` — 两层 schema（company-global + employee-specific）skill 体系：**SKILL.md 在 vault 是源真相，`skills` DB 表只做索引**（listing 零磁盘 IO）。
 
 - SKILL.md 字段（严格标准）：frontmatter `name`（kebab-case）+ `description` 必填；可选 `allowedTools` / `license` / `version`；禁 `offisim.*` 私有命名空间。Body 自由 markdown。
-- 磁盘布局（`VaultFileSystem` 一致 desktop / web）：
+- 磁盘布局（`VaultFileSystem`，Tauri desktop vault；standalone web 产品已删除）：
   - 全局：`companies/{cid}/skills/{slug}/SKILL.md`（+ 可选 `scripts/` `references/` `assets/`）
   - 员工专属：`companies/{cid}/employees/{employeeSlug}/skills/{slug}/SKILL.md`
 - DB 表 `skills` 属于当前单基线 SQLite schema；`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞。repo 三后端：`runtime/repos/skills/{drizzle,memory}.ts` + `tauri-repos/skills.ts`。
@@ -61,7 +60,7 @@ Claude Code CLI orchestration adapters live at the desktop boundary.
 - `employee.*` 任何事件都 re-render **全部 4 个文件** (新员工一次到位); `memory.*` 只触发 `memory.md`; `relationship.*` 只触发 `relationships.md`
 - 软删除 Dismiss 员工: `employee.md` 标 `dismissed: true`, 文件夹保留; 硬删 `employee.deleted` 才 `fs.remove` 整个员工目录
 - frontmatter YAML 必须 stable key 排序 (`dump({sortKeys: true})`), 否则 git diff 全乱
-- desktop renderer 端有 FSAccess API 时: vault directory handle 持久化到 IndexedDB, 刷新后启动时 rehydrate 并重新探测权限; 无 FSAccess API 时降级为 zip export-only, 不做 live mount
+- desktop renderer：vault 经 Tauri/desktop FS 路径接入；无 standalone web vault mount 路径。zip export 仍可作为备份出口
 - `memory.md` 是 read-only view: md → DB 不 import memory (content 结构复杂), 玩家用 UI Forget/Edit 按钮, 不手编 md body
 - `renderMemoryMd` 按 4 类别 (`experience` / `decision` / `knowledge` / `preference`) 分段, 每类内按 `last_reinforced_at` 倒序 + `importance` tie-break
 - `employeeSlug(id)` 生成 FS-safe 目录名 (`employee-{id前12字符}`), **纯 employee_id 派生** (不含 name): 同名员工不碰撞 + 改名不动目录 (employee-scope skill `vault_path` 安装时固化, 目录必须 rename-stable, 否则孤儿/分裂). 展示名在 `employee.md` 内

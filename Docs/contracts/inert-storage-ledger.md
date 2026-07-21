@@ -26,7 +26,7 @@ written but never read. **FULLY-INERT** = neither writer nor reader in the shipp
 
 | Table | State | Notes |
 |-------|-------|-------|
-| `graph_threads` | WRITER-DEAD | `ThreadRepository.create` has zero callers. `updateProject` backfill removed in this pass. |
+| `graph_threads` | LIVE writer | Desktop runtime persists thread status via `threads.create` / `persistThreadRuntimeStatus` (`thread-runtime-status.ts`, mission/desktop-agent-runtime). Older “WRITER-DEAD / zero callers” claim is stale as of 2026-07-21. |
 | `task_runs` | FULLY-INERT | `TaskRunRepository.create` zero callers; only memory-snapshot serialization references it. |
 | `tool_calls` | FULLY-INERT | `ToolCallRepository.create` zero callers; col `review_state` unused. Pi tool activity surfaces via `agent_events`. |
 | `handoff_events` | FULLY-INERT | Modeled LangGraph manager→employee handoffs; Pi delegation uses `agent_runs.parent_run_id`/`root_run_id`. |
