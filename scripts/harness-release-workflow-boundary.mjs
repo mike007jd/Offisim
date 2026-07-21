@@ -535,7 +535,7 @@ matchPublish(
 // --- build-pi-agent-host: nested Node distribution resign under APPLE_SIGNING_IDENTITY ---
 matchPiHostBuild(
   'pi-agent-host resigns bundled Node when APPLE_SIGNING_IDENTITY is set',
-  /APPLE_SIGNING_IDENTITY[\s\S]*?codesign[\s\S]*?['"]--sign['"]\s*,\s*identity/u,
+  /APPLE_SIGNING_IDENTITY[\s\S]*?spawnSync\(\s*CODESIGN_PATH[\s\S]*?['"]--sign['"]\s*,\s*identity/u,
   'build-pi-agent-host must codesign --sign with APPLE_SIGNING_IDENTITY for bundled Node',
 );
 matchPiHostBuild(

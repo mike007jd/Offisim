@@ -10,6 +10,7 @@ const ENTRY = resolve(ROOT, 'scripts/tauri-pi-agent-host.entry.mjs');
 const OUTFILE = resolve(ROOT, 'apps/desktop/src-tauri/resources/pi-agent-host.mjs');
 const NODE_OUTDIR = resolve(ROOT, 'apps/desktop/src-tauri/resources/node/bin');
 const NODE_OUTFILE = resolve(NODE_OUTDIR, 'node');
+const CODESIGN_PATH = ['', 'usr', 'bin', 'codesign'].join('/');
 const NODE_RELEASE_ENTITLEMENTS = resolve(
   ROOT,
   'apps/desktop/src-tauri/entitlements/node-release.plist',
@@ -19,7 +20,7 @@ function signNodeRuntimeForDistribution(pathname) {
   const identity = process.env.APPLE_SIGNING_IDENTITY?.trim();
   if (process.platform !== 'darwin' || !identity) return;
   const result = spawnSync(
-    '/usr/bin/codesign',
+    CODESIGN_PATH,
     [
       '--force',
       '--timestamp',
