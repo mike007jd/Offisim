@@ -409,7 +409,7 @@ async fn execute_claimed(
     } else {
         None
     };
-    let connection = match CodexConnection::spawn(
+    let connection = match CodexConnection::spawn_trusted(
         &binary,
         workspace.process_cwd.as_ref(),
         &neutral,
@@ -602,7 +602,7 @@ async fn enhance_claimed(
     // mode so Enhance cannot inherit a sticky Plan mode from native state.
     let policy = permission_policy(Some("auto"), &neutral, false)?;
     let binary = codex_binary_path()?;
-    let connection = match CodexConnection::spawn(
+    let connection = match CodexConnection::spawn_trusted(
         &binary,
         None,
         &neutral,

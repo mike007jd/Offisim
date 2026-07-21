@@ -1,9 +1,12 @@
+use rand::RngCore;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::os::unix::fs::{DirBuilderExt, MetadataExt};
 use std::{
     ffi::OsString,
-    fs,
+    fs::{self, DirBuilder},
     io::Read,
     path::{Path, PathBuf},
     process::Output,
@@ -52,6 +55,20 @@ struct ReleaseCandidate {
     version_text: String,
     archive_name: String,
     checksum_name: String,
+}
+
+struct UpdateScratch(PathBuf);
+
+impl UpdateScratch {
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for UpdateScratch {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
 }
 
 #[tauri::command]
@@ -120,15 +137,7 @@ pub async fn app_update_install<R: Runtime>(app: tauri::AppHandle<R>) -> Result<
     }
     assert_running_from_applications()?;
 
-    let scratch = std::env::temp_dir().join(format!(
-        "offisim-update-{}-{}",
-        std::process::id(),
-        now_unix_ms()
-    ));
-    fs::create_dir(&scratch).map_err(|error| format!("Create update staging: {error}"))?;
-    let result = download_verify_and_install(&gh, &candidate, &scratch).await;
-    let _ = fs::remove_dir_all(&scratch);
-    result?;
+    download_verify_and_install(&gh, &candidate).await?;
     app.restart();
 }
 
@@ -254,10 +263,11 @@ fn assert_release_tag_matches_version(tag_name: &str, version_text: &str) -> Res
 async fn download_verify_and_install(
     gh: &Path,
     candidate: &ReleaseCandidate,
-    scratch: &Path,
 ) -> Result<(), String> {
+    let scratch = create_update_scratch()?;
+    let scratch_path = scratch.path();
     let tag = candidate.release.tag_name.as_str();
-    let destination = scratch.to_string_lossy().to_string();
+    let destination = scratch_path.to_string_lossy().to_string();
     let output = run_gh(
         gh,
         &[
@@ -278,12 +288,13 @@ async fn download_verify_and_install(
     if !output.status.success() {
         return Err("GitHub CLI could not download the selected Offisim release assets.".into());
     }
+    assert_private_update_directory(scratch_path)?;
 
-    let archive = scratch.join(&candidate.archive_name);
-    let checksum = scratch.join(&candidate.checksum_name);
+    let archive = scratch_path.join(&candidate.archive_name);
+    let checksum = scratch_path.join(&candidate.checksum_name);
     verify_checksum(&archive, &checksum)?;
 
-    let extracted = scratch.join("extracted");
+    let extracted = scratch_path.join("extracted");
     fs::create_dir(&extracted)
         .map_err(|error| format!("Create update extraction folder: {error}"))?;
     run_checked(
@@ -300,7 +311,56 @@ async fn download_verify_and_install(
     let app = extracted.join("Offisim.app");
     assert_real_app_directory(&app)?;
     verify_distribution_app(&app, &candidate.version_text).await?;
-    replace_app_bundle(&app).await
+    replace_app_bundle(&app, &candidate.version_text).await
+}
+
+fn create_update_scratch() -> Result<UpdateScratch, String> {
+    let temp_root = fs::canonicalize(std::env::temp_dir())
+        .map_err(|error| format!("Resolve update staging root: {error}"))?;
+    let root_metadata = fs::symlink_metadata(&temp_root)
+        .map_err(|error| format!("Inspect update staging root: {error}"))?;
+    if root_metadata.file_type().is_symlink() || !root_metadata.is_dir() {
+        return Err("The update staging root is not a real directory.".into());
+    }
+
+    for _ in 0..16 {
+        let mut random = [0_u8; 16];
+        rand::thread_rng().fill_bytes(&mut random);
+        let path = temp_root.join(format!("offisim-update-{}", hex::encode(random)));
+        let mut builder = DirBuilder::new();
+        #[cfg(unix)]
+        builder.mode(0o700);
+        match builder.create(&path) {
+            Ok(()) => {
+                if let Err(error) = assert_private_update_directory(&path) {
+                    let _ = fs::remove_dir(&path);
+                    return Err(error);
+                }
+                return Ok(UpdateScratch(path));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(format!("Create update staging: {error}")),
+        }
+    }
+    Err("Could not allocate a private update staging directory.".into())
+}
+
+fn assert_private_update_directory(path: &Path) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("Inspect update staging directory: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("The update staging directory is not a real directory.".into());
+    }
+    #[cfg(unix)]
+    if metadata.uid() != unsafe { libc::geteuid() } || metadata.mode() & 0o077 != 0 {
+        return Err("The update staging directory is not private to the current user.".into());
+    }
+    let canonical = fs::canonicalize(path)
+        .map_err(|error| format!("Resolve update staging directory: {error}"))?;
+    if canonical != path {
+        return Err("The update staging directory changed while the update was prepared.".into());
+    }
+    Ok(())
 }
 
 fn verify_checksum(archive: &Path, sidecar: &Path) -> Result<(), String> {
@@ -406,7 +466,7 @@ async fn verify_distribution_app(app: &Path, expected_version: &str) -> Result<(
     Ok(())
 }
 
-async fn replace_app_bundle(candidate: &Path) -> Result<(), String> {
+async fn replace_app_bundle(candidate: &Path, expected_version: &str) -> Result<(), String> {
     let target = Path::new(APPLICATION_PATH);
     assert_real_app_directory(target)?;
     let applications = target
@@ -415,7 +475,7 @@ async fn replace_app_bundle(candidate: &Path) -> Result<(), String> {
     let suffix = format!("{}-{}", std::process::id(), now_unix_ms());
     let staged = applications.join(format!(".Offisim.update-{suffix}.app"));
     let previous = applications.join(format!(".Offisim.previous-{suffix}.app"));
-    run_checked(
+    let stage_result = run_checked(
         "/usr/bin/ditto",
         vec![
             candidate.as_os_str().to_owned(),
@@ -423,16 +483,95 @@ async fn replace_app_bundle(candidate: &Path) -> Result<(), String> {
         ],
         "Stage update in /Applications",
     )
-    .await?;
-    assert_real_app_directory(&staged)?;
-    fs::rename(target, &previous)
-        .map_err(|error| format!("Move current Offisim aside: {error}"))?;
-    if let Err(error) = fs::rename(&staged, target) {
-        let _ = fs::rename(&previous, target);
+    .await;
+    cleanup_staged_result(&staged, stage_result)?;
+    if let Err(error) = assert_real_app_directory(&staged) {
         let _ = fs::remove_dir_all(&staged);
-        return Err(format!("Install updated Offisim: {error}"));
+        return Err(error);
+    }
+    if let Err(error) = verify_distribution_app(&staged, expected_version).await {
+        let _ = fs::remove_dir_all(&staged);
+        return Err(error);
+    }
+    install_staged_app(target, &staged, &previous)?;
+    if let Err(error) = verify_distribution_app(target, expected_version).await {
+        let rejected = applications.join(format!(".Offisim.rejected-{suffix}.app"));
+        if let Err(move_error) = fs::rename(target, &rejected) {
+            return Err(format!(
+                "The installed update failed final verification and could not be isolated for rollback: {error}; {move_error}"
+            ));
+        }
+        if let Err(restore_error) = fs::rename(&previous, target) {
+            let _ = fs::rename(&rejected, target);
+            return Err(format!(
+                "The installed update failed final verification and automatic rollback failed: {error}; {restore_error}"
+            ));
+        }
+        let _ = fs::remove_dir_all(&rejected);
+        return Err(format!(
+            "The installed update failed final verification and was rolled back: {error}"
+        ));
     }
     let _ = fs::remove_dir_all(&previous);
+    Ok(())
+}
+
+fn remove_update_artifact(path: &Path) -> std::io::Result<()> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    if metadata.is_dir() && !metadata.file_type().is_symlink() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
+    }
+}
+
+fn cleanup_staged_result<T>(staged: &Path, result: Result<T, String>) -> Result<T, String> {
+    result.map_err(|error| match remove_update_artifact(staged) {
+        Ok(()) => error,
+        Err(cleanup_error) => format!(
+            "{error} Partial staged update cleanup failed; the artifact remains at {}: {cleanup_error}",
+            staged.display()
+        ),
+    })
+}
+
+fn install_staged_app(target: &Path, staged: &Path, previous: &Path) -> Result<(), String> {
+    install_staged_app_using(target, staged, previous, |from, to| fs::rename(from, to))
+}
+
+fn install_staged_app_using<F>(
+    target: &Path,
+    staged: &Path,
+    previous: &Path,
+    mut rename: F,
+) -> Result<(), String>
+where
+    F: FnMut(&Path, &Path) -> std::io::Result<()>,
+{
+    if let Err(error) = rename(target, previous) {
+        return cleanup_staged_result(staged, Err(format!("Move current Offisim aside: {error}")));
+    }
+    if let Err(install_error) = rename(staged, target) {
+        return match rename(previous, target) {
+            Ok(()) => cleanup_staged_result(
+                staged,
+                Err(format!(
+                    "Install updated Offisim: {install_error}. The previous verified app was restored."
+                )),
+            ),
+            Err(rollback_error) => cleanup_staged_result(
+                staged,
+                Err(format!(
+                    "CRITICAL: installing the updated Offisim failed ({install_error}) and automatic rollback failed ({rollback_error}). The previous verified app remains recoverable at {}.",
+                    previous.display()
+                )),
+            ),
+        };
+    }
     Ok(())
 }
 
@@ -541,5 +680,91 @@ mod tests {
     fn application_target_is_exact_and_not_home_relative() {
         assert_eq!(APPLICATION_PATH, "/Applications/Offisim.app");
         assert!(!Path::new(APPLICATION_PATH).starts_with(dirs::home_dir().unwrap()));
+    }
+
+    #[test]
+    fn update_scratch_is_random_private_and_removed_on_drop() {
+        let path = {
+            let scratch = create_update_scratch().unwrap();
+            let path = scratch.path().to_path_buf();
+            assert_private_update_directory(&path).unwrap();
+            path
+        };
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn failed_staging_removes_partial_update_artifact() {
+        let scratch = create_update_scratch().unwrap();
+        let staged = scratch.path().join(".Offisim.update-test.app");
+        fs::create_dir(&staged).unwrap();
+        fs::write(staged.join("partial"), b"partial update").unwrap();
+
+        let error = cleanup_staged_result::<()>(&staged, Err("ditto failed".into())).unwrap_err();
+
+        assert_eq!(error, "ditto failed");
+        assert!(!staged.exists());
+    }
+
+    #[test]
+    fn failed_install_restores_previous_app_and_cleans_staged_copy() {
+        let scratch = create_update_scratch().unwrap();
+        let target = scratch.path().join("Offisim.app");
+        let staged = scratch.path().join("staged.app");
+        let previous = scratch.path().join("previous.app");
+        fs::create_dir(&target).unwrap();
+        fs::write(target.join("marker"), b"previous verified app").unwrap();
+        fs::create_dir(&staged).unwrap();
+
+        let mut calls = 0;
+        let error = install_staged_app_using(&target, &staged, &previous, |from, to| {
+            calls += 1;
+            if calls == 2 {
+                Err(std::io::Error::other("injected install failure"))
+            } else {
+                fs::rename(from, to)
+            }
+        })
+        .unwrap_err();
+
+        assert!(error.contains("previous verified app was restored"));
+        assert_eq!(
+            fs::read(target.join("marker")).unwrap(),
+            b"previous verified app"
+        );
+        assert!(!staged.exists());
+        assert!(!previous.exists());
+    }
+
+    #[test]
+    fn rollback_failure_is_critical_and_preserves_previous_app_path() {
+        let scratch = create_update_scratch().unwrap();
+        let target = scratch.path().join("Offisim.app");
+        let staged = scratch.path().join("staged.app");
+        let previous = scratch.path().join("previous.app");
+        fs::create_dir(&target).unwrap();
+        fs::write(target.join("marker"), b"previous verified app").unwrap();
+        fs::create_dir(&staged).unwrap();
+
+        let mut calls = 0;
+        let error = install_staged_app_using(&target, &staged, &previous, |from, to| {
+            calls += 1;
+            match calls {
+                1 => fs::rename(from, to),
+                2 => Err(std::io::Error::other("injected install failure")),
+                _ => Err(std::io::Error::other("injected rollback failure")),
+            }
+        })
+        .unwrap_err();
+
+        assert!(error.contains("CRITICAL"));
+        assert!(error.contains("automatic rollback failed"));
+        assert!(error.contains(&previous.display().to_string()));
+        assert_eq!(
+            fs::read(previous.join("marker")).unwrap(),
+            b"previous verified app"
+        );
+        assert!(!staged.exists());
+        assert!(!target.exists());
     }
 }

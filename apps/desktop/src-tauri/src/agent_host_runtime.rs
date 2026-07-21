@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -511,37 +512,307 @@ fn cli_binary_is_executable(candidate: &Path) -> bool {
     }
 }
 
-fn find_codex_binary() -> Option<PathBuf> {
-    if let Some(candidate) = std::env::var_os("PATH").and_then(|path| {
-        std::env::split_paths(&path)
-            .map(|directory| directory.join("codex"))
-            .find(|candidate| cli_binary_is_executable(candidate))
-    }) {
-        return std::fs::canonicalize(&candidate).ok().or(Some(candidate));
+pub(crate) struct TrustedCodexExecutable {
+    #[cfg(any(test, not(unix)))]
+    canonical_path: PathBuf,
+    #[cfg(unix)]
+    file: std::fs::File,
+    launcher_path: PathBuf,
+    launcher_args: Vec<OsString>,
+}
+
+impl TrustedCodexExecutable {
+    pub(crate) fn command_path(&self) -> &Path {
+        &self.launcher_path
+    }
+
+    pub(crate) fn command_prefix_args(&self) -> Vec<OsString> {
+        let mut args = self.launcher_args.clone();
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            args.push(OsString::from(format!("/dev/fd/{}", self.file.as_raw_fd())));
+        }
+        args
+    }
+
+    #[cfg(test)]
+    fn canonical_path(&self) -> &Path {
+        &self.canonical_path
+    }
+}
+
+#[cfg(unix)]
+fn open_executable_without_symlinks(path: &Path) -> Option<std::fs::File> {
+    use std::ffi::CString;
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut components = path.components().peekable();
+    let mut directory = std::fs::File::open("/").ok()?;
+    while let Some(component) = components.next() {
+        let name = match component {
+            std::path::Component::RootDir => continue,
+            std::path::Component::Normal(name) => name,
+            _ => return None,
+        };
+        let name = CString::new(name.as_bytes()).ok()?;
+        let is_leaf = components.peek().is_none();
+        let flags = if is_leaf {
+            // Intentionally omit O_CLOEXEC: /dev/fd/<n> must remain readable
+            // when a script executable hands control to its shebang interpreter.
+            libc::O_RDONLY | libc::O_NOFOLLOW
+        } else {
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC
+        };
+        let fd = unsafe { libc::openat(directory.as_raw_fd(), name.as_ptr(), flags) };
+        if fd < 0 {
+            return None;
+        }
+        let opened = std::fs::File::from(unsafe { OwnedFd::from_raw_fd(fd) });
+        if is_leaf {
+            let metadata = opened.metadata().ok()?;
+            if !metadata.is_file() || metadata.permissions().mode() & 0o111 == 0 {
+                return None;
+            }
+            return Some(opened);
+        }
+        directory = opened;
+    }
+    None
+}
+
+fn trusted_codex_candidate(
+    candidate: &Path,
+    trusted_roots: &[PathBuf],
+    forbidden_root: Option<&Path>,
+) -> Option<TrustedCodexExecutable> {
+    if !candidate.is_absolute() {
+        return None;
+    }
+    let canonical = std::fs::canonicalize(candidate).ok()?;
+    let trusted = trusted_roots.iter().any(|root| {
+        std::fs::canonicalize(root)
+            .ok()
+            .is_some_and(|root| canonical.starts_with(root))
+    });
+    if !trusted {
+        return None;
+    }
+    if forbidden_root
+        .and_then(|root| std::fs::canonicalize(root).ok())
+        .is_some_and(|root| canonical.starts_with(root))
+    {
+        return None;
+    }
+    #[cfg(unix)]
+    {
+        let file = open_executable_without_symlinks(&canonical)?;
+        let (launcher_path, launcher_args) =
+            trusted_script_launcher(&canonical, &file, trusted_roots)?;
+        Some(TrustedCodexExecutable {
+            #[cfg(test)]
+            canonical_path: canonical,
+            file,
+            launcher_path,
+            launcher_args,
+        })
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = canonical;
+        None
+    }
+}
+
+#[cfg(unix)]
+fn trusted_launcher_path(candidate: &Path, trusted_roots: &[PathBuf]) -> Option<PathBuf> {
+    let canonical = std::fs::canonicalize(candidate).ok()?;
+    let inside_root = trusted_roots.iter().any(|root| {
+        std::fs::canonicalize(root)
+            .ok()
+            .is_some_and(|root| canonical.starts_with(root))
+    });
+    (inside_root && cli_binary_is_executable(&canonical)).then_some(canonical)
+}
+
+#[cfg(unix)]
+fn trusted_node_launcher(script: &Path, trusted_roots: &[PathBuf]) -> Option<PathBuf> {
+    for ancestor in script.ancestors() {
+        for candidate in [ancestor.join("bin/node"), ancestor.join("node")] {
+            if let Some(node) = trusted_launcher_path(&candidate, trusted_roots) {
+                return Some(node);
+            }
+        }
+    }
+    let home = dirs::home_dir().and_then(|home| home.canonicalize().ok());
+    [
+        PathBuf::from("/opt/homebrew/bin/node"),
+        PathBuf::from("/usr/local/bin/node"),
+        PathBuf::from("/usr/bin/node"),
+    ]
+    .into_iter()
+    .chain(home.into_iter().flat_map(|home| {
+        [
+            home.join(".local/bin/node"),
+            home.join(".bun/bin/node"),
+            home.join(".volta/bin/node"),
+        ]
+    }))
+    .find_map(|candidate| trusted_launcher_path(&candidate, trusted_roots))
+}
+
+#[cfg(unix)]
+fn trusted_script_launcher(
+    script: &Path,
+    file: &std::fs::File,
+    trusted_roots: &[PathBuf],
+) -> Option<(PathBuf, Vec<OsString>)> {
+    let mut reader = file.try_clone().ok()?;
+    reader.seek(SeekFrom::Start(0)).ok()?;
+    let mut bytes = [0_u8; 4096];
+    let length = reader.read(&mut bytes).ok()?;
+    let first_line = std::str::from_utf8(&bytes[..length])
+        .ok()?
+        .lines()
+        .next()?
+        .strip_prefix("#!")?
+        .trim();
+    let mut words = first_line.split_whitespace();
+    let interpreter = Path::new(words.next()?);
+    let mut arguments = words.map(OsString::from).collect::<Vec<_>>();
+    if interpreter == Path::new("/usr/bin/env") {
+        if arguments.first().is_some_and(|argument| argument == "-S") {
+            arguments.remove(0);
+        }
+        let command = arguments.first()?.to_string_lossy();
+        if command != "node" && command != "nodejs" {
+            return None;
+        }
+        arguments.remove(0);
+        return Some((trusted_node_launcher(script, trusted_roots)?, arguments));
+    }
+    if matches!(
+        interpreter.to_str(),
+        Some("/bin/sh" | "/bin/bash" | "/bin/zsh")
+    ) {
+        let interpreter = std::fs::canonicalize(interpreter).ok()?;
+        return cli_binary_is_executable(&interpreter).then_some((interpreter, arguments));
+    }
+    Some((
+        trusted_launcher_path(interpreter, trusted_roots)?,
+        arguments,
+    ))
+}
+
+fn codex_launch_root() -> Option<PathBuf> {
+    let current = std::env::current_dir().ok()?.canonicalize().ok()?;
+    if current.parent().is_none()
+        || dirs::home_dir()
+            .and_then(|home| home.canonicalize().ok())
+            .is_some_and(|home| home == current)
+    {
+        return None;
+    }
+    Some(current)
+}
+
+fn common_codex_candidates(home: Option<&Path>) -> Vec<PathBuf> {
+    let mut candidates = vec![
+        PathBuf::from("/opt/homebrew/bin/codex"),
+        PathBuf::from("/usr/local/bin/codex"),
+        PathBuf::from("/usr/bin/codex"),
+    ];
+    if let Some(home) = home {
+        candidates.extend([
+            home.join(".local/bin/codex"),
+            home.join(".bun/bin/codex"),
+            home.join(".volta/bin/codex"),
+            home.join("Library/pnpm/codex"),
+        ]);
+    }
+    candidates
+}
+
+fn trusted_codex_roots(home: Option<&Path>) -> Vec<PathBuf> {
+    let mut roots = vec![
+        PathBuf::from("/opt/homebrew"),
+        PathBuf::from("/usr/local"),
+        PathBuf::from("/usr"),
+    ];
+    if let Some(home) = home {
+        roots.extend([
+            home.join(".local"),
+            home.join(".bun"),
+            home.join(".volta"),
+            home.join(".nvm"),
+            home.join(".fnm"),
+            home.join(".asdf"),
+            home.join("Library/pnpm"),
+            home.join("Library/Application Support/fnm"),
+        ]);
+    }
+    roots
+}
+
+fn find_codex_binary() -> Option<TrustedCodexExecutable> {
+    let home = dirs::home_dir().and_then(|home| home.canonicalize().ok());
+    let launch_root = codex_launch_root();
+    let trusted_roots = trusted_codex_roots(home.as_deref());
+    if let Some(candidate) = common_codex_candidates(home.as_deref())
+        .iter()
+        .find_map(|candidate| {
+            trusted_codex_candidate(candidate, &trusted_roots, launch_root.as_deref())
+        })
+    {
+        return Some(candidate);
     }
 
     // Finder-launched macOS apps do not inherit the user's interactive PATH.
-    // Ask the user's configured shell for the command path without evaluating
-    // any renderer-provided text, then still require a real executable file.
-    let shell = std::env::var_os("SHELL")?;
-    let output = std::process::Command::new(shell)
-        .args(["-lic", "command -v codex"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
+    // Ask a fixed system shell from the operator's home so project-local PATH
+    // injection, a hostile current directory, and an inherited SHELL cannot
+    // choose the executable. Canonical validation below rejects launch-root
+    // paths even if an operator profile happens to expose one.
+    let home = home?;
+    for shell in ["/bin/zsh", "/bin/bash", "/bin/sh"] {
+        if !cli_binary_is_executable(Path::new(shell)) {
+            continue;
+        }
+        let mut command = std::process::Command::new(shell);
+        command
+            .args(["-lic", "command -v codex"])
+            .current_dir(&home)
+            .env_clear();
+        for (key, value) in crate::redaction::scrub_env_to_allowlist(&[
+            "HOME", "USER", "LANG", "TERM", "TMPDIR", "LC_ALL", "LC_CTYPE",
+        ]) {
+            command.env(key, value);
+        }
+        command.env("HOME", &home).env("SHELL", shell);
+        let Ok(output) = command.output() else {
+            continue;
+        };
+        if !output.status.success() {
+            continue;
+        }
+        if let Some(candidate) = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .rev()
+            .map(str::trim)
+            .filter(|value| value.starts_with('/'))
+            .map(PathBuf::from)
+            .find_map(|candidate| {
+                trusted_codex_candidate(&candidate, &trusted_roots, launch_root.as_deref())
+            })
+        {
+            return Some(candidate);
+        }
     }
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .rev()
-        .map(str::trim)
-        .filter(|value| value.starts_with('/'))
-        .map(PathBuf::from)
-        .find(|candidate| cli_binary_is_executable(candidate))
-        .and_then(|candidate| std::fs::canonicalize(&candidate).ok().or(Some(candidate)))
+    None
 }
 
-pub(crate) fn codex_binary_path() -> Result<PathBuf, String> {
+pub(crate) fn codex_binary_path() -> Result<TrustedCodexExecutable, String> {
     find_codex_binary().ok_or_else(|| "Codex CLI is not installed or is not on PATH.".into())
 }
 
@@ -572,10 +843,11 @@ pub(crate) async fn inspect_codex_cli(
         };
     };
 
-    let version_output = tokio::process::Command::new(&binary)
-        .arg("--version")
-        .output()
-        .await;
+    let mut version_command = tokio::process::Command::new(binary.command_path());
+    version_command
+        .args(binary.command_prefix_args())
+        .arg("--version");
+    let version_output = version_command.output().await;
     let version = match version_output {
         Ok(output) if output.status.success() => first_nonempty_line(&output.stdout),
         _ => None,
@@ -595,10 +867,11 @@ pub(crate) async fn inspect_codex_cli(
         };
     }
 
-    let login_status = tokio::process::Command::new(&binary)
-        .args(["login", "status"])
-        .output()
-        .await;
+    let mut login_command = tokio::process::Command::new(binary.command_path());
+    login_command
+        .args(binary.command_prefix_args())
+        .args(["login", "status"]);
+    let login_status = login_command.output().await;
     let (state, status_reason) = match login_status {
         Ok(output) if output.status.success() => ("ready", None),
         Ok(_) => (
@@ -645,6 +918,97 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_root(label: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("offisim-{label}-{suffix}"))
+    }
+
+    fn write_executable(path: &Path) {
+        std::fs::create_dir_all(path.parent().expect("executable parent"))
+            .expect("create executable parent");
+        std::fs::write(path, b"#!/bin/sh\nexit 0\n").expect("write executable");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = std::fs::metadata(path)
+                .expect("executable metadata")
+                .permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(path, permissions).expect("mark executable");
+        }
+    }
+
+    #[test]
+    fn trusted_codex_candidate_rejects_relative_and_launch_root_paths() {
+        let launch_root = unique_temp_root("codex-launch-root");
+        let workspace_codex = launch_root.join("bin/codex");
+        write_executable(&workspace_codex);
+        let trusted_roots = vec![launch_root.clone()];
+
+        assert!(trusted_codex_candidate(
+            Path::new("bin/codex"),
+            &trusted_roots,
+            Some(&launch_root)
+        )
+        .is_none());
+        assert!(
+            trusted_codex_candidate(&workspace_codex, &trusted_roots, Some(&launch_root)).is_none()
+        );
+
+        let _ = std::fs::remove_dir_all(launch_root);
+    }
+
+    #[test]
+    fn trusted_codex_candidate_returns_canonical_external_executable() {
+        let launch_root = unique_temp_root("codex-launch-root");
+        let install_root = unique_temp_root("codex-install-root");
+        let installed_codex = install_root.join("bin/codex");
+        std::fs::create_dir_all(&launch_root).expect("create launch root");
+        write_executable(&installed_codex);
+
+        let trusted = trusted_codex_candidate(
+            &installed_codex,
+            std::slice::from_ref(&install_root),
+            Some(&launch_root),
+        )
+        .expect("trusted executable");
+        assert_eq!(
+            trusted.canonical_path(),
+            std::fs::canonicalize(&installed_codex).unwrap()
+        );
+
+        let _ = std::fs::remove_dir_all(launch_root);
+        let _ = std::fs::remove_dir_all(install_root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn trusted_codex_candidate_executes_the_opened_inode_after_path_replacement() {
+        let install_root = unique_temp_root("codex-stable-install-root");
+        let installed_codex = install_root.join("bin/codex");
+        let displaced_codex = install_root.join("bin/codex-original");
+        write_executable(&installed_codex);
+        std::fs::write(&installed_codex, b"#!/bin/sh\nprintf verified\n")
+            .expect("write verified executable");
+        let trusted =
+            trusted_codex_candidate(&installed_codex, std::slice::from_ref(&install_root), None)
+                .expect("trusted executable");
+
+        std::fs::rename(&installed_codex, &displaced_codex).expect("displace executable");
+        write_executable(&installed_codex);
+        let output = std::process::Command::new(trusted.command_path())
+            .args(trusted.command_prefix_args())
+            .output()
+            .expect("execute opened inode");
+
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"verified");
+        let _ = std::fs::remove_dir_all(install_root);
+    }
 
     #[test]
     fn bundled_node_is_resolved_next_to_bundled_pi_host() {

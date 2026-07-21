@@ -35,6 +35,14 @@ use chacha20poly1305::aead::{Aead, KeyInit};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use rand::rngs::OsRng;
 use rand::RngCore;
+#[cfg(unix)]
+use std::ffi::CString;
+use std::fs::File;
+use std::io::{Read, Write};
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, FromRawFd};
+#[cfg(unix)]
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use tauri::Runtime;
 use thiserror::Error;
@@ -58,62 +66,301 @@ pub enum SecretError {
 
 /// Resolve the per-install key path under the user-owned Offisim dir (never the
 /// project folder).
-fn key_path<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, SecretError> {
+struct SecretKeyPath {
+    root: PathBuf,
+    #[cfg(not(unix))]
+    path: PathBuf,
+    #[cfg(unix)]
+    root_device: u64,
+    #[cfg(unix)]
+    root_inode: u64,
+}
+
+fn key_path<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<SecretKeyPath, SecretError> {
     let _ = app;
-    crate::local_paths::offisim_storage_path(KEY_FILE_NAME).map_err(SecretError::KeyIo)
+    let raw_root = crate::local_paths::offisim_home_dir().map_err(SecretError::KeyIo)?;
+    let raw_home = raw_root
+        .parent()
+        .ok_or_else(|| SecretError::KeyIo("Offisim key root has no home parent".into()))?;
+    let canonical_home = raw_home
+        .canonicalize()
+        .map_err(|err| SecretError::KeyIo(format!("resolve key home: {err}")))?;
+    let expected_root = canonical_home.join(
+        raw_root
+            .file_name()
+            .ok_or_else(|| SecretError::KeyIo("Offisim key root has no basename".into()))?,
+    );
+    match std::fs::create_dir(&expected_root) {
+        Ok(()) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(err) => return Err(SecretError::KeyIo(format!("create key dir: {err}"))),
+    }
+    let location = validate_key_path(&expected_root.join(KEY_FILE_NAME))?;
+    if location.root != expected_root {
+        return Err(SecretError::KeyIo(
+            "Offisim key root resolves outside the canonical home path".into(),
+        ));
+    }
+    Ok(location)
 }
 
 /// Load the 32-byte key, generating + persisting it on first use.
-fn load_or_create_key(path: &Path) -> Result<[u8; KEY_LEN], SecretError> {
-    if let Ok(bytes) = std::fs::read(path) {
-        if bytes.len() == KEY_LEN {
-            let mut key = [0u8; KEY_LEN];
-            key.copy_from_slice(&bytes);
-            return Ok(key);
+fn validate_key_path(path: &Path) -> Result<SecretKeyPath, SecretError> {
+    if path.file_name().and_then(|name| name.to_str()) != Some(KEY_FILE_NAME) {
+        return Err(SecretError::KeyIo("unexpected secret key filename".into()));
+    }
+    let root = path
+        .parent()
+        .ok_or_else(|| SecretError::KeyIo("secret key path has no parent".into()))?;
+    let root_metadata = std::fs::symlink_metadata(root)
+        .map_err(|err| SecretError::KeyIo(format!("inspect key dir: {err}")))?;
+    if root_metadata.file_type().is_symlink() || !root_metadata.is_dir() {
+        return Err(SecretError::KeyIo(
+            "secret key root must be a real directory".into(),
+        ));
+    }
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|err| SecretError::KeyIo(format!("resolve key dir: {err}")))?;
+    let canonical_metadata = std::fs::metadata(&canonical_root)
+        .map_err(|err| SecretError::KeyIo(format!("inspect canonical key dir: {err}")))?;
+
+    let canonical_path = canonical_root.join(KEY_FILE_NAME);
+    match std::fs::symlink_metadata(&canonical_path) {
+        Ok(metadata) => {
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err(SecretError::KeyIo(
+                    "secret key path must be a regular file and cannot be a symlink".into(),
+                ));
+            }
+            let resolved = canonical_path
+                .canonicalize()
+                .map_err(|err| SecretError::KeyIo(format!("resolve key file: {err}")))?;
+            if resolved.parent() != Some(canonical_root.as_path()) {
+                return Err(SecretError::KeyIo(
+                    "secret key file resolves outside its canonical root".into(),
+                ));
+            }
         }
-        // A corrupt/short key file would otherwise wedge every secret forever.
-        // We refuse to silently overwrite it (that would orphan any data sealed
-        // under a prior good key); surface a typed error instead.
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => return Err(SecretError::KeyIo(format!("inspect key file: {err}"))),
+    }
+
+    Ok(SecretKeyPath {
+        root: canonical_root,
+        #[cfg(not(unix))]
+        path: canonical_path,
+        #[cfg(unix)]
+        root_device: canonical_metadata.dev(),
+        #[cfg(unix)]
+        root_inode: canonical_metadata.ino(),
+    })
+}
+
+fn key_from_bytes(bytes: &[u8]) -> Result<[u8; KEY_LEN], SecretError> {
+    if bytes.len() != KEY_LEN {
         return Err(SecretError::KeyIo(format!(
             "existing key file has unexpected length {} (expected {KEY_LEN})",
             bytes.len()
         )));
     }
-
     let mut key = [0u8; KEY_LEN];
-    OsRng.fill_bytes(&mut key);
-
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|err| SecretError::KeyIo(format!("create key dir: {err}")))?;
-    }
-    write_key_file(path, &key)?;
+    key.copy_from_slice(bytes);
     Ok(key)
 }
 
 #[cfg(unix)]
-fn write_key_file(path: &Path, key: &[u8; KEY_LEN]) -> Result<(), SecretError> {
-    use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
-    // 0o600 before any bytes land: create with the restrictive mode rather than
-    // writing world-readable then chmod-ing.
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(path)
-        .map_err(|err| SecretError::KeyIo(format!("open key file: {err}")))?;
-    file.write_all(key)
-        .map_err(|err| SecretError::KeyIo(format!("write key file: {err}")))?;
-    file.sync_all()
-        .map_err(|err| SecretError::KeyIo(format!("sync key file: {err}")))?;
-    Ok(())
+fn open_key_root(location: &SecretKeyPath) -> Result<File, SecretError> {
+    let root = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(&location.root)
+        .map_err(|err| SecretError::KeyIo(format!("open key dir: {err}")))?;
+    let metadata = root
+        .metadata()
+        .map_err(|err| SecretError::KeyIo(format!("inspect opened key dir: {err}")))?;
+    if metadata.dev() != location.root_device || metadata.ino() != location.root_inode {
+        return Err(SecretError::KeyIo(
+            "secret key root was replaced during access".into(),
+        ));
+    }
+    Ok(root)
+}
+
+#[cfg(unix)]
+fn read_key_file(root: &File) -> Result<Option<[u8; KEY_LEN]>, SecretError> {
+    let name = CString::new(KEY_FILE_NAME).expect("static key filename has no NUL");
+    let fd = unsafe {
+        libc::openat(
+            root.as_raw_fd(),
+            name.as_ptr(),
+            libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK,
+        )
+    };
+    if fd < 0 {
+        let err = std::io::Error::last_os_error();
+        if err.kind() == std::io::ErrorKind::NotFound {
+            return Ok(None);
+        }
+        return Err(SecretError::KeyIo(format!("open key file: {err}")));
+    }
+    let mut file = unsafe { File::from_raw_fd(fd) };
+    let metadata = file
+        .metadata()
+        .map_err(|err| SecretError::KeyIo(format!("inspect key file: {err}")))?;
+    if !metadata.is_file() || metadata.nlink() != 1 || metadata.mode() & 0o077 != 0 {
+        return Err(SecretError::KeyIo(
+            "secret key path must be a private single-linked regular file".into(),
+        ));
+    }
+    let mut bytes = Vec::with_capacity(KEY_LEN);
+    file.read_to_end(&mut bytes)
+        .map_err(|err| SecretError::KeyIo(format!("read key file: {err}")))?;
+    key_from_bytes(&bytes).map(Some)
+}
+
+#[cfg(unix)]
+fn load_or_create_key(location: &SecretKeyPath) -> Result<[u8; KEY_LEN], SecretError> {
+    let root = open_key_root(location)?;
+    if let Some(key) = read_key_file(&root)? {
+        return Ok(key);
+    }
+
+    let mut key = [0u8; KEY_LEN];
+    OsRng.fill_bytes(&mut key);
+    if write_key_file(&root, &key)? {
+        return Ok(key);
+    }
+    read_key_file(&root)?.ok_or_else(|| {
+        SecretError::KeyIo("secret key appeared concurrently but could not be opened".into())
+    })
+}
+
+#[cfg(unix)]
+fn write_key_file(root: &File, key: &[u8; KEY_LEN]) -> Result<bool, SecretError> {
+    write_key_file_with(root, key, |file, key| {
+        file.write_all(key)?;
+        file.sync_all()
+    })
+}
+
+#[cfg(unix)]
+fn write_key_file_with<F>(root: &File, key: &[u8; KEY_LEN], persist: F) -> Result<bool, SecretError>
+where
+    F: FnOnce(&mut File, &[u8; KEY_LEN]) -> std::io::Result<()>,
+{
+    let name = CString::new(KEY_FILE_NAME).expect("static key filename has no NUL");
+    let fd = unsafe {
+        libc::openat(
+            root.as_raw_fd(),
+            name.as_ptr(),
+            libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            0o600,
+        )
+    };
+    if fd < 0 {
+        let err = std::io::Error::last_os_error();
+        if err.kind() == std::io::ErrorKind::AlreadyExists {
+            return Ok(false);
+        }
+        return Err(SecretError::KeyIo(format!("create key file: {err}")));
+    }
+    let mut file = unsafe { File::from_raw_fd(fd) };
+    let created = file
+        .metadata()
+        .map_err(|err| SecretError::KeyIo(format!("inspect created key file: {err}")))?;
+    if let Err(error) = persist(&mut file, key) {
+        drop(file);
+        if !key_entry_matches(root, &name, &created)? {
+            return Err(SecretError::KeyIo(format!(
+                "write key file: {error}; key path changed before rollback"
+            )));
+        }
+        if unsafe { libc::unlinkat(root.as_raw_fd(), name.as_ptr(), 0) } != 0 {
+            let cleanup = std::io::Error::last_os_error();
+            return Err(SecretError::KeyIo(format!(
+                "write key file: {error}; remove partial key file: {cleanup}"
+            )));
+        }
+        let _ = root.sync_all();
+        return Err(SecretError::KeyIo(format!("write key file: {error}")));
+    }
+    if !key_entry_matches(root, &name, &created)? {
+        return Err(SecretError::KeyIo(
+            "secret key path changed before creation completed".into(),
+        ));
+    }
+    root.sync_all()
+        .map_err(|err| SecretError::KeyIo(format!("sync key directory: {err}")))?;
+    Ok(true)
+}
+
+#[cfg(unix)]
+fn key_entry_matches(
+    root: &File,
+    name: &CString,
+    expected: &std::fs::Metadata,
+) -> Result<bool, SecretError> {
+    use std::mem::MaybeUninit;
+
+    let mut live = MaybeUninit::<libc::stat>::uninit();
+    if unsafe {
+        libc::fstatat(
+            root.as_raw_fd(),
+            name.as_ptr(),
+            live.as_mut_ptr(),
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    } != 0
+    {
+        let error = std::io::Error::last_os_error();
+        if error.kind() == std::io::ErrorKind::NotFound {
+            return Ok(false);
+        }
+        return Err(SecretError::KeyIo(format!(
+            "inspect live key file: {error}"
+        )));
+    }
+    let live = unsafe { live.assume_init() };
+    Ok(live.st_mode & libc::S_IFMT == libc::S_IFREG
+        && live.st_dev as u64 == expected.dev()
+        && live.st_ino == expected.ino()
+        && live.st_nlink == 1
+        && live.st_mode & 0o077 == 0)
 }
 
 #[cfg(not(unix))]
-fn write_key_file(path: &Path, key: &[u8; KEY_LEN]) -> Result<(), SecretError> {
-    std::fs::write(path, key).map_err(|err| SecretError::KeyIo(format!("write key file: {err}")))
+fn load_or_create_key(location: &SecretKeyPath) -> Result<[u8; KEY_LEN], SecretError> {
+    if let Ok(bytes) = std::fs::read(&location.path) {
+        return key_from_bytes(&bytes);
+    }
+    let mut key = [0u8; KEY_LEN];
+    OsRng.fill_bytes(&mut key);
+    if write_key_file(&location.path, &key)? {
+        return Ok(key);
+    }
+    let bytes = std::fs::read(&location.path)
+        .map_err(|err| SecretError::KeyIo(format!("read key file: {err}")))?;
+    key_from_bytes(&bytes)
+}
+
+#[cfg(not(unix))]
+fn write_key_file(path: &Path, key: &[u8; KEY_LEN]) -> Result<bool, SecretError> {
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+    {
+        Ok(mut file) => {
+            file.write_all(key)
+                .map_err(|err| SecretError::KeyIo(format!("write key file: {err}")))?;
+            file.sync_all()
+                .map_err(|err| SecretError::KeyIo(format!("sync key file: {err}")))?;
+            Ok(true)
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => Ok(false),
+        Err(err) => Err(SecretError::KeyIo(format!("create key file: {err}"))),
+    }
 }
 
 /// Seal `plaintext` into a base64 envelope: `0x01 || nonce(12) || ct+tag`.
@@ -196,6 +443,7 @@ pub fn secret_decrypt<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     /// Deterministic non-random key for round-trip assertions.
     fn test_key() -> [u8; KEY_LEN] {
@@ -285,10 +533,11 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("secret.key");
         let _ = std::fs::remove_file(&path);
+        let location = validate_key_path(&path).expect("validate key path");
 
-        let k1 = load_or_create_key(&path).expect("create");
+        let k1 = load_or_create_key(&location).expect("create");
         assert!(path.exists());
-        let k2 = load_or_create_key(&path).expect("load existing");
+        let k2 = load_or_create_key(&location).expect("load existing");
         assert_eq!(k1, k2, "key must be stable across loads");
 
         // A value sealed under the persisted key opens back to plaintext.
@@ -304,5 +553,141 @@ mod tests {
 
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_dir(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn key_load_rejects_leaf_symlink_replacement_without_touching_target() {
+        use std::os::unix::fs::symlink;
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("offisim-secret-leaf-{stamp}"));
+        let outside = std::env::temp_dir().join(format!("offisim-secret-outside-{stamp}"));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        let path = root.join(KEY_FILE_NAME);
+        let outside_key = outside.join("outside.key");
+        let sentinel = [0x5au8; KEY_LEN];
+        std::fs::write(&outside_key, sentinel).unwrap();
+        let location = validate_key_path(&path).expect("validate missing key path");
+
+        symlink(&outside_key, &path).unwrap();
+        let error = load_or_create_key(&location).expect_err("leaf symlink replacement must fail");
+        assert!(error.to_string().contains("key file"), "{error}");
+        assert_eq!(std::fs::read(&outside_key).unwrap(), sentinel);
+
+        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn key_path_rejects_symlinked_root_without_creating_a_key() {
+        use std::os::unix::fs::symlink;
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let outside = std::env::temp_dir().join(format!("offisim-secret-root-target-{stamp}"));
+        let linked_root = std::env::temp_dir().join(format!("offisim-secret-root-link-{stamp}"));
+        std::fs::create_dir_all(&outside).unwrap();
+        symlink(&outside, &linked_root).unwrap();
+
+        let error = match validate_key_path(&linked_root.join(KEY_FILE_NAME)) {
+            Ok(_) => panic!("symlinked key root must be rejected"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains("real directory"), "{error}");
+        assert!(!outside.join(KEY_FILE_NAME).exists());
+
+        std::fs::remove_file(linked_root).unwrap();
+        std::fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn key_load_rejects_root_directory_replacement_without_creating_a_key() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("offisim-secret-root-{stamp}"));
+        let original = std::env::temp_dir().join(format!("offisim-secret-original-{stamp}"));
+        std::fs::create_dir_all(&root).unwrap();
+        let location = validate_key_path(&root.join(KEY_FILE_NAME)).expect("validate key root");
+
+        std::fs::rename(&root, &original).unwrap();
+        std::fs::create_dir(&root).unwrap();
+        let error = load_or_create_key(&location).expect_err("root replacement must fail");
+        assert!(error.to_string().contains("replaced"), "{error}");
+        assert!(!root.join(KEY_FILE_NAME).exists());
+        assert!(!original.join(KEY_FILE_NAME).exists());
+
+        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(original).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn key_load_rejects_fifo_replacement_without_blocking() {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("offisim-secret-fifo-{stamp}"));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join(KEY_FILE_NAME);
+        let location = validate_key_path(&path).expect("validate missing key path");
+        let encoded = CString::new(path.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(encoded.as_ptr(), 0o600) }, 0);
+
+        let (sender, receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = sender.send(load_or_create_key(&location));
+        });
+        let result = receiver
+            .recv_timeout(Duration::from_millis(500))
+            .expect("FIFO replacement must not block secret loading");
+        assert!(result.is_err());
+
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_key_write_removes_the_partial_file() {
+        use std::io::Write;
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("offisim-secret-rollback-{stamp}"));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join(KEY_FILE_NAME);
+        let location = validate_key_path(&path).expect("validate missing key path");
+        let directory = open_key_root(&location).expect("open key root");
+        let key = test_key();
+
+        let error = write_key_file_with(&directory, &key, |file, key| {
+            file.write_all(&key[..1])?;
+            Err(std::io::Error::other("injected key write failure"))
+        })
+        .expect_err("partial key write must fail");
+        assert!(error.to_string().contains("write key file"), "{error}");
+        assert!(!path.exists(), "partial key file must be rolled back");
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

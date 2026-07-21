@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-#[cfg(test)]
 use tauri::Manager;
 use tauri::{ipc::Channel, AppHandle};
 use tokio::io::{AsyncWriteExt, BufReader};
@@ -293,14 +292,18 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
         // The explicit error path below always kills and waits. Keep this as the
         // final guard for cancellation/panic while the future owns the child.
         .kill_on_drop(true);
-    if authorized_process.is_none() {
-        command.current_dir(cwd);
-    }
+    let neutral_process = if authorized_process.is_none() {
+        Some(TrustedDirectoryIdentity::capture(cwd, "working directory")?)
+    } else {
+        None
+    };
     configure_process_group(&mut command);
     if let Some(execution) = authorized_process.as_ref() {
         execution
             .bind_command(&mut command)
             .map_err(HostError::Spawn)?;
+    } else if let Some(execution) = neutral_process.as_ref() {
+        execution.bind_command(&mut command)?;
     }
 
     let mut child = command.spawn().map_err(|err| {
@@ -1282,13 +1285,445 @@ async fn execute_with_mode(
 /// Resolve a dedicated, non-project working directory for ephemeral model jobs.
 /// Resource discovery is disabled in the host as a second boundary, but the cwd
 /// itself must never point at the repository or the user's home directory.
-pub(crate) fn neutral_cwd<R: tauri::Runtime>(_app: &AppHandle<R>) -> Result<PathBuf, HostError> {
-    let cwd = std::env::temp_dir()
-        .join("offisim-agent-runtime")
-        .join("isolated");
-    std::fs::create_dir_all(&cwd)
-        .map_err(|err| HostError::Request(format!("Create isolated agent cwd: {err}")))?;
-    Ok(cwd)
+pub(crate) fn neutral_cwd<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<PathBuf, HostError> {
+    let operator_root = app
+        .path()
+        .app_cache_dir()
+        .map_err(|err| HostError::Request(format!("Resolve isolated agent cache: {err}")))?;
+    prepare_neutral_cwd(&operator_root)
+}
+
+#[derive(Clone)]
+struct TrustedDirectoryIdentity {
+    canonical: PathBuf,
+    #[cfg(unix)]
+    device: u64,
+    #[cfg(unix)]
+    inode: u64,
+    #[cfg(unix)]
+    directory: Arc<std::fs::File>,
+}
+
+impl TrustedDirectoryIdentity {
+    fn capture(path: &Path, label: &str) -> Result<Self, HostError> {
+        #[cfg(unix)]
+        {
+            let canonical = canonicalize_missing_directory(path, label)?;
+            Self::from_opened(
+                &canonical,
+                open_directory_chain(&canonical, false, label)?,
+                label,
+            )
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = path;
+            Err(HostError::Request(
+                "Secure isolated agent directories are unavailable on this platform".into(),
+            ))
+        }
+    }
+
+    #[cfg(unix)]
+    fn from_opened(path: &Path, directory: std::fs::File, label: &str) -> Result<Self, HostError> {
+        use std::os::unix::fs::MetadataExt;
+
+        let metadata = directory.metadata().map_err(|err| {
+            HostError::Request(format!("Inspect opened isolated agent {label}: {err}"))
+        })?;
+        if !metadata.is_dir() {
+            return Err(HostError::Request(format!(
+                "Isolated agent {label} must be a real directory"
+            )));
+        }
+        let canonical = std::fs::canonicalize(path).map_err(|err| {
+            HostError::Request(format!("Canonicalize isolated agent {label}: {err}"))
+        })?;
+        let current = std::fs::symlink_metadata(&canonical).map_err(|err| {
+            HostError::Request(format!("Inspect canonical isolated agent {label}: {err}"))
+        })?;
+        if !current.is_dir() || current.dev() != metadata.dev() || current.ino() != metadata.ino() {
+            return Err(HostError::Request(format!(
+                "Isolated agent {label} changed while it was resolved"
+            )));
+        }
+        Ok(Self {
+            canonical,
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            directory: Arc::new(directory),
+        })
+    }
+
+    fn verify(&self, label: &str) -> Result<(), HostError> {
+        let current = Self::capture(&self.canonical, label)?;
+        if current.canonical != self.canonical {
+            return Err(HostError::Request(format!(
+                "Isolated agent {label} changed canonical path"
+            )));
+        }
+        #[cfg(unix)]
+        if current.device != self.device || current.inode != self.inode {
+            return Err(HostError::Request(format!(
+                "Isolated agent {label} was replaced"
+            )));
+        }
+        Ok(())
+    }
+
+    fn bind_command(&self, command: &mut Command) -> Result<(), HostError> {
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            use std::os::unix::process::CommandExt;
+
+            let directory = Arc::clone(&self.directory);
+            let device = self.device;
+            let inode = self.inode;
+            unsafe {
+                command.as_std_mut().pre_exec(move || {
+                    let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+                    if libc::fstat(directory.as_raw_fd(), stat.as_mut_ptr()) != 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    let stat = stat.assume_init();
+                    if stat.st_dev as u64 != device || stat.st_ino != inode {
+                        return Err(std::io::Error::from_raw_os_error(libc::ESTALE));
+                    }
+                    if libc::fchdir(directory.as_raw_fd()) != 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    Ok(())
+                });
+            }
+            Ok(())
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = command;
+            Err(HostError::Request(
+                "Secure isolated agent process binding is unavailable on this platform".into(),
+            ))
+        }
+    }
+}
+
+#[cfg(unix)]
+fn create_private_directory(
+    parent: &std::fs::File,
+    name: &std::ffi::CStr,
+    label: &str,
+) -> Result<(), HostError> {
+    use std::os::fd::AsRawFd;
+
+    let result = unsafe { libc::mkdirat(parent.as_raw_fd(), name.as_ptr(), 0o700) };
+    if result == 0 {
+        return Ok(());
+    }
+    let error = std::io::Error::last_os_error();
+    if error.kind() == std::io::ErrorKind::AlreadyExists {
+        Ok(())
+    } else {
+        Err(HostError::Request(format!(
+            "Create isolated agent {label}: {error}"
+        )))
+    }
+}
+
+#[cfg(unix)]
+fn open_directory_chain(
+    path: &Path,
+    create_missing: bool,
+    label: &str,
+) -> Result<std::fs::File, HostError> {
+    use std::ffi::CString;
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::unix::ffi::OsStrExt;
+
+    if !path.is_absolute() {
+        return Err(HostError::Request(format!(
+            "Isolated agent {label} must be absolute"
+        )));
+    }
+    let mut directory = std::fs::File::open("/").map_err(|err| {
+        HostError::Request(format!(
+            "Open filesystem root for isolated agent {label}: {err}"
+        ))
+    })?;
+    for component in path.components() {
+        let name = match component {
+            std::path::Component::RootDir => continue,
+            std::path::Component::Normal(name) => name,
+            _ => {
+                return Err(HostError::Request(format!(
+                    "Isolated agent {label} contains an invalid path component"
+                )))
+            }
+        };
+        let name = CString::new(name.as_bytes()).map_err(|_| {
+            HostError::Request(format!("Isolated agent {label} contains a NUL byte"))
+        })?;
+        if create_missing {
+            create_private_directory(&directory, &name, label)?;
+        }
+        let fd = unsafe {
+            libc::openat(
+                directory.as_raw_fd(),
+                name.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
+        };
+        if fd < 0 {
+            return Err(HostError::Request(format!(
+                "Open isolated agent {label} without following symlinks: {}",
+                std::io::Error::last_os_error()
+            )));
+        }
+        directory = std::fs::File::from(unsafe { OwnedFd::from_raw_fd(fd) });
+    }
+    Ok(directory)
+}
+
+fn ensure_directory(
+    path: &Path,
+    label: &str,
+    expected_parent: &TrustedDirectoryIdentity,
+) -> Result<TrustedDirectoryIdentity, HostError> {
+    #[cfg(unix)]
+    {
+        use std::ffi::CString;
+        use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+        use std::os::unix::ffi::OsStrExt;
+
+        let name = path.file_name().ok_or_else(|| {
+            HostError::Request(format!("Isolated agent {label} has no directory name"))
+        })?;
+        let name = CString::new(name.as_bytes()).map_err(|_| {
+            HostError::Request(format!("Isolated agent {label} contains a NUL byte"))
+        })?;
+        create_private_directory(&expected_parent.directory, &name, label)?;
+        let fd = unsafe {
+            libc::openat(
+                expected_parent.directory.as_raw_fd(),
+                name.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
+        };
+        if fd < 0 {
+            return Err(HostError::Request(format!(
+                "Open isolated agent {label} without following symlinks: {}",
+                std::io::Error::last_os_error()
+            )));
+        }
+        let directory = std::fs::File::from(unsafe { OwnedFd::from_raw_fd(fd) });
+        TrustedDirectoryIdentity::from_opened(path, directory, label)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (path, label, expected_parent);
+        Err(HostError::Request(
+            "Secure isolated agent directories are unavailable on this platform".into(),
+        ))
+    }
+}
+
+fn canonicalize_missing_directory(path: &Path, label: &str) -> Result<PathBuf, HostError> {
+    let mut ancestor = path;
+    let mut tail = Vec::new();
+    loop {
+        match std::fs::symlink_metadata(ancestor) {
+            Ok(metadata) => {
+                if ancestor == path && (metadata.file_type().is_symlink() || !metadata.is_dir()) {
+                    return Err(HostError::Request(format!(
+                        "Isolated agent {label} must be a real directory"
+                    )));
+                }
+                let mut canonical = std::fs::canonicalize(ancestor).map_err(|err| {
+                    HostError::Request(format!("Canonicalize isolated agent {label}: {err}"))
+                })?;
+                for component in tail.iter().rev() {
+                    canonical.push(component);
+                }
+                return Ok(canonical);
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                let name = ancestor.file_name().ok_or_else(|| {
+                    HostError::Request(format!(
+                        "Isolated agent {label} has no existing directory ancestor"
+                    ))
+                })?;
+                tail.push(name.to_os_string());
+                ancestor = ancestor.parent().ok_or_else(|| {
+                    HostError::Request(format!(
+                        "Isolated agent {label} has no existing directory ancestor"
+                    ))
+                })?;
+            }
+            Err(err) => {
+                return Err(HostError::Request(format!(
+                    "Inspect isolated agent {label}: {err}"
+                )))
+            }
+        }
+    }
+}
+
+fn prepare_neutral_cwd(operator_root: &Path) -> Result<PathBuf, HostError> {
+    let operator_root = canonicalize_missing_directory(operator_root, "operator root")?;
+    #[cfg(unix)]
+    let root = TrustedDirectoryIdentity::from_opened(
+        &operator_root,
+        open_directory_chain(&operator_root, true, "operator root")?,
+        "operator root",
+    )?;
+    #[cfg(not(unix))]
+    let root = TrustedDirectoryIdentity::capture(&operator_root, "operator root")?;
+    let runtime = ensure_directory(
+        &root.canonical.join("agent-runtime"),
+        "runtime directory",
+        &root,
+    )?;
+    let isolated = ensure_directory(
+        &runtime.canonical.join("isolated"),
+        "working directory",
+        &runtime,
+    )?;
+    root.verify("operator root")?;
+    runtime.verify("runtime directory")?;
+    isolated.verify("working directory")?;
+    Ok(isolated.canonical)
+}
+
+#[cfg(test)]
+mod neutral_cwd_security_tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_root(label: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("offisim-{label}-{suffix}"))
+    }
+
+    #[test]
+    fn neutral_cwd_is_canonical_beneath_operator_root() {
+        let base = unique_temp_root("neutral-safe");
+        let operator_root = base.join("operator-cache");
+
+        let cwd = prepare_neutral_cwd(&operator_root).expect("prepare neutral cwd");
+
+        assert_eq!(cwd, std::fs::canonicalize(&cwd).expect("canonical cwd"));
+        assert_eq!(
+            cwd,
+            std::fs::canonicalize(&operator_root)
+                .expect("canonical operator root")
+                .join("agent-runtime/isolated")
+        );
+        let _ = std::fs::remove_dir_all(base);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn neutral_cwd_rejects_symlink_operator_root_without_touching_target() {
+        use std::os::unix::fs::symlink;
+
+        let base = unique_temp_root("neutral-root-link");
+        let outside = base.join("outside");
+        let operator_root = base.join("operator-cache");
+        std::fs::create_dir_all(&outside).expect("create outside directory");
+        symlink(&outside, &operator_root).expect("create operator-root symlink");
+
+        assert!(prepare_neutral_cwd(&operator_root).is_err());
+        assert!(!outside.join("agent-runtime").exists());
+        let _ = std::fs::remove_dir_all(base);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn neutral_cwd_rejects_symlink_child_without_touching_target() {
+        use std::os::unix::fs::symlink;
+
+        let base = unique_temp_root("neutral-child-link");
+        let outside = base.join("outside");
+        let operator_root = base.join("operator-cache");
+        std::fs::create_dir_all(&outside).expect("create outside directory");
+        std::fs::create_dir_all(&operator_root).expect("create operator root");
+        symlink(&outside, operator_root.join("agent-runtime")).expect("create child symlink");
+
+        assert!(prepare_neutral_cwd(&operator_root).is_err());
+        assert!(!outside.join("isolated").exists());
+        let _ = std::fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn trusted_directory_identity_detects_same_path_replacement() {
+        let base = unique_temp_root("neutral-replacement");
+        let directory = base.join("operator-cache");
+        let displaced = base.join("operator-cache-old");
+        std::fs::create_dir_all(&directory).expect("create original directory");
+        let identity = TrustedDirectoryIdentity::capture(&directory, "operator root")
+            .expect("capture original identity");
+        std::fs::rename(&directory, &displaced).expect("displace original directory");
+        std::fs::create_dir(&directory).expect("create replacement directory");
+
+        assert!(identity.verify("operator root").is_err());
+        let _ = std::fs::remove_dir_all(base);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ensure_directory_never_creates_through_a_replaced_parent_path() {
+        use std::os::unix::fs::symlink;
+
+        let base = unique_temp_root("neutral-parent-swap");
+        let parent_path = base.join("operator-cache");
+        let displaced = base.join("operator-cache-original");
+        let outside = base.join("outside");
+        std::fs::create_dir_all(&parent_path).expect("create original parent");
+        std::fs::create_dir_all(&outside).expect("create outside directory");
+        let parent = TrustedDirectoryIdentity::capture(&parent_path, "operator root")
+            .expect("capture original parent");
+        std::fs::rename(&parent_path, &displaced).expect("displace original parent");
+        symlink(&outside, &parent_path).expect("replace parent with symlink");
+
+        assert!(ensure_directory(
+            &parent_path.join("agent-runtime"),
+            "runtime directory",
+            &parent
+        )
+        .is_err());
+        assert!(displaced.join("agent-runtime").is_dir());
+        assert!(!outside.join("agent-runtime").exists());
+        let _ = std::fs::remove_dir_all(base);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn bound_neutral_command_uses_the_opened_directory_after_path_replacement() {
+        let base = unique_temp_root("neutral-spawn-swap");
+        let directory = base.join("isolated");
+        let displaced = base.join("isolated-original");
+        std::fs::create_dir_all(&directory).expect("create original directory");
+        std::fs::write(directory.join("marker"), "verified").expect("write original marker");
+        let identity = TrustedDirectoryIdentity::capture(&directory, "working directory")
+            .expect("capture original directory");
+        std::fs::rename(&directory, &displaced).expect("displace original directory");
+        std::fs::create_dir(&directory).expect("create replacement directory");
+        std::fs::write(directory.join("marker"), "replacement").expect("write replacement marker");
+
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "cat marker"]);
+        identity
+            .bind_command(&mut command)
+            .expect("bind opened directory");
+        let output = command.output().await.expect("run bound command");
+
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"verified");
+        let _ = std::fs::remove_dir_all(base);
+    }
 }
 
 async fn do_enhance<R: tauri::Runtime>(
