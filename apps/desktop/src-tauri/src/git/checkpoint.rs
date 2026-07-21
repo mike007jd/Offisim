@@ -43,36 +43,24 @@ pub struct WorkspaceCheckpointTimeline {
 }
 
 struct CheckpointIndexDir {
-    dir: PathBuf,
+    _dir: tempfile::TempDir,
     index: PathBuf,
 }
 
 impl CheckpointIndexDir {
     fn create() -> Result<Self, String> {
-        for _ in 0..8 {
-            let dir = std::env::temp_dir().join(format!(
-                "offisim-checkpoint-index-{}-{:032x}",
-                std::process::id(),
-                rand::random::<u128>()
-            ));
-            match std::fs::create_dir(&dir) {
-                Ok(()) => {
-                    return Ok(Self {
-                        index: dir.join("index"),
-                        dir,
-                    });
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-                Err(error) => return Err(format!("Create checkpoint index directory: {error}")),
-            }
-        }
-        Err("Could not reserve a checkpoint index directory".into())
-    }
-}
+        #[cfg(unix)]
+        use std::os::unix::fs::PermissionsExt;
 
-impl Drop for CheckpointIndexDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.dir);
+        let mut builder = tempfile::Builder::new();
+        builder.prefix("offisim-checkpoint-index-");
+        #[cfg(unix)]
+        builder.permissions(std::fs::Permissions::from_mode(0o700));
+        let dir = builder
+            .tempdir()
+            .map_err(|error| format!("Create checkpoint index directory: {error}"))?;
+        let index = dir.path().join("index");
+        Ok(Self { _dir: dir, index })
     }
 }
 

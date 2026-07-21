@@ -408,9 +408,7 @@ fn bounded_evaluation_timeout_ms(
 
 #[cfg(unix)]
 struct ShellLifetimeMarker {
-    path: PathBuf,
-    file: std::fs::File,
-    cleaned: bool,
+    marker: Option<tempfile::NamedTempFile>,
 }
 
 #[cfg(not(unix))]
@@ -420,36 +418,14 @@ impl ShellLifetimeMarker {
     fn new() -> Result<Self, String> {
         #[cfg(unix)]
         {
-            use std::os::unix::fs::OpenOptionsExt;
-
-            for _ in 0..8 {
-                let mut random = [0_u8; 16];
-                OsRng.fill_bytes(&mut random);
-                let path = std::env::temp_dir().join(format!(
-                    "offisim-task-bash-{}.lifetime",
-                    hex::encode(random)
-                ));
-                match OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .create_new(true)
-                    .mode(0o600)
-                    .open(&path)
-                {
-                    Ok(file) => {
-                        return Ok(Self {
-                            path,
-                            file,
-                            cleaned: false,
-                        });
-                    }
-                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-                    Err(error) => {
-                        return Err(format!("Create task Bash lifetime marker: {error}"));
-                    }
-                }
-            }
-            Err("Could not allocate a unique task Bash lifetime marker".into())
+            let marker = tempfile::Builder::new()
+                .prefix("offisim-task-bash-")
+                .suffix(".lifetime")
+                .tempfile()
+                .map_err(|error| format!("Create task Bash lifetime marker: {error}"))?;
+            Ok(Self {
+                marker: Some(marker),
+            })
         }
         #[cfg(not(unix))]
         {
@@ -463,9 +439,13 @@ impl ShellLifetimeMarker {
             use std::os::fd::AsRawFd;
             use std::os::unix::process::CommandExt;
 
-            command.env(SHELL_LIFETIME_MARKER_ENV, &self.path);
-            let marker = self
-                .file
+            let marker_file = self
+                .marker
+                .as_ref()
+                .ok_or_else(|| "Task Bash lifetime marker is already closed".to_string())?;
+            command.env(SHELL_LIFETIME_MARKER_ENV, marker_file.path());
+            let marker = marker_file
+                .as_file()
                 .try_clone()
                 .map_err(|error| format!("Clone task Bash lifetime marker: {error}"))?;
             // Keep the marker away from the low descriptors shells routinely
@@ -499,12 +479,20 @@ impl ShellLifetimeMarker {
     async fn terminate_holders(&mut self) -> Result<(), String> {
         #[cfg(unix)]
         {
-            let path = self.path.clone();
+            let path = self
+                .marker
+                .as_ref()
+                .ok_or_else(|| "Task Bash lifetime marker is already closed".to_string())?
+                .path()
+                .to_path_buf();
             tokio::task::spawn_blocking(move || terminate_lifetime_marker_holders(&path))
                 .await
                 .map_err(|error| format!("Join task Bash lifetime cleanup: {error}"))??;
-            self.cleaned = true;
-            let _ = std::fs::remove_file(&self.path);
+            if let Some(marker) = self.marker.take() {
+                marker
+                    .close()
+                    .map_err(|error| format!("Remove task Bash lifetime marker: {error}"))?;
+            }
         }
         Ok(())
     }
@@ -513,9 +501,8 @@ impl ShellLifetimeMarker {
 #[cfg(unix)]
 impl Drop for ShellLifetimeMarker {
     fn drop(&mut self) {
-        if !self.cleaned {
-            let _ = terminate_lifetime_marker_holders(&self.path);
-            let _ = std::fs::remove_file(&self.path);
+        if let Some(marker) = self.marker.as_ref() {
+            let _ = terminate_lifetime_marker_holders(marker.path());
         }
     }
 }

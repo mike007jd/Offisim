@@ -8,7 +8,7 @@ gates that prove them. Product/account/session/workspace decisions live in
 
 Engine wording below means **source implemented** unless a published
 distribution is named. Historical release `.app` evidence keeps its original
-commit/hash; the current `1.1.0` candidate has release evidence pending.
+commit/hash; the current `1.1.1` candidate has release evidence pending.
 
 ## Production route
 
@@ -78,7 +78,7 @@ Release support still requires the exact current-worktree release `.app`, its
 binary hash, matched window identity, and Computer Use interaction.
 Dev webviews and localhost previews are not release evidence. Historical
 2026-07-17 release `.app` proofs remain under their original commit/hash;
-current `1.1.0` candidate release evidence is pending.
+current `1.1.1` candidate release evidence is pending.
 
 ## Historical boundary
 
