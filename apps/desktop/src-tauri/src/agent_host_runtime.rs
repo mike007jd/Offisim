@@ -517,6 +517,10 @@ pub(crate) struct TrustedCodexExecutable {
     canonical_path: PathBuf,
     #[cfg(unix)]
     file: std::fs::File,
+    #[cfg(unix)]
+    append_opened_file_arg: bool,
+    #[cfg(unix)]
+    _materialized_executable: Option<tempfile::TempDir>,
     launcher_path: PathBuf,
     launcher_args: Vec<OsString>,
 }
@@ -531,7 +535,9 @@ impl TrustedCodexExecutable {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            args.push(OsString::from(format!("/dev/fd/{}", self.file.as_raw_fd())));
+            if self.append_opened_file_arg {
+                args.push(OsString::from(format!("/dev/fd/{}", self.file.as_raw_fd())));
+            }
         }
         args
     }
@@ -608,6 +614,11 @@ fn trusted_codex_candidate(
     }
     #[cfg(unix)]
     {
+        if let Some(native) =
+            trusted_codex_native_executable(&canonical, trusted_roots, forbidden_root)
+        {
+            return Some(native);
+        }
         let file = open_executable_without_symlinks(&canonical)?;
         let (launcher_path, launcher_args) =
             trusted_script_launcher(&canonical, &file, trusted_roots)?;
@@ -615,6 +626,8 @@ fn trusted_codex_candidate(
             #[cfg(test)]
             canonical_path: canonical,
             file,
+            append_opened_file_arg: true,
+            _materialized_executable: None,
             launcher_path,
             launcher_args,
         })
@@ -624,6 +637,123 @@ fn trusted_codex_candidate(
         let _ = canonical;
         None
     }
+}
+
+#[cfg(unix)]
+fn codex_native_layout() -> Option<(&'static str, &'static str)> {
+    match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "aarch64") => Some(("codex-darwin-arm64", "aarch64-apple-darwin")),
+        ("macos", "x86_64") => Some(("codex-darwin-x64", "x86_64-apple-darwin")),
+        ("linux", "aarch64") => Some(("codex-linux-arm64", "aarch64-unknown-linux-musl")),
+        ("linux", "x86_64") => Some(("codex-linux-x64", "x86_64-unknown-linux-musl")),
+        _ => None,
+    }
+}
+
+#[cfg(unix)]
+fn materialize_opened_executable(file: &std::fs::File) -> Option<(PathBuf, tempfile::TempDir)> {
+    // Codex's ESM launcher cannot run through `/dev/fd`: changing import.meta.url
+    // prevents it from resolving the platform package. The native Mach-O also
+    // cannot execute directly from that descriptor, so keep the verified inode
+    // pinned and materialize its bytes into a private, lifetime-bound directory.
+    #[cfg(target_os = "macos")]
+    use std::os::fd::AsRawFd;
+    use std::os::unix::fs::PermissionsExt;
+
+    let materialized_root = tempfile::Builder::new()
+        .prefix("offisim-codex-")
+        .tempdir()
+        .ok()?;
+    let materialized_path = materialized_root.path().join("codex");
+
+    #[cfg(target_os = "macos")]
+    {
+        let directory = std::fs::File::open(materialized_root.path()).ok()?;
+        let name = std::ffi::CString::new("codex").ok()?;
+        let result = unsafe {
+            libc::fclonefileat(file.as_raw_fd(), directory.as_raw_fd(), name.as_ptr(), 0)
+        };
+        if result == 0 {
+            let mut permissions = std::fs::metadata(&materialized_path).ok()?.permissions();
+            permissions.set_mode(0o700);
+            std::fs::set_permissions(&materialized_path, permissions).ok()?;
+            return Some((materialized_path, materialized_root));
+        }
+    }
+
+    let fallback_path = materialized_root.path().join("codex-copy");
+    let mut source = file.try_clone().ok()?;
+    source.seek(SeekFrom::Start(0)).ok()?;
+    let mut materialized = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&fallback_path)
+        .ok()?;
+    std::io::copy(&mut source, &mut materialized).ok()?;
+    materialized.flush().ok()?;
+    let mut permissions = materialized.metadata().ok()?.permissions();
+    permissions.set_mode(0o700);
+    materialized.set_permissions(permissions).ok()?;
+    materialized.sync_all().ok()?;
+    Some((fallback_path, materialized_root))
+}
+
+#[cfg(unix)]
+fn trusted_codex_native_executable(
+    script: &Path,
+    trusted_roots: &[PathBuf],
+    forbidden_root: Option<&Path>,
+) -> Option<TrustedCodexExecutable> {
+    if script.file_name()? != "codex.js" {
+        return None;
+    }
+    let package_root = script.parent()?.parent()?;
+    let (platform_package, target_triple) = codex_native_layout()?;
+    let vendor_tail = PathBuf::from("vendor")
+        .join(target_triple)
+        .join("bin/codex");
+    let direct_vendor = package_root.join(&vendor_tail);
+    let resolved_packages = package_root.ancestors().map(|ancestor| {
+        ancestor
+            .join("node_modules/@openai")
+            .join(platform_package)
+            .join(&vendor_tail)
+    });
+
+    for candidate in std::iter::once(direct_vendor).chain(resolved_packages) {
+        let canonical = match std::fs::canonicalize(candidate) {
+            Ok(canonical) => canonical,
+            Err(_) => continue,
+        };
+        let trusted = trusted_roots.iter().any(|root| {
+            std::fs::canonicalize(root)
+                .ok()
+                .is_some_and(|root| canonical.starts_with(root))
+        });
+        if !trusted
+            || forbidden_root
+                .and_then(|root| std::fs::canonicalize(root).ok())
+                .is_some_and(|root| canonical.starts_with(root))
+        {
+            continue;
+        }
+        let Some(file) = open_executable_without_symlinks(&canonical) else {
+            continue;
+        };
+        let Some((launcher_path, materialized)) = materialize_opened_executable(&file) else {
+            continue;
+        };
+        return Some(TrustedCodexExecutable {
+            #[cfg(test)]
+            canonical_path: canonical,
+            file,
+            append_opened_file_arg: false,
+            _materialized_executable: Some(materialized),
+            launcher_path,
+            launcher_args: Vec::new(),
+        });
+    }
+    None
 }
 
 #[cfg(unix)]
@@ -1007,6 +1137,47 @@ mod tests {
 
         assert!(output.status.success());
         assert_eq!(output.stdout, b"verified");
+        let _ = std::fs::remove_dir_all(install_root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn trusted_codex_node_wrapper_materializes_the_pinned_native_binary() {
+        let Some((platform_package, target_triple)) = codex_native_layout() else {
+            return;
+        };
+        let install_root = unique_temp_root("codex-native-install-root");
+        let package_root = install_root.join("lib/node_modules/@openai/codex");
+        let installed_codex = package_root.join("bin/codex.js");
+        let native_codex = package_root
+            .join("node_modules/@openai")
+            .join(platform_package)
+            .join("vendor")
+            .join(target_triple)
+            .join("bin/codex");
+        write_executable(&installed_codex);
+        write_executable(&native_codex);
+        std::fs::write(&native_codex, b"#!/bin/sh\nprintf pinned-native\n")
+            .expect("write native executable");
+
+        let trusted =
+            trusted_codex_candidate(&installed_codex, std::slice::from_ref(&install_root), None)
+                .expect("trusted native executable");
+        assert_eq!(
+            trusted.canonical_path(),
+            std::fs::canonicalize(&native_codex).unwrap()
+        );
+        assert!(trusted.command_prefix_args().is_empty());
+        assert_ne!(trusted.command_path(), native_codex);
+
+        let displaced_native = native_codex.with_extension("original");
+        std::fs::rename(&native_codex, &displaced_native).expect("displace native executable");
+        write_executable(&native_codex);
+        let output = std::process::Command::new(trusted.command_path())
+            .output()
+            .expect("execute materialized native binary");
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"pinned-native");
         let _ = std::fs::remove_dir_all(install_root);
     }
 
