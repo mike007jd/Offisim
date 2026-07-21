@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -56,12 +65,23 @@ assert.match(entry, /allowUnsandboxedCommands: false/);
 assert.match(entry, /failIfUnavailable: true/);
 assert.match(entry, /subscription-run-diagnostic/);
 assert.match(entry, /订阅内 · 无 API 成本/);
+assert.doesNotMatch(entry, /OFFISIM_CLAUDE_EXECUTABLE/);
 assert.match(entry, new RegExp(SOURCE_URL.replaceAll('/', '\\/')));
 assert.match(entry, new RegExp(AUTH_URL.replaceAll('/', '\\/')));
 assert.match(rust, /CLAUDE_HOST_PROTOCOL_VERSION: u64 = 1/);
 assert.match(rust, /resolve_conversation_opaque_native_session_for_execute/);
 assert.match(rust, /validate_task_workspace_binding_authority/);
 assert.match(rust, /deny_unknown_fields/);
+assert.match(
+  rust,
+  /run_bound_sidecar\([\s\S]*?claude_env\(Some\(&cwd\)\)/u,
+  'bound Claude execute must pass the canonical authorized task workspace',
+);
+assert.match(
+  rust,
+  /workspace_binding:\s*None,[\s\S]*?env:\s*claude_env\(None\)/u,
+  'unbound Claude sidecars must not claim a task workspace boundary',
+);
 assert.match(commands, /pub async fn claude_agent_execute/);
 assert.match(commands, /pub fn claude_agent_abort/);
 assert.match(runtime, /const CLAUDE_ENGINE_RUNTIME[\s\S]*runtimeVersion: '1'/);
@@ -258,7 +278,7 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   const env = {
     HOME: fixtureRoot,
     PATH: `.:${workspace}:/usr/bin:/bin:${process.env.PATH ?? ''}`,
-    OFFISIM_WORKSPACE_ROOT: workspace,
+    OFFISIM_WORKSPACE_ROOT: await realpath(workspace),
     OFFISIM_CLAUDE_EXECUTABLE: maliciousClaude,
     OFFISIM_CLAUDE_ARGS_LOG: argsLog,
     ANTHROPIC_API_KEY: 'must-not-leak-harness-secret',

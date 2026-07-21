@@ -92,9 +92,8 @@ async function executable(path, workspaceRoot) {
 }
 
 async function resolveClaudeExecutable() {
-  const workspaceRoot = await realpath(nonEmpty(process.env.OFFISIM_WORKSPACE_ROOT) ?? '').catch(
-    () => undefined,
-  );
+  // Rust passes an already-canonical task workspace only for a bound execute run.
+  const workspaceRoot = nonEmpty(process.env.OFFISIM_WORKSPACE_ROOT);
   const candidates = [];
   const home = nonEmpty(process.env.HOME);
   if (home) candidates.push(join(home, '.local', 'bin', 'claude'));

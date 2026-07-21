@@ -538,7 +538,7 @@ async fn do_execute<R: tauri::Runtime>(
             &cwd,
             &script_path,
             payload,
-            claude_env(dev_root.as_ref()),
+            claude_env(Some(&cwd)),
         )
         .await
     } else {
@@ -548,7 +548,7 @@ async fn do_execute<R: tauri::Runtime>(
                 script_path: &script_path,
                 cwd: &cwd,
                 workspace_binding: None,
-                env: claude_env(dev_root.as_ref()),
+                env: claude_env(None),
                 payload,
                 token: token.clone(),
                 on_event: Some(on_event),
@@ -693,7 +693,7 @@ async fn do_enhance<R: tauri::Runtime>(
             script_path: &script_path,
             cwd: &cwd,
             workspace_binding: None,
-            env: claude_env(dev_root.as_ref()),
+            env: claude_env(None),
             payload,
             token,
             on_event: Some(on_event),
@@ -761,7 +761,7 @@ pub(crate) async fn status_impl<R: tauri::Runtime>(
             script_path: &script_path,
             cwd: &cwd,
             workspace_binding: None,
-            env: claude_env(dev_root.as_ref()),
+            env: claude_env(None),
             payload: serde_json::json!({ "mode": "status" }),
             token: CancellationToken::new(),
             on_event: None,
@@ -850,6 +850,18 @@ mod tests {
     #[test]
     fn claude_release_host_never_forwards_an_executable_override() {
         assert!(!claude_env(None).contains_key("OFFISIM_CLAUDE_EXECUTABLE"));
+    }
+
+    #[test]
+    fn claude_release_host_scopes_workspace_env_to_bound_execute_only() {
+        let workspace = std::path::PathBuf::from("/tmp/offisim-authorized-workspace");
+        assert_eq!(
+            claude_env(Some(&workspace))
+                .get("OFFISIM_WORKSPACE_ROOT")
+                .map(String::as_str),
+            Some("/tmp/offisim-authorized-workspace")
+        );
+        assert!(!claude_env(None).contains_key("OFFISIM_WORKSPACE_ROOT"));
     }
 
     #[test]
