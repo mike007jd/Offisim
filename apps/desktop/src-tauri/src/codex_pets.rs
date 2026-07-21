@@ -3,8 +3,12 @@ use image::ImageDecoder;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
+#[cfg(unix)]
+use std::ffi::CString;
 use std::fs::{self, File, Metadata, OpenOptions};
 use std::io::{Cursor, ErrorKind, Read};
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, FromRawFd};
 use std::path::{Path, PathBuf};
 
 const MANIFEST_NAME: &str = "pet.json";
@@ -185,35 +189,165 @@ fn open_readonly_no_follow(path: &Path) -> std::io::Result<File> {
     options.open(path)
 }
 
-fn validate_regular_file(
-    path: &Path,
-    package_root: &Path,
-    label: &str,
-) -> PetEntryResult<Metadata> {
-    let metadata = fs::symlink_metadata(path).map_err(|error| {
-        PetEntryError::new("missing-file", format!("{label} is unavailable: {error}"))
+#[cfg(unix)]
+fn open_directory_no_follow(path: &Path) -> std::io::Result<File> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(path)
+}
+
+#[cfg(unix)]
+fn open_child_no_follow(parent: &File, name: &str, directory: bool) -> std::io::Result<File> {
+    let name = CString::new(name)
+        .map_err(|_| std::io::Error::new(ErrorKind::InvalidInput, "path contains NUL"))?;
+    let mut flags = libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK;
+    if directory {
+        flags |= libc::O_DIRECTORY;
+    }
+    let descriptor = unsafe { libc::openat(parent.as_raw_fd(), name.as_ptr(), flags) };
+    if descriptor < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(unsafe { File::from_raw_fd(descriptor) })
+}
+
+#[cfg(unix)]
+fn child_is_symlink(parent: &File, name: &str) -> bool {
+    let Ok(name) = CString::new(name) else {
+        return false;
+    };
+    let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+    let result = unsafe {
+        libc::fstatat(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            stat.as_mut_ptr(),
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    };
+    if result != 0 {
+        return false;
+    }
+    let mode = unsafe { stat.assume_init() }.st_mode;
+    mode & libc::S_IFMT == libc::S_IFLNK
+}
+
+#[cfg(not(unix))]
+fn open_directory_no_follow(_path: &Path) -> std::io::Result<File> {
+    Err(std::io::Error::new(
+        ErrorKind::Unsupported,
+        "Codex pet packages require descriptor-relative filesystem access",
+    ))
+}
+
+#[cfg(not(unix))]
+fn open_child_no_follow(_parent: &File, _name: &str, _directory: bool) -> std::io::Result<File> {
+    Err(std::io::Error::new(
+        ErrorKind::Unsupported,
+        "Codex pet packages require descriptor-relative filesystem access",
+    ))
+}
+
+#[cfg(not(unix))]
+fn child_is_symlink(_parent: &File, _name: &str) -> bool {
+    false
+}
+
+fn open_pet_package(root: &Path, folder_id: &str) -> PetEntryResult<File> {
+    let root_handle = open_directory_no_follow(root).map_err(|error| {
+        PetEntryError::new(
+            "path-escape",
+            format!("open Codex pets directory without following links: {error}"),
+        )
     })?;
-    if metadata.file_type().is_symlink() {
+    let package = open_child_no_follow(&root_handle, folder_id, true).map_err(|error| {
+        let code = if child_is_symlink(&root_handle, folder_id) {
+            "symlink"
+        } else {
+            "invalid-entry"
+        };
+        PetEntryError::new(
+            code,
+            format!("open pet folder without following links: {error}"),
+        )
+    })?;
+    let metadata = package.metadata().map_err(|error| {
+        PetEntryError::new("invalid-entry", format!("inspect open pet folder: {error}"))
+    })?;
+    if !metadata.is_dir() {
         return Err(PetEntryError::new(
-            "symlink",
-            format!("{label} must not be a symlink"),
+            "invalid-entry",
+            "pet entry is not a directory",
         ));
     }
+    Ok(package)
+}
+
+fn open_pet_regular_file(
+    package: &File,
+    name: &str,
+    label: &str,
+) -> PetEntryResult<(File, Metadata)> {
+    let file = open_child_no_follow(package, name, false).map_err(|error| {
+        let code = classify_pet_file_open_error(package, name, &error);
+        PetEntryError::new(
+            code,
+            format!("open {label} without following links: {error}"),
+        )
+    })?;
+    let metadata = file.metadata().map_err(|error| {
+        PetEntryError::new("read-failed", format!("inspect open {label}: {error}"))
+    })?;
     if !metadata.is_file() {
         return Err(PetEntryError::new(
             "invalid-file",
             format!("{label} is not a regular file"),
         ));
     }
-    let canonical = fs::canonicalize(path)
-        .map_err(|error| PetEntryError::new("path-escape", format!("resolve {label}: {error}")))?;
-    if canonical.parent() != Some(package_root) {
+    Ok((file, metadata))
+}
+
+fn classify_pet_file_open_error(
+    package: &File,
+    name: &str,
+    error: &std::io::Error,
+) -> &'static str {
+    if child_is_symlink(package, name) {
+        "symlink"
+    } else if error.raw_os_error() == Some(libc::ENOENT) {
+        "missing-file"
+    } else {
+        "read-failed"
+    }
+}
+
+fn read_open_pet_file(
+    mut file: File,
+    metadata: &Metadata,
+    limit: u64,
+    label: &str,
+) -> PetEntryResult<Vec<u8>> {
+    if metadata.len() > limit {
         return Err(PetEntryError::new(
-            "path-escape",
-            format!("{label} escapes its pet package"),
+            "file-too-large",
+            format!("{label} exceeds the {limit}-byte limit"),
         ));
     }
-    Ok(metadata)
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.by_ref()
+        .take(limit + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| PetEntryError::new("read-failed", format!("read {label}: {error}")))?;
+    if bytes.len() as u64 > limit {
+        return Err(PetEntryError::new(
+            "file-too-large",
+            format!("{label} exceeds the {limit}-byte limit"),
+        ));
+    }
+    Ok(bytes)
 }
 
 fn read_limited_file(
@@ -317,48 +451,24 @@ fn validate_webp(bytes: &[u8]) -> PetEntryResult<(u32, u32)> {
     Ok(dimensions)
 }
 
-fn validate_package(root: &Path, pet_dir: &Path, folder_id: &str) -> PetEntryResult<ValidatedPet> {
+fn validate_package(root: &Path, folder_id: &str) -> PetEntryResult<ValidatedPet> {
     if !is_valid_pet_id(folder_id) {
         return Err(PetEntryError::new(
             "invalid-id",
             "pet folder id must be a lowercase ASCII slug",
         ));
     }
-    let directory_metadata = fs::symlink_metadata(pet_dir).map_err(|error| {
-        PetEntryError::new("invalid-entry", format!("inspect pet folder: {error}"))
-    })?;
-    if directory_metadata.file_type().is_symlink() {
-        return Err(PetEntryError::new(
-            "symlink",
-            "pet folder must not be a symlink",
-        ));
-    }
-    if !directory_metadata.is_dir() {
-        return Err(PetEntryError::new(
-            "invalid-entry",
-            "pet entry is not a directory",
-        ));
-    }
-    let package_root = fs::canonicalize(pet_dir).map_err(|error| {
-        PetEntryError::new("path-escape", format!("resolve pet folder: {error}"))
-    })?;
-    if package_root.parent() != Some(root) {
-        return Err(PetEntryError::new(
-            "path-escape",
-            "pet folder escapes the Codex pets directory",
-        ));
-    }
-
-    let manifest_path = package_root.join(MANIFEST_NAME);
-    let manifest_metadata = validate_regular_file(&manifest_path, &package_root, MANIFEST_NAME)?;
+    let package = open_pet_package(root, folder_id)?;
+    let (manifest_file, manifest_metadata) =
+        open_pet_regular_file(&package, MANIFEST_NAME, MANIFEST_NAME)?;
     if manifest_metadata.len() > MAX_MANIFEST_BYTES {
         return Err(PetEntryError::new(
             "manifest-too-large",
             format!("pet.json exceeds {MAX_MANIFEST_BYTES} bytes"),
         ));
     }
-    let manifest_bytes = read_limited_file(
-        &manifest_path,
+    let manifest_bytes = read_open_pet_file(
+        manifest_file,
         &manifest_metadata,
         MAX_MANIFEST_BYTES,
         MANIFEST_NAME,
@@ -385,17 +495,16 @@ fn validate_package(root: &Path, pet_dir: &Path, folder_id: &str) -> PetEntryRes
         ));
     }
 
-    let spritesheet_path = package_root.join(SPRITESHEET_NAME);
-    let spritesheet_metadata =
-        validate_regular_file(&spritesheet_path, &package_root, SPRITESHEET_NAME)?;
+    let (spritesheet_file, spritesheet_metadata) =
+        open_pet_regular_file(&package, SPRITESHEET_NAME, SPRITESHEET_NAME)?;
     if spritesheet_metadata.len() > MAX_SPRITESHEET_BYTES {
         return Err(PetEntryError::new(
             "spritesheet-too-large",
             format!("spritesheet exceeds {MAX_SPRITESHEET_BYTES} bytes"),
         ));
     }
-    let spritesheet_bytes = read_limited_file(
-        &spritesheet_path,
+    let spritesheet_bytes = read_open_pet_file(
+        spritesheet_file,
         &spritesheet_metadata,
         MAX_SPRITESHEET_BYTES,
         SPRITESHEET_NAME,
@@ -504,7 +613,7 @@ fn list_catalog_at(location: PetsLocation) -> Result<CodexPetCatalog, String> {
             if folder.starts_with('.') {
                 continue;
             }
-            match validate_package(root, &entry.path(), &folder) {
+            match validate_package(root, &folder) {
                 Ok(validated) => pets.push(validated.metadata),
                 Err(error) => invalid_entries.push(error.invalid(folder)),
             }
@@ -525,8 +634,7 @@ fn load_pet_bytes_at(root: &Path, pet_id: &str, expected_version: &str) -> Resul
     if !is_valid_pet_id(pet_id) {
         return Err("invalid-id: pet id must be a lowercase ASCII slug".to_string());
     }
-    let validated = validate_package(root, &root.join(pet_id), pet_id)
-        .map_err(PetEntryError::command_message)?;
+    let validated = validate_package(root, pet_id).map_err(PetEntryError::command_message)?;
     if expected_version != validated.metadata.version {
         return Err("version-mismatch: Codex pet changed; refresh the catalog".to_string());
     }
@@ -737,7 +845,7 @@ mod tests {
             r#"{"id":"safe-pet","displayName":"Safe","description":"Safe.","spritesheetPath":"../outside.webp"}"#,
         )
         .unwrap();
-        let error = validate_package(&fs::canonicalize(&root).unwrap(), &package, "safe-pet")
+        let error = validate_package(&fs::canonicalize(&root).unwrap(), "safe-pet")
             .err()
             .unwrap();
         assert_eq!(error.code, "path-escape");
@@ -753,13 +861,9 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         let real = write_pet(&root, "real-pet");
         symlink(&real, root.join("linked-pet")).unwrap();
-        let error = validate_package(
-            &fs::canonicalize(&root).unwrap(),
-            &root.join("linked-pet"),
-            "linked-pet",
-        )
-        .err()
-        .unwrap();
+        let error = validate_package(&fs::canonicalize(&root).unwrap(), "linked-pet")
+            .err()
+            .unwrap();
         assert_eq!(error.code, "symlink");
 
         let package = write_pet(&root, "sheet-link");
@@ -767,10 +871,80 @@ mod tests {
         fs::write(&outside, valid_webp()).unwrap();
         fs::remove_file(package.join(SPRITESHEET_NAME)).unwrap();
         symlink(outside, package.join(SPRITESHEET_NAME)).unwrap();
-        let error = validate_package(&fs::canonicalize(&root).unwrap(), &package, "sheet-link")
+        let error = validate_package(&fs::canonicalize(&root).unwrap(), "sheet-link")
             .err()
             .unwrap();
         assert_eq!(error.code, "symlink");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn opened_package_handle_is_not_redirected_by_path_replacement() {
+        let tree = TempTree::new();
+        let root = tree.pets();
+        fs::create_dir_all(&root).unwrap();
+        let package = write_pet(&root, "stable-pet");
+        let canonical_root = fs::canonicalize(&root).unwrap();
+        let root_handle = open_directory_no_follow(&canonical_root).unwrap();
+        let package_handle = open_child_no_follow(&root_handle, "stable-pet", true).unwrap();
+
+        let moved = root.join("moved-original");
+        fs::rename(&package, &moved).unwrap();
+        let replacement = write_pet(&root, "stable-pet");
+        fs::write(
+            replacement.join(MANIFEST_NAME),
+            r#"{"id":"stable-pet","displayName":"Replacement","description":"Replacement.","spritesheetPath":"spritesheet.webp"}"#,
+        )
+        .unwrap();
+
+        let (manifest, metadata) =
+            open_pet_regular_file(&package_handle, MANIFEST_NAME, MANIFEST_NAME).unwrap();
+        let bytes =
+            read_open_pet_file(manifest, &metadata, MAX_MANIFEST_BYTES, MANIFEST_NAME).unwrap();
+        let original: PetManifest = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(original.display_name, "Pet stable-pet");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_fifo_pet_files_without_blocking() {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+
+        let tree = TempTree::new();
+        let root = tree.pets();
+        fs::create_dir_all(&root).unwrap();
+        let package = root.join("fifo-pet");
+        fs::create_dir(&package).unwrap();
+        let manifest = package.join(MANIFEST_NAME);
+        let manifest = CString::new(manifest.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(manifest.as_ptr(), 0o600) }, 0);
+
+        let error = validate_package(&fs::canonicalize(&root).unwrap(), "fifo-pet")
+            .err()
+            .unwrap();
+        assert_eq!(error.code, "invalid-file");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn only_enoent_is_reported_as_a_missing_pet_file() {
+        let tree = TempTree::new();
+        let root = tree.pets();
+        fs::create_dir_all(&root).unwrap();
+        let package = write_pet(&root, "error-pet");
+        let package = open_directory_no_follow(&package).unwrap();
+
+        let missing = open_pet_regular_file(&package, "absent.webp", "missing sprite")
+            .err()
+            .unwrap();
+        assert_eq!(missing.code, "missing-file");
+
+        let permission_denied = std::io::Error::from_raw_os_error(libc::EACCES);
+        assert_eq!(
+            classify_pet_file_open_error(&package, "absent.webp", &permission_denied),
+            "read-failed"
+        );
     }
 
     #[test]
@@ -783,7 +957,7 @@ mod tests {
             .unwrap()
             .set_len(MAX_MANIFEST_BYTES + 1)
             .unwrap();
-        let error = validate_package(&fs::canonicalize(&root).unwrap(), &package, "large-pet")
+        let error = validate_package(&fs::canonicalize(&root).unwrap(), "large-pet")
             .err()
             .unwrap();
         assert_eq!(error.code, "manifest-too-large");
@@ -797,7 +971,7 @@ mod tests {
             .unwrap()
             .set_len(MAX_SPRITESHEET_BYTES + 1)
             .unwrap();
-        let error = validate_package(&fs::canonicalize(&root).unwrap(), &package, "large-pet")
+        let error = validate_package(&fs::canonicalize(&root).unwrap(), "large-pet")
             .err()
             .unwrap();
         assert_eq!(error.code, "spritesheet-too-large");
@@ -810,7 +984,7 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         let package = write_pet(&root, "load-pet");
         let root = fs::canonicalize(root).unwrap();
-        let validated = validate_package(&root, &package, "load-pet").unwrap();
+        let validated = validate_package(&root, "load-pet").unwrap();
         let bytes = load_pet_bytes_at(&root, "load-pet", &validated.metadata.version).unwrap();
         assert_eq!(bytes, fs::read(package.join(SPRITESHEET_NAME)).unwrap());
         assert!(load_pet_bytes_at(&root, "load-pet", "stale").is_err());

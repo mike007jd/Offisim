@@ -21,6 +21,57 @@ function check(name: string, assertion: () => void): void {
   console.log(`  ✓ ${name}`);
 }
 
+function rustFunctionBody(source: string, name: string): string {
+  const signature = new RegExp(`\\bfn\\s+${name}\\b`, 'u').exec(source);
+  assert.ok(signature, `Rust function ${name} must exist`);
+  const opening = source.indexOf('{', signature.index);
+  assert.notEqual(opening, -1, `Rust function ${name} must have a body`);
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  let lineComment = false;
+  let blockCommentDepth = 0;
+  for (let index = opening; index < source.length; index += 1) {
+    const character = source[index];
+    const next = source[index + 1];
+    if (lineComment) {
+      if (character === '\n') lineComment = false;
+      continue;
+    }
+    if (blockCommentDepth > 0) {
+      if (character === '/' && next === '*') {
+        blockCommentDepth += 1;
+        index += 1;
+      } else if (character === '*' && next === '/') {
+        blockCommentDepth -= 1;
+        index += 1;
+      }
+      continue;
+    }
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') quoted = false;
+      continue;
+    }
+    if (character === '/' && next === '/') {
+      lineComment = true;
+      index += 1;
+    } else if (character === '/' && next === '*') {
+      blockCommentDepth = 1;
+      index += 1;
+    } else if (character === '"') {
+      quoted = true;
+    } else if (character === '{') {
+      depth += 1;
+    } else if (character === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(opening + 1, index);
+    }
+  }
+  assert.fail(`Rust function ${name} has an unterminated body`);
+}
+
 function changed(
   source: TurnExecutionProvenance,
   key: keyof TurnExecutionProvenance,
@@ -141,6 +192,10 @@ const rustRunSource = readFileSync(
   fileURLToPath(new URL('../apps/desktop/src-tauri/src/pi_agent_host/run.rs', import.meta.url)),
   'utf8',
 );
+const claudeRustSource = readFileSync(
+  fileURLToPath(new URL('../apps/desktop/src-tauri/src/claude_agent_host/mod.rs', import.meta.url)),
+  'utf8',
+);
 const desktopRuntimeSource = readFileSync(
   fileURLToPath(
     new URL('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts', import.meta.url),
@@ -173,6 +228,12 @@ const hostProvenanceSource = readFileSync(
   fileURLToPath(new URL('./pi-execution-provenance.mjs', import.meta.url)),
   'utf8',
 );
+
+check('Rust function extraction cannot satisfy a contract from a later function', () => {
+  const fixture = 'fn first() {\n  let value = "}"; // }\n}\nfn second() {\n  neutral_cwd();\n}\n';
+  assert.doesNotMatch(rustFunctionBody(fixture, 'first'), /neutral_cwd/u);
+  assert.match(rustFunctionBody(fixture, 'second'), /neutral_cwd/u);
+});
 
 check('host delegates OAuth billing truth to Pi without exposing the credential', () => {
   assert.match(hostProvenanceSource, /modelRegistry\.isUsingOAuth\(model\)/u);
@@ -207,9 +268,32 @@ check('isolated host jobs load no workspace resources and persist no native sess
     assert.match(nodeHostSource, new RegExp(`${flag}: true`, 'u'));
   }
   assert.match(nodeHostSource, /systemPrompt,/u);
-  const neutralCwdSource = rustRunSource.match(/fn neutral_cwd[\s\S]*?\n\}/u)?.[0] ?? '';
-  assert.match(neutralCwdSource, /temp_dir\(\)[\s\S]*?offisim-agent-runtime[\s\S]*?isolated/u);
+  const neutralCwdSource = rustFunctionBody(rustRunSource, 'neutral_cwd');
+  assert.match(neutralCwdSource, /app_cache_dir\(\)[\s\S]*?prepare_neutral_cwd/u);
   assert.doesNotMatch(neutralCwdSource, /dev_workspace_root|home_dir|current_dir/u);
+  assert.match(rustRunSource, /struct TrustedDirectoryIdentity/u);
+  const prepareNeutralCwd = rustFunctionBody(rustRunSource, 'prepare_neutral_cwd');
+  assert.match(prepareNeutralCwd, /open_directory_chain[\s\S]*?ensure_directory/u);
+  assert.doesNotMatch(prepareNeutralCwd, /create_dir_all|std::fs::create_dir/u);
+  const bindNeutralCommand = rustFunctionBody(rustRunSource, 'bind_command');
+  assert.match(bindNeutralCommand, /pre_exec[\s\S]*?fstat[\s\S]*?fchdir/u);
+});
+check('every direct Pi and Claude isolated mode uses the hardened neutral cwd', () => {
+  const piUnavailable = rustFunctionBody(rustRunSource, 'execute_without_workspace');
+  const piEnhance = rustFunctionBody(rustRunSource, 'do_enhance');
+  const piCollaborate = rustFunctionBody(rustRunSource, 'do_collaborate');
+  const claudeExecute = rustFunctionBody(claudeRustSource, 'do_execute');
+  const claudeEnhance = rustFunctionBody(claudeRustSource, 'do_enhance');
+  const claudeStatus = rustFunctionBody(claudeRustSource, 'status_impl');
+  assert.match(
+    piUnavailable,
+    /let cwd = neutral_cwd\(app\)\?/u,
+  );
+  assert.match(piEnhance, /let cwd = neutral_cwd\(app\)\?/u);
+  assert.match(piCollaborate, /let cwd = neutral_cwd\(app\)\?/u);
+  assert.match(claudeExecute, /\(neutral_cwd\(app\)\?, "unavailable"\)/u);
+  assert.match(claudeEnhance, /let cwd = neutral_cwd\(app\)\?/u);
+  assert.match(claudeStatus, /let cwd = neutral_cwd\(&app\)/u);
 });
 check('Pi in-memory sessions keep message entries off disk', () => {
   const cwd = join(tmpdir(), `offisim-in-memory-proof-${randomUUID()}`);

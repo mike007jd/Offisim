@@ -13,6 +13,7 @@ use tokio::io::{AsyncWriteExt, BufReader, BufWriter};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{oneshot, Mutex as AsyncMutex, Notify};
 
+use crate::agent_host_runtime::TrustedCodexExecutable;
 use crate::process_group::{configure_process_group, signal_process_group};
 use crate::sidecar_stderr::{read_capped_line, MAX_SIDECAR_OUTPUT_BYTES};
 use crate::task_workspace_binding::AuthorizedProcessCwd;
@@ -227,8 +228,51 @@ pub(super) struct CodexConnection {
 }
 
 impl CodexConnection {
+    #[cfg(test)]
     pub(super) async fn spawn(
         binary: &Path,
+        process_cwd: Option<&AuthorizedProcessCwd>,
+        fallback_cwd: &Path,
+        stream: Option<Arc<RunStream>>,
+        startup_cancellation: Option<&StartupCancellation>,
+        isolated_home: Option<&Path>,
+    ) -> Result<Arc<Self>, CodexHostError> {
+        Self::spawn_with_prefix(
+            binary,
+            &[],
+            process_cwd,
+            fallback_cwd,
+            stream,
+            startup_cancellation,
+            isolated_home,
+        )
+        .await
+    }
+
+    pub(super) async fn spawn_trusted(
+        binary: &TrustedCodexExecutable,
+        process_cwd: Option<&AuthorizedProcessCwd>,
+        fallback_cwd: &Path,
+        stream: Option<Arc<RunStream>>,
+        startup_cancellation: Option<&StartupCancellation>,
+        isolated_home: Option<&Path>,
+    ) -> Result<Arc<Self>, CodexHostError> {
+        let prefix = binary.command_prefix_args();
+        Self::spawn_with_prefix(
+            binary.command_path(),
+            &prefix,
+            process_cwd,
+            fallback_cwd,
+            stream,
+            startup_cancellation,
+            isolated_home,
+        )
+        .await
+    }
+
+    async fn spawn_with_prefix(
+        binary: &Path,
+        prefix: &[OsString],
         process_cwd: Option<&AuthorizedProcessCwd>,
         fallback_cwd: &Path,
         stream: Option<Arc<RunStream>>,
@@ -242,7 +286,7 @@ impl CodexConnection {
         }
         validate_binary(binary)?;
         let mut command = Command::new(binary);
-        command.args(["app-server", "--stdio"]);
+        command.args(prefix).args(["app-server", "--stdio"]);
         if let Some(isolated_home) = isolated_home {
             configure_codex_process_env_with_home(
                 &mut command,
