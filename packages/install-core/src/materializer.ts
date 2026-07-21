@@ -209,11 +209,17 @@ function stringifyJson(value: unknown, fallback: unknown): string {
 }
 
 function skillSlug(value: string): string {
-  const slug = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gu, '-')
-    .replace(/^-+|-+$/gu, '');
+  const source = value.trim().toLowerCase();
+  if (source.length > 4_096) throw new Error('Skill asset slug source exceeds 4096 characters');
+  const chars: string[] = [];
+  for (const char of source) {
+    const isAsciiLetter = char >= 'a' && char <= 'z';
+    const isDigit = char >= '0' && char <= '9';
+    if (isAsciiLetter || isDigit) chars.push(char);
+    else if (chars.length > 0 && chars.at(-1) !== '-') chars.push('-');
+  }
+  if (chars.at(-1) === '-') chars.pop();
+  const slug = chars.join('');
   if (!slug) throw new Error('Skill asset is missing a valid slug');
   return slug;
 }

@@ -176,7 +176,8 @@ const hostProvenanceSource = readFileSync(
 
 check('host delegates OAuth billing truth to Pi without exposing the credential', () => {
   assert.match(hostProvenanceSource, /modelRegistry\.isUsingOAuth\(model\)/u);
-  assert.match(hostProvenanceSource, /createHash\('sha256'\)/u);
+  assert.match(hostProvenanceSource, /createHmac\('sha256', resolvedSecret\)/u);
+  assert.match(hostProvenanceSource, /offisim:credential-generation:v1/u);
   assert.match(hostProvenanceSource, /accountMaterial[\s\S]*createHash\('sha256'\)/u);
   assert.doesNotMatch(hostProvenanceSource, /accountId:.*credential\.(key|access|refresh)/u);
 });

@@ -53,6 +53,7 @@ const [
   readText('scripts/prepare-desktop-cargo-test.mjs'),
 ]);
 const commands = `${commandInvocations}\n${commandDefinitions}`;
+const entryLines = new Set(entry.split('\n').map((line) => line.trim()));
 
 assert.equal(packageJson.dependencies?.['@anthropic-ai/claude-agent-sdk'], undefined);
 assert.equal(packageJson.dependencies?.['@anthropic-ai/sdk'], undefined);
@@ -66,8 +67,8 @@ assert.match(entry, /failIfUnavailable: true/);
 assert.match(entry, /subscription-run-diagnostic/);
 assert.match(entry, /订阅内 · 无 API 成本/);
 assert.doesNotMatch(entry, /OFFISIM_CLAUDE_EXECUTABLE/);
-assert.match(entry, new RegExp(SOURCE_URL.replaceAll('/', '\\/')));
-assert.match(entry, new RegExp(AUTH_URL.replaceAll('/', '\\/')));
+assert.ok(entryLines.has(`const CLAUDE_CLI_SOURCE_URL = '${SOURCE_URL}';`));
+assert.ok(entryLines.has(`const CLAUDE_AUTH_DOCS_URL = '${AUTH_URL}';`));
 assert.match(rust, /CLAUDE_HOST_PROTOCOL_VERSION: u64 = 1/);
 assert.match(rust, /resolve_conversation_opaque_native_session_for_execute/);
 assert.match(rust, /validate_task_workspace_binding_authority/);

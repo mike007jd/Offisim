@@ -10,7 +10,12 @@ import type { VirtualTree } from './skill-source-resolvers/types.js';
  * can pass `do-research`, `/do-research`, `./do-research/`, etc.
  */
 export function subtreeOf(tree: VirtualTree, subpath: string): VirtualTree {
-  const normalized = subpath.replace(/^\.?\/+/u, '').replace(/\/+$/u, '');
+  let start = 0;
+  if (subpath[start] === '.' && subpath[start + 1] === '/') start += 1;
+  while (subpath[start] === '/') start += 1;
+  let end = subpath.length;
+  while (end > start && subpath[end - 1] === '/') end -= 1;
+  const normalized = subpath.slice(start, end);
   if (normalized.length === 0) return tree;
   const prefix = `${normalized}/`;
   const files = tree.files

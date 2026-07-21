@@ -96,6 +96,59 @@ const longUpload = resolveUploadSource({
 assert.equal('kind' in longUpload, false, JSON.stringify(longUpload));
 assert.equal(longUpload.scan.skillMdPath, `${longUploadDir}/SKILL.md`);
 
+const paxUploadDir = `pax-${'技能'.repeat(40)}`;
+const paxUpload = resolveUploadSource({
+  filename: 'pax-upload-skill.tar',
+  bytes: createTarWithPaxRecords(
+    [
+      ['comment', 'line one\nline two'],
+      ['path', `${paxUploadDir}/SKILL.md`],
+    ],
+    'pax-placeholder',
+    [
+      '---',
+      'name: pax-upload-skill',
+      'description: PAX UTF-8 path harness',
+      '---',
+      '# PAX Upload Skill',
+    ].join('\n'),
+  ),
+});
+assert.equal('kind' in paxUpload, false, JSON.stringify(paxUpload));
+assert.equal(paxUpload.scan.skillMdPath, `${paxUploadDir}/SKILL.md`);
+
+const oversizedPaxRecord = resolveUploadSource({
+  filename: 'oversized-pax-record.tar',
+  bytes: createTarWithPaxRecords([['comment', 'x'.repeat(64 * 1024)]], 'SKILL.md', '# unreachable'),
+});
+assert.equal(oversizedPaxRecord.kind, 'upload-unsupported-format');
+assert.match(oversizedPaxRecord.message, /PAX record exceeds/u);
+
+const oversizedPaxTotal = resolveUploadSource({
+  filename: 'oversized-pax-total.tar',
+  bytes: createTarWithPaxRecords(
+    Array.from(
+      { length: 18 },
+      (_, index) => [`offisim.comment.${index}`, 'x'.repeat(60 * 1024)] as const,
+    ),
+    'SKILL.md',
+    '# unreachable',
+  ),
+});
+assert.equal(oversizedPaxTotal.kind, 'upload-unsupported-format');
+assert.match(oversizedPaxTotal.message, /PAX extended headers exceed/u);
+
+const adversarialPaxLength = resolveUploadSource({
+  filename: 'adversarial-pax-length.tar',
+  bytes: createTarWithRawPaxBody(
+    Buffer.from(`${'0'.repeat(200_000)} path=SKILL.md\n`, 'ascii'),
+    'SKILL.md',
+    '# unreachable',
+  ),
+});
+assert.equal(adversarialPaxLength.kind, 'upload-unsupported-format');
+assert.match(adversarialPaxLength.message, /PAX record length/u);
+
 const unsafeUpload = resolveUploadSource({
   filename: 'unsafe-upload-skill.tar',
   bytes: createTar({
@@ -270,6 +323,43 @@ function createTarWithGnuLongName(files: Record<string, string>): Buffer {
   }
   chunks.push(Buffer.alloc(1024));
   return Buffer.concat(chunks);
+}
+
+function createTarWithPaxRecords(
+  records: ReadonlyArray<readonly [keyword: string, value: string]>,
+  name: string,
+  content: string,
+): Buffer {
+  return createTarWithRawPaxBody(
+    Buffer.concat(records.map(([keyword, value]) => paxRecord(keyword, value))),
+    name,
+    content,
+  );
+}
+
+function createTarWithRawPaxBody(paxBody: Buffer, name: string, content: string): Buffer {
+  const body = Buffer.from(content);
+  const paxPadding = (512 - (paxBody.byteLength % 512)) % 512;
+  const bodyPadding = (512 - (body.byteLength % 512)) % 512;
+  return Buffer.concat([
+    tarHeader('PaxHeader', paxBody.byteLength, 'x'),
+    paxBody,
+    Buffer.alloc(paxPadding),
+    tarHeader(name, body.byteLength),
+    body,
+    Buffer.alloc(bodyPadding),
+    Buffer.alloc(1024),
+  ]);
+}
+
+function paxRecord(keyword: string, value: string): Buffer {
+  const payload = Buffer.from(` ${keyword}=${value}\n`, 'utf8');
+  let length = payload.byteLength + 1;
+  for (;;) {
+    const nextLength = payload.byteLength + String(length).length;
+    if (nextLength === length) return Buffer.concat([Buffer.from(String(length)), payload]);
+    length = nextLength;
+  }
 }
 
 function createZip(files: Record<string, string>): Buffer {

@@ -1,5 +1,9 @@
 import type { VirtualTree } from './types.js';
 
+const PAX_MAX_RECORD_BYTES = 64 * 1024;
+const PAX_MAX_TOTAL_BYTES = 1024 * 1024;
+const PAX_MAX_LENGTH_DIGITS = String(PAX_MAX_RECORD_BYTES).length;
+
 export interface UntarToTreeOptions {
   /**
    * GitHub tarballs wrap repo contents under `<repo>-<sha>/`; uploads do not.
@@ -19,6 +23,7 @@ export function untarToTree(bytes: Uint8Array, options: UntarToTreeOptions = {})
   let offset = 0;
   const td = new TextDecoder('utf-8');
   let pendingNameOverride: string | null = null;
+  let paxBytesParsed = 0;
 
   while (offset + 512 <= bytes.length) {
     const header = bytes.subarray(offset, offset + 512);
@@ -28,7 +33,7 @@ export function untarToTree(bytes: Uint8Array, options: UntarToTreeOptions = {})
     const prefix = decodeTarString(td, header.subarray(345, 500));
     if (prefix) name = `${prefix}/${name}`;
 
-    const sizeStr = td.decode(header.subarray(124, 136)).replace(/\0.*$/u, '').trim();
+    const sizeStr = decodeTarString(td, header.subarray(124, 136)).trim();
     const size = sizeStr ? Number.parseInt(sizeStr, 8) : 0;
     const typeFlag = String.fromCharCode(header[156] ?? 0);
     offset += 512;
@@ -42,7 +47,11 @@ export function untarToTree(bytes: Uint8Array, options: UntarToTreeOptions = {})
       continue;
     }
     if (typeFlag === 'x' || typeFlag === 'g') {
-      const override = parsePaxPath(td.decode(body));
+      paxBytesParsed += body.byteLength;
+      if (paxBytesParsed > PAX_MAX_TOTAL_BYTES) {
+        throw new Error(`PAX extended headers exceed ${PAX_MAX_TOTAL_BYTES} bytes.`);
+      }
+      const override = parsePaxPath(body, td);
       if (override) pendingNameOverride = override;
       continue;
     }
@@ -94,12 +103,60 @@ function assertArchiveEntryPathSafe(path: string, originalPath: string): void {
   }
 }
 
-function parsePaxPath(record: string): string | null {
-  const re = /\d+ ([^=]+)=([^\n]*)\n/gu;
-  let match: RegExpExecArray | null = re.exec(record);
-  while (match !== null) {
-    if (match[1] === 'path' && match[2]) return match[2];
-    match = re.exec(record);
+function parsePaxPath(bytes: Uint8Array, td: TextDecoder): string | null {
+  let offset = 0;
+  let pathOverride: string | null = null;
+
+  while (offset < bytes.byteLength) {
+    const recordStart = offset;
+    let recordLength = 0;
+    let lengthDigits = 0;
+
+    while (offset < bytes.byteLength) {
+      const byte = bytes[offset];
+      if (byte === undefined || byte < 0x30 || byte > 0x39) break;
+      lengthDigits += 1;
+      if (lengthDigits > PAX_MAX_LENGTH_DIGITS) {
+        throw new Error('PAX record length field is too long.');
+      }
+      recordLength = recordLength * 10 + (byte - 0x30);
+      offset += 1;
+    }
+
+    if (lengthDigits === 0 || bytes[offset] !== 0x20) {
+      throw new Error('PAX record length must be followed by a space.');
+    }
+    if (recordLength > PAX_MAX_RECORD_BYTES) {
+      throw new Error(`PAX record exceeds ${PAX_MAX_RECORD_BYTES} bytes.`);
+    }
+
+    const fieldStart = offset + 1;
+    const recordEnd = recordStart + recordLength;
+    if (recordLength < fieldStart - recordStart + 3 || recordEnd > bytes.byteLength) {
+      throw new Error('PAX record length exceeds the available header bytes.');
+    }
+    if (bytes[recordEnd - 1] !== 0x0a) {
+      throw new Error('PAX record must end with a newline.');
+    }
+
+    let equalsOffset = fieldStart;
+    while (equalsOffset < recordEnd - 1 && bytes[equalsOffset] !== 0x3d) {
+      equalsOffset += 1;
+    }
+    if (equalsOffset === fieldStart || equalsOffset >= recordEnd - 1) {
+      throw new Error('PAX record must contain a non-empty keyword and equals sign.');
+    }
+
+    if (pathOverride === null) {
+      const keyword = td.decode(bytes.subarray(fieldStart, equalsOffset));
+      if (keyword === 'path') {
+        const value = td.decode(bytes.subarray(equalsOffset + 1, recordEnd - 1));
+        if (value.length > 0) pathOverride = value;
+      }
+    }
+
+    offset = recordEnd;
   }
-  return null;
+
+  return pathOverride;
 }
