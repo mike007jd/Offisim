@@ -144,6 +144,7 @@ async function extractAndApply(input: {
   repos: RuntimeRepositories;
   run: AgentRunRow;
   prompt: string;
+  signal?: AbortSignal;
 }): Promise<void> {
   if (!input.run.employee_id || !input.run.project_id) return;
   const transport = createTauriEnhanceTransport({ threadId: input.run.thread_id });
@@ -155,6 +156,7 @@ async function extractAndApply(input: {
       protectedSpans: [],
     }),
     transport,
+    input.signal,
   );
   await applyEmployeeMemoryCandidates({
     repos: input.repos,
@@ -171,6 +173,7 @@ export async function distillTerminalRunMemory(input: {
   run: AgentRunRow;
   status: 'completed' | 'failed';
   summary: string | null | undefined;
+  signal?: AbortSignal;
 }): Promise<void> {
   if (!input.run.employee_id || !input.run.project_id) return;
   const existing = await input.repos.employeeProjectMemories.listByProject(
@@ -185,7 +188,7 @@ export async function distillTerminalRunMemory(input: {
     'Existing memories (use mergeIndex when replacing one):',
     memoryCatalog(existing),
   ].join('\n');
-  await extractAndApply({ repos: input.repos, run: input.run, prompt });
+  await extractAndApply({ repos: input.repos, run: input.run, prompt, signal: input.signal });
 }
 
 export async function distillCompetitiveDraftLoserMemory(input: {

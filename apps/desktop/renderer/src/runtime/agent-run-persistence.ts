@@ -5,7 +5,6 @@ import {
 } from '@/data/chat-message-events.js';
 import type { ChatMessage } from '@/data/types.js';
 import { type TaskWorkspaceBindingClaim, invokeCommand } from '@/lib/tauri-commands.js';
-import { distillTerminalRunMemory } from '@/runtime/employee-project-memory.js';
 import { agentRunEvent } from '@offisim/core/browser';
 import type { AgentRunRow, RuntimeRepositories } from '@offisim/core/browser';
 import type {
@@ -18,25 +17,27 @@ import type {
   WorkspaceDiagnosticsUpdatedPayload,
 } from '@offisim/shared-types';
 import { WORKSPACE_DIAGNOSTICS_UPDATED_EVENT } from '@offisim/shared-types';
-import type { LiveConversationTerminalPayload } from './desktop-agent-runtime.js';
-import type { PiAgentHostEvent } from './pi-runtime-driver.js';
 import { AgentRunPersistenceQueue } from './agent-run-persistence-queue.js';
+import type { LiveConversationTerminalPayload } from './desktop-agent-runtime.js';
+import { EmployeeProjectMemoryDistillationQueue } from './employee-project-memory-distillation-queue.js';
+import type { PiAgentHostEvent } from './pi-runtime-driver.js';
 import { persistRunStartIfAbsent } from './recovery/persist-run-idempotency.js';
 import { resolveAgentRunProjectId } from './recovery/reconcile-interrupted-runs.js';
 import { aggregateSubtreeUsage } from './recovery/usage-aggregation.js';
+import { runtimeEventBus } from './repos.js';
 import {
   type PersistedRunContext,
   mergeRunContextPreservingNativeIdentity,
   normalizeStreamCursor,
   parseRunContext,
 } from './run-context.js';
-import { runtimeEventBus } from './repos.js';
 import { persistRunCostAndNotify } from './run-cost-refresh.js';
 
 export class AgentRunPersistence extends AgentRunPersistenceQueue {
   constructor(
     private readonly companyId: string,
     private readonly repos: RuntimeRepositories,
+    private readonly memoryDistillationQueue = new EmployeeProjectMemoryDistillationQueue(),
   ) {
     super();
   }
@@ -237,16 +238,12 @@ export class AgentRunPersistence extends AgentRunPersistenceQueue {
       conversation.context.streamCursor = terminalCursor;
     }
     if (status !== 'cancelled' && root.employee_id && root.project_id) {
-      try {
-        await distillTerminalRunMemory({
-          repos: this.repos,
-          run: root,
-          status,
-          summary: conversation?.terminal.text ?? root.result_summary_json,
-        });
-      } catch (error) {
-        console.warn('Employee Project experience distillation failed after run terminal.', error);
-      }
+      this.memoryDistillationQueue.enqueue({
+        repos: this.repos,
+        run: root,
+        status,
+        summary: conversation?.terminal.text ?? root.result_summary_json,
+      });
     }
   }
 
@@ -258,6 +255,9 @@ export class AgentRunPersistence extends AgentRunPersistenceQueue {
     const repo = this.repos.agentRuns;
     try {
       if (evt.type === 'run.started') {
+        if (evt.runId === evt.rootRunId) {
+          this.memoryDistillationQueue.cancelActiveForForegroundRun();
+        }
         const payload = evt.payload as AgentRunStartedPayload;
         // Insert-if-absent: a resume replays run.started for an existing run; the
         // existing row (flipped interrupted→running only after backend authority
@@ -315,19 +315,12 @@ export class AgentRunPersistence extends AgentRunPersistenceQueue {
         if (evt.type !== 'run.cancelled' && evt.runId !== evt.rootRunId) {
           const run = await repo.findById(evt.runId);
           if (run?.employee_id && run.project_id) {
-            try {
-              await distillTerminalRunMemory({
-                repos: this.repos,
-                run,
-                status: evt.type === 'run.completed' ? 'completed' : 'failed',
-                summary: payload.summary,
-              });
-            } catch (error) {
-              console.warn(
-                'Employee Project experience distillation failed after delegated run terminal.',
-                error,
-              );
-            }
+            this.memoryDistillationQueue.enqueue({
+              repos: this.repos,
+              run,
+              status: evt.type === 'run.completed' ? 'completed' : 'failed',
+              summary: payload.summary,
+            });
           }
         }
       }
