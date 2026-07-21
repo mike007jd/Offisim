@@ -139,6 +139,8 @@ export function BoardStage() {
   );
   useEffect(() => {
     setStageChrome({
+      title: lens === 'timeline' ? 'Timeline' : 'Board',
+      meta: lens === 'timeline' ? 'Company activity and checkpoints' : 'Requests and review',
       actions: (
         <span className="off-board-scope-note">
           {lens === 'timeline' ? 'Company-wide timeline' : `${scopedRows.length} requests`}
