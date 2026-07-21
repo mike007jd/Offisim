@@ -15,6 +15,7 @@ import { useEmployees } from '@/data/queries.js';
 import type { Employee } from '@/data/types.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import { Button } from '@/design-system/primitives/button.js';
 import { EmptyState, ErrorState, errorDetail } from '@/surfaces/shared/SurfaceStates.js';
 import { generateId } from '@offisim/core/browser';
 import type { CollaborationThreadSummary } from '@offisim/core/browser';
@@ -266,9 +267,17 @@ export function ConnectRail({
             ) : null}
             {!threads.isError && list.length === 0 && !threads.isLoading ? (
               <div className="off-connect-list-empty">
-                {(employees.data ?? []).length === 0
-                  ? 'Hire an employee to start chatting.'
-                  : 'No chats yet — start one with New chat.'}
+                {(employees.data ?? []).length === 0 ? (
+                  'Hire an employee to start chatting.'
+                ) : (
+                  <>
+                    <span>No chats yet.</span>
+                    <Button variant="outline" size="sm" onClick={() => setNewChatOpen(true)}>
+                      <Icon icon={Plus} size="sm" />
+                      New chat
+                    </Button>
+                  </>
+                )}
               </div>
             ) : null}
             {directThreads.map((thread) => (

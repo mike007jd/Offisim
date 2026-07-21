@@ -573,6 +573,7 @@ export function StudioSurface() {
               </output>
             ) : (
               <StudioScene3D
+                key={companyId ?? 'no-company'}
                 layout={layout.data ?? null}
                 prefabs={prefabs}
                 editable={editable && !busy}

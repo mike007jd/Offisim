@@ -469,7 +469,9 @@ export function TeamDock() {
     <div className={cn('off-team relative', collapsed && 'is-collapsed')} aria-label="Team">
       <div className="off-dock-label">
         <span className="off-dock-title">Team</span>
-        <span className="off-dock-count">{rosterSize} people</span>
+        <span className="off-dock-count">
+          {rosterSize} {rosterSize === 1 ? 'person' : 'people'}
+        </span>
       </div>
 
       <div className="off-dock-strip">
