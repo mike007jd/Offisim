@@ -74,8 +74,29 @@ business data.
 
 Screenshot: [Final release fresh-baseline verification](final-release-fresh-baseline.jpeg)
 
-## External release boundary
+## Notarization follow-up
 
-The app is signed but not notarized. The build intentionally skipped
-notarization because Apple notarization credentials were not present; no merge,
-deploy, or production state change was performed.
+The exact commit `53382424` release app was submitted through the Keychain
+profile `offisim-notary`. Apple returned `Accepted` for submission
+`7666ec71-016e-444d-9358-bf538c97ff5f`.
+
+- `stapler staple` and `stapler validate`: passed.
+- Gatekeeper: `accepted`, source `Notarized Developer ID`.
+- Post-staple deep/strict codesign verification: passed.
+- Computer Use reattached the exact stapled app and verified one standard
+  window plus the interactive fresh-baseline company screen.
+- A final ZIP was extracted into a new temporary directory; staple validation,
+  Gatekeeper assessment, and deep/strict codesign verification all passed on
+  the extracted app.
+
+Screenshot: [Notarized release live verification](notarized-release-live.jpeg)
+
+Local distributable:
+
+`output/release-evidence/notarization-53382424/Offisim_1.1.2_aarch64_notarized.app.zip`
+
+SHA-256:
+`176bce5318713045b080999c8910ea65278fa33db484dbcbb45206ccaea9ab23`
+
+No tag, GitHub Release, DMG, merge, deploy, or production state change was
+performed.
