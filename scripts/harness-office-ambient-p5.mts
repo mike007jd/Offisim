@@ -14,6 +14,7 @@ import {
   pointInsideOfficeBounds,
 } from '../apps/desktop/renderer/src/surfaces/office/scene/scene-pathfinding.js';
 import {
+  AMBIENT_SCHEDULER_VERSION,
   AMBIENT_TIMING,
   type AmbientActivity,
   type AmbientActorAvailability,
@@ -228,7 +229,24 @@ check('JSON restart continues byte-identically', json(uninterrupted) === json(re
 
 console.log('\n[cadence] due/attempt contract without catch-up');
 check(
-  'every first due is 45–120 seconds from session start',
+  'scheduler state version is office-ambient-v2',
+  initial.state.version === 'office-ambient-v2' &&
+    initial.state.version === AMBIENT_SCHEDULER_VERSION,
+  json(initial.state.version),
+);
+const staleVersionState = {
+  ...initial.state,
+  version: 'office-ambient-v1',
+} as unknown as AmbientSchedulerState;
+const rebuiltFromStale = step(staleVersionState, START);
+check(
+  'stale scheduler version rebuilds instead of migrating',
+  rebuiltFromStale.state.version === AMBIENT_SCHEDULER_VERSION &&
+    json(rebuiltFromStale) === json(initial),
+  json(rebuiltFromStale.state),
+);
+check(
+  'every first due is 3–9 seconds from session start',
   initial.state.clocks.every((clock) => {
     const delay = clock.nextDueAt - START;
     return delay >= AMBIENT_TIMING.firstDueMinMs && delay <= AMBIENT_TIMING.firstDueMaxMs;
@@ -241,12 +259,22 @@ check(
     ['refreshment', 'library', 'social'].includes(uninterrupted.state.activities[0]?.routine ?? ''),
   json(uninterrupted.state.activities),
 );
+check(
+  'the first boundary emits a visible away movement direction',
+  uninterrupted.directions.some(
+    (direction) =>
+      direction.away &&
+      direction.phase === 'outbound' &&
+      ['refreshment', 'library', 'social'].includes(direction.routine),
+  ),
+  json(uninterrupted.directions),
+);
 const firstStarted = uninterrupted.state.activities[0];
 const firstStartedClock = firstStarted
   ? uninterrupted.state.clocks.find((clock) => clock.employeeId === firstStarted.moverId)
   : undefined;
 check(
-  'a started routine schedules its next attempt 45–240 seconds after this attempt',
+  'a started routine schedules its next attempt 20–75 seconds after this attempt',
   !!firstStarted &&
     !!firstStartedClock &&
     firstStartedClock.nextDueAt - firstStarted.startedAt >= AMBIENT_TIMING.nextDueMinMs &&
@@ -298,9 +326,12 @@ const clipByRoutine = {
   social: clipForPerformance(performanceForRoutine('social')).clip,
   phone: clipForPerformance(performanceForRoutine('phone')).clip,
   'seated-shift': clipForPerformance(performanceForRoutine('seated-shift')).clip,
+  'desk-fidget': clipForPerformance(performanceForRoutine('desk-fidget')).clip,
+  'look-around': clipForPerformance(performanceForRoutine('look-around')).clip,
+  stretch: clipForPerformance(performanceForRoutine('stretch')).clip,
 };
 check(
-  'all five semantic routines reach their shipped clips',
+  'all eight semantic routines reach their shipped clips',
   json(clipByRoutine) ===
     json({
       refreshment: 'consume',
@@ -308,6 +339,9 @@ check(
       social: 'idle.talk',
       phone: 'phone',
       'seated-shift': 'sit.talk',
+      'desk-fidget': 'sit.talk',
+      'look-around': 'wait.foldarms',
+      stretch: 'idle',
     }),
   json(clipByRoutine),
 );
@@ -352,7 +386,7 @@ for (const kind of ['refreshment', 'library', 'social'] as const) {
   );
   const moverHome = homes(8).find((candidate) => candidate.employeeId === activity.moverId);
   const destination = activity.destination;
-  const minimumTravelMs =
+  const routeTravelMs =
     moverHome && destination
       ? Math.ceil(
           (Math.hypot(destination.x - moverHome.x, destination.z - moverHome.z) /
@@ -360,10 +394,13 @@ for (const kind of ['refreshment', 'library', 'social'] as const) {
             1_000,
         ) + AMBIENT_TIMING.postureTransitionBufferMs
       : Number.POSITIVE_INFINITY;
+  const minimumOutboundMs = Math.max(AMBIENT_TIMING.outboundMs, routeTravelMs);
+  const minimumReturnMs = Math.max(AMBIENT_TIMING.returnMs, routeTravelMs);
   check(
-    `${kind} dwell cannot begin before path travel plus posture exit`,
-    activity.outboundEndsAt - activity.startedAt >= minimumTravelMs,
-    json({ activity, moverHome, minimumTravelMs }),
+    `${kind} travel honors route time, posture exit, and four-second floors`,
+    activity.outboundEndsAt - activity.startedAt >= minimumOutboundMs &&
+      activity.endsAt - activity.dwellEndsAt >= minimumReturnMs,
+    json({ activity, moverHome, routeTravelMs, minimumOutboundMs, minimumReturnMs }),
   );
   if (kind !== 'social') {
     const anchor = worldAnchorsFor(PREFABS).find(
@@ -378,7 +415,7 @@ for (const kind of ['refreshment', 'library', 'social'] as const) {
   }
   if (kind === 'social') {
     check(
-      'social dwell is exactly 30 seconds and partner talks only in dwell',
+      'social dwell matches AMBIENT_TIMING and partner talks only in dwell',
       activity.dwellEndsAt - activity.outboundEndsAt === AMBIENT_TIMING.socialDwellMs &&
         !outbound.directions.some((direction) => direction.employeeId === activity.partnerId) &&
         dwell.directions.some(
@@ -392,8 +429,67 @@ for (const kind of ['refreshment', 'library', 'social'] as const) {
   }
 }
 
+for (const kind of ['desk-fidget', 'look-around', 'stretch'] as const) {
+  const found = firstActivity(kind);
+  const { activity } = found;
+  const dwell = advanceTo(found.snapshot, activity.startedAt, {
+    seed: found.snapshot.state.seed,
+  });
+  const home = advanceTo(found.snapshot, activity.endsAt, {
+    seed: found.snapshot.state.seed,
+  });
+  const dwellDirection = dwell.directions.find(
+    (direction) => direction.employeeId === activity.moverId,
+  );
+  const expectedDuration =
+    kind === 'desk-fidget'
+      ? AMBIENT_TIMING.deskFidgetMs
+      : kind === 'look-around'
+        ? AMBIENT_TIMING.lookAroundMs
+        : AMBIENT_TIMING.stretchMs;
+  check(
+    `${kind} stays in-place with null staging and exact dwell`,
+    !activity.away &&
+      activity.destination === null &&
+      activity.outboundEndsAt === activity.startedAt &&
+      activity.dwellEndsAt - activity.startedAt === expectedDuration &&
+      activity.endsAt === activity.dwellEndsAt &&
+      dwellDirection?.staging === null &&
+      dwellDirection?.away === false &&
+      clipForPerformance(dwellDirection.performance).clip === clipByRoutine[kind],
+    json({ activity, dwellDirection }),
+  );
+  check(
+    `${kind} never reserves an away slot or fixture anchor`,
+    !activity.away &&
+      activity.destination === null &&
+      !dwell.directions.some(
+        (direction) => direction.employeeId === activity.moverId && direction.staging !== null,
+      ),
+    json(dwell.directions),
+  );
+  if (kind === 'desk-fidget') {
+    check(
+      'desk-fidget remains seated at a sitting home',
+      activity.homePosture === 'sitting' &&
+        dwellDirection?.performance.posture === 'sit' &&
+        !home.state.activities.some((candidate) => candidate.moverId === activity.moverId),
+      json({ activity, dwellDirection }),
+    );
+  } else {
+    check(
+      `${kind} stands during dwell at a sitting home then clears back to home`,
+      activity.homePosture === 'sitting' &&
+        dwellDirection?.performance.posture === 'stand' &&
+        !home.state.activities.some((candidate) => candidate.moverId === activity.moverId) &&
+        !home.directions.some((direction) => direction.employeeId === activity.moverId),
+      json({ activity, dwellDirection, home: home.directions }),
+    );
+  }
+}
+
 const seenRoutines = new Set<AmbientRoutineKind>();
-for (let seedIndex = 0; seedIndex < 20 && seenRoutines.size < 5; seedIndex += 1) {
+for (let seedIndex = 0; seedIndex < 40 && seenRoutines.size < 8; seedIndex += 1) {
   const seed = `p5-coverage-${seedIndex}`;
   let snapshot = step(null, START, { seed });
   const end = START + 45 * 60_000;
@@ -405,8 +501,8 @@ for (let seedIndex = 0; seedIndex < 20 && seenRoutines.size < 5; seedIndex += 1)
   }
 }
 check(
-  'seeded production sequence reaches all routine families',
-  seenRoutines.size === 5,
+  'seeded production sequence reaches all eight routine families',
+  seenRoutines.size === 8,
   json([...seenRoutines].sort()),
 );
 
@@ -671,25 +767,31 @@ check(
 
 const standingActors = employees(2);
 const standingHomes = homes(2).map((home) => ({ ...home, posture: 'standing' as const }));
-const standingInitial = step(null, START, {
+const standingOptions = {
   seed: 'p5-standing-partner',
   actors: standingActors,
   homes: standingHomes,
-  prefabs: [],
-});
-const standingDue = Math.min(...standingInitial.state.clocks.map((clock) => clock.nextDueAt));
-const standing = step(standingInitial.state, standingDue, {
-  seed: 'p5-standing-partner',
-  actors: standingActors,
-  homes: standingHomes,
-  prefabs: [],
-});
+  prefabs: [] as const,
+};
+let standing = step(null, START, standingOptions);
+const standingSeen = new Set<AmbientRoutineKind>();
+let standingPostureOk = true;
+let standingGuard = 0;
+while (standing.nextWakeAt <= START + 10 * 60_000 && standingGuard < 10_000) {
+  standing = step(standing.state, standing.nextWakeAt, standingOptions);
+  for (const activity of standing.state.activities) standingSeen.add(activity.routine);
+  standingPostureOk =
+    standingPostureOk &&
+    standing.directions.every((direction) => direction.performance.posture === 'stand');
+  standingGuard += 1;
+}
 check(
-  'standing homes never become a seated social partner or seated-shift actor',
-  !standing.state.activities.some(
-    (activity) => activity.routine === 'social' || activity.routine === 'seated-shift',
-  ) && standing.directions.every((direction) => direction.performance.posture === 'stand'),
-  json(standing.state.activities),
+  'standing homes never become a seated social partner, seated-shift, or desk-fidget actor',
+  ![...standingSeen].some(
+    (routine) =>
+      routine === 'social' || routine === 'seated-shift' || routine === 'desk-fidget',
+  ) && standingPostureOk,
+  json([...standingSeen].sort()),
 );
 
 const deskPathfinder = buildOfficePathfinder({ minX: -8, minZ: -8, maxX: 8, maxZ: 8 }, [
@@ -833,7 +935,7 @@ check(
 check('office never exceeds two away employees', maxAway <= 2, String(maxAway));
 check('office never exceeds four ambient-active employees', maxActive <= 4, String(maxActive));
 check('active anchors and destinations never double-book', uniquenessOk);
-check('every observed attempt advances once into a 45–240 second future due', cadenceOk);
+check('every observed attempt advances once into a 20–75 second future due', cadenceOk);
 check(
   'all 16 employees receive at least one deterministic attempt',
   stress.state.clocks.every((clock) => clock.sequence > 0),
