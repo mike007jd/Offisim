@@ -530,7 +530,7 @@ await check(
 
 await check('runtime transport throw → blocked (infra), not a product FAIL', async () => {
   const eventBus = new InMemoryEventBus();
-  const { repos, mission } = makeRepos('/tmp/fake-ws');
+  const { repos } = makeRepos('/tmp/fake-ws');
 
   const { missionId } = await createDevMission(repos, {
     companyId: 'co-1',
@@ -974,8 +974,8 @@ await check(
 
 // ---------------------------------------------------------------------------
 
-console.log(`mission-run-controller: ${(h.checks - h.failures)}/${TOTAL} passed`);
-if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) {
+console.log(`mission-run-controller: ${h.checks - h.failures}/${TOTAL} passed`);
+if (h.failures > 0 || h.checks - h.failures !== TOTAL) {
   process.exitCode = 1;
 }
 

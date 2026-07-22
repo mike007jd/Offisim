@@ -3,7 +3,7 @@
  * scripts/harness-motion-tokens.mjs parses this file as text to lock both
  * sources to the same foundations.
  */
-export const MOTION_DURATION = {
+const MOTION_DURATION = {
   instant: 0.06,
   fast: 0.12,
   quick: 0.14,
@@ -11,7 +11,7 @@ export const MOTION_DURATION = {
   slow: 0.26,
 } as const;
 
-export const MOTION_EASE = {
+const MOTION_EASE = {
   ease: [0.2, 0, 0, 1],
   spring: [0.22, 1, 0.36, 1],
 } as const;

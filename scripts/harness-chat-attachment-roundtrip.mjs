@@ -98,17 +98,11 @@ function codexEmptyImageWireShape() {
     'utf8',
   );
   const codexTypesSource = readFileSync(
-    new URL(
-      '../apps/desktop/src-tauri/src/codex_agent_host/types.rs',
-      import.meta.url,
-    ),
+    new URL('../apps/desktop/src-tauri/src/codex_agent_host/types.rs', import.meta.url),
     'utf8',
   );
   const codexProtocolSource = readFileSync(
-    new URL(
-      '../apps/desktop/src-tauri/src/codex_agent_host/protocol.rs',
-      import.meta.url,
-    ),
+    new URL('../apps/desktop/src-tauri/src/codex_agent_host/protocol.rs', import.meta.url),
     'utf8',
   );
   const codexBranch = runtimeSource.match(

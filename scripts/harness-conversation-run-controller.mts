@@ -424,7 +424,8 @@ function makeEnv(
             mimeType: attachment.mimeType,
             byteLength: attachment.byteLength,
             kind: attachment.kind,
-            vaultRef: `attachment://co/thread-1/${attachment.attachmentId ?? attachment.id}` as VaultRef,
+            vaultRef:
+              `attachment://co/thread-1/${attachment.attachmentId ?? attachment.id}` as VaultRef,
           }),
         ),
     }),

@@ -102,7 +102,8 @@ function StageViewPane({
 } & StageRunStatusProps) {
   const ownsChrome = tab === 'preview' && target?.kind === 'browser-session';
   const boardLens = useUiState((state) => state.boardLens);
-  const accessibleTitle = tab === 'board' && boardLens === 'timeline' ? 'Timeline' : viewerTitle(tab);
+  const accessibleTitle =
+    tab === 'board' && boardLens === 'timeline' ? 'Timeline' : viewerTitle(tab);
   return (
     <StageChromeProvider>
       <section

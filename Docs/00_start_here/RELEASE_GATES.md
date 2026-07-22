@@ -71,7 +71,7 @@ Notarize / staple / Gatekeeper belong only to formal GO (and authorized
 ## Platform gates (when `apps/platform` / `packages/db-platform` change)
 
 ```bash
-pnpm platform:migration:drift   # migration generation/drift for the Postgres schema
+pnpm platform:migration:drift   # Drizzle export ↔ single Postgres baseline equivalence
 pnpm platform:auth-harness      # auth boundary harness (also run inside security:harness)
 ```
 

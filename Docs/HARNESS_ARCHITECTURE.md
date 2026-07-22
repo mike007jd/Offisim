@@ -7,14 +7,11 @@ gates that prove them. Product/account/session/workspace decisions live in
 [Engine-neutral AI Accounts](./architecture/2026-07-13-engine-neutral-ai-accounts.md).
 
 Engine wording below means **source implemented** unless a published
-distribution is named. As of **2026-07-22**, `v1.1.1` is the latest stable
-published release. Version `1.1.2` is the current prepared patch candidate and
-is not yet published. Historical release `.app` evidence keeps its original
-commit/hash. `1.1.2` source contains the post-`v1.1.1` installed-app Codex
-launch correction; exact `1.1.2` release-app/distribution evidence is pending
-and must not reuse `v1.1.1` evidence to prove that fix path. Use ships/shipped
-wording only when the named published distribution’s exact release-app evidence
-proves that feature.
+distribution is named. As of **2026-07-22**, `v1.1.2` is the latest stable
+published release. Its exact notarized and installed-distribution evidence
+includes the post-`v1.1.1` Codex launch correction. Historical release `.app`
+evidence keeps its original commit/hash; later worktree changes need their own
+release `.app` evidence.
 
 ## Production route
 
@@ -84,9 +81,8 @@ Release support still requires the exact current-worktree release `.app`, its
 binary hash, matched window identity, and Computer Use interaction.
 Dev webviews and localhost previews are not release evidence. Historical
 2026-07-17 and published `v1.1.1` release `.app` proofs remain under their
-original commit/hash; exact `1.1.2` release-app/distribution evidence is
-pending and must not reuse `v1.1.1` evidence to prove the installed-app Codex
-launch correction.
+original commit/hash. Published `v1.1.2` has separate exact notarized and
+installed-distribution evidence for the installed-app Codex launch correction.
 
 ## Historical boundary
 

@@ -1,9 +1,10 @@
-# Quarantine — dead-code-2026-07-21
+# Completed quarantine — dead-code-2026-07-21
 
-Isolated (not deleted) candidates from the Dead Code And Docs Cleanup Loop on
-2026-07-21 NZST. Gate-unprovable removals land here first.
+Candidates isolated by the Dead Code And Docs Cleanup Loop on 2026-07-21 NZST.
+The release-cycle review completed on 2026-07-22 after `v1.1.2` shipped with no
+restore request; the quarantined CSS payload was then deleted.
 
-## `connect-calendar-meetings.css`
+## Removed: `connect-calendar-meetings.css`
 
 Orphan Workspace Calendar/Meetings styles formerly in
 `apps/desktop/renderer/src/surfaces/office/rail/connect/connect.css`
@@ -17,4 +18,4 @@ Evidence:
 - `pnpm validate` / `check:ui-hygiene` / knip do not assert these selectors
   (gate-unprovable → quarantine, not direct delete).
 
-Re-delete review: after one release cycle with no restore request.
+Re-delete review: passed after `v1.1.2`; payload removed on 2026-07-22.

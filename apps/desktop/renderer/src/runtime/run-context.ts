@@ -7,18 +7,15 @@ import {
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import { isResettableNativeSessionPrestartCode } from '@offisim/core/browser';
 import type { AiExecutionTarget, WorkspaceProvenance } from '@offisim/shared-types';
-import type { PiAgentHostEvent } from './pi-runtime-driver.js';
-import {
-  validateExecutionTarget,
-  type TurnExecutionProvenance,
-} from './execution-provenance.js';
-import { hostModelRef } from './execution-selection.js';
-import { parseWorkspaceProvenance } from './workspace-provenance.js';
 import type {
   CompetitiveDraftContext,
   ConversationRunProjectionRef,
   WorkspaceRequirement,
 } from './desktop-agent-runtime.js';
+import { type TurnExecutionProvenance, validateExecutionTarget } from './execution-provenance.js';
+import { hostModelRef } from './execution-selection.js';
+import type { PiAgentHostEvent } from './pi-runtime-driver.js';
+import { parseWorkspaceProvenance } from './workspace-provenance.js';
 
 export interface ConversationStreamCheckpoint {
   companyId: string;

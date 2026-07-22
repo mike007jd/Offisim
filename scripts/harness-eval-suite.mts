@@ -104,7 +104,9 @@ await check('(8) summarizeLedger tallies outcomes', () => {
   assert.equal(ledger.summary.skipped, 0);
 });
 
-console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
-if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
+console.log(
+  `\n${h.checks - h.failures}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`,
+);
+if (h.failures > 0 || h.checks - h.failures !== TOTAL) process.exit(1);
 
 if (!process.exitCode) h.report();

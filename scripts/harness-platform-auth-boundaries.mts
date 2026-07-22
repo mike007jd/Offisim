@@ -264,29 +264,22 @@ async function expectForwardedForIgnoredByDefault() {
 
 function expectMigrationDriftFailure() {
   const dir = mkdtempSync(join(tmpdir(), 'offisim-platform-drift-'));
-  const migrations = join(dir, 'migrations');
   try {
-    writeFileSync(
-      join(dir, 'schema.ts'),
-      "export const table = pgTable('x', {}, (table) => [unique('missing_unique').on(table.x)]);",
-    );
-    writeFileSync(join(dir, 'placeholder'), '');
-    execFileSync('mkdir', ['-p', migrations]);
-    writeFileSync(join(migrations, '0001.sql'), '-- intentionally missing constraint\n');
+    const invalidBaseline = join(dir, 'schema.sql');
+    writeFileSync(invalidBaseline, '-- intentionally stale platform baseline\n');
     try {
       execFileSync('node', ['scripts/check-platform-migration-drift.mjs'], {
         cwd: new URL('..', import.meta.url),
         env: {
           ...process.env,
-          OFFISIM_PLATFORM_SCHEMA_PATH: join(dir, 'schema.ts'),
-          OFFISIM_PLATFORM_MIGRATIONS_DIR: migrations,
+          OFFISIM_PLATFORM_BASELINE_PATH: invalidBaseline,
         },
         stdio: 'pipe',
       });
     } catch {
       return;
     }
-    throw new Error('migration drift check did not fail on missing constraint');
+    throw new Error('platform schema drift check accepted a stale baseline');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

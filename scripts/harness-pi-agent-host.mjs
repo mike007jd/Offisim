@@ -28,8 +28,8 @@ import {
   createLspDiagnosticsExtensionFactory,
   resolveTrustedLanguageServerExecutable,
 } from '../apps/desktop/src-tauri/src/pi_agent_host/lsp_diagnostics_extension.mjs';
-import { RUN_FAILURE_KINDS, classifyRunFailure } from './pi-agent-host-wire.mjs';
 import { validateHarnessIds } from './harness-manifest.mjs';
+import { RUN_FAILURE_KINDS, classifyRunFailure } from './pi-agent-host-wire.mjs';
 import {
   DELEGATION_DEFAULTS,
   childToolsForPermissionMode,

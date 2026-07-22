@@ -162,14 +162,8 @@ async function main() {
   // Check C's independent message arrays and confirmed end-to-end by the live
   // Check E (ALPHA vs BETA never bleed across the two concurrent sessions).
   try {
-    let aCount = 0;
-    let bCount = 0;
-    const offA = sessA.subscribe(() => {
-      aCount += 1;
-    });
-    const offB = sessB.subscribe(() => {
-      bCount += 1;
-    });
+    const offA = sessA.subscribe(() => {});
+    const offB = sessB.subscribe(() => {});
     const independentUnsub =
       typeof offA === 'function' && typeof offB === 'function' && offA !== offB;
     offA();

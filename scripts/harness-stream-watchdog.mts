@@ -312,9 +312,6 @@ const hostEventDispatchSource = readFileSync(
   resolve(root, 'apps/desktop/renderer/src/runtime/host-event-dispatch.ts'),
   'utf8',
 );
-const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
-  scripts?: Record<string, string>;
-};
 
 assert.match(
   runtimeSource,

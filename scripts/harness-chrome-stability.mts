@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,8 +14,6 @@ import {
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
-const sha256 = (path: string) =>
-  createHash('sha256').update(readFileSync(join(root, path))).digest('hex');
 
 const officeSurface = read('apps/desktop/renderer/src/surfaces/office/OfficeSurface.tsx');
 const officeStage = read('apps/desktop/renderer/src/surfaces/office/OfficeStage.tsx');
@@ -203,35 +200,19 @@ check('Team dock keeps a sole horizontal card scroller and a count-only label', 
   assert.doesNotMatch(teamDock, /addEventListener\('wheel'|onWheel/, 'no JS wheel interception');
 });
 
-check('Team and AI Accounts share official local engine identity assets', () => {
+check('Team and AI Accounts share Offisim-owned engine identity glyphs', () => {
   assert.match(teamDock, /<EngineMark[\s\S]*size=\{16\}/);
   assert.match(aiAccounts, /<EngineMark[\s\S]*size=\{32\}/);
   assert.match(officeCss, /\.off-team-card\s*{[^}]*width:\s*144px;[^}]*height:\s*56px/s);
   assert.match(officeCss, /\.off-dock-label\s*{[^}]*width:\s*96px/s);
   assert.doesNotMatch(teamDock, /Codex CLI<\/|Claude Code<\//);
   assert.doesNotMatch(engineMark, /style=\{|CSSProperties|--off-provider-brand/);
-  assert.match(engineMark, /icon-codex-light\.png\?url/);
-  assert.match(engineMark, /claude_app_icon\.png\?url/);
-  assert.match(engineMark, /meta\.visual === 'image'[\s\S]*<img/);
-  assert.doesNotMatch(engineMark, /glyph:\s*['"]>_['"]|glyph:\s*['"]✳['"]/);
-  assert.match(
-    grammarCss,
-    /\.off-engine-mark-image\s*{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*object-fit:\s*contain/s,
-  );
-  assert.doesNotMatch(
-    grammarCss,
-    /\.off-engine-mark\[data-engine="(?:codex|claude)"\]\s*{[^}]*background:/s,
-  );
-  assert.equal(
-    sha256('apps/desktop/renderer/src/assets/brands/codex/icon-codex-light.png'),
-    'de7d43f3386105ab20952958c2c25beb0d903e2aeb6e1aef57c49a648c0d1c07',
-  );
-  assert.equal(
-    sha256('apps/desktop/renderer/src/assets/brands/claude/claude_app_icon.png'),
-    'c7b5642f810adfba78781592d9dec18d7eb376c7ebf403c4d882fb9d39f65408',
-  );
-  assert.match(engineBrandProvenance, /com\.openai\.codex[\s\S]*26\.715\.52143/);
-  assert.match(engineBrandProvenance, /com\.anthropic\.claudefordesktop[\s\S]*1\.22209\.3/);
+  assert.match(engineMark, /codex:\s*{[\s\S]*glyph:\s*'\{\}'/);
+  assert.match(engineMark, /claude:\s*{[\s\S]*glyph:\s*'◇'/);
+  assert.doesNotMatch(engineMark, /assets\/brands|<img|visual:\s*'image'/);
+  assert.doesNotMatch(grammarCss, /off-engine-mark-image|data-visual="image"/);
+  assert.match(engineBrandProvenance, /Offisim-owned glyphs/);
+  assert.match(engineBrandProvenance, /no third-party image bytes/);
 });
 
 check('composer settings drill in within one menu and preserve footer space', () => {

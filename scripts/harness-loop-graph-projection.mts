@@ -647,7 +647,7 @@ async function run(): Promise<void> {
     assert.ok(findingCodes(p).includes('graph.dangling_edge'));
   });
 
-  console.log(`\n${(h.checks - h.failures)} passed, ${h.failures} failed`);
+  console.log(`\n${h.checks - h.failures} passed, ${h.failures} failed`);
   if (h.failures > 0) process.exit(1);
 }
 

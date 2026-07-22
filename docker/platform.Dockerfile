@@ -1,17 +1,19 @@
-FROM node:22.23.1-slim AS builder
+FROM node:24.18.0-slim AS builder
 
 RUN corepack enable && corepack prepare pnpm@11.13.1 --activate
 
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY scripts ./scripts
 COPY apps/platform ./apps/platform
+COPY apps/desktop/src-tauri/tauri.conf.json ./apps/desktop/src-tauri/tauri.conf.json
 COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @offisim/platform... build
 
-FROM node:22.23.1-slim
+FROM node:24.18.0-slim
 
 RUN corepack enable && corepack prepare pnpm@11.13.1 --activate
 

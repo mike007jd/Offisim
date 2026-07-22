@@ -4,11 +4,8 @@ import type {
   AiRuntimeStatus,
   OrchestrationEngineStatus,
 } from '@offisim/shared-types';
+import { isSameModelSource, validateExecutionTarget } from './execution-provenance.js';
 import type { PiAgentHostEvent } from './pi-runtime-driver.js';
-import {
-  isSameModelSource,
-  validateExecutionTarget,
-} from './execution-provenance.js';
 
 export function hostModelRef(
   model: Extract<PiAgentHostEvent, { kind: 'started' }>['model'],

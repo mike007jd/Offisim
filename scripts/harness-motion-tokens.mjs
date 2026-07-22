@@ -20,7 +20,7 @@ function parseCssDuration(name) {
 }
 
 function parseTsDuration(name) {
-  const block = /export const MOTION_DURATION\s*=\s*\{([\s\S]*?)\}\s*as const;/.exec(motionTs)?.[1];
+  const block = /\bconst MOTION_DURATION\s*=\s*\{([\s\S]*?)\}\s*as const;/.exec(motionTs)?.[1];
   if (!block) return null;
   const match = new RegExp(`\\b${name}:\\s*([\\d.]+)`).exec(block);
   return match ? Number(match[1]) : null;
@@ -34,7 +34,7 @@ function parseCssEase(name) {
 }
 
 function parseTsEase(name) {
-  const block = /export const MOTION_EASE\s*=\s*\{([\s\S]*?)\}\s*as const;/.exec(motionTs)?.[1];
+  const block = /\bconst MOTION_EASE\s*=\s*\{([\s\S]*?)\}\s*as const;/.exec(motionTs)?.[1];
   if (!block) return null;
   const match = new RegExp(`\\b${name}:\\s*\\[([^\\]]+)\\]`).exec(block);
   return match ? match[1].split(',').map((value) => Number(value.trim())) : null;

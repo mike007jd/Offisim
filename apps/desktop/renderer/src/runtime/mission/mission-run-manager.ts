@@ -5,11 +5,11 @@ import {
   getDesktopAgentRuntime,
 } from '@/runtime/desktop-agent-runtime.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
-import { persistThreadRuntimeStatus } from '@/runtime/thread-runtime-status.js';
 import {
   type ThreadRunLease,
   conversationThreadLifecycle,
 } from '@/runtime/thread-lifecycle-guard.js';
+import { persistThreadRuntimeStatus } from '@/runtime/thread-runtime-status.js';
 import { type MissionLoopResult, createDefaultEvaluatorRegistry } from '@offisim/core/browser';
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { toast } from 'sonner';

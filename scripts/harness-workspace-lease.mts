@@ -44,17 +44,17 @@ import {
 } from '../apps/desktop/renderer/src/runtime/mission/git-porcelain.js';
 import { createTauriGitWorktreeOps } from '../apps/desktop/renderer/src/runtime/mission/workspace/git-worktree-ops.js';
 import {
+  type WorkspaceCheckpoint,
+  type WorkspaceCheckpointRollback,
+  createWorkspaceCheckpointManager,
+} from '../packages/core/dist/browser.js';
+import {
   type GitWorktreeOps,
   type MergeResult,
   type WorkspaceLease,
   type WorkspaceLeaseManagerDeps,
   createWorkspaceLeaseManager,
 } from '../packages/core/src/runtime/mission/workspace/lease-manager.ts';
-import {
-  createWorkspaceCheckpointManager,
-  type WorkspaceCheckpoint,
-  type WorkspaceCheckpointRollback,
-} from '../packages/core/dist/browser.js';
 const TOTAL = 21;
 const check = h.checkAsync;
 
@@ -896,9 +896,11 @@ await check('machine -z path lists preserve spaces, newlines, and secret-shaped 
 });
 
 if (h.failures > 0) {
-  console.error(`\nworkspace-lease: ${(h.checks - h.failures)}/${TOTAL} passed (${h.failures} failed)`);
+  console.error(
+    `\nworkspace-lease: ${h.checks - h.failures}/${TOTAL} passed (${h.failures} failed)`,
+  );
   process.exit(1);
 }
-console.log(`\nworkspace-lease: ${(h.checks - h.failures)}/${TOTAL} passed`);
+console.log(`\nworkspace-lease: ${h.checks - h.failures}/${TOTAL} passed`);
 
 if (!process.exitCode) h.report();

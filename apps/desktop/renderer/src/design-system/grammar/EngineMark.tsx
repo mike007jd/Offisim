@@ -1,37 +1,29 @@
-import claudeAppIcon from '@/assets/brands/claude/claude_app_icon.png?url';
-import codexAppIcon from '@/assets/brands/codex/icon-codex-light.png?url';
 import { cn } from '@/lib/utils.js';
 
 /**
- * Engine identity primitive. Signed orchestration apps use byte-for-byte local
- * vendor assets; Offisim and API keep compact monograms. Settings (AI Accounts)
- * and the Office TeamDock share this so an engine reads the same everywhere
- * without remote asset dependencies.
+ * Engine identity primitive. Offisim-owned glyphs identify runtime lanes without
+ * redistributing third-party app icons. Settings (AI Accounts) and the Office
+ * TeamDock share this so an engine reads the same everywhere without remote
+ * asset dependencies.
  *
  * Color values reference existing semantic tokens only; the repo defines no
  * per-brand tokens and this file introduces none.
  */
 export type EngineKind = 'codex' | 'claude' | 'offisim' | 'api';
 
-type EngineMeta =
-  | { readonly visual: 'image'; readonly src: string }
-  | { readonly visual: 'glyph'; readonly glyph: string };
+type EngineMeta = { readonly glyph: string };
 
 const ENGINE_META: Record<EngineKind, EngineMeta> = {
   codex: {
-    visual: 'image',
-    src: codexAppIcon,
+    glyph: '{}',
   },
   claude: {
-    visual: 'image',
-    src: claudeAppIcon,
+    glyph: '◇',
   },
   offisim: {
-    visual: 'glyph',
     glyph: 'O',
   },
   api: {
-    visual: 'glyph',
     glyph: 'A',
   },
 };
@@ -91,24 +83,14 @@ export function EngineMark({ engine, size = 16, label, title, className }: Engin
       className={cn('off-engine-mark', className)}
       data-engine={engine}
       data-size={size}
-      data-visual={meta.visual}
+      data-visual="glyph"
       role="img"
       aria-label={accessibleName}
       title={title ?? accessibleName}
     >
-      {meta.visual === 'image' ? (
-        <img
-          aria-hidden
-          alt=""
-          className="off-engine-mark-image"
-          draggable={false}
-          src={meta.src}
-        />
-      ) : (
-        <span aria-hidden className="off-engine-mark-glyph">
-          {meta.glyph}
-        </span>
-      )}
+      <span aria-hidden className="off-engine-mark-glyph">
+        {meta.glyph}
+      </span>
     </span>
   );
 }

@@ -532,40 +532,6 @@ function toHex(rgb) {
     .join('')}`;
 }
 
-function stripSecondaryTextures(document) {
-  for (const material of document.getRoot().listMaterials()) {
-    material.setNormalTexture(null);
-    material.setOcclusionTexture(null);
-    material.setEmissiveTexture(null);
-    material.setMetallicRoughnessTexture(null);
-  }
-}
-
-function assertUniformWhiteColor(prim, semantic) {
-  const accessor = prim.getAttribute(semantic);
-  if (!accessor) return true;
-  const element = [];
-  const count = accessor.getCount();
-  const step = Math.max(1, Math.floor(count / 200));
-  for (let i = 0; i < count; i += step) {
-    accessor.getElement(i, element);
-    for (const value of element) {
-      if (Math.abs(value - 1) > 0.01) return false;
-    }
-  }
-  return true;
-}
-
-function dropInertAttributes(prim) {
-  for (const semantic of ['COLOR_0', 'COLOR_1', 'TEXCOORD_1', 'TEXCOORD_2', 'TEXCOORD_3']) {
-    if (!prim.getAttribute(semantic)) continue;
-    if (semantic.startsWith('COLOR') && !assertUniformWhiteColor(prim, semantic)) {
-      fail(`${semantic} is not uniformly white; refusing to strip a meaningful vertex color`);
-    }
-    prim.setAttribute(semantic, null);
-  }
-}
-
 /** Build a chunky toy body on the UBC topology, with an explicit arm bind reshape. */
 async function buildToyBody(io, manifest) {
   const document = quietDoc(await io.read(join(BODY_DIR, SOURCE_BODY_GLTF)));

@@ -732,7 +732,7 @@ await check('BUG-2: an in-flight compile blocks a second compile even with answe
   assert.equal(await guardedCompile({ q1: 'y' }), 'ran', 'once idle, the answers path runs again');
 });
 
-console.log(`\nLoop authoring flow: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+console.log(`\nLoop authoring flow: ${h.checks - h.failures} passed, ${h.failures} failed`);
 if (h.failures > 0) process.exit(1);
 
 if (!process.exitCode) h.report();

@@ -1,8 +1,8 @@
 import { NAV_ENTRIES } from '@/app/nav-registry.js';
 import { guardCurrentSurfaceScopeChange, useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
-import { queryKeys } from '@/data/query-keys.js';
 import { useCompanies, useProjects } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import {
   Command,
   CommandEmpty,

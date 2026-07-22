@@ -284,9 +284,7 @@ export function useInterruptedRunRecovery(
               competitiveDraft = null;
             }
             const groupId =
-              typeof competitiveDraft?.groupId === 'string'
-                ? competitiveDraft.groupId.trim()
-                : '';
+              typeof competitiveDraft?.groupId === 'string' ? competitiveDraft.groupId.trim() : '';
             const attemptId =
               typeof competitiveDraft?.attemptId === 'string'
                 ? competitiveDraft.attemptId.trim()
@@ -296,7 +294,9 @@ export function useInterruptedRunRecovery(
               const tx = transactionRepos ?? repos;
               const attempt = await tx.competitiveDraftAttempts.findById(attemptId);
               if (!attempt || attempt.group_id !== groupId || attempt.run_id !== root.run_id) {
-                throw new Error('Interrupted competitive draft does not match its durable attempt.');
+                throw new Error(
+                  'Interrupted competitive draft does not match its durable attempt.',
+                );
               }
               await tx.competitiveDraftAttempts.update(attemptId, {
                 status: 'failed',

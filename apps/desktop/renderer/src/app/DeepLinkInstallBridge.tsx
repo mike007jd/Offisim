@@ -95,6 +95,7 @@ export function DeepLinkInstallNavigator() {
   const canOpen = Boolean(companyId && surface !== 'lifecycle');
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: intentional ARIA live region (role=status) for install-link notice
     <aside className="off-deep-link-notice off-icard" role="status" aria-live="polite">
       <div className="off-deep-link-notice__title">Install link received</div>
       <p className="off-deep-link-notice__description">

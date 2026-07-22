@@ -484,9 +484,9 @@ await check('Loop schedule is opt-in, persists next/last state, and never backfi
 });
 
 if (h.failures > 0) {
-  console.error(`\nloop-repository: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+  console.error(`\nloop-repository: ${h.checks - h.failures} passed, ${h.failures} failed`);
   process.exit(1);
 }
-console.log(`\nloop-repository: ${(h.checks - h.failures)} checks passed`);
+console.log(`\nloop-repository: ${h.checks - h.failures} checks passed`);
 
 if (!process.exitCode) h.report();

@@ -10,7 +10,7 @@ services:
       DATABASE_URL: postgres://offisim:dev@postgres:5432/offisim
       CORS_ORIGINS: http://localhost:5176
       BETTER_AUTH_URL: http://localhost:4100
-      BETTER_AUTH_SECRET: change-me-for-real-use
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET to at least 32 random characters}"
     depends_on:
       - postgres
 
@@ -23,6 +23,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      - ../packages/db-platform/schema.sql:/docker-entrypoint-initdb.d/001-offisim-platform-schema.sql:ro
       - pgdata:/var/lib/postgresql/data
 
 volumes:

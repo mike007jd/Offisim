@@ -52,7 +52,8 @@ assert(
   'The review gate must verify radius, presence, and error semantics.',
 );
 assert(
-  validateHarnessIds.includes('pi-agent-host') && validateHarnessIds.includes('runtime-conformance'),
+  validateHarnessIds.includes('pi-agent-host') &&
+    validateHarnessIds.includes('runtime-conformance'),
   'Validate must cover the production API adapter and neutral runtime conformance.',
 );
 assert(
@@ -126,10 +127,12 @@ assertNoMatch(
 );
 
 const workspaceBindingHost = (
-  await Promise.all([
-    'apps/desktop/src-tauri/src/task_workspace_binding.rs',
-    'apps/desktop/src-tauri/src/binding/resume_compat.rs',
-  ].map(source))
+  await Promise.all(
+    [
+      'apps/desktop/src-tauri/src/task_workspace_binding.rs',
+      'apps/desktop/src-tauri/src/binding/resume_compat.rs',
+    ].map(source),
+  )
 ).join('\n');
 assertIncludesAll(
   workspaceBindingHost,

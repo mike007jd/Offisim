@@ -61,12 +61,6 @@ export interface GlobalSearchResult {
   updatedAt: string | null;
 }
 
-interface ProjectFilePreview {
-  content: string;
-  truncated: boolean;
-  totalSize: number;
-}
-
 interface ProjectPreviewMeta {
   fileName: string;
   mimeType?: string | null;
@@ -895,14 +889,6 @@ export interface CommandMap {
     void
   >;
   project_read_file: CommandSpec<ProjectPathArgs, string>;
-  project_read_file_lines: CommandSpec<
-    ProjectPathArgs & { offset: number; limit?: number | null },
-    string
-  >;
-  project_read_file_preview: CommandSpec<
-    ProjectPathArgs & { maxBytes: number },
-    ProjectFilePreview
-  >;
   project_preview_meta: CommandSpec<ProjectPathArgs, ProjectPreviewMeta>;
   project_read_file_bytes: CommandSpec<
     ProjectPathArgs & { maxBytes?: number },
@@ -913,9 +899,7 @@ export interface CommandMap {
     { petId: string; expectedVersion: string },
     ArrayBuffer | Uint8Array | number[]
   >;
-  project_exists: CommandSpec<ProjectPathArgs, boolean>;
   project_list_dir: CommandSpec<ProjectPathArgs, ProjectDirEntry[]>;
-  project_write_file: CommandSpec<ProjectPathArgs & { content: string }, void>;
   bash_execute: CommandSpec<
     {
       cwd?: string | null;

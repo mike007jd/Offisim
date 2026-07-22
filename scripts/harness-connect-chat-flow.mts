@@ -531,7 +531,7 @@ async function main(): Promise<void> {
     assert.notEqual(t1, t2, 'broken draft yields two threads — the real check would FAIL');
   });
 
-  console.log(`\nconnect-chat-flow: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+  console.log(`\nconnect-chat-flow: ${h.checks - h.failures} passed, ${h.failures} failed`);
   if (h.failures > 0) {
     console.error('connect-chat-flow: FAIL');
     process.exit(1);

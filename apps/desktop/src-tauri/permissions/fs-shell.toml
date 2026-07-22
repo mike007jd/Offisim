@@ -3,13 +3,10 @@ identifier = "fs-shell"
 description = "Allow project-bound builtin filesystem and shell commands."
 commands.allow = [
   "project_read_file",
-  "project_read_file_lines",
-  "project_read_file_preview",
   "project_preview_meta",
   "project_read_file_bytes",
-  "project_exists",
   "project_list_dir",
-  "project_write_file",
+  "reveal_local_path",
   "bash_execute",
   "terminal_session_create",
   "terminal_session_write",

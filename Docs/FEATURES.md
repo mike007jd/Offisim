@@ -2,14 +2,14 @@
 
 Checked at: 2026-07-22 NZST
 
-This catalog documents the product features that are currently expected to be
-maintained for Offisim prepared patch candidate `1.1.2`. Each feature entry names
+This catalog documents the product features maintained for Offisim `1.1.2` and
+the current post-release worktree. Each feature entry names
 the user value, owner paths, persistence/contracts, and verification. Engine
 wording below means **source implemented** unless a published distribution is
-named. As of **2026-07-22**, `v1.1.1` is the latest stable published release.
-Version `1.1.2` is the current prepared patch candidate and is not yet
-published. Use ships/shipped wording only when the named published
-distribution’s exact release-app evidence proves that feature.
+named. As of **2026-07-22**, `v1.1.2` is the latest stable published release.
+Use ships/shipped wording only when the named published distribution’s exact
+release-app evidence proves that feature; post-tag changes remain source-only
+until separately verified in the current worktree release `.app`.
 
 ## Company Lifecycle
 
@@ -91,9 +91,8 @@ Data/contracts:
   external CLIs own their model selection.
 - Historical release `.app` evidence (for example 2026-07-17 T16 /
   Claude orchestration, and published `v1.1.1`) remains under the matching
-  commit and app SHA. `1.1.2` source contains the post-`v1.1.1` installed-app
-  Codex launch correction; exact `1.1.2` release-app/distribution evidence is
-  pending and must not reuse `v1.1.1` evidence to prove that fix path.
+  commit and app SHA. Published `v1.1.2` has separate exact notarized and
+  installed-distribution evidence for the post-`v1.1.1` Codex launch correction.
 
 Verification:
 
@@ -102,7 +101,7 @@ Verification:
 - `pnpm harness:claude-agent-host`
 - `pnpm harness:runtime-conformance`
 - `pnpm build:pi-agent-host`
-- release `.app` launch from exact worktree path (current candidate pending)
+- release `.app` launch from the exact current-worktree path
 
 ## Workspace Files, Shell, Git, and Attachments
 
@@ -340,11 +339,11 @@ Verification:
 - `pnpm security:harness`
 - `pnpm platform:migration:drift` when platform schema changes
 - install-core or registry-client targeted harnesses when install contracts move
-- Prepared `1.1.2` candidate: source implementation and automated deep-link gate
-  are verified; macOS release cold-start and running-app invoke against a
-  notarized/installed `v1.1.2` `/Applications` target remain pending live
-  evidence and must not be claimed from harness-only results. Do not claim
-  automatic install.
+- Published `v1.1.2`: source implementation and the automated deep-link gate are
+  verified, while deep-link-specific macOS cold-start and running-app invoke
+  against the notarized `/Applications` artifact still require separate live
+  evidence. The general installed-app release streak does not substitute for
+  that journey. Do not claim automatic install.
 
 ## Studio
 

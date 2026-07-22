@@ -1,8 +1,8 @@
 import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { deleteCompanyDeep } from '@/data/local-data-deletion.js';
-import { queryKeys } from '@/data/query-keys.js';
 import { useCompanies } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { activateCompanyScope } from '@/runtime/activate-company-scope.js';
 import { runtimeEventBus } from '@/runtime/repos.js';

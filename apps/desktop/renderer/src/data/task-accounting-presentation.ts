@@ -45,7 +45,8 @@ function subscriptionPresentation(cost: RunCost): TaskAccountingPresentation {
     secondary: '订阅内 · 无 API 成本',
     tone: explicitBudgetTone(cost),
     ariaLabel: `Subscription task usage: ${tokens}; duration ${duration}; no API cost`,
-    title: 'Selected Conversation local token count and duration; subscription runs have no API cost.',
+    title:
+      'Selected Conversation local token count and duration; subscription runs have no API cost.',
   };
 }
 

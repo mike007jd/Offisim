@@ -13,10 +13,12 @@ Offisim deploys in two pieces with very different models:
 > `apps/web` SPA host or a standalone launcher — those were removed. The only
 > server here is the platform API.
 
-As of **2026-07-22**, `v1.1.1` is the latest stable published release and the
-GitHub repository is public. Version `1.1.2` is the current prepared patch
-candidate and is not yet published. App Updates discovers stable releases
-through the user's existing authenticated GitHub CLI session.
+As of **2026-07-22**, `v1.1.2` is the latest stable published release and the
+GitHub repository is public. Offisim remains formally prelaunch with no
+production user-data migration contract, but the published updater, deep-link,
+signing, and installer formats are external distribution contracts. App Updates
+discovers stable releases through the user's existing authenticated GitHub CLI
+session.
 
 ## Platform API — Docker (optional local backend)
 
@@ -30,11 +32,23 @@ build`, then `node apps/platform/dist/index.js`) and brings up:
 - `platform` on `:4100`
 - `postgres:16-alpine` on `:5432` with a `pgdata` volume
 
+Fresh Postgres volumes apply the single current prelaunch baseline from
+`packages/db-platform/schema.sql` through `/docker-entrypoint-initdb.d/`. The
+baseline is generated from `packages/db-platform/src/schema.ts`; numbered
+historical migrations are intentionally not retained before formal launch.
+
 Docker starts only the optional Platform backend. It does **not** launch the
 desktop product.
 
-The compose file ships dev-grade defaults (`BETTER_AUTH_SECRET: change-me-for-real-use`).
-**Override every secret for any real deployment.**
+The compose file intentionally has no published auth-secret default. Set a
+random value of at least 32 characters before resolving or starting the stack:
+
+```bash
+BETTER_AUTH_SECRET="$(openssl rand -hex 32)" docker compose -f docker/docker-compose.yml up --build
+```
+
+The bundled database credentials remain local-development defaults; override
+all database credentials and URLs for any shared or public deployment.
 
 ## Platform API — environment
 
@@ -90,16 +104,15 @@ summary records the skip and the run does **not** count as release evidence.
 
 Signed, notarized, stapled DMG and update ZIP artifacts are published from the
 repo root with `pnpm release:publish` only after explicit release authorization.
-Prepared `1.1.2` candidate example (not authorized and not executed):
+Historical `1.1.2` production invocation (already executed; do not re-run):
 
 ```bash
 pnpm release:publish -- --tag v1.1.2 --target main --notes-file Docs/releases/v1.1.2.md
 ```
 
-The historical `v1.1.1` publish command must not be re-run: `v1.1.1` is already
-the published Latest stable, and its tag points at the historical release
-commit that must remain unchanged. The `v1.1.2` command above awaits explicit
-`v1.1.2` authorization and has not been executed.
+The historical `v1.1.1` and `v1.1.2` publish commands must not be re-run. Both
+tags point at immutable historical release commits; `v1.1.2` is the current
+published Latest stable.
 
 Source contract: the publisher must run on branch `main`, after refreshing
 `origin/main`, with `HEAD` exactly equal to `origin/main`, and with the GitHub
@@ -116,10 +129,9 @@ substitute.
 `--draft` is for QA only. `--allow-dirty`, `--skip-build`, and `--skip-gates`
 are permitted only together with `--draft`; those escapes are not formal
 release evidence and must not be treated as a published distribution. The
-existing `v1.1.1` release is published and notarized. This document does **not**
-claim that the `v1.1.2` GitHub Release, notarized DMG, or update ZIP has already
-been published; tagging, notarization, GitHub publication, and replacement
-installation await explicit `v1.1.2` authorization.
+existing `v1.1.1` and `v1.1.2` releases are published and notarized. The
+`v1.1.2` release additionally has replacement-installation and installed-app
+streak evidence recorded in the release-readiness closeout.
 
 When authorized, the command builds and signs `Offisim.app` with
 `Developer ID Application: Haosheng Li (9MP925J67C)` from the login keychain;

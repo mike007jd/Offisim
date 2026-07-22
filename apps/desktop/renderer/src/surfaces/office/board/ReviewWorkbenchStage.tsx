@@ -1,7 +1,13 @@
 import { useUiState } from '@/app/ui-state.js';
+import {
+  type TaskBoardChildRow,
+  type WorkspaceLeaseReviewRow,
+  useProjectWorkspaceLeaseReviews,
+  useTaskBoard,
+} from '@/data/board/task-board-data.js';
+import { useCompanyEmployees } from '@/data/queries.js';
 import { queryKeys } from '@/data/query-keys.js';
 import { markReturnedReviewPatchApplied } from '@/data/review-workbench.js';
-import { useCompanyEmployees } from '@/data/queries.js';
 import { loadRunCost } from '@/data/run-cost.js';
 import { taskAccountingPresentation } from '@/data/task-accounting-presentation.js';
 import { parseUnifiedDiffFiles } from '@/data/unified-diff.js';
@@ -9,23 +15,21 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
 import { getRepos } from '@/runtime/repos.js';
+import type { CompetitiveDraftAttemptRow, CompetitiveDraftGroupRow } from '@offisim/core/browser';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type {
-  CompetitiveDraftAttemptRow,
-  CompetitiveDraftGroupRow,
-} from '@offisim/core/browser';
-import { CheckCircle2, ChevronRight, CircleX, Clock3, GitCompareArrows, Trophy } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronRight,
+  CircleX,
+  Clock3,
+  GitCompareArrows,
+  Trophy,
+} from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { DiffPanel } from './DiffPanel.js';
 import { selectCompetitiveDraftWinner } from './competitive-draft-actions.js';
 import { publishReviewPrPrefill } from './review-pr-prefill.js';
-import {
-  type TaskBoardChildRow,
-  type WorkspaceLeaseReviewRow,
-  useProjectWorkspaceLeaseReviews,
-  useTaskBoard,
-} from '@/data/board/task-board-data.js';
 import { useWorkspaceLeaseDecision } from './use-workspace-lease-decision.js';
 import {
   applyWorkspaceLeaseReviewPatch,
@@ -84,7 +88,10 @@ function diffStats(files: readonly { diff: string }[]) {
 }
 
 function durationLabel(startedAt: string, finishedAt: string | null): string {
-  const elapsed = Math.max(0, Date.parse(finishedAt ?? new Date().toISOString()) - Date.parse(startedAt));
+  const elapsed = Math.max(
+    0,
+    Date.parse(finishedAt ?? new Date().toISOString()) - Date.parse(startedAt),
+  );
   const minutes = Math.floor(elapsed / 60_000);
   if (minutes < 1) return `${Math.max(0, Math.round(elapsed / 1_000))}s`;
   if (minutes < 60) return `${minutes}m`;
@@ -157,8 +164,7 @@ function SingleLeaseReview({
   const saveChain = useRef<Promise<void>>(Promise.resolve());
   const files = lease?.files.length ? lease.files : fallbackFiles;
   const document = useMemo(() => parseUnifiedDiffFiles(files), [files]);
-  const actionable =
-    lease?.status === 'pending_review' && (!comparison || comparison.canAdopt);
+  const actionable = lease?.status === 'pending_review' && (!comparison || comparison.canAdopt);
 
   const persistReview = (review: Parameters<typeof persistWorkspaceLeaseReview>[2]) => {
     if (!lease || !companyId) return Promise.resolve();
@@ -184,7 +190,9 @@ function SingleLeaseReview({
             body: summaryBody,
           });
         }
-        toast.success(outcome === 'discarded' ? 'Task discarded.' : 'Task merged. PR handoff ready.');
+        toast.success(
+          outcome === 'discarded' ? 'Task discarded.' : 'Task merged. PR handoff ready.',
+        );
       }
       await reviews.refetch();
     } catch (error) {
@@ -198,13 +206,19 @@ function SingleLeaseReview({
     return <div className="off-review-stage-state">Loading delegated review…</div>;
   }
   if (!lease && files.length === 0) {
-    return <div className="off-review-stage-state">This delegated review is no longer available.</div>;
+    return (
+      <div className="off-review-stage-state">This delegated review is no longer available.</div>
+    );
   }
 
   return (
     <div className="off-stage-changes is-lease-review">
       {comparison ? (
-        <button type="button" className="off-focusable off-competitive-review-back" onClick={comparison.onBack}>
+        <button
+          type="button"
+          className="off-focusable off-competitive-review-back"
+          onClick={comparison.onBack}
+        >
           Back to side-by-side comparison
         </button>
       ) : null}
@@ -278,12 +292,15 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
       const attempts = await repos.competitiveDraftAttempts.listByGroup(comparisonGroupId);
       const costs = Object.fromEntries(
         await Promise.all(
-          attempts.map(async (attempt) => [
-            attempt.attempt_id,
-            companyId
-              ? await loadRunCost(companyId, attempt.thread_id).catch(() => null)
-              : null,
-          ] as const),
+          attempts.map(
+            async (attempt) =>
+              [
+                attempt.attempt_id,
+                companyId
+                  ? await loadRunCost(companyId, attempt.thread_id).catch(() => null)
+                  : null,
+              ] as const,
+          ),
         ),
       );
       return { group, attempts: [...attempts].sort((a, b) => a.ordinal - b.ordinal), costs };
@@ -392,10 +409,8 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
           const lease = leaseForAttempt(attempt, reviews.rows);
           const stats = diffStats(lease?.files ?? []);
           const accounting = taskAccountingPresentation(data.costs[attempt.attempt_id]);
-          const verificationPassed =
-            lease?.verificationPassed ?? attempt.verification_passed;
-          const verificationSummary =
-            lease?.verificationSummary ?? attempt.verification_summary;
+          const verificationPassed = lease?.verificationPassed ?? attempt.verification_passed;
+          const verificationSummary = lease?.verificationSummary ?? attempt.verification_summary;
           const isWinner = data.group.winner_attempt_id === attempt.attempt_id;
           const ready = lease?.status === 'pending_review';
           const canAdopt =
@@ -427,23 +442,37 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
                 {isWinner ? <Icon icon={Trophy} size="sm" /> : null}
               </header>
               <div className="off-competitive-review-stats">
-                <span><b>{lease?.files.length ?? 0}</b> files</span>
+                <span>
+                  <b>{lease?.files.length ?? 0}</b> files
+                </span>
                 <span className="is-add">+{stats.added}</span>
                 <span className="is-remove">−{stats.removed}</span>
               </div>
               <div className="off-competitive-review-facts">
                 <span>
-                  {verificationPassed === false ? <CircleX aria-hidden /> : <CheckCircle2 aria-hidden />}
+                  {verificationPassed === false ? (
+                    <CircleX aria-hidden />
+                  ) : (
+                    <CheckCircle2 aria-hidden />
+                  )}
                   {verificationPassed === true
-                    ? verificationSummary ?? 'Verification passed'
+                    ? (verificationSummary ?? 'Verification passed')
                     : verificationPassed === false
-                      ? verificationSummary ?? 'Verification failed'
+                      ? (verificationSummary ?? 'Verification failed')
                       : attempt.status === 'planned' || attempt.status === 'running'
                         ? 'Verification pending'
-                        : verificationSummary ?? 'Verification unavailable'}
+                        : (verificationSummary ?? 'Verification unavailable')}
                 </span>
-                <span><Clock3 aria-hidden /> {durationLabel(attempt.started_at, attempt.finished_at ?? task?.finishedAt ?? null)}</span>
-                <span aria-label={accounting.ariaLabel} title={accounting.title}>{accounting.primary}</span>
+                <span>
+                  <Clock3 aria-hidden />{' '}
+                  {durationLabel(
+                    attempt.started_at,
+                    attempt.finished_at ?? task?.finishedAt ?? null,
+                  )}
+                </span>
+                <span aria-label={accounting.ariaLabel} title={accounting.title}>
+                  {accounting.primary}
+                </span>
                 {accounting.secondary ? <small>{accounting.secondary}</small> : null}
               </div>
               <footer>
@@ -453,7 +482,8 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
                   disabled={!lease?.files.length}
                   onClick={() => setSelectedAttemptId(attempt.attempt_id)}
                 >
-                  <Icon icon={GitCompareArrows} size="sm" /> Full review <ChevronRight aria-hidden />
+                  <Icon icon={GitCompareArrows} size="sm" /> Full review{' '}
+                  <ChevronRight aria-hidden />
                 </button>
                 {canAdopt || canRetryCleanup ? (
                   <button
@@ -468,7 +498,7 @@ function CompetitiveDraftReview({ comparisonGroupId }: { comparisonGroupId: stri
                         `Selected Option ${attempt.ordinal} after side-by-side review of ${data.attempts.length} independent drafts.`,
                       ).catch((error) => toast.error(safeErrorMessage(error)));
                     }}
-                    >
+                  >
                     <Icon icon={Trophy} size="sm" />
                     {busyAttemptId === attempt.attempt_id
                       ? canRetryCleanup

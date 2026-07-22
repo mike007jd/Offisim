@@ -1,7 +1,4 @@
-import {
-  OPENROUTER_API_BASE_URL,
-  openRouterPricingFor,
-} from './openrouter-pricing-registry.mjs';
+import { OPENROUTER_API_BASE_URL, openRouterPricingFor } from './openrouter-pricing-registry.mjs';
 
 const OPENROUTER_GENERATION_URL = `${OPENROUTER_API_BASE_URL}/generation`;
 const DEFAULT_RETRY_DELAYS_MS = Object.freeze([0, 150, 400, 950]);

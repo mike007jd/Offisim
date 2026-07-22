@@ -2,9 +2,9 @@ import type { WorkspaceCheckpointRow } from '@/lib/tauri-commands.js';
 import { createTauriGitWorktreeOps } from '@/runtime/mission/workspace/git-worktree-ops.js';
 import { getRepos, runtimeEventBus } from '@/runtime/repos.js';
 import {
+  type WorkspaceLease,
   createWorkspaceCheckpointManager,
   engineActivity,
-  type WorkspaceLease,
 } from '@offisim/core/browser';
 
 function leaseFor(checkpoint: WorkspaceCheckpointRow): WorkspaceLease {

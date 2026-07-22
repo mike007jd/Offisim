@@ -244,7 +244,7 @@ function attachCompetitiveDrafts(
         const mapped = run ? rowFromAgentRun(run) : null;
         const task = mapped
           ? (({ children: _children, competitiveDrafts: _drafts, ...child }) => ({
-            ...child,
+              ...child,
               employeeId: attempt.employee_id,
               competitiveDraftAttemptId: attempt.attempt_id,
               competitiveDraftGroupId: group.group_id,
@@ -337,12 +337,18 @@ export function useTaskBoard(companyId: string | null): TaskBoardView & {
       if (!companyId) return { rows: [], attemptRunIds: [] as string[] };
       const repos = await getRepos();
       const rows = await repos.agentRuns.findByStatus(companyId, [...PERSISTED_TASK_STATUSES]);
-      const projectIds = [...new Set(rows.flatMap((row) => (row.project_id ? [row.project_id] : [])))];
+      const projectIds = [
+        ...new Set(rows.flatMap((row) => (row.project_id ? [row.project_id] : []))),
+      ];
       const groups: CompetitiveDraftGroupRow[] = (
-        await Promise.all(projectIds.map((projectId) => repos.competitiveDraftGroups.listByProject(projectId)))
+        await Promise.all(
+          projectIds.map((projectId) => repos.competitiveDraftGroups.listByProject(projectId)),
+        )
       ).flat();
       const attempts: CompetitiveDraftAttemptRow[] = (
-        await Promise.all(groups.map((group) => repos.competitiveDraftAttempts.listByGroup(group.group_id)))
+        await Promise.all(
+          groups.map((group) => repos.competitiveDraftAttempts.listByGroup(group.group_id)),
+        )
       ).flat();
       return {
         rows: attachCompetitiveDrafts(rows, groups, attempts),
@@ -911,11 +917,7 @@ function workspaceLeaseStatusFromEvent(
   const phase = asString(payload.phase);
   const eventStatus = asString(payload.status);
   if (action?.endsWith('_failed') || eventStatus === 'failed') return 'failed';
-  if (
-    phase === 'planned' ||
-    phase === 'pending_review' ||
-    phase === 'verification_terminated'
-  ) {
+  if (phase === 'planned' || phase === 'pending_review' || phase === 'verification_terminated') {
     return 'pending_review';
   }
   if (

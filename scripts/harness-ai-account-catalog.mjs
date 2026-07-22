@@ -101,7 +101,11 @@ const unverified = status.models.find((entry) => entry.modelId === 'vendor/new-l
 assert.equal(unverified?.availability, 'available');
 assert.equal(unverified?.source, undefined, 'user-configured model provenance is optional');
 const familyNamed = status.models.find((entry) => entry.modelId === 'Qwen3');
-assert.equal(familyNamed?.availability, 'available', 'explicit user configuration is authoritative');
+assert.equal(
+  familyNamed?.availability,
+  'available',
+  'explicit user configuration is authoritative',
+);
 assert.equal(familyNamed?.contextWindow, 131_072);
 assert.equal(familyNamed?.maxOutputTokens, 8_192);
 assert.deepEqual(familyNamed?.capabilities, {

@@ -776,9 +776,11 @@ await check(
 );
 
 if (h.failures > 0) {
-  console.error(`\nmission-recovery: ${(h.checks - h.failures)}/${TOTAL} passed (${h.failures} failed)`);
+  console.error(
+    `\nmission-recovery: ${h.checks - h.failures}/${TOTAL} passed (${h.failures} failed)`,
+  );
   process.exit(1);
 }
-console.log(`\nmission-recovery: ${(h.checks - h.failures)}/${TOTAL} passed`);
+console.log(`\nmission-recovery: ${h.checks - h.failures}/${TOTAL} passed`);
 
 if (!process.exitCode) h.report();
