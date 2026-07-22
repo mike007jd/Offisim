@@ -46,7 +46,6 @@ export type {
   BeatAffordance,
   BeatKind,
   DramaturgyConfig,
-  DramaturgyPaceProjection,
   DramaturgyTiming,
   FlowIntent,
   ResourceIntent,
