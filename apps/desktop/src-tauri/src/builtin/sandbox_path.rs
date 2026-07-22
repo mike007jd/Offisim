@@ -86,84 +86,6 @@ pub(super) fn ensure_write_size(size: usize, path: &Path, roots: &[PathBuf]) -> 
     Ok(())
 }
 
-pub(super) fn line_window_size_error(kind: &str, path: &Path, roots: &[PathBuf]) -> String {
-    format!(
-        "project file line {kind} exceeds {} bytes: {}",
-        MAX_READ_BYTES,
-        relativize_for_error(path, roots)
-    )
-}
-
-pub(super) struct LineWindow<'a> {
-    pub(super) start_line: u32,
-    pub(super) selected: Vec<String>,
-    pub(super) retained_bytes: u64,
-    pub(super) max_lines: Option<usize>,
-    pub(super) path: &'a Path,
-    pub(super) roots: &'a [PathBuf],
-}
-
-pub(super) fn push_line_window(
-    line_no: u32,
-    line: &mut Vec<u8>,
-    window: &mut LineWindow<'_>,
-) -> Result<bool, String> {
-    if line_no < window.start_line {
-        line.clear();
-        return Ok(false);
-    }
-    window.retained_bytes = window.retained_bytes.saturating_add(line.len() as u64);
-    if window.retained_bytes > MAX_READ_BYTES {
-        return Err(line_window_size_error("window", window.path, window.roots));
-    }
-    while line.ends_with(b"\n") || line.ends_with(b"\r") {
-        line.pop();
-    }
-    let bytes = std::mem::take(line);
-    let text = String::from_utf8(bytes).map_err(|_| {
-        format!(
-            "project file line window contains invalid UTF-8: {}",
-            relativize_for_error(window.path, window.roots)
-        )
-    })?;
-    window.selected.push(text);
-    Ok(window
-        .max_lines
-        .is_some_and(|limit| window.selected.len() >= limit))
-}
-
-fn deepest_existing_ancestor(path: &Path) -> Result<PathBuf, String> {
-    let mut cursor = path;
-    loop {
-        if cursor.exists() {
-            return Ok(cursor.to_path_buf());
-        }
-        cursor = cursor
-            .parent()
-            .ok_or_else(|| "path has no existing ancestor".to_string())?;
-    }
-}
-
-pub(super) fn resolve_write_target(candidate: &Path, roots: &[PathBuf]) -> Result<PathBuf, String> {
-    let ancestor = deepest_existing_ancestor(candidate)?;
-    let canonical_ancestor = ancestor
-        .canonicalize()
-        .map_err(|err| fs_resolve_error("resolve project file ancestor", &ancestor, err))?;
-    ensure_inside_workspace(&canonical_ancestor, roots)?;
-    let tail = candidate.strip_prefix(&ancestor).map_err(|err| {
-        eprintln!(
-            "[builtin_tools] strip write tail {} from {} failed: {err}",
-            candidate.to_string_lossy(),
-            ancestor.to_string_lossy()
-        );
-        "resolve project file target failed".to_string()
-    })?;
-    if tail.as_os_str().is_empty() {
-        return Ok(canonical_ancestor);
-    }
-    Ok(canonical_ancestor.join(tail))
-}
-
 #[cfg(unix)]
 pub(super) struct AnchoredProjectParent {
     pub(super) directory: std::fs::File,
@@ -421,14 +343,6 @@ pub(crate) fn project_path_metadata_anchored(
     } else {
         Err(fs_op_error("inspect project path", target, roots, error))
     }
-}
-
-#[cfg(unix)]
-pub(super) fn project_target_exists_anchored(
-    target: &Path,
-    roots: &WorkspaceRoots,
-) -> Result<bool, String> {
-    project_path_metadata_anchored(target, roots).map(|metadata| metadata.is_some())
 }
 
 #[cfg(not(unix))]
@@ -807,21 +721,6 @@ mod builtin_tools_contracts {
     use std::fs;
 
     #[test]
-    fn rejects_symlink_escape_before_write_target_resolution() {
-        let workspace = TestDir::new("workspace");
-        let outside = TestDir::new("outside");
-        let root = workspace.path.canonicalize().expect("canonical workspace");
-        let link = workspace.path.join("link");
-        symlink_dir(&outside.path, &link);
-
-        let err = resolve_write_target(&link.join("escape.txt"), &[root])
-            .expect_err("symlink write target must be rejected");
-
-        assert!(err.contains("path is outside bound project workspaces"));
-        assert!(err.contains("<out-of-bounds>"));
-    }
-
-    #[test]
     fn rejects_overbroad_workspace_root() {
         assert!(is_overbroad_workspace_root(Path::new("/")));
         assert!(is_overbroad_workspace_root(Path::new("/Users")));
@@ -835,19 +734,6 @@ mod builtin_tools_contracts {
         let root = workspace.path.canonicalize().expect("canonical workspace");
         let rendered = relativize_for_error(Path::new("/Users/example/.ssh/id_rsa"), &[root]);
         assert_eq!(rendered, "<out-of-bounds>");
-    }
-
-    #[test]
-    fn resolves_nonexistent_tail_under_canonical_root() {
-        let workspace = TestDir::new("tail");
-        let root = workspace.path.canonicalize().expect("canonical workspace");
-        let target = resolve_write_target(
-            &workspace.path.join("nested/file.txt"),
-            std::slice::from_ref(&root),
-        )
-        .expect("target resolves");
-        assert!(target.starts_with(root));
-        assert!(target.ends_with("nested/file.txt"));
     }
 
     #[test]
@@ -1012,7 +898,7 @@ mod builtin_tools_contracts {
 
     #[cfg(unix)]
     #[test]
-    fn anchored_exists_and_list_reject_same_path_replacement_of_authorized_root() {
+    fn anchored_metadata_and_list_reject_same_path_replacement_of_authorized_root() {
         let workspace = TestDir::new("anchored-list-root-swap-parent");
         let root = workspace.path.join("project");
         fs::create_dir(&root).expect("create authorized root");
@@ -1024,9 +910,12 @@ mod builtin_tools_contracts {
         fs::create_dir(&root).expect("create replacement at same path");
         fs::write(root.join("forged.txt"), "forged").expect("seed replacement root");
 
-        let exists_error = project_target_exists_anchored(&root.join("forged.txt"), &authority)
-            .expect_err("Files exists must surface replacement authority loss");
-        assert!(exists_error.contains("identity changed"), "{exists_error}");
+        let metadata_error = project_path_metadata_anchored(&root.join("forged.txt"), &authority)
+            .expect_err("Files metadata must surface replacement authority loss");
+        assert!(
+            metadata_error.contains("identity changed"),
+            "{metadata_error}"
+        );
         let error = list_project_directory_anchored(&root, &authority, 300)
             .expect_err("Files list must reject a same-path replacement root");
         assert!(error.contains("identity changed"), "{error}");
@@ -1068,14 +957,15 @@ mod builtin_tools_contracts {
 
     #[cfg(unix)]
     #[test]
-    fn anchored_exists_maps_only_missing_paths_to_false() {
+    fn anchored_metadata_maps_missing_paths_to_none() {
         let workspace = TestDir::new("anchored-exists-missing");
         let root = workspace.path.canonicalize().expect("canonical workspace");
-        assert!(!project_target_exists_anchored(
+        assert!(project_path_metadata_anchored(
             &root.join("missing/leaf.txt"),
             &authorized_roots(&root),
         )
-        .expect("missing path is not an authority failure"));
+        .expect("missing path is not an authority failure")
+        .is_none());
     }
 
     #[cfg(unix)]
@@ -1160,25 +1050,6 @@ mod builtin_tools_contracts {
             .expect_err("multi-link file must not be readable through workspace sandbox");
 
         assert!(error.contains("multiple hard links"), "{error}");
-    }
-
-    #[test]
-    fn overwrites_existing_root_file_through_resolved_write_target() {
-        let workspace = TestDir::new("overwrite-root");
-        let root = workspace.path.canonicalize().expect("canonical workspace");
-        let existing = root.join("generate_pdf.py");
-        fs::write(&existing, "old").expect("seed existing root file");
-        let root_str = root.to_string_lossy().to_string();
-        let candidate =
-            resolve_candidate("generate_pdf.py", Some(&root_str)).expect("relative candidate");
-        let target = resolve_write_target(&candidate, &[root]).expect("target resolves");
-
-        fs::write(&target, "new").expect("overwrite existing root file");
-
-        assert_eq!(
-            fs::read_to_string(&existing).expect("read overwritten file"),
-            "new"
-        );
     }
 
     #[test]

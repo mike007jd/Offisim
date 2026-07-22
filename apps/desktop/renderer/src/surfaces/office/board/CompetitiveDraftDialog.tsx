@@ -79,6 +79,9 @@ export function CompetitiveDraftDialog({
           onChange={setSearch}
           placeholder="Search employees, roles, or models"
         />
+        {/* Searchable multi-select roster: native controls cannot host avatar rows, so each option is a focusable button. */}
+        {/* biome-ignore lint/a11y/useFocusableInteractive: listbox groups focusable option buttons; container itself is not a tab stop */}
+        {/* biome-ignore lint/a11y/useSemanticElements: custom multi-select roster; native select cannot preserve avatar/layout */}
         <div className="off-competitive-draft-roster" role="listbox" aria-multiselectable="true">
           {available.map((employee) => {
             const active = selected.includes(employee.id);
@@ -87,6 +90,7 @@ export function CompetitiveDraftDialog({
               <button
                 key={employee.id}
                 type="button"
+                // biome-ignore lint/a11y/useSemanticElements: option semantics on button for custom multi-select row
                 role="option"
                 aria-selected={active}
                 className={cn('off-focusable', active && 'is-selected')}
@@ -103,7 +107,9 @@ export function CompetitiveDraftDialog({
                 />
                 <span>
                   <b>{employee.name}</b>
-                  <small>{employee.role} · {employee.modelLabel}</small>
+                  <small>
+                    {employee.role} · {employee.modelLabel}
+                  </small>
                 </span>
                 <span className="off-competitive-draft-check">
                   {active ? <Check aria-hidden /> : null}

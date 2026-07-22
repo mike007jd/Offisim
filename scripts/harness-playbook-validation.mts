@@ -901,7 +901,9 @@ await check('INJECT-PROOF (§18.1): an all-required:false playbook is REJECTED',
 
 const total = h.checks;
 if (h.failures > 0) {
-  console.error(`\nplaybook-validation: ${(h.checks - h.failures)}/${total} passed (${h.failures} failed)`);
+  console.error(
+    `\nplaybook-validation: ${h.checks - h.failures}/${total} passed (${h.failures} failed)`,
+  );
   process.exit(1);
 }
 console.log(`\nplaybook-validation: ${total}/${total} passed`);

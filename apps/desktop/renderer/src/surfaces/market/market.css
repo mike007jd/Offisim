@@ -621,65 +621,10 @@
   width: 46px;
   height: 11px;
 }
-/* ── Hero (empty / error) ─────────────────────────────────────────────── */
-.off-mkt-hero-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* ── Shared empty/error state ───────────────────────────────────────────── */
 .off-mkt-state-wrap {
   display: grid;
   place-items: center;
-}
-.off-mkt-hero {
-  max-width: 420px;
-  margin: 0 auto;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 32px 0;
-}
-.off-mkt-hero-i {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--off-r-md);
-  background: var(--off-surface-1);
-  border: 1px solid var(--off-line);
-  box-shadow: var(--off-elev-1);
-  display: grid;
-  place-items: center;
-  color: var(--off-ink-3);
-}
-.off-mkt-hero-i.is-danger {
-  color: var(--off-danger);
-  border-color: color-mix(in srgb, var(--off-danger) 40%, transparent);
-  background: var(--off-danger-surface);
-}
-.off-mkt-hero-t {
-  font-size: var(--off-fs-md);
-  font-weight: 660;
-  color: var(--off-ink-1);
-}
-.off-mkt-hero-d {
-  font-size: var(--off-fs-sm);
-  color: var(--off-ink-3);
-  line-height: 1.55;
-}
-.off-mkt-hero-tech {
-  font-family: var(--off-font-mono);
-  font-size: var(--off-fs-label);
-  color: var(--off-ink-3);
-  background: var(--off-surface-sunken);
-  border-radius: var(--off-r-xs);
-  padding: 4px 8px;
-  border: 1px solid var(--off-line-soft);
-}
-.off-mkt-hero-a {
-  display: flex;
-  gap: var(--off-sp-3);
-  margin-top: 3px;
 }
 
 /* ════════════════ Detail view ════════════════ */

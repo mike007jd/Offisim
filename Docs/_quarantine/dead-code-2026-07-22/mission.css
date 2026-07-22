@@ -1,4 +1,5 @@
-/* ══════════ Verified Missions surface (PRD §24) ══════════
+/* QUARANTINED 2026-07-22: orphan Verified Missions surface (PRD §24).
+   Kept outside the renderer bundle for one release cycle before deletion.
    Mission list / composer (UX-001) / control (UX-002). Tokens only; flush to the
    drawable area (no renderer-root gutter) — spacing lives inside the panels. */
 

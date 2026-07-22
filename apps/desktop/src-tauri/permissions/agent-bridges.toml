@@ -69,7 +69,6 @@ commands.allow = [
   "runtime_vault_remove",
   "runtime_vault_mkdir",
   "export_runtime_vault_zip",
-  "export_computer_run_trace",
   "export_scene_drop_diagnostic",
   "save_deliverable_to_local",
   "mcp_list_registered_servers",

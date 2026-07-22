@@ -18,9 +18,7 @@ function parsedPreviewText(parsed: ParsedAttachment): string | null {
     case 'pdf':
       return parsed.text;
     case 'xlsx':
-      return parsed.sheets
-        .map((sheet) => `# ${sheet.name}\n${sheet.csv}`)
-        .join('\n\n');
+      return parsed.sheets.map((sheet) => `# ${sheet.name}\n${sheet.csv}`).join('\n\n');
     case 'image':
     case 'binary':
     case 'unsupported':

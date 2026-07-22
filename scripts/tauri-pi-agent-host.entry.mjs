@@ -43,7 +43,6 @@ import {
   toolAllowlistForMode,
 } from './pi-agent-permission-modes.mts';
 import {
-  DELEGATION_DEFAULTS,
   createChildSupervisor,
   createDelegationLimits,
   normalizeDelegationLimitOverrides,

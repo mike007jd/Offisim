@@ -1,3 +1,4 @@
+import type { TaskWorkspaceBindingClaim } from '@/lib/tauri-commands.js';
 import {
   agentRunEvent,
   engineActivity,
@@ -11,7 +12,6 @@ import {
   type WorkspaceDiagnosticsUpdatedPayload,
   type WorkspaceProvenance,
 } from '@offisim/shared-types';
-import type { TaskWorkspaceBindingClaim } from '@/lib/tauri-commands.js';
 import {
   agentLifecycleEvent,
   agentUiRequestEvent,
@@ -20,8 +20,8 @@ import {
   parseWorkspaceDiagnosticsPayload,
   workspaceDiagnosticsUpdatedEvent,
 } from './host-event-factories.js';
-import type { PersistedRunContext } from './run-context.js';
 import type { PiAgentHostEvent, WorkspaceUnavailableEvent } from './pi-runtime-driver.js';
+import type { PersistedRunContext } from './run-context.js';
 import {
   type WorkspaceBindingStreamGate,
   type WorkspaceStreamConsumptionPolicy,
@@ -46,10 +46,7 @@ type AgentRunHostEvent = Extract<PiAgentHostEvent, { kind: 'agentRun' }>;
 type WorkspaceRequirement = 'optional' | 'required';
 
 export interface HostEventStreamState {
-  workspaceGate: WorkspaceBindingStreamGate<
-    TaskWorkspaceBindingClaim,
-    WorkspaceUnavailableEvent
-  >;
+  workspaceGate: WorkspaceBindingStreamGate<TaskWorkspaceBindingClaim, WorkspaceUnavailableEvent>;
   runtimeContext: Partial<PersistedRunContext>;
   contentText: string;
   reasoningText: string;
@@ -68,10 +65,10 @@ export interface BufferedHostEventContext extends HostEventContextBase {
   phase: 'buffering';
   onWorkspaceBound: (
     event: Extract<PiAgentHostEvent, { kind: 'workspaceBound' }>,
-  ) => boolean | void;
+  ) => boolean | undefined;
   onWorkspaceUnavailable: (
     event: Extract<PiAgentHostEvent, { kind: 'workspaceUnavailable' }>,
-  ) => boolean | void;
+  ) => boolean | undefined;
   bufferEvent: (event: PiAgentHostEvent) => void;
 }
 
@@ -103,9 +100,7 @@ export interface ActiveHostEventContext extends HostEventContextBase {
   onWorkspaceAccepted: () => void;
   onRejected: (message: string) => void;
   onStarted: (event: Extract<PiAgentHostEvent, { kind: 'started' }>) => void;
-  onExecutionPrepared: (
-    event: Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>,
-  ) => void;
+  onExecutionPrepared: (event: Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>) => void;
   onStreamCursor: (event: Extract<PiAgentHostEvent, { kind: 'streamCursor' }>) => void;
   onResult: (event: Extract<PiAgentHostEvent, { kind: 'result' }>) => void;
   onError: (event: Extract<PiAgentHostEvent, { kind: 'error' }>) => void;
@@ -127,10 +122,7 @@ export interface ActiveHostEventContext extends HostEventContextBase {
     event: AgentRunHostEvent,
     projectId: string | null,
   ) => Promise<void>;
-  persistWorkspaceCheckpoint: (
-    event: AgentRunHostEvent,
-    projectId: string | null,
-  ) => Promise<void>;
+  persistWorkspaceCheckpoint: (event: AgentRunHostEvent, projectId: string | null) => Promise<void>;
   persistAgentRun: (event: AgentRunEvent) => Promise<void>;
   rootRun: (type: AgentRunEvent['type'], payload: AgentRunEvent['payload']) => AgentRunEvent;
   emitRootBus: (event: AgentRunEvent) => void;
@@ -148,7 +140,7 @@ export type HostEventHandler<K extends PiAgentHostEvent['kind']> = (
 function bufferEvent(
   event: PiAgentHostEvent,
   ctx: HostEventContext,
-  beforeBuffer?: (ctx: BufferedHostEventContext) => boolean | void,
+  beforeBuffer?: (ctx: BufferedHostEventContext) => boolean | undefined,
 ): ctx is BufferedHostEventContext {
   if (ctx.phase !== 'buffering') return false;
   if (beforeBuffer?.(ctx) === false) return true;
@@ -161,14 +153,13 @@ function activeContext(ctx: HostEventContext): ActiveHostEventContext | null {
   return ctx;
 }
 
-function canConsume(
-  ctx: ActiveHostEventContext,
-  event: PiAgentHostEvent,
-): boolean {
+function canConsume(ctx: ActiveHostEventContext, event: PiAgentHostEvent): boolean {
   if (canConsumeWorkspaceEvent(ctx.state.workspaceGate, event, ctx.policy)) return true;
   if (ctx.policy !== 'terminal-reconcile' && ctx.state.workspaceGate.status !== 'rejected') {
     ctx.state.workspaceGate = rejectWorkspaceBinding(ctx.state.workspaceGate);
-    ctx.onRejected(`Backend emitted unsafe ${event.kind} activity without a task workspace binding.`);
+    ctx.onRejected(
+      `Backend emitted unsafe ${event.kind} activity without a task workspace binding.`,
+    );
   }
   return false;
 }
@@ -400,9 +391,7 @@ const tool: HostEventHandler<'tool'> = (event, ctx) => {
         title,
         kind: 'file',
       });
-      active.enqueuePersist(() =>
-        active.persistArtifact(artifactEvent, state.workspaceGate.claim),
-      );
+      active.enqueuePersist(() => active.persistArtifact(artifactEvent, state.workspaceGate.claim));
     }
   }
 };
@@ -468,11 +457,7 @@ const agentRun: HostEventHandler<'agentRun'> = (event, ctx) => {
       ...(event.runId !== event.rootRunId ? { childRunId: event.runId } : {}),
     };
     active.enqueuePersist(async () => {
-      const persisted = await active.persistWorkspaceDiagnostics(
-        event,
-        active.projectId,
-        payload,
-      );
+      const persisted = await active.persistWorkspaceDiagnostics(event, active.projectId, payload);
       if (persisted) {
         active.emitRuntimeEvent(
           workspaceDiagnosticsUpdatedEvent(active.companyId, event.threadId, payload),
@@ -486,9 +471,7 @@ const agentRun: HostEventHandler<'agentRun'> = (event, ctx) => {
     return;
   }
   if (event.runType === 'workspace.lease.snapshot') {
-    active.enqueuePersist(() =>
-      active.persistWorkspaceLeaseSnapshot(event, active.projectId),
-    );
+    active.enqueuePersist(() => active.persistWorkspaceLeaseSnapshot(event, active.projectId));
     return;
   }
   if (event.runType === 'workspace.checkpoint') {
@@ -519,9 +502,7 @@ const agentRun: HostEventHandler<'agentRun'> = (event, ctx) => {
             : 'Workspace baseline',
       }),
     );
-    active.enqueuePersist(() =>
-      active.persistWorkspaceCheckpoint(event, active.projectId),
-    );
+    active.enqueuePersist(() => active.persistWorkspaceCheckpoint(event, active.projectId));
     return;
   }
   if (event.runType === 'evaluation_submitted') {

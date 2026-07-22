@@ -1,8 +1,8 @@
 import { useUiState } from '@/app/ui-state.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { EMPLOYEE_CAPACITY_MESSAGE, MAX_COMPANY_EMPLOYEES } from '@/data/employee-capacity.js';
-import { queryKeys } from '@/data/query-keys.js';
 import { useEmployees } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { IconButton } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';

@@ -401,9 +401,11 @@ await check(
 
 const total = h.checks;
 if (h.failures > 0) {
-  console.error(`\nmission-evaluators: ${(h.checks - h.failures)}/${total} passed (${h.failures} failed)`);
+  console.error(
+    `\nmission-evaluators: ${h.checks - h.failures}/${total} passed (${h.failures} failed)`,
+  );
   process.exit(1);
 }
-console.log(`\nmission-evaluators: ${(h.checks - h.failures)}/${total} passed`);
+console.log(`\nmission-evaluators: ${h.checks - h.failures}/${total} passed`);
 
 if (!process.exitCode) h.report();

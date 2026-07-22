@@ -6,7 +6,9 @@ import Database from 'better-sqlite3';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const read = (path: string) => readFileSync(`${ROOT}/${path}`, 'utf8');
 const schemaSql = read('packages/db-local/src/schema.sql');
-const actions = read('apps/desktop/renderer/src/surfaces/office/board/competitive-draft-actions.ts');
+const actions = read(
+  'apps/desktop/renderer/src/surfaces/office/board/competitive-draft-actions.ts',
+);
 const runtime = read('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 const piChildSupervisor = read('scripts/pi-child-supervisor.mjs');
 const conversationController = read(
@@ -25,7 +27,9 @@ const stage = [
 ].join('\n');
 const uiState = read('apps/desktop/renderer/src/app/ui-state.ts');
 const recovery = read('apps/desktop/renderer/src/runtime/recovery/reconcile-interrupted-runs.ts');
-const recoveryHook = read('apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.ts');
+const recoveryHook = read(
+  'apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.ts',
+);
 const gitBackend = read('apps/desktop/src-tauri/src/git/lease.rs');
 const codexHost = read('apps/desktop/src-tauri/src/codex_agent_host/manager.rs');
 const claudeHost = read('apps/desktop/src-tauri/src/claude_agent_host/mod.rs');
@@ -109,14 +113,22 @@ function databaseContract(): void {
     db.pragma('foreign_keys = ON');
     db.exec(schemaSql);
     const tables = new Set(
-      (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map(
-        ({ name }) => name,
-      ),
+      (
+        db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{
+          name: string;
+        }>
+      ).map(({ name }) => name),
     );
     check(tables.has('competitive_draft_groups'), 'baseline must create comparison groups');
     check(tables.has('competitive_draft_attempts'), 'baseline must create comparison attempts');
-    check(/CHECK\s*\(ordinal BETWEEN 1 AND 4\)/u.test(schemaSql), 'attempts must be capped at four');
-    check(/UNIQUE\s*\(group_id, employee_id\)/u.test(schemaSql), 'employees must be unique per group');
+    check(
+      /CHECK\s*\(ordinal BETWEEN 1 AND 4\)/u.test(schemaSql),
+      'attempts must be capped at four',
+    );
+    check(
+      /UNIQUE\s*\(group_id, employee_id\)/u.test(schemaSql),
+      'employees must be unique per group',
+    );
     check(
       schemaSql.includes('verification_summary TEXT') &&
         schemaSql.includes('verification_passed INTEGER'),
@@ -152,20 +164,25 @@ function databaseContract(): void {
     ) VALUES ('attempt-1', 'group-1', 1, 'employee-1', 'draft-thread', 'draft-run', 'running', '2026-07-18')`);
 
     assert.throws(
-      () => db.exec("UPDATE competitive_draft_groups SET status = 'merging', winner_attempt_id = 'missing-attempt' WHERE group_id = 'group-1'"),
+      () =>
+        db.exec(
+          "UPDATE competitive_draft_groups SET status = 'merging', winner_attempt_id = 'missing-attempt' WHERE group_id = 'group-1'",
+        ),
       /competitive draft winner does not belong/u,
     );
     checks += 1;
 
     assert.throws(
-      () => db.exec(`INSERT INTO competitive_draft_attempts (
+      () =>
+        db.exec(`INSERT INTO competitive_draft_attempts (
         attempt_id, group_id, ordinal, employee_id, thread_id, run_id, status, started_at
       ) VALUES ('attempt-duplicate', 'group-1', 2, 'employee-1', 'draft-thread', 'dup-run', 'planned', '2026-07-18')`),
       /UNIQUE constraint failed/u,
     );
     checks += 1;
     assert.throws(
-      () => db.exec(`INSERT INTO competitive_draft_attempts (
+      () =>
+        db.exec(`INSERT INTO competitive_draft_attempts (
         attempt_id, group_id, ordinal, employee_id, thread_id, run_id, status, started_at
       ) VALUES ('attempt-five', 'group-1', 5, 'employee-2', 'draft-thread-two', 'fifth-run', 'planned', '2026-07-18')`),
       /CHECK constraint failed/u,
@@ -175,7 +192,9 @@ function databaseContract(): void {
     insertBinding(db, 'binding-draft', 'request-draft', 'draft-run', 'draft-thread');
     insertLease(db, 'lease-draft', 'binding-draft', 'request-draft', 'draft-run');
     check(
-      db.prepare("SELECT lease_id FROM task_workspace_lease_history WHERE lease_id = 'lease-draft'").get(),
+      db
+        .prepare("SELECT lease_id FROM task_workspace_lease_history WHERE lease_id = 'lease-draft'")
+        .get(),
       'the provenance trigger must admit the precisely registered competitive root lease',
     );
 
@@ -184,7 +203,8 @@ function databaseContract(): void {
     insertRun(db, 'ordinary-run', 'ordinary-thread', 'employee-2');
     insertBinding(db, 'binding-ordinary', 'request-ordinary', 'ordinary-run', 'ordinary-thread');
     assert.throws(
-      () => insertLease(db, 'lease-ordinary', 'binding-ordinary', 'request-ordinary', 'ordinary-run'),
+      () =>
+        insertLease(db, 'lease-ordinary', 'binding-ordinary', 'request-ordinary', 'ordinary-run'),
       /task workspace lease provenance does not match/u,
     );
     checks += 1;
@@ -194,12 +214,22 @@ function databaseContract(): void {
 }
 
 function sourceContract(): void {
-  check(actions.includes('employeeIds.length < 2 || employeeIds.length > 4'), 'controller must enforce 2–4 employees');
+  check(
+    actions.includes('employeeIds.length < 2 || employeeIds.length > 4'),
+    'controller must enforce 2–4 employees',
+  );
   check(actions.includes('new Set(employeeIds.map'), 'controller must deduplicate employees');
-  const submitAt = locate(actions, 'conversationRunController.submit({', 'must use the neutral controller seam');
+  const submitAt = locate(
+    actions,
+    'conversationRunController.submit({',
+    'must use the neutral controller seam',
+  );
   const submit = actions.slice(submitAt, actions.indexOf('});', submitAt));
   check(submit.includes('competitiveDraft: {'), 'submit must carry competitiveDraft context');
-  check(submit.includes('employeeId: record.employeeId'), 'employee identity must choose its engine');
+  check(
+    submit.includes('employeeId: record.employeeId'),
+    'employee identity must choose its engine',
+  );
   check(!submit.includes('directDelegation'), 'competitive submit must not impersonate delegation');
   check(
     actions.includes('repos.asyncTransact(async (transactionRepos) =>') &&
@@ -207,10 +237,19 @@ function sourceContract(): void {
     'competitive group creation must use the transaction repositories supplied by Tauri',
   );
 
-  const piAt = locate(runtime, "this.engineId === 'api' && competitiveDraft", 'Pi must adapt neutral context');
-  check(runtime.slice(piAt, piAt + 500).includes('deferIntegration: true'), 'Pi must retain proposals for review');
+  const piAt = locate(
+    runtime,
+    "this.engineId === 'api' && competitiveDraft",
+    'Pi must adapt neutral context',
+  );
   check(
-    piChildSupervisor.includes('confirmIntegration: retainForReview ? undefined : ctx.confirmIntegration'),
+    runtime.slice(piAt, piAt + 500).includes('deferIntegration: true'),
+    'Pi must retain proposals for review',
+  );
+  check(
+    piChildSupervisor.includes(
+      'confirmIntegration: retainForReview ? undefined : ctx.confirmIntegration',
+    ),
     'Pi competitive proposals must enter Offisim review capture without automatic integration',
   );
   check(
@@ -219,8 +258,11 @@ function sourceContract(): void {
   );
   check(
     runtime.includes('const effectiveSystemPromptAppend = competitiveDraft') &&
-      runtime.includes('Do not commit, amend, merge, rebase, switch branches, or create branches.') &&
-      runtime.match(/systemPromptAppend: effectiveSystemPromptAppend \?\? undefined/g)?.length === 3,
+      runtime.includes(
+        'Do not commit, amend, merge, rebase, switch branches, or create branches.',
+      ) &&
+      runtime.match(/systemPromptAppend: effectiveSystemPromptAppend \?\? undefined/g)?.length ===
+        3,
     'all engine lanes must leave competitive proposal changes uncommitted for neutral capture',
   );
   check(
@@ -232,8 +274,9 @@ function sourceContract(): void {
     'competitive orchestration budget must not be mistaken for external-engine delegation',
   );
   check(
-    conversationController.includes("attempt.status === 'planned' || attempt.status === 'running'") &&
-      conversationController.includes("allFailed ? 'failed' : 'reviewing'"),
+    conversationController.includes(
+      "attempt.status === 'planned' || attempt.status === 'running'",
+    ) && conversationController.includes("allFailed ? 'failed' : 'reviewing'"),
     'pre-host competitive failures must converge the attempt and comparison group',
   );
   check(
@@ -241,20 +284,41 @@ function sourceContract(): void {
       employeePersona.includes('runtimeModelRef: engine.engineId'),
     'employee execution binding must recognize ready orchestration engine ids',
   );
-  const mergeAt = locate(actions, "reviewWorkspaceLease(winnerLease, input.companyId, 'merge')", 'winner must merge');
-  const discardAt = locate(actions, "reviewWorkspaceLease(lease, input.companyId, 'discard')", 'losers must discard');
+  const mergeAt = locate(
+    actions,
+    "reviewWorkspaceLease(winnerLease, input.companyId, 'merge')",
+    'winner must merge',
+  );
+  const discardAt = locate(
+    actions,
+    "reviewWorkspaceLease(lease, input.companyId, 'discard')",
+    'losers must discard',
+  );
   check(mergeAt < discardAt, 'winner merge must precede loser cleanup');
 
   check(review.includes('<DiffPanel'), 'comparison must drill into the existing diff review');
-  check(review.includes('verificationPassed') && review.includes('verificationSummary'), 'comparison must show verification');
-  check(review.includes('taskAccountingPresentation'), 'comparison must use neutral accounting presentation');
   check(
-    uiState.includes('comparisonGroupId?: string') && stage.includes('comparisonGroupId={target.comparisonGroupId}'),
+    review.includes('verificationPassed') && review.includes('verificationSummary'),
+    'comparison must show verification',
+  );
+  check(
+    review.includes('taskAccountingPresentation'),
+    'comparison must use neutral accounting presentation',
+  );
+  check(
+    uiState.includes('comparisonGroupId?: string') &&
+      stage.includes('comparisonGroupId={target.comparisonGroupId}'),
     'comparison must be a first-class Stage target',
   );
   const competitiveGui = [actions, review, dialog, board].join('\n');
-  check(!/\b(?:codex|claude)\b/iu.test(competitiveGui), 'competitive GUI must not branch on named engines');
-  check(!/engineId\s*===?\s*['"]/u.test(competitiveGui), 'competitive GUI must not compare engine ids');
+  check(
+    !/\b(?:codex|claude)\b/iu.test(competitiveGui),
+    'competitive GUI must not branch on named engines',
+  );
+  check(
+    !/engineId\s*===?\s*['"]/u.test(competitiveGui),
+    'competitive GUI must not compare engine ids',
+  );
   check(
     recovery.includes("context?.recoveryLane === 'competitive-draft'") &&
       recovery.includes('competitiveDraftRun ||'),

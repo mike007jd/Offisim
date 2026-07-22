@@ -3,12 +3,12 @@ import {
   type TaskWorkspaceBindingProjection,
   parseTaskWorkspaceBindingProjection,
 } from '@/lib/tauri-commands.js';
-import type { WorkspaceUnavailableEvent } from './pi-runtime-driver.js';
 import type {
   CompetitiveDraftContext,
   DesktopAgentRunInput,
   WorkspaceRequirement,
 } from './desktop-agent-runtime.js';
+import type { WorkspaceUnavailableEvent } from './pi-runtime-driver.js';
 
 export function projectWorkspaceBinding(
   claim: TaskWorkspaceBindingClaim,

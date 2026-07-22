@@ -2,7 +2,6 @@ import { useUiState } from '@/app/ui-state.js';
 import { OfficeThread } from '@/assistant/OfficeThread.js';
 import { reposOrNull } from '@/data/adapters.js';
 import { deriveThreadTitle } from '@/data/auto-title.js';
-import { queryKeys } from '@/data/query-keys.js';
 import {
   useDeliverables,
   useEmployees,
@@ -10,6 +9,7 @@ import {
   useProjects,
   useThreads,
 } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import type { ChatThread } from '@/data/types.js';
 import { useDeliverableRefresh } from '@/data/use-deliverable-refresh.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';

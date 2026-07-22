@@ -1,5 +1,9 @@
 # Harness / IDE 下一波 Roadmap(2026-07-16)
 
+> **历史完成计划（2026-07-22 复核）**：W1–W7 已交付；下文的“在飞 PR”与
+> 缺口表仅保留当时决策背景，不是当前 backlog。当前产品真值以
+> `Docs/FEATURES.md`、`Docs/SYSTEM_FRAMEWORK.md` 和代码/门禁为准。
+
 按 2026-07-16 当前资料核对(opencode v1.18.2、t3code、Claude Code、Codex、Cursor 3.11、Amp、Crush、Gemini CLI/Jules、Copilot Agent HQ 官方文档),对照 Offisim 现状与 19 个在飞 PR(#50-#68)后的**增量**规划。不与在飞 PR 重叠。
 
 ## 0. 行业基线对照(2026-07 标配线 × Offisim 现状)

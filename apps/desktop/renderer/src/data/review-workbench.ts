@@ -70,9 +70,7 @@ export function reconcileReviewState(
   return { revision: document.revision, decisions, annotations, appliedReturnAnchors };
 }
 
-export function markReturnedReviewPatchApplied(
-  review: ReviewWorkbenchState,
-): ReviewWorkbenchState {
+export function markReturnedReviewPatchApplied(review: ReviewWorkbenchState): ReviewWorkbenchState {
   const applied = new Set(review.appliedReturnAnchors ?? []);
   for (const [anchor, decision] of Object.entries(review.decisions)) {
     if (decision === 'returned') applied.add(anchor);

@@ -72,7 +72,11 @@ try {
     },
   });
   const secondStatus = second.response?.runtimeStatus;
-  assert.equal(secondStatus?.accounts.length, 2, 'custom endpoints are not restricted to OpenRouter');
+  assert.equal(
+    secondStatus?.accounts.length,
+    2,
+    'custom endpoints are not restricted to OpenRouter',
+  );
   assert.deepEqual(
     new Set(secondStatus?.models.map((model) => model.runtimeModelRef)),
     new Set([
@@ -103,15 +107,26 @@ try {
 
   const modelsPath = join(agentDir, 'models.json');
   const modelsText = readFileSync(modelsPath, 'utf8');
-  assert.match(modelsText, new RegExp(FIRST_KEY, 'u'), 'Pi-owned models.json retains the first key');
-  assert.match(modelsText, new RegExp(SECOND_KEY, 'u'), 'Pi-owned models.json stores the second key');
+  assert.match(
+    modelsText,
+    new RegExp(FIRST_KEY, 'u'),
+    'Pi-owned models.json retains the first key',
+  );
+  assert.match(
+    modelsText,
+    new RegExp(SECOND_KEY, 'u'),
+    'Pi-owned models.json stores the second key',
+  );
   assert.equal(statSync(modelsPath).mode & 0o777, 0o600, 'credential file must be owner-only');
 
   for (const output of [first, second, retained]) {
     const serializedOutput = `${output.result.stdout}\n${output.result.stderr}`;
     assert.doesNotMatch(serializedOutput, new RegExp(FIRST_KEY, 'u'));
     assert.doesNotMatch(serializedOutput, new RegExp(SECOND_KEY, 'u'));
-    assert.doesNotMatch(JSON.stringify(output.response?.runtimeStatus), /(?:apiKey|models\.json)/iu);
+    assert.doesNotMatch(
+      JSON.stringify(output.response?.runtimeStatus),
+      /(?:apiKey|models\.json)/iu,
+    );
   }
 
   const invalid = run(
@@ -132,4 +147,6 @@ try {
   rmSync(fixtureRoot, { recursive: true, force: true });
 }
 
-console.log('PASS dynamic API provider configuration (multi-provider, Pi-owned secrets, safe output)');
+console.log(
+  'PASS dynamic API provider configuration (multi-provider, Pi-owned secrets, safe output)',
+);

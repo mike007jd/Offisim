@@ -109,7 +109,10 @@ for (const field of [
   );
 }
 assert.match(rustProduction, /"id": "codex-native-computer"[\s\S]*"availability": "unsupported"/u);
-assert.match(rustProduction, /"id": "offisim-computer"[\s\S]*"availability": "runtime-determined"/u);
+assert.match(
+  rustProduction,
+  /"id": "offisim-computer"[\s\S]*"availability": "runtime-determined"/u,
+);
 assert.match(shared, /kind:\s*'native'/u);
 assert.match(provenance, /kind\s*===\s*'native'/u);
 assert.match(provenance, /sourceUrl.*undefined|!\('sourceUrl' in value\)/su);

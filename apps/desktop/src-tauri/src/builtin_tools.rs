@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
 use tauri::Runtime;
-use tokio::io::{AsyncRead, AsyncReadExt, BufReader};
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::{Child, Command};
 use tokio::time::{interval, Duration, MissedTickBehavior};
 use tokio_util::sync::CancellationToken;
@@ -35,9 +35,8 @@ pub(crate) use sandbox_path::{
     resolve_project_candidate, write_project_file_anchored,
 };
 use sandbox_path::{
-    ensure_read_size, ensure_write_size, line_window_size_error, open_project_directory_anchored,
-    open_project_parent_anchored, project_target_exists_anchored, push_line_window,
-    resolve_write_target, write_project_file_anchored_guarded, LineWindow,
+    ensure_read_size, ensure_write_size, open_project_directory_anchored,
+    open_project_parent_anchored, write_project_file_anchored_guarded,
 };
 pub(crate) use shell::__cmd__bash_execute;
 pub(crate) use shell::__tauri_command_name_bash_execute;
@@ -55,9 +54,6 @@ const SHELL_PIPE_DRAIN_MS: u64 = 250;
 const SHELL_LIFETIME_MARKER_FD: libc::c_int = 198;
 #[cfg(unix)]
 const SHELL_LIFETIME_MARKER_ENV: &str = "OFFISIM_INTERNAL_TASK_LIFETIME";
-/// Hard ceiling on `project_read_file_preview` — file-tree previews never
-/// pull more than 64 KB across the IPC boundary regardless of caller request.
-const MAX_PREVIEW_BYTES: u64 = 65_536;
 static PROJECT_FILE_MUTATION_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 const PROJECT_FILE_CONFLICT_SENTINEL: &str = "offisim-internal-project-file-conflict";
 const PROJECT_FILE_CANCELLED_SENTINEL: &str = "offisim-internal-project-file-cancelled";
@@ -218,20 +214,6 @@ struct ShellAuditInput<'a> {
     network_policy: &'a str,
     stdout: &'a str,
     stderr: &'a str,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProjectFilePreview {
-    /// Valid UTF-8, possibly empty if the truncation point fell inside a
-    /// multi-byte sequence the boundary walk-back could not recover.
-    content: String,
-    /// `true` when the on-disk file exceeds the clamped `max_bytes` — UI
-    /// surfaces a "preview truncated · {totalSize} bytes total" hint.
-    truncated: bool,
-    /// Full file size on disk (from `metadata().len()`), so callers can
-    /// display the truncation hint without a follow-up stat call.
-    total_size: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -828,81 +810,17 @@ fn containing_root<'a>(candidate: &Path, roots: &'a [PathBuf]) -> Option<&'a Pat
     roots.iter().find(|root| candidate.starts_with(*root))
 }
 
-/// UTF-8 boundary safety: convert `bytes` to a String. If the buffer ends
-/// mid-codepoint, walk back to the last valid UTF-8 boundary so callers always
-/// get a clean string. Returns the empty string if the walk-back yields zero
-/// valid bytes (e.g. all-binary preview).
+/// Convert preview bytes to text without retaining a trailing partial UTF-8 code point.
 pub(crate) fn utf8_boundary_safe_string(bytes: Vec<u8>) -> String {
     match String::from_utf8(bytes) {
         Ok(text) => text,
         Err(err) => {
             let valid_up_to = err.utf8_error().valid_up_to();
-            let mut buf = err.into_bytes();
-            buf.truncate(valid_up_to);
-            // Safe: valid_up_to is by definition the first index that is NOT
-            // valid UTF-8, so everything before it parses cleanly.
-            String::from_utf8(buf).unwrap_or_default()
+            let mut buffer = err.into_bytes();
+            buffer.truncate(valid_up_to);
+            String::from_utf8(buffer).unwrap_or_default()
         }
     }
-}
-
-#[tauri::command]
-pub async fn project_read_file_preview<R: Runtime>(
-    app: tauri::AppHandle<R>,
-    path: String,
-    cwd: Option<String>,
-    max_bytes: u32,
-    project_id: Option<String>,
-    binding_claim: Option<TaskWorkspaceBindingClaim>,
-    evaluation_lease: Option<TaskWorkspaceEvaluationLeaseClaim>,
-) -> Result<ProjectFilePreview, String> {
-    reject_renderer_cwd_for_workspace_authority(
-        binding_claim.as_ref(),
-        evaluation_lease.as_ref(),
-        cwd.as_deref(),
-    )?;
-    let roots = workspace_roots_for_access(
-        &app,
-        project_id.as_deref(),
-        binding_claim.as_ref(),
-        evaluation_lease.as_ref(),
-        TaskWorkspaceAccess::Read,
-    )
-    .await?;
-    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
-    let canonical = candidate
-        .canonicalize()
-        .map_err(|err| fs_resolve_error("resolve project file", &candidate, err))?;
-    ensure_inside_workspace(&canonical, &roots)?;
-
-    // Open once and stat via the file handle — saves the redundant `metadata()`
-    // syscall the previous draft did before opening.
-    let file = tokio::fs::File::from_std(open_project_read_target_anchored(&canonical, &roots)?);
-    let total_size = file
-        .metadata()
-        .await
-        .map_err(|err| fs_op_error("stat project file", &canonical, &roots, err))?
-        .len();
-
-    // Clamp the request to the hard cap regardless of caller intent — preview
-    // IPC must stay bounded so a 50 MB log file never streams across.
-    let clamped = (max_bytes as u64).min(MAX_PREVIEW_BYTES);
-    let read_bytes = clamped.min(total_size);
-
-    let mut reader = file.take(read_bytes);
-    let mut buffer = Vec::with_capacity(read_bytes as usize);
-    reader
-        .read_to_end(&mut buffer)
-        .await
-        .map_err(|err| fs_op_error("read project file preview", &canonical, &roots, err))?;
-
-    let content = utf8_boundary_safe_string(buffer);
-    let truncated = total_size > clamped;
-    Ok(ProjectFilePreview {
-        content,
-        truncated,
-        total_size,
-    })
 }
 
 #[tauri::command]
@@ -944,128 +862,6 @@ pub async fn project_read_file<R: Runtime>(
         .await
         .map_err(|err| fs_op_error("read project file", &canonical, &roots, err))?;
     Ok(content)
-}
-
-#[tauri::command]
-#[allow(clippy::too_many_arguments)] // Tauri command arguments mirror the stable renderer wire.
-pub async fn project_read_file_lines<R: Runtime>(
-    app: tauri::AppHandle<R>,
-    path: String,
-    cwd: Option<String>,
-    project_id: Option<String>,
-    offset: u32,
-    limit: Option<u32>,
-    binding_claim: Option<TaskWorkspaceBindingClaim>,
-    evaluation_lease: Option<TaskWorkspaceEvaluationLeaseClaim>,
-) -> Result<String, String> {
-    reject_renderer_cwd_for_workspace_authority(
-        binding_claim.as_ref(),
-        evaluation_lease.as_ref(),
-        cwd.as_deref(),
-    )?;
-    let roots = workspace_roots_for_access(
-        &app,
-        project_id.as_deref(),
-        binding_claim.as_ref(),
-        evaluation_lease.as_ref(),
-        TaskWorkspaceAccess::Read,
-    )
-    .await?;
-    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
-    let canonical = candidate
-        .canonicalize()
-        .map_err(|err| fs_resolve_error("resolve project file", &candidate, err))?;
-    ensure_inside_workspace(&canonical, &roots)?;
-
-    let file = tokio::fs::File::from_std(open_project_read_target_anchored(&canonical, &roots)?);
-    let mut reader = BufReader::new(file);
-    let mut line_no = 1_u32;
-    let mut window = LineWindow {
-        start_line: offset.max(1),
-        selected: Vec::new(),
-        retained_bytes: 0,
-        max_lines: limit.map(|value| value.max(1) as usize),
-        path: &canonical,
-        roots: &roots,
-    };
-
-    let mut scanned_bytes = 0_u64;
-    let mut line = Vec::new();
-    let mut buf = [0_u8; 8192];
-    loop {
-        let read = reader
-            .read(&mut buf)
-            .await
-            .map_err(|err| fs_op_error("read project file lines", &canonical, &roots, err))?;
-        if read == 0 {
-            if !line.is_empty() && push_line_window(line_no, &mut line, &mut window)? {
-                break;
-            }
-            break;
-        }
-        scanned_bytes = scanned_bytes.saturating_add(read as u64);
-        if scanned_bytes > MAX_READ_BYTES {
-            return Err(line_window_size_error("scan", &canonical, &roots));
-        }
-        for byte in &buf[..read] {
-            line.push(*byte);
-            if line.len() as u64 > MAX_READ_BYTES {
-                return Err(line_window_size_error("record", &canonical, &roots));
-            }
-            if *byte == b'\n' {
-                if push_line_window(line_no, &mut line, &mut window)? {
-                    return Ok(format!("{}\n", window.selected.join("\n")));
-                }
-                line_no = line_no.saturating_add(1);
-            }
-        }
-    }
-
-    if window.selected.is_empty() {
-        Ok(String::new())
-    } else {
-        Ok(format!("{}\n", window.selected.join("\n")))
-    }
-}
-
-#[tauri::command]
-pub async fn project_exists<R: Runtime>(
-    app: tauri::AppHandle<R>,
-    path: String,
-    cwd: Option<String>,
-    project_id: Option<String>,
-    binding_claim: Option<TaskWorkspaceBindingClaim>,
-    evaluation_lease: Option<TaskWorkspaceEvaluationLeaseClaim>,
-) -> Result<bool, String> {
-    reject_renderer_cwd_for_workspace_authority(
-        binding_claim.as_ref(),
-        evaluation_lease.as_ref(),
-        cwd.as_deref(),
-    )?;
-    let roots = workspace_roots_for_access(
-        &app,
-        project_id.as_deref(),
-        binding_claim.as_ref(),
-        evaluation_lease.as_ref(),
-        TaskWorkspaceAccess::Read,
-    )
-    .await?;
-    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
-    #[cfg(unix)]
-    {
-        project_target_exists_anchored(&candidate, &roots)
-    }
-    #[cfg(not(unix))]
-    {
-        let canonical = match candidate.canonicalize() {
-            Ok(path) => path,
-            Err(_) => return Ok(false),
-        };
-        if ensure_inside_workspace(&canonical, &roots).is_err() {
-            return Ok(false);
-        }
-        Ok(tokio::fs::metadata(&canonical).await.is_ok())
-    }
 }
 
 #[tauri::command]
@@ -1141,36 +937,6 @@ pub async fn project_list_dir<R: Runtime>(
         });
         Ok(rows)
     }
-}
-
-#[tauri::command]
-pub async fn project_write_file<R: Runtime>(
-    app: tauri::AppHandle<R>,
-    path: String,
-    content: String,
-    cwd: Option<String>,
-    project_id: Option<String>,
-    binding_claim: Option<TaskWorkspaceBindingClaim>,
-    evaluation_lease: Option<TaskWorkspaceEvaluationLeaseClaim>,
-) -> Result<(), String> {
-    reject_renderer_cwd_for_workspace_authority(
-        binding_claim.as_ref(),
-        evaluation_lease.as_ref(),
-        cwd.as_deref(),
-    )?;
-    let roots = workspace_roots_for_access(
-        &app,
-        project_id.as_deref(),
-        binding_claim.as_ref(),
-        evaluation_lease.as_ref(),
-        TaskWorkspaceAccess::Write,
-    )
-    .await?;
-    let candidate = resolve_project_candidate(&path, cwd.as_deref(), &roots)?;
-    ensure_write_size(content.len(), &candidate, &roots)?;
-    let target = resolve_write_target(&candidate, &roots)?;
-    ensure_inside_workspace(&target, &roots)?;
-    write_project_file_anchored(&target, &roots, content.as_bytes())
 }
 
 #[cfg(test)]

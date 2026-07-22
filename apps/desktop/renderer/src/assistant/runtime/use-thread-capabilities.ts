@@ -1,5 +1,4 @@
 import { useUiState } from '@/app/ui-state.js';
-import { queryKeys } from '@/data/query-keys.js';
 import {
   useDeliverables,
   useEmployeeMcpTools,
@@ -8,6 +7,7 @@ import {
   useProjectFiles,
   useProjects,
 } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { loadComputerDriverStatus } from '@/surfaces/office/computer/computer-status.js';
 import { useEmployeeMemories } from '@/surfaces/personnel/personnel-data.js';
 import {

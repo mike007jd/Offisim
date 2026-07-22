@@ -7,14 +7,11 @@ which layer owns each responsibility, and which files are the source of truth
 when the implementation changes.
 
 Engine wording below means **source implemented** unless a published
-distribution is named. As of **2026-07-22**, `v1.1.1` is the latest stable
-published release. Version `1.1.2` is the current prepared patch candidate and
-is not yet published. Historical release `.app` evidence keeps its original
-commit/hash. `1.1.2` source contains the post-`v1.1.1` installed-app Codex
-launch correction; exact `1.1.2` release-app/distribution evidence is pending
-and must not reuse `v1.1.1` evidence to prove that fix path. Use ships/shipped
-wording only when the named published distribution’s exact release-app evidence
-proves that feature.
+distribution is named. As of **2026-07-22**, `v1.1.2` is the latest stable
+published release and its notarized, installed-distribution evidence includes
+the post-`v1.1.1` Codex launch correction. Historical release `.app` evidence
+keeps its original commit/hash; changes after the `v1.1.2` tag require new
+current-worktree release `.app` evidence.
 
 ## Product Boundary
 
@@ -125,7 +122,7 @@ Source of truth:
 |-------|----------|---------|
 | Local SQLite | Tauri app data, schema in `packages/db-local/src/schema.sql` | Projects catalog, Offisim Conversations, runs, employees, events, safe account/model metadata, install state, vault metadata |
 | Native Agent Home / Session / Memory | Engine-owned locations | Native auth, session, compaction, global memory; Offisim keeps only opaque refs and safe status |
-| Platform Postgres | `packages/db-platform/src/schema.ts` | Users, creators, listings, versions, reviews, install receipts |
+| Platform Postgres | `packages/db-platform/src/schema.ts` + `packages/db-platform/schema.sql` | Typed schema plus the single fresh-volume baseline for users, creators, listings, versions, reviews, and install receipts |
 | Effective task workspace | Backend-authorized canonical folder for one Turn | Actual task files and deliverables without silently rewriting the Projects catalog |
 
 ## Change Rules
@@ -134,10 +131,9 @@ Source of truth:
   under `apps/desktop/renderer/src/surfaces`.
 - Runtime changes start from `Docs/HARNESS_ARCHITECTURE.md` and
   `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. API, Codex, and
-  Claude Code are source implemented. No run may mix engine lanes. Exact
-  `1.1.2` release-app/distribution evidence is pending; use ships/shipped
-  wording only when the named published distribution’s exact release-app
-  evidence proves that feature.
+  Claude Code are source implemented. No run may mix engine lanes. Published
+  `v1.1.2` has exact release-app/distribution evidence; later worktree changes
+  require their own release `.app` verification before they are called shipped.
 - Desktop command changes must preserve Rust-side workspace containment and run
   `cargo test --locked` in `apps/desktop/src-tauri`.
 - Platform route changes must run platform migration/auth/security gates when

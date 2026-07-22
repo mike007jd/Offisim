@@ -47,9 +47,7 @@ function untrackedTextDiff(path: string, content: string): string {
   ];
   if (lines.length === 0) return `${headers.join('\n')}\n`;
   const body = lines.map((line) => `+${line}`).join('\n');
-  const missingFinalNewline = normalized.endsWith('\n')
-    ? ''
-    : '\n\\ No newline at end of file';
+  const missingFinalNewline = normalized.endsWith('\n') ? '' : '\n\\ No newline at end of file';
   return `${headers.join('\n')}\n@@ -0,0 +1,${lines.length} @@\n${body}${missingFinalNewline}\n`;
 }
 

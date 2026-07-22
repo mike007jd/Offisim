@@ -1,43 +1,74 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const schemaPath =
-  process.env.OFFISIM_PLATFORM_SCHEMA_PATH ?? join(root, 'packages/db-platform/src/schema.ts');
-const migrationsDir =
-  process.env.OFFISIM_PLATFORM_MIGRATIONS_DIR ?? join(root, 'packages/db-platform/migrations');
+const schemaPath = join(root, 'packages/db-platform/src/schema.ts');
+const baselinePath = join(root, 'packages/db-platform/schema.sql');
+const legacyMigrationsDir = join(root, 'packages/db-platform/migrations');
+const drizzleKit = join(root, 'node_modules/.bin/drizzle-kit');
+const selfTestStaleBaseline = process.argv.includes('--self-test-stale-baseline');
 
-function readText(path) {
-  return readFileSync(path, 'utf8');
+if (process.argv.length > 2 && !selfTestStaleBaseline) {
+  console.error('Unknown platform schema drift check argument.');
+  process.exit(1);
 }
 
-function listMigrationFiles(dir) {
-  return readdirSync(dir)
-    .filter((name) => name.endsWith('.sql'))
-    .sort()
-    .map((name) => join(dir, name));
+function normalizeSql(sql) {
+  return sql
+    .replace(/\r\n/gu, '\n')
+    .replace(/[ \t]+$/gmu, '')
+    .trim();
 }
 
-const schemaText = readText(schemaPath);
-const migrationText = listMigrationFiles(migrationsDir).map(readText).join('\n');
+if (!existsSync(drizzleKit)) {
+  console.error('Platform schema drift check requires the pinned drizzle-kit dependency.');
+  process.exit(1);
+}
 
-const schemaConstraints = [...schemaText.matchAll(/unique\('([^']+)'\)\.on\(/g)].map(
-  (match) => match[1],
+const legacyMigrations = existsSync(legacyMigrationsDir)
+  ? readdirSync(legacyMigrationsDir).filter((name) => name.endsWith('.sql'))
+  : [];
+if (legacyMigrations.length > 0) {
+  console.error(
+    `Platform schema must remain one prelaunch baseline; remove numbered migrations: ${legacyMigrations.join(', ')}`,
+  );
+  process.exit(1);
+}
+
+const generated = execFileSync(
+  drizzleKit,
+  ['export', '--dialect=postgresql', `--schema=${schemaPath}`],
+  {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
+  },
 );
-const migrationConstraints = new Set(
-  [...migrationText.matchAll(/CONSTRAINT\s+([a-zA-Z0-9_]+)/g)].map((match) => match[1]),
-);
+const baseline = selfTestStaleBaseline
+  ? '-- intentionally stale platform baseline\n'
+  : readFileSync(baselinePath, 'utf8');
 
-const missing = schemaConstraints.filter((name) => !migrationConstraints.has(name));
+if (normalizeSql(generated) !== normalizeSql(baseline)) {
+  console.error(
+    'Platform schema drift detected: packages/db-platform/schema.sql does not match the current Drizzle schema export.',
+  );
+  console.error(
+    'Regenerate the baseline with the documented Drizzle export command in Docs/DEPLOYMENT.md.',
+  );
+  process.exit(1);
+}
 
-if (missing.length > 0) {
-  console.error('Platform migration drift detected. Missing SQL constraints:');
-  for (const name of missing) console.error(`- ${name}`);
+const tableCount = [...generated.matchAll(/CREATE TABLE/gu)].length;
+const foreignKeyCount = [...generated.matchAll(/FOREIGN KEY/gu)].length;
+const indexCount = [...generated.matchAll(/CREATE INDEX/gu)].length;
+if (tableCount === 0 || foreignKeyCount === 0 || indexCount === 0) {
+  console.error('Platform baseline is incomplete: expected tables, foreign keys, and indexes.');
   process.exit(1);
 }
 
 console.log(
-  `Platform migration drift check passed (${schemaConstraints.length} named constraints covered).`,
+  `Platform schema drift check passed (${tableCount} tables, ${foreignKeyCount} foreign keys, ${indexCount} indexes).`,
 );

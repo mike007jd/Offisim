@@ -1051,7 +1051,7 @@ await check(
   },
 );
 
-console.log(`\nLoop Office invocation: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+console.log(`\nLoop Office invocation: ${h.checks - h.failures} passed, ${h.failures} failed`);
 if (h.failures > 0) process.exit(1);
 
 if (!process.exitCode) h.report();

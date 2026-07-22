@@ -1545,9 +1545,10 @@ function verifyWireAndRuntimeContracts(): void {
     'workspace access accepts bindingClaim or evaluationLease, never both',
     'project authority exclusivity',
   );
-  assert.ok(
-    tools.split('reject_renderer_cwd_for_workspace_authority(').length - 1 >= 7,
-    'every cwd-bearing project command must reject renderer cwd under backend authority',
+  assert.equal(
+    tools.split('reject_renderer_cwd_for_workspace_authority(').length - 1,
+    3,
+    'the helper definition and both remaining cwd-bearing project commands must enforce backend authority',
   );
   assertContains(
     git,
@@ -1721,7 +1722,6 @@ function verifyRustBehavioralOracleNames(): void {
     [paths.localPaths, 'workspace_root_resolver_rejects_raw_and_canonical_overbroad_roots'],
     [paths.localPaths, 'workspace_root_resolver_accepts_specific_project_folder'],
     [paths.localPaths, 'canonicalize_or_parent_resolves_symlink_to_outside_target'],
-    [paths.sandboxTools, 'rejects_symlink_escape_before_write_target_resolution'],
     [paths.sandboxTools, 'anchored_write_rejects_swapped_parent_symlink_without_touching_outside'],
     [paths.shellTools, 'evaluator_bash_requires_explicit_lease_lane_and_backend_cwd'],
     [paths.gitAllowlist, 'binding_git_lane_only_accepts_read_only_status'],

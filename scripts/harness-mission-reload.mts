@@ -916,7 +916,7 @@ await check(
   },
 );
 
-console.log(`\nMission reload harness: ${(h.checks - h.failures)}/${TOTAL} passed`);
-if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exitCode = 1;
+console.log(`\nMission reload harness: ${h.checks - h.failures}/${TOTAL} passed`);
+if (h.failures > 0 || h.checks - h.failures !== TOTAL) process.exitCode = 1;
 
 if (!process.exitCode) h.report();

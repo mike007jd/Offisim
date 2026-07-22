@@ -11,6 +11,7 @@ const CORE_MODULE = '@tauri-apps/api/core';
 const failures = [];
 const GH_PERMISSION = 'apps/desktop/src-tauri/permissions/github.toml';
 const GH_CAPABILITY = 'apps/desktop/src-tauri/capabilities/github.json';
+const PERMISSIONS_DIR = join(ROOT, 'apps/desktop/src-tauri/permissions');
 
 function collectTypeScriptFiles(directory) {
   const files = [];
@@ -325,6 +326,39 @@ for (const command of commandMapKeys.filter((key) => !rustSet.has(key))) {
   });
 }
 
+const permissionCommandKeys = readdirSync(PERMISSIONS_DIR)
+  .filter((entry) => entry.endsWith('.toml'))
+  .flatMap((entry) => {
+    const text = readFileSync(join(PERMISSIONS_DIR, entry), 'utf8');
+    return [...text.matchAll(/commands\.allow\s*=\s*\[([\s\S]*?)\]/g)].flatMap((match) =>
+      [...match[1].matchAll(/"([^"]+)"/g)].map((command) => command[1]),
+    );
+  });
+const permissionSet = new Set(permissionCommandKeys);
+
+for (const duplicate of duplicates(permissionCommandKeys)) {
+  failures.push({
+    file: relative(ROOT, PERMISSIONS_DIR),
+    line: 1,
+    message: `custom command appears in multiple permission files: ${duplicate}`,
+  });
+}
+
+for (const command of rustCommandKeys.filter((key) => !permissionSet.has(key))) {
+  failures.push({
+    file: relative(ROOT, PERMISSIONS_DIR),
+    line: 1,
+    message: `custom permissions missing registered command: ${command}`,
+  });
+}
+for (const command of permissionSet.difference(rustSet)) {
+  failures.push({
+    file: relative(ROOT, PERMISSIONS_DIR),
+    line: 1,
+    message: `custom permissions expose unregistered command: ${command}`,
+  });
+}
+
 const ghPermissionText = readFileSync(join(ROOT, GH_PERMISSION), 'utf8');
 if (
   !ghPermissionText.includes('identifier = "github"') ||
@@ -360,5 +394,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `[check-tauri-command-hygiene] ok (${rustCommandKeys.length} registered commands, ${commandMapKeys.length} typed commands)`,
+  `[check-tauri-command-hygiene] ok (${rustCommandKeys.length} registered commands, ${commandMapKeys.length} typed commands, ${permissionSet.size} permitted commands)`,
 );

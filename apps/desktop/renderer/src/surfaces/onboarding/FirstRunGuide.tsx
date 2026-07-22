@@ -1,7 +1,6 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useAgentRuntimeModels } from '@/assistant/composer/usePiAgentModels.js';
 import { reposOrNull } from '@/data/adapters.js';
-import { queryKeys } from '@/data/query-keys.js';
 import {
   useCompanies,
   useDeliverables,
@@ -10,6 +9,7 @@ import {
   useProjects,
   useThreads,
 } from '@/data/queries.js';
+import { queryKeys } from '@/data/query-keys.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { useQueryClient } from '@tanstack/react-query';

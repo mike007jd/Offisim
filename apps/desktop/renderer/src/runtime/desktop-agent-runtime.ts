@@ -11,11 +11,7 @@ import {
   invokeCommand,
 } from '@/lib/tauri-commands.js';
 import { requireProjectWorkspaceForRun } from '@/runtime/require-project-workspace.js';
-import {
-  agentRunEvent,
-  llmStreamChunk,
-  toolExecutionTelemetry,
-} from '@offisim/core/browser';
+import { agentRunEvent, llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
 import type { AgentRunRow, RuntimeRepositories } from '@offisim/core/browser';
 import {
   type AgentRunEvent,
@@ -43,14 +39,12 @@ import {
   resolveRuntimeExecutionSelection,
 } from './execution-selection.js';
 import {
-  agentLifecycleEvent,
-} from './host-event-factories.js';
-import {
   type ActiveHostEventContext,
   type BufferedHostEventContext,
   type HostEventStreamState,
   dispatchHostEvent,
 } from './host-event-dispatch.js';
+import { agentLifecycleEvent } from './host-event-factories.js';
 import {
   type NativeAgentCommandTransport,
   createNativeAgentCommandTransport,
@@ -70,6 +64,17 @@ import {
   describeWorkspaceResumeCompatibility,
   resolveAgentRunProjectId,
 } from './recovery/reconcile-interrupted-runs.js';
+import {
+  type ConversationStreamCheckpoint,
+  type PersistedRunContext,
+  mergeRunContextPreservingNativeIdentity,
+  nonAuthorizingAgentHostError,
+  normalizeStreamCursor,
+  parseRunContext,
+  persistRunContextPatchWithRepositories,
+  persistStartedNativeSessionIdentity,
+  trustedNativeSessionPrestartCode,
+} from './run-context.js';
 import {
   type DurableThreadExecutionAuthority,
   assertThreadExecutionLane,
@@ -91,17 +96,6 @@ import {
   validateCompetitiveDraftContext,
   workspaceUnavailableMatchesRun,
 } from './workspace-binding.js';
-import {
-  type ConversationStreamCheckpoint,
-  type PersistedRunContext,
-  mergeRunContextPreservingNativeIdentity,
-  nonAuthorizingAgentHostError,
-  normalizeStreamCursor,
-  parseRunContext,
-  persistRunContextPatchWithRepositories,
-  persistStartedNativeSessionIdentity,
-  trustedNativeSessionPrestartCode,
-} from './run-context.js';
 
 const PI_SDK_VERSION = '0.80.9';
 const TERMINAL_CHECKPOINT_RETRY_MS = 5_000;
@@ -664,14 +658,8 @@ function requireRootResultProvenance(
   preparations: ReadonlyMap<string, ExecutionPreparationRecord>,
   orchestrationShell: boolean,
 ): TurnExecutionProvenance {
-  const actual = requireTurnExecutionProvenance(
-    value,
-    orchestrationShell ? undefined : rootRunId,
-  );
-  assertSameExecutionAccount(
-    requirePreparedExecutionIdentity(preparations, actual.runId),
-    actual,
-  );
+  const actual = requireTurnExecutionProvenance(value, orchestrationShell ? undefined : rootRunId);
+  assertSameExecutionAccount(requirePreparedExecutionIdentity(preparations, actual.runId), actual);
   return orchestrationShell ? { ...actual, runId: rootRunId } : actual;
 }
 
@@ -1700,9 +1688,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
               failReattachedBinding(error instanceof Error ? error.message : String(error));
             });
           },
-          onStreamCursor: (
-            cursorEvent: Extract<PiAgentHostEvent, { kind: 'streamCursor' }>,
-          ) => {
+          onStreamCursor: (cursorEvent: Extract<PiAgentHostEvent, { kind: 'streamCursor' }>) => {
             lastObservedStreamCursor = Math.max(lastObservedStreamCursor, cursorEvent.cursor);
             if (pendingTerminalCheckpoint) {
               const terminal = pendingTerminalCheckpoint;
@@ -1859,8 +1845,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
               this.inFlightByThread.delete(row.thread_id);
             }
           },
-          flushPendingControls: () =>
-            this.flushPendingControls(row.thread_id, requestId),
+          flushPendingControls: () => this.flushPendingControls(row.thread_id, requestId),
           handleControlLifecycle: (payload: unknown) => this.handleControlLifecycle(payload),
           persistContext: () =>
             this.enqueuePersist(() => this.persistRunContextPatch(row.run_id, runtimeContext)),
@@ -1871,7 +1856,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             agentRunEvent: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
             fallbackProjectId: string | null,
             payload: WorkspaceDiagnosticsUpdatedPayload,
-          ) => this.persistQueue.persistWorkspaceDiagnostics(agentRunEvent, fallbackProjectId, payload),
+          ) =>
+            this.persistQueue.persistWorkspaceDiagnostics(
+              agentRunEvent,
+              fallbackProjectId,
+              payload,
+            ),
           persistMcpToolCall: (
             agentRunEvent: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
             employeeId: string | null,
@@ -1884,11 +1874,11 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             agentRunEvent: Extract<PiAgentHostEvent, { kind: 'agentRun' }>,
             fallbackProjectId: string | null,
           ) => this.persistQueue.persistWorkspaceCheckpoint(agentRunEvent, fallbackProjectId),
-          persistAgentRun: (agentEvent: AgentRunEvent) => this.persistQueue.persistAgentRun(agentEvent),
+          persistAgentRun: (agentEvent: AgentRunEvent) =>
+            this.persistQueue.persistAgentRun(agentEvent),
           rootRun,
           emitRootBus,
-          emitRuntimeEvent: (runtimeEvent: RuntimeEvent<any>) =>
-            runtimeEventBus.emit(runtimeEvent),
+          emitRuntimeEvent: (runtimeEvent: RuntimeEvent<any>) => runtimeEventBus.emit(runtimeEvent),
           emitWorkspaceStatus: emitWorkspaceStatusActivity,
         } satisfies ActiveHostEventContext;
         void dispatchHostEvent(event, hostEventContext);
@@ -1909,9 +1899,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         phase: 'buffering' as const,
         runId: row.run_id,
         threadId: row.thread_id,
-        onWorkspaceBound: (
-          event: Extract<PiAgentHostEvent, { kind: 'workspaceBound' }>,
-        ) => {
+        onWorkspaceBound: (event: Extract<PiAgentHostEvent, { kind: 'workspaceBound' }>) => {
           const matchesExpectedTurn = Boolean(
             projectId &&
               expectedAccess &&
@@ -2357,9 +2345,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           void abortRejectedBinding();
         });
       },
-      onExecutionPrepared: (
-        event: Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>,
-      ) => {
+      onExecutionPrepared: (event: Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>) => {
         if (!executionTarget) {
           channelError ??= new Error('Agent runtime prepared work without an execution target.');
           void abortRejectedBinding();
@@ -2964,10 +2950,16 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       const terminalCheckpointLabel = `commit terminal checkpoint for ${runScope.runId}`;
       const commitTerminal = () =>
         this.persistQueue.enqueueTerminalCheckpoint(terminalCheckpointLabel, () =>
-          this.persistQueue.persistRootTerminal(runScope.runId, terminalStatus, rootUsage, undefined, {
-            context: runtimeContext,
-            terminal: conversationTerminal,
-          }),
+          this.persistQueue.persistRootTerminal(
+            runScope.runId,
+            terminalStatus,
+            rootUsage,
+            undefined,
+            {
+              context: runtimeContext,
+              terminal: conversationTerminal,
+            },
+          ),
         );
       try {
         await commitTerminal();

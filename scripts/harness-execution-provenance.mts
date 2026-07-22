@@ -285,10 +285,7 @@ check('every direct Pi and Claude isolated mode uses the hardened neutral cwd', 
   const claudeExecute = rustFunctionBody(claudeRustSource, 'do_execute');
   const claudeEnhance = rustFunctionBody(claudeRustSource, 'do_enhance');
   const claudeStatus = rustFunctionBody(claudeRustSource, 'status_impl');
-  assert.match(
-    piUnavailable,
-    /let cwd = neutral_cwd\(app\)\?/u,
-  );
+  assert.match(piUnavailable, /let cwd = neutral_cwd\(app\)\?/u);
   assert.match(piEnhance, /let cwd = neutral_cwd\(app\)\?/u);
   assert.match(piCollaborate, /let cwd = neutral_cwd\(app\)\?/u);
   assert.match(claudeExecute, /\(neutral_cwd\(app\)\?, "unavailable"\)/u);

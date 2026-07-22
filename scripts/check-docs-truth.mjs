@@ -72,6 +72,7 @@ const currentDocs = [
   'Docs/UI_FRAMEWORK_STACK.md',
   'Docs/design/.v3-dna-brief.md',
   'Docs/00_start_here/LOCAL_DEVELOPMENT.md',
+  'Docs/00_start_here/DEPLOYMENT.md',
   'Docs/00_start_here/RELEASE_GATES.md',
   'Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md',
   'Docs/architecture/2026-07-13-native-stage-capability-lanes.md',
@@ -84,6 +85,8 @@ const currentDocs = [
 ];
 
 const staleCurrentClaims = [
+  /v1\.1\.1[^\n]{0,100}(?:latest stable|Latest stable)/iu,
+  /(?:Version\s+)?`?1\.1\.2`?[^\n]{0,120}(?:prepared patch candidate|not yet published|awaits explicit)/iu,
   /Offisim has one active AI runtime:\s*Pi Agent/iu,
   /Pi Agent is the only active runtime/iu,
   /Pi-only runtime guards/iu,
@@ -107,6 +110,25 @@ for (const relativePath of currentDocs) {
   for (const pattern of staleCurrentClaims) {
     check(!pattern.test(text), `Stale current claim in ${relativePath}: ${pattern}`);
   }
+}
+
+const releaseTruthDocs = [
+  'README.md',
+  'Docs/SYSTEM_FRAMEWORK.md',
+  'Docs/HARNESS_ARCHITECTURE.md',
+  'Docs/FEATURES.md',
+  'Docs/00_start_here/DEPLOYMENT.md',
+  'Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md',
+];
+
+for (const relativePath of releaseTruthDocs) {
+  const text = read(relativePath);
+  check(
+    /v1\.1\.2[\s\S]{0,120}(?:latest\s+stable\s+published\s+release|published\s+Latest\s+stable)/iu.test(
+      text,
+    ),
+    `Missing current v1.1.2 release truth in ${relativePath}`,
+  );
 }
 
 const currentTruth = currentDocs.map(read).join('\n');

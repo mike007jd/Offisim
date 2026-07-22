@@ -1150,8 +1150,10 @@ async function main(): Promise<void> {
     assert.equal(row?.finished_at, null);
   });
 
-  console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
-  if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
+  console.log(
+    `\n${h.checks - h.failures}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`,
+  );
+  if (h.failures > 0 || h.checks - h.failures !== TOTAL) process.exit(1);
 }
 
 await main().catch((err) => {

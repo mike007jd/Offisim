@@ -1,6 +1,6 @@
 # Prelaunch Vibe-Coding Debt Policy
 
-Checked at: 2026-07-02 NZST.
+Checked at: 2026-07-22 NZST.
 
 Status: accepted working policy for AI-assisted Offisim cleanup and implementation.
 
@@ -37,15 +37,18 @@ Sources:
 
 ## Current Stage Fact
 
-Offisim is confirmed prelaunch: no real users, no production data, and no
-historical compatibility contract that must be preserved.
+Offisim is confirmed formally prelaunch: no real users and no production data.
+The public `v1.1.2` distribution does not create a historical user-data
+migration contract, but it does create external updater, deep-link, signing,
+installer, and package-format contracts that must be preserved.
 
 Stage verdict: `confirmed-prelaunch`.
 
 Implication: agents must not add or preserve migrations, compatibility layers,
 fallback paths, or minimal patching for old local state. Real security,
-external API/package, engine wires, MCP, project-file sandbox, and release `.app`
-validation boundaries still require explicit oracles before changing.
+external API/package, updater/deep-link/signing/installer, engine wires, MCP,
+project-file sandbox, and release `.app` validation boundaries still require
+explicit oracles before changing.
 
 ## Retained Boundaries
 
@@ -58,6 +61,8 @@ These are real product contracts unless a narrower loop proves otherwise:
 - MCP bridge, grants, approval status, and risk classification.
 - `offisim://install`, `.offisimpkg`, package integrity, and install receipt
   semantics.
+- Published updater metadata, signing/notarization, installer, and replacement
+  installation behavior.
 - Platform `/v1/*` API behavior, auth, moderation, and registry client contracts.
 - Project file browsing through Tauri sandbox commands.
 - Release `.app` validation path and local release evidence.

@@ -93,7 +93,9 @@ await check('(8) collaboration_read MCP meta tools still avoid the forbidden set
   assert.deepEqual(collaborationForbiddenIntersection(withMcpMeta), []);
 });
 
-console.log(`\n${(h.checks - h.failures)}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`);
-if (h.failures > 0 || (h.checks - h.failures) !== TOTAL) process.exit(1);
+console.log(
+  `\n${h.checks - h.failures}/${TOTAL} checks passed${h.failures ? `, ${h.failures} FAILED` : ''}.`,
+);
+if (h.failures > 0 || h.checks - h.failures !== TOTAL) process.exit(1);
 
 if (!process.exitCode) h.report();

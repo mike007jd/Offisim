@@ -52,8 +52,8 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 - Core runtime, model transport, local tools, SQLite, install contracts, and
   platform APIs remain outside the UI cleanup.
 - Project workspace file browsing must continue to go through the sandboxed
-  Tauri commands `project_list_dir`, `project_read_file`, and
-  `project_read_file_preview`.
+  Tauri commands `project_list_dir`, `project_read_file`, `project_preview_meta`,
+  and `project_read_file_bytes`.
 - Preview and Computer Use desktop surfaces may add only narrow, sandboxed
   Tauri commands for their own product lanes: `project_preview_meta`,
   `project_read_file_bytes`, `computer_driver_status`, and
@@ -128,7 +128,7 @@ area; spacing belongs inside panels, rails, and toolbar regions.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (22391 symbols, 47237 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (22824 symbols, 48276 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

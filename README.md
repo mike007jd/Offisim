@@ -1,14 +1,15 @@
 # Offisim
 
 ![License](https://img.shields.io/badge/license-MIT-0f172a)
-![Status](https://img.shields.io/badge/status-Prelaunch%20candidate%201.1.2-2563eb)
+![Status](https://img.shields.io/badge/status-Public%20prelaunch%201.1.2-2563eb)
 
 Offisim is a **local-first, MIT-licensed AI company runtime** plus a
 **platform/registry backend** for installable assets. The GitHub repository is
-**public**. As of **2026-07-22**, `v1.1.1` is the latest stable published
-release. Version `1.1.2` is the current prepared patch candidate and is not
-yet published. App Updates discovers stable releases through the user's
-existing authenticated GitHub CLI session.
+**public**. As of **2026-07-22**, `v1.1.2` is the latest stable published
+release. Offisim is still formally prelaunch with no production user-data
+migration contract; the published updater, deep-link, signing, and installer
+formats are nevertheless external distribution contracts. App Updates discovers
+stable releases through the user's existing authenticated GitHub CLI session.
 
 The product is not a generic SaaS dashboard and not a literal game engine. It uses an office metaphor and game-grade presentation to make multi-agent work understandable, trustworthy, and alive.
 
@@ -50,7 +51,7 @@ smaller set of retained gates that must match the risk of the change:
 - engine-neutral gateway, account/model truth, and engine-specific runtime harnesses
 - aggregated security harnesses for P0/P1 platform, marketplace, local-tool, attachment, registry, and web fetch/search boundaries
 - targeted Rust safety checks for desktop host execution, workspace containment, local shell/git/path commands, and install materialization
-- platform migration generation/drift checks for `apps/platform` / `packages/db-platform`
+- platform schema export/baseline drift checks for `apps/platform` / `packages/db-platform`
 - package builds for the desktop renderer before any desktop verification
 - release `.app` live verification from the current worktree path for desktop runtime behavior
 
@@ -94,12 +95,10 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
    The production gateway currently implements the Pi API engine plus Codex and
    Claude Code CLI orchestration adapters in source. Pi and external CLI lanes
    coexist, but a run never mixes them. Historical release `.app` evidence is
-   retained under its original commit/hash. `1.1.2` source contains the
-   post-`v1.1.1` installed-app Codex launch correction; exact `1.1.2`
-   release-app/distribution evidence is pending and must not reuse `v1.1.1`
-   evidence to prove that fix path. Use ships/shipped wording only when the
-   named published distribution’s exact release-app evidence proves that
-   feature.
+   retained under its original commit/hash. Published `v1.1.2` includes the
+   post-`v1.1.1` installed-app Codex launch correction and has exact notarized,
+   installed-distribution evidence under the release-readiness closeout. New
+   worktree changes still require their own release `.app` verification.
 4. **Packages are declarative and auditable.**
    1.0 does not allow install hooks, postinstall scripts, embedded secrets, or hidden shell bootstrap behavior.
 5. **Desktop is the product environment.**
@@ -165,7 +164,7 @@ Current application/package shape:
 - Install state machine → `packages/install-core/src/state-machine.ts` + `packages/shared-types/src/install.ts`
 - Platform HTTP API → `apps/platform/src/routes/`
 - Local SQLite schema → `packages/db-local/src/schema.ts` + `packages/db-local/src/schema.sql`
-- Platform Postgres schema → `packages/db-platform/src/schema.ts`
+- Platform Postgres schema → `packages/db-platform/src/schema.ts` + `packages/db-platform/schema.sql`
 - A2A JSON-RPC → `packages/core/src/a2a/`
 - Desktop AI runtime → `apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts` +
   `apps/desktop/src-tauri/src/{pi_agent_host,codex_agent_host,claude_agent_host}/` +

@@ -7,9 +7,9 @@ import type {
   Employee,
   ThreadRuntimeStatus,
 } from '../apps/desktop/renderer/src/data/types.js';
+import { persistThreadRuntimeStatus } from '../apps/desktop/renderer/src/runtime/thread-runtime-status.js';
 import { presenceFor } from '../apps/desktop/renderer/src/surfaces/office/employee-presence.js';
 import { terminalVisualOptionsFromCss } from '../apps/desktop/renderer/src/surfaces/office/stage-terminal/terminal-theme.js';
-import { persistThreadRuntimeStatus } from '../apps/desktop/renderer/src/runtime/thread-runtime-status.js';
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
 const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
@@ -78,9 +78,7 @@ assert.equal(projectedFailure.runtimeStatus, 'failed');
 assert.equal(projectedFailure.runState, 'error');
 assert.equal(presenceFor(employee, projectedFailure), 'failed');
 
-const desktopRuntimeSource = read(
-  'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
-);
+const desktopRuntimeSource = read('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 const missionManagerSource = read(
   'apps/desktop/renderer/src/runtime/mission/mission-run-manager.ts',
 );

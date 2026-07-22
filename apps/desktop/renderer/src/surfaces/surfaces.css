@@ -232,9 +232,11 @@
   place-items: center;
   padding: 40px;
   overflow: auto;
-  background:
-    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--off-warn) 10%, transparent), transparent 36%),
-    var(--off-bg);
+  background: radial-gradient(
+      circle at 50% 18%,
+      color-mix(in srgb, var(--off-warn) 10%, transparent),
+      transparent 36%
+    ), var(--off-bg);
   color: var(--off-ink-1);
 }
 

@@ -36,6 +36,9 @@
   "ignoreBinaries": [
     "lsof"
   ],
+  "ignoreDependencies": [
+    "drizzle-kit"
+  ],
   "rules": {
     "files": "error",
     "dependencies": "error",

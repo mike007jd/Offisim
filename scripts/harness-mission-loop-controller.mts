@@ -942,9 +942,11 @@ await check('A2: evaluator ERROR (infra) → blocked; repair counter does NOT mo
 });
 
 if (h.failures > 0) {
-  console.error(`\nmission-loop-controller: ${(h.checks - h.failures)}/${TOTAL} passed (${h.failures} failed)`);
+  console.error(
+    `\nmission-loop-controller: ${h.checks - h.failures}/${TOTAL} passed (${h.failures} failed)`,
+  );
   process.exit(1);
 }
-console.log(`\nmission-loop-controller: ${(h.checks - h.failures)}/${TOTAL} passed`);
+console.log(`\nmission-loop-controller: ${h.checks - h.failures}/${TOTAL} passed`);
 
 if (!process.exitCode) h.report();

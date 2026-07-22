@@ -441,7 +441,7 @@ const seed = db.transaction(() => {
   );
 });
 seed();
-db.prepare(`UPDATE agent_runs SET finished_at = ? WHERE run_id = ?`).run(
+db.prepare('UPDATE agent_runs SET finished_at = ? WHERE run_id = ?').run(
   '2026-07-10T00:01:30.000Z',
   'subscription-root',
 );
@@ -566,7 +566,10 @@ assert.equal(subscriptionPresentation.kind, 'subscription');
 assert.equal(subscriptionPresentation.primary, '22 tok · 1m 30s');
 assert.equal(subscriptionPresentation.secondary, '订阅内 · 无 API 成本');
 assert.equal(subscriptionPresentation.tone, 'neutral');
-assert.doesNotMatch(JSON.stringify(subscriptionPresentation), /Usage unavailable|remaining|reset|credits|\$/u);
+assert.doesNotMatch(
+  JSON.stringify(subscriptionPresentation),
+  /Usage unavailable|remaining|reset|credits|\$/u,
+);
 
 const orchestrationWithoutUsage = await loadRunCostFromDatabase(
   adapter,

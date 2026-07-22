@@ -878,7 +878,9 @@ async function main(): Promise<void> {
   await runContract(betterBackend);
   await runContract(proxyBackend);
 
-  console.log(`\ncollaboration-repo contract: ${(h.checks - h.failures)} passed, ${h.failures} failed`);
+  console.log(
+    `\ncollaboration-repo contract: ${h.checks - h.failures} passed, ${h.failures} failed`,
+  );
   if (h.failures > 0) {
     console.error('collaboration-repo contract: FAIL');
     process.exit(1);

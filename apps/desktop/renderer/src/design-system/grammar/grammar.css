@@ -21,20 +21,6 @@
   font-size: var(--off-fs-base);
 }
 
-.off-engine-mark[data-visual="image"] {
-  background: transparent;
-  color: inherit;
-}
-
-.off-engine-mark-image {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
-  image-rendering: auto;
-  pointer-events: none;
-}
-
 .off-engine-mark[data-engine="offisim"] {
   background: var(--off-accent-surface);
   color: var(--off-accent);
