@@ -192,9 +192,9 @@ bundle `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. They ar
 - **M6** DB-on-disk evidence after a live run: rows land in the **live** tables
   `agent_runs`, `agent_events`, `mcp_audit_log`, `chat_threads`,
   `interaction_history`, and `agent_runs.usage_json` carries non-zero token usage
-  (proving the z.ai compat lane routed real provider traffic). Note: `llm_calls`
-  (cost rollup) and `deliverables` (Outputs) are reader-with-dead-writer feature
-  gaps — empty until VM-002 / VM-003.
+  (proving the selected API lane routed real provider traffic). `deliverables`
+  is live through the artifact persistence path; the obsolete `llm_calls` table
+  was removed after cost truth moved to `agent_runs.usage_json`.
 
 ---
 

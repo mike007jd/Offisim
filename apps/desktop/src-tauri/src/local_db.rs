@@ -8,7 +8,6 @@ use sqlx::{
 };
 use std::{
     fs,
-    io::ErrorKind,
     path::{Path, PathBuf},
     str::FromStr,
     time::Duration,
@@ -24,16 +23,15 @@ const LOCAL_SCHEMA_SQL: &str = include_str!("../../../../packages/db-local/src/s
 /// are stamped with this baseline version.
 ///
 /// Any existing local database with another version is a disposable dev artifact.
-/// Startup preserves one overwrite-only `.stale` backup, then rebuilds the
+/// Startup removes the exact disposable DB/WAL/SHM artifacts, then rebuilds the
 /// current baseline automatically.
-const LOCAL_SCHEMA_VERSION: i64 = 18;
+const LOCAL_SCHEMA_VERSION: i64 = 19;
 
 pub struct OffisimDbState {
     pool: SqlitePool,
 }
 
 pub async fn init_offisim_db_state<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
-    crate::local_paths::purge_legacy_app_storage(app)?;
     let db_path = crate::local_paths::offisim_storage_path("offisim.db")?;
     let db_url = offisim_db_url()?;
     let pool = open_offisim_database(&db_url).await?;
@@ -614,9 +612,8 @@ async fn apply_schema(
 /// Fresh-baseline schema bootstrap:
 /// - fresh database → apply the end-state baseline atomically, stamp `latest`
 /// - `user_version == latest` → no-op
-/// - `user_version == 0` with tables, or any other version → move the disposable
-///   database and its WAL/SHM sidecars to one overwrite-only `.stale` backup,
-///   then bootstrap the current baseline
+/// - `user_version == 0` with tables, or any other version → remove the exact
+///   disposable database and WAL/SHM sidecars, then bootstrap the current baseline
 async fn ensure_schema(
     pool: SqlitePool,
     db_path: &Path,
@@ -641,7 +638,7 @@ async fn ensure_schema(
     };
 
     pool.close().await;
-    let stale_path = replace_stale_database_backup(db_path)?;
+    remove_disposable_database_artifacts(db_path)?;
     let fresh_pool = open_offisim_database(db_url).await?;
     apply_sql_and_stamp(
         &fresh_pool,
@@ -651,8 +648,7 @@ async fn ensure_schema(
     )
     .await?;
     eprintln!(
-        "[local_db] prelaunch reset: {reason}; moved disposable local database to {} and rebuilt baseline v{latest}",
-        stale_path.display()
+        "[local_db] prelaunch reset: {reason}; removed disposable local database artifacts and rebuilt baseline v{latest}"
     );
     Ok(fresh_pool)
 }
@@ -663,47 +659,24 @@ fn path_with_suffix(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(value)
 }
 
-fn replace_stale_database_backup(db_path: &Path) -> Result<PathBuf, String> {
-    let paths = [
-        (db_path.to_path_buf(), path_with_suffix(db_path, ".stale")),
-        (
-            path_with_suffix(db_path, "-wal"),
-            path_with_suffix(db_path, ".stale-wal"),
-        ),
-        (
-            path_with_suffix(db_path, "-shm"),
-            path_with_suffix(db_path, ".stale-shm"),
-        ),
-    ];
-
-    for (_, backup) in &paths {
-        match fs::remove_file(backup) {
+fn remove_disposable_database_artifacts(db_path: &Path) -> Result<(), String> {
+    for path in [
+        db_path.to_path_buf(),
+        path_with_suffix(db_path, "-wal"),
+        path_with_suffix(db_path, "-shm"),
+    ] {
+        match fs::remove_file(&path) {
             Ok(()) => {}
-            Err(err) if err.kind() == ErrorKind::NotFound => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
             Err(err) => {
                 return Err(format!(
-                    "replace stale offisim.db backup {}: {err}",
-                    backup.display()
+                    "remove disposable offisim.db artifact {}: {err}",
+                    path.display()
                 ))
             }
         }
     }
-
-    for (index, (source, backup)) in paths.iter().enumerate() {
-        match fs::rename(source, backup) {
-            Ok(()) => {}
-            Err(err) if index > 0 && err.kind() == ErrorKind::NotFound => {}
-            Err(err) => {
-                return Err(format!(
-                    "move stale offisim.db artifact {} to {}: {err}",
-                    source.display(),
-                    backup.display()
-                ))
-            }
-        }
-    }
-
-    Ok(paths[0].1.clone())
+    Ok(())
 }
 
 /// Run `sql` and stamp `PRAGMA user_version = version` in one transaction.
@@ -757,7 +730,7 @@ mod tests {
         for sql in [
             "INSERT INTO companies (company_id) VALUES ('x')",
             "  UPDATE memories SET importance = $1 WHERE id = $2",
-            "DELETE FROM llm_calls WHERE finished_at < $1",
+            "DELETE FROM agent_events WHERE created_at < $1",
             "SELECT * FROM employees",
             "WITH recent AS (SELECT * FROM chat_threads ORDER BY updated_at DESC LIMIT 50) \
              INSERT INTO archive SELECT * FROM recent",
@@ -1251,11 +1224,7 @@ mod tests {
 
         assert_current_baseline(&pool).await;
         assert!(!table_exists(&pool, "legacy_only").await);
-        let backup = path_with_suffix(&fixture.db_path, ".stale");
-        assert!(backup.is_file(), "stale database backup should exist");
-        let backup_pool = open_read_only_database(&backup).await;
-        assert_eq!(read_user_version(&backup_pool).await.unwrap(), 0);
-        assert!(table_exists(&backup_pool, "legacy_only").await);
+        assert!(!path_with_suffix(&fixture.db_path, ".stale").exists());
     }
 
     #[tokio::test]
@@ -1282,11 +1251,7 @@ mod tests {
 
         assert_current_baseline(&pool).await;
         assert!(!table_exists(&pool, "legacy_only").await);
-        let backup = path_with_suffix(&fixture.db_path, ".stale");
-        assert!(backup.is_file(), "stale database backup should exist");
-        let backup_pool = open_read_only_database(&backup).await;
-        assert_eq!(read_user_version(&backup_pool).await.unwrap(), unsupported);
-        assert!(table_exists(&backup_pool, "legacy_only").await);
+        assert!(!path_with_suffix(&fixture.db_path, ".stale").exists());
     }
 
     struct FileDatabaseFixture {
@@ -1315,14 +1280,6 @@ mod tests {
 
     fn sqlite_url(path: &Path) -> String {
         format!("sqlite://{}?mode=rwc", path.to_string_lossy())
-    }
-
-    async fn open_read_only_database(path: &Path) -> SqlitePool {
-        SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect(&format!("sqlite://{}?mode=ro", path.to_string_lossy()))
-            .await
-            .expect("open stale database backup")
     }
 
     async fn table_exists(pool: &SqlitePool, table: &str) -> bool {

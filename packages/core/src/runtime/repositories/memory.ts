@@ -69,7 +69,6 @@ export interface MemoryEntryRow {
   last_reinforced_at: string;
   metadata_json: string | null;
   source_thread_id: string | null;
-  source_task_run_id: string | null;
   created_at: string;
   accessed_at: string;
   access_count: number;
@@ -89,7 +88,6 @@ export interface MemoryEntryCreate {
   last_reinforced_at?: string | null;
   metadata_json?: string | null;
   source_thread_id?: string | null;
-  source_task_run_id?: string | null;
 }
 
 export interface MemoryDedupeLookup {
@@ -106,7 +104,6 @@ export interface MemoryReinforcementPatch {
   confidence?: number;
   metadataJson?: string | null;
   sourceThreadId?: string | null;
-  sourceTaskRunId?: string | null;
 }
 
 /**
@@ -226,34 +223,4 @@ export interface LibraryDocumentRepository {
     opts?: { limit?: number },
   ): Promise<LibraryDocumentRow[]>;
   delete(docId: string): Promise<void>;
-}
-
-// ---------------------------------------------------------------------------
-// Recovery knowledge (persistent learning)
-// ---------------------------------------------------------------------------
-
-export interface RecoveryKnowledgeRow {
-  knowledge_id: string;
-  symptom: string;
-  cause: string;
-  fix_strategy: string;
-  fix_config: string | null;
-  success_count: number;
-  failure_count: number;
-  last_used_at: string | null;
-  created_at: string;
-}
-
-export type NewRecoveryKnowledge = Omit<
-  RecoveryKnowledgeRow,
-  'success_count' | 'failure_count' | 'last_used_at' | 'created_at'
->;
-
-export interface RecoveryKnowledgeRepository {
-  upsert(entry: NewRecoveryKnowledge): Promise<RecoveryKnowledgeRow>;
-  findBySymptom(symptom: string): Promise<RecoveryKnowledgeRow[]>;
-  findBestFix(symptom: string): Promise<RecoveryKnowledgeRow | null>;
-  incrementSuccess(knowledgeId: string): Promise<void>;
-  incrementFailure(knowledgeId: string): Promise<void>;
-  findAll(opts?: { limit?: number }): Promise<RecoveryKnowledgeRow[]>;
 }

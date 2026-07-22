@@ -1,6 +1,6 @@
 # Cleanup Exemptions
 
-Checked at: 2026-07-22 NZST.
+Checked at: 2026-07-23 NZST.
 
 This file records dead-code/dead-doc candidates that were reviewed and should not
 be re-opened as deletion targets without new evidence.
@@ -12,7 +12,8 @@ be re-opened as deletion targets without new evidence.
 | `.gitnexus/run.cjs` in `knip.json` | Keep | GitNexus project rules in `AGENTS.md` / `CLAUDE.md` point humans to this runner when the index needs refresh. Knip reports only a configuration hint because the file is ignored by the source graph and may be absent in some worktrees. |
 | `PI_WIRE_CONTRACT_EXAMPLES` binding | Converted, not deleted | The export was dead, but the examples are still valuable as a renderer-side `satisfies PiAgentHostEvent` compile guard. It is now a no-binding typecheck expression so `tsc` keeps the guard and `knip` no longer sees an exported API. |
 | `MOTION_DURATION` / `MOTION_EASE` | Keep private | Required internally by `motionPresets` and parsed by the motion-token harness, but no external consumer exists; the unused public exports were removed. |
-| `drizzle-kit` in `knip.json` `ignoreDependencies` | Keep | The platform schema drift gate executes the exact pinned local binary from `node_modules/.bin`; Knip cannot infer that dynamic binary-path dependency. |
+| `drizzle-kit` in `knip.json` `ignoreDependencies` | Keep | The platform schema drift gate executes the exact pinned package-owned binary from `packages/db-platform/node_modules/.bin`; Knip cannot infer that dynamic binary-path dependency. Better Auth's unused optional `drizzle-kit` peer is removed with a targeted pnpm override, keeping the vulnerable dev-server-only transitive out of the production graph. |
+| Biome warning baseline | Ratchet | Biome 1.9.4 reports 232 pre-existing warnings across 26 file/rule signatures. `pnpm lint` rejects errors, new signatures, and any increased signature count while allowing the baseline to decrease. |
 | `knip.json` `ignoreBinaries: security` | Removed 2026-07-21 | Stale config hint; release-publish invokes `/usr/bin/security` by absolute path, so knip never saw a bare `security` binary. |
 
 ## Public/Internal Export Cleanup
@@ -31,7 +32,7 @@ API until a separate downstream review proves otherwise.
 | DB schema baselines | Keep | Local `local_db.rs` uses `include_str!` for its `schema.sql`; Platform Docker initializes fresh Postgres from `packages/db-platform/schema.sql`. Both are current baselines generated/checked against typed schema; numbered historical migrations are removed while Offisim has no production user-data upgrade contract. |
 | `packages/prefab` | Keep | It is pure shared prefab logic used by desktop renderer and platform, not a standalone web product or shared visual UI package. |
 | `packages/dramaturgy` | Keep | It owns deterministic Office projection logic outside the shared type contracts. |
-| Historical second-runtime scorecard and inert-storage ledger | Archive/keep | The scorecard is historical NO-GO evidence and was moved out of the active architecture path. Inert SQLite tables remain documented until a deliberate baseline cleanup removes or rewires them. |
+| Historical second-runtime scorecard and storage reachability ledger | Archive/keep | The scorecard remains historical NO-GO evidence. The storage ledger is current reachability truth and records the completed 2026-07-23 fresh-baseline cleanup plus tables that remain live or gate-reachable. |
 
 ## 2026-07-21 Dead Code / Docs Cleanup Loop
 
@@ -40,7 +41,8 @@ API until a separate downstream review proves otherwise.
 | Connect Calendar/Meetings CSS (`.off-ws-cal*`, `.off-ws-evt*`, `.off-ws-meet*`, `.off-ws-attendee*`) | Removed after quarantine | Zero TSX mounts after `CalendarApp` removal; isolated on 2026-07-21, survived the `v1.1.2` release cycle without restore, payload deleted 2026-07-22. |
 | Legacy Mission surface CSS (`.off-mission*`) | Quarantined | 66/67 selectors have zero consumers; the only collision overrode a live Office pill. Removed from renderer imports and retained in `Docs/_quarantine/dead-code-2026-07-22/mission.css` for one release cycle. |
 | Connect/Market/Personnel orphan selectors | Quarantined | Full prefix search found no runtime/config consumers; moved out of production CSS into `Docs/_quarantine/dead-code-2026-07-22/orphan-selectors.css`. Live `.off-mkt-state-wrap` was explicitly preserved. |
-| `MemoryService` / `MemoryUpdateQueueService` / `DeliverablePersistenceService` / `mapDeliverablePayloadToRow` / `SummarizationMiddleware` / `NodeContextMiddleware` / `AgentContextPackService` / `recordedLlmCall*` / `RecordedSystemLlmCaller` | Keep (stop — PUBLIC_API) | Zero live `new` from desktop/platform, but exported from `@offisim/core` (`./`, `./services`, `./browser`, `./middleware`). Loop forbids silent PUBLIC_API deletion; needs explicit authorization + ledger-aligned baseline plan. Note: `memory_entries` / `deliverables` tables have **other** live writers — do not conflate with these services. |
+| `recordedLlmCall*` / `RecordedSystemLlmCaller` / `AgentContextPackService` | Removed 2026-07-23 | Explicit prelaunch baseline decommission accompanied removal of `llm_calls` and `task_runs`; public barrels, RuntimeContext, all repository backends, schema, and gates were updated atomically. |
+| `MemoryService` / `MemoryUpdateQueueService` / `DeliverablePersistenceService` / `mapDeliverablePayloadToRow` / `SummarizationMiddleware` / `NodeContextMiddleware` | Keep (PUBLIC/GATE-LIVE) | These remain exported. `MemoryService` no longer accepts the removed recorded caller; `NodeContextMiddleware` is summary-only. `memory_entries`, `deliverables`, `node_summaries`, and `compact_summaries` retain independent live or validate-reachable contracts. |
 | `LibraryDocumentRepository` / `library_documents` | Keep (stop — PUBLIC_API + schema) | FULLY-INERT behaviorally; still on `@offisim/core` export surface + `RuntimeRepositories` + baseline schema. Gate cannot prove safe table drop. |
 | `MeetingSessionRepository.create` / `meetings.create` | Keep writer dead; KEEP table | Writer has zero callers; Board `activity-data.ts` still SELECTs `meeting_sessions`. Ledger FULLY-INERT label conflicts with live reader — fix ledger before any table drop. |
 | `deep-link-install` Rust emit without TS listener | Keep (implementation closed; release-live pending) | Source implementation closed 2026-07-21: retained OS `offisim://install` contract; cold-start queue handshake (`DeepLinkState` queues until the renderer listens, then `deep_link_mark_renderer_ready` drains once); Market resolves the exact current `listing_id` + version and stops at package detail; only a separate user click on **Install** may download or materialize. Locked by `pnpm harness:deep-link-install`. **Release-live pending:** macOS `/Applications` bundled-app OS-level cold-start and running-app deep-link verification must be recorded from the exact notarized/installed `v1.1.2` app and must not be claimed from harness-only evidence. |

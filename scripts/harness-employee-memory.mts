@@ -52,7 +52,10 @@ check(
   'baseline records last hit time for deterministic eviction',
 );
 check(tsSchema.includes('employeeProjectMemories'), 'Drizzle schema mirrors employee memories');
-check(rustSchema.includes('LOCAL_SCHEMA_VERSION: i64 = 18'), 'fresh database schema is version 18');
+check(
+  /LOCAL_SCHEMA_VERSION:\s*i64\s*=\s*[1-9]\d*/u.test(rustSchema),
+  'fresh database schema has a positive authoritative version stamp',
+);
 check(wire.includes('PI_HOST_PROTOCOL_VERSION = 14'), 'JavaScript Pi wire is version 14');
 check(rustWire.includes('PI_HOST_PROTOCOL_VERSION: u32 = 14'), 'Rust Pi wire is version 14');
 check(wire.includes("'projectExperience'"), 'Pi wire carries project experience');

@@ -59,7 +59,7 @@ export async function rewindWorkspaceCheckpoint(
   runtimeEventBus.emit(
     engineActivity(companyId, checkpoint.threadId ?? checkpoint.rootRunId, {
       runId: checkpoint.runId,
-      engineId: 'openai-engine',
+      engineId: 'offisim-engine',
       employeeId: actor,
       employeeName: actor,
       taskRunId: checkpoint.rootRunId,

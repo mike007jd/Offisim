@@ -106,39 +106,6 @@ export interface InteractionHistoryRepository {
 }
 
 // ---------------------------------------------------------------------------
-// File history
-// ---------------------------------------------------------------------------
-
-export type FileHistoryChangeKind = 'create' | 'update' | 'delete';
-
-export interface FileHistoryRow {
-  history_id: string;
-  snapshot_id: string;
-  thread_id: string;
-  company_id: string;
-  node_name: string | null;
-  employee_id: string | null;
-  task_run_id: string | null;
-  tool_call_id: string;
-  tool_name: string;
-  step_index: number | null;
-  file_path: string;
-  change_kind: FileHistoryChangeKind;
-  existed_before: number;
-  backup_content: string | null;
-  created_at: string;
-}
-
-export type NewFileHistory = FileHistoryRow;
-
-export interface FileHistoryRepository {
-  create(entry: NewFileHistory): Promise<FileHistoryRow>;
-  listByThread(threadId: string, opts?: { limit?: number }): Promise<FileHistoryRow[]>;
-  listBySnapshot(snapshotId: string): Promise<FileHistoryRow[]>;
-  deleteByThread(threadId: string): Promise<void>;
-}
-
-// ---------------------------------------------------------------------------
 // Chat threads (product-layer thread metadata; decoupled from graph_threads)
 // ---------------------------------------------------------------------------
 

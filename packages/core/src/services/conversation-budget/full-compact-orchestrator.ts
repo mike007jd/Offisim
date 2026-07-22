@@ -269,9 +269,7 @@ export class FullCompactOrchestrator {
       ],
     };
     try {
-      const response = ctx.systemCaller
-        ? await ctx.systemCaller.chat('conversation_full_compact', chatRequest)
-        : await ctx.llmGateway.chat(chatRequest);
+      const response = await ctx.llmGateway.chat(chatRequest);
       const summary = normalizeSummary(response);
       if (!summary) return null;
       return { summary, updatedAt: new Date().toISOString() };

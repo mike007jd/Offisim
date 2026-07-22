@@ -11,7 +11,7 @@ import {
   invokeCommand,
 } from '@/lib/tauri-commands.js';
 import { requireProjectWorkspaceForRun } from '@/runtime/require-project-workspace.js';
-import { agentRunEvent, llmStreamChunk, toolExecutionTelemetry } from '@offisim/core/browser';
+import { agentRunEvent, llmStreamChunk } from '@offisim/core/browser';
 import type { AgentRunRow, RuntimeRepositories } from '@offisim/core/browser';
 import {
   type AgentRunEvent,
@@ -22,11 +22,21 @@ import {
   type RuntimeEngineCapabilityManifest,
   type RuntimeEvent,
   type WorkspaceDiagnosticsUpdatedPayload,
-  type WorkspaceProvenance,
   classifyRunFailure,
 } from '@offisim/shared-types';
 import { Channel } from '@tauri-apps/api/core';
 import { AgentRunPersistence } from './agent-run-persistence.js';
+import {
+  type ConversationRunProjectionRef,
+  buildConversationStreamCheckpoint,
+} from './conversation-stream-checkpoint.js';
+import {
+  type ExecutionPreparationRecord,
+  type ExecutionPreparedEvent,
+  parsePreparedExecutionIdentity,
+  requirePreparedExecutionIdentity,
+  requireRootResultProvenance,
+} from './execution-preparation.js';
 import {
   type TurnExecutionProvenance,
   assertSameExecutionAccount,
@@ -36,6 +46,7 @@ import {
 import {
   type ResolvedRuntimeExecutionSelection,
   isSameExecutionTarget,
+  parseRuntimeExecutionSelector,
   resolveRuntimeExecutionSelection,
 } from './execution-selection.js';
 import {
@@ -50,7 +61,20 @@ import {
   createNativeAgentCommandTransport,
 } from './native-agent-command-transport.js';
 import {
-  DEFAULT_NATIVE_STREAM_IDLE_TIMEOUT_MS,
+  API_ENGINE_RUNTIME,
+  CLAUDE_ENGINE_RUNTIME,
+  CODEX_ENGINE_RUNTIME,
+  type NativeEngineRuntimeConfig,
+} from './native-engine-runtime-config.js';
+import {
+  apiModelSupportsImageInput,
+  attachmentImageDowngradeNotice,
+  createWorkspaceStatusEmitter,
+  newRequestId,
+  piRunScope,
+  throwIfRunAborted,
+} from './native-runtime-helpers.js';
+import {
   NativeStreamIdleTimeoutError,
   NativeStreamProgressWatchdog,
 } from './native-stream-progress-watchdog.js';
@@ -60,7 +84,6 @@ import type {
   WorkspaceUnavailableEvent,
 } from './pi-runtime-driver.js';
 import {
-  PI_HOST_PROTOCOL_VERSION,
   describeWorkspaceResumeCompatibility,
   resolveAgentRunProjectId,
 } from './recovery/reconcile-interrupted-runs.js';
@@ -75,6 +98,12 @@ import {
   persistStartedNativeSessionIdentity,
   trustedNativeSessionPrestartCode,
 } from './run-context.js';
+import {
+  AgentTerminalCheckpointError,
+  TERMINAL_CHECKPOINT_MAX_RETRIES,
+  retryTerminalCheckpointUntilDurable,
+  waitForTerminalCheckpointRetry,
+} from './terminal-checkpoint.js';
 import {
   type DurableThreadExecutionAuthority,
   assertThreadExecutionLane,
@@ -97,86 +126,13 @@ import {
   workspaceUnavailableMatchesRun,
 } from './workspace-binding.js';
 
-const PI_SDK_VERSION = '0.80.9';
-const TERMINAL_CHECKPOINT_RETRY_MS = 5_000;
-
-async function retryTerminalCheckpointUntilDurable({
-  label,
-  runId,
-  commit,
-  initialError,
-}: {
-  label: string;
-  runId: string;
-  commit: () => Promise<void>;
-  initialError: unknown;
-}): Promise<void> {
-  let persistenceError = initialError;
-  for (;;) {
-    console.warn('[desktop-agent-runtime] terminal checkpoint retrying', {
-      label,
-      runId,
-      persistenceError,
-    });
-    await new Promise<void>((resolve) => setTimeout(resolve, TERMINAL_CHECKPOINT_RETRY_MS));
-    try {
-      await commit();
-      return;
-    } catch (error) {
-      persistenceError = error;
-    }
-  }
-}
-
-function buildConversationStreamCheckpoint({
-  projection,
-  threadId,
-  employeeId,
-  runId,
-  contentText,
-  reasoningText,
-  at,
-  companyId,
-  projectId,
-  workspaceProvenance,
-}: {
-  projection: ConversationRunProjectionRef | null | undefined;
-  threadId: string;
-  employeeId: string | null;
-  runId: string;
-  contentText: string;
-  reasoningText: string;
-  at: number;
-  companyId: string;
-  projectId: string | null;
-  workspaceProvenance?: WorkspaceProvenance;
-}): ConversationStreamCheckpoint | undefined {
-  const reasoning = reasoningText.trim();
-  if (!projection || (!contentText && !reasoning && !workspaceProvenance)) return undefined;
-  return {
-    companyId,
-    projectId,
-    message: {
-      id: projection.assistantMessageId,
-      threadId,
-      author: 'employee',
-      employeeId,
-      body: contentText,
-      ...(reasoning ? { reasoning } : {}),
-      at,
-      replyToMessageId: projection.userMessageId,
-      attemptId: runId,
-      status: 'streaming',
-      ...(workspaceProvenance ? { workspaceProvenance } : {}),
-    },
-  };
-}
-
 // Re-export the mission-bridge event vocabulary so existing importers of
 // desktop-agent-runtime keep working; the canonical definition lives in
 // mission/mission-events.ts (tauri-free, harness-importable).
 export { MISSION_EVALUATION_SUBMITTED_EVENT } from './mission/mission-events.js';
 export type { MissionEvaluationSubmittedPayload } from './mission/mission-events.js';
+export type { ConversationRunProjectionRef } from './conversation-stream-checkpoint.js';
+export { AgentTerminalCheckpointError } from './terminal-checkpoint.js';
 export {
   AGENT_LIFECYCLE_EVENT,
   AGENT_UI_REQUEST_EVENT,
@@ -188,9 +144,12 @@ export {
 export {
   type ResolvedApiExecutionSelection,
   type ResolvedRuntimeExecutionSelection,
+  type RuntimeExecutionSelector,
   isSameExecutionTarget,
+  parseRuntimeExecutionSelector,
   resolveApiExecutionSelection,
   resolveRuntimeExecutionSelection,
+  serializeRuntimeExecutionSelector,
 } from './execution-selection.js';
 export {
   nativeSessionPrestartCode,
@@ -213,12 +172,6 @@ import { getRepos, runtimeEventBus } from './repos.js';
  */
 export type AgentCapabilityProfile = 'work' | 'collaboration';
 export type WorkspaceRequirement = 'optional' | 'required';
-
-export interface ConversationRunProjectionRef {
-  userMessageId: string;
-  assistantMessageId: string;
-  source: 'office' | 'workspace';
-}
 
 export interface LiveRunReattachResult {
   /** Runs which must not be classified as interrupted during this bootstrap. */
@@ -392,18 +345,6 @@ export interface DesktopAgentRunResult {
   conversationTerminalCommitted?: boolean;
 }
 
-export class AgentTerminalCheckpointError extends Error {
-  readonly runId: string;
-
-  constructor(runId: string, cause: unknown) {
-    super('The run finished, but its durable terminal checkpoint could not be committed.', {
-      cause,
-    });
-    this.name = 'AgentTerminalCheckpointError';
-    this.runId = runId;
-  }
-}
-
 export class StopLostTerminalRaceError extends Error {
   constructor(readonly terminalStatus: string) {
     super(`The run reached ${terminalStatus} before Stop was acknowledged.`);
@@ -479,289 +420,6 @@ interface RuntimeEngineAdapter extends DesktopAgentRuntime {
   readonly capabilities: RuntimeEngineCapabilityManifest;
 }
 
-interface NativeEngineRuntimeConfig {
-  readonly engineId: 'api' | 'codex' | 'claude';
-  readonly billingMode: 'api' | 'subscription';
-  readonly runtimeVersion: string;
-  readonly protocolVersion: number;
-  readonly requestPrefix: string;
-  readonly streamIdleTimeoutMs: number;
-  readonly supportsOffisimDelegation: boolean;
-  readonly capabilities: RuntimeEngineCapabilityManifest;
-}
-
-const API_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
-  engineId: 'api',
-  billingMode: 'api',
-  runtimeVersion: PI_SDK_VERSION,
-  protocolVersion: PI_HOST_PROTOCOL_VERSION,
-  requestPrefix: 'pi-agent',
-  streamIdleTimeoutMs: DEFAULT_NATIVE_STREAM_IDLE_TIMEOUT_MS,
-  supportsOffisimDelegation: true,
-  capabilities: {
-    stop: true,
-    steer: true,
-    resume: true,
-    attachmentInput: { textFiles: true, images: 'model-dependent' },
-    permissionModes: ['plan', 'ask', 'auto', 'full'],
-    interactions: { approval: true, userInput: true },
-    processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
-    interactionRoutes: {
-      browser: [
-        {
-          id: 'offisim-browser',
-          source: 'offisim-local',
-          label: 'Offisim Browser',
-          availability: 'available',
-        },
-      ],
-      computer: [
-        {
-          id: 'offisim-computer',
-          source: 'offisim-local',
-          label: 'Offisim local driver',
-          availability: 'runtime-determined',
-        },
-      ],
-    },
-  },
-};
-
-const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
-  engineId: 'codex',
-  billingMode: 'subscription',
-  runtimeVersion: '0.144.4',
-  protocolVersion: 2,
-  requestPrefix: 'codex-agent',
-  streamIdleTimeoutMs: DEFAULT_NATIVE_STREAM_IDLE_TIMEOUT_MS,
-  supportsOffisimDelegation: false,
-  capabilities: {
-    stop: true,
-    steer: false,
-    resume: true,
-    attachmentInput: { textFiles: true, images: 'supported' },
-    permissionModes: ['plan', 'ask', 'auto', 'full'],
-    interactions: { approval: true, userInput: true },
-    processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
-    interactionRoutes: {
-      browser: [
-        {
-          id: 'offisim-browser',
-          source: 'offisim-local',
-          label: 'Offisim Browser',
-          availability: 'available',
-        },
-      ],
-      computer: [
-        {
-          id: 'codex-native-computer',
-          source: 'engine-native',
-          label: 'Codex Computer Use',
-          availability: 'unsupported',
-          reason:
-            'The current Codex app-server contract does not expose a negotiated Computer Use route.',
-        },
-        {
-          id: 'offisim-computer',
-          source: 'offisim-local',
-          label: 'Offisim local driver',
-          availability: 'runtime-determined',
-        },
-      ],
-    },
-  },
-};
-
-const CLAUDE_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
-  engineId: 'claude',
-  billingMode: 'subscription',
-  runtimeVersion: '1',
-  protocolVersion: 1,
-  requestPrefix: 'claude-agent',
-  streamIdleTimeoutMs: DEFAULT_NATIVE_STREAM_IDLE_TIMEOUT_MS,
-  supportsOffisimDelegation: false,
-  capabilities: {
-    stop: true,
-    steer: false,
-    resume: true,
-    attachmentInput: { textFiles: true, images: 'unsupported' },
-    permissionModes: ['plan', 'auto', 'full'],
-    interactions: { approval: false, userInput: false },
-    processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
-    interactionRoutes: {
-      browser: [
-        {
-          id: 'offisim-browser',
-          source: 'offisim-local',
-          label: 'Offisim Browser',
-          availability: 'available',
-        },
-      ],
-      computer: [
-        {
-          id: 'claude-native-computer',
-          source: 'engine-native',
-          label: 'Claude Computer Use',
-          availability: 'unsupported',
-          reason:
-            'Claude Computer Use requires an interactive CLI session; this adapter uses non-interactive mode.',
-        },
-        {
-          id: 'offisim-computer',
-          source: 'offisim-local',
-          label: 'Offisim local driver',
-          availability: 'runtime-determined',
-        },
-      ],
-    },
-  },
-};
-
-type ExecutionPreparedEvent = Extract<PiAgentHostEvent, { kind: 'executionPrepared' }>;
-
-interface ExecutionPreparationRecord {
-  readonly targetDigest: string;
-  readonly identity: TurnExecutionProvenance;
-  readonly promise: Promise<void>;
-}
-
-function parsePreparedExecutionIdentity(event: ExecutionPreparedEvent): TurnExecutionProvenance {
-  const identity = requireTurnExecutionProvenance(event.identity, event.runId);
-  if (
-    !identity.adapter ||
-    identity.adapter.id !== event.adapter.id ||
-    identity.adapter.version !== event.adapter.version
-  ) {
-    throw new Error('Agent runtime adapter identity changed during execution preparation.');
-  }
-  return identity;
-}
-
-function requirePreparedExecutionIdentity(
-  preparations: ReadonlyMap<string, ExecutionPreparationRecord>,
-  runId: string,
-): TurnExecutionProvenance {
-  const matching = [...preparations.values()].filter((entry) => entry.identity.runId === runId);
-  const expected = matching[0]?.identity;
-  if (!expected?.adapter) {
-    throw new Error('Agent runtime returned a result without a prepared adapter identity.');
-  }
-  for (const entry of matching.slice(1)) {
-    assertSameExecutionAccount(expected, entry.identity);
-  }
-  return expected;
-}
-
-function requireRootResultProvenance(
-  value: unknown,
-  rootRunId: string,
-  preparations: ReadonlyMap<string, ExecutionPreparationRecord>,
-  orchestrationShell: boolean,
-): TurnExecutionProvenance {
-  const actual = requireTurnExecutionProvenance(value, orchestrationShell ? undefined : rootRunId);
-  assertSameExecutionAccount(requirePreparedExecutionIdentity(preparations, actual.runId), actual);
-  return orchestrationShell ? { ...actual, runId: rootRunId } : actual;
-}
-
-function newRequestId(prefix: string): string {
-  return `${prefix}-${crypto.randomUUID()}`;
-}
-
-function piRunScope(
-  projectId: string | null,
-  threadId: string,
-  employeeId: string | null,
-  runId?: string,
-) {
-  return {
-    conversationKey: `${projectId ?? ''}::${threadId}::${employeeId ?? ''}`,
-    runId: runId || `pi-${crypto.randomUUID()}`,
-    threadId,
-  };
-}
-
-function createWorkspaceStatusEmitter({
-  engineId,
-  companyId,
-  threadId,
-  employeeId,
-  runScope,
-  rootRun,
-  emitRootBus,
-}: {
-  engineId: string;
-  companyId: string;
-  threadId: string;
-  employeeId: string | null;
-  runScope: ReturnType<typeof piRunScope>;
-  rootRun: (type: AgentRunEvent['type'], payload: AgentRunEvent['payload']) => AgentRunEvent;
-  emitRootBus: (event: AgentRunEvent) => void;
-}): (provenance: WorkspaceProvenance) => void {
-  let emitted = false;
-  return (workspaceProvenance) => {
-    if (emitted) return;
-    emitted = true;
-    const toolCallId = `${runScope.runId}:workspace-status`;
-    const startedAt = Date.now();
-    for (const status of ['started', 'completed'] as const) {
-      runtimeEventBus.emit(
-        toolExecutionTelemetry(companyId, threadId, {
-          toolCallId,
-          toolName: 'Workspace',
-          toolType: 'builtin',
-          evidenceClass: 'offisim-gateway',
-          threadId,
-          nodeName: engineId,
-          employeeId: employeeId ?? undefined,
-          startedAt,
-          ...(status === 'completed' ? { completedAt: startedAt, durationMs: 0 } : {}),
-          status,
-          workspaceProvenance,
-          chatConversationKey: runScope.conversationKey,
-          chatRunId: runScope.runId,
-        }),
-      );
-      emitRootBus(
-        rootRun(status === 'started' ? 'tool.started' : 'tool.completed', {
-          toolCallId,
-          toolName: 'Workspace',
-          status,
-        }),
-      );
-    }
-  };
-}
-
-function apiModelSupportsImageInput(
-  status: AiRuntimeStatus | undefined,
-  selection: ResolvedRuntimeExecutionSelection,
-): boolean {
-  if (!status) return false;
-  return Boolean(
-    status.models.find(
-      (model) =>
-        model.engineId === selection.target.engineId &&
-        model.accountId === selection.target.accountId &&
-        model.billingMode === selection.target.billingMode &&
-        model.modelId === selection.target.modelId &&
-        model.runtimeModelRef === selection.runtimeModelRef,
-    )?.capabilities.imageInput,
-  );
-}
-
-function attachmentImageDowngradeNotice(engineId: string): string {
-  return engineId === 'api'
-    ? 'The selected API model does not support image input. Images remain visible in the timeline but were not sent to the employee.'
-    : `${engineId} does not support image input in Offisim. Images remain visible in the timeline but were not sent to the employee.`;
-}
-
-function throwIfRunAborted(signal?: AbortSignal): void {
-  if (!signal?.aborted) return;
-  const error = new Error('Run was stopped before native work started.');
-  error.name = 'AbortError';
-  throw error;
-}
-
 class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
   readonly engineId: string;
   readonly capabilities: RuntimeEngineCapabilityManifest;
@@ -779,6 +437,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
   private readonly progressWatchdogByRequest = new Map<string, NativeStreamProgressWatchdog>();
   private readonly controlReadyByThread = new Map<string, string>();
   private readonly acceptingControlThreads = new Set<string>();
+  private readonly disposeController = new AbortController();
   private readonly pendingControlsByThread = new Map<string, AgentQueuedMessage[]>();
   private readonly pendingControlAcks = new Map<
     string,
@@ -1536,20 +1195,28 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           }
         };
         const outcome = commit().then(publishTerminal);
-        void outcome.catch(async (initialError) => {
-          // Initial replay failures make bootstrap incomplete so its normal retry
-          // owns convergence. Once bootstrap returned, however, a future live
-          // terminal has no caller left to observe the Promise; keep retrying the
-          // same idempotent terminal transaction without re-executing the task.
-          if (!bootstrapSettled) return;
-          await retryTerminalCheckpointUntilDurable({
-            label,
-            runId: row.run_id,
-            commit,
-            initialError,
+        void outcome
+          .catch(async (initialError) => {
+            // Initial replay failures make bootstrap incomplete so its normal retry
+            // owns convergence. Once bootstrap returned, however, a future live
+            // terminal has no caller left to observe the Promise; keep retrying the
+            // same idempotent terminal transaction without re-executing the task.
+            if (!bootstrapSettled) return;
+            await retryTerminalCheckpointUntilDurable({
+              label,
+              runId: row.run_id,
+              commit,
+              initialError,
+              signals: [this.disposeController.signal],
+            });
+            publishTerminal();
+          })
+          .catch((error: unknown) => {
+            console.error('[desktop-agent-runtime] terminal checkpoint retries exhausted', {
+              runId: row.run_id,
+              error,
+            });
           });
-          publishTerminal();
-        });
         terminalCheckpointPromises.push(outcome);
       };
       const abortRejectedBinding = (): Promise<void> => {
@@ -1608,7 +1275,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
               ? 'codex-engine'
               : this.engineId === 'claude'
                 ? 'claude-engine'
-                : 'openai-engine',
+                : 'api-engine',
           policy: consumptionPolicy,
           workspaceRequirement,
           expectedWorkspace: {
@@ -2184,13 +1851,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       workspaceAvailability: commandName === 'agent_runtime_resume' ? 'bound' : 'pending',
       runtime: 'agent-runtime',
       executionTarget: input.executionTarget ?? null,
-      ...(this.engineId === 'api'
+      ...(this.config.engineId === 'api'
         ? {
             piSdkVersion: this.config.runtimeVersion,
             wireProtocolVersion: this.config.protocolVersion,
           }
         : {
-            nativeRuntimeVersion: this.config.runtimeVersion,
             nativeProtocolVersion: this.config.protocolVersion,
           }),
       model: resolvedModel ?? null,
@@ -2297,7 +1963,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           ? 'codex-engine'
           : this.engineId === 'claude'
             ? 'claude-engine'
-            : 'openai-engine',
+            : 'api-engine',
       policy:
         workspaceRequirement === 'optional'
           ? ('workspace-optional' as const)
@@ -2505,7 +2171,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       // Resolve, in one DB pass, the acting employee's persona (forwarded as Pi's
       // `appendSystemPrompt`) plus the delegation roster. If this fails, the run
       // fails visibly instead of silently becoming a base Pi run with no employee
-      // identity. MCP scope remains a separate safe degradation below.
+      // identity. MCP scope resolution is also fail-closed before host startup.
       const {
         systemPromptAppend,
         skillPaths,
@@ -2573,16 +2239,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             const employeeModel = entry.model?.trim();
             if (!employeeModel) return [entry];
             if (!runtimeStatus) return [];
-            let childSelection: ResolvedRuntimeExecutionSelection;
-            try {
-              childSelection = resolveRuntimeExecutionSelection(
+            const childSelection: ResolvedRuntimeExecutionSelection =
+              resolveRuntimeExecutionSelection(
                 runtimeStatus,
-                employeeModel,
+                parseRuntimeExecutionSelector(employeeModel),
                 undefined,
               );
-            } catch {
-              return [];
-            }
             if (
               childSelection.target.engineId !== executionTarget?.engineId ||
               childSelection.target.accountId !== executionTarget.accountId ||
@@ -2623,9 +2285,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
       }
       const mcpTools = this.config.supportsOffisimDelegation
-        ? await buildMcpScope(this.repos, this.companyId, input.employeeId, projectId).catch(
-            () => [],
-          )
+        ? await buildMcpScope(this.repos, this.companyId, input.employeeId, projectId)
         : [];
       throwIfRunAborted(signal);
 
@@ -2760,9 +2420,6 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             projectSkillPaths,
             rootRunId: runScope.runId,
             nativeSessionMode,
-            ...(nativeSessionMode === 'tracked' && runtimeContext.nativeSessionId
-              ? { nativeSessionId: runtimeContext.nativeSessionId }
-              : {}),
             ...(nativeSessionMode === 'fresh'
               ? { nativeSessionResetSourceRunId: input.nativeSessionResetSourceRunId }
               : {}),
@@ -2875,6 +2532,9 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             runId: runScope.runId,
             commit: commitTerminal,
             initialError: cause,
+            signals: [signal, this.disposeController.signal].filter(
+              (candidate): candidate is AbortSignal => Boolean(candidate),
+            ),
           });
         }
         await this.releaseRetainedStream(requestId);
@@ -2972,6 +2632,9 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
           runId: runScope.runId,
           commit: commitTerminal,
           initialError: cause,
+          signals: [signal, this.disposeController.signal].filter(
+            (candidate): candidate is AbortSignal => Boolean(candidate),
+          ),
         });
       }
       await this.releaseRetainedStream(requestId);
@@ -3048,17 +2711,29 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         // failure can never manufacture a later interrupted-run recovery card.
         await this.persistQueue.drain();
         let preflightRoot: AgentRunRow | null = null;
-        for (;;) {
+        let preflightLookupError: unknown;
+        for (let attempt = 1; attempt <= TERMINAL_CHECKPOINT_MAX_RETRIES; attempt += 1) {
           try {
             preflightRoot = await this.repos.agentRuns.findById(runScope.runId);
             break;
           } catch (persistenceError) {
+            preflightLookupError = persistenceError;
             console.warn('[desktop-agent-runtime] preflight root lookup retrying', {
               runId: runScope.runId,
+              attempt,
               persistenceError,
             });
-            await new Promise<void>((resolve) => setTimeout(resolve, 5_000));
+            if (attempt < TERMINAL_CHECKPOINT_MAX_RETRIES) {
+              await waitForTerminalCheckpointRetry(
+                [signal, this.disposeController.signal].filter(
+                  (candidate): candidate is AbortSignal => Boolean(candidate),
+                ),
+              );
+            }
           }
+        }
+        if (!preflightRoot && preflightLookupError) {
+          throw new AgentTerminalCheckpointError(runScope.runId, preflightLookupError);
         }
         if (
           !preflightRoot ||
@@ -3076,6 +2751,9 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             runId: runScope.runId,
             commit: commitFailedTerminal,
             initialError,
+            signals: [signal, this.disposeController.signal].filter(
+              (candidate): candidate is AbortSignal => Boolean(candidate),
+            ),
           });
         }
       } else {
@@ -3090,6 +2768,9 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             runId: runScope.runId,
             commit: commitFailedTerminal,
             initialError: cause,
+            signals: [signal, this.disposeController.signal].filter(
+              (candidate): candidate is AbortSignal => Boolean(candidate),
+            ),
           });
         }
       }
@@ -3230,6 +2911,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     // still calls abort(threadId); unmount/reload must leave the Rust host alive
     // so a fresh renderer can `agent_runtime_reattach` by the persisted requestId.
     this.inFlightByThread.clear();
+    this.disposeController.abort();
   }
 }
 
@@ -3323,7 +3005,7 @@ class DesktopAgentRuntimeGateway implements DesktopAgentRuntime {
       const selection = selectionPlan.requiresCatalog
         ? resolveRuntimeExecutionSelection(
             runtimeStatus,
-            selectionPlan.requestedModel,
+            parseRuntimeExecutionSelector(selectionPlan.requestedModel),
             selectionPlan.frozenAuthority?.target ?? input.executionTarget,
             selectionPlan.frozenAuthority?.runtimeModelRef ?? input.runtimeModelRef,
           )

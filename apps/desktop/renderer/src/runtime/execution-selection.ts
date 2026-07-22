@@ -24,6 +24,33 @@ export interface ResolvedApiExecutionSelection {
 
 export type ResolvedRuntimeExecutionSelection = ResolvedApiExecutionSelection;
 
+export type RuntimeExecutionSelector =
+  | { readonly kind: 'api-model'; readonly runtimeModelRef: string }
+  | { readonly kind: 'orchestration-engine'; readonly engineId: string };
+
+export function serializeRuntimeExecutionSelector(selector: RuntimeExecutionSelector): string {
+  const value =
+    selector.kind === 'api-model' ? selector.runtimeModelRef.trim() : selector.engineId.trim();
+  if (!value) throw new Error('AI execution selectors require a non-empty value.');
+  return `${selector.kind}:${value}`;
+}
+
+export function parseRuntimeExecutionSelector(
+  value: string | undefined,
+): RuntimeExecutionSelector | undefined {
+  const encoded = value?.trim();
+  if (!encoded) return undefined;
+  const apiPrefix = 'api-model:';
+  if (encoded.startsWith(apiPrefix) && encoded.length > apiPrefix.length) {
+    return { kind: 'api-model', runtimeModelRef: encoded.slice(apiPrefix.length) };
+  }
+  const enginePrefix = 'orchestration-engine:';
+  if (encoded.startsWith(enginePrefix) && encoded.length > enginePrefix.length) {
+    return { kind: 'orchestration-engine', engineId: encoded.slice(enginePrefix.length) };
+  }
+  throw new Error('The saved AI selector is invalid. Choose an engine or model again.');
+}
+
 export function isSameExecutionTarget(
   expected: AiExecutionTarget | null | undefined,
   actual: AiExecutionTarget | null | undefined,
@@ -87,7 +114,7 @@ function isCanonicalOrchestrationTarget(target: AiExecutionTarget): boolean {
  * catalog row; adapter-private runtime refs remain the unambiguous selector. */
 export function resolveRuntimeExecutionSelection(
   statusValue: unknown,
-  requestedModel: string | undefined,
+  requestedSelection: RuntimeExecutionSelector | undefined,
   frozenTarget: AiExecutionTarget | undefined,
   frozenRuntimeModelRef?: string,
 ): ResolvedRuntimeExecutionSelection {
@@ -108,7 +135,6 @@ export function resolveRuntimeExecutionSelection(
   const apiCandidates = runtimeStatus.models.filter((model) =>
     availableApiModel(runtimeStatus, model),
   );
-  const requested = requestedModel?.trim();
   if (frozenTarget) {
     const validTarget = validateExecutionTarget(frozenTarget);
     if (!validTarget) throw new Error('This task does not have a valid execution target.');
@@ -117,7 +143,9 @@ export function resolveRuntimeExecutionSelection(
       if (
         !isCanonicalOrchestrationTarget(validTarget) ||
         frozenRuntimeModelRef?.trim() !== frozenEngine.engineId ||
-        (requested && requested !== frozenEngine.engineId)
+        (requestedSelection &&
+          (requestedSelection.kind !== 'orchestration-engine' ||
+            requestedSelection.engineId !== frozenEngine.engineId))
       ) {
         throw new Error("The task's saved orchestration engine is no longer available.");
       }
@@ -134,7 +162,9 @@ export function resolveRuntimeExecutionSelection(
         model.billingMode === validTarget.billingMode &&
         model.modelId === validTarget.modelId &&
         (!frozenSelector || model.runtimeModelRef === frozenSelector) &&
-        (!requested || requested === model.runtimeModelRef || requested === model.modelId),
+        (!requestedSelection ||
+          (requestedSelection.kind === 'api-model' &&
+            requestedSelection.runtimeModelRef === model.runtimeModelRef)),
     );
     if (matches.length !== 1) {
       throw new Error("The task's saved AI account or exact model is no longer available.");
@@ -143,27 +173,29 @@ export function resolveRuntimeExecutionSelection(
     if (!selected) throw new Error("The task's saved AI model selector is unavailable.");
     return { target: validTarget, runtimeModelRef: selected.runtimeModelRef };
   }
-  const requestedEngine = requested
-    ? readyOrchestrationEngine(runtimeStatus, requested)
-    : undefined;
-  if (requestedEngine) {
+  if (requestedSelection?.kind === 'orchestration-engine') {
+    const requestedEngine = readyOrchestrationEngine(runtimeStatus, requestedSelection.engineId);
+    if (!requestedEngine) {
+      throw new Error(
+        `The selected orchestration engine is unavailable: ${requestedSelection.engineId}.`,
+      );
+    }
     return {
       target: orchestrationExecutionTarget(requestedEngine.engineId),
       runtimeModelRef: requestedEngine.engineId,
     };
   }
   let selected: AiModelCatalogEntry | undefined;
-  if (requested) {
-    const runtimeRefMatch = apiCandidates.find((model) => model.runtimeModelRef === requested);
-    if (runtimeRefMatch) {
-      selected = runtimeRefMatch;
-    } else {
-      const modelIdMatches = apiCandidates.filter((model) => model.modelId === requested);
-      if (modelIdMatches.length !== 1) {
-        throw new Error(`The selected exact AI model is unavailable or ambiguous: ${requested}.`);
-      }
-      [selected] = modelIdMatches;
+  if (requestedSelection?.kind === 'api-model') {
+    const matches = apiCandidates.filter(
+      (model) => model.runtimeModelRef === requestedSelection.runtimeModelRef,
+    );
+    if (matches.length !== 1) {
+      throw new Error(
+        `The selected exact API model is unavailable or ambiguous: ${requestedSelection.runtimeModelRef}.`,
+      );
     }
+    [selected] = matches;
   } else {
     selected = apiCandidates.find((model) => model.availability === 'available');
     const defaultEngine = runtimeStatus.orchestrationEngines.find(
@@ -190,7 +222,7 @@ export function resolveRuntimeExecutionSelection(
 
 export function resolveApiExecutionSelection(
   statusValue: unknown,
-  requestedModel: string | undefined,
+  requestedSelection: RuntimeExecutionSelector | undefined,
   frozenTarget: AiExecutionTarget | undefined,
 ): ResolvedApiExecutionSelection {
   const status = statusValue as Partial<AiRuntimeStatus>;
@@ -208,7 +240,6 @@ export function resolveApiExecutionSelection(
   const candidates = runtimeStatus.models.filter((model) =>
     availableApiModel(runtimeStatus, model),
   );
-  const requested = requestedModel?.trim();
   let selected: AiModelCatalogEntry | undefined;
   if (frozenTarget) {
     const validTarget = validateExecutionTarget(frozenTarget);
@@ -221,19 +252,26 @@ export function resolveApiExecutionSelection(
         model.accountId === validTarget.accountId &&
         model.billingMode === validTarget.billingMode &&
         model.modelId === validTarget.modelId &&
-        (!requested || requested === model.runtimeModelRef || requested === model.modelId),
+        (!requestedSelection ||
+          (requestedSelection.kind === 'api-model' &&
+            requestedSelection.runtimeModelRef === model.runtimeModelRef)),
     );
     if (!selected) {
       throw new Error("The task's saved API account or exact model is no longer available.");
     }
     return { target: validTarget, runtimeModelRef: selected.runtimeModelRef };
   }
-  if (requested) {
+  if (requestedSelection?.kind === 'orchestration-engine') {
+    throw new Error('An orchestration-engine selector cannot resolve through the API lane.');
+  }
+  if (requestedSelection) {
     const matches = candidates.filter(
-      (model) => model.runtimeModelRef === requested || model.modelId === requested,
+      (model) => model.runtimeModelRef === requestedSelection.runtimeModelRef,
     );
     if (matches.length !== 1) {
-      throw new Error(`The selected exact API model is unavailable or ambiguous: ${requested}.`);
+      throw new Error(
+        `The selected exact API model is unavailable or ambiguous: ${requestedSelection.runtimeModelRef}.`,
+      );
     }
     [selected] = matches;
   } else {

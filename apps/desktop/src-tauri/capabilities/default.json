@@ -1,7 +1,7 @@
 {
   "identifier": "default",
   "description": "Default capabilities for Offisim desktop",
-  "webviews": ["main", "main-live"],
+  "webviews": ["main"],
   "permissions": [
     "core:default",
     "cors-fetch:default",

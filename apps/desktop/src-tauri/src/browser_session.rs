@@ -1445,7 +1445,7 @@ mod tests {
                     scope(),
                     "https://ignored.example.com".to_string(),
                     initial_bounds,
-                    "main-live".to_string(),
+                    "replacement-main".to_string(),
                 )
                 .unwrap(),
             ReserveOutcome::Existing(_)
@@ -1457,10 +1457,15 @@ mod tests {
             height: 700.0,
         };
         let reattached = registry
-            .reattach("session-1", &scope(), new_bounds, "main-live".to_string())
+            .reattach(
+                "session-1",
+                &scope(),
+                new_bounds,
+                "replacement-main".to_string(),
+            )
             .unwrap();
         assert!(reattached.snapshot.visible);
-        assert_eq!(reattached.host_webview_label, "main-live");
+        assert_eq!(reattached.host_webview_label, "replacement-main");
         let inner = registry.lock();
         assert_eq!(inner.sessions.len(), 1);
         assert_eq!(inner.sessions["session-1"].bounds, new_bounds);

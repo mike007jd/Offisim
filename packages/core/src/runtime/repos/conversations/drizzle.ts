@@ -3,20 +3,14 @@ import { desc, eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
   ActiveInteractionRepository,
-  HandoffEventRow,
-  HandoffRepository,
   InteractionActiveRow,
   InteractionHistoryRepository,
   InteractionHistoryRow,
   MeetingRepository,
   MeetingSessionRow,
-  NewHandoffEvent,
   NewInteractionActive,
   NewInteractionHistory,
   NewMeetingSession,
-  NewToolCall,
-  ToolCallRepository,
-  ToolCallRow,
 } from '../../repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
@@ -26,42 +20,12 @@ function now(): string {
 }
 
 export interface ConversationsDrizzleRepos {
-  toolCalls: ToolCallRepository;
-  handoffs: HandoffRepository;
   meetings: MeetingRepository;
   activeInteractions: ActiveInteractionRepository;
   interactionHistory: InteractionHistoryRepository;
 }
 
 export function createConversationsDrizzleRepos(db: Db): ConversationsDrizzleRepos {
-  const toolCalls: ToolCallRepository = {
-    async create(t: NewToolCall) {
-      const row = { ...t, finished_at: null };
-      db.insert(schema.toolCalls).values(row).run();
-      return row as ToolCallRow;
-    },
-    async updateResult(id, status, responseJson) {
-      db.update(schema.toolCalls)
-        .set({ status, response_json: responseJson, finished_at: now() })
-        .where(eq(schema.toolCalls.tool_call_id, id))
-        .run();
-    },
-  };
-
-  const handoffs: HandoffRepository = {
-    async create(h: NewHandoffEvent) {
-      db.insert(schema.handoffEvents).values(h).run();
-      return h as HandoffEventRow;
-    },
-    async findByThread(threadId) {
-      return db
-        .select()
-        .from(schema.handoffEvents)
-        .where(eq(schema.handoffEvents.thread_id, threadId))
-        .all() as HandoffEventRow[];
-    },
-  };
-
   const meetings: MeetingRepository = {
     async create(m: NewMeetingSession) {
       db.insert(schema.meetingSessions).values(m).run();
@@ -165,5 +129,5 @@ export function createConversationsDrizzleRepos(db: Db): ConversationsDrizzleRep
     },
   };
 
-  return { toolCalls, handoffs, meetings, activeInteractions, interactionHistory };
+  return { meetings, activeInteractions, interactionHistory };
 }

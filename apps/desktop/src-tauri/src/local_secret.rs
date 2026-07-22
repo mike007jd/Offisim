@@ -18,16 +18,9 @@
 //!   - Nonce: fresh 12 random bytes **per call** (never reused with one key).
 //!   - Envelope: `base64( 0x01 || nonce[12] || ciphertext+tag )`.
 //!
-//! ## Backward compatibility (read path)
-//! A pre-existing plaintext token is not a valid envelope. `secret_decrypt`
-//! detects "not one of ours" (bad base64, wrong version byte, too short, or
-//! AEAD-open failure on a value that *looks* like an envelope but isn't sealed
-//! by our key) and returns the input **unchanged**. So existing plaintext
-//! tokens keep working and get re-encrypted on the next write. The `0x01`
-//! version prefix inside base64 makes a real envelope unambiguously detectable;
-//! arbitrary user tokens (URLs, JWTs, hex, etc.) virtually never decode to a
-//! 13+ byte buffer whose first byte is `0x01` *and* pass Poly1305, so a genuine
-//! ciphertext is never mistaken for plaintext nor vice-versa.
+//! Decryption is deliberately fail-closed. Offisim is prelaunch and has no
+//! plaintext-secret compatibility contract: any value that is not a valid
+//! authenticated envelope is rejected rather than returned to the renderer.
 
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
@@ -59,6 +52,8 @@ pub enum SecretError {
     KeyIo(String),
     #[error("secret-encrypt-failed")]
     Encrypt,
+    #[error("secret-envelope-invalid")]
+    InvalidEnvelope,
     /// AEAD-open failed on a value that parsed as a well-formed envelope.
     #[error("secret-decrypt-failed")]
     Decrypt,
@@ -390,8 +385,7 @@ enum Parsed {
     NotEnvelope,
 }
 
-/// Detect + split an envelope without touching the key. Anything that isn't an
-/// unambiguous `0x01` envelope returns `NotEnvelope` (backward-compat passthrough).
+/// Detect + split an envelope without touching the key.
 fn parse_envelope(value: &str) -> Parsed {
     let raw = match B64.decode(value.as_bytes()) {
         Ok(raw) => raw,
@@ -407,11 +401,10 @@ fn parse_envelope(value: &str) -> Parsed {
     Parsed::Envelope { nonce, ct }
 }
 
-/// Open an envelope, or pass plaintext through unchanged.
+/// Open an authenticated envelope. Plaintext and malformed values are rejected.
 fn decrypt_with_key(key: &[u8; KEY_LEN], value: &str) -> Result<String, SecretError> {
     match parse_envelope(value) {
-        // Not an envelope → pre-existing plaintext token; return verbatim.
-        Parsed::NotEnvelope => Ok(value.to_string()),
+        Parsed::NotEnvelope => Err(SecretError::InvalidEnvelope),
         Parsed::Envelope { nonce, ct } => {
             let cipher = ChaCha20Poly1305::new(Key::from_slice(key));
             let plaintext = cipher
@@ -511,10 +504,9 @@ mod tests {
     }
 
     #[test]
-    fn plaintext_passthrough_unchanged() {
+    fn plaintext_and_malformed_values_are_rejected() {
         let key = test_key();
-        // Values a real user might have stored before encryption existed.
-        for legacy in [
+        for invalid in [
             "plain-marketplace-token",
             "https://registry.example.com",
             "eyJhbGciOiJIUzI1Ni1.abcDEF.signature",
@@ -522,8 +514,8 @@ mod tests {
             "",
             "not base64!!! @#$",
         ] {
-            let out = decrypt_with_key(&key, legacy).expect("passthrough");
-            assert_eq!(out, legacy, "legacy plaintext was altered: {legacy:?}");
+            let err = decrypt_with_key(&key, invalid).expect_err("plaintext must fail closed");
+            assert!(matches!(err, SecretError::InvalidEnvelope));
         }
     }
 

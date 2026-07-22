@@ -1,73 +1,16 @@
 import type {
   ActiveInteractionRepository,
-  HandoffEventRow,
-  HandoffRepository,
   InteractionActiveRow,
   InteractionHistoryRepository,
   InteractionHistoryRow,
   MeetingRepository,
   MeetingSessionRow,
-  NewHandoffEvent,
   NewInteractionActive,
   NewInteractionHistory,
   NewMeetingSession,
-  NewToolCall,
-  ToolCallRepository,
-  ToolCallRow,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 import { cloneRows, now } from '../memory-utils.js';
-
-export class MemoryToolCallRepository implements ToolCallRepository {
-  private readonly rows = new Map<string, ToolCallRow>();
-
-  constructor(initial?: Iterable<ToolCallRow>) {
-    if (initial) {
-      for (const row of initial) this.rows.set(row.tool_call_id, { ...row });
-    }
-  }
-
-  async create(t: NewToolCall): Promise<ToolCallRow> {
-    const row: ToolCallRow = { ...t, finished_at: null };
-    this.rows.set(row.tool_call_id, row);
-    return row;
-  }
-
-  async updateResult(id: string, status: string, responseJson: string | null): Promise<void> {
-    const row = this.rows.get(id);
-    if (row) {
-      this.rows.set(id, { ...row, status, response_json: responseJson, finished_at: now() });
-    }
-  }
-
-  snapshot(): ToolCallRow[] {
-    return cloneRows(this.rows.values());
-  }
-}
-
-export class MemoryHandoffRepository implements HandoffRepository {
-  private readonly rows = new Map<string, HandoffEventRow>();
-
-  constructor(initial?: Iterable<HandoffEventRow>) {
-    if (initial) {
-      for (const row of initial) this.rows.set(row.handoff_id, { ...row });
-    }
-  }
-
-  async create(h: NewHandoffEvent): Promise<HandoffEventRow> {
-    const row: HandoffEventRow = { ...h };
-    this.rows.set(row.handoff_id, row);
-    return row;
-  }
-
-  async findByThread(threadId: string): Promise<HandoffEventRow[]> {
-    return [...this.rows.values()].filter((h) => h.thread_id === threadId);
-  }
-
-  snapshot(): HandoffEventRow[] {
-    return cloneRows(this.rows.values());
-  }
-}
 
 export class MemoryMeetingRepository implements MeetingRepository {
   private readonly rows = new Map<string, MeetingSessionRow>();
@@ -186,8 +129,6 @@ export class MemoryInteractionHistoryRepository implements InteractionHistoryRep
 }
 
 export interface ConversationsMemoryRepos {
-  toolCalls: MemoryToolCallRepository;
-  handoffs: MemoryHandoffRepository;
   meetings: MemoryMeetingRepository;
   activeInteractions: MemoryActiveInteractionRepository;
   interactionHistory: MemoryInteractionHistoryRepository;
@@ -196,10 +137,8 @@ export interface ConversationsMemoryRepos {
 export function createConversationsMemoryRepos(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
 ): ConversationsMemoryRepos {
-  const toolCalls = new MemoryToolCallRepository(snapshot?.toolCalls);
-  const handoffs = new MemoryHandoffRepository(snapshot?.handoffs);
   const meetings = new MemoryMeetingRepository(snapshot?.meetings);
   const activeInteractions = new MemoryActiveInteractionRepository(snapshot?.activeInteractions);
   const interactionHistory = new MemoryInteractionHistoryRepository(snapshot?.interactionHistory);
-  return { toolCalls, handoffs, meetings, activeInteractions, interactionHistory };
+  return { meetings, activeInteractions, interactionHistory };
 }

@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
+import { serializeRuntimeExecutionSelector } from '@/runtime/execution-selection.js';
 import {
   DEFAULT_PERMISSION_MODE,
   PERMISSION_MODES,
@@ -157,11 +158,17 @@ export function ComposerSettingsMenu({
     const list = allModels.filter(sameLane);
     const rawSelected = allModels.find((option) => option.value === perThreadModel);
     const selected = list.find((option) => option.value === perThreadModel);
+    const durableSelector = authority
+      ? serializeRuntimeExecutionSelector(
+          authority.target.engineId === 'api'
+            ? { kind: 'api-model', runtimeModelRef: authority.runtimeModelRef }
+            : { kind: 'orchestration-engine', engineId: authority.target.engineId },
+        )
+      : undefined;
     const durable = authority
       ? list.find(
           (option) =>
-            option.value === authority.runtimeModelRef &&
-            option.modelId === authority.target.modelId,
+            option.value === durableSelector && option.modelId === authority.target.modelId,
         )
       : undefined;
     const stableDefault = authority

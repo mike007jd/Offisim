@@ -558,7 +558,6 @@ export class AgentRunPersistence extends AgentRunPersistenceQueue {
       await this.repos.mcpAudit.create({
         audit_id: crypto.randomUUID(),
         thread_id: event.threadId,
-        task_run_id: null,
         employee_id: employeeId,
         server_name: server,
         tool_name: tool,

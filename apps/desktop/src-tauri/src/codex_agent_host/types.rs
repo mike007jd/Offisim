@@ -236,6 +236,8 @@ pub enum CodexAgentHostEvent {
         model: Option<CodexModelSummary>,
         #[serde(default)]
         model_fallback_message: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        native_runtime_version: Option<String>,
     },
     ExecutionPrepared {
         prepare_id: String,

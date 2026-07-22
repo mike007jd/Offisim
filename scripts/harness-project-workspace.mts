@@ -26,6 +26,7 @@ const paths = {
   schema: `${ROOT}/packages/db-local/src/schema.sql`,
   commands: `${ROOT}/apps/desktop/renderer/src/lib/tauri-commands.ts`,
   runtime: `${ROOT}/apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts`,
+  runtimeHelpers: `${ROOT}/apps/desktop/renderer/src/runtime/native-runtime-helpers.ts`,
   runtimePersistence: `${ROOT}/apps/desktop/renderer/src/runtime/agent-run-persistence.ts`,
   runtimeHostEventDispatch: `${ROOT}/apps/desktop/renderer/src/runtime/host-event-dispatch.ts`,
   runtimeRunContext: `${ROOT}/apps/desktop/renderer/src/runtime/run-context.ts`,
@@ -1292,7 +1293,7 @@ function verifyWireAndRuntimeContracts(): void {
     'live and reattach workspace unavailable handling',
   );
   assertContains(
-    runtime,
+    source(paths.runtimeHelpers),
     "evidenceClass: 'offisim-gateway'",
     'workspace status projection provenance',
   );

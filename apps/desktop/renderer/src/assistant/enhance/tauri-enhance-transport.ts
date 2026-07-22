@@ -13,6 +13,7 @@
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import {
   isSameExecutionTarget,
+  parseRuntimeExecutionSelector,
   resolveRuntimeExecutionSelection,
 } from '@/runtime/desktop-agent-runtime.js';
 import {
@@ -110,7 +111,7 @@ export function createTauriEnhanceTransport(opts?: {
         const selection = selectionPlan.requiresCatalog
           ? resolveRuntimeExecutionSelection(
               await invokeCommand('agent_runtime_status', { includeUsage: false }),
-              selectionPlan.requestedModel,
+              parseRuntimeExecutionSelector(selectionPlan.requestedModel),
               selectionPlan.frozenAuthority?.target,
               selectionPlan.frozenAuthority?.runtimeModelRef,
             )

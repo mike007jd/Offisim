@@ -44,7 +44,6 @@ export function createMemorySystemDrizzleRepos(db: Db): MemorySystemDrizzleRepos
         last_reinforced_at: entry.last_reinforced_at ?? ts,
         metadata_json: entry.metadata_json ?? null,
         source_thread_id: entry.source_thread_id ?? null,
-        source_task_run_id: entry.source_task_run_id ?? null,
         created_at: ts,
         accessed_at: ts,
         access_count: 0,
@@ -155,7 +154,6 @@ export function createMemorySystemDrizzleRepos(db: Db): MemorySystemDrizzleRepos
               : existing.confidence,
           metadata_json: patch.metadataJson ?? existing.metadata_json,
           source_thread_id: patch.sourceThreadId ?? existing.source_thread_id,
-          source_task_run_id: patch.sourceTaskRunId ?? existing.source_task_run_id,
           reinforcement_count: existing.reinforcement_count + 1,
           last_reinforced_at: now(),
         })

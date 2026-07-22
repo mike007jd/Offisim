@@ -202,6 +202,12 @@ const desktopRuntimeSource = readFileSync(
   ),
   'utf8',
 );
+const executionPreparationSource = readFileSync(
+  fileURLToPath(
+    new URL('../apps/desktop/renderer/src/runtime/execution-preparation.ts', import.meta.url),
+  ),
+  'utf8',
+);
 const agentRunPersistenceSource = readFileSync(
   fileURLToPath(
     new URL('../apps/desktop/renderer/src/runtime/agent-run-persistence.ts', import.meta.url),
@@ -338,7 +344,7 @@ check('direct delegated roots report the child session actual model', () => {
     /directResult\.provenance \? \{ provenance: directResult\.provenance \} : \{\}/u,
   );
   assert.match(
-    desktopRuntimeSource,
+    executionPreparationSource,
     /function requireRootResultProvenance\([\s\S]*orchestrationShell \? undefined : rootRunId[\s\S]*requirePreparedExecutionIdentity\(preparations, actual\.runId\)[\s\S]*orchestrationShell \? \{ \.\.\.actual, runId: rootRunId \} : actual/u,
   );
 });

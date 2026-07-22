@@ -204,23 +204,12 @@ function scoreFileEdit(db: Db, workspaceRoot: string, evidence: string[]): EvalR
          OR tool_name LIKE '%edit%'
          OR tool_name LIKE '%apply%'`,
   );
-  const editCalls = tableExists(db, 'tool_calls')
-    ? count(
-        db,
-        `SELECT COUNT(*) AS value
-           FROM tool_calls
-          WHERE tool_name LIKE '%write%'
-             OR tool_name LIKE '%edit%'
-             OR tool_name LIKE '%apply%'`,
-      )
-    : 0;
   const taskEvidence = [
     ...evidence,
     `target=${target}`,
     `target_exists=${fs.existsSync(target)}`,
     `target_first_line=${JSON.stringify(header)}`,
     `edit_audit_count=${editAudits}`,
-    `edit_tool_call_count=${editCalls}`,
   ];
 
   if (!fs.existsSync(target)) {

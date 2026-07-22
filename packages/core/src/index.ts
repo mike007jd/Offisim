@@ -12,50 +12,32 @@ export type {
   RuntimeRepositories,
   CompanyRow,
   EmployeeRow,
-  TaskRunRow,
   GraphThreadRow,
-  ToolCallRow,
-  HandoffEventRow,
   MeetingSessionRow,
   RuntimeEventRow,
-  LlmCallRow,
   NewGraphThread,
-  NewTaskRun,
-  NewToolCall,
-  NewHandoffEvent,
   NewMeetingSession,
   NewRuntimeEvent,
-  NewLlmCall,
-  LlmCallRepository,
   CompanyRepository,
   EmployeeRepository,
   EmployeeCreate,
   EmployeeUpdate,
   ThreadRepository,
-  TaskRunRepository,
-  ToolCallRepository,
-  HandoffRepository,
   MeetingRepository,
   EventRepository,
   McpAuditRepository,
   McpAuditRow,
-  FileHistoryRepository,
-  FileHistoryRow,
   CompactSummaryRepository,
   CompactSummaryRow,
   NewMcpAudit,
   NewToolPermissionApproval,
   ToolPermissionApprovalRepository,
   ToolPermissionApprovalRow,
-  NewFileHistory,
   NewCompactSummary,
   NewNodeSummary,
   AgentEventRepository,
   AgentEventRow,
   NewAgentEvent,
-  RecoveryKnowledgeRepository,
-  RecoveryKnowledgeRow,
-  NewRecoveryKnowledge,
   MemoryEntryRow,
   MemoryEntryCreate,
   MemoryRepository,
@@ -162,11 +144,8 @@ export {
 // Offisim no longer exposes provider SDK adapters or a model catalog. Pi Agent
 // owns auth, model resolution, session lifecycle, and provider transport.
 export { teeStream } from './llm/stream-tee.js';
-export { recordedLlmCall, recordedLlmStream } from './llm/recorded-call.js';
 export { replayRequestHashes } from './llm/replay-request-hashes.js';
 export type { ReplayRequestHashes } from './llm/replay-request-hashes.js';
-export { RecordedSystemLlmCaller } from './llm/recorded-system-caller.js';
-export type { SystemLlmCallerDeps } from './llm/recorded-system-caller.js';
 export { microCompactMessages } from './services/conversation-budget/micro-compact.js';
 export type {
   MicroCompactOptions,

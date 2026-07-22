@@ -308,13 +308,17 @@ const runtimeSource = readFileSync(
   resolve(root, 'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts'),
   'utf8',
 );
+const runtimeConfigSource = readFileSync(
+  resolve(root, 'apps/desktop/renderer/src/runtime/native-engine-runtime-config.ts'),
+  'utf8',
+);
 const hostEventDispatchSource = readFileSync(
   resolve(root, 'apps/desktop/renderer/src/runtime/host-event-dispatch.ts'),
   'utf8',
 );
 
 assert.match(
-  runtimeSource,
+  runtimeConfigSource,
   /streamIdleTimeoutMs:\s*DEFAULT_NATIVE_STREAM_IDLE_TIMEOUT_MS/g,
   'api/codex/claude configs must share the same neutral watchdog timeout',
 );

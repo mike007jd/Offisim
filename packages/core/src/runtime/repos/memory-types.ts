@@ -7,13 +7,10 @@ import type {
   DeliverableSummaryRow,
   EmployeeRow,
   EmployeeVersionRow,
-  FileHistoryRow,
   GraphThreadRow,
-  HandoffEventRow,
   InteractionActiveRow,
   InteractionHistoryRow,
   LibraryDocumentRow,
-  LlmCallRow,
   McpAuditRow,
   McpToolGrantRow,
   MeetingSessionRow,
@@ -24,11 +21,8 @@ import type {
   ProjectAssignmentRow,
   ProjectRow,
   RackRow,
-  RecoveryKnowledgeRow,
   SkillRow,
   SlotRow,
-  TaskRunRow,
-  ToolCallRow,
   ToolPermissionApprovalRow,
   WorkstationRackRow,
   WorkstationRow,
@@ -44,14 +38,10 @@ export interface MemoryRepositorySeed {
 
 export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSnapshot {
   threads: GraphThreadRow[];
-  taskRuns: TaskRunRow[];
   employees: EmployeeRow[];
   companies: CompanyRow[];
-  toolCalls: ToolCallRow[];
-  handoffs: HandoffEventRow[];
   meetings: MeetingSessionRow[];
   events: NewRuntimeEvent[];
-  llmCalls: LlmCallRow[];
   memories: ReturnType<InMemoryMemoryRepository['snapshot']>;
   mcpAudit: McpAuditRow[];
   mcpToolGrants: McpToolGrantRow[];
@@ -60,7 +50,6 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   compactSummaries: CompactSummaryRow[];
   activeInteractions: InteractionActiveRow[];
   interactionHistory: InteractionHistoryRow[];
-  fileHistory: FileHistoryRow[];
   employeeVersions: EmployeeVersionRow[];
   costRates: ModelCostRateRow[];
   companyTemplates: CompanyTemplateAssetRow[];
@@ -76,7 +65,6 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   projectAssignments: ProjectAssignmentRow[];
   chatThreads: ChatThread[];
   agentEvents: AgentEventRow[];
-  recoveryKnowledge: RecoveryKnowledgeRow[];
   deliverables: DeliverableSummaryRow[];
   skills: SkillRow[];
 }

@@ -1,19 +1,13 @@
 import type {
   ActiveInteractionRepository,
-  HandoffEventRow,
-  HandoffRepository,
   InteractionActiveRow,
   InteractionHistoryRepository,
   InteractionHistoryRow,
   MeetingRepository,
   MeetingSessionRow,
-  NewHandoffEvent,
   NewInteractionActive,
   NewInteractionHistory,
   NewMeetingSession,
-  NewToolCall,
-  ToolCallRepository,
-  ToolCallRow,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
 import { desc, eq } from 'drizzle-orm';
@@ -24,41 +18,12 @@ function now(): string {
 }
 
 export interface ConversationsTauriRepos {
-  toolCalls: ToolCallRepository;
-  handoffs: HandoffRepository;
   meetings: MeetingRepository;
   activeInteractions: ActiveInteractionRepository;
   interactionHistory: InteractionHistoryRepository;
 }
 
 export function createConversationsTauriRepos(db: TauriDrizzleDb): ConversationsTauriRepos {
-  const toolCalls: ToolCallRepository = {
-    async create(t: NewToolCall) {
-      const row = { ...t, finished_at: null };
-      await db.insert(schema.toolCalls).values(row);
-      return row as ToolCallRow;
-    },
-    async updateResult(id, status, responseJson) {
-      await db
-        .update(schema.toolCalls)
-        .set({ status, response_json: responseJson, finished_at: now() })
-        .where(eq(schema.toolCalls.tool_call_id, id));
-    },
-  };
-
-  const handoffs: HandoffRepository = {
-    async create(h: NewHandoffEvent) {
-      await db.insert(schema.handoffEvents).values(h);
-      return h as HandoffEventRow;
-    },
-    async findByThread(threadId) {
-      return (await db
-        .select()
-        .from(schema.handoffEvents)
-        .where(eq(schema.handoffEvents.thread_id, threadId))) as HandoffEventRow[];
-    },
-  };
-
   const meetings: MeetingRepository = {
     async create(m: NewMeetingSession) {
       await db.insert(schema.meetingSessions).values(m);
@@ -157,5 +122,5 @@ export function createConversationsTauriRepos(db: TauriDrizzleDb): Conversations
     },
   };
 
-  return { toolCalls, handoffs, meetings, activeInteractions, interactionHistory };
+  return { meetings, activeInteractions, interactionHistory };
 }

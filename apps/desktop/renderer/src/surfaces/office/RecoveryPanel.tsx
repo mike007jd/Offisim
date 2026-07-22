@@ -15,10 +15,11 @@ function startedAtLabel(iso: string): string {
   return Number.isFinite(ts) ? relativeTimeAgo(ts) : 'unknown start';
 }
 
-function summarizeUsage(partialUsageJson: string | null): string {
-  if (!partialUsageJson) return 'No partial usage recorded';
+function summarizeUsage(card: InterruptedRunCard): string {
+  if (card.partialUsageStatus === 'corrupt') return 'Partial usage record is corrupted';
+  if (!card.partialUsageJson) return 'No partial usage recorded';
   try {
-    const parsed = JSON.parse(partialUsageJson) as Record<string, unknown>;
+    const parsed = JSON.parse(card.partialUsageJson) as Record<string, unknown>;
     const total = parsed.totalTokens ?? parsed.total_tokens ?? parsed.tokens;
     if (typeof total === 'number') return `${total.toLocaleString()} tokens recorded`;
   } catch {
@@ -33,7 +34,7 @@ export function RecoveryPanel() {
   const hasLiveActiveRun =
     Boolean(companyId) &&
     activeRuns.activeRuns.some((run) => run.companyId === companyId && run.attemptId);
-  const { cards, resume, discard } = useInterruptedRunRecovery(companyId || null, {
+  const { cards, error, resume, discard, refetch } = useInterruptedRunRecovery(companyId || null, {
     skipReconcile: hasLiveActiveRun,
   });
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -41,7 +42,7 @@ export function RecoveryPanel() {
   const [busyRunId, setBusyRunId] = useState<string | null>(null);
 
   const visibleCards = useMemo(() => (showAll ? cards : cards.slice(0, 4)), [cards, showAll]);
-  if (visibleCards.length === 0) return null;
+  if (visibleCards.length === 0 && !error) return null;
 
   const toggleExpanded = (runId: string) => {
     setExpanded((current) => {
@@ -98,6 +99,19 @@ export function RecoveryPanel() {
         ) : null}
       </div>
       <div id="off-interrupted-run-list" className="off-recovery-list">
+        {error ? (
+          <article className="off-recovery-card">
+            <p className="off-recovery-reason">{error}</p>
+            <button
+              type="button"
+              className="off-recovery-btn off-focusable"
+              onClick={() => void refetch()}
+            >
+              <Icon icon={RotateCcw} size="sm" />
+              Retry recovery
+            </button>
+          </article>
+        ) : null}
         {visibleCards.map((card) => {
           const isExpanded = expanded.has(card.runId);
           const busy = busyRunId !== null;
@@ -151,7 +165,7 @@ export function RecoveryPanel() {
               </div>
               {isExpanded ? (
                 <div className="off-recovery-partial">
-                  <span>Usage: {summarizeUsage(card.partialUsageJson)}</span>
+                  <span>Usage: {summarizeUsage(card)}</span>
                   <span>
                     {card.cancelledChildRunIds.length === 0
                       ? 'No active child runs were found'

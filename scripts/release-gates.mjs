@@ -15,6 +15,7 @@ export const RELEASE_GATES = [
   // `validate` already runs typecheck plus product/document truth, Studio,
   // neutral runtime, and engine-specific host harnesses.
   { name: 'validate', lane: 'node', command: 'pnpm', args: ['validate'] },
+  { name: 'lint', lane: 'node', command: 'pnpm', args: ['lint'] },
   { name: 'ui-hygiene', lane: 'node', command: 'pnpm', args: ['check:ui-hygiene'] },
   { name: 'security-harness', lane: 'node', command: 'pnpm', args: ['security:harness'] },
   {

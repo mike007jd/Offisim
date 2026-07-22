@@ -1,14 +1,11 @@
 import { globToRegex } from '@offisim/core/browser';
 import type {
-  LlmCallRepository,
-  LlmCallRow,
   ModelCostRateRepository,
   ModelCostRateRow,
-  NewLlmCall,
   NewModelCostRate,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 function now(): string {
@@ -16,37 +13,10 @@ function now(): string {
 }
 
 export interface LlmTauriRepos {
-  llmCalls: LlmCallRepository;
   costRates: ModelCostRateRepository;
 }
 
 export function createLlmTauriRepos(db: TauriDrizzleDb): LlmTauriRepos {
-  const llmCalls: LlmCallRepository = {
-    async create(c: NewLlmCall) {
-      await db.insert(schema.llmCalls).values(c);
-      return c as LlmCallRow;
-    },
-    async findByThread(threadId) {
-      return (await db
-        .select()
-        .from(schema.llmCalls)
-        .where(eq(schema.llmCalls.thread_id, threadId))) as LlmCallRow[];
-    },
-    async findByThreadIds(threadIds) {
-      if (threadIds.length === 0) return [];
-      return (await db
-        .select()
-        .from(schema.llmCalls)
-        .where(inArray(schema.llmCalls.thread_id, threadIds))) as LlmCallRow[];
-    },
-    async findByTaskRun(taskRunId) {
-      return (await db
-        .select()
-        .from(schema.llmCalls)
-        .where(eq(schema.llmCalls.task_run_id, taskRunId))) as LlmCallRow[];
-    },
-  };
-
   const costRates: ModelCostRateRepository = {
     async create(rate: NewModelCostRate) {
       const row: ModelCostRateRow = {
@@ -111,5 +81,5 @@ export function createLlmTauriRepos(db: TauriDrizzleDb): LlmTauriRepos {
     },
   };
 
-  return { llmCalls, costRates };
+  return { costRates };
 }

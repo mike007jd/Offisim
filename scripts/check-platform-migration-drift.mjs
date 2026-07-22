@@ -8,7 +8,7 @@ const root = process.cwd();
 const schemaPath = join(root, 'packages/db-platform/src/schema.ts');
 const baselinePath = join(root, 'packages/db-platform/schema.sql');
 const legacyMigrationsDir = join(root, 'packages/db-platform/migrations');
-const drizzleKit = join(root, 'node_modules/.bin/drizzle-kit');
+const drizzleKit = join(root, 'packages/db-platform/node_modules/.bin/drizzle-kit');
 const selfTestStaleBaseline = process.argv.includes('--self-test-stale-baseline');
 
 if (process.argv.length > 2 && !selfTestStaleBaseline) {

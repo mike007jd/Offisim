@@ -33,7 +33,8 @@ use super::stream::{
 };
 use super::types::{
     AiRuntimeStatusResponse, PiAgentCollaborateRequest, PiAgentEnhanceRequest,
-    PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse, PiExecutionTarget,
+    PiAgentExecuteRequest, PiAgentHostEvent, PiAgentHostResponse, PiExecutionProvenance,
+    PiExecutionTarget,
 };
 use super::wire::{
     consume_ready_handshake, decode_sidecar_line, parse_response, PiSidecarLine,
@@ -251,6 +252,63 @@ fn supplied_api_model_source_requires_official_https_rfc3339_provenance() {
     );
 }
 
+#[test]
+fn pi_renderer_ingress_requires_behavior_and_rejects_unknown_identity_fields() {
+    let request = serde_json::json!({
+        "requestId": "strict-request",
+        "text": "Inspect the workspace",
+        "expectedTarget": execution_target_fixture(),
+        "runtimeModelRef": "fixture-provider/fixture-model",
+        "companyId": "company-1",
+        "threadId": "thread-1",
+        "workspaceRequirement": "required",
+        "nativeSessionMode": "tracked"
+    });
+    serde_json::from_value::<PiAgentExecuteRequest>(request.clone())
+        .expect("complete renderer request is accepted");
+
+    for field in ["workspaceRequirement", "nativeSessionMode"] {
+        let mut missing = request.clone();
+        missing
+            .as_object_mut()
+            .expect("request object")
+            .remove(field);
+        assert!(
+            serde_json::from_value::<PiAgentExecuteRequest>(missing).is_err(),
+            "missing {field} must not select behavior through a serde default"
+        );
+    }
+
+    let mut unknown_request = request.clone();
+    unknown_request["nativeSessionId"] = serde_json::json!("silent-old-field");
+    assert!(serde_json::from_value::<PiAgentExecuteRequest>(unknown_request).is_err());
+
+    let mut unknown_target = request.clone();
+    unknown_target["expectedTarget"]["provider"] = serde_json::json!("shadow-provider");
+    assert!(serde_json::from_value::<PiAgentExecuteRequest>(unknown_target).is_err());
+
+    let mut unknown_source = request;
+    unknown_source["expectedTarget"]["modelSource"]["catalogId"] =
+        serde_json::json!("shadow-catalog");
+    assert!(serde_json::from_value::<PiAgentExecuteRequest>(unknown_source).is_err());
+
+    assert!(
+        serde_json::from_value::<PiExecutionProvenance>(serde_json::json!({
+            "engineId": "api",
+            "accountId": "api:fixture-provider:0123456789abcdef",
+            "billingMode": "api",
+            "modelId": "fixture-model",
+            "runId": "run-1",
+            "adapter": {
+                "id": "pi-agent",
+                "version": "0.80.9",
+                "untrustedIdentity": "shadow"
+            }
+        }))
+        .is_err()
+    );
+}
+
 fn unique_suffix() -> String {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -441,6 +499,7 @@ fn interrupted_runtime_context() -> serde_json::Value {
         "workspaceRequirement": "optional",
         "workspaceAvailability": "bound",
         "runtime": "agent-runtime",
+        "executionTarget": execution_target_fixture(),
         "piSdkVersion": "0.80.9",
         "wireProtocolVersion": PI_HOST_PROTOCOL_VERSION,
         "nativeSessionId": "session-a",
@@ -465,6 +524,7 @@ async fn run_resume(fixture: &ResumePrestartFixture) -> Result<PiAgentHostRespon
         "projectId": "project-1",
         "rootRunId": "turn-1",
         "workspaceRequirement": "required",
+        "nativeSessionMode": "tracked",
         "workspaceBindingHistoryId": "history-1",
         "permissionMode": "auto"
     }))
@@ -535,11 +595,9 @@ async fn run_execute_request(
         "projectId": "project-1",
         "rootRunId": run_id,
         "workspaceRequirement": "required",
+        "nativeSessionMode": native_session_mode.unwrap_or("tracked"),
         "permissionMode": "auto"
     });
-    if let Some(mode) = native_session_mode {
-        value["nativeSessionMode"] = serde_json::Value::String(mode.into());
-    }
     if let Some(source_run_id) = native_session_reset_source_run_id {
         value["nativeSessionResetSourceRunId"] = serde_json::Value::String(source_run_id.into());
     }
@@ -1393,7 +1451,8 @@ fn optional_workspace_is_allowed_only_for_plain_execute_turns() {
         "threadId": "thread-1",
         "projectId": "project-1",
         "rootRunId": "turn-1",
-        "workspaceRequirement": "optional"
+        "workspaceRequirement": "optional",
+        "nativeSessionMode": "tracked"
     }))
     .expect("decode optional plain request");
     validate_execute_workspace_requirement(&plain, false)
@@ -1413,7 +1472,8 @@ fn optional_workspace_is_allowed_only_for_plain_execute_turns() {
             "threadId": "thread-1",
             "projectId": "project-1",
             "rootRunId": "turn-1",
-            "workspaceRequirement": "optional"
+            "workspaceRequirement": "optional",
+            "nativeSessionMode": "tracked"
         }))
         .expect("encode request fixture");
         value
@@ -2625,7 +2685,9 @@ fn pi_execute_payload_omits_absent_delegation_limits() {
         "expectedTarget": execution_target_fixture(),
         "runtimeModelRef": "fixture-provider/fixture-model",
         "companyId": "company-1",
-        "threadId": "thread-1"
+        "threadId": "thread-1",
+        "workspaceRequirement": "required",
+        "nativeSessionMode": "tracked"
     }))
     .expect("decode minimal plain-chat request");
 
@@ -2659,6 +2721,7 @@ fn pi_execute_unavailable_payload_strips_every_workspace_capability() {
         "projectId": "project-1",
         "rootRunId": "turn-1",
         "workspaceRequirement": "optional",
+        "nativeSessionMode": "tracked",
         "skillPaths": ["/stale/SKILL.md"],
         "projectSkillPaths": [".claude/skills/stale/SKILL.md"],
         "roster": [{"employeeId": "employee-2"}],

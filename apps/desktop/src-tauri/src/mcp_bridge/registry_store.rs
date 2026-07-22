@@ -70,8 +70,7 @@ pub struct RegisteredServerStore {
 }
 
 impl RegisteredServerStore {
-    pub fn load(app: &AppHandle<Wry>) -> Result<Self, String> {
-        crate::local_paths::purge_legacy_app_storage(app)?;
+    pub fn load(_app: &AppHandle<Wry>) -> Result<Self, String> {
         let file_path = crate::local_paths::offisim_storage_path(REGISTRY_FILE)?;
 
         let servers = load_registry_entries(&file_path)?;

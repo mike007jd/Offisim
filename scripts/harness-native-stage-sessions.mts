@@ -368,7 +368,7 @@ for (const path of [
   'apps/desktop/src-tauri/capabilities/github.json',
 ]) {
   const capability = JSON.parse(read(path)) as Record<string, unknown>;
-  assert.deepEqual(capability.webviews, ['main', 'main-live'], `${path} targets main renderers`);
+  assert.deepEqual(capability.webviews, ['main'], `${path} targets the main renderer`);
   assert.equal(capability.windows, undefined, `${path} cannot flow through the containing window`);
   assert.equal(capability.remote, undefined, `${path} cannot grant a remote origin`);
 }

@@ -66,6 +66,7 @@ export type PiAgentHostEvent =
       sessionFile?: string;
       model?: PiAgentModelSummary;
       modelFallbackMessage?: string;
+      nativeRuntimeVersion?: string;
     }
   | ({ kind: 'workspaceBound' } & TaskWorkspaceBindingClaim)
   | WorkspaceUnavailableEvent

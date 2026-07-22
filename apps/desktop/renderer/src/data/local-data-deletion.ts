@@ -135,7 +135,6 @@ export function conversationDeletionStatements(threadId: string): LocalDbTransac
     { sql: 'DELETE FROM tool_permission_approvals WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM compact_summaries WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM node_summaries WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM file_history WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM interaction_history WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM active_thread_interactions WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM agent_events WHERE thread_id = $1', params: [threadId] },
@@ -148,35 +147,14 @@ export function conversationDeletionStatements(threadId: string): LocalDbTransac
     { sql: 'DELETE FROM runtime_events WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM meeting_sessions WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM mcp_audit_log WHERE thread_id = $1', params: [threadId] },
-    { sql: 'DELETE FROM handoff_events WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM loop_invocations WHERE thread_id = $1', params: [threadId] },
     // Mission children (criteria, attempts, evaluations, session links, events)
     // are schema-owned ON DELETE CASCADE rows.
     { sql: 'DELETE FROM mission WHERE thread_id = $1', params: [threadId] },
     {
-      sql: `DELETE FROM llm_calls
-            WHERE thread_id = $1
-               OR task_run_id IN (
-                    SELECT task_run_id FROM task_runs WHERE thread_id = $1
-                  )`,
+      sql: 'DELETE FROM memory_entries WHERE source_thread_id = $1',
       params: [threadId],
     },
-    {
-      sql: `DELETE FROM memory_entries
-            WHERE source_thread_id = $1
-               OR source_task_run_id IN (
-                    SELECT task_run_id FROM task_runs WHERE thread_id = $1
-                  )`,
-      params: [threadId],
-    },
-    {
-      sql: `DELETE FROM tool_calls
-            WHERE task_run_id IN (
-                    SELECT task_run_id FROM task_runs WHERE thread_id = $1
-                  )`,
-      params: [threadId],
-    },
-    { sql: 'DELETE FROM task_runs WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM graph_threads WHERE thread_id = $1', params: [threadId] },
     { sql: 'DELETE FROM chat_threads WHERE thread_id = $1', params: [threadId] },
   ];
@@ -189,7 +167,6 @@ export async function deleteCompanyDeep(companyId: string): Promise<DeleteCompan
     { sql: 'DELETE FROM skills WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM compact_summaries WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM node_summaries WHERE company_id = $1', params: [companyId] },
-    { sql: 'DELETE FROM file_history WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM interaction_history WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM active_thread_interactions WHERE company_id = $1', params: [companyId] },
     { sql: 'DELETE FROM agent_events WHERE company_id = $1', params: [companyId] },
@@ -201,43 +178,6 @@ export async function deleteCompanyDeep(companyId: string): Promise<DeleteCompan
     { sql: 'DELETE FROM meeting_sessions WHERE company_id = $1', params: [companyId] },
     {
       sql: `DELETE FROM mcp_audit_log
-            WHERE thread_id IN (
-                    SELECT thread_id FROM graph_threads WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM handoff_events
-            WHERE thread_id IN (
-                    SELECT thread_id FROM graph_threads WHERE company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM llm_calls
-            WHERE thread_id IN (
-                    SELECT thread_id FROM graph_threads WHERE company_id = $1
-                  )
-               OR task_run_id IN (
-                    SELECT tr.task_run_id
-                      FROM task_runs tr
-                      JOIN graph_threads gt ON gt.thread_id = tr.thread_id
-                     WHERE gt.company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM tool_calls
-            WHERE task_run_id IN (
-                    SELECT tr.task_run_id
-                      FROM task_runs tr
-                      JOIN graph_threads gt ON gt.thread_id = tr.thread_id
-                     WHERE gt.company_id = $1
-                  )`,
-      params: [companyId],
-    },
-    {
-      sql: `DELETE FROM task_runs
             WHERE thread_id IN (
                     SELECT thread_id FROM graph_threads WHERE company_id = $1
                   )`,

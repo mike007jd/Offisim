@@ -20,6 +20,26 @@ import {
 const source = (relative: string): string =>
   readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8');
 
+const desktopRuntimeSource = source(
+  '../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
+);
+const codexProtocolSource = source('../apps/desktop/src-tauri/src/codex_agent_host/protocol.rs');
+assert.doesNotMatch(
+  desktopRuntimeSource,
+  /runtimeVersion:\s*['"]0\.144\.4['"]/u,
+  'renderer must not publish a fixed Codex CLI runtime version',
+);
+assert.match(
+  codexProtocolSource,
+  /CODEX_ADAPTER_VERSION:\s*&str\s*=\s*env!\("CARGO_PKG_VERSION"\)/u,
+  'Codex adapter version must identify the Offisim adapter build',
+);
+assert.match(
+  codexProtocolSource,
+  /runtime_user_agent/u,
+  'Codex initialize userAgent must be retained separately from adapter version',
+);
+
 const codexTarget: AiExecutionTarget = {
   engineId: 'codex',
   accountId: 'codex:local',
@@ -117,7 +137,13 @@ const runtimeStatus: AiRuntimeStatus = {
     },
   ],
 };
-assert.deepEqual(resolveRuntimeExecutionSelection(runtimeStatus, 'codex'), codexAuthority);
+assert.deepEqual(
+  resolveRuntimeExecutionSelection(runtimeStatus, {
+    kind: 'orchestration-engine',
+    engineId: 'codex',
+  }),
+  codexAuthority,
+);
 assert.deepEqual(
   resolveRuntimeExecutionSelection(runtimeStatus, undefined, codexTarget, 'codex'),
   codexAuthority,
@@ -170,6 +196,53 @@ assert.deepEqual(openRouterSelection, {
   target: openRouterTarget,
   runtimeModelRef: 'openrouter-free/cohere/north-mini-code:free',
 });
+const apiModelNamedCodexStatus: AiRuntimeStatus = {
+  checkedAt: '2026-07-17T00:00:00Z',
+  orchestrationEngines: [],
+  accounts: [
+    {
+      engineId: 'api',
+      accountId: openRouterTarget.accountId,
+      billingMode: 'api',
+      displayName: 'API account',
+      status: 'available',
+      capabilities: {
+        execute: { status: 'available' },
+        models: { status: 'available' },
+        usage: { status: 'available' },
+        cost: { status: 'available' },
+      },
+    },
+  ],
+  models: [
+    {
+      ...openRouterTarget,
+      modelId: 'codex',
+      displayName: 'API model named Codex',
+      runtimeModelRef: 'api-provider/codex',
+      availability: 'available',
+      capabilities: { textInput: true, imageInput: false, tools: true, reasoning: false },
+      source: openRouterTarget.modelSource,
+    },
+  ],
+};
+assert.throws(
+  () =>
+    resolveRuntimeExecutionSelection(apiModelNamedCodexStatus, {
+      kind: 'orchestration-engine',
+      engineId: 'codex',
+    }),
+  /orchestration engine is unavailable/u,
+  'an unavailable Codex engine selector must never fall through to an API model named codex',
+);
+assert.equal(
+  resolveRuntimeExecutionSelection(apiModelNamedCodexStatus, {
+    kind: 'api-model',
+    runtimeModelRef: 'api-provider/codex',
+  }).target.engineId,
+  'api',
+  'the API model remains selectable only through an explicit API selector',
+);
 assert.deepEqual(
   resolveAuthoritativeThreadExecutionAuthority(
     [
@@ -317,11 +390,32 @@ const runtimeSource = source('../apps/desktop/renderer/src/runtime/desktop-agent
 const executionSelectionSource = source(
   '../apps/desktop/renderer/src/runtime/execution-selection.ts',
 );
+const terminalCheckpointSource = source(
+  '../apps/desktop/renderer/src/runtime/terminal-checkpoint.ts',
+);
 assert.match(runtimeSource, /readonly capabilities: RuntimeEngineCapabilityManifest/u);
 assert.match(runtimeSource, /getEngineCapabilities\(engineId: string\)/u);
 assert.match(runtimeSource, /context\?\.requestId !== answer\.requestId/u);
 assert.match(runtimeSource, /context\.executionTarget\?\.engineId/u);
 assert.doesNotMatch(runtimeSource, /adapters\.size\s*!==\s*1/u);
+assert.match(terminalCheckpointSource, /TERMINAL_CHECKPOINT_MAX_RETRIES = 3/u);
+assert.doesNotMatch(
+  terminalCheckpointSource.match(
+    /async function retryTerminalCheckpointUntilDurable\([\s\S]*?\n\}/u,
+  )?.[0] ?? '',
+  /for \(;;\)/u,
+  'terminal checkpoint persistence must have a bounded retry plan',
+);
+assert.doesNotMatch(
+  runtimeSource,
+  /buildMcpScope\([\s\S]{0,240}?\.catch\(/u,
+  'MCP scope resolution must fail visibly before provider side effects',
+);
+assert.doesNotMatch(
+  runtimeSource,
+  /resolveRuntimeExecutionSelection\([\s\S]{0,360}?catch\s*\{\s*return \[\];/u,
+  'same-lane roster selector failures must not silently remove an employee',
+);
 assert.match(executionSelectionSource, /modelId: 'engine-managed'/u);
 assert.match(executionSelectionSource, /modelSource: \{ kind: 'native' \}/u);
 

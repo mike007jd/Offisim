@@ -18,6 +18,7 @@ import {
 
 const hydratedByCompany = new Set<string>();
 const cardsByCompany = new Map<string, InterruptedRunCard[]>();
+const MAX_AUTOMATIC_RECOVERY_RETRIES = 3;
 
 function cacheCards(companyId: string, cards: InterruptedRunCard[]): InterruptedRunCard[] {
   cardsByCompany.set(companyId, cards);
@@ -108,6 +109,14 @@ export interface InterruptedRunRecoveryLoad {
   cards: InterruptedRunCard[];
   /** False when at least one root failed reconciliation; callers must retry. */
   complete: boolean;
+}
+
+export interface InterruptedRunRecoveryState {
+  cards: InterruptedRunCard[];
+  error: string | null;
+  resume: (runId: string) => Promise<void>;
+  discard: (runId: string) => Promise<void>;
+  refetch: () => Promise<void>;
 }
 
 export async function loadInterruptedRunRecovery(input: {
@@ -210,36 +219,23 @@ async function checkResumeCompatibility(
   return invokeCommand('task_workspace_resume_compatibility', args);
 }
 
-export function useInterruptedRunRecovery(companyId: string | null): {
-  cards: InterruptedRunCard[];
-  resume: (runId: string) => Promise<void>;
-  discard: (runId: string) => Promise<void>;
-  refetch: () => Promise<void>;
-};
+export function useInterruptedRunRecovery(companyId: string | null): InterruptedRunRecoveryState;
 export function useInterruptedRunRecovery(
   companyId: string | null,
   options: { skipReconcile?: boolean },
-): {
-  cards: InterruptedRunCard[];
-  resume: (runId: string) => Promise<void>;
-  discard: (runId: string) => Promise<void>;
-  refetch: () => Promise<void>;
-};
+): InterruptedRunRecoveryState;
 export function useInterruptedRunRecovery(
   companyId: string | null,
   options: { skipReconcile?: boolean } = {},
-): {
-  cards: InterruptedRunCard[];
-  resume: (runId: string) => Promise<void>;
-  discard: (runId: string) => Promise<void>;
-  refetch: () => Promise<void>;
-} {
+): InterruptedRunRecoveryState {
   const skipReconcile = options.skipReconcile === true;
   const [loadGeneration] = useState(() => new RecoveryLoadGeneration());
   const currentCompanyIdRef = useRef(companyId);
   currentCompanyIdRef.current = companyId;
   const loadRef = useRef<(force?: boolean) => Promise<void>>(async () => {});
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryAttemptRef = useRef(0);
+  const [error, setError] = useState<string | null>(null);
   const [cards, setCards] = useState<InterruptedRunCard[]>(() =>
     companyId && !skipReconcile ? (cardsByCompany.get(companyId) ?? []) : [],
   );
@@ -252,6 +248,8 @@ export function useInterruptedRunRecovery(
         loadGeneration.commit(generation, () => {
           if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
           retryTimerRef.current = null;
+          retryAttemptRef.current = 0;
+          setError(null);
           setCards([]);
         });
         return;
@@ -271,18 +269,19 @@ export function useInterruptedRunRecovery(
           skipReconcile,
           bootstrapLiveRuns: (id) => conversationRunController.bootstrapLiveRuns(id),
           onRootInterrupted: async (root, finishedAt) => {
-            let competitiveDraft: { groupId?: unknown; attemptId?: unknown } | null = null;
-            try {
-              const context = root.runtime_context_json
-                ? (JSON.parse(root.runtime_context_json) as Record<string, unknown>)
-                : null;
-              competitiveDraft =
-                context?.competitiveDraft && typeof context.competitiveDraft === 'object'
-                  ? (context.competitiveDraft as { groupId?: unknown; attemptId?: unknown })
-                  : null;
-            } catch {
-              competitiveDraft = null;
+            const context = root.runtime_context_json
+              ? (JSON.parse(root.runtime_context_json) as unknown)
+              : null;
+            if (context !== null && (typeof context !== 'object' || Array.isArray(context))) {
+              throw new Error('Interrupted run has corrupt durable runtime context.');
             }
+            const competitiveDraft =
+              context &&
+              'competitiveDraft' in context &&
+              context.competitiveDraft &&
+              typeof context.competitiveDraft === 'object'
+                ? (context.competitiveDraft as { groupId?: unknown; attemptId?: unknown })
+                : null;
             const groupId =
               typeof competitiveDraft?.groupId === 'string' ? competitiveDraft.groupId.trim() : '';
             const attemptId =
@@ -328,25 +327,52 @@ export function useInterruptedRunRecovery(
             else hydratedByCompany.delete(scopeCompanyId);
             if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
             retryTimerRef.current = null;
+            retryAttemptRef.current = 0;
+            setError(null);
           } else {
             hydratedByCompany.delete(scopeCompanyId);
             if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-            retryTimerRef.current = setTimeout(() => {
+            if (retryAttemptRef.current < MAX_AUTOMATIC_RECOVERY_RETRIES) {
+              retryAttemptRef.current += 1;
+              retryTimerRef.current = setTimeout(() => {
+                retryTimerRef.current = null;
+                if (currentCompanyIdRef.current === scopeCompanyId) {
+                  void loadRef.current(true);
+                }
+              }, 5_000);
+            } else {
               retryTimerRef.current = null;
-              if (currentCompanyIdRef.current === scopeCompanyId) {
-                void loadRef.current(true);
-              }
-            }, 5_000);
+              setError(
+                'Interrupted work could not be fully verified after bounded retries. Retry manually.',
+              );
+            }
           }
           setCards(cacheCards(scopeCompanyId, recovery.cards));
         });
       } catch (err) {
         loadGeneration.commit(generation, () => {
           hydratedByCompany.delete(scopeCompanyId);
-          console.warn('[useInterruptedRunRecovery] recovery hydration failed', {
+          console.error('[useInterruptedRunRecovery] recovery hydration failed', {
             companyId: scopeCompanyId,
             err,
           });
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+          if (retryAttemptRef.current < MAX_AUTOMATIC_RECOVERY_RETRIES) {
+            retryAttemptRef.current += 1;
+            retryTimerRef.current = setTimeout(() => {
+              retryTimerRef.current = null;
+              if (currentCompanyIdRef.current === scopeCompanyId) {
+                void loadRef.current(true);
+              }
+            }, 5_000);
+          } else {
+            retryTimerRef.current = null;
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'Interrupted work recovery failed after bounded retries.',
+            );
+          }
         });
       }
     },
@@ -355,6 +381,8 @@ export function useInterruptedRunRecovery(
   loadRef.current = load;
 
   useEffect(() => {
+    retryAttemptRef.current = 0;
+    setError(null);
     void load(false);
     return () => {
       loadGeneration.invalidate();
@@ -412,9 +440,11 @@ export function useInterruptedRunRecovery(
   const refetch = useCallback(async () => {
     if (!companyId) return;
     hydratedByCompany.delete(companyId);
+    retryAttemptRef.current = 0;
+    setError(null);
     await load(true);
   }, [companyId, load]);
 
   const scopedCards = companyId ? cards.filter((card) => card.companyId === companyId) : [];
-  return { cards: scopedCards, resume, discard, refetch };
+  return { cards: scopedCards, error, resume, discard, refetch };
 }

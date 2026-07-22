@@ -1,6 +1,6 @@
 {
   "identifier": "offisim:deep-link-install",
   "description": "Allows the main Offisim window to mark the renderer ready for deep-link install intents.",
-  "webviews": ["main", "main-live"],
+  "webviews": ["main"],
   "permissions": ["deep-link-install"]
 }

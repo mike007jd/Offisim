@@ -1,18 +1,5 @@
 import type { RoleSlug } from '@offisim/shared-types';
 
-export interface TaskRunRow {
-  task_run_id: string;
-  thread_id: string;
-  employee_id: string | null;
-  parent_task_run_id: string | null;
-  task_type: string;
-  status: string;
-  input_json: string | null;
-  output_json: string | null;
-  started_at: string;
-  finished_at: string | null;
-}
-
 /** A single delegation run (root or child) in the multi-agent run tree. */
 export interface AgentRunRow {
   run_id: string;
@@ -143,30 +130,6 @@ export interface CompetitiveDraftAttemptRepository {
   ): Promise<void>;
 }
 
-export interface ToolCallRow {
-  tool_call_id: string;
-  task_run_id: string;
-  tool_name: string;
-  capability_name: string | null;
-  rack_id: string | null;
-  status: string;
-  review_state: string;
-  request_json: string | null;
-  response_json: string | null;
-  started_at: string;
-  finished_at: string | null;
-}
-
-export interface HandoffEventRow {
-  handoff_id: string;
-  thread_id: string;
-  from_employee_id: string | null;
-  to_employee_id: string | null;
-  reason: string | null;
-  payload_json: string | null;
-  created_at: string;
-}
-
 export interface MeetingSessionRow {
   meeting_id: string;
   company_id: string;
@@ -187,34 +150,6 @@ export interface RuntimeEventRow {
   payload_json: string | null;
   created_at: string;
 }
-
-export interface LlmCallRow {
-  llm_call_id: string;
-  thread_id: string | null;
-  task_run_id: string | null;
-  node_name: string;
-  provider: string;
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-  cache_read_input_tokens: number;
-  cache_creation_input_tokens: number;
-  usage_raw_json: string | null;
-  request_json: string | null;
-  response_json: string | null;
-  tool_calls_json: string | null;
-  prompt_hash: string | null;
-  tools_hash: string | null;
-  response_hash: string | null;
-  recording_mode: string | null;
-  latency_ms: number | null;
-  error_code: string | null;
-  created_at: string;
-}
-
-/** Full-row insert: caller supplies llm_call_id + created_at (backend does not stamp). */
-export type NewLlmCall = Omit<LlmCallRow, never>;
-export type NewTaskRun = Omit<TaskRunRow, 'finished_at'>;
 
 /** Insert shape for an agent run. Lifecycle/usage columns default at write time;
  *  a fresh run carries only its scope + objective. */
@@ -240,22 +175,8 @@ export type NewAgentRun = Omit<
   work_kind?: string | null;
   failure_kind?: string | null;
 };
-export type NewToolCall = Omit<ToolCallRow, 'finished_at'>;
-export type NewHandoffEvent = Omit<HandoffEventRow, never>;
 export type NewMeetingSession = Omit<MeetingSessionRow, never>;
 export type NewRuntimeEvent = Omit<RuntimeEventRow, never>;
-
-export interface TaskRunRepository {
-  create(taskRun: NewTaskRun): Promise<TaskRunRow>;
-  findById(taskRunId: string): Promise<TaskRunRow | null>;
-  findByThread(threadId: string): Promise<TaskRunRow[]>;
-  updateStatus(taskRunId: string, status: string, outputJson?: string | null): Promise<void>;
-  findQueue(
-    companyId: string,
-    opts?: { statuses?: string[]; limit?: number },
-  ): Promise<TaskRunRow[]>;
-  countByStatus(companyId: string): Promise<Record<string, number>>;
-}
 
 /** Run tree for multi-agent delegation; the tree rebuilds from parent/root ids. */
 export interface AgentRunStatusUpdateOptions {
@@ -402,16 +323,6 @@ export interface AgentRunRepository {
   updateRuntimeContext(runId: string, runtimeContextJson: string | null): Promise<void>;
 }
 
-export interface ToolCallRepository {
-  create(toolCall: NewToolCall): Promise<ToolCallRow>;
-  updateResult(toolCallId: string, status: string, responseJson: string | null): Promise<void>;
-}
-
-export interface HandoffRepository {
-  create(handoff: NewHandoffEvent): Promise<HandoffEventRow>;
-  findByThread(threadId: string): Promise<HandoffEventRow[]>;
-}
-
 export interface MeetingRepository {
   create(meeting: NewMeetingSession): Promise<MeetingSessionRow>;
   findById(meetingId: string): Promise<MeetingSessionRow | null>;
@@ -422,13 +333,6 @@ export interface MeetingRepository {
 export interface EventRepository {
   insert(event: NewRuntimeEvent): Promise<void>;
   findByThread(threadId: string): Promise<RuntimeEventRow[]>;
-}
-
-export interface LlmCallRepository {
-  create(call: NewLlmCall): Promise<LlmCallRow>;
-  findByThread(threadId: string): Promise<LlmCallRow[]>;
-  findByThreadIds(threadIds: string[]): Promise<LlmCallRow[]>;
-  findByTaskRun(taskRunId: string): Promise<LlmCallRow[]>;
 }
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 /**
  * Build-time guard: every chat-attachment Tauri command MUST appear in the
  * `fs-shell` permission allowlist; capability JSONs MUST mount that
- * permission via `offisim:fs-shell` on the main + main-live renderer WebViews.
+ * permission via `offisim:fs-shell` on the single privileged main WebView.
  *
  * Mirrors the `check-platform-tauri-origin-sync.mjs` pattern — invoked from
  * `apps/desktop` `prebuild` so a missing entry fails the build instead of
@@ -24,7 +24,7 @@ const REQUIRED_COMMANDS = [
   'attachment_delete',
   'attachment_delete_company',
 ];
-const REQUIRED_WEBVIEWS = ['main', 'main-live'];
+const REQUIRED_WEBVIEWS = ['main'];
 
 function fail(msg) {
   console.error(`[check-attachment-capabilities] ${msg}`);
@@ -54,9 +54,8 @@ if (!Array.isArray(capability.permissions) || !capability.permissions.includes('
 if (!Array.isArray(capability.webviews)) {
   fail(`capability ${CAPABILITY_FILE} webviews must be an array`);
 }
-const missingWebviews = REQUIRED_WEBVIEWS.filter((label) => !capability.webviews.includes(label));
-if (missingWebviews.length > 0) {
-  fail(`capability ${CAPABILITY_FILE} webviews missing: ${missingWebviews.join(', ')}`);
+if (JSON.stringify(capability.webviews) !== JSON.stringify(REQUIRED_WEBVIEWS)) {
+  fail(`capability ${CAPABILITY_FILE} must target only: ${REQUIRED_WEBVIEWS.join(', ')}`);
 }
 
 console.log(

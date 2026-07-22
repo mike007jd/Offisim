@@ -1,6 +1,6 @@
 {
   "identifier": "offisim:codex-pets",
   "description": "Allows only the main Offisim renderer to read local Codex pet packages.",
-  "webviews": ["main", "main-live"],
+  "webviews": ["main"],
   "permissions": ["codex-pets"]
 }

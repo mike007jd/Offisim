@@ -51,7 +51,7 @@ import {
 } from '../apps/desktop/renderer/src/runtime/recovery/useInterruptedRunRecovery.js';
 import { MemoryAgentRunRepository } from '../packages/core/src/runtime/repos/agent-runs/memory.ts';
 import type { NewAgentRun } from '../packages/core/src/runtime/repositories.ts';
-const TOTAL = 34;
+const TOTAL = 37;
 const check = h.checkAsync;
 
 const FIXED_NOW = '2026-06-27T12:00:00.000Z';
@@ -833,6 +833,109 @@ async function main(): Promise<void> {
       card.classificationReasons.join(' '),
       /original Project folder cannot be verified for this task/,
     );
+  });
+
+  await check('(l2a) deleted Project authority cannot be revived from runtime JSON', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-deleted-project',
+      thread_id: 't-deleted-project',
+      company_id: CO_A,
+      project_id: null,
+      parent_run_id: null,
+      root_run_id: 'r-deleted-project',
+      employee_id: null,
+      relation: null,
+      objective: 'do not revive deleted workspace authority',
+      access: 'write',
+      status: 'interrupted',
+      started_at: FIXED_NOW,
+      session_file: '/sessions/r-deleted-project.jsonl',
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        executionTarget: { engineId: 'api' },
+        projectId: 'deleted-project',
+        workspaceBinding: workspaceBinding(
+          'deleted-project',
+          't-deleted-project',
+          'r-deleted-project',
+          '/tmp/offisim/deleted-project',
+        ),
+        wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+      }),
+    });
+    const row = await repo2.findById('r-deleted-project');
+    assert.ok(row, 'deleted-Project recovery row must exist');
+    const card = buildInterruptedRunCard(row, [], null, {
+      resumeCompatibility: { status: 'same', reason: 'workspace_identity_match' },
+    });
+    assert.equal(card.projectId, null, 'DB NULL remains the deleted-Project authority');
+    assert.equal(card.classification, 'incompatible');
+    assert.match(card.classificationReasons.join(' '), /Project is no longer available/);
+  });
+
+  await check('(l2c) corrupt runtime context is explicit and blocks resume', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-corrupt-context',
+      thread_id: 't-corrupt-context',
+      company_id: CO_A,
+      project_id: 'proj-corrupt-context',
+      parent_run_id: null,
+      root_run_id: 'r-corrupt-context',
+      employee_id: null,
+      relation: null,
+      objective: 'surface corrupt context',
+      access: 'write',
+      status: 'interrupted',
+      started_at: FIXED_NOW,
+      session_file: '/sessions/r-corrupt-context.jsonl',
+      runtime_context_json: '{',
+    });
+    const row = await repo2.findById('r-corrupt-context');
+    assert.ok(row, 'corrupt-context recovery row must exist');
+    const card = buildInterruptedRunCard(row, [], null);
+    assert.equal(card.runtimeContextStatus, 'corrupt');
+    assert.equal(card.classification, 'incompatible');
+    assert.match(card.classificationReasons.join(' '), /runtime context is corrupted/);
+  });
+
+  await check('(l2d) corrupt usage evidence is preserved instead of overwritten', async () => {
+    const repo2 = new MemoryAgentRunRepository();
+    await repo2.create({
+      run_id: 'r-corrupt-usage',
+      thread_id: 't-corrupt-usage',
+      company_id: CO_A,
+      project_id: 'proj-corrupt-usage',
+      parent_run_id: null,
+      root_run_id: 'r-corrupt-usage',
+      employee_id: null,
+      relation: null,
+      objective: 'preserve corrupt usage evidence',
+      access: 'write',
+      status: 'running',
+      started_at: FIXED_NOW,
+      session_file: '/sessions/r-corrupt-usage.jsonl',
+      runtime_context_json: JSON.stringify({
+        runtime: 'pi-agent',
+        executionTarget: { engineId: 'api' },
+        projectId: 'proj-corrupt-usage',
+        workspaceBinding: workspaceBinding(
+          'proj-corrupt-usage',
+          't-corrupt-usage',
+          'r-corrupt-usage',
+          '/tmp/offisim/corrupt-usage',
+        ),
+        wireProtocolVersion: PI_HOST_PROTOCOL_VERSION,
+      }),
+      usage_json: '{',
+    });
+    const recovery = await reconcileInterruptedRuns({ repo: repo2, companyId: CO_A, now });
+    const row = await repo2.findById('r-corrupt-usage');
+    assert.equal(row?.status, 'interrupted');
+    assert.equal(row?.usage_json, '{', 'raw corrupt usage evidence must remain durable');
+    assert.equal(recovery.cards[0]?.partialUsageStatus, 'corrupt');
+    assert.equal(recovery.cards[0]?.partialUsageJson, '{');
   });
 
   await check('(l2b) restart explains a conversation-only workspace state', async () => {

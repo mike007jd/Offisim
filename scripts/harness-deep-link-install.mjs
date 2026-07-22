@@ -233,9 +233,9 @@ match(
 match(
   capabilityJson,
   CAPABILITY_JSON,
-  'capability targets main and main-live only',
-  /"webviews"\s*:\s*\[\s*"main"\s*,\s*"main-live"\s*\]/u,
-  'capability must target only main and main-live webviews',
+  'capability targets main only',
+  /"webviews"\s*:\s*\[\s*"main"\s*\]/u,
+  'capability must target only the main webview',
 );
 match(
   capabilityJson,

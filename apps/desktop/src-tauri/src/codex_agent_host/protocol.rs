@@ -152,7 +152,7 @@ impl StreamTokenRedactor {
     }
 }
 
-pub(super) const CODEX_APP_SERVER_VERSION: &str = "0.144.4";
+pub(super) const CODEX_ADAPTER_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub(super) const CODEX_ADAPTER_ID: &str = "codex-app-server";
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -224,6 +224,7 @@ pub(super) struct CodexConnection {
     stream: Option<Arc<RunStream>>,
     workspace_root: Option<PathBuf>,
     codex_home_for_redaction: Mutex<Option<String>>,
+    runtime_user_agent: Mutex<Option<String>>,
     stream_projections: Mutex<HashMap<String, PendingStreamProjection>>,
 }
 
@@ -326,6 +327,7 @@ impl CodexConnection {
             stream,
             workspace_root,
             codex_home_for_redaction: Mutex::new(None),
+            runtime_user_agent: Mutex::new(None),
             stream_projections: Mutex::new(HashMap::new()),
         });
 
@@ -357,6 +359,13 @@ impl CodexConnection {
 
     pub(super) fn is_alive(&self) -> bool {
         self.alive.load(Ordering::Acquire)
+    }
+
+    pub(super) fn runtime_user_agent(&self) -> Option<String> {
+        self.runtime_user_agent
+            .lock()
+            .unwrap_or_else(|_| panic!("Codex runtime user agent mutex poisoned"))
+            .clone()
     }
 
     fn codex_home_for_redaction(&self) -> Option<String> {
@@ -471,7 +480,7 @@ impl CodexConnection {
             )
             .await?;
         let object = result.as_object().ok_or(CodexHostError::Protocol)?;
-        required_string(object, "userAgent")?;
+        let runtime_user_agent = required_string(object, "userAgent")?.to_string();
         let codex_home = required_string(object, "codexHome")?;
         required_string(object, "platformFamily")?;
         required_string(object, "platformOs")?;
@@ -480,6 +489,11 @@ impl CodexConnection {
             .lock()
             .unwrap_or_else(|_| panic!("codex home redaction mutex poisoned")) =
             Some(codex_home.to_string());
+        *self
+            .runtime_user_agent
+            .lock()
+            .unwrap_or_else(|_| panic!("Codex runtime user agent mutex poisoned")) =
+            Some(runtime_user_agent);
         self.notify("initialized", json!({})).await
     }
 

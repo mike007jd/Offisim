@@ -56,6 +56,8 @@ export interface InterruptedRunCard {
   sessionFile: string | null;
   /** Partial usage aggregated from the subtree at interruption (JSON), or null. */
   partialUsageJson: string | null;
+  partialUsageStatus: 'available' | 'unavailable' | 'corrupt';
+  runtimeContextStatus: 'available' | 'missing' | 'corrupt';
   /** Children that were left running and got cancelled by this reconcile. */
   cancelledChildRunIds: string[];
   classification: RecoveryClassification;
@@ -82,6 +84,10 @@ interface RunContextSnapshot {
   recoveryLane?: unknown;
   competitiveDraft?: unknown;
 }
+
+type ParsedRuntimeContext =
+  | { status: 'available'; value: RunContextSnapshot }
+  | { status: 'missing' | 'corrupt'; value: null };
 
 interface InterruptedRunCardOptions {
   resumeCompatibility?: TaskWorkspaceResumeCompatibility;
@@ -131,13 +137,15 @@ export function describeWorkspaceResumeCompatibility(
   );
 }
 
-function parseRuntimeContext(raw: string | null): RunContextSnapshot | null {
-  if (!raw) return null;
+function parseRuntimeContext(raw: string | null): ParsedRuntimeContext {
+  if (!raw?.trim()) return { status: 'missing', value: null };
   try {
-    const parsed = JSON.parse(raw) as RunContextSnapshot;
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? { status: 'available', value: parsed as RunContextSnapshot }
+      : { status: 'corrupt', value: null };
   } catch {
-    return null;
+    return { status: 'corrupt', value: null };
   }
 }
 
@@ -146,12 +154,11 @@ function stringOrNull(value: unknown): string | null {
 }
 
 export function resolveAgentRunProjectId(root: AgentRunRow): string | null {
-  const context = parseRuntimeContext(root.runtime_context_json);
-  return root.project_id ?? stringOrNull(context?.projectId);
+  return stringOrNull(root.project_id);
 }
 
 function resolveAgentRunWorkspaceBinding(root: AgentRunRow): TaskWorkspaceBindingProjection | null {
-  const context = parseRuntimeContext(root.runtime_context_json);
+  const context = parseRuntimeContext(root.runtime_context_json).value;
   return parseTaskWorkspaceBindingProjection(context?.workspaceBinding);
 }
 
@@ -160,7 +167,7 @@ export function resolveAgentRunResumeCompatibilityArgs(
 ): TaskWorkspaceResumeCompatibilityArgs | null {
   const projectId = resolveAgentRunProjectId(root);
   const workspaceBinding = resolveAgentRunWorkspaceBinding(root);
-  const context = parseRuntimeContext(root.runtime_context_json);
+  const context = parseRuntimeContext(root.runtime_context_json).value;
   const permissionMode = stringOrNull(context?.permissionMode);
   if (
     !projectId ||
@@ -240,11 +247,10 @@ export async function reconcileInterruptedRuns(
     // roots in `running` — mirrors the live reconcileRoot's try/catch.
     try {
       const subtree = await repo.findByRoot(root.run_id);
-      const { usageJson, dangling } = aggregateSubtreeUsage(
-        subtree,
-        root.run_id,
-        parseUsage(root.usage_json, root.run_id),
-      );
+      const rootUsage = parseUsage(root.usage_json, root.run_id);
+      const aggregate = aggregateSubtreeUsage(subtree, root.run_id, rootUsage.usage);
+      const usageJson = rootUsage.status === 'corrupt' ? root.usage_json : aggregate.usageJson;
+      const { dangling } = aggregate;
       const finishedAt = now();
       await input.onRootInterrupted?.(root, finishedAt);
       // Park the root `interrupted` (NOT cancelled — it can be resumed). Do NOT set
@@ -289,8 +295,11 @@ export async function reconcileInterruptedRuns(
   return { cards, failedRootRunIds, autoResumed: false };
 }
 
-function parseUsage(usageJson: string | null, rootRunId: string): AgentRunUsage | undefined {
-  if (!usageJson) return undefined;
+function parseUsage(
+  usageJson: string | null,
+  rootRunId: string,
+): { status: 'available' | 'unavailable' | 'corrupt'; usage?: AgentRunUsage } {
+  if (!usageJson) return { status: 'unavailable' };
   try {
     const parsed = JSON.parse(usageJson) as
       | AgentRunUsage
@@ -298,13 +307,28 @@ function parseUsage(usageJson: string | null, rootRunId: string): AgentRunUsage 
           scope?: { kind?: unknown };
           contributions?: Array<{ runId?: unknown; usage?: AgentRunUsage }>;
         };
-    if (parsed.scope?.kind !== 'task-aggregate') return parsed as AgentRunUsage;
+    if (parsed.scope?.kind !== 'task-aggregate') {
+      return { status: 'available', usage: parsed as AgentRunUsage };
+    }
     const aggregate = parsed as {
       contributions?: Array<{ runId?: unknown; usage?: AgentRunUsage }>;
     };
-    return aggregate.contributions?.find((entry) => entry.runId === rootRunId)?.usage;
+    return {
+      status: 'available',
+      usage: aggregate.contributions?.find((entry) => entry.runId === rootRunId)?.usage,
+    };
   } catch {
-    return undefined;
+    return { status: 'corrupt' };
+  }
+}
+
+function partialUsageStatus(value: string | null): 'available' | 'unavailable' | 'corrupt' {
+  if (!value) return 'unavailable';
+  try {
+    JSON.parse(value);
+    return 'available';
+  } catch {
+    return 'corrupt';
   }
 }
 
@@ -315,7 +339,8 @@ export function buildInterruptedRunCard(
   options: InterruptedRunCardOptions = {},
 ): InterruptedRunCard {
   const sessionFile = root.session_file;
-  const context = parseRuntimeContext(root.runtime_context_json);
+  const parsedContext = parseRuntimeContext(root.runtime_context_json);
+  const context = parsedContext.value;
   const projectId = resolveAgentRunProjectId(root);
   const workspaceBinding = resolveAgentRunWorkspaceBinding(root);
   const workspaceAvailability = stringOrNull(context?.workspaceAvailability);
@@ -334,6 +359,11 @@ export function buildInterruptedRunCard(
     typeof context?.nativeProtocolVersion === 'number' ? context.nativeProtocolVersion : null;
   const currentWireProtocolVersion = options.currentWireProtocolVersion ?? PI_HOST_PROTOCOL_VERSION;
   const classificationReasons: string[] = [];
+  if (parsedContext.status === 'corrupt') {
+    classificationReasons.push(
+      'The saved runtime context is corrupted and cannot be used to resume this task.',
+    );
+  }
   const competitiveDraftRun =
     context?.recoveryLane === 'competitive-draft' ||
     (context?.competitiveDraft !== null && typeof context?.competitiveDraft === 'object');
@@ -414,6 +444,8 @@ export function buildInterruptedRunCard(
     startedAt: root.started_at,
     sessionFile,
     partialUsageJson,
+    partialUsageStatus: partialUsageStatus(partialUsageJson),
+    runtimeContextStatus: parsedContext.status,
     cancelledChildRunIds,
     classification,
     classificationReasons,

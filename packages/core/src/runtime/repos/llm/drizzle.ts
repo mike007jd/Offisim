@@ -1,13 +1,10 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { globToRegex } from '../../../utils/glob-match.js';
 import type {
-  LlmCallRepository,
-  LlmCallRow,
   ModelCostRateRepository,
   ModelCostRateRow,
-  NewLlmCall,
   NewModelCostRate,
 } from '../../repositories.js';
 
@@ -18,40 +15,10 @@ function now(): string {
 }
 
 export interface LlmDrizzleRepos {
-  llmCalls: LlmCallRepository;
   costRates: ModelCostRateRepository;
 }
 
 export function createLlmDrizzleRepos(db: Db): LlmDrizzleRepos {
-  const llmCalls: LlmCallRepository = {
-    async create(c: NewLlmCall) {
-      db.insert(schema.llmCalls).values(c).run();
-      return c as LlmCallRow;
-    },
-    async findByThread(threadId) {
-      return db
-        .select()
-        .from(schema.llmCalls)
-        .where(eq(schema.llmCalls.thread_id, threadId))
-        .all() as LlmCallRow[];
-    },
-    async findByThreadIds(threadIds) {
-      if (threadIds.length === 0) return [];
-      return db
-        .select()
-        .from(schema.llmCalls)
-        .where(inArray(schema.llmCalls.thread_id, threadIds))
-        .all() as LlmCallRow[];
-    },
-    async findByTaskRun(taskRunId) {
-      return db
-        .select()
-        .from(schema.llmCalls)
-        .where(eq(schema.llmCalls.task_run_id, taskRunId))
-        .all() as LlmCallRow[];
-    },
-  };
-
   // Compiled-regex cache keyed by provider. Every cost lookup previously
   // rebuilt N RegExp objects from `model_pattern` strings; on a hot streaming
   // path with N=20+ patterns per provider this showed up. The cache is
@@ -140,5 +107,5 @@ export function createLlmDrizzleRepos(db: Db): LlmDrizzleRepos {
     },
   };
 
-  return { llmCalls, costRates };
+  return { costRates };
 }

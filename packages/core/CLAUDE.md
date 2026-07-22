@@ -10,7 +10,7 @@ Claude Code CLI orchestration adapters live at the desktop boundary.
 - `HookRegistry` (**同步串行**, `await emit()` 阻塞流控用) ≠ `EventBus` (**异步 fire-and-forget**, 前缀订阅 UI 推送), 不要合并。pi 运行时常常两个都 emit
 - `Scratchpad` 是 per-runtime 临时存储。员工项目经验的持久化走 `employee_project_memory`（见 renderer `employee-project-memory` / format helpers）；`MemoryService` 仍导出但未接线进 desktop gateway，不要当 live 写入路径。
 - Desktop AI 编排归 engine gateway 与具体 desktop host；core 只保留可审计的本地工具、repo、install、vault 和数据契约。不要在 core 内重建 boss/employee prompt loop。
-- `NodeContextMiddleware` / `SummarizationMiddleware` / `ConversationBudgetService` 仍在 core 导出，但未接线进 `DesktopAgentRuntimeGateway`；不要假定桌面运行时会实例化它们。若复用 middleware，其内部 1800 char budget（summary 1000 + pack 700）两半独立查询独立截断，不要另加平行 middleware。
+- `NodeContextMiddleware` / `SummarizationMiddleware` / `ConversationBudgetService` 仍在 core 导出，但未接线进 `DesktopAgentRuntimeGateway`；不要假定桌面运行时会实例化它们。`NodeContextMiddleware` 只投影 `node_summaries`，旧 task-run context pack 已随 prelaunch baseline 清理删除。
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
 - 不要在 core 里另建 engine lane、credential store、session owner 或 model transport factory。API catalog 只承载 Pi 已配置的 safe exact-id 元数据（用户 source 可选，官方 source/checkedAt 严格）；外部 CLI 不进 Offisim model catalog。raw auth 与 native session/tool loop 归选中的 desktop engine。

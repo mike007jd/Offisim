@@ -585,28 +585,6 @@ export const projectAssignments = sqliteTable(
   ],
 );
 
-export const taskRuns = sqliteTable(
-  'task_runs',
-  {
-    task_run_id: text('task_run_id').primaryKey(),
-    thread_id: text('thread_id').notNull(),
-    employee_id: text('employee_id').references(() => employees.employee_id, {
-      onDelete: 'set null',
-    }),
-    parent_task_run_id: text('parent_task_run_id').references(
-      (): AnySQLiteColumn => taskRuns.task_run_id,
-      { onDelete: 'set null' },
-    ),
-    task_type: text('task_type').notNull(),
-    status: text('status').notNull(),
-    input_json: text('input_json'),
-    output_json: text('output_json'),
-    started_at: text('started_at').notNull(),
-    finished_at: text('finished_at'),
-  },
-  (table) => [index('idx_task_runs_thread').on(table.thread_id)],
-);
-
 export const agentRuns = sqliteTable(
   'agent_runs',
   {
@@ -758,42 +736,6 @@ export const employeeProjectMemories = sqliteTable(
   ],
 );
 
-export const toolCalls = sqliteTable(
-  'tool_calls',
-  {
-    tool_call_id: text('tool_call_id').primaryKey(),
-    task_run_id: text('task_run_id')
-      .notNull()
-      .references(() => taskRuns.task_run_id, { onDelete: 'cascade' }),
-    tool_name: text('tool_name').notNull(),
-    capability_name: text('capability_name'),
-    rack_id: text('rack_id').references(() => racks.rack_id, {
-      onDelete: 'set null',
-    }),
-    status: text('status').notNull(),
-    review_state: text('review_state').notNull().default('none'),
-    request_json: text('request_json'),
-    response_json: text('response_json'),
-    started_at: text('started_at').notNull(),
-    finished_at: text('finished_at'),
-  },
-  (table) => [index('idx_tool_calls_task').on(table.task_run_id)],
-);
-
-export const handoffEvents = sqliteTable('handoff_events', {
-  handoff_id: text('handoff_id').primaryKey(),
-  thread_id: text('thread_id').notNull(),
-  from_employee_id: text('from_employee_id').references(() => employees.employee_id, {
-    onDelete: 'set null',
-  }),
-  to_employee_id: text('to_employee_id').references(() => employees.employee_id, {
-    onDelete: 'set null',
-  }),
-  reason: text('reason'),
-  payload_json: text('payload_json'),
-  created_at: text('created_at').notNull(),
-});
-
 export const meetingSessions = sqliteTable(
   'meeting_sessions',
   {
@@ -857,43 +799,6 @@ export const employeeVersions = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// 005 — LLM call tracking
-// ---------------------------------------------------------------------------
-
-export const llmCalls = sqliteTable(
-  'llm_calls',
-  {
-    llm_call_id: text('llm_call_id').primaryKey(),
-    thread_id: text('thread_id'),
-    task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
-      onDelete: 'set null',
-    }),
-    node_name: text('node_name').notNull(),
-    provider: text('provider').notNull(),
-    model: text('model').notNull(),
-    input_tokens: integer('input_tokens').notNull(),
-    output_tokens: integer('output_tokens').notNull(),
-    cache_read_input_tokens: integer('cache_read_input_tokens').notNull().default(0),
-    cache_creation_input_tokens: integer('cache_creation_input_tokens').notNull().default(0),
-    usage_raw_json: text('usage_raw_json'),
-    request_json: text('request_json'),
-    response_json: text('response_json'),
-    tool_calls_json: text('tool_calls_json'),
-    prompt_hash: text('prompt_hash'),
-    tools_hash: text('tools_hash'),
-    response_hash: text('response_hash'),
-    recording_mode: text('recording_mode'),
-    latency_ms: integer('latency_ms'),
-    error_code: text('error_code'),
-    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
-  },
-  (table) => [
-    index('idx_llm_calls_thread').on(table.thread_id),
-    index('idx_llm_calls_task_run').on(table.task_run_id),
-  ],
-);
-
-// ---------------------------------------------------------------------------
 // 005 — Agent memory system
 // ---------------------------------------------------------------------------
 
@@ -913,7 +818,6 @@ export const memoryEntries = sqliteTable(
     last_reinforced_at: text('last_reinforced_at').notNull().default(sql`(datetime('now'))`),
     metadata_json: text('metadata_json'),
     source_thread_id: text('source_thread_id'),
-    source_task_run_id: text('source_task_run_id'),
     created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
     accessed_at: text('accessed_at').notNull().default(sql`(datetime('now'))`),
     access_count: integer('access_count').notNull().default(0),
@@ -987,9 +891,6 @@ export const mcpAuditLog = sqliteTable(
   {
     audit_id: text('audit_id').primaryKey(),
     thread_id: text('thread_id').notNull(),
-    task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
-      onDelete: 'set null',
-    }),
     employee_id: text('employee_id').notNull(),
     server_name: text('server_name').notNull(),
     tool_name: text('tool_name').notNull(),
@@ -1186,36 +1087,6 @@ export const interactionHistory = sqliteTable(
   ],
 );
 
-export const fileHistory = sqliteTable(
-  'file_history',
-  {
-    history_id: text('history_id').primaryKey(),
-    snapshot_id: text('snapshot_id').notNull(),
-    thread_id: text('thread_id').notNull(),
-    company_id: text('company_id')
-      .notNull()
-      .references(() => companies.company_id, { onDelete: 'cascade' }),
-    node_name: text('node_name'),
-    employee_id: text('employee_id'),
-    task_run_id: text('task_run_id').references(() => taskRuns.task_run_id, {
-      onDelete: 'set null',
-    }),
-    tool_call_id: text('tool_call_id').notNull(),
-    tool_name: text('tool_name').notNull(),
-    step_index: integer('step_index'),
-    file_path: text('file_path').notNull(),
-    change_kind: text('change_kind').notNull(),
-    existed_before: integer('existed_before').notNull().default(0),
-    backup_content: text('backup_content'),
-    created_at: text('created_at').notNull(),
-  },
-  (table) => [
-    index('idx_file_history_thread_created').on(table.thread_id, table.created_at),
-    index('idx_file_history_snapshot').on(table.snapshot_id),
-    index('idx_file_history_thread_step').on(table.thread_id, table.step_index, table.created_at),
-  ],
-);
-
 // ---------------------------------------------------------------------------
 // 009 — Library documents
 // ---------------------------------------------------------------------------
@@ -1290,29 +1161,6 @@ export const agentEvents = sqliteTable(
     index('idx_agent_events_thread').on(table.thread_id, table.event_type),
     index('idx_agent_events_agent').on(table.agent_name, table.event_type),
     index('idx_agent_events_parent').on(table.parent_event_id),
-  ],
-);
-
-// ---------------------------------------------------------------------------
-// 013 — Recovery knowledge (persistent learning)
-// ---------------------------------------------------------------------------
-
-export const recoveryKnowledge = sqliteTable(
-  'recovery_knowledge',
-  {
-    knowledge_id: text('knowledge_id').primaryKey(),
-    symptom: text('symptom').notNull(),
-    cause: text('cause').notNull(),
-    fix_strategy: text('fix_strategy').notNull(),
-    fix_config: text('fix_config'),
-    success_count: integer('success_count').notNull().default(0),
-    failure_count: integer('failure_count').notNull().default(0),
-    last_used_at: text('last_used_at'),
-    created_at: text('created_at').notNull(),
-  },
-  (table) => [
-    uniqueIndex('idx_recovery_symptom').on(table.symptom, table.cause),
-    index('idx_recovery_strategy').on(table.fix_strategy),
   ],
 );
 

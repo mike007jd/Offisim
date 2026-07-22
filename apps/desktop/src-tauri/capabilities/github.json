@@ -1,6 +1,6 @@
 {
   "identifier": "offisim:github",
   "description": "Allows the main Offisim window to invoke the user-facing GitHub PR command lane.",
-  "webviews": ["main", "main-live"],
+  "webviews": ["main"],
   "permissions": ["github"]
 }
