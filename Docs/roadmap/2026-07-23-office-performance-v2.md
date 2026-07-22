@@ -24,6 +24,8 @@ This plan supersedes the performance timing and richness targets in the 2026-07-
 
 The projection clamps all multipliers and preserves reduced-motion behavior. Role tempo is flavor and composes after the pace signal; it is not engine speed evidence.
 
+Current-source note (checked 2026-07-23): Anthropic documents fast mode as an explicit request option and returns the actual speed in response usage. Offisim therefore projects only the exact engine usage literal and does not infer speed from provider or model identity. Source: <https://platform.claude.com/docs/en/build-with-claude/fast-mode>.
+
 ### Ambient V2
 
 - Scheduler stays pure, deterministic, serializable, and clock-injected.
@@ -69,4 +71,3 @@ Hot files have one writer at a time: `packages/dramaturgy/src/index.ts`, shared-
 - `pnpm validate`
 - `pnpm build`
 - current-worktree release `.app` build and Computer Use verification at the default office camera, active fast-capable run, idle rest-area sequence, local chatter sequence, reduced motion, and representative character body variants.
-

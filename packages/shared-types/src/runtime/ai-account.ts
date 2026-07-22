@@ -37,6 +37,8 @@ export type AiModelSource =
 
 export type RuntimeEnginePermissionMode = 'plan' | 'ask' | 'auto' | 'full';
 
+export type RuntimeSpeedMode = 'standard' | 'fast';
+
 export type RuntimeInteractionRouteSource = 'engine-native' | 'offisim-local' | 'mcp';
 
 /** One interaction path an engine lane can expose. `runtime-determined` means
@@ -70,6 +72,11 @@ export interface RuntimeEngineCapabilityManifest {
     readonly reasoning: boolean;
     readonly toolCalls: boolean;
     readonly fileChanges: boolean;
+  };
+  /** Whether this lane reports the speed actually used for a run. Supporting a
+   * fast setting is insufficient: only a reported run may be labelled fast. */
+  readonly pace: {
+    readonly speedReport: 'reported' | 'unreported';
   };
   /** Explicit route truth. Product surfaces must not infer native Browser or
    * Computer Use support from an engine brand name. */

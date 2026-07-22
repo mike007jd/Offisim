@@ -91,6 +91,42 @@ assert.deepEqual(actual, {
   },
 });
 
+const fast = await resolveApiRunUsage({
+  messages: [message({ usage: { input: 8, output: 4, speed: 'fast' } })],
+  provenance,
+  model,
+  modelRegistry,
+  now,
+  retryDelaysMs: [0],
+  fetchImpl: async () =>
+    response({
+      id: 'gen-1',
+      model: provenance.modelId,
+      native_tokens_prompt: 8,
+      native_tokens_cached: 0,
+      native_tokens_completion: 4,
+      total_cost: 0.001,
+      speed: 'fast',
+    }),
+});
+assert.deepEqual(fast.executionSpeed, {
+  mode: 'fast',
+  source: {
+    kind: 'engine-usage',
+    capturedAt: '2026-07-14T13:00:00.000Z',
+    reference: 'gen-1',
+  },
+});
+
+const unknownSpeed = await resolveApiRunUsage({
+  messages: [message({ responseId: undefined, usage: { input: 8, output: 4, speed: 'FAST' } })],
+  provenance,
+  model,
+  modelRegistry,
+  now,
+});
+assert.equal('executionSpeed' in unknownSpeed, false, 'invalid speed must stay unknown');
+
 let retryCalls = 0;
 const retried = await resolveApiRunUsage({
   messages: [message()],
@@ -218,3 +254,4 @@ assert.equal(
 console.log('PASS: provider actual cost outranks verified catalog estimate');
 console.log('PASS: missing token and price fields remain absent/unavailable');
 console.log('PASS: generation lookup is bounded, exact-model scoped, and failure tolerant');
+console.log('PASS: execution speed is projected only from exact engine usage literals');

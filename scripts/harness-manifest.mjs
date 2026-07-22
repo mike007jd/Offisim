@@ -505,6 +505,15 @@ export const harnessManifest = Object.freeze([
     command: 'pnpm --filter @offisim/platform exec tsx ../../scripts/harness-dramaturgy-modes.mts',
   },
   {
+    id: 'pace-projection',
+    file: 'scripts/harness-pace-projection.mts',
+    runner: 'tsx',
+    cwdFilter: '@offisim/platform',
+    sharedRunner: true,
+    composite: false,
+    command: 'pnpm --filter @offisim/platform exec tsx ../../scripts/harness-pace-projection.mts',
+  },
+  {
     id: 'dramaturgy-stress',
     file: 'scripts/harness-dramaturgy-stress.mts',
     runner: 'tsx',
@@ -1057,6 +1066,7 @@ export const validateHarnessIds = Object.freeze([
   'office-projection',
   'mission-office-projection',
   'dramaturgy-modes',
+  'pace-projection',
   'dramaturgy-stress',
   'scene-cue',
   'character-clip-map',

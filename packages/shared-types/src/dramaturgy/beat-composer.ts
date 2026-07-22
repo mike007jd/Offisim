@@ -134,9 +134,16 @@ export interface DramaturgyTiming {
   readonly sustainedRelocationMs: number;
 }
 
+/** Presentation-only multipliers. They never alter event or business truth. */
+export interface DramaturgyPaceProjection {
+  readonly beatHoldMultiplier: number;
+  readonly transitionMultiplier: number;
+}
+
 export interface DramaturgyConfig {
   readonly dramaturgyVersion: string;
   readonly timing?: Partial<DramaturgyTiming>;
+  readonly pace?: DramaturgyPaceProjection;
   /** Variant count per beat kind (default 3). */
   readonly variantCount?: number;
 }

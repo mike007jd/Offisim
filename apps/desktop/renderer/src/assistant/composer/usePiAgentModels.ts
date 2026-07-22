@@ -48,6 +48,7 @@ const API_RUNTIME_CAPABILITIES: RuntimeEngineCapabilityManifest = {
   permissionModes: ['plan', 'ask', 'auto', 'full'],
   interactions: { approval: true, userInput: true },
   processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  pace: { speedReport: 'reported' },
   interactionRoutes: {
     browser: [
       {

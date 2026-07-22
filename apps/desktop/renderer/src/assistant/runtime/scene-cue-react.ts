@@ -22,7 +22,7 @@
  */
 import { useUiState } from '@/app/ui-state.js';
 import { useEmployees, useThreads } from '@/data/queries.js';
-import { worldAnchorsFor } from '@offisim/dramaturgy';
+import { type PaceSignal, worldAnchorsFor } from '@offisim/dramaturgy';
 import type {
   AmbientActorAvailability,
   AmbientActorHome,
@@ -32,7 +32,7 @@ import type {
 import { useMemo } from 'react';
 import { useEmployeeWorkloads } from './conversation-run-react.js';
 import { useOfficeAmbientDirections } from './office-ambient-life.js';
-import { useOfficeBeats, usePrefersReducedMotion } from './office-dramaturgy.js';
+import { useOfficeBeats, useOfficePace, usePrefersReducedMotion } from './office-dramaturgy.js';
 import {
   type ActorCue,
   type SceneCueFrame,
@@ -67,6 +67,7 @@ export interface SceneCueFrameOptions {
 export function useSceneCueFrame(options: SceneCueFrameOptions): {
   readonly frame: SceneCueFrame;
   readonly actorById: Map<string, ActorCue>;
+  readonly pace: PaceSignal;
 } {
   const {
     prefabs,
@@ -84,6 +85,7 @@ export function useSceneCueFrame(options: SceneCueFrameOptions): {
   const threads = useThreads(projectId);
   const workloads = useEmployeeWorkloads(projectId, companyId);
   const beats = useOfficeBeats(companyId);
+  const pace = useOfficePace(companyId);
   const reducedMotion = usePrefersReducedMotion();
 
   const roster = useMemo(() => (employees.data ?? []).map((e) => e.id), [employees.data]);
@@ -230,5 +232,5 @@ export function useSceneCueFrame(options: SceneCueFrameOptions): {
     [frame],
   );
 
-  return useMemo(() => ({ frame, actorById }), [frame, actorById]);
+  return useMemo(() => ({ frame, actorById, pace }), [frame, actorById, pace]);
 }

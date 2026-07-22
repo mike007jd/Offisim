@@ -34,6 +34,7 @@ export const API_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     permissionModes: ['plan', 'ask', 'auto', 'full'],
     interactions: { approval: true, userInput: true },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+    pace: { speedReport: 'reported' },
     interactionRoutes: {
       browser: [
         {
@@ -70,6 +71,7 @@ export const CODEX_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     permissionModes: ['plan', 'ask', 'auto', 'full'],
     interactions: { approval: true, userInput: true },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+    pace: { speedReport: 'unreported' },
     interactionRoutes: {
       browser: [
         {
@@ -114,6 +116,7 @@ export const CLAUDE_ENGINE_RUNTIME: NativeEngineRuntimeConfig = {
     permissionModes: ['plan', 'auto', 'full'],
     interactions: { approval: false, userInput: false },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+    pace: { speedReport: 'unreported' },
     interactionRoutes: {
       browser: [
         {

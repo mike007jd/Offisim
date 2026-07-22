@@ -19,8 +19,12 @@ import {
 import { runtimeEventBus } from '@/runtime/repos.js';
 import {
   DRAMATURGY_VERSION,
+  type PaceSignal,
+  activeDeclaredPaceMode,
   composeBeats,
+  composePaceSignal,
   isBeatLive,
+  observedCadenceMultiplier,
   projectMissionEventToBeat,
 } from '@offisim/dramaturgy';
 import type {
@@ -42,6 +46,22 @@ const listeners = new Set<() => void>();
 let version = 0;
 let expiryTimer: ReturnType<typeof setTimeout> | null = null;
 
+function paceForEvents(events: readonly TimedAgentRunEvent[], now: number): PaceSignal {
+  const latest = events.at(-1);
+  const reportedMode =
+    latest?.type === 'run.completed' ? latest.payload.usage?.executionSpeed?.mode : undefined;
+  return composePaceSignal({
+    // The terminal event is the first trustworthy moment every current lane can
+    // expose actual speed. A later event immediately resets the declaration, so
+    // one completed fast run never labels the next run.
+    declaredMode: activeDeclaredPaceMode(reportedMode, latest?.timestamp, now),
+    observedCadence: observedCadenceMultiplier(
+      events.map((event) => event.timestamp),
+      now,
+    ),
+  });
+}
+
 function notify(): void {
   version += 1;
   for (const listener of listeners) listener();
@@ -62,8 +82,16 @@ function scheduleExpiry(): void {
   let next = Number.POSITIVE_INFINITY;
   for (const events of buffers.values()) {
     if (events.length === 0) continue;
-    for (const beat of composeBeats(events, { dramaturgyVersion: DRAMATURGY_VERSION })) {
+    const pace = paceForEvents(events, now);
+    for (const beat of composeBeats(events, {
+      dramaturgyVersion: DRAMATURGY_VERSION,
+      pace,
+    })) {
       if (isBeatLive(beat, now) && beat.lifecycle.endsAt < next) next = beat.lifecycle.endsAt;
+    }
+    const latest = events.at(-1)?.timestamp;
+    if (latest !== undefined && latest + 12_000 > now && latest + 12_000 < next) {
+      next = latest + 12_000;
     }
   }
   if (next !== Number.POSITIVE_INFINITY) {
@@ -116,10 +144,15 @@ const officeDramaturgyStore = {
     // Drop beats whose lifetime has elapsed so an idle actor returns home; the
     // expiry timer re-notifies when the soonest endsAt passes.
     const now = Date.now();
-    const beats = composeBeats(events, { dramaturgyVersion: DRAMATURGY_VERSION }).filter((beat) =>
-      isBeatLive(beat, now),
-    );
+    const pace = paceForEvents(events, now);
+    const beats = composeBeats(events, {
+      dramaturgyVersion: DRAMATURGY_VERSION,
+      pace,
+    }).filter((beat) => isBeatLive(beat, now));
     return beats.length > 0 ? beats : EMPTY_BEATS;
+  },
+  paceForCompany(companyId: string): PaceSignal {
+    return paceForEvents(buffers.get(companyId) ?? [], Date.now());
   },
 };
 
@@ -324,6 +357,23 @@ export function useOfficeBeats(companyId: string | null): readonly SceneBeat[] {
   // biome-ignore lint/correctness/useExhaustiveDependencies: version is an external-store version/invalidation counter from useSyncExternalStore; the callback doesn't reference it directly but it must trigger recompute (removing would cause stale UI).
   return useMemo(
     () => (companyId ? officeDramaturgyStore.beatsForCompany(companyId) : EMPTY_BEATS),
+    [companyId, version],
+  );
+}
+
+/** Presentation pace for the active company; observed cadence never labels fast. */
+export function useOfficePace(companyId: string | null): PaceSignal {
+  const version = useSyncExternalStore(
+    officeDramaturgyStore.subscribe,
+    officeDramaturgyStore.getVersion,
+    officeDramaturgyStore.getVersion,
+  );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version invalidates the external store snapshot.
+  return useMemo(
+    () =>
+      companyId
+        ? officeDramaturgyStore.paceForCompany(companyId)
+        : composePaceSignal({ declaredMode: 'normal' }),
     [companyId, version],
   );
 }

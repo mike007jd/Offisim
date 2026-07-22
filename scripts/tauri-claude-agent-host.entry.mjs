@@ -167,6 +167,7 @@ function orchestrationCapabilities() {
     permissionModes: ['plan', 'auto', 'full'],
     interactions: { approval: false, userInput: false },
     processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+    pace: { speedReport: 'unreported' },
     interactionRoutes: {
       browser: [
         {

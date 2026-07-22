@@ -175,6 +175,15 @@ export interface AgentRunUsage {
     readonly capturedAt: string;
     readonly reference?: string;
   };
+  /** Actual execution speed reported by the engine. Missing means unknown, not standard. */
+  readonly executionSpeed?: {
+    readonly mode: 'standard' | 'fast';
+    readonly source: {
+      readonly kind: 'engine-usage';
+      readonly capturedAt: string;
+      readonly reference: string;
+    };
+  };
   readonly cost: AgentRunCost;
 }
 

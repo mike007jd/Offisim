@@ -28,6 +28,7 @@ import {
   type BeatAffordance,
   type BeatKind,
   type DramaturgyConfig,
+  type DramaturgyPaceProjection,
   type DramaturgyTiming,
   type FlowIntent,
   type ResourceIntent,
@@ -45,6 +46,7 @@ export type {
   BeatAffordance,
   BeatKind,
   DramaturgyConfig,
+  DramaturgyPaceProjection,
   DramaturgyTiming,
   FlowIntent,
   ResourceIntent,
@@ -141,6 +143,30 @@ export const DEFAULT_TIMING: DramaturgyTiming = {
   movementCooldownMs: 8000,
   sustainedRelocationMs: 4000,
 };
+
+const NEUTRAL_PACE: DramaturgyPaceProjection = {
+  beatHoldMultiplier: 1,
+  transitionMultiplier: 1,
+};
+
+function boundedMultiplier(value: number | undefined): number {
+  return Number.isFinite(value) ? Math.min(1, Math.max(0.55, value ?? 1)) : 1;
+}
+
+function timingForPace(timing: DramaturgyTiming, pace: DramaturgyPaceProjection): DramaturgyTiming {
+  const multiplier = boundedMultiplier(pace.transitionMultiplier);
+  return {
+    microMinMs: Math.max(1_200, Math.round(timing.microMinMs * multiplier)),
+    movementCooldownMs: Math.max(4_500, Math.round(timing.movementCooldownMs * multiplier)),
+    sustainedRelocationMs: Math.max(2_200, Math.round(timing.sustainedRelocationMs * multiplier)),
+  };
+}
+
+function pacedBeatLifespanMs(kind: BeatKind, multiplier: number): number {
+  // Attention states remain until resolved; pace must never dismiss them early.
+  if (kind === 'approval' || kind === 'failure') return beatLifespanMs(kind);
+  return Math.max(1_800, Math.round(beatLifespanMs(kind) * boundedMultiplier(multiplier)));
+}
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
@@ -601,7 +627,8 @@ export function composeBeats(
   events: readonly TimedAgentRunEvent[],
   config: DramaturgyConfig,
 ): SceneBeat[] {
-  const timing = { ...DEFAULT_TIMING, ...config.timing };
+  const pace = config.pace ?? NEUTRAL_PACE;
+  const timing = timingForPace({ ...DEFAULT_TIMING, ...config.timing }, pace);
   const variantCount = Math.max(1, config.variantCount ?? 3);
 
   // Canonical ordering: timestamp, then a content-derived order so equal-ms
@@ -692,7 +719,10 @@ export function composeBeats(
       // then the actor naturally returns when the beat expires.
       lifecycle: {
         startedAt: signal.at,
-        endsAt: signal.at + (signal.artifact ? 24_000 : beatLifespanMs(signal.kind)),
+        endsAt:
+          signal.at +
+          // Artifact delivery must still outlive the longest routed office walk.
+          (signal.artifact ? 24_000 : pacedBeatLifespanMs(signal.kind, pace.beatHoldMultiplier)),
       },
     });
     if (movement) actorOf(actorKey).lastMovementAt = signal.at;

@@ -13,6 +13,10 @@ function positiveCount(value) {
   return number !== undefined && number > 0 ? number : undefined;
 }
 
+function executionSpeedMode(value) {
+  return value === 'fast' || value === 'standard' ? value : undefined;
+}
+
 function assistantMessages(messages) {
   return Array.isArray(messages) ? messages.filter((message) => message?.role === 'assistant') : [];
 }
@@ -272,6 +276,7 @@ export async function resolveApiRunUsage({
       const actualCost = finiteNonNegative(providerData?.total_cost);
       return {
         tokens,
+        speed: executionSpeedMode(providerData?.speed ?? message?.usage?.speed),
         usageSource: providerData ? 'provider' : 'adapter',
         reference: providerData ? responseId : undefined,
         cost:
@@ -296,6 +301,21 @@ export async function resolveApiRunUsage({
     .map((contribution) => contribution.reference)
     .filter(Boolean)
     .join(',');
+  const executionSpeed =
+    contributions.length > 0 &&
+    contributions.every(
+      (contribution) =>
+        contribution.speed !== undefined && contribution.speed === contributions[0]?.speed,
+    )
+      ? {
+          mode: contributions[0].speed,
+          source: {
+            kind: 'engine-usage',
+            capturedAt,
+            reference: references || 'pi-model-runtime-usage',
+          },
+        }
+      : undefined;
   return {
     scope: {
       kind: 'api-run',
@@ -318,6 +338,7 @@ export async function resolveApiRunUsage({
       capturedAt,
       ...(references ? { reference: references } : {}),
     },
+    ...(executionSpeed ? { executionSpeed } : {}),
     cost: aggregateCost(contributions, capturedAt),
   };
 }
