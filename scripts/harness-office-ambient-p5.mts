@@ -788,8 +788,7 @@ while (standing.nextWakeAt <= START + 10 * 60_000 && standingGuard < 10_000) {
 check(
   'standing homes never become a seated social partner, seated-shift, or desk-fidget actor',
   ![...standingSeen].some(
-    (routine) =>
-      routine === 'social' || routine === 'seated-shift' || routine === 'desk-fidget',
+    (routine) => routine === 'social' || routine === 'seated-shift' || routine === 'desk-fidget',
   ) && standingPostureOk,
   json([...standingSeen].sort()),
 );
