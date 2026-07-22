@@ -5,12 +5,16 @@ import { join } from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const schemaPath =
-  process.env.OFFISIM_PLATFORM_SCHEMA_PATH ?? join(root, 'packages/db-platform/src/schema.ts');
-const baselinePath =
-  process.env.OFFISIM_PLATFORM_BASELINE_PATH ?? join(root, 'packages/db-platform/schema.sql');
+const schemaPath = join(root, 'packages/db-platform/src/schema.ts');
+const baselinePath = join(root, 'packages/db-platform/schema.sql');
 const legacyMigrationsDir = join(root, 'packages/db-platform/migrations');
 const drizzleKit = join(root, 'node_modules/.bin/drizzle-kit');
+const selfTestStaleBaseline = process.argv.includes('--self-test-stale-baseline');
+
+if (process.argv.length > 2 && !selfTestStaleBaseline) {
+  console.error('Unknown platform schema drift check argument.');
+  process.exit(1);
+}
 
 function normalizeSql(sql) {
   return sql
@@ -43,7 +47,9 @@ const generated = execFileSync(
     env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
   },
 );
-const baseline = readFileSync(baselinePath, 'utf8');
+const baseline = selfTestStaleBaseline
+  ? '-- intentionally stale platform baseline\n'
+  : readFileSync(baselinePath, 'utf8');
 
 if (normalizeSql(generated) !== normalizeSql(baseline)) {
   console.error(
