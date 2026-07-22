@@ -1,20 +1,22 @@
 # Prelaunch release readiness lane map
 
 当前候选版本：`1.1.2`（prepared corrective candidate；尚未 tag）。整体状态仍为
-`IN PROGRESS`；未完成的 release / live / Kimi 项不得勾选。仓库已 PUBLIC；
+`IN PROGRESS`。L1 / L4 / L5 已完成；L6 / L7 因最终分发产物与 publication
+metadata 未闭环而为 `IN PROGRESS`；L8 仍为 `PENDING`。仓库已 PUBLIC；
 `v1.1.1` 已于 2026-07-21 正式发布为 GitHub Latest stable，其 tag 与发布 commit
-保持 unchanged；不得把 `v1.1.2` 写成已发布或 authorized candidate。
+保持 unchanged；`v1.1.2` **未** authorized、tagged、notarized、published 或
+installed，不得写成已发布或 authorized candidate。
 
 | Lane | Goal | Child loop / owner | Boundary | Dependency | Oracle | Risk | Status |
 |---|---|---|---|---|---|---|---|
 | L0 | 修正并锁定 release 编排边界 | verified iteration / Codex + Cursor harness | `scripts/run-clean-release.mjs`、release docs、窄 harness | — | script syntax、boundary harness、docs truth | high | COMPLETE |
-| L1 | 建立全量门禁与 clean release 基线 | release readiness / Codex | build outputs、`output/release-evidence` | L0 | `pnpm release:run`、bundle hash、codesign verify | high | IN PROGRESS |
+| L1 | 建立全量门禁与 clean release 基线 | release readiness / Codex | build outputs、`output/release-evidence` | L0 | `pnpm release:run`、bundle hash、codesign verify | high | COMPLETE |
 | L2 | 核真活动 roadmap、架构、承诺与用户旅程 | plan synthesis / fresh checkers | read-only docs/code/evidence | — | 带路径/行号的 finding 与 promise/journey matrix | medium | COMPLETE |
 | L3 | 修复工程、依赖、安全、文档真值 findings | review-verify-fix / Cursor 简单、Codex 复杂 | 按 finding 分配单写者文件边界 | L1,L2 | impact、窄 gate、fresh checker | high | COMPLETE |
-| L4 | 全 surface UI/UX 审计与修复 | UI/UX audit / Kimi K3 High | renderer visual/layout/motion surfaces；不碰 runtime/data contracts | L3 | 宽/窄窗口、5 态、accessibility、视觉 diff review | high | IN PROGRESS |
-| L5 | fan-in 后完整组合门禁 | release readiness / Codex | 全仓组合态 | L3,L4 | release gates、risk-matched harness、GitNexus detect changes | critical | IN PROGRESS |
-| L6 | release `.app` 真实旅程与三连 streak | real-user live verify / fresh checker + Codex Computer Use | 精确 app path、测试 profile/workspaces | L5 | 三轮 P0 全过；截图 + 磁盘/DB 证据 | critical | PENDING |
-| L7 | 承诺核真、baseline 与平台待核清单 | release readiness / Codex + fresh checker | evidence docs、release metadata | L6 | promise table、artifact fingerprint、环境/性能/合规清单 | high | PENDING |
+| L4 | 全 surface UI/UX 审计与修复 | UI/UX audit / Kimi K3 High | renderer visual/layout/motion surfaces；不碰 runtime/data contracts | L3 | 宽/窄窗口、5 态、accessibility、视觉 diff review | high | COMPLETE |
+| L5 | fan-in 后完整组合门禁 | release readiness / Codex | 全仓组合态 | L3,L4 | release gates、risk-matched harness、GitNexus detect changes | critical | COMPLETE |
+| L6 | release `.app` 真实旅程与三连 streak | real-user live verify / fresh checker + Codex Computer Use | 精确 app path、测试 profile/workspaces | L5 | 三轮 P0 全过；截图 + 磁盘/DB 证据 | critical | IN PROGRESS |
+| L7 | 承诺核真、baseline 与平台待核清单 | release readiness / Codex + fresh checker | evidence docs、release metadata | L6 | promise table、artifact fingerprint、环境/性能/合规清单 | high | IN PROGRESS |
 | L8 | GO / NO-GO 判定与本地收口 | release readiness / Codex | 本轮证据与临时资源 | L7 | requirement-by-requirement completion audit | critical | PENDING |
 
 ## 并行与冲突规则
@@ -33,11 +35,25 @@ native agent home 和真实生产数据仍受保护，不得删除。
 
 ## 当前证据（2026-07-22）
 
-- `v1.1.1` 已发布为 Latest stable；历史 changelog / release notes / tag / hash /
+- `main` / `HEAD` / `origin/main` =
+  `b15233c4d4550bd7cd7f4295d79569e52c52e109`；Hosted CI 与 CodeQL 对该
+  commit 均为 green。
+- `v1.1.1` 仍为 Latest stable；历史 changelog / release notes / tag / hash /
   assets 事实保留，不得改写为未发布。
-- `1.1.2` 仅完成 prepared corrective candidate 的机械版本/文档准备；exact
-  release-app / distribution evidence 仍 pending，且不得复用 `v1.1.1` evidence
-  证明 installed-app Codex launch 修复路径。
-- 当前 NO-GO / 未闭环项：exact `1.1.2` release `.app` 证据、notarization、
-  GitHub publication、replacement installation，以及显式 `v1.1.2`
-  authorization 本身。
+- Kimi K3 High UI audit / fixes 与独立 checker 已完成（L4 COMPLETE）。
+- 正式 `pnpm release:run` 五门全过；合格证据
+  `output/release-evidence/2026-07-22T00-00-33-996Z-b15233c4`；bundle sha256
+  `ddf09d97e302b335f8dbc7d4d53115e4cb407d8569fdecd42c7ba698db06a065`
+  （L1 / L5 COMPLETE）。
+- 精确候选 release `.app` 在隔离测试数据下完成三轮 Computer Use streak；证据含
+  九张 hashed screenshots 与同目录 `live-streak.json`。L6 因此为
+  `IN PROGRESS`：prepublication candidate streak 已通过，但最终 notarized /
+  `/Applications`-installed distribution artifact streak 仍 pending。
+- L7 为 `IN PROGRESS`：baseline / gate / streak 原始证据已存在，但最终
+  publication / notary / install metadata 仍 pending。
+- L8 仍为 `PENDING`；不得签发 GO。
+- 当前 NO-GO / 未闭环项：显式 `v1.1.2` authorization；`v1.1.2` tagging、
+  notarization、GitHub publication、replacement installation；以及最终
+  notarized / `/Applications`-installed distribution artifact 的独立 streak。
+  不得用 prepublication 候选 `.app` 的证据代替已安装分发产物验收，
+  也不得复用 `v1.1.1` evidence 证明 `1.1.2` 修复路径。
