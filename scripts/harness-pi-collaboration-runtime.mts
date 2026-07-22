@@ -46,6 +46,7 @@ import {
   createCollaborationTurnController,
   emptyCollaborationSnapshot,
 } from '../apps/desktop/renderer/src/runtime/collaboration/collaboration-turn-controller.js';
+import { serializeRuntimeExecutionSelector } from '../apps/desktop/renderer/src/runtime/execution-selection.js';
 import { createCollaborationService } from '../packages/core/src/runtime/collaboration/collaboration-service.js';
 import { createCollaborationMemoryRepos } from '../packages/core/src/runtime/repos/collaboration/memory.js';
 import type {
@@ -268,24 +269,48 @@ async function seedThread(
 
 // ── Pure scheduling / context unit checks ────────────────────────────────────
 {
-  const inherited = { model: 'fixture/orchestrator', thinkingLevel: 'medium' };
-  const availableModels = [
-    { runtimeModelRef: 'fixture/orchestrator' },
-    { runtimeModelRef: 'fixture/employee' },
-  ];
+  // `employees.model` stores the serialized RuntimeExecutionSelector that
+  // Personnel saves from `AgentRuntimeModelOption.value`; the valid set must
+  // speak the same serialized language or every binding silently goes stale.
+  const employeeSelector = serializeRuntimeExecutionSelector({
+    kind: 'api-model',
+    runtimeModelRef: 'fixture/employee',
+  });
+  const engineSelector = serializeRuntimeExecutionSelector({
+    kind: 'orchestration-engine',
+    engineId: 'codex',
+  });
+  const inherited = {
+    model: serializeRuntimeExecutionSelector({
+      kind: 'api-model',
+      runtimeModelRef: 'fixture/orchestrator',
+    }),
+    thinkingLevel: 'medium',
+  };
+  const validSelectors = [inherited.model, employeeSelector, engineSelector];
   const bound = resolveEmployeeRuntimeSelection(
-    { model: 'fixture/employee', thinking_level: 'high' },
-    availableModels,
+    { model: employeeSelector, thinking_level: 'high' },
+    validSelectors,
     inherited,
   );
   check(
     'employee model/thinking binding overrides the inherited conversation selection',
-    bound.model === 'fixture/employee' && bound.thinkingLevel === 'high',
+    bound.model === employeeSelector && bound.thinkingLevel === 'high',
     JSON.stringify(bound),
+  );
+  const engineBound = resolveEmployeeRuntimeSelection(
+    { model: engineSelector, thinking_level: null },
+    validSelectors,
+    inherited,
+  );
+  check(
+    'employee orchestration-engine binding overrides via its serialized selector',
+    engineBound.model === engineSelector && engineBound.thinkingLevel === 'medium',
+    JSON.stringify(engineBound),
   );
   const unbound = resolveEmployeeRuntimeSelection(
     { model: null, thinking_level: null },
-    availableModels,
+    validSelectors,
     inherited,
   );
   check(
@@ -294,14 +319,30 @@ async function seedThread(
     JSON.stringify(unbound),
   );
   const stale = resolveEmployeeRuntimeSelection(
-    { model: 'fixture/retired', thinking_level: 'xhigh' },
-    availableModels,
+    {
+      model: serializeRuntimeExecutionSelector({
+        kind: 'api-model',
+        runtimeModelRef: 'fixture/retired',
+      }),
+      thinking_level: 'xhigh',
+    },
+    validSelectors,
     inherited,
   );
   check(
     'stale employee binding inherits without blocking the run',
     stale.model === inherited.model && stale.thinkingLevel === inherited.thinkingLevel,
     JSON.stringify(stale),
+  );
+  const rawLegacyRef = resolveEmployeeRuntimeSelection(
+    { model: 'fixture/employee', thinking_level: 'high' },
+    validSelectors,
+    inherited,
+  );
+  check(
+    'raw runtimeModelRef without a selector prefix behaves stale instead of matching',
+    rawLegacyRef.model === inherited.model && rawLegacyRef.thinkingLevel === 'medium',
+    JSON.stringify(rawLegacyRef),
   );
 
   const safeCatalogStatus = {
