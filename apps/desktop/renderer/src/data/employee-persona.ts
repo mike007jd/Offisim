@@ -1,5 +1,6 @@
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { titleizeSlug } from '@/lib/utils.js';
+import { serializeRuntimeExecutionSelector } from '@/runtime/execution-selection.js';
 import type { EmployeeRow, McpToolGrantRow, RuntimeRepositories } from '@offisim/core/browser';
 import type { DelegationRosterEntry } from '@offisim/shared-types';
 import { buildProjectExperienceSection } from './employee-project-memory-format.js';
@@ -139,25 +140,20 @@ export interface EmployeeRuntimeSelection {
   thinkingLevel?: string;
 }
 
-interface RuntimeModelSummaryLike {
-  runtimeModelRef?: string;
-}
-
 /**
  * Employee bindings override the inherited conversation selection only while the
- * selected account still exposes the exact adapter model reference. A stale
- * binding behaves like no binding and keeps both inherited fields.
+ * current AI Accounts status still exposes the exact serialized execution
+ * selector that Personnel saved into `employees.model`. A stale binding behaves
+ * like no binding and keeps both inherited fields.
  */
 export function resolveEmployeeRuntimeSelection(
   employee: Pick<EmployeeRow, 'model' | 'thinking_level'> | null,
-  availableModels: readonly RuntimeModelSummaryLike[],
+  validSelectors: readonly string[],
   inherited: EmployeeRuntimeSelection,
 ): EmployeeRuntimeSelection {
   const model = employee?.model?.trim();
   const validModels = new Set(
-    availableModels
-      .map((availableModel) => availableModel.runtimeModelRef?.trim())
-      .filter((runtimeModelRef): runtimeModelRef is string => Boolean(runtimeModelRef)),
+    validSelectors.map((selector) => selector.trim()).filter((selector) => Boolean(selector)),
   );
   if (!model || !validModels.has(model)) return inherited;
   const thinkingLevel = employee?.thinking_level?.trim() || inherited.thinkingLevel;
@@ -313,10 +309,22 @@ export async function buildDelegationContext(
     runtimeSelection: resolveEmployeeRuntimeSelection(
       acting,
       [
-        ...(runtimeStatus?.models ?? []),
+        ...(runtimeStatus?.models ?? [])
+          .filter((model) => Boolean(model.runtimeModelRef?.trim()))
+          .map((model) =>
+            serializeRuntimeExecutionSelector({
+              kind: 'api-model',
+              runtimeModelRef: model.runtimeModelRef,
+            }),
+          ),
         ...(runtimeStatus?.orchestrationEngines ?? [])
-          .filter((engine) => engine.state === 'ready')
-          .map((engine) => ({ runtimeModelRef: engine.engineId })),
+          .filter((engine) => engine.state === 'ready' && Boolean(engine.engineId?.trim()))
+          .map((engine) =>
+            serializeRuntimeExecutionSelector({
+              kind: 'orchestration-engine',
+              engineId: engine.engineId,
+            }),
+          ),
       ],
       inheritedRuntime,
     ),

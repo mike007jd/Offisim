@@ -1,6 +1,6 @@
 {
   "identifier": "offisim:distribution",
   "description": "Allows the main Offisim window to check signed releases and recover from startup failures.",
-  "webviews": ["main", "main-live"],
+  "webviews": ["main"],
   "permissions": ["distribution"]
 }

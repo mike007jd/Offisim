@@ -78,6 +78,11 @@ export function AdvancedConnectionsPane() {
       setTokenConfigured(false);
       await refreshConnection();
       toast.success('Access token cleared');
+    } catch (error) {
+      console.error('[AdvancedConnectionsPane] Access token clear failed', error);
+      toast.error('Access token not cleared', {
+        description: error instanceof Error ? error.message : 'Try again.',
+      });
     } finally {
       setSaving(false);
     }

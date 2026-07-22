@@ -2,6 +2,7 @@ import { isTauriRuntime } from '@/data/adapters.js';
 import { aiAccountLaneKey } from '@/data/ai-model-presentation.js';
 import { queryKeys } from '@/data/query-keys.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
+import { serializeRuntimeExecutionSelector } from '@/runtime/execution-selection.js';
 import { THINKING_LEVELS, type ThinkingLevel } from '@/runtime/pi-thread-thinking-store.js';
 import { getRepos } from '@/runtime/repos.js';
 import {
@@ -142,7 +143,10 @@ function projectRunnableModelOptions(
       );
       return {
         selectionKind: 'api-model',
-        value: model.runtimeModelRef,
+        value: serializeRuntimeExecutionSelector({
+          kind: 'api-model',
+          runtimeModelRef: model.runtimeModelRef,
+        }),
         name: model.displayName,
         accountName,
         accountId: model.accountId,
@@ -164,7 +168,10 @@ function projectRunnableModelOptions(
     .filter((engine) => engine.state === 'ready')
     .map((engine) => ({
       selectionKind: 'orchestration-engine',
-      value: engine.engineId,
+      value: serializeRuntimeExecutionSelector({
+        kind: 'orchestration-engine',
+        engineId: engine.engineId,
+      }),
       name: engine.displayName,
       accountName: 'Orchestration engines',
       accountId: `${engine.engineId}:local`,

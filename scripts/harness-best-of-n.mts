@@ -281,8 +281,9 @@ function sourceContract(): void {
   );
   check(
     employeePersona.includes('runtimeStatus?.orchestrationEngines') &&
-      employeePersona.includes('runtimeModelRef: engine.engineId'),
-    'employee execution binding must recognize ready orchestration engine ids',
+      employeePersona.includes("kind: 'orchestration-engine'") &&
+      employeePersona.includes('engineId: engine.engineId'),
+    'employee execution binding must recognize ready orchestration engine ids via serialized selectors',
   );
   const mergeAt = locate(
     actions,

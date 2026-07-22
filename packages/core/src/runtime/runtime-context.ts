@@ -1,7 +1,6 @@
 import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { LlmGateway } from '../llm/gateway.js';
-import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
 import type { RollingJournal } from '../services/conversation-budget/rolling-journal.js';
 import type { MemoryService } from '../services/memory-service.js';
@@ -63,8 +62,6 @@ export interface RuntimeContext {
   readonly middlewareChain?: LlmMiddlewareChain;
   /** Legacy compatibility hook; active desktop model state is owned by Pi Agent. */
   readonly modelRegistry?: RuntimeModelRegistry;
-  /** Recorded caller for system services — provides audit trail for background LLM calls. */
-  readonly systemCaller?: RecordedSystemLlmCaller;
   /**
    * Whether the active LLM transport can execute Offisim tool calls for this
    * runtime. Unverified SDK-backed model transports are not tool-capable;
@@ -130,7 +127,6 @@ export function createRuntimeContext(deps: {
   interactionBox?: InteractionBox;
   middlewareChain?: LlmMiddlewareChain;
   modelRegistry?: RuntimeModelRegistry;
-  systemCaller?: RecordedSystemLlmCaller;
   llmToolCallsEnabled?: boolean;
   builtinTools?: ReadonlyMap<string, BuiltinTool>;
   rollingJournal?: RollingJournal;

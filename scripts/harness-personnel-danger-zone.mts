@@ -88,15 +88,20 @@ check('post-delete selection uses the visible roster and failure is not rendered
 });
 
 check('work and conversation history keeps readable employee references', () => {
-  for (const expected of [
-    'employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL',
-    'from_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL',
-    'to_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL',
-    'direct_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL',
-    'sender_employee_id  TEXT REFERENCES employees(employee_id) ON DELETE SET NULL',
-    'employee_id        TEXT REFERENCES employees(employee_id) ON DELETE SET NULL',
+  for (const [table, employeeColumn] of [
+    ['agent_runs', 'employee_id'],
+    ['chat_threads', 'employee_id'],
+    ['collaboration_threads', 'direct_employee_id'],
+    ['collaboration_messages', 'sender_employee_id'],
+    ['collaboration_turns', 'employee_id'],
   ]) {
-    assert.ok(schema.includes(expected), `missing history-preserving FK: ${expected}`);
+    assert.match(
+      schema,
+      new RegExp(
+        `CREATE TABLE IF NOT EXISTS ${table}[\\s\\S]*?${employeeColumn}\\s+TEXT REFERENCES employees\\(employee_id\\) ON DELETE SET NULL`,
+      ),
+      `missing history-preserving FK: ${table}.${employeeColumn}`,
+    );
   }
 });
 

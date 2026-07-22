@@ -5,7 +5,6 @@
 export interface McpAuditRow {
   audit_id: string;
   thread_id: string;
-  task_run_id: string | null;
   employee_id: string;
   server_name: string;
   tool_name: string;

@@ -9,7 +9,6 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use url::Url;
 
 const MAIN_WINDOW_LABEL: &str = "main";
-const MAIN_WINDOW_FALLBACK_LABEL: &str = "main-live";
 const MAX_PENDING_INSTALLS: usize = 16;
 
 /// Payload emitted to the webview when a valid install deep link is received.
@@ -174,11 +173,9 @@ pub fn handle_deep_link_urls(app: &AppHandle, urls: Vec<url::Url>) {
             // window only, not every webview. `app.emit` broadcasts to all
             // windows, which means a child preview or hidden popup that
             // happens to be alive would also see the install intent. Target
-            // `main`; fall back to `main-live` for the live-rebuild webview
-            // so dev still receives the event.
-            let target = app
-                .get_webview_window(MAIN_WINDOW_LABEL)
-                .or_else(|| app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL));
+            // the single privileged `main` renderer. Development uses the same
+            // label so capability and event routing cannot diverge by build mode.
+            let target = app.get_webview_window(MAIN_WINDOW_LABEL);
             let Some(window) = target else {
                 state.requeue_after_emit_failure(payload);
                 continue;

@@ -41,7 +41,6 @@ import type {
   LibraryDocumentRepository,
   MemoryRepository,
   NodeSummaryRepository,
-  RecoveryKnowledgeRepository,
 } from './repositories/memory.js';
 import type {
   MissionAttemptRepository,
@@ -58,11 +57,7 @@ import type {
   CompetitiveDraftGroupRepository,
   DeliverableRepository,
   EventRepository,
-  HandoffRepository,
-  LlmCallRepository,
   MeetingRepository,
-  TaskRunRepository,
-  ToolCallRepository,
 } from './repositories/run.js';
 import type {
   ModelCostRateRepository,
@@ -72,7 +67,6 @@ import type {
 import type {
   ActiveInteractionRepository,
   ChatThreadRepository,
-  FileHistoryRepository,
   InteractionHistoryRepository,
   PiMessageRepository,
   ThreadRepository,
@@ -92,13 +86,9 @@ export * from './repositories/settings.js';
 export interface RuntimeRepositories {
   companies: CompanyRepository;
   threads: ThreadRepository;
-  taskRuns: TaskRunRepository;
   employees: EmployeeRepository;
-  toolCalls: ToolCallRepository;
-  handoffs: HandoffRepository;
   meetings: MeetingRepository;
   events: EventRepository;
-  llmCalls: LlmCallRepository;
   installTransactions: InstallTransactionRepository;
   installedPackages: InstalledPackageRepository;
   installedAssets: InstalledAssetRepository;
@@ -111,7 +101,6 @@ export interface RuntimeRepositories {
   compactSummaries: CompactSummaryRepository;
   activeInteractions: ActiveInteractionRepository;
   interactionHistory: InteractionHistoryRepository;
-  fileHistory: FileHistoryRepository;
   employeeVersions: EmployeeVersionRepository;
   costRates: ModelCostRateRepository;
   companyTemplates: CompanyTemplateAssetRepository;
@@ -129,8 +118,6 @@ export interface RuntimeRepositories {
   chatThreads: ChatThreadRepository;
   /** Agent event sourcing. */
   agentEvents: AgentEventRepository;
-  /** Recovery knowledge base. */
-  recoveryKnowledge: RecoveryKnowledgeRepository;
   /** Deliverable artifact history. */
   deliverables: DeliverableRepository;
   /** Two-tier skills (company-global + employee-specific). */

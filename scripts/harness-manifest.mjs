@@ -6,7 +6,13 @@
  * lets audits reason about Node, tsx, loader, composite, and Cargo entries
  * without reverse-parsing package.json. Composite steps remain simple ordered
  * shell commands—this is a manifest, not a second scheduler.
+ *
+ * Load-time integrity rejects duplicate harness ids, duplicate validate roots,
+ * unknown nested refs, cycles, and legacy/composite double execution so
+ * `validateHarnessIds` expands to one deterministic acyclic plan.
  */
+import { resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * @typedef {'node'|'tsx'|'cargo'} HarnessRunner
@@ -1024,8 +1030,9 @@ export const harnessManifest = Object.freeze([
 ]);
 
 /**
- * Harness ids traversed by pnpm validate, in the exact legacy order.
- * Deliberate repeats through composite entries remain deliberate.
+ * Harness ids traversed by pnpm validate, in deterministic order.
+ * Nested `pnpm harness:<id>` steps inside composites must not also appear here —
+ * that would double-execute the same node in the validate plan.
  */
 export const validateHarnessIds = Object.freeze([
   'conversation-deletion',
@@ -1062,7 +1069,6 @@ export const validateHarnessIds = Object.freeze([
   'office-scene-quality',
   'codex-app-server-contract',
   'renderer-engine-authority',
-  'execution-provenance',
   'pi-agent-host',
   'claude-agent-host',
   'pi-loop-until-green',
@@ -1108,6 +1114,7 @@ export const validateHarnessIds = Object.freeze([
 /**
  * Existing tooling-only private-source imports. The cross-package guard reads
  * this manifest-owned list so harness file ownership has one source of truth.
+ * Entries must match real module imports (AST), not URL/fs path strings.
  */
 export const harnessSourceImports = Object.freeze([
   'scripts/check-local-schema-drift.mts::../packages/db-local/src/schema.js',
@@ -1126,20 +1133,27 @@ export const harnessSourceImports = Object.freeze([
   'scripts/harness-install-core-integrity.mts::../packages/install-core/src/manifest-loader.ts',
   'scripts/harness-install-core-integrity.mts::../packages/install-core/src/hash.ts',
   'scripts/harness-install-core-integrity.mts::../packages/install-core/src/materializer.ts',
+  'scripts/harness-install-core-integrity.mts::../packages/install-core/src/rollback.ts',
+  'scripts/harness-install-core-integrity.mts::../packages/install-core/src/types.ts',
   'scripts/harness-template-contract.mts::../packages/core/src/browser.js',
   'scripts/harness-template-contract.mts::../packages/shared-types/src/index.js',
   'scripts/harness-computer-rich-detail.mts::../packages/shared-types/src/index.js',
   'scripts/harness-employee-version-on-save.mts::../packages/core/src/browser.js',
   'scripts/harness-agent-run-projection.mts::../packages/shared-types/src/index.js',
-  'scripts/harness-beat-composer.mts::../packages/shared-types/src/index.js',
-  'scripts/harness-scene-staging.mts::../packages/shared-types/src/index.js',
-  'scripts/harness-office-projection.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-beat-composer.mts::../packages/dramaturgy/src/index.js',
+  'scripts/harness-scene-staging.mts::../packages/dramaturgy/src/index.js',
   'scripts/harness-office-projection.mts::../packages/dramaturgy/src/index.js',
-  'scripts/harness-mission-office-projection.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-mission-office-projection.mts::../packages/dramaturgy/src/index.js',
   'scripts/harness-mcp-bridge-extension.mts::../packages/shared-types/src/index.js',
   'scripts/harness-dramaturgy-modes.mts::../packages/shared-types/src/index.js',
-  'scripts/harness-dramaturgy-stress.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-dramaturgy-modes.mts::../packages/dramaturgy/src/index.js',
+  'scripts/harness-dramaturgy-stress.mts::../packages/dramaturgy/src/index.js',
   'scripts/harness-scene-cue.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-scene-cue.mts::../packages/dramaturgy/src/index.js',
+  'scripts/harness-office-ambient-p5.mts::../packages/dramaturgy/src/index.js',
+  'scripts/harness-chat-persistence.mts::../packages/core/src/browser.js',
+  'scripts/harness-runtime-conformance.mts::../packages/shared-types/src/index.js',
+  'scripts/harness-loop-graph-projection.mts::../packages/shared-types/src/index.ts',
   'scripts/harness-mission-service.mts::../packages/core/src/runtime/repos/mission/memory.ts',
   'scripts/harness-mission-service.mts::../packages/core/src/runtime/mission/mission-service.ts',
   'scripts/harness-mission-evaluators.mts::../packages/core/src/runtime/mission/evaluators/registry.ts',
@@ -1162,9 +1176,13 @@ export const harnessSourceImports = Object.freeze([
   'scripts/harness-mission-recovery.mts::../packages/core/src/runtime/mission/recovery/types.ts',
   'scripts/harness-workspace-lease.mts::../packages/core/src/runtime/mission/workspace/lease-manager.ts',
   'scripts/harness-pi-delegation-integration.mts::../packages/core/src/runtime/mission/workspace/lease-manager.ts',
+  'scripts/harness-pi-delegation-integration.mts::../packages/core/src/runtime/mission/workspace/types.ts',
   'scripts/harness-run-recovery.mts::../packages/core/src/runtime/repositories.ts',
   'scripts/harness-run-recovery.mts::../packages/core/src/runtime/repos/agent-runs/memory.ts',
   'scripts/harness-mission-reload.mts::../packages/core/src/runtime/repos/agent-runs/memory.ts',
+  'scripts/harness-mission-reload.mts::../packages/core/src/runtime/mission/mission-service.ts',
+  'scripts/harness-mission-reload.mts::../packages/core/src/runtime/repos/mission/memory.ts',
+  'scripts/harness-mission-reload.mts::../packages/core/src/runtime/repositories.ts',
   'scripts/harness-playbook-validation.mts::../packages/shared-types/src/index.ts',
   'scripts/harness-playbook-validation.mts::../packages/core/src/runtime/mission/evaluators/registry.ts',
   'scripts/harness-playbook-validation.mts::../packages/core/src/runtime/mission/playbook/validate.ts',
@@ -1184,18 +1202,327 @@ export const harnessSourceImports = Object.freeze([
   'scripts/harness-loop-mission-adapter.mts::../packages/core/src/loops/types.ts',
   'scripts/harness-collaboration-repo-contract.mts::../packages/core/src/runtime/repositories.js',
   'scripts/harness-collaboration-repo-contract.mts::../packages/core/src/runtime/repos/collaboration/drizzle.js',
+  'scripts/harness-collaboration-repo-contract.mts::../packages/core/src/runtime/collaboration/collaboration-service.js',
   'scripts/harness-pi-collaboration-runtime.mts::../packages/core/src/runtime/repos/collaboration/memory.js',
   'scripts/harness-pi-collaboration-runtime.mts::../packages/core/src/runtime/collaboration/collaboration-service.js',
+  'scripts/harness-pi-collaboration-runtime.mts::../packages/shared-types/src/index.js',
   'scripts/harness-connect-chat-flow.mts::../packages/core/src/runtime/collaboration/collaboration-service.js',
   'scripts/harness-connect-chat-flow.mts::../packages/core/src/runtime/repos/collaboration/drizzle.js',
   'scripts/harness-loop-office-invocation.mts::../packages/core/src/runtime/memory-repositories.ts',
   'scripts/harness-loop-office-invocation.mts::../packages/core/src/browser.ts',
   'scripts/harness-loop-office-invocation.mts::../packages/core/src/loops/types.ts',
-  'scripts/harness-loop-office-invocation.mts::../packages/db-local/src/schema.sql',
-  'scripts/harness-conversation-deletion.mts::../packages/db-local/src/schema.sql',
   'scripts/harness-loop-authoring-flow.mts::../packages/core/src/runtime/memory-repositories.ts',
   'scripts/harness-loop-authoring-flow.mts::../packages/core/src/browser.ts',
   'scripts/harness-loop-authoring-flow.mts::../packages/core/src/loops/types.ts',
 ]);
 
-export const harnessById = new Map(harnessManifest.map((entry) => [entry.id, entry]));
+const HARNESS_STEP_REF_RE = /\bpnpm\s+harness:([\w-]+)/g;
+
+/**
+ * Nested harness ids invoked from a composite entry's ordered steps.
+ * @param {HarnessManifestEntry} entry
+ * @returns {string[]}
+ */
+export function nestedHarnessIdsFromEntry(entry) {
+  if (!entry.composite || !Array.isArray(entry.steps)) return [];
+  /** @type {string[]} */
+  const ids = [];
+  for (const step of entry.steps) {
+    HARNESS_STEP_REF_RE.lastIndex = 0;
+    for (const match of step.matchAll(HARNESS_STEP_REF_RE)) {
+      ids.push(match[1]);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Build the deterministic validate execution plan and reject integrity faults:
+ * duplicate harness ids, duplicate validate roots, unknown refs, cycles, and
+ * legacy/composite double execution of the same node.
+ *
+ * @param {{
+ *   manifest?: readonly HarnessManifestEntry[],
+ *   validateIds?: readonly string[],
+ * }} [options]
+ */
+export function buildHarnessExecutionPlan(options = {}) {
+  const manifest = options.manifest ?? harnessManifest;
+  const validateIds = options.validateIds ?? validateHarnessIds;
+  /** @type {string[]} */
+  const errors = [];
+
+  /** @type {Map<string, HarnessManifestEntry>} */
+  const byId = new Map();
+  for (const entry of manifest) {
+    if (byId.has(entry.id)) {
+      errors.push(`duplicate harness id: ${entry.id}`);
+      continue;
+    }
+    byId.set(entry.id, entry);
+  }
+
+  /** @type {Set<string>} */
+  const seenRoots = new Set();
+  for (const id of validateIds) {
+    if (seenRoots.has(id)) {
+      errors.push(`duplicate validate harness id: ${id}`);
+      continue;
+    }
+    seenRoots.add(id);
+    if (!byId.has(id)) {
+      errors.push(`unknown validate harness id: ${id}`);
+    }
+  }
+
+  /** @type {Map<string, string[]>} */
+  const edges = new Map();
+  for (const entry of byId.values()) {
+    const nested = nestedHarnessIdsFromEntry(entry);
+    edges.set(entry.id, nested);
+    for (const child of nested) {
+      if (!byId.has(child)) {
+        errors.push(`unknown nested harness id '${child}' from composite '${entry.id}'`);
+      }
+    }
+  }
+
+  const WHITE = 0;
+  const GRAY = 1;
+  const BLACK = 2;
+  /** @type {Map<string, number>} */
+  const color = new Map([...byId.keys()].map((id) => [id, WHITE]));
+  /** @type {string[]} */
+  const stack = [];
+
+  function dfs(id) {
+    color.set(id, GRAY);
+    stack.push(id);
+    for (const next of edges.get(id) ?? []) {
+      if (!byId.has(next)) continue;
+      const state = color.get(next);
+      if (state === GRAY) {
+        errors.push(`cyclic harness execution: ${[...stack, next].join(' -> ')}`);
+        continue;
+      }
+      if (state === WHITE) dfs(next);
+    }
+    stack.pop();
+    color.set(id, BLACK);
+  }
+
+  for (const id of byId.keys()) {
+    if (color.get(id) === WHITE) dfs(id);
+  }
+
+  function failIfNeeded() {
+    if (errors.length === 0) return;
+    const error = new Error(`harness manifest integrity failed:\n- ${errors.join('\n- ')}`);
+    error.errors = errors;
+    throw error;
+  }
+
+  // Structural faults (dups/unknown/cycles) must fail before expansion so a
+  // cyclic composite cannot blow the stack while collecting execution nodes.
+  failIfNeeded();
+
+  /** @type {Map<string, string[]>} */
+  const executedBy = new Map();
+
+  function noteExecution(id, reason) {
+    const reasons = executedBy.get(id) ?? [];
+    reasons.push(reason);
+    executedBy.set(id, reasons);
+  }
+
+  function collectNested(rootId, viaPath) {
+    for (const child of edges.get(rootId) ?? []) {
+      noteExecution(child, `nested via ${[...viaPath, rootId].join(' -> ')}`);
+      collectNested(child, [...viaPath, rootId]);
+    }
+  }
+
+  /** @type {string[]} */
+  const plan = [];
+  for (const rootId of validateIds) {
+    if (!byId.has(rootId)) continue;
+    noteExecution(rootId, 'validate root');
+    plan.push(rootId);
+    collectNested(rootId, []);
+  }
+
+  for (const [id, reasons] of executedBy) {
+    if (reasons.length > 1) {
+      errors.push(
+        `duplicate execution node '${id}': ${reasons.join('; ')} (legacy/composite double execution)`,
+      );
+    }
+  }
+
+  failIfNeeded();
+
+  return Object.freeze({
+    plan: Object.freeze([...plan]),
+    executedIds: Object.freeze([...executedBy.keys()]),
+    byId,
+  });
+}
+
+/**
+ * Fail-closed integrity checker for the live harness catalog.
+ * @param {{
+ *   manifest?: readonly HarnessManifestEntry[],
+ *   validateIds?: readonly string[],
+ * }} [options]
+ */
+export function assertHarnessManifestIntegrity(options = {}) {
+  return buildHarnessExecutionPlan(options);
+}
+
+const livePlan = assertHarnessManifestIntegrity();
+export const harnessById = livePlan.byId;
+export const harnessExecutionPlan = livePlan.plan;
+
+function runHarnessManifestSelfTests() {
+  /** @type {string[]} */
+  const failures = [];
+
+  function expectThrow(label, fn, pattern) {
+    try {
+      fn();
+      failures.push(`${label}: expected throw`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!pattern.test(message)) {
+        failures.push(`${label}: throw did not match ${pattern}: ${message}`);
+      }
+    }
+  }
+
+  /** @type {HarnessManifestEntry[]} */
+  const base = [
+    {
+      id: 'leaf-a',
+      file: 'scripts/a.mjs',
+      runner: 'node',
+      composite: false,
+      command: 'node scripts/a.mjs',
+    },
+    {
+      id: 'leaf-b',
+      file: 'scripts/b.mjs',
+      runner: 'node',
+      composite: false,
+      command: 'node scripts/b.mjs',
+    },
+    {
+      id: 'bundle',
+      file: 'scripts/bundle.mjs',
+      runner: 'node',
+      composite: true,
+      steps: ['pnpm harness:leaf-a', 'node scripts/bundle.mjs'],
+      command: 'pnpm harness:leaf-a && node scripts/bundle.mjs',
+    },
+  ];
+
+  const ok = buildHarnessExecutionPlan({
+    manifest: base,
+    validateIds: ['bundle', 'leaf-b'],
+  });
+  if (ok.plan.join(',') !== 'bundle,leaf-b') {
+    failures.push(`unexpected plan: ${ok.plan.join(',')}`);
+  }
+  if (!ok.executedIds.includes('leaf-a') || !ok.executedIds.includes('bundle')) {
+    failures.push('expanded plan must include nested leaf-a exactly once');
+  }
+
+  expectThrow(
+    'duplicate harness id',
+    () =>
+      buildHarnessExecutionPlan({
+        manifest: [...base, { ...base[0], command: 'node scripts/a2.mjs' }],
+        validateIds: ['leaf-b'],
+      }),
+    /duplicate harness id: leaf-a/,
+  );
+
+  expectThrow(
+    'duplicate validate id',
+    () =>
+      buildHarnessExecutionPlan({
+        manifest: base,
+        validateIds: ['leaf-b', 'leaf-b'],
+      }),
+    /duplicate validate harness id: leaf-b/,
+  );
+
+  expectThrow(
+    'legacy/composite double execution',
+    () =>
+      buildHarnessExecutionPlan({
+        manifest: base,
+        validateIds: ['leaf-a', 'bundle'],
+      }),
+    /duplicate execution node 'leaf-a'/,
+  );
+
+  expectThrow(
+    'cycle',
+    () =>
+      buildHarnessExecutionPlan({
+        manifest: [
+          {
+            id: 'one',
+            file: 'scripts/one.mjs',
+            runner: 'node',
+            composite: true,
+            steps: ['pnpm harness:two'],
+            command: 'pnpm harness:two',
+          },
+          {
+            id: 'two',
+            file: 'scripts/two.mjs',
+            runner: 'node',
+            composite: true,
+            steps: ['pnpm harness:one'],
+            command: 'pnpm harness:one',
+          },
+        ],
+        validateIds: ['one'],
+      }),
+    /cyclic harness execution/,
+  );
+
+  expectThrow(
+    'unknown nested',
+    () =>
+      buildHarnessExecutionPlan({
+        manifest: [
+          {
+            id: 'parent',
+            file: 'scripts/parent.mjs',
+            runner: 'node',
+            composite: true,
+            steps: ['pnpm harness:missing-child'],
+            command: 'pnpm harness:missing-child',
+          },
+        ],
+        validateIds: ['parent'],
+      }),
+    /unknown nested harness id 'missing-child'/,
+  );
+
+  if (failures.length > 0) {
+    console.error('[harness-manifest] self-test failed:');
+    for (const failure of failures) console.error(`  - ${failure}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(
+    `[harness-manifest] integrity ok (${harnessManifest.length} harnesses, ${harnessExecutionPlan.length} validate roots, self-test ok)`,
+  );
+}
+
+if (process.argv[1] && resolvePath(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  runHarnessManifestSelfTests();
+}

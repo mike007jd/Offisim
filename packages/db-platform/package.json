@@ -19,6 +19,7 @@
     "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
+    "drizzle-kit": "0.31.10",
     "typescript": "^5.7.0"
   },
   "license": "MIT"

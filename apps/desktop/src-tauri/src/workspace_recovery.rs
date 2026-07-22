@@ -99,29 +99,81 @@ impl TryFrom<&str> for WorkspaceRecoveryReason {
     }
 }
 
-const fn is_valid_bound_provenance(
-    source: WorkspaceRecoverySource,
-    reason: WorkspaceRecoveryReason,
-) -> bool {
-    matches!(
-        (source, reason),
-        (
-            WorkspaceRecoverySource::ProjectCatalog,
-            WorkspaceRecoveryReason::CurrentProjectFolder
-        ) | (
-            WorkspaceRecoverySource::ConversationHistory,
-            WorkspaceRecoveryReason::RecentSuccessfulWorkspace
-        ) | (
-            WorkspaceRecoverySource::KnownRootRecovery,
-            WorkspaceRecoveryReason::RenamedSameFilesystemObject
-        ) | (
-            WorkspaceRecoverySource::KnownRootRecovery,
-            WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch
-        ) | (
-            WorkspaceRecoverySource::ResumeHistory,
-            WorkspaceRecoveryReason::ResumeHistoryIdentityMatch
-        )
-    )
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum WorkspaceBoundProvenance {
+    CurrentProjectFolder,
+    RecentSuccessfulWorkspace,
+    RenamedSameFilesystemObject,
+    UniqueNameRepoIdentityMatch,
+    ResumeHistoryIdentityMatch,
+}
+
+impl WorkspaceBoundProvenance {
+    pub(crate) const fn source(self) -> WorkspaceRecoverySource {
+        match self {
+            Self::CurrentProjectFolder => WorkspaceRecoverySource::ProjectCatalog,
+            Self::RecentSuccessfulWorkspace => WorkspaceRecoverySource::ConversationHistory,
+            Self::RenamedSameFilesystemObject | Self::UniqueNameRepoIdentityMatch => {
+                WorkspaceRecoverySource::KnownRootRecovery
+            }
+            Self::ResumeHistoryIdentityMatch => WorkspaceRecoverySource::ResumeHistory,
+        }
+    }
+
+    pub(crate) const fn reason(self) -> WorkspaceRecoveryReason {
+        match self {
+            Self::CurrentProjectFolder => WorkspaceRecoveryReason::CurrentProjectFolder,
+            Self::RecentSuccessfulWorkspace => WorkspaceRecoveryReason::RecentSuccessfulWorkspace,
+            Self::RenamedSameFilesystemObject => {
+                WorkspaceRecoveryReason::RenamedSameFilesystemObject
+            }
+            Self::UniqueNameRepoIdentityMatch => {
+                WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch
+            }
+            Self::ResumeHistoryIdentityMatch => WorkspaceRecoveryReason::ResumeHistoryIdentityMatch,
+        }
+    }
+
+    const fn from_wire(
+        source: WorkspaceRecoverySource,
+        reason: WorkspaceRecoveryReason,
+    ) -> Option<Self> {
+        match (source, reason) {
+            (
+                WorkspaceRecoverySource::ProjectCatalog,
+                WorkspaceRecoveryReason::CurrentProjectFolder,
+            ) => Some(Self::CurrentProjectFolder),
+            (
+                WorkspaceRecoverySource::ConversationHistory,
+                WorkspaceRecoveryReason::RecentSuccessfulWorkspace,
+            ) => Some(Self::RecentSuccessfulWorkspace),
+            (
+                WorkspaceRecoverySource::KnownRootRecovery,
+                WorkspaceRecoveryReason::RenamedSameFilesystemObject,
+            ) => Some(Self::RenamedSameFilesystemObject),
+            (
+                WorkspaceRecoverySource::KnownRootRecovery,
+                WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch,
+            ) => Some(Self::UniqueNameRepoIdentityMatch),
+            (
+                WorkspaceRecoverySource::ResumeHistory,
+                WorkspaceRecoveryReason::ResumeHistoryIdentityMatch,
+            ) => Some(Self::ResumeHistoryIdentityMatch),
+            _ => None,
+        }
+    }
+
+    fn known_root(reason: WorkspaceRecoveryReason) -> Result<Self, String> {
+        match reason {
+            WorkspaceRecoveryReason::RenamedSameFilesystemObject => {
+                Ok(Self::RenamedSameFilesystemObject)
+            }
+            WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch => {
+                Ok(Self::UniqueNameRepoIdentityMatch)
+            }
+            _ => Err("Workspace recovery produced an invalid bound provenance.".into()),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -150,9 +202,8 @@ pub(crate) struct WorkspaceEvidence {
 pub(crate) struct ResolvedWorkspaceRoot {
     pub(crate) canonical_root: PathBuf,
     pub(crate) root_identity_json: String,
-    pub(crate) source: WorkspaceRecoverySource,
+    pub(crate) provenance: WorkspaceBoundProvenance,
     pub(crate) confidence: f64,
-    pub(crate) reason_code: WorkspaceRecoveryReason,
     pub(crate) recovery_witness_binding_id: Option<String>,
     pub(crate) recovery_witness_authority_project_id: Option<String>,
     pub(crate) authority_snapshot_canonical_root: String,
@@ -163,6 +214,14 @@ pub(crate) struct ResolvedWorkspaceRoot {
 }
 
 impl ResolvedWorkspaceRoot {
+    pub(crate) const fn source(&self) -> WorkspaceRecoverySource {
+        self.provenance.source()
+    }
+
+    pub(crate) const fn reason_code(&self) -> WorkspaceRecoveryReason {
+        self.provenance.reason()
+    }
+
     pub(crate) fn verify_live(&self) -> Result<(), String> {
         let expected: StoredRootIdentity = serde_json::from_str(&self.root_identity_json)
             .map_err(|_| "Resolved workspace identity is invalid.".to_string())?;
@@ -176,7 +235,7 @@ impl ResolvedWorkspaceRoot {
 
     pub(crate) fn verify_initial_recovery_issuance(&self) -> Result<(), String> {
         self.verify_live()?;
-        if self.reason_code != WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch {
+        if self.provenance != WorkspaceBoundProvenance::UniqueNameRepoIdentityMatch {
             return Ok(());
         }
         let expected_digest = self.evidence.git_origin_digest.as_deref().ok_or_else(|| {
@@ -539,37 +598,36 @@ pub(crate) async fn resolve_resumed_workspace_root_from_pool(
                 "Cannot resume this task: its interrupted workspace reason is unsupported.".into(),
             )
         })?;
-    if !is_valid_bound_provenance(original_source, original_reason) {
-        return Err(ResumedWorkspaceRootError::Incompatible(
-            "Cannot resume this task: its interrupted workspace source and reason do not form a valid provenance pair."
-                .into(),
-        ));
-    }
+    let original_provenance = WorkspaceBoundProvenance::from_wire(original_source, original_reason)
+        .ok_or_else(|| {
+            ResumedWorkspaceRootError::Incompatible(
+                "Cannot resume this task: its interrupted workspace source and reason do not form a valid provenance pair."
+                    .into(),
+            )
+        })?;
     let recovery_witness_binding_id: Option<String> = row
         .try_get("recovery_witness_binding_id")
         .map_err(|error| format!("Decode interrupted binding witness: {error}"))?;
     let recovery_witness_authority_project_id: Option<String> = row
         .try_get("recovery_witness_authority_project_id")
         .map_err(|error| format!("Decode interrupted authority witness: {error}"))?;
-    let (source, reason_code, recovery_witness_binding_id, recovery_witness_authority_project_id) =
-        if matches!(
-            original_source,
-            WorkspaceRecoverySource::ProjectCatalog | WorkspaceRecoverySource::ResumeHistory
-        ) {
-            (
-                WorkspaceRecoverySource::ResumeHistory,
-                WorkspaceRecoveryReason::ResumeHistoryIdentityMatch,
-                None,
-                None,
-            )
-        } else {
-            (
-                original_source,
-                original_reason,
-                recovery_witness_binding_id,
-                recovery_witness_authority_project_id,
-            )
-        };
+    let (provenance, recovery_witness_binding_id, recovery_witness_authority_project_id) = if matches!(
+        original_provenance,
+        WorkspaceBoundProvenance::CurrentProjectFolder
+            | WorkspaceBoundProvenance::ResumeHistoryIdentityMatch
+    ) {
+        (
+            WorkspaceBoundProvenance::ResumeHistoryIdentityMatch,
+            None,
+            None,
+        )
+    } else {
+        (
+            original_provenance,
+            recovery_witness_binding_id,
+            recovery_witness_authority_project_id,
+        )
+    };
     let verify_max_attempts: i64 = row.try_get("verify_max_attempts").map_err(|error| {
         ResumedWorkspaceRootError::Incompatible(format!(
             "Cannot resume this task: its Project verification attempts are invalid: {error}"
@@ -593,11 +651,10 @@ pub(crate) async fn resolve_resumed_workspace_root_from_pool(
     let resolved = ResolvedWorkspaceRoot {
         canonical_root,
         root_identity_json,
-        source,
+        provenance,
         confidence: row
             .try_get("confidence")
             .map_err(|error| format!("Decode interrupted workspace confidence: {error}"))?,
-        reason_code,
         recovery_witness_binding_id,
         recovery_witness_authority_project_id,
         authority_snapshot_canonical_root: row
@@ -652,8 +709,8 @@ pub(crate) async fn resolve_resumed_workspace_root_from_pool(
             thread_id: scope.thread_id,
             canonical_root: &resolved.canonical_root,
             root_identity_json: &resolved.root_identity_json,
-            source: resolved.source,
-            reason_code: resolved.reason_code,
+            source: resolved.source(),
+            reason_code: resolved.reason_code(),
             basename_normalized: &resolved.evidence.basename_normalized,
             anchor: &resolved.evidence.anchor,
             git_origin_digest: resolved.evidence.git_origin_digest.as_deref(),
@@ -691,9 +748,8 @@ async fn resolve_workspace_root_from_pool_with_scanner(
             ResolvedWorkspaceRoot {
                 canonical_root,
                 root_identity_json: project.authority_identity_json.clone(),
-                source: WorkspaceRecoverySource::ProjectCatalog,
+                provenance: WorkspaceBoundProvenance::CurrentProjectFolder,
                 confidence: 1.0,
-                reason_code: WorkspaceRecoveryReason::CurrentProjectFolder,
                 recovery_witness_binding_id: None,
                 recovery_witness_authority_project_id: None,
                 authority_snapshot_canonical_root: project.catalog_root.clone(),
@@ -726,9 +782,8 @@ async fn resolve_workspace_root_from_pool_with_scanner(
                 ResolvedWorkspaceRoot {
                     canonical_root,
                     root_identity_json,
-                    source: WorkspaceRecoverySource::ConversationHistory,
+                    provenance: WorkspaceBoundProvenance::RecentSuccessfulWorkspace,
                     confidence: 1.0,
-                    reason_code: WorkspaceRecoveryReason::RecentSuccessfulWorkspace,
                     recovery_witness_binding_id,
                     recovery_witness_authority_project_id,
                     authority_snapshot_canonical_root: project.catalog_root.clone(),
@@ -830,9 +885,8 @@ async fn resolve_workspace_root_from_pool_with_scanner(
                     canonical_root: candidate.canonical_root.clone(),
                     root_identity_json: serde_json::to_string(&candidate.identity)
                         .map_err(|error| format!("Encode recovered workspace identity: {error}"))?,
-                    source: WorkspaceRecoverySource::KnownRootRecovery,
+                    provenance: WorkspaceBoundProvenance::known_root(reason_code)?,
                     confidence,
-                    reason_code,
                     recovery_witness_binding_id: witness_authority_fields(&witness.authority).0,
                     recovery_witness_authority_project_id: witness_authority_fields(
                         &witness.authority,
@@ -870,9 +924,10 @@ pub(crate) async fn durable_binding_is_valid(
     pool: &sqlx::SqlitePool,
     binding: DurableBindingEvidence<'_>,
 ) -> Result<bool, String> {
-    if !is_valid_bound_provenance(binding.source, binding.reason_code) {
+    let Some(provenance) = WorkspaceBoundProvenance::from_wire(binding.source, binding.reason_code)
+    else {
         return Ok(false);
-    }
+    };
     let expected_identity: StoredRootIdentity =
         match serde_json::from_str(binding.root_identity_json) {
             Ok(identity) => identity,
@@ -882,8 +937,10 @@ pub(crate) async fn durable_binding_is_valid(
         return Ok(false);
     }
     if matches!(
-        binding.source,
-        WorkspaceRecoverySource::ConversationHistory | WorkspaceRecoverySource::KnownRootRecovery
+        provenance,
+        WorkspaceBoundProvenance::RecentSuccessfulWorkspace
+            | WorkspaceBoundProvenance::RenamedSameFilesystemObject
+            | WorkspaceBoundProvenance::UniqueNameRepoIdentityMatch
     ) && recovered_root_is_occupied(
         pool,
         binding.project_id,
@@ -943,8 +1000,9 @@ pub(crate) async fn durable_binding_is_valid(
         return Ok(false);
     }
 
-    match binding.source {
-        WorkspaceRecoverySource::ProjectCatalog | WorkspaceRecoverySource::ResumeHistory => {
+    match provenance {
+        WorkspaceBoundProvenance::CurrentProjectFolder
+        | WorkspaceBoundProvenance::ResumeHistoryIdentityMatch => {
             let valid: i64 = sqlx::query_scalar(
                 r#"
                 SELECT EXISTS (
@@ -970,8 +1028,9 @@ pub(crate) async fn durable_binding_is_valid(
                 && binding.recovery_witness_binding_id.is_none()
                 && binding.recovery_witness_authority_project_id.is_none())
         }
-        WorkspaceRecoverySource::ConversationHistory
-        | WorkspaceRecoverySource::KnownRootRecovery => {
+        WorkspaceBoundProvenance::RecentSuccessfulWorkspace
+        | WorkspaceBoundProvenance::RenamedSameFilesystemObject
+        | WorkspaceBoundProvenance::UniqueNameRepoIdentityMatch => {
             let binding_witness = binding.recovery_witness_binding_id;
             let authority_witness = binding.recovery_witness_authority_project_id;
             if binding_witness.is_some() == authority_witness.is_some() {
@@ -997,29 +1056,27 @@ pub(crate) async fn durable_binding_is_valid(
             let Some(witness) = witness else {
                 return Ok(false);
             };
-            if binding.source == WorkspaceRecoverySource::ConversationHistory {
-                return Ok(binding.reason_code
-                    == WorkspaceRecoveryReason::RecentSuccessfulWorkspace
-                    && binding_witness.is_some()
+            if provenance == WorkspaceBoundProvenance::RecentSuccessfulWorkspace {
+                return Ok(binding_witness.is_some()
                     && witness.canonical_root == path_text(binding.canonical_root)?
                     && witness.root_identity == expected_identity);
             }
-            match binding.reason_code {
-                WorkspaceRecoveryReason::RenamedSameFilesystemObject => Ok(same_filesystem_object(
-                    &witness.root_identity,
-                    &expected_identity,
-                )),
-                WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch => Ok(binding_witness
+            match provenance {
+                WorkspaceBoundProvenance::RenamedSameFilesystemObject => Ok(
+                    same_filesystem_object(&witness.root_identity, &expected_identity),
+                ),
+                WorkspaceBoundProvenance::UniqueNameRepoIdentityMatch => Ok(binding_witness
                     .is_some()
                     && !binding.basename_normalized.is_empty()
                     && binding.git_origin_digest.is_some()
                     && binding.git_origin_digest == witness.git_origin_digest.as_deref()
                     && (binding.basename_normalized == witness.basename_normalized
                         || binding.basename_normalized == witness.project_name_normalized)),
-                _ => Ok(false),
+                WorkspaceBoundProvenance::CurrentProjectFolder
+                | WorkspaceBoundProvenance::RecentSuccessfulWorkspace
+                | WorkspaceBoundProvenance::ResumeHistoryIdentityMatch => Ok(false),
             }
         }
-        _ => Ok(false),
     }
 }
 
@@ -2234,7 +2291,7 @@ mod tests {
             .await
             .expect("resolve current root");
         assert!(
-            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code == WorkspaceRecoveryReason::CurrentProjectFolder)
+            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code() == WorkspaceRecoveryReason::CurrentProjectFolder)
         );
         assert_eq!(scanner.calls.load(Ordering::SeqCst), 0);
     }
@@ -2265,7 +2322,7 @@ mod tests {
             .await
             .expect("resolve direct home workspace");
         assert!(
-            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code == WorkspaceRecoveryReason::CurrentProjectFolder)
+            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code() == WorkspaceRecoveryReason::CurrentProjectFolder)
         );
         fs::remove_dir_all(&root).expect("remove direct home workspace");
     }
@@ -2283,7 +2340,7 @@ mod tests {
             .await
             .expect("resolve recent root");
         assert!(
-            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code == WorkspaceRecoveryReason::RecentSuccessfulWorkspace && root.canonical_root == recent)
+            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code() == WorkspaceRecoveryReason::RecentSuccessfulWorkspace && root.canonical_root == recent)
         );
         assert_eq!(scanner.calls.load(Ordering::SeqCst), 0);
     }
@@ -2338,7 +2395,7 @@ mod tests {
             .expect("resolve shared Project workspace");
         assert!(
             matches!(resolution, WorkspaceRootResolution::Bound(ref root)
-                if root.reason_code == WorkspaceRecoveryReason::RecentSuccessfulWorkspace
+                if root.reason_code() == WorkspaceRecoveryReason::RecentSuccessfulWorkspace
                     && root.canonical_root == recent),
             "Project-level workspace sharing must not become Conversation-exclusive"
         );
@@ -2357,7 +2414,7 @@ mod tests {
             .await
             .expect("resolve renamed root");
         assert!(
-            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code == WorkspaceRecoveryReason::RenamedSameFilesystemObject && root.confidence == 0.99 && root.canonical_root == renamed)
+            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code() == WorkspaceRecoveryReason::RenamedSameFilesystemObject && root.confidence == 0.99 && root.canonical_root == renamed)
         );
     }
 
@@ -2378,7 +2435,7 @@ mod tests {
             .await
             .expect("resolve repository root");
         assert!(
-            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code == WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch && root.confidence == 0.95 && root.canonical_root == recovered)
+            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code() == WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch && root.confidence == 0.95 && root.canonical_root == recovered)
         );
         let digest = git_origin_digest(&recovered).expect("origin digest");
         assert!(!digest.contains("secret-token"));
@@ -2403,7 +2460,7 @@ mod tests {
             panic!("repository-matched root should bind");
         };
         assert_eq!(
-            resolved.reason_code,
+            resolved.reason_code(),
             WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch
         );
 
@@ -2501,7 +2558,7 @@ mod tests {
             .expect("resolve authoritative inode despite lower-tier gaps");
         assert!(
             matches!(resolution, WorkspaceRootResolution::Bound(ref root)
-                if root.reason_code == WorkspaceRecoveryReason::RenamedSameFilesystemObject
+                if root.reason_code() == WorkspaceRecoveryReason::RenamedSameFilesystemObject
                     && root.canonical_root == renamed),
             "current Project authority inode is stronger than capped history or repo metadata"
         );
@@ -2525,7 +2582,7 @@ mod tests {
             .expect("resolve emoji inode");
         assert!(
             matches!(resolution, WorkspaceRootResolution::Bound(ref root)
-                if root.reason_code == WorkspaceRecoveryReason::RenamedSameFilesystemObject
+                if root.reason_code() == WorkspaceRecoveryReason::RenamedSameFilesystemObject
                     && root.canonical_root == renamed),
             "an empty normalized basename must never erase exact inode evidence"
         );
@@ -2567,7 +2624,7 @@ mod tests {
             .await
             .expect("resolve across known anchor");
         assert!(
-            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code == WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch && root.canonical_root == recovered)
+            matches!(resolution, WorkspaceRootResolution::Bound(ref root) if root.reason_code() == WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch && root.canonical_root == recovered)
         );
     }
 
@@ -2782,7 +2839,10 @@ mod tests {
         )
         .await
         .expect("resolve recovered resume");
-        assert_eq!(resolved.source, WorkspaceRecoverySource::KnownRootRecovery);
+        assert_eq!(
+            resolved.source(),
+            WorkspaceRecoverySource::KnownRootRecovery
+        );
         assert_eq!(
             resolved.recovery_witness_binding_id.as_deref(),
             Some("witness-1")
@@ -2899,7 +2959,7 @@ mod tests {
         for source in sources {
             for reason in reasons {
                 assert_eq!(
-                    is_valid_bound_provenance(source, reason),
+                    WorkspaceBoundProvenance::from_wire(source, reason).is_some(),
                     expected.contains(&(source, reason)),
                     "unexpected bound provenance decision for {source:?}/{reason:?}"
                 );
@@ -3133,8 +3193,8 @@ mod tests {
                 thread_id: "thread-1",
                 canonical_root: &resolved.canonical_root,
                 root_identity_json: &resolved.root_identity_json,
-                source: resolved.source,
-                reason_code: resolved.reason_code,
+                source: resolved.source(),
+                reason_code: resolved.reason_code(),
                 basename_normalized: &resolved.evidence.basename_normalized,
                 anchor: &resolved.evidence.anchor,
                 git_origin_digest: resolved.evidence.git_origin_digest.as_deref(),
@@ -3410,7 +3470,7 @@ mod tests {
             .expect("resolve beside unrelated local remote");
         assert!(
             matches!(resolution, WorkspaceRootResolution::Bound(ref root)
-                if root.reason_code == WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch
+                if root.reason_code() == WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch
                     && root.canonical_root == recovered),
             "a fully readable unsupported remote is a complete non-match"
         );
@@ -3439,7 +3499,7 @@ mod tests {
             .expect("resolve beside unrelated broken config");
         assert!(
             matches!(resolution, WorkspaceRootResolution::Bound(ref root)
-                if root.reason_code == WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch
+                if root.reason_code() == WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch
                     && root.canonical_root == recovered),
             "only name-relevant repository probes participate in uniqueness"
         );

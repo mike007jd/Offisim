@@ -1,11 +1,8 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
-import { and, desc, eq, like, or, sql } from 'drizzle-orm';
+import { and, eq, like, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
-  FileHistoryRepository,
-  FileHistoryRow,
   LibraryDocumentRow,
-  NewFileHistory,
   NewLibraryDocument,
   RuntimeRepositories,
 } from '../../repositories.js';
@@ -17,40 +14,10 @@ function now(): string {
 }
 
 export interface FilesDrizzleRepos {
-  fileHistory: FileHistoryRepository;
   libraryDocuments: RuntimeRepositories['libraryDocuments'];
 }
 
 export function createFilesDrizzleRepos(db: Db): FilesDrizzleRepos {
-  const fileHistory: FileHistoryRepository = {
-    async create(entry: NewFileHistory) {
-      db.insert(schema.fileHistory).values(entry).run();
-      return entry as FileHistoryRow;
-    },
-    async listByThread(threadId, opts) {
-      let query = db
-        .select()
-        .from(schema.fileHistory)
-        .where(eq(schema.fileHistory.thread_id, threadId))
-        .orderBy(desc(schema.fileHistory.created_at));
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
-      }
-      return query.all() as FileHistoryRow[];
-    },
-    async listBySnapshot(snapshotId) {
-      return db
-        .select()
-        .from(schema.fileHistory)
-        .where(eq(schema.fileHistory.snapshot_id, snapshotId))
-        .orderBy(schema.fileHistory.created_at)
-        .all() as FileHistoryRow[];
-    },
-    async deleteByThread(threadId) {
-      db.delete(schema.fileHistory).where(eq(schema.fileHistory.thread_id, threadId)).run();
-    },
-  };
-
   const libraryDocuments: RuntimeRepositories['libraryDocuments'] = {
     async create(doc: NewLibraryDocument) {
       const ts = now();
@@ -96,5 +63,5 @@ export function createFilesDrizzleRepos(db: Db): FilesDrizzleRepos {
     },
   };
 
-  return { fileHistory, libraryDocuments };
+  return { libraryDocuments };
 }

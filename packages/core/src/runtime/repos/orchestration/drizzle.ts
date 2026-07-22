@@ -1,5 +1,5 @@
 import * as schema from '@offisim/db-local/dist/schema.js';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type {
   CompanyRepository,
@@ -7,10 +7,7 @@ import type {
   GraphThreadRow,
   NewGraphThread,
   NewRuntimeEvent,
-  NewTaskRun,
   RuntimeEventRow,
-  TaskRunRepository,
-  TaskRunRow,
   ThreadRepository,
 } from '../../repositories.js';
 
@@ -23,7 +20,6 @@ function now(): string {
 export interface OrchestrationDrizzleRepos {
   companies: CompanyRepository;
   threads: ThreadRepository;
-  taskRuns: TaskRunRepository;
   events: EventRepository;
 }
 
@@ -139,83 +135,6 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
     },
   };
 
-  const taskRuns: TaskRunRepository = {
-    async create(t: NewTaskRun) {
-      const row = { ...t, finished_at: null };
-      db.insert(schema.taskRuns).values(row).run();
-      return row as TaskRunRow;
-    },
-    async findById(id) {
-      const rows = db
-        .select()
-        .from(schema.taskRuns)
-        .where(eq(schema.taskRuns.task_run_id, id))
-        .all();
-      return (rows[0] as TaskRunRow | undefined) ?? null;
-    },
-    async findByThread(threadId) {
-      return db
-        .select()
-        .from(schema.taskRuns)
-        .where(eq(schema.taskRuns.thread_id, threadId))
-        .all() as TaskRunRow[];
-    },
-    async updateStatus(id, status, outputJson) {
-      const finished = ['completed', 'failed', 'cancelled'].includes(status) ? now() : null;
-      db.update(schema.taskRuns)
-        .set({ status, output_json: outputJson ?? undefined, finished_at: finished ?? undefined })
-        .where(eq(schema.taskRuns.task_run_id, id))
-        .run();
-    },
-    async findQueue(companyId, opts) {
-      // Single inner-join over (task_runs ⨝ graph_threads) replaces the prior
-      // two-step "select threads → inArray on task_runs" pattern, which became
-      // an N+1 once a company accumulated many threads.
-      const conditions = [eq(schema.graphThreads.company_id, companyId)];
-      if (opts?.statuses && opts.statuses.length > 0) {
-        conditions.push(inArray(schema.taskRuns.status, opts.statuses));
-      }
-
-      let query = db
-        .select({ taskRun: schema.taskRuns })
-        .from(schema.taskRuns)
-        .innerJoin(
-          schema.graphThreads,
-          eq(schema.taskRuns.thread_id, schema.graphThreads.thread_id),
-        )
-        .where(and(...conditions))
-        .orderBy(desc(schema.taskRuns.started_at))
-        .$dynamic();
-
-      if (typeof opts?.limit === 'number') {
-        query = query.limit(opts.limit);
-      }
-
-      return query.all().map((row) => row.taskRun) as TaskRunRow[];
-    },
-    async countByStatus(companyId) {
-      const rows = db
-        .select({
-          status: schema.taskRuns.status,
-          cnt: sql<number>`COUNT(*)`,
-        })
-        .from(schema.taskRuns)
-        .innerJoin(
-          schema.graphThreads,
-          eq(schema.taskRuns.thread_id, schema.graphThreads.thread_id),
-        )
-        .where(eq(schema.graphThreads.company_id, companyId))
-        .groupBy(schema.taskRuns.status)
-        .all();
-
-      const counts: Record<string, number> = {};
-      for (const r of rows) {
-        counts[r.status] = r.cnt;
-      }
-      return counts;
-    },
-  };
-
   const events: EventRepository = {
     async insert(e: NewRuntimeEvent) {
       db.insert(schema.runtimeEvents).values(e).run();
@@ -230,5 +149,5 @@ export function createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRep
     },
   };
 
-  return { companies, threads, taskRuns, events };
+  return { companies, threads, events };
 }

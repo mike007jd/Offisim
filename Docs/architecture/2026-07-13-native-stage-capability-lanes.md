@@ -65,7 +65,7 @@ Ten commands are exposed only to the main renderer WebView:
 
 Only `http` and `https` navigation is accepted. `file`, `javascript`, `data`, Tauri IPC/custom schemes, popups, and downloads are denied. Remote child labels are `browser-*`.
 
-Capabilities match `webviews: ["main", "main-live"]`, not the containing window. Therefore a `browser-*` child receives no core, Pi, filesystem, shell, GitHub, or plugin IPC capability. This is locked by negative tests.
+Capabilities match only `webviews: ["main"]`, not the containing window. Window reconstruction reuses that same label, so there is no second privileged renderer lane. Therefore a `browser-*` child receives no core, Pi, filesystem, shell, GitHub, or plugin IPC capability. This is locked by negative tests.
 
 ## Audit contract
 

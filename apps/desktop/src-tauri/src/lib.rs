@@ -86,10 +86,9 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
 const MAIN_WINDOW_LABEL: &str = "main";
-const MAIN_WINDOW_FALLBACK_LABEL: &str = "main-live";
 
 fn is_main_renderer_label(label: &str) -> bool {
-    matches!(label, MAIN_WINDOW_LABEL | MAIN_WINDOW_FALLBACK_LABEL)
+    label == MAIN_WINDOW_LABEL
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -132,41 +131,37 @@ fn native_dropped_file(path: &Path) -> NativeDroppedFile {
     }
 }
 
-fn create_main_window_with_label<R: tauri::Runtime>(
+fn create_main_window<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
-    label: &str,
 ) -> tauri::Result<tauri::WebviewWindow<R>> {
-    let window =
-        tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App("index.html".into()))
-            .title("Offisim")
-            .inner_size(1440.0, 900.0)
-            .min_inner_size(1024.0, 700.0)
-            .visible(true)
-            .focused(true)
-            .center()
-            .build()?;
+    let window = tauri::WebviewWindowBuilder::new(
+        app,
+        MAIN_WINDOW_LABEL,
+        tauri::WebviewUrl::App("index.html".into()),
+    )
+    .title("Offisim")
+    .inner_size(1440.0, 900.0)
+    .min_inner_size(1024.0, 700.0)
+    .visible(true)
+    .focused(true)
+    .center()
+    .build()?;
     #[cfg(target_os = "macos")]
     macos_window_activation::raise_webview_window(&window);
     Ok(window)
 }
 
-fn create_main_window<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
-) -> tauri::Result<tauri::WebviewWindow<R>> {
-    create_main_window_with_label(app, MAIN_WINDOW_LABEL)
-}
-
 fn restore_main_window<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     window: &tauri::WebviewWindow<R>,
-) -> bool {
-    let _ = app.show();
-    let _ = window.unminimize();
-    let _ = window.show();
-    let _ = window.set_focus();
+) -> tauri::Result<()> {
+    app.show()?;
+    window.unminimize()?;
+    window.show()?;
+    window.set_focus()?;
     #[cfg(target_os = "macos")]
     macos_window_activation::raise_webview_window(window);
-    window.is_visible().unwrap_or(false)
+    Ok(())
 }
 
 fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
@@ -174,15 +169,7 @@ fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Re
         Some(window) => window,
         None => create_main_window(app)?,
     };
-    if restore_main_window(app, &window) {
-        return Ok(());
-    }
-    let fallback = match app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL) {
-        Some(window) => window,
-        None => create_main_window_with_label(app, MAIN_WINDOW_FALLBACK_LABEL)?,
-    };
-    restore_main_window(app, &fallback);
-    Ok(())
+    restore_main_window(app, &window)
 }
 
 fn schedule_ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
@@ -427,10 +414,6 @@ pub fn run() {
                     if cfg!(debug_assertions) || force_devtools {
                         if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
                             window.open_devtools();
-                        } else if let Some(window) =
-                            app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL)
-                        {
-                            window.open_devtools();
                         }
                     }
                 }
@@ -518,13 +501,7 @@ mod tests {
             .get("webviews")
             .and_then(Value::as_array)
             .expect("webviews array");
-        assert_eq!(
-            webviews,
-            &vec![
-                Value::String(MAIN_WINDOW_LABEL.into()),
-                Value::String(MAIN_WINDOW_FALLBACK_LABEL.into()),
-            ]
-        );
+        assert_eq!(webviews, &vec![Value::String(MAIN_WINDOW_LABEL.into())]);
         assert!(capability.get("remote").is_none());
         assert!(capability.get("windows").is_none());
         assert!(!webviews.iter().any(|label| {
@@ -592,7 +569,7 @@ mod tests {
     #[test]
     fn remote_browser_children_are_not_main_renderers() {
         assert!(is_main_renderer_label(MAIN_WINDOW_LABEL));
-        assert!(is_main_renderer_label(MAIN_WINDOW_FALLBACK_LABEL));
+        assert!(!is_main_renderer_label("main-live"));
         assert!(!is_main_renderer_label("browser-session-1"));
         assert!(!is_main_renderer_label("external"));
     }

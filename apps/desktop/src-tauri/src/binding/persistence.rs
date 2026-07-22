@@ -546,6 +546,8 @@ pub(super) async fn publish_resolved_task_workspace_binding(
     }
     let canonical_root_text = canonical_root_text(&resolved.canonical_root)?;
     let now = now_unix_ms()?;
+    let source = resolved.source();
+    let reason_code = resolved.reason_code();
     let binding = TaskWorkspaceBinding {
         binding_ref: random_ref(),
         binding_id: random_id(),
@@ -566,9 +568,9 @@ pub(super) async fn publish_resolved_task_workspace_binding(
         authority_snapshot_canonical_root: resolved.authority_snapshot_canonical_root,
         authority_snapshot_root_identity_json: resolved.authority_snapshot_root_identity_json,
         authority_snapshot_updated_at_unix_ms: resolved.authority_snapshot_updated_at_unix_ms,
-        source: resolved.source,
+        source,
         confidence: resolved.confidence,
-        reason_code: resolved.reason_code,
+        reason_code,
         issued_at_unix_ms: now,
         expires_at_unix_ms: now.saturating_add(BINDING_TTL_MS),
         project_verify_command: resolved.settings.verify_command,

@@ -50,7 +50,12 @@ export type RuntimeExecutionMode = 'auto' | 'desktop-trusted' | 'browser-limited
 export type LlmExecutionLane = 'pi-agent';
 
 /** External runtime engines that can execute a single Offisim-dispatched employee task. */
-export const ENGINE_IDS = ['codex-engine', 'claude-engine', 'openai-engine'] as const;
+export const ENGINE_IDS = [
+  'codex-engine',
+  'claude-engine',
+  'api-engine',
+  'offisim-engine',
+] as const;
 export type EngineId = (typeof ENGINE_IDS)[number];
 
 export type RuntimeEngineCapabilityTier =

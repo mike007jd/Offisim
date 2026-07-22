@@ -45,7 +45,7 @@ impl NativeSessionMode {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PiAgentExecuteRequest {
     pub(super) request_id: String,
     pub(super) text: String,
@@ -62,12 +62,10 @@ pub struct PiAgentExecuteRequest {
     /// Whether a turn may continue from Conversation/native session context when
     /// no Project folder can be recovered. Missions, direct delegation, and
     /// durable resume are always validated as `required` by the backend.
-    #[serde(default)]
     pub(super) workspace_requirement: TaskWorkspaceRequirement,
     /// Explicit one-shot recovery from a tracked terminal native session that
     /// the backend proved missing/invalid. `fresh` is never a silent fallback:
     /// the normal resolver rejects it unless an existing durable mapping is bad.
-    #[serde(default)]
     pub(super) native_session_mode: NativeSessionMode,
     /// Failed normal-Turn root whose durable prestart error authorized the
     /// explicit fresh-session action. Required only for `fresh`; never forwarded
@@ -271,7 +269,7 @@ pub struct PiAgentHostResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PiExecutionProvenance {
     pub(super) engine_id: String,
     pub(super) account_id: String,
@@ -295,7 +293,7 @@ pub struct PiExecutionTarget {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RawPiExecutionTarget {
     engine_id: String,
     account_id: String,
@@ -343,7 +341,7 @@ pub struct PiModelSource {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RawPiModelSource {
     kind: String,
     #[serde(default)]
@@ -390,7 +388,7 @@ impl<'de> Deserialize<'de> for PiModelSource {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PiAdapterIdentity {
     pub(super) id: String,
     pub(super) version: String,

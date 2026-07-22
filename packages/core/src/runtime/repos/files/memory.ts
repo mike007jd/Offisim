@@ -1,52 +1,10 @@
 import type {
-  FileHistoryRepository,
-  FileHistoryRow,
   LibraryDocumentRepository,
   LibraryDocumentRow,
   NewLibraryDocument,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 import { cloneRows } from '../memory-utils.js';
-
-export class MemoryFileHistoryRepository implements FileHistoryRepository {
-  private readonly rows: FileHistoryRow[] = [];
-
-  constructor(initialRows?: Iterable<FileHistoryRow>) {
-    if (!initialRows) return;
-    this.rows.push(...cloneRows(initialRows));
-  }
-
-  async create(entry: FileHistoryRow): Promise<FileHistoryRow> {
-    const row = { ...entry };
-    this.rows.push(row);
-    return row;
-  }
-
-  async listByThread(threadId: string, opts?: { limit?: number }): Promise<FileHistoryRow[]> {
-    const rows = this.rows
-      .filter((row) => row.thread_id === threadId)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
-    return opts?.limit ? rows.slice(0, opts.limit) : rows;
-  }
-
-  async listBySnapshot(snapshotId: string): Promise<FileHistoryRow[]> {
-    return this.rows
-      .filter((row) => row.snapshot_id === snapshotId)
-      .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  }
-
-  async deleteByThread(threadId: string): Promise<void> {
-    for (let index = this.rows.length - 1; index >= 0; index--) {
-      if (this.rows[index]?.thread_id === threadId) {
-        this.rows.splice(index, 1);
-      }
-    }
-  }
-
-  snapshot(): FileHistoryRow[] {
-    return cloneRows(this.rows);
-  }
-}
 
 export class MemoryLibraryDocumentRepository implements LibraryDocumentRepository {
   private readonly store = new Map<string, LibraryDocumentRow>();
@@ -104,14 +62,12 @@ export class MemoryLibraryDocumentRepository implements LibraryDocumentRepositor
 }
 
 export interface FilesMemoryRepos {
-  fileHistory: MemoryFileHistoryRepository;
   libraryDocuments: MemoryLibraryDocumentRepository;
 }
 
 export function createFilesMemoryRepos(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
 ): FilesMemoryRepos {
-  const fileHistory = new MemoryFileHistoryRepository(snapshot?.fileHistory);
   const libraryDocuments = new MemoryLibraryDocumentRepository(snapshot?.libraryDocuments);
-  return { fileHistory, libraryDocuments };
+  return { libraryDocuments };
 }

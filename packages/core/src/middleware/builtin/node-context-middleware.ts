@@ -1,19 +1,13 @@
-import type { AgentContextPack } from '@offisim/shared-types';
 import type { NodeSummaryRepository } from '../../runtime/repositories.js';
-import type { AgentContextPackService } from '../../services/agent-context-pack-service.js';
 import type { LlmCallContext, LlmMiddleware } from '../types.js';
 
 export interface NodeContextMiddlewareOptions {
   maxSummaries?: number;
   maxChars?: number;
-  summaryBudget?: number;
-  packBudget?: number;
 }
 
 const DEFAULT_MAX_SUMMARIES = 6;
 const DEFAULT_MAX_CHARS = 1800;
-const DEFAULT_SUMMARY_BUDGET = 1000;
-const DEFAULT_PACK_BUDGET = 700;
 
 function buildSummaryBlock(
   summaries: Awaited<ReturnType<NodeSummaryRepository['listByThread']>>,
@@ -29,118 +23,26 @@ function buildSummaryBlock(
   return content.trimEnd();
 }
 
-function buildPackBlock(pack: AgentContextPack, maxChars: number): string {
-  const heading = '## Runtime Context (current state)\n';
-  let content = heading;
-
-  if (pack.recommendedFocus) {
-    const line = `Focus: ${pack.recommendedFocus}\n`;
-    if (content.length + line.length > maxChars)
-      return content === heading ? '' : content.trimEnd();
-    content += line;
-  }
-
-  if (pack.pendingInteraction) {
-    const pi = pack.pendingInteraction;
-    const line = `Pending: [${pi.kind}] ${pi.title}${pi.severity === 'high' ? ' (HIGH)' : ''}\n`;
-    if (content.length + line.length > maxChars)
-      return content === heading ? '' : content.trimEnd();
-    content += line;
-  }
-
-  if (pack.activeTaskRuns.length > 0) {
-    const header = `Active tasks: ${pack.activeTaskRuns.length}\n`;
-    if (content.length + header.length <= maxChars) {
-      content += header;
-      for (const task of pack.activeTaskRuns) {
-        const line = `- [${task.status}] ${task.taskType}${task.employeeId ? ` (${task.employeeId})` : ''}\n`;
-        if (content.length + line.length > maxChars) break;
-        content += line;
-      }
-    }
-  }
-
-  // recentNodeSummaries are intentionally NOT rendered here —
-  // the execution context block already covers them via buildSummaryBlock().
-
-  return content === heading ? '' : content.trimEnd();
-}
-
 export class NodeContextMiddleware implements LlmMiddleware {
   readonly name = 'node-context';
   readonly priority = 20;
   private readonly maxSummaries: number;
   private readonly maxChars: number;
-  private readonly summaryBudget: number;
-  private readonly packBudget: number;
 
   constructor(
     private readonly nodeSummaryRepo: NodeSummaryRepository,
     options: NodeContextMiddlewareOptions = {},
-    private readonly packService?: AgentContextPackService,
   ) {
     this.maxSummaries = options.maxSummaries ?? DEFAULT_MAX_SUMMARIES;
     this.maxChars = options.maxChars ?? DEFAULT_MAX_CHARS;
-    this.summaryBudget = options.summaryBudget ?? DEFAULT_SUMMARY_BUDGET;
-    this.packBudget = options.packBudget ?? DEFAULT_PACK_BUDGET;
   }
 
   async before(ctx: LlmCallContext): Promise<LlmCallContext> {
     const summaries = await this.nodeSummaryRepo.listByThread(ctx.runtimeCtx.threadId, {
       limit: this.maxSummaries,
     });
-    const pack =
-      (await this.packService?.buildPack({
-        preloadedSummaries: summaries,
-        threadId: ctx.runtimeCtx.threadId,
-      })) ?? null;
-
-    const hasPackContent =
-      pack &&
-      (pack.pendingInteraction ||
-        pack.activeTaskRuns.length > 0 ||
-        pack.recentNodeSummaries.length > 0 ||
-        pack.recommendedFocus);
-
-    let effectiveSummaryBudget: number;
-    let effectivePackBudget: number;
-
-    if (summaries.length === 0 && !hasPackContent) {
-      return ctx;
-    }
-
-    if (summaries.length === 0) {
-      effectiveSummaryBudget = 0;
-      effectivePackBudget = this.maxChars;
-    } else if (!hasPackContent) {
-      effectiveSummaryBudget = this.maxChars;
-      effectivePackBudget = 0;
-    } else {
-      effectiveSummaryBudget = this.summaryBudget;
-      effectivePackBudget = this.packBudget;
-    }
-
-    const parts: string[] = [];
-
-    if (summaries.length > 0 && effectiveSummaryBudget > 0) {
-      const summaryBlock = buildSummaryBlock(summaries, effectiveSummaryBudget);
-      if (summaryBlock) parts.push(summaryBlock);
-    }
-
-    if (hasPackContent && pack && effectivePackBudget > 0) {
-      const packBlock = buildPackBlock(pack, effectivePackBudget);
-      if (packBlock) parts.push(packBlock);
-    }
-
-    if (parts.length === 0) return ctx;
-
-    const contextBlock = parts.join('\n\n');
-    if (contextBlock.length > this.maxChars) {
-      // Hard cap: truncate the combined block
-      return this.injectBlock(ctx, contextBlock.slice(0, this.maxChars));
-    }
-
-    return this.injectBlock(ctx, contextBlock);
+    const contextBlock = buildSummaryBlock(summaries, this.maxChars);
+    return contextBlock ? this.injectBlock(ctx, contextBlock) : ctx;
   }
 
   private injectBlock(ctx: LlmCallContext, block: string): LlmCallContext {

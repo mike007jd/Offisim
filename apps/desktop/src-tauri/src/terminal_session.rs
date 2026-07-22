@@ -992,8 +992,7 @@ fn event_sink_for<R: Runtime>(app: &tauri::AppHandle<R>) -> EventSink {
     Arc::new(move |event| {
         // Target only the trusted renderer WebViews. Never broadcast native PTY
         // bytes to remote browser-session children.
-        let _ = app.emit_to("main", TERMINAL_EVENT_NAME, event.clone());
-        let _ = app.emit_to("main-live", TERMINAL_EVENT_NAME, event);
+        let _ = app.emit_to("main", TERMINAL_EVENT_NAME, event);
     })
 }
 

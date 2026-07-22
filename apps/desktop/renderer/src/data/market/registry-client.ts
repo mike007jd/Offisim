@@ -52,12 +52,8 @@ export function marketplaceConnectionSettings(): MarketplaceConnectionSettings {
 export function writeMarketplaceBaseUrl(baseUrl: string | null): void {
   if (typeof window === 'undefined') return;
   const normalized = trimEnv(baseUrl);
-  try {
-    if (normalized) window.localStorage.setItem(MARKETPLACE_BASE_URL_STORAGE_KEY, normalized);
-    else window.localStorage.removeItem(MARKETPLACE_BASE_URL_STORAGE_KEY);
-  } catch {
-    // The following connection refresh surfaces storage failures as unchanged state.
-  }
+  if (normalized) window.localStorage.setItem(MARKETPLACE_BASE_URL_STORAGE_KEY, normalized);
+  else window.localStorage.removeItem(MARKETPLACE_BASE_URL_STORAGE_KEY);
 }
 
 /** Raw localStorage value (still sealed). Empty/absent → undefined. */
@@ -72,9 +68,8 @@ function rawStoredMarketplaceToken(): string | undefined {
 
 /**
  * The usable (decrypted) marketplace token. The value is stored sealed at rest
- * (S1/S2) via `secret_encrypt`; `secretDecrypt` passes legacy plaintext through
- * unchanged, so this works for both old and new stored values. Async because it
- * crosses the Tauri command boundary.
+ * (S1/S2) via `secret_encrypt`; invalid or unsealed values fail closed. Async
+ * because it crosses the Tauri command boundary.
  */
 async function storedMarketplaceToken(): Promise<string | undefined> {
   const raw = rawStoredMarketplaceToken();
@@ -85,7 +80,7 @@ async function storedMarketplaceToken(): Promise<string | undefined> {
 
 /**
  * Presence check only — does NOT need to decrypt. Whether the stored value is a
- * sealed envelope or legacy plaintext, its existence means a token is set. Stays
+ * sealed envelope, its existence means a token is set. Stays
  * synchronous so render-path callers don't have to await.
  */
 function marketplaceTokenConfigured(): boolean {
@@ -94,18 +89,13 @@ function marketplaceTokenConfigured(): boolean {
 
 export async function writeMarketplaceToken(token: string | null): Promise<void> {
   if (typeof window === 'undefined') return;
-  try {
-    const trimmed = token?.trim() ?? '';
-    if (trimmed) {
-      // Seal before it ever touches localStorage (S1/S2).
-      const sealed = await secretEncrypt(trimmed);
-      window.localStorage.setItem(MARKETPLACE_TOKEN_STORAGE_KEY, sealed);
-    } else {
-      window.localStorage.removeItem(MARKETPLACE_TOKEN_STORAGE_KEY);
-    }
-  } catch {
-    // Storage can be unavailable in hardened preview contexts; callers refresh
-    // registry state and surface the resulting connection status.
+  const trimmed = token?.trim() ?? '';
+  if (trimmed) {
+    // Seal before it ever touches localStorage (S1/S2).
+    const sealed = await secretEncrypt(trimmed);
+    window.localStorage.setItem(MARKETPLACE_TOKEN_STORAGE_KEY, sealed);
+  } else {
+    window.localStorage.removeItem(MARKETPLACE_TOKEN_STORAGE_KEY);
   }
 }
 

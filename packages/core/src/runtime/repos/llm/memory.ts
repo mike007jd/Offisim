@@ -1,47 +1,11 @@
 import { matchCostRate } from '../../../utils/glob-match.js';
 import type {
-  LlmCallRepository,
-  LlmCallRow,
   ModelCostRateRepository,
   ModelCostRateRow,
-  NewLlmCall,
   NewModelCostRate,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 import { cloneRows } from '../memory-utils.js';
-
-export class MemoryLlmCallRepository implements LlmCallRepository {
-  private readonly rows = new Map<string, LlmCallRow>();
-
-  constructor(initial?: Iterable<LlmCallRow>) {
-    if (initial) {
-      for (const row of initial) this.rows.set(row.llm_call_id, { ...row });
-    }
-  }
-
-  async create(c: NewLlmCall): Promise<LlmCallRow> {
-    const row: LlmCallRow = { ...c };
-    this.rows.set(row.llm_call_id, row);
-    return row;
-  }
-
-  async findByThread(threadId: string): Promise<LlmCallRow[]> {
-    return [...this.rows.values()].filter((c) => c.thread_id === threadId);
-  }
-
-  async findByThreadIds(threadIds: string[]): Promise<LlmCallRow[]> {
-    const idSet = new Set(threadIds);
-    return [...this.rows.values()].filter((c) => c.thread_id !== null && idSet.has(c.thread_id));
-  }
-
-  async findByTaskRun(taskRunId: string): Promise<LlmCallRow[]> {
-    return [...this.rows.values()].filter((c) => c.task_run_id === taskRunId);
-  }
-
-  snapshot(): LlmCallRow[] {
-    return cloneRows(this.rows.values());
-  }
-}
 
 export class MemoryModelCostRateRepository implements ModelCostRateRepository {
   private readonly rows: ModelCostRateRow[] = [];
@@ -97,14 +61,12 @@ export class MemoryModelCostRateRepository implements ModelCostRateRepository {
 }
 
 export interface LlmMemoryRepos {
-  llmCalls: MemoryLlmCallRepository;
   costRates: MemoryModelCostRateRepository;
 }
 
 export function createLlmMemoryRepos(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
 ): LlmMemoryRepos {
-  const llmCalls = new MemoryLlmCallRepository(snapshot?.llmCalls);
   const costRates = new MemoryModelCostRateRepository(snapshot?.costRates);
-  return { llmCalls, costRates };
+  return { costRates };
 }

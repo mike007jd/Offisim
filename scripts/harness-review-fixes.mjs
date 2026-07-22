@@ -173,8 +173,12 @@ assertNoMatch(
 const employeePersona = await source('apps/desktop/renderer/src/data/employee-persona.ts');
 assertIncludesAll(
   employeePersona,
-  ["invokeCommand('agent_runtime_status'", 'availableModel.runtimeModelRef?.trim()'],
-  'Employee model bindings must resolve against the safe account catalog exact reference.',
+  [
+    "invokeCommand('agent_runtime_status'",
+    'serializeRuntimeExecutionSelector',
+    'runtimeModelRef: model.runtimeModelRef',
+  ],
+  'Employee model bindings must resolve against the safe account catalog serialized selector.',
 );
 assertNoMatch(
   employeePersona,

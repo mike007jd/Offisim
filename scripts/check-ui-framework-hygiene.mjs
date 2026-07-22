@@ -435,6 +435,7 @@ const checks = [
       // quirks, so they must name providers. Same exemption as provider-bridge.
       'apps/desktop/renderer/src/lib/tauri-llm-fetch.ts',
       'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
+      'apps/desktop/renderer/src/runtime/native-engine-runtime-config.ts',
       'apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts',
     ],
   },
@@ -467,6 +468,7 @@ const checks = [
       // provider-bridge.
       'apps/desktop/renderer/src/lib/tauri-llm-fetch.ts',
       'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
+      'apps/desktop/renderer/src/runtime/native-engine-runtime-config.ts',
       'apps/desktop/renderer/src/assistant/runtime/desktop-chat-runtime.ts',
     ],
   },

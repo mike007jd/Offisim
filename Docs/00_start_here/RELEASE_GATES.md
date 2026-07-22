@@ -31,12 +31,13 @@ when the list changes.
 | Gate | Command | Proves |
 |------|---------|--------|
 | Validate | `pnpm validate` | types plus product/document truth, Pi API / Codex / Claude Code orchestration hosts, runtime, workspace, UI, security-boundary, and dead-code harnesses |
+| Lint | `pnpm lint` | no Biome errors and no new or increased warning signature beyond the ratcheted prelaunch baseline |
 | UI hygiene | `pnpm check:ui-hygiene` | no stale/dead UI copy, no hardcoded provider copy outside settings, design-token discipline |
 | Security harness | `pnpm security:harness` | platform auth/body-limit, doc-engine CSV, git-source tarball cap/zip-bomb, registry-client, web fetch/search boundaries |
 | Supply chain | `pnpm audit:prod` | no unresolved high/critical advisories in the prod tree; the repository-native pnpm 11 client calls the current audit endpoint (transitive highs are pinned via root workspace overrides) |
 | Desktop Rust | `cargo test --locked` in `apps/desktop/src-tauri` | path containment, shell classifier, redaction, attachment store, local db baseline/refusal behavior |
 
-`node scripts/release-gates.mjs --lane=node` runs only the first four Node gates
+`node scripts/release-gates.mjs --lane=node` runs only the first five Node gates
 and never prepares or invokes Cargo. `--lane=rust` runs only Desktop Rust;
 omitting `--lane` runs both lanes.
 

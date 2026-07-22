@@ -888,12 +888,13 @@ pub(super) fn validate_resume_root_prestart(
                         .and_then(serde_json::Value::as_u64)
                         == Some(crate::claude_agent_host::CLAUDE_HOST_PROTOCOL_VERSION)
                 }
-                None | Some("api") => {
+                Some("api") => {
                     context_object
                         .get("wireProtocolVersion")
                         .and_then(serde_json::Value::as_u64)
                         == Some(u64::from(crate::pi_agent_host::PI_HOST_PROTOCOL_VERSION))
                 }
+                None => false,
                 Some(_) => false,
             };
     if !compatible_runtime {
@@ -1550,6 +1551,13 @@ pub(super) mod tests {
             "workspaceRequirement": "optional",
             "workspaceAvailability": "bound",
             "runtime": AGENT_RUNTIME_CONTEXT_ID,
+            "executionTarget": {
+                "engineId": "api",
+                "accountId": "api-account-fixture",
+                "billingMode": "api",
+                "modelId": "api-model-fixture",
+                "modelSource": "native",
+            },
             "piSdkVersion": "0.79.8",
             "wireProtocolVersion": crate::pi_agent_host::PI_HOST_PROTOCOL_VERSION,
             "nativeSessionId": "session-a",
@@ -1751,7 +1759,7 @@ pub(super) mod tests {
             panic!("repository-matched recovery should resolve before issuance");
         };
         assert_eq!(
-            resolved.reason_code,
+            resolved.reason_code(),
             WorkspaceRecoveryReason::UniqueNameRepoIdentityMatch
         );
         write_origin(&recovered, "git@example.com:other/repository.git");
@@ -1942,6 +1950,49 @@ pub(super) mod tests {
             Some("running")
         ));
         assert!(!resume_history_is_recoverable("app_restart", None));
+    }
+
+    #[tokio::test]
+    async fn resume_compatibility_rejects_missing_engine_identity() {
+        let root = std::env::temp_dir().join(format!("offisim-binding-{}", random_id()));
+        std::fs::create_dir_all(&root).expect("create missing-engine resume fixture");
+        let root = root.canonicalize().expect("canonical missing-engine root");
+        let pool = resume_race_pool("app_restart", "interrupted", &root).await;
+        let runtime_context_json: String = sqlx::query_scalar(
+            "SELECT runtime_context_json FROM agent_runs WHERE run_id = 'turn-1'",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("read missing-engine runtime context");
+        let mut runtime_context: serde_json::Value =
+            serde_json::from_str(&runtime_context_json).expect("decode runtime context");
+        runtime_context
+            .as_object_mut()
+            .expect("runtime context object")
+            .remove("executionTarget");
+        sqlx::query("UPDATE agent_runs SET runtime_context_json = ? WHERE run_id = 'turn-1'")
+            .bind(runtime_context.to_string())
+            .execute(&pool)
+            .await
+            .expect("remove engine identity");
+
+        let compatibility = task_workspace_resume_compatibility_from_pool(
+            &pool,
+            &root,
+            "history-1",
+            "company-1",
+            "project-1",
+            "thread-1",
+            "turn-1",
+            TaskWorkspaceAccess::Write,
+        )
+        .await
+        .expect("evaluate missing engine identity");
+        let projection = serde_json::to_value(compatibility).expect("serialize compatibility");
+        assert_eq!(projection["status"], "changed");
+        assert_eq!(projection["reason"], "runtime_incompatible");
+
+        std::fs::remove_dir_all(root).expect("remove missing-engine resume fixture");
     }
 
     #[tokio::test]

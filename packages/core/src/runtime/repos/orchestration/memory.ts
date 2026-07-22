@@ -5,10 +5,7 @@ import type {
   GraphThreadRow,
   NewGraphThread,
   NewRuntimeEvent,
-  NewTaskRun,
   RuntimeEventRow,
-  TaskRunRepository,
-  TaskRunRow,
   ThreadRepository,
 } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
@@ -152,79 +149,6 @@ export class MemoryThreadRepository implements ThreadRepository {
   }
 }
 
-export class MemoryTaskRunRepository implements TaskRunRepository {
-  private readonly rows = new Map<string, TaskRunRow>();
-
-  constructor(
-    initial?: Iterable<TaskRunRow>,
-    private readonly threads?: ThreadRepository,
-  ) {
-    if (initial) {
-      for (const row of initial) this.rows.set(row.task_run_id, { ...row });
-    }
-  }
-
-  async create(t: NewTaskRun): Promise<TaskRunRow> {
-    const row: TaskRunRow = { ...t, finished_at: null };
-    this.rows.set(row.task_run_id, row);
-    return row;
-  }
-
-  async findById(id: string): Promise<TaskRunRow | null> {
-    return this.rows.get(id) ?? null;
-  }
-
-  async findByThread(threadId: string): Promise<TaskRunRow[]> {
-    return [...this.rows.values()].filter((r) => r.thread_id === threadId);
-  }
-
-  async updateStatus(id: string, status: string, outputJson?: string | null): Promise<void> {
-    const row = this.rows.get(id);
-    if (row) {
-      this.rows.set(id, {
-        ...row,
-        status,
-        output_json: outputJson ?? row.output_json,
-        finished_at: ['completed', 'failed', 'cancelled'].includes(status)
-          ? now()
-          : row.finished_at,
-      });
-    }
-  }
-
-  async findQueue(
-    companyId: string,
-    opts?: { statuses?: string[]; limit?: number },
-  ): Promise<TaskRunRow[]> {
-    const threadRows = (await this.threads?.findByCompany(companyId)) ?? [];
-    const companyThreadIds = new Set(threadRows.map((t) => t.thread_id));
-    let results = [...this.rows.values()].filter((r) => companyThreadIds.has(r.thread_id));
-    if (opts?.statuses) {
-      const statuses = new Set(opts.statuses);
-      results = results.filter((r) => statuses.has(r.status));
-    }
-    results.sort((a, b) => b.started_at.localeCompare(a.started_at));
-    if (opts?.limit) results = results.slice(0, opts.limit);
-    return results;
-  }
-
-  async countByStatus(companyId: string): Promise<Record<string, number>> {
-    const threadRows = (await this.threads?.findByCompany(companyId)) ?? [];
-    const companyThreadIds = new Set(threadRows.map((t) => t.thread_id));
-    const counts: Record<string, number> = {};
-    for (const r of this.rows.values()) {
-      if (companyThreadIds.has(r.thread_id)) {
-        counts[r.status] = (counts[r.status] ?? 0) + 1;
-      }
-    }
-    return counts;
-  }
-
-  snapshot(): TaskRunRow[] {
-    return cloneRows(this.rows.values());
-  }
-}
-
 export class MemoryEventRepository implements EventRepository {
   private readonly store: NewRuntimeEvent[] = [];
 
@@ -250,7 +174,6 @@ export class MemoryEventRepository implements EventRepository {
 export interface OrchestrationMemoryRepos {
   companies: MemoryCompanyRepository;
   threads: MemoryThreadRepository;
-  taskRuns: MemoryTaskRunRepository;
   events: MemoryEventRepository;
 }
 
@@ -259,7 +182,6 @@ export function createOrchestrationMemoryRepos(
 ): OrchestrationMemoryRepos {
   const companies = new MemoryCompanyRepository(snapshot?.companies);
   const threads = new MemoryThreadRepository(snapshot?.threads);
-  const taskRuns = new MemoryTaskRunRepository(snapshot?.taskRuns, threads);
   const events = new MemoryEventRepository(snapshot?.events);
-  return { companies, threads, taskRuns, events };
+  return { companies, threads, events };
 }

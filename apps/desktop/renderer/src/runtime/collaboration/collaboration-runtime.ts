@@ -57,7 +57,6 @@ function persistCollaborationMcpAudit(
   void repos.mcpAudit.create({
     audit_id: crypto.randomUUID(),
     thread_id: event.threadId,
-    task_run_id: null,
     employee_id: event.employeeId ?? 'unknown',
     server_name: server,
     tool_name: tool,

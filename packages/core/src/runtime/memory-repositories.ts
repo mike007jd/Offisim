@@ -23,10 +23,7 @@ import { createSkillsMemoryRepos } from './repos/skills/memory.js';
 import { createWorkspaceMemoryRepos } from './repos/workspace/memory.js';
 import type { RuntimeRepositories } from './repositories.js';
 
-export {
-  MemoryAgentEventRepository,
-  MemoryRecoveryKnowledgeRepository,
-} from './repos/agent-events/memory.js';
+export { MemoryAgentEventRepository } from './repos/agent-events/memory.js';
 export { MemoryDeliverableRepository } from './repos/deliverables/memory.js';
 export { MemorySkillRepository } from './repos/skills/memory.js';
 export {
@@ -51,29 +48,21 @@ export {
 } from './repos/collaboration/memory.js';
 export {
   MemoryActiveInteractionRepository,
-  MemoryHandoffRepository,
   MemoryInteractionHistoryRepository,
   MemoryMeetingRepository,
-  MemoryToolCallRepository,
 } from './repos/conversations/memory.js';
 export {
   MemoryEmployeeRepository,
   MemoryEmployeeVersionRepository,
 } from './repos/employees/memory.js';
-export {
-  MemoryFileHistoryRepository,
-  MemoryLibraryDocumentRepository,
-} from './repos/files/memory.js';
+export { MemoryLibraryDocumentRepository } from './repos/files/memory.js';
 export {
   MemoryAssetBindingRepository,
   MemoryInstallTransactionRepository,
   MemoryInstalledAssetRepository,
   MemoryInstalledPackageRepository,
 } from './repos/install/memory.js';
-export {
-  MemoryLlmCallRepository,
-  MemoryModelCostRateRepository,
-} from './repos/llm/memory.js';
+export { MemoryModelCostRateRepository } from './repos/llm/memory.js';
 export {
   MemoryCompactSummaryRepository,
   MemoryNodeSummaryRepository,
@@ -82,7 +71,6 @@ export { MemoryMcpToolGrantRepository } from './repos/mcp-tool-grants/memory.js'
 export {
   MemoryCompanyRepository,
   MemoryEventRepository,
-  MemoryTaskRunRepository,
   MemoryThreadRepository,
 } from './repos/orchestration/memory.js';
 export {
@@ -168,16 +156,12 @@ export function createMemoryRepositories(
       return {
         companies: orchestration.companies.snapshot(),
         threads: orchestration.threads.snapshot(),
-        taskRuns: orchestration.taskRuns.snapshot(),
         events: orchestration.events.snapshot(),
         employees: employeesFamily.employees.snapshot(),
         employeeVersions: employeesFamily.employeeVersions.snapshot(),
-        toolCalls: conversationsFamily.toolCalls.snapshot(),
-        handoffs: conversationsFamily.handoffs.snapshot(),
         meetings: conversationsFamily.meetings.snapshot(),
         activeInteractions: conversationsFamily.activeInteractions.snapshot(),
         interactionHistory: conversationsFamily.interactionHistory.snapshot(),
-        llmCalls: llmFamily.llmCalls.snapshot(),
         costRates: llmFamily.costRates.snapshot(),
         installTransactions: installFamily.installTransactions.snapshot(),
         installedPackages: installFamily.installedPackages.snapshot(),
@@ -192,7 +176,6 @@ export function createMemoryRepositories(
         memories: memorySystemFamily.memories.snapshot(),
         nodeSummaries: memorySystemFamily.nodeSummaries.snapshot(),
         compactSummaries: memorySystemFamily.compactSummaries.snapshot(),
-        fileHistory: filesFamily.fileHistory.snapshot(),
         libraryDocuments: filesFamily.libraryDocuments.snapshot(),
         companyTemplates: workspaceFamily.companyTemplates.snapshot(),
         officeLayouts: workspaceFamily.officeLayouts.snapshot(),
@@ -202,7 +185,6 @@ export function createMemoryRepositories(
         projectAssignments: projectsFamily.projectAssignments.snapshot(),
         chatThreads: projectsFamily.chatThreads.snapshot(),
         agentEvents: agentEventsFamily.agentEvents.snapshot(),
-        recoveryKnowledge: agentEventsFamily.recoveryKnowledge.snapshot(),
         deliverables: deliverablesFamily.deliverables.snapshot(),
         skills: skillsFamily.skills.snapshot(),
       };

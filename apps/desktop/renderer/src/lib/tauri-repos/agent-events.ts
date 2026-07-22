@@ -1,11 +1,4 @@
-import type {
-  AgentEventRepository,
-  AgentEventRow,
-  NewAgentEvent,
-  NewRecoveryKnowledge,
-  RecoveryKnowledgeRepository,
-  RecoveryKnowledgeRow,
-} from '@offisim/core/browser';
+import type { AgentEventRepository, AgentEventRow, NewAgentEvent } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
@@ -16,7 +9,6 @@ function now(): string {
 
 export interface AgentEventsTauriRepos {
   agentEvents: AgentEventRepository;
-  recoveryKnowledge: RecoveryKnowledgeRepository;
 }
 
 export function createAgentEventsTauriRepos(db: TauriDrizzleDb): AgentEventsTauriRepos {
@@ -142,107 +134,5 @@ export function createAgentEventsTauriRepos(db: TauriDrizzleDb): AgentEventsTaur
     },
   };
 
-  const recoveryKnowledge: RecoveryKnowledgeRepository = {
-    async upsert(entry: NewRecoveryKnowledge) {
-      const existing = (await db
-        .select()
-        .from(schema.recoveryKnowledge)
-        .where(
-          and(
-            eq(schema.recoveryKnowledge.symptom, entry.symptom),
-            eq(schema.recoveryKnowledge.cause, entry.cause),
-          ),
-        )) as RecoveryKnowledgeRow[];
-
-      if (existing.length > 0) {
-        const [current] = existing;
-        if (!current) {
-          throw new Error('Recovery knowledge lookup returned empty result');
-        }
-
-        await db
-          .update(schema.recoveryKnowledge)
-          .set({ fix_strategy: entry.fix_strategy, fix_config: entry.fix_config ?? null })
-          .where(eq(schema.recoveryKnowledge.knowledge_id, current.knowledge_id));
-
-        return {
-          ...current,
-          fix_strategy: entry.fix_strategy,
-          fix_config: entry.fix_config ?? null,
-        };
-      }
-
-      const row: RecoveryKnowledgeRow = {
-        ...entry,
-        fix_config: entry.fix_config ?? null,
-        success_count: 0,
-        failure_count: 0,
-        last_used_at: null,
-        created_at: now(),
-      };
-      await db.insert(schema.recoveryKnowledge).values(row);
-      return row;
-    },
-    async findBySymptom(symptom) {
-      return (await db
-        .select()
-        .from(schema.recoveryKnowledge)
-        .where(eq(schema.recoveryKnowledge.symptom, symptom))) as RecoveryKnowledgeRow[];
-    },
-    async findBestFix(symptom) {
-      const rows = (await db
-        .select()
-        .from(schema.recoveryKnowledge)
-        .where(eq(schema.recoveryKnowledge.symptom, symptom))) as RecoveryKnowledgeRow[];
-      if (rows.length === 0) {
-        return null;
-      }
-      return (
-        rows.sort((a, b) => {
-          const rateA =
-            a.success_count + a.failure_count > 0
-              ? a.success_count / (a.success_count + a.failure_count)
-              : 0.5;
-          const rateB =
-            b.success_count + b.failure_count > 0
-              ? b.success_count / (b.success_count + b.failure_count)
-              : 0.5;
-          if (rateB !== rateA) {
-            return rateB - rateA;
-          }
-          return (b.last_used_at ?? '').localeCompare(a.last_used_at ?? '');
-        })[0] ?? null
-      );
-    },
-    async incrementSuccess(knowledgeId) {
-      await db
-        .update(schema.recoveryKnowledge)
-        .set({
-          success_count: sql`success_count + 1`,
-          last_used_at: now(),
-        })
-        .where(eq(schema.recoveryKnowledge.knowledge_id, knowledgeId));
-    },
-    async incrementFailure(knowledgeId) {
-      await db
-        .update(schema.recoveryKnowledge)
-        .set({
-          failure_count: sql`failure_count + 1`,
-          last_used_at: now(),
-        })
-        .where(eq(schema.recoveryKnowledge.knowledge_id, knowledgeId));
-    },
-    async findAll(opts) {
-      let query = db
-        .select()
-        .from(schema.recoveryKnowledge)
-        .orderBy(desc(schema.recoveryKnowledge.created_at));
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
-      }
-      return (await query) as RecoveryKnowledgeRow[];
-    },
-  };
-
-  return { agentEvents, recoveryKnowledge };
+  return { agentEvents };
 }

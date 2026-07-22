@@ -297,9 +297,17 @@ export async function persistStartedNativeSessionIdentity(input: {
     );
   }
   const actualModel = hostModelRef(input.event.model);
+  const nativeRuntimeVersion = nonEmptyString(input.event.nativeRuntimeVersion);
+  if (engineId === 'codex' && !nativeRuntimeVersion) {
+    throw new AgentHostCommandError(
+      'protocol',
+      'Codex Started event did not include the initialized app-server user agent.',
+    );
+  }
   const nextContext: Partial<PersistedRunContext> = {
     ...input.runtimeContext,
     nativeSessionId: sessionId,
+    ...(nativeRuntimeVersion ? { nativeRuntimeVersion } : {}),
     ...(actualModel ? { model: actualModel } : {}),
   };
   await persistRunContextPatchWithRepositories(
@@ -311,6 +319,7 @@ export async function persistStartedNativeSessionIdentity(input: {
   // The object is shared with cursor and terminal checkpoints. Do not expose a
   // native identity until its engine-specific checkpoint passed durable readback.
   input.runtimeContext.nativeSessionId = sessionId;
+  if (nativeRuntimeVersion) input.runtimeContext.nativeRuntimeVersion = nativeRuntimeVersion;
   if (actualModel) input.runtimeContext.model = actualModel;
 }
 

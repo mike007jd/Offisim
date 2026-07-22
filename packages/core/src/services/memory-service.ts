@@ -7,7 +7,6 @@ const logger = new Logger('memory');
 import { memoryCreated } from '../events/event-factories.js';
 import type { LlmGateway, LlmRequest } from '../llm/gateway.js';
 import { pruneLlmMessages } from '../llm/prune-messages.js';
-import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import { normalizeMemoryDedupeKey } from '../runtime/repos/memory-system/patch.js';
 import type { MemoryEntryRow, MemoryRepository } from '../runtime/repositories.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
@@ -52,8 +51,6 @@ export class MemoryService {
   private readonly queue: MemoryUpdateQueueService;
   private readonly policy: RuntimeMemoryPolicy;
 
-  private readonly systemCaller: RecordedSystemLlmCaller | null;
-
   constructor(
     private readonly memoryRepo: MemoryRepository,
     private readonly llmGateway: LlmGateway,
@@ -61,10 +58,8 @@ export class MemoryService {
     options?: {
       queue?: MemoryUpdateQueueService;
       policy?: RuntimeMemoryPolicy;
-      systemCaller?: RecordedSystemLlmCaller;
     },
   ) {
-    this.systemCaller = options?.systemCaller ?? null;
     this.queue = options?.queue ?? new MemoryUpdateQueueService();
     this.policy = options?.policy ?? {
       enabled: true,
@@ -154,7 +149,6 @@ export class MemoryService {
     importance: number;
     confidence?: number;
     threadId: string;
-    sourceTaskRunId?: string | null;
     metadata?: Record<string, unknown>;
   }): Promise<string> {
     const content = this.normalizeContent(params.content);
@@ -183,7 +177,6 @@ export class MemoryService {
         confidence,
         metadataJson,
         sourceThreadId: params.threadId,
-        sourceTaskRunId: params.sourceTaskRunId ?? null,
       });
       return existing.memory_id;
     }
@@ -209,7 +202,6 @@ export class MemoryService {
         confidence,
         metadataJson,
         sourceThreadId: params.threadId,
-        sourceTaskRunId: params.sourceTaskRunId ?? null,
       });
       return overlapMatch.memory_id;
     }
@@ -227,7 +219,6 @@ export class MemoryService {
       dedupe_key: dedupeKey,
       metadata_json: metadataJson,
       source_thread_id: params.threadId,
-      source_task_run_id: params.sourceTaskRunId ?? null,
     });
 
     this.eventBus.emit(
@@ -308,12 +299,7 @@ export class MemoryService {
   ): Promise<void> {
     if (opts?.skip || !this.policy.enabled) return;
 
-    // The bare `'default'` literal only resolves when the systemCaller owns its
-    // own model config; on the raw gateway path it can hit a provider that has
-    // no 'default' alias and silently fail. Use the caller's active model when
-    // provided, and skip (with a warning) when neither is available rather than
-    // gambling on the sentinel.
-    const reflectionModel = opts?.model ?? (this.systemCaller ? 'default' : null);
+    const reflectionModel = opts?.model;
     if (!reflectionModel) {
       logger.warn('reflectAndRemember skipped: no model resolved', { employeeId });
       return;
@@ -333,9 +319,7 @@ export class MemoryService {
           maxTokens: 1024,
           signal: opts?.signal,
         };
-        const response = this.systemCaller
-          ? await this.systemCaller.chat('memory_reflection', chatRequest)
-          : await this.llmGateway.chat(chatRequest);
+        const response = await this.llmGateway.chat(chatRequest);
         rawResponse = response.content;
       } catch (error) {
         logger.error('reflectAndRemember failed', error, { employeeId });

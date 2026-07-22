@@ -46,7 +46,6 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       last_reinforced_at: entry.last_reinforced_at ?? ts,
       metadata_json: entry.metadata_json ?? null,
       source_thread_id: entry.source_thread_id ?? null,
-      source_task_run_id: entry.source_task_run_id ?? null,
       created_at: ts,
       accessed_at: ts,
       access_count: 0,
@@ -139,7 +138,6 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       confidence: patch.confidence ? Math.max(row.confidence, patch.confidence) : row.confidence,
       metadata_json: patch.metadataJson ?? row.metadata_json,
       source_thread_id: patch.sourceThreadId ?? row.source_thread_id,
-      source_task_run_id: patch.sourceTaskRunId ?? row.source_task_run_id,
       reinforcement_count: row.reinforcement_count + 1,
       last_reinforced_at: now(),
     };

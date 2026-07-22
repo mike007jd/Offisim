@@ -5,14 +5,11 @@ import type {
   GraphThreadRow,
   NewGraphThread,
   NewRuntimeEvent,
-  NewTaskRun,
   RuntimeEventRow,
-  TaskRunRepository,
-  TaskRunRow,
   ThreadRepository,
 } from '@offisim/core';
 import * as schema from '@offisim/db-local';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 function now(): string {
@@ -22,7 +19,6 @@ function now(): string {
 export interface OrchestrationTauriRepos {
   companies: CompanyRepository;
   threads: ThreadRepository;
-  taskRuns: TaskRunRepository;
   events: EventRepository;
 }
 
@@ -132,78 +128,6 @@ export function createOrchestrationTauriRepos(db: TauriDrizzleDb): Orchestration
     },
   };
 
-  const taskRuns: TaskRunRepository = {
-    async create(t: NewTaskRun) {
-      const row = { ...t, finished_at: null };
-      await db.insert(schema.taskRuns).values(row);
-      return row as TaskRunRow;
-    },
-    async findById(id) {
-      const rows = await db
-        .select()
-        .from(schema.taskRuns)
-        .where(eq(schema.taskRuns.task_run_id, id));
-      return (rows[0] as TaskRunRow | undefined) ?? null;
-    },
-    async findByThread(threadId: string) {
-      return (await db
-        .select()
-        .from(schema.taskRuns)
-        .where(eq(schema.taskRuns.thread_id, threadId))) as TaskRunRow[];
-    },
-    async updateStatus(id, status, outputJson) {
-      const finished = ['completed', 'failed', 'cancelled'].includes(status) ? now() : null;
-      await db
-        .update(schema.taskRuns)
-        .set({ status, output_json: outputJson ?? undefined, finished_at: finished ?? undefined })
-        .where(eq(schema.taskRuns.task_run_id, id));
-    },
-    async findQueue(companyId, opts) {
-      // Single inner-join replaces the prior two-step "select threads → inArray
-      // on task_runs" pattern (A/HIGH N+1 on multi-thread companies).
-      const conditions = [eq(schema.graphThreads.company_id, companyId)];
-      if (opts?.statuses && opts.statuses.length > 0) {
-        conditions.push(inArray(schema.taskRuns.status, opts.statuses));
-      }
-
-      let query = db
-        .select({ taskRun: schema.taskRuns })
-        .from(schema.taskRuns)
-        .innerJoin(
-          schema.graphThreads,
-          eq(schema.taskRuns.thread_id, schema.graphThreads.thread_id),
-        )
-        .where(and(...conditions))
-        .orderBy(desc(schema.taskRuns.started_at));
-
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
-      }
-
-      return (await query).map((row) => row.taskRun) as TaskRunRow[];
-    },
-    async countByStatus(companyId) {
-      const rows = await db
-        .select({
-          status: schema.taskRuns.status,
-          cnt: sql<number>`COUNT(*)`,
-        })
-        .from(schema.taskRuns)
-        .innerJoin(
-          schema.graphThreads,
-          eq(schema.taskRuns.thread_id, schema.graphThreads.thread_id),
-        )
-        .where(eq(schema.graphThreads.company_id, companyId))
-        .groupBy(schema.taskRuns.status);
-
-      const counts: Record<string, number> = {};
-      for (const r of rows) {
-        counts[r.status] = Number(r.cnt);
-      }
-      return counts;
-    },
-  };
-
   const events: EventRepository = {
     async insert(e: NewRuntimeEvent) {
       await db.insert(schema.runtimeEvents).values(e);
@@ -217,5 +141,5 @@ export function createOrchestrationTauriRepos(db: TauriDrizzleDb): Orchestration
     },
   };
 
-  return { companies, threads, taskRuns, events };
+  return { companies, threads, events };
 }

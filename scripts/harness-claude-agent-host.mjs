@@ -33,7 +33,7 @@ const [
   commandInvocations,
   commandDefinitions,
   tauriCommands,
-  runtime,
+  runtimeConfig,
   permissions,
   packageJson,
   desktopPackage,
@@ -45,7 +45,7 @@ const [
   readText('apps/desktop/src-tauri/src/claude_agent_host/commands.rs'),
   readText('apps/desktop/src-tauri/src/agent_host_runtime.rs'),
   readText('apps/desktop/renderer/src/lib/tauri-commands.ts'),
-  readText('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts'),
+  readText('apps/desktop/renderer/src/runtime/native-engine-runtime-config.ts'),
   readText('apps/desktop/src-tauri/permissions/agent-bridges.toml'),
   readText('package.json').then(JSON.parse),
   readText('apps/desktop/package.json').then(JSON.parse),
@@ -85,9 +85,9 @@ assert.match(
 );
 assert.match(commands, /pub async fn claude_agent_execute/);
 assert.match(commands, /pub fn claude_agent_abort/);
-assert.match(runtime, /const CLAUDE_ENGINE_RUNTIME[\s\S]*runtimeVersion: '1'/);
+assert.match(runtimeConfig, /const CLAUDE_ENGINE_RUNTIME[\s\S]*protocolVersion: 1/);
 assert.match(
-  runtime,
+  runtimeConfig,
   /const CLAUDE_ENGINE_RUNTIME[\s\S]*interactions: \{ approval: false, userInput: false \}/,
 );
 

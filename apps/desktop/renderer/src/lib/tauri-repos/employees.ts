@@ -28,8 +28,9 @@ function now(): string {
 //
 // SEAM NOTE: if a future runtime consumer reads this column *directly* (not via
 // this repo), it will see a sealed envelope and must decrypt it itself — the
-// envelope format is documented in `apps/desktop/src-tauri/src/local_secret.rs`
-// and the legacy-plaintext passthrough makes the migration non-breaking.
+// envelope format is documented in `apps/desktop/src-tauri/src/local_secret.rs`.
+// Unsealed or invalid values fail closed; this prelaunch baseline has no
+// plaintext compatibility path.
 
 async function sealA2aToken(token: string | null | undefined): Promise<string | null> {
   if (token === null || token === undefined) return null;
@@ -38,7 +39,7 @@ async function sealA2aToken(token: string | null | undefined): Promise<string | 
   return secretEncrypt(trimmed);
 }
 
-/** Decrypt `a2a_token` in-place on a freshly-read row (legacy plaintext passes through). */
+/** Decrypt `a2a_token` in-place on a freshly-read row; invalid values fail closed. */
 async function unsealEmployeeRow(row: EmployeeRow): Promise<EmployeeRow> {
   if (row.a2a_token === null || row.a2a_token === undefined) return row;
   return { ...row, a2a_token: await secretDecrypt(row.a2a_token) };

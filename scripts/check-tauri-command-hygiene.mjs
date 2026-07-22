@@ -373,7 +373,7 @@ if (
 const ghCapability = JSON.parse(readFileSync(join(ROOT, GH_CAPABILITY), 'utf8'));
 if (
   ghCapability.identifier !== 'offisim:github' ||
-  JSON.stringify(ghCapability.webviews) !== JSON.stringify(['main', 'main-live']) ||
+  JSON.stringify(ghCapability.webviews) !== JSON.stringify(['main']) ||
   ghCapability.windows !== undefined ||
   ghCapability.remote !== undefined ||
   JSON.stringify(ghCapability.permissions) !== JSON.stringify(['github'])
@@ -381,7 +381,7 @@ if (
   failures.push({
     file: GH_CAPABILITY,
     line: 1,
-    message: 'github capability must mount only on the main and main-live renderer webviews',
+    message: 'github capability must mount only on the main renderer webview',
   });
 }
 

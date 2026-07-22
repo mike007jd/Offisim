@@ -29,8 +29,7 @@ use crate::task_workspace_binding::{
 use crate::time_util::{rfc3339_from_unix, stable_hex};
 
 use super::protocol::{
-    CodexConnection, CodexHostError, StartupCancellation, CODEX_ADAPTER_ID,
-    CODEX_APP_SERVER_VERSION,
+    CodexConnection, CodexHostError, StartupCancellation, CODEX_ADAPTER_ID, CODEX_ADAPTER_VERSION,
 };
 use super::stream::{
     opaque_session_id, PendingInteractionKind, PendingUserInputQuestion, RunMetadata, RunOutcome,
@@ -506,6 +505,7 @@ async fn execute_claimed(
                 session_file: None,
                 model: Some(model),
                 model_fallback_message: None,
+                native_runtime_version: run.connection.runtime_user_agent(),
             });
             if let Err(error) = start_native_turn(
                 &run.connection,
@@ -670,6 +670,7 @@ async fn enhance_claimed(
                 session_file: None,
                 model: Some(model),
                 model_fallback_message: None,
+                native_runtime_version: run.connection.runtime_user_agent(),
             });
             if let Err(error) = start_native_turn(
                 &run.connection,
@@ -1811,7 +1812,7 @@ fn model_summary(actual_model: &str) -> CodexModelSummary {
 fn adapter_identity() -> CodexAdapterIdentity {
     CodexAdapterIdentity {
         id: CODEX_ADAPTER_ID.into(),
-        version: CODEX_APP_SERVER_VERSION.into(),
+        version: CODEX_ADAPTER_VERSION.into(),
     }
 }
 
@@ -2489,6 +2490,11 @@ time.sleep(30)
             CodexConnection::spawn(&binary, None, &root, Some(Arc::clone(&stream)), None, None)
                 .await
                 .unwrap();
+        assert_eq!(
+            connection.runtime_user_agent().as_deref(),
+            Some("codex-cli/0.144.4"),
+            "initialize userAgent must remain available as native runtime provenance"
+        );
         let target = CodexExecutionTarget {
             engine_id: ENGINE_ID.into(),
             account_id: ACCOUNT_ID.into(),

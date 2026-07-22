@@ -242,9 +242,7 @@ export class SynopsisGenerator {
         },
       ],
     };
-    const response = ctx.systemCaller
-      ? await ctx.systemCaller.chat('conversation_budget', chatRequest)
-      : await ctx.llmGateway.chat(chatRequest);
+    const response = await ctx.llmGateway.chat(chatRequest);
     return normalizeSummary(response);
   }
 

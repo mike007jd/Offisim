@@ -20,6 +20,9 @@ minimumReleaseAgeExclude:
   - '@earendil-works/pi-tui@0.80.9'
 
 overrides:
+  # Better Auth exposes drizzle-kit only as an optional tooling peer. Offisim's
+  # runtime uses drizzle-orm; schema export stays package-local in db-platform.
+  'better-auth@1.6.23>drizzle-kit': '-'
   drizzle-orm: 0.45.2
   kysely: ^0.28.17
   fast-uri: 3.1.4

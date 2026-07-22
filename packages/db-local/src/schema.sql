@@ -151,21 +151,8 @@ CREATE TABLE IF NOT EXISTS asset_bindings (
   updated_at TEXT NOT NULL,
   CHECK (installed_asset_id IS NOT NULL OR install_txn_id IS NOT NULL)
 );
-CREATE TABLE IF NOT EXISTS task_runs (
-  task_run_id TEXT PRIMARY KEY NOT NULL,
-  thread_id TEXT NOT NULL,
-  employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
-  parent_task_run_id TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
-  task_type TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('planned', 'queued', 'running', 'waiting_dependency', 'waiting_human', 'blocked', 'completed', 'failed', 'cancelled')),
-  input_json TEXT,
-  output_json TEXT,
-  started_at TEXT NOT NULL,
-  finished_at TEXT
-);
 -- Multi-agent delegation run tree. A row per run (root or delegated child);
--- the tree is rebuilt from parent_run_id / root_run_id. Distinct from task_runs
--- (work items) — agent_runs are cognition instances of an employee identity.
+-- the tree is rebuilt from parent_run_id / root_run_id.
 CREATE TABLE IF NOT EXISTS agent_runs (
   run_id              TEXT PRIMARY KEY NOT NULL,
   -- thread_id is the product-layer chat_threads.thread_id (no FK — chat threads
@@ -371,28 +358,6 @@ WHEN (
 BEGIN
   SELECT RAISE(ABORT, 'competitive draft winner does not belong to its group');
 END;
-CREATE TABLE IF NOT EXISTS tool_calls (
-  tool_call_id TEXT PRIMARY KEY NOT NULL,
-  task_run_id TEXT NOT NULL REFERENCES task_runs(task_run_id) ON DELETE CASCADE,
-  tool_name TEXT NOT NULL,
-  capability_name TEXT,
-  rack_id TEXT REFERENCES racks(rack_id) ON DELETE SET NULL,
-  status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
-  review_state TEXT NOT NULL DEFAULT 'none' CHECK (review_state IN ('none', 'required', 'approved', 'rejected')),
-  request_json TEXT,
-  response_json TEXT,
-  started_at TEXT NOT NULL,
-  finished_at TEXT
-);
-CREATE TABLE IF NOT EXISTS handoff_events (
-  handoff_id TEXT PRIMARY KEY NOT NULL,
-  thread_id TEXT NOT NULL,
-  from_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
-  to_employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
-  reason TEXT,
-  payload_json TEXT,
-  created_at TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS meeting_sessions (
   meeting_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -412,29 +377,6 @@ CREATE TABLE IF NOT EXISTS runtime_events (
   severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('debug', 'info', 'warning', 'error')),
   payload_json TEXT,
   created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS llm_calls (
-  llm_call_id   TEXT PRIMARY KEY NOT NULL,
-  thread_id     TEXT,
-  task_run_id   TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
-  node_name     TEXT NOT NULL,
-  provider      TEXT NOT NULL,
-  model         TEXT NOT NULL,
-  input_tokens  INTEGER NOT NULL,
-  output_tokens INTEGER NOT NULL,
-  cache_read_input_tokens INTEGER NOT NULL DEFAULT 0,
-  cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
-  usage_raw_json TEXT,
-  response_json  TEXT,
-  latency_ms    INTEGER,
-  error_code    TEXT,
-  request_json TEXT,
-  tool_calls_json TEXT,
-  prompt_hash TEXT,
-  tools_hash TEXT,
-  response_hash TEXT,
-  recording_mode TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS employee_versions (
   version_id    TEXT PRIMARY KEY NOT NULL,
@@ -684,34 +626,6 @@ CREATE TABLE IF NOT EXISTS agent_events (
   parent_event_id  TEXT,            -- causal chain: this event was caused by which event
   created_at       TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS recovery_knowledge (
-  knowledge_id   TEXT PRIMARY KEY NOT NULL,
-  symptom        TEXT NOT NULL,    -- 'LLM_TIMEOUT', 'TOOL_CALL_FAILED:read_file', 'PARSE_ERROR:json'
-  cause          TEXT NOT NULL,    -- 'rate_limit', 'file_not_found', 'malformed_llm_output'
-  fix_strategy   TEXT NOT NULL,    -- 'retry_with_backoff', 'switch_model', 'skip_and_continue', 'replan_step', 'escalate', or custom
-  fix_config     TEXT,             -- JSON config for the strategy: {"maxRetries": 3, "backoffMs": 5000}
-  success_count  INTEGER NOT NULL DEFAULT 0,
-  failure_count  INTEGER NOT NULL DEFAULT 0,
-  last_used_at   TEXT,
-  created_at     TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS file_history (
-  history_id TEXT PRIMARY KEY NOT NULL,
-  snapshot_id TEXT NOT NULL,
-  thread_id TEXT NOT NULL,
-  company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-  node_name TEXT,
-  employee_id TEXT,
-  task_run_id TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
-  tool_call_id TEXT NOT NULL,
-  tool_name TEXT NOT NULL,
-  step_index INTEGER,
-  file_path TEXT NOT NULL,
-  change_kind TEXT NOT NULL,
-  existed_before INTEGER NOT NULL DEFAULT 0,
-  backup_content TEXT,
-  created_at TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS active_thread_interactions (
   thread_id TEXT PRIMARY KEY NOT NULL,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -742,7 +656,6 @@ CREATE TABLE IF NOT EXISTS interaction_history (
 CREATE TABLE IF NOT EXISTS "mcp_audit_log" (
   audit_id TEXT PRIMARY KEY NOT NULL,
   thread_id TEXT NOT NULL,
-  task_run_id TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
   employee_id TEXT NOT NULL,
   server_name TEXT NOT NULL,
   tool_name TEXT NOT NULL,
@@ -808,7 +721,6 @@ CREATE TABLE IF NOT EXISTS "memory_entries" (
   last_reinforced_at TEXT NOT NULL DEFAULT (datetime('now')),
   metadata_json TEXT,
   source_thread_id TEXT,
-  source_task_run_id TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   accessed_at TEXT NOT NULL DEFAULT (datetime('now')),
   access_count INTEGER NOT NULL DEFAULT 0
@@ -900,7 +812,6 @@ CREATE INDEX IF NOT EXISTS idx_install_transactions_company ON install_transacti
 CREATE INDEX IF NOT EXISTS idx_installed_packages_company ON installed_packages(company_id);
 CREATE INDEX IF NOT EXISTS idx_installed_assets_pkg ON installed_assets(installed_package_id);
 CREATE INDEX IF NOT EXISTS idx_asset_bindings_txn ON asset_bindings(install_txn_id);
-CREATE INDEX IF NOT EXISTS idx_task_runs_thread ON task_runs(thread_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_thread ON agent_runs(thread_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_company_started
   ON agent_runs(company_id, started_at);
@@ -917,10 +828,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_runs_root ON agent_runs(root_run_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_parent ON agent_runs(parent_run_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_company_project_status
   ON agent_runs(company_id, project_id, status);
-CREATE INDEX IF NOT EXISTS idx_tool_calls_task ON tool_calls(task_run_id);
 CREATE INDEX IF NOT EXISTS idx_runtime_events_company_time ON runtime_events(company_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_llm_calls_thread ON llm_calls(thread_id);
-CREATE INDEX IF NOT EXISTS idx_llm_calls_task_run ON llm_calls(task_run_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_emp_ver_emp_num ON employee_versions(employee_id, version_num);
 CREATE INDEX IF NOT EXISTS idx_emp_ver_emp ON employee_versions(employee_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cost_rates_provider_model
@@ -1551,14 +1459,6 @@ CREATE INDEX IF NOT EXISTS idx_agent_events_project ON agent_events(project_id, 
 CREATE INDEX IF NOT EXISTS idx_agent_events_thread  ON agent_events(thread_id, event_type);
 CREATE INDEX IF NOT EXISTS idx_agent_events_agent   ON agent_events(agent_name, event_type);
 CREATE INDEX IF NOT EXISTS idx_agent_events_parent  ON agent_events(parent_event_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_recovery_symptom ON recovery_knowledge(symptom, cause);
-CREATE INDEX IF NOT EXISTS idx_recovery_strategy ON recovery_knowledge(fix_strategy);
-CREATE INDEX IF NOT EXISTS idx_file_history_thread_created
-  ON file_history(thread_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_file_history_snapshot
-  ON file_history(snapshot_id);
-CREATE INDEX IF NOT EXISTS idx_file_history_thread_step
-  ON file_history(thread_id, step_index, created_at);
 CREATE INDEX IF NOT EXISTS idx_active_interactions_company
   ON active_thread_interactions(company_id, updated_at);
 CREATE INDEX IF NOT EXISTS idx_active_interactions_kind

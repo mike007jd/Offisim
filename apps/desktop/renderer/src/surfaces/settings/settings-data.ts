@@ -437,7 +437,6 @@ async function writeMcpTestAudit(input: {
   const row: NewMcpAudit = {
     audit_id: crypto.randomUUID(),
     thread_id: `settings:mcp-test:${input.serverName}`,
-    task_run_id: null,
     employee_id: input.employeeId,
     server_name: input.serverName,
     tool_name: input.toolName,

@@ -1,13 +1,10 @@
 import type {
-  FileHistoryRepository,
-  FileHistoryRow,
   LibraryDocumentRow,
-  NewFileHistory,
   NewLibraryDocument,
   RuntimeRepositories,
 } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import { and, desc, eq, like, or, sql } from 'drizzle-orm';
+import { and, eq, like, or, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 function now(): string {
@@ -15,39 +12,10 @@ function now(): string {
 }
 
 export interface FilesTauriRepos {
-  fileHistory: FileHistoryRepository;
   libraryDocuments: RuntimeRepositories['libraryDocuments'];
 }
 
 export function createFilesTauriRepos(db: TauriDrizzleDb): FilesTauriRepos {
-  const fileHistory: FileHistoryRepository = {
-    async create(entry: NewFileHistory) {
-      await db.insert(schema.fileHistory).values(entry);
-      return entry as FileHistoryRow;
-    },
-    async listByThread(threadId, opts) {
-      let query = db
-        .select()
-        .from(schema.fileHistory)
-        .where(eq(schema.fileHistory.thread_id, threadId))
-        .orderBy(desc(schema.fileHistory.created_at));
-      if (opts?.limit) {
-        query = query.limit(opts.limit) as typeof query;
-      }
-      return (await query) as FileHistoryRow[];
-    },
-    async listBySnapshot(snapshotId) {
-      return (await db
-        .select()
-        .from(schema.fileHistory)
-        .where(eq(schema.fileHistory.snapshot_id, snapshotId))
-        .orderBy(schema.fileHistory.created_at)) as FileHistoryRow[];
-    },
-    async deleteByThread(threadId) {
-      await db.delete(schema.fileHistory).where(eq(schema.fileHistory.thread_id, threadId));
-    },
-  };
-
   const libraryDocuments: RuntimeRepositories['libraryDocuments'] = {
     async create(doc: NewLibraryDocument) {
       const ts = now();
@@ -90,5 +58,5 @@ export function createFilesTauriRepos(db: TauriDrizzleDb): FilesTauriRepos {
     },
   };
 
-  return { fileHistory, libraryDocuments };
+  return { libraryDocuments };
 }

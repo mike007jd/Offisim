@@ -355,8 +355,6 @@ interface PiAgentExecuteRequest {
    * accepted only for the explicit recovery action authorized by the failed
    * root identified below. */
   nativeSessionMode: 'tracked' | 'fresh';
-  /** Engine-owned opaque session reference. Never a native file path. */
-  nativeSessionId?: string | null;
   nativeSessionResetSourceRunId?: string | null;
   employeeId?: string | null;
   model?: string | null;
@@ -507,6 +505,7 @@ type PiAgentHostEvent =
       sessionFile?: string;
       model?: PiAgentModelSummary;
       modelFallbackMessage?: string;
+      nativeRuntimeVersion?: string;
     }
   | ({ kind: 'workspaceBound' } & TaskWorkspaceBindingClaim)
   | {
