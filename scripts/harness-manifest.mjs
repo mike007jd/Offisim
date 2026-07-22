@@ -572,6 +572,16 @@ export const harnessManifest = Object.freeze([
       'pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-ambient-p5.mts',
   },
   {
+    id: 'office-local-chatter',
+    file: 'scripts/harness-office-local-chatter.mts',
+    runner: 'tsx',
+    cwdFilter: '@offisim/platform',
+    tsconfig: '../../apps/desktop/renderer/tsconfig.json',
+    composite: false,
+    command:
+      'pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-local-chatter.mts',
+  },
+  {
     id: 'office-companion',
     file: 'scripts/harness-office-companion.mts',
     runner: 'tsx',
@@ -1073,6 +1083,7 @@ export const validateHarnessIds = Object.freeze([
   'character-actions-p3',
   'office-visual-language-p4',
   'office-ambient-p5',
+  'office-local-chatter',
   'office-companion',
   'office-seating-p2',
   'office-diorama-p6',
