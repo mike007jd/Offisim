@@ -62,6 +62,32 @@
         "trouserKneeToShoulder": 0.082,
         "trouserAnkleToShoulder": 0.065
       },
+      "proportionCorrections": {
+        "headRadii": [
+          0.91,
+          1,
+          0.89
+        ],
+        "garmentTorsoLength": 1.04,
+        "garmentTorsoByOutfit": {
+          "blazer": {
+            "width": 1,
+            "depth": 1
+          },
+          "shirt": {
+            "width": 0.98,
+            "depth": 0.92
+          },
+          "sweater": {
+            "width": 1.08,
+            "depth": 1.22
+          },
+          "dress": {
+            "width": 0.95,
+            "depth": 0.9
+          }
+        }
+      },
       "gates": {
         "canonicalChestToHead": [
           0.75,

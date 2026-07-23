@@ -125,6 +125,7 @@ const TOY_CHARACTER_CONTRACT = JSON.parse(
 );
 const TOY_GEOMETRY = TOY_METRICS.silhouette.geometryUnits;
 const TOY_GARMENTS = TOY_METRICS.silhouette.garmentProportions;
+const TOY_PROPORTION_CORRECTIONS = TOY_METRICS.silhouette.proportionCorrections;
 const SIZE_BUDGET_BYTES = 25 * 1024 * 1024;
 const ROOT_MOTION_MAX_DELTA = 1e-5;
 const MAX_ANIMATION_CLIPS = 24;
@@ -574,7 +575,7 @@ async function buildToyBody(io, manifest) {
 
   const headCenter = jointPosition('Head');
   const headRadiusY = (headCenter[1] - TOY_SHOE_BOTTOM_Y) / (2 * TOY_HEAD_RATIO - 1);
-  const headRadii = [headRadiusY * 0.91, headRadiusY, headRadiusY * 0.89];
+  const headRadii = TOY_PROPORTION_CORRECTIONS.headRadii.map((scale) => headRadiusY * scale);
   const headTop = headCenter[1] + headRadii[1];
   const headBottom = headCenter[1] - headRadii[1];
 
@@ -592,14 +593,7 @@ async function buildToyBody(io, manifest) {
     const handName = `hand_${side}`;
     const handCenter = add3(jointPosition(handName), [side === 'l' ? 0.018 : -0.018, 0, 0.018]);
     handCenters[side] = handCenter;
-    addToyEllipsoid(
-      skinGeometry,
-      handCenter,
-      TOY_GEOMETRY.handRadii,
-      joint(handName).index,
-      7,
-      10,
-    );
+    addToyEllipsoid(skinGeometry, handCenter, TOY_GEOMETRY.handRadii, joint(handName).index, 7, 10);
   }
 
   addToyEllipsoid(
@@ -785,16 +779,17 @@ async function buildToyBody(io, manifest) {
     jointPosition('upperarm_l')[0] - jointPosition('upperarm_r')[0],
   );
   const sweaterTorsoWidthUnits =
-    shoulderWidthUnits * TOY_GARMENTS.torsoWidthToShoulder * 2 * 1.08;
+    shoulderWidthUnits *
+    TOY_GARMENTS.torsoWidthToShoulder *
+    2 *
+    TOY_PROPORTION_CORRECTIONS.garmentTorsoByOutfit.sweater.width;
   const sleeveShoulderWidthUnits =
     shoulderWidthUnits * (1 + 2 * TOY_GARMENTS.upperSleeveStartToShoulder);
   const garmentShoulderWidthUnits = Math.max(sweaterTorsoWidthUnits, sleeveShoulderWidthUnits);
   const round6 = (value) => Number(value.toFixed(6));
   const variantMatrix = [];
   for (const [bodyType, girth] of Object.entries(TOY_CHARACTER_CONTRACT.bodyTypeGirth)) {
-    for (const [headShape, headScale] of Object.entries(
-      TOY_CHARACTER_CONTRACT.headShapeScale,
-    )) {
+    for (const [headShape, headScale] of Object.entries(TOY_CHARACTER_CONTRACT.headShapeScale)) {
       const variantHeadTop = headCenter[1] + headRadii[1] * headScale[1];
       const variantHeadBottom = headCenter[1] - headRadii[1] * headScale[1];
       const totalHeightScene = (variantHeadTop - TOY_SHOE_BOTTOM_Y) * sceneScale;
