@@ -1,0 +1,18 @@
+{
+  "session": "88eaabe4-5585-4def-9afa-fe2046ef63a1",
+  "model": "claude-fable-5",
+  "effort": "high",
+  "verdict": "pass",
+  "findings": [],
+  "summary": "The asset slice satisfies the frozen contracts: one numeric proportion source, 9 runtime variants, 81 prop-attach samples, contact gates, deterministic asset rebuilds, unchanged forbidden scene/runtime files, and a visibly slimmer toy silhouette.",
+  "requiredChecks": [
+    "The main orchestrator must complete release .app plus Computer Use verification at the default office camera.",
+    "CI or a clean environment should rerun pnpm validate; this worktree passed all 76 validate roots after rebuilding the Node 24 native SQLite module.",
+    "Any future silhouette metric change must rebuild assets twice and refresh deterministic-build.json."
+  ],
+  "residualRisks": [
+    "P0 independently measures GLB landmarks and contacts but chest width is derived from the manifest geometry contract rather than rescanning mesh vertices.",
+    "The capsule chest-to-head ratio is 0.890187 against a 0.9 maximum, intentionally leaving a tight regression boundary.",
+    "Perspective and foreground amplification remain scene-camera concerns outside this asset slice."
+  ]
+}

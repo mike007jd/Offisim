@@ -22,6 +22,12 @@ first by pose + prop + eyes, then confirmed by a restrained indicator.
 | head capsule | `[0.90, 1.12, 0.94]` | Taller, narrower silhouette. |
 | edge language | radius or bevel `6–14%` of shortest dimension | No knife edges on character garments or authored props. |
 
+`toy-performance-metrics.json` is the sole numeric source for body geometry, garment shell proportions and
+silhouette gates. The asset builder derives the bind-space envelopes and the complete 3 girths × 3 head shapes
+matrix from that contract; P0 independently samples shipped GLB landmarks, workstation contacts and every prop
+attach, while P1 rejects manifest/metrics drift. This document describes the rule and deliberately does not
+repeat the numeric thresholds.
+
 Faces use two dark eye marks plus one minimal mouth mark per expression state (small smile / wide smile /
 frown / flat line) — the mouth is a decal in the same dark tone as the eyes, never lips or texture. Hair is a
 clear silhouette cap that visibly wraps OUTSIDE the head surface with a front hairline over the forehead
