@@ -532,6 +532,20 @@ export const harnessManifest = Object.freeze([
       'pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-scene-cue.mts',
   },
   {
+    id: 'character-toy-p0',
+    file: 'scripts/harness-character-toy-p0.mjs',
+    runner: 'node',
+    composite: false,
+    command: 'node scripts/harness-character-toy-p0.mjs',
+  },
+  {
+    id: 'character-toy-p1',
+    file: 'scripts/harness-character-toy-p1.mjs',
+    runner: 'node',
+    composite: false,
+    command: 'node scripts/harness-character-toy-p1.mjs',
+  },
+  {
     id: 'character-clip-map',
     file: 'scripts/harness-character-clip-map.mts',
     runner: 'tsx',
@@ -570,6 +584,16 @@ export const harnessManifest = Object.freeze([
     composite: false,
     command:
       'pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-ambient-p5.mts',
+  },
+  {
+    id: 'office-local-chatter',
+    file: 'scripts/harness-office-local-chatter.mts',
+    runner: 'tsx',
+    cwdFilter: '@offisim/platform',
+    tsconfig: '../../apps/desktop/renderer/tsconfig.json',
+    composite: false,
+    command:
+      'pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-office-local-chatter.mts',
   },
   {
     id: 'office-companion',
@@ -1069,10 +1093,13 @@ export const validateHarnessIds = Object.freeze([
   'pace-projection',
   'dramaturgy-stress',
   'scene-cue',
+  'character-toy-p0',
+  'character-toy-p1',
   'character-clip-map',
   'character-actions-p3',
   'office-visual-language-p4',
   'office-ambient-p5',
+  'office-local-chatter',
   'office-companion',
   'office-seating-p2',
   'office-diorama-p6',

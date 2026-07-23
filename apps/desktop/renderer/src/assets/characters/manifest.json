@@ -15,7 +15,372 @@
         2.2,
         2.6
       ],
-      "silhouette": "procedural capsule body, short chunky limbs, oversized shoes; runtime eye decals, no mouth",
+      "silhouette": "procedural large-head toy body with tapered limbs and readable hands/feet; runtime eye decals, no mouth",
+      "measurements": {
+        "source": "generated procedural geometry plus shipped runtime girth/head-shape contracts",
+        "sceneScale": 0.803457,
+        "geometryUnits": {
+          "neckRadius": 0.095,
+          "lowerTorsoRadii": [
+            0.275,
+            0.245,
+            0.205
+          ],
+          "chestRadii": [
+            0.3,
+            0.265,
+            0.22
+          ],
+          "pelvisRadii": [
+            0.285,
+            0.2,
+            0.215
+          ],
+          "upperArmRadius": 0.1,
+          "lowerArmRadius": 0.088,
+          "handRadii": [
+            0.112,
+            0.088,
+            0.1
+          ],
+          "thighRadius": 0.13,
+          "calfRadius": 0.112,
+          "shoeRadii": [
+            0.12,
+            0.09,
+            0.17
+          ]
+        },
+        "garmentProportions": {
+          "torsoWidthToShoulder": 0.27,
+          "torsoDepthToShoulder": 0.19,
+          "upperSleeveStartToShoulder": 0.085,
+          "upperSleeveEndToShoulder": 0.072,
+          "lowerSleeveStartToShoulder": 0.07,
+          "lowerSleeveEndToShoulder": 0.055,
+          "trouserHipToShoulder": 0.105,
+          "trouserKneeToShoulder": 0.082,
+          "trouserAnkleToShoulder": 0.065
+        },
+        "baseEnvelopeUnits": {
+          "shoulderJointWidth": 0.424023,
+          "worstGarmentShoulderWidth": 0.496107,
+          "chestWidth": 0.6,
+          "hipWidth": 0.57,
+          "handWidth": 0.224,
+          "shoeWidth": 0.24,
+          "shoeHeight": 0.18,
+          "shoeLength": 0.34
+        },
+        "variantMatrix": [
+          {
+            "id": "slim:round",
+            "bodyType": "slim",
+            "headShape": "round",
+            "girth": 0.84,
+            "headScale": [
+              1,
+              1,
+              1
+            ],
+            "totalHeightScene": 1.62,
+            "effectiveHeadHeightScene": 0.661224,
+            "headCount": 2.45,
+            "headWidthScene": 0.50544,
+            "chestWidthScene": 0.404942,
+            "hipWidthScene": 0.384695,
+            "shoulderEnvelopeWidthScene": 0.334825,
+            "handWidthScene": 0.151178,
+            "sleeveWristWidthScene": 0.031479,
+            "thighDiameterScene": 0.175475,
+            "shoeWidthScene": 0.161977,
+            "shoeHeightScene": 0.144622,
+            "shoeLengthScene": 0.229467,
+            "ratios": {
+              "chestToHead": 0.801168,
+              "garmentShoulderToHead": 0.662442,
+              "thighToChest": 0.433333,
+              "handToHead": 0.299103,
+              "handToSleeve": 4.802482,
+              "shoeWidthToHead": 0.320467,
+              "shoeLengthToHeight": 0.141646
+            },
+            "pass": true
+          },
+          {
+            "id": "slim:soft-square",
+            "bodyType": "slim",
+            "headShape": "soft-square",
+            "girth": 0.84,
+            "headScale": [
+              1.1,
+              0.94,
+              0.98
+            ],
+            "totalHeightScene": 1.600163,
+            "effectiveHeadHeightScene": 0.621551,
+            "headCount": 2.574468,
+            "headWidthScene": 0.555984,
+            "chestWidthScene": 0.404942,
+            "hipWidthScene": 0.384695,
+            "shoulderEnvelopeWidthScene": 0.334825,
+            "handWidthScene": 0.151178,
+            "sleeveWristWidthScene": 0.031479,
+            "thighDiameterScene": 0.175475,
+            "shoeWidthScene": 0.161977,
+            "shoeHeightScene": 0.144622,
+            "shoeLengthScene": 0.229467,
+            "ratios": {
+              "chestToHead": 0.728334,
+              "garmentShoulderToHead": 0.60222,
+              "thighToChest": 0.433333,
+              "handToHead": 0.271912,
+              "handToSleeve": 4.802482,
+              "shoeWidthToHead": 0.291334,
+              "shoeLengthToHeight": 0.143402
+            },
+            "pass": true
+          },
+          {
+            "id": "slim:capsule",
+            "bodyType": "slim",
+            "headShape": "capsule",
+            "girth": 0.84,
+            "headScale": [
+              0.9,
+              1.12,
+              0.94
+            ],
+            "totalHeightScene": 1.659673,
+            "effectiveHeadHeightScene": 0.740571,
+            "headCount": 2.241071,
+            "headWidthScene": 0.454896,
+            "chestWidthScene": 0.404942,
+            "hipWidthScene": 0.384695,
+            "shoulderEnvelopeWidthScene": 0.334825,
+            "handWidthScene": 0.151178,
+            "sleeveWristWidthScene": 0.031479,
+            "thighDiameterScene": 0.175475,
+            "shoeWidthScene": 0.161977,
+            "shoeHeightScene": 0.144622,
+            "shoeLengthScene": 0.229467,
+            "ratios": {
+              "chestToHead": 0.890187,
+              "garmentShoulderToHead": 0.736047,
+              "thighToChest": 0.433333,
+              "handToHead": 0.332336,
+              "handToSleeve": 4.802482,
+              "shoeWidthToHead": 0.356075,
+              "shoeLengthToHeight": 0.138261
+            },
+            "pass": true
+          },
+          {
+            "id": "normal:round",
+            "bodyType": "normal",
+            "headShape": "round",
+            "girth": 1,
+            "headScale": [
+              1,
+              1,
+              1
+            ],
+            "totalHeightScene": 1.62,
+            "effectiveHeadHeightScene": 0.661224,
+            "headCount": 2.45,
+            "headWidthScene": 0.601714,
+            "chestWidthScene": 0.482074,
+            "hipWidthScene": 0.45797,
+            "shoulderEnvelopeWidthScene": 0.398601,
+            "handWidthScene": 0.179974,
+            "sleeveWristWidthScene": 0.037475,
+            "thighDiameterScene": 0.208899,
+            "shoeWidthScene": 0.19283,
+            "shoeHeightScene": 0.144622,
+            "shoeLengthScene": 0.273175,
+            "ratios": {
+              "chestToHead": 0.801168,
+              "garmentShoulderToHead": 0.662442,
+              "thighToChest": 0.433333,
+              "handToHead": 0.299103,
+              "handToSleeve": 4.802482,
+              "shoeWidthToHead": 0.320467,
+              "shoeLengthToHeight": 0.168627
+            },
+            "pass": true
+          },
+          {
+            "id": "normal:soft-square",
+            "bodyType": "normal",
+            "headShape": "soft-square",
+            "girth": 1,
+            "headScale": [
+              1.1,
+              0.94,
+              0.98
+            ],
+            "totalHeightScene": 1.600163,
+            "effectiveHeadHeightScene": 0.621551,
+            "headCount": 2.574468,
+            "headWidthScene": 0.661886,
+            "chestWidthScene": 0.482074,
+            "hipWidthScene": 0.45797,
+            "shoulderEnvelopeWidthScene": 0.398601,
+            "handWidthScene": 0.179974,
+            "sleeveWristWidthScene": 0.037475,
+            "thighDiameterScene": 0.208899,
+            "shoeWidthScene": 0.19283,
+            "shoeHeightScene": 0.144622,
+            "shoeLengthScene": 0.273175,
+            "ratios": {
+              "chestToHead": 0.728334,
+              "garmentShoulderToHead": 0.60222,
+              "thighToChest": 0.433333,
+              "handToHead": 0.271912,
+              "handToSleeve": 4.802482,
+              "shoeWidthToHead": 0.291334,
+              "shoeLengthToHeight": 0.170717
+            },
+            "pass": true
+          },
+          {
+            "id": "normal:capsule",
+            "bodyType": "normal",
+            "headShape": "capsule",
+            "girth": 1,
+            "headScale": [
+              0.9,
+              1.12,
+              0.94
+            ],
+            "totalHeightScene": 1.659673,
+            "effectiveHeadHeightScene": 0.740571,
+            "headCount": 2.241071,
+            "headWidthScene": 0.541543,
+            "chestWidthScene": 0.482074,
+            "hipWidthScene": 0.45797,
+            "shoulderEnvelopeWidthScene": 0.398601,
+            "handWidthScene": 0.179974,
+            "sleeveWristWidthScene": 0.037475,
+            "thighDiameterScene": 0.208899,
+            "shoeWidthScene": 0.19283,
+            "shoeHeightScene": 0.144622,
+            "shoeLengthScene": 0.273175,
+            "ratios": {
+              "chestToHead": 0.890187,
+              "garmentShoulderToHead": 0.736047,
+              "thighToChest": 0.433333,
+              "handToHead": 0.332336,
+              "handToSleeve": 4.802482,
+              "shoeWidthToHead": 0.356075,
+              "shoeLengthToHeight": 0.164596
+            },
+            "pass": true
+          },
+          {
+            "id": "stocky:round",
+            "bodyType": "stocky",
+            "headShape": "round",
+            "girth": 1.18,
+            "headScale": [
+              1,
+              1,
+              1
+            ],
+            "totalHeightScene": 1.62,
+            "effectiveHeadHeightScene": 0.661224,
+            "headCount": 2.45,
+            "headWidthScene": 0.710023,
+            "chestWidthScene": 0.568848,
+            "hipWidthScene": 0.540405,
+            "shoulderEnvelopeWidthScene": 0.470349,
+            "handWidthScene": 0.21237,
+            "sleeveWristWidthScene": 0.044221,
+            "thighDiameterScene": 0.246501,
+            "shoeWidthScene": 0.227539,
+            "shoeHeightScene": 0.144622,
+            "shoeLengthScene": 0.322347,
+            "ratios": {
+              "chestToHead": 0.801168,
+              "garmentShoulderToHead": 0.662442,
+              "thighToChest": 0.433333,
+              "handToHead": 0.299103,
+              "handToSleeve": 4.802482,
+              "shoeWidthToHead": 0.320467,
+              "shoeLengthToHeight": 0.19898
+            },
+            "pass": true
+          },
+          {
+            "id": "stocky:soft-square",
+            "bodyType": "stocky",
+            "headShape": "soft-square",
+            "girth": 1.18,
+            "headScale": [
+              1.1,
+              0.94,
+              0.98
+            ],
+            "totalHeightScene": 1.600163,
+            "effectiveHeadHeightScene": 0.621551,
+            "headCount": 2.574468,
+            "headWidthScene": 0.781025,
+            "chestWidthScene": 0.568848,
+            "hipWidthScene": 0.540405,
+            "shoulderEnvelopeWidthScene": 0.470349,
+            "handWidthScene": 0.21237,
+            "sleeveWristWidthScene": 0.044221,
+            "thighDiameterScene": 0.246501,
+            "shoeWidthScene": 0.227539,
+            "shoeHeightScene": 0.144622,
+            "shoeLengthScene": 0.322347,
+            "ratios": {
+              "chestToHead": 0.728334,
+              "garmentShoulderToHead": 0.60222,
+              "thighToChest": 0.433333,
+              "handToHead": 0.271912,
+              "handToSleeve": 4.802482,
+              "shoeWidthToHead": 0.291334,
+              "shoeLengthToHeight": 0.201446
+            },
+            "pass": true
+          },
+          {
+            "id": "stocky:capsule",
+            "bodyType": "stocky",
+            "headShape": "capsule",
+            "girth": 1.18,
+            "headScale": [
+              0.9,
+              1.12,
+              0.94
+            ],
+            "totalHeightScene": 1.659673,
+            "effectiveHeadHeightScene": 0.740571,
+            "headCount": 2.241071,
+            "headWidthScene": 0.639021,
+            "chestWidthScene": 0.568848,
+            "hipWidthScene": 0.540405,
+            "shoulderEnvelopeWidthScene": 0.470349,
+            "handWidthScene": 0.21237,
+            "sleeveWristWidthScene": 0.044221,
+            "thighDiameterScene": 0.246501,
+            "shoeWidthScene": 0.227539,
+            "shoeHeightScene": 0.144622,
+            "shoeLengthScene": 0.322347,
+            "ratios": {
+              "chestToHead": 0.890187,
+              "garmentShoulderToHead": 0.736047,
+              "thighToChest": 0.433333,
+              "handToHead": 0.332336,
+              "handToSleeve": 4.802482,
+              "shoeWidthToHead": 0.356075,
+              "shoeLengthToHeight": 0.194223
+            },
+            "pass": true
+          }
+        ]
+      },
       "rig": {
         "source": "Quaternius Universal Base Characters Standard",
         "jointCount": 65,
@@ -132,24 +497,24 @@
           "joint": "pelvis",
           "bindPosition": [
             0,
-            0.7191,
+            0.7291,
             -0.043
           ],
           "jointLocalTranslation": [
             0,
-            -0.220677,
-            0.06482
+            -0.211082,
+            0.062002
           ]
         },
         "ToyPalmL": {
           "joint": "hand_l",
           "bindPosition": [
             0.586034,
-            1.155608,
+            1.172608,
             -0.002489
           ],
           "jointLocalTranslation": [
-            0.105,
+            0.088,
             0.018,
             0.018
           ]
@@ -158,11 +523,11 @@
           "joint": "hand_r",
           "bindPosition": [
             -0.586034,
-            1.155608,
+            1.172608,
             -0.002489
           ],
           "jointLocalTranslation": [
-            -0.105,
+            -0.088,
             0.018,
             0.018
           ]
@@ -461,22 +826,22 @@
     }
   },
   "files": {
-    "body_toy.glb": 58524,
+    "LICENSES.md": 4199,
+    "animations.glb": 547280,
+    "body_toy.glb": 58396,
     "hair_01.glb": 8880,
     "hair_02.glb": 10416,
     "hair_03.glb": 9760,
     "hair_04.glb": 13316,
     "hair_05.glb": 6972,
     "hair_06.glb": 9012,
-    "animations.glb": 547280,
-    "props.glb": 52248,
-    "LICENSES.md": 4199,
     "hair_07.glb": 11244,
     "hair_08.glb": 9448,
     "hair_09.glb": 14284,
     "hair_10.glb": 4928,
     "hair_11.glb": 6984,
-    "hair_12.glb": 9344
+    "hair_12.glb": 9344,
+    "props.glb": 52248
   },
-  "totalBytes": 776839
+  "totalBytes": 776711
 }

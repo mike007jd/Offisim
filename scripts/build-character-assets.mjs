@@ -117,6 +117,15 @@ const TOY_METRICS = JSON.parse(
     'utf8',
   ),
 );
+const TOY_CHARACTER_CONTRACT = JSON.parse(
+  readFileSync(
+    join(process.cwd(), 'apps/desktop/renderer/src/lib/toy-character-contract.json'),
+    'utf8',
+  ),
+);
+const TOY_GEOMETRY = TOY_METRICS.silhouette.geometryUnits;
+const TOY_GARMENTS = TOY_METRICS.silhouette.garmentProportions;
+const TOY_PROPORTION_CORRECTIONS = TOY_METRICS.silhouette.proportionCorrections;
 const SIZE_BUDGET_BYTES = 25 * 1024 * 1024;
 const ROOT_MOTION_MAX_DELTA = 1e-5;
 const MAX_ANIMATION_CLIPS = 24;
@@ -566,7 +575,7 @@ async function buildToyBody(io, manifest) {
 
   const headCenter = jointPosition('Head');
   const headRadiusY = (headCenter[1] - TOY_SHOE_BOTTOM_Y) / (2 * TOY_HEAD_RATIO - 1);
-  const headRadii = [headRadiusY * 0.91, headRadiusY, headRadiusY * 0.89];
+  const headRadii = TOY_PROPORTION_CORRECTIONS.headRadii.map((scale) => headRadiusY * scale);
   const headTop = headCenter[1] + headRadii[1];
   const headBottom = headCenter[1] - headRadii[1];
 
@@ -575,7 +584,7 @@ async function buildToyBody(io, manifest) {
     skinGeometry,
     add3(jointPosition('neck_01'), [0, -0.035, 0]),
     add3(jointPosition('Head'), [0, -0.19, 0]),
-    0.105,
+    TOY_GEOMETRY.neckRadius,
     joint('neck_01').index,
   );
 
@@ -584,13 +593,13 @@ async function buildToyBody(io, manifest) {
     const handName = `hand_${side}`;
     const handCenter = add3(jointPosition(handName), [side === 'l' ? 0.018 : -0.018, 0, 0.018]);
     handCenters[side] = handCenter;
-    addToyEllipsoid(skinGeometry, handCenter, [0.142, 0.105, 0.12], joint(handName).index, 7, 10);
+    addToyEllipsoid(skinGeometry, handCenter, TOY_GEOMETRY.handRadii, joint(handName).index, 7, 10);
   }
 
   addToyEllipsoid(
     topGeometry,
     [0, 1.115, -0.018],
-    [0.335, 0.255, 0.23],
+    TOY_GEOMETRY.lowerTorsoRadii,
     joint('spine_01').index,
     7,
     12,
@@ -598,7 +607,7 @@ async function buildToyBody(io, manifest) {
   addToyEllipsoid(
     topGeometry,
     [0, 1.345, -0.012],
-    [0.385, 0.275, 0.245],
+    TOY_GEOMETRY.chestRadii,
     joint('spine_03').index,
     7,
     12,
@@ -608,21 +617,21 @@ async function buildToyBody(io, manifest) {
       topGeometry,
       jointPosition(`upperarm_${side}`),
       jointPosition(`lowerarm_${side}`),
-      0.135,
+      TOY_GEOMETRY.upperArmRadius,
       joint(`upperarm_${side}`).index,
     );
     addToyCapsule(
       topGeometry,
       jointPosition(`lowerarm_${side}`),
       jointPosition(`hand_${side}`),
-      0.118,
+      TOY_GEOMETRY.lowerArmRadius,
       joint(`lowerarm_${side}`).index,
     );
   }
 
   const pelvisPosition = jointPosition('pelvis');
   const pelvisCenter = add3(pelvisPosition, [0, -0.02, 0]);
-  const pelvisRadii = [0.33, 0.21, 0.24];
+  const pelvisRadii = TOY_GEOMETRY.pelvisRadii;
   addToyEllipsoid(bottomGeometry, pelvisCenter, pelvisRadii, joint('pelvis').index, 7, 12);
   const shoeCenters = {};
   for (const side of ['l', 'r']) {
@@ -630,23 +639,23 @@ async function buildToyBody(io, manifest) {
       bottomGeometry,
       jointPosition(`thigh_${side}`),
       jointPosition(`calf_${side}`),
-      0.17,
+      TOY_GEOMETRY.thighRadius,
       joint(`thigh_${side}`).index,
     );
     addToyCapsule(
       bottomGeometry,
       jointPosition(`calf_${side}`),
       add3(jointPosition(`foot_${side}`), [0, 0.065, 0.02]),
-      0.145,
+      TOY_GEOMETRY.calfRadius,
       joint(`calf_${side}`).index,
     );
     const foot = jointPosition(`foot_${side}`);
-    const shoeCenter = [foot[0], TOY_SHOE_BOTTOM_Y + 0.1, 0.04];
+    const shoeCenter = [foot[0], TOY_SHOE_BOTTOM_Y + TOY_GEOMETRY.shoeRadii[1], 0.04];
     shoeCenters[side] = shoeCenter;
     addToyEllipsoid(
       shoesGeometry,
       shoeCenter,
-      [0.155, 0.1, 0.25],
+      TOY_GEOMETRY.shoeRadii,
       joint(`foot_${side}`).index,
       7,
       12,
@@ -722,11 +731,19 @@ async function buildToyBody(io, manifest) {
     },
     ToyPalmL: {
       joint: 'hand_l',
-      bindPosition: [handCenters.l[0], handCenters.l[1] - 0.105, handCenters.l[2]],
+      bindPosition: [
+        handCenters.l[0],
+        handCenters.l[1] - TOY_GEOMETRY.handRadii[1],
+        handCenters.l[2],
+      ],
     },
     ToyPalmR: {
       joint: 'hand_r',
-      bindPosition: [handCenters.r[0], handCenters.r[1] - 0.105, handCenters.r[2]],
+      bindPosition: [
+        handCenters.r[0],
+        handCenters.r[1] - TOY_GEOMETRY.handRadii[1],
+        handCenters.r[2],
+      ],
     },
     ToySoleL: {
       joint: 'foot_l',
@@ -757,6 +774,103 @@ async function buildToyBody(io, manifest) {
     fail('toy body: 65-joint topology changed during procedural bind reshape');
   }
 
+  const sceneScale = TOY_METRICS.character.height / totalHeight;
+  const shoulderWidthUnits = Math.abs(
+    jointPosition('upperarm_l')[0] - jointPosition('upperarm_r')[0],
+  );
+  const sweaterTorsoWidthUnits =
+    shoulderWidthUnits *
+    TOY_GARMENTS.torsoWidthToShoulder *
+    2 *
+    TOY_PROPORTION_CORRECTIONS.garmentTorsoByOutfit.sweater.width;
+  const sleeveShoulderWidthUnits =
+    shoulderWidthUnits * (1 + 2 * TOY_GARMENTS.upperSleeveStartToShoulder);
+  const garmentShoulderWidthUnits = Math.max(sweaterTorsoWidthUnits, sleeveShoulderWidthUnits);
+  const round6 = (value) => Number(value.toFixed(6));
+  const variantMatrix = [];
+  for (const [bodyType, girth] of Object.entries(TOY_CHARACTER_CONTRACT.bodyTypeGirth)) {
+    for (const [headShape, headScale] of Object.entries(TOY_CHARACTER_CONTRACT.headShapeScale)) {
+      const variantHeadTop = headCenter[1] + headRadii[1] * headScale[1];
+      const variantHeadBottom = headCenter[1] - headRadii[1] * headScale[1];
+      const totalHeightScene = (variantHeadTop - TOY_SHOE_BOTTOM_Y) * sceneScale;
+      const effectiveHeadHeightScene = (variantHeadTop - variantHeadBottom) * sceneScale;
+      const headWidthScene = 2 * headRadii[0] * headScale[0] * girth * sceneScale;
+      const chestWidthScene = 2 * TOY_GEOMETRY.chestRadii[0] * girth * sceneScale;
+      const hipWidthScene = 2 * TOY_GEOMETRY.pelvisRadii[0] * girth * sceneScale;
+      const shoulderEnvelopeWidthScene = garmentShoulderWidthUnits * girth * sceneScale;
+      const handWidthScene = 2 * TOY_GEOMETRY.handRadii[0] * girth * sceneScale;
+      const sleeveWristWidthScene =
+        2 * shoulderWidthUnits * TOY_GARMENTS.lowerSleeveEndToShoulder * girth * sceneScale;
+      const thighDiameterScene = 2 * TOY_GEOMETRY.thighRadius * girth * sceneScale;
+      const shoeWidthScene = 2 * TOY_GEOMETRY.shoeRadii[0] * girth * sceneScale;
+      const shoeHeightScene = 2 * TOY_GEOMETRY.shoeRadii[1] * sceneScale;
+      const shoeLengthScene = 2 * TOY_GEOMETRY.shoeRadii[2] * girth * sceneScale;
+      const ratios = {
+        chestToHead: chestWidthScene / headWidthScene,
+        garmentShoulderToHead: shoulderEnvelopeWidthScene / headWidthScene,
+        thighToChest: thighDiameterScene / chestWidthScene,
+        handToHead: handWidthScene / headWidthScene,
+        handToSleeve: handWidthScene / sleeveWristWidthScene,
+        shoeWidthToHead: shoeWidthScene / headWidthScene,
+        shoeLengthToHeight: shoeLengthScene / totalHeightScene,
+      };
+      const gates = TOY_METRICS.silhouette.gates;
+      const pass =
+        totalHeightScene >= gates.allHeight[0] &&
+        totalHeightScene <= gates.allHeight[1] &&
+        totalHeightScene / effectiveHeadHeightScene >= TOY_METRICS.character.minimumHeadCount &&
+        totalHeightScene / effectiveHeadHeightScene <= TOY_METRICS.character.maximumHeadCount &&
+        (bodyType !== 'normal' || ratios.chestToHead <= gates.allNormalChestToHeadMax) &&
+        (bodyType !== 'stocky' || ratios.chestToHead <= gates.stockyChestToHeadMax) &&
+        (bodyType !== 'normal' ||
+          ratios.garmentShoulderToHead <= gates.normalGarmentShoulderToHeadMax) &&
+        (bodyType !== 'stocky' ||
+          ratios.garmentShoulderToHead <= gates.stockyGarmentShoulderToHeadMax) &&
+        ratios.thighToChest <= gates.thighToChestMax &&
+        ratios.handToHead >= gates.handToHead[0] &&
+        ratios.handToHead <= gates.handToHead[1] &&
+        ratios.handToSleeve >= gates.handToSleeveMin &&
+        ratios.shoeWidthToHead <= gates.shoeWidthToHeadMax &&
+        ratios.shoeLengthToHeight <= gates.shoeLengthToHeightMax;
+      variantMatrix.push({
+        id: `${bodyType}:${headShape}`,
+        bodyType,
+        headShape,
+        girth,
+        headScale,
+        totalHeightScene: round6(totalHeightScene),
+        effectiveHeadHeightScene: round6(effectiveHeadHeightScene),
+        headCount: round6(totalHeightScene / effectiveHeadHeightScene),
+        headWidthScene: round6(headWidthScene),
+        chestWidthScene: round6(chestWidthScene),
+        hipWidthScene: round6(hipWidthScene),
+        shoulderEnvelopeWidthScene: round6(shoulderEnvelopeWidthScene),
+        handWidthScene: round6(handWidthScene),
+        sleeveWristWidthScene: round6(sleeveWristWidthScene),
+        thighDiameterScene: round6(thighDiameterScene),
+        shoeWidthScene: round6(shoeWidthScene),
+        shoeHeightScene: round6(shoeHeightScene),
+        shoeLengthScene: round6(shoeLengthScene),
+        ratios: Object.fromEntries(
+          Object.entries(ratios).map(([key, value]) => [key, round6(value)]),
+        ),
+        pass,
+      });
+    }
+  }
+  const canonicalVariant = variantMatrix.find((variant) => variant.id === 'normal:round');
+  const canonicalChestGate = TOY_METRICS.silhouette.gates.canonicalChestToHead;
+  if (
+    variantMatrix.some((variant) => !variant.pass) ||
+    !canonicalVariant ||
+    canonicalVariant.ratios.chestToHead < canonicalChestGate[0] ||
+    canonicalVariant.ratios.chestToHead > canonicalChestGate[1] ||
+    Math.abs(canonicalVariant.totalHeightScene - TOY_METRICS.character.height) >
+      TOY_METRICS.silhouette.gates.roundHeightTolerance
+  ) {
+    fail('toy body: generated 9-variant silhouette matrix violates toy-performance-metrics gates');
+  }
+
   await document.transform(
     prune({ keepLeaves: true }),
     dedup({ propertyTypes: [PropertyType.ACCESSOR, PropertyType.MATERIAL] }),
@@ -772,7 +886,24 @@ async function buildToyBody(io, manifest) {
     headRatio: Number(measuredHeadRatio.toFixed(4)),
     allowedHeadRatio: TOY_HEAD_RATIO_RANGE,
     silhouette:
-      'procedural capsule body, short chunky limbs, oversized shoes; runtime eye decals, no mouth',
+      'procedural large-head toy body with tapered limbs and readable hands/feet; runtime eye decals, no mouth',
+    measurements: {
+      source: 'generated procedural geometry plus shipped runtime girth/head-shape contracts',
+      sceneScale: round6(sceneScale),
+      geometryUnits: TOY_GEOMETRY,
+      garmentProportions: TOY_GARMENTS,
+      baseEnvelopeUnits: {
+        shoulderJointWidth: round6(shoulderWidthUnits),
+        worstGarmentShoulderWidth: round6(garmentShoulderWidthUnits),
+        chestWidth: round6(TOY_GEOMETRY.chestRadii[0] * 2),
+        hipWidth: round6(TOY_GEOMETRY.pelvisRadii[0] * 2),
+        handWidth: round6(TOY_GEOMETRY.handRadii[0] * 2),
+        shoeWidth: round6(TOY_GEOMETRY.shoeRadii[0] * 2),
+        shoeHeight: round6(TOY_GEOMETRY.shoeRadii[1] * 2),
+        shoeLength: round6(TOY_GEOMETRY.shoeRadii[2] * 2),
+      },
+      variantMatrix,
+    },
     rig: {
       source: 'Quaternius Universal Base Characters Standard',
       jointCount: joints.length,
@@ -1561,7 +1692,7 @@ async function main() {
     'animations.glb',
     'props.glb',
     'LICENSES.md',
-  ];
+  ].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
   const shippedFiles = new Set(files);
   for (const entry of readdirSync(OUT_DIR, { withFileTypes: true })) {
     if (entry.isFile() && entry.name.endsWith('.glb') && !shippedFiles.has(entry.name)) {
