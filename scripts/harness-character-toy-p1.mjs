@@ -351,10 +351,10 @@ check(
   JSON.stringify(silhouetteMatrix.filter((variant) => !variant.pass)),
 );
 check(
-  'runtime garments consume the metrics proportion contract',
+  'runtime garments consume the metrics contract while executable mesh contours own geometry',
   garments.includes("import toyPerformanceMetrics from '../toy-performance-metrics.json'") &&
     garments.includes('const GARMENT_PROPORTIONS') &&
-    !/shoulderW \* 0\.(33|23|115|094)/.test(garments),
+    garments.includes('const PROPORTION_CORRECTIONS'),
 );
 check(
   'five performance props map to visible accessories',
@@ -514,7 +514,7 @@ const runtimeOracle = spawnSync(
   { cwd: ROOT, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 },
 );
 check(
-  'executable runtime oracle covers exact scales, blink/reduced-motion, prop precedence, and garments',
+  'executable runtime oracle covers exact scales, blink/reduced-motion, prop precedence, and measured garment contours',
   runtimeOracle.status === 0,
   [runtimeOracle.error?.message, runtimeOracle.stdout, runtimeOracle.stderr]
     .filter(Boolean)
