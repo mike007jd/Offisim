@@ -7,8 +7,8 @@
       "sha256": "7fd7f761e6a886bb25413504e6b1ea7317c553f2a6c6b116f42c429c45e9e10e"
     },
     "animations": {
-      "bytes": 547280,
-      "sha256": "ddcd02a7a8a1a86c74644ef77b57a4895fd1a17f0be658046c256596d5d5fd71"
+      "bytes": 600776,
+      "sha256": "f7bedb6ba84cc362cd629801771865b7857647553760d5f6bb88a13526e557bf"
     }
   },
   "metrics": {
@@ -121,8 +121,8 @@
       "id": "clip-count",
       "pass": true,
       "observed": {
-        "glb": 21,
-        "manifest": 21
+        "glb": 24,
+        "manifest": 24
       },
       "expected": {
         "retainedP0Clips": 19,
@@ -850,13 +850,28 @@
             "pass": true,
             "keysChecked": 2,
             "maxAbsDelta": 0
+          },
+          "look.around": {
+            "pass": true,
+            "keysChecked": 2,
+            "maxAbsDelta": 0
+          },
+          "sit.fidget": {
+            "pass": true,
+            "keysChecked": 2,
+            "maxAbsDelta": 0
+          },
+          "stretch": {
+            "pass": true,
+            "keysChecked": 2,
+            "maxAbsDelta": 0
           }
         },
-        "clipsChecked": 21,
+        "clipsChecked": 24,
         "maxObservedAbsDelta": 0
       },
       "expected": {
-        "clipsChecked": 21,
+        "clipsChecked": 24,
         "maxAbsDelta": 0.00001
       }
     },
@@ -873,111 +888,126 @@
         "allTranslationKeysChecked": true,
         "maxAbsDeltaThreshold": 0.00001,
         "maxObservedAbsDelta": 0,
-        "clipsChecked": 21,
-        "translationChannelsChecked": 21,
+        "clipsChecked": 24,
+        "translationChannelsChecked": 24,
         "clips": {
           "tpose": {
-            "keysChecked": 76,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "celebrate.dance": {
-            "keysChecked": 31,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "idle": {
-            "keysChecked": 76,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "idle.talk": {
-            "keysChecked": 89,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "interact": {
-            "keysChecked": 61,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "pickup": {
-            "keysChecked": 26,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "sit.enter": {
-            "keysChecked": 40,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "sit.exit": {
-            "keysChecked": 32,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "sit.idle": {
-            "keysChecked": 51,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "sit.talk": {
-            "keysChecked": 89,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "walk.formal": {
-            "keysChecked": 41,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "walk": {
-            "keysChecked": 41,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "inspect.open": {
-            "keysChecked": 42,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "consume": {
-            "keysChecked": 41,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "wait.foldarms": {
-            "keysChecked": 76,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "blocked.headshake": {
-            "keysChecked": 76,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "phone": {
-            "keysChecked": 89,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "carry": {
-            "keysChecked": 61,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "celebrate.yes": {
-            "keysChecked": 76,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "sit.type": {
-            "keysChecked": 51,
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           },
           "approval.wait": {
-            "keysChecked": 76,
+            "keysChecked": 2,
+            "rootTranslationTracks": 1,
+            "maxAbsDelta": 0
+          },
+          "look.around": {
+            "keysChecked": 2,
+            "rootTranslationTracks": 1,
+            "maxAbsDelta": 0
+          },
+          "sit.fidget": {
+            "keysChecked": 2,
+            "rootTranslationTracks": 1,
+            "maxAbsDelta": 0
+          },
+          "stretch": {
+            "keysChecked": 2,
             "rootTranslationTracks": 1,
             "maxAbsDelta": 0
           }
@@ -985,7 +1015,7 @@
         "result": "pass"
       },
       "expected": {
-        "clipsChecked": 21,
+        "clipsChecked": 24,
         "maxAbsDelta": 0.00001
       }
     },
@@ -1519,9 +1549,24 @@
         "pass": true,
         "keysChecked": 2,
         "maxAbsDelta": 0
+      },
+      "look.around": {
+        "pass": true,
+        "keysChecked": 2,
+        "maxAbsDelta": 0
+      },
+      "sit.fidget": {
+        "pass": true,
+        "keysChecked": 2,
+        "maxAbsDelta": 0
+      },
+      "stretch": {
+        "pass": true,
+        "keysChecked": 2,
+        "maxAbsDelta": 0
       }
     },
-    "clipsChecked": 21,
+    "clipsChecked": 24,
     "maxObservedAbsDelta": 0
   },
   "contactSamples": [
@@ -6097,6 +6142,216 @@
       }
     },
     {
+      "clip": "look.around",
+      "normalizedTime": 0,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.034906,
+          1.550371,
+          0.093866
+        ],
+        "ToyChin": [
+          0.003447,
+          0.909906,
+          -0.065964
+        ],
+        "ToyButtContact": [
+          -0.00087,
+          0.52942,
+          -0.047782
+        ],
+        "ToyPalmL": [
+          0.184051,
+          0.660377,
+          -0.039491
+        ],
+        "ToyPalmR": [
+          -0.134511,
+          0.681998,
+          -0.149791
+        ],
+        "ToySoleL": [
+          0.181883,
+          -0.040009,
+          0.17575
+        ],
+        "ToySoleR": [
+          -0.21225,
+          -0.039567,
+          -0.196651
+        ]
+      }
+    },
+    {
+      "clip": "look.around",
+      "normalizedTime": 0.25,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.050266,
+          1.543368,
+          0.092854
+        ],
+        "ToyChin": [
+          0.007441,
+          0.898618,
+          -0.041979
+        ],
+        "ToyButtContact": [
+          -0.002636,
+          0.522109,
+          -0.053255
+        ],
+        "ToyPalmL": [
+          0.175498,
+          0.645032,
+          -0.028402
+        ],
+        "ToyPalmR": [
+          -0.127465,
+          0.667115,
+          -0.124541
+        ],
+        "ToySoleL": [
+          0.182065,
+          -0.038543,
+          0.175925
+        ],
+        "ToySoleR": [
+          -0.212128,
+          -0.038126,
+          -0.196485
+        ]
+      }
+    },
+    {
+      "clip": "look.around",
+      "normalizedTime": 0.5,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.041113,
+          1.550194,
+          0.094381
+        ],
+        "ToyChin": [
+          -0.002653,
+          0.910173,
+          -0.06719
+        ],
+        "ToyButtContact": [
+          -0.007059,
+          0.529353,
+          -0.047974
+        ],
+        "ToyPalmL": [
+          0.177447,
+          0.660293,
+          -0.038352
+        ],
+        "ToyPalmR": [
+          -0.140865,
+          0.681762,
+          -0.149493
+        ],
+        "ToySoleL": [
+          0.182341,
+          -0.04002,
+          0.175666
+        ],
+        "ToySoleR": [
+          -0.211797,
+          -0.039557,
+          -0.196725
+        ]
+      }
+    },
+    {
+      "clip": "look.around",
+      "normalizedTime": 0.75,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.033317,
+          1.544295,
+          0.093669
+        ],
+        "ToyChin": [
+          -0.010279,
+          0.897601,
+          -0.042231
+        ],
+        "ToyButtContact": [
+          -0.002801,
+          0.522169,
+          -0.053083
+        ],
+        "ToyPalmL": [
+          0.167194,
+          0.641282,
+          -0.017508
+        ],
+        "ToyPalmR": [
+          -0.127218,
+          0.67032,
+          -0.135722
+        ],
+        "ToySoleL": [
+          0.182073,
+          -0.038549,
+          0.175927
+        ],
+        "ToySoleR": [
+          -0.21212,
+          -0.038131,
+          -0.196483
+        ]
+      }
+    },
+    {
+      "clip": "look.around",
+      "normalizedTime": 1,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.034888,
+          1.550064,
+          0.094869
+        ],
+        "ToyChin": [
+          0.003776,
+          0.910497,
+          -0.068443
+        ],
+        "ToyButtContact": [
+          -0.000789,
+          0.529343,
+          -0.048125
+        ],
+        "ToyPalmL": [
+          0.183314,
+          0.660263,
+          -0.037313
+        ],
+        "ToyPalmR": [
+          -0.134764,
+          0.681595,
+          -0.149243
+        ],
+        "ToySoleL": [
+          0.181881,
+          -0.039945,
+          0.175758
+        ],
+        "ToySoleR": [
+          -0.212253,
+          -0.039504,
+          -0.196643
+        ]
+      }
+    },
+    {
       "clip": "phone",
       "normalizedTime": 0,
       "coordinateSpace": "actorLocal",
@@ -6937,6 +7192,216 @@
       }
     },
     {
+      "clip": "sit.fidget",
+      "normalizedTime": 0,
+      "coordinateSpace": "workstationLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.00184,
+          1.443587,
+          0.438533
+        ],
+        "ToyChin": [
+          -0.00222,
+          0.796459,
+          0.574321
+        ],
+        "ToyButtContact": [
+          -0.002245,
+          0.42844,
+          0.63545
+        ],
+        "ToyPalmL": [
+          -0.129435,
+          0.702205,
+          0.502432
+        ],
+        "ToyPalmR": [
+          0.118745,
+          0.664744,
+          0.490619
+        ],
+        "ToySoleL": [
+          -0.151873,
+          0.152831,
+          0.189087
+        ],
+        "ToySoleR": [
+          0.188737,
+          0.15282,
+          0.189235
+        ]
+      }
+    },
+    {
+      "clip": "sit.fidget",
+      "normalizedTime": 0.25,
+      "coordinateSpace": "workstationLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.001593,
+          1.441666,
+          0.4345
+        ],
+        "ToyChin": [
+          -0.002553,
+          0.792004,
+          0.557589
+        ],
+        "ToyButtContact": [
+          -0.002245,
+          0.42844,
+          0.63545
+        ],
+        "ToyPalmL": [
+          -0.129583,
+          0.696336,
+          0.503961
+        ],
+        "ToyPalmR": [
+          0.115836,
+          0.665622,
+          0.494457
+        ],
+        "ToySoleL": [
+          -0.151873,
+          0.152831,
+          0.189087
+        ],
+        "ToySoleR": [
+          0.188737,
+          0.15282,
+          0.189235
+        ]
+      }
+    },
+    {
+      "clip": "sit.fidget",
+      "normalizedTime": 0.5,
+      "coordinateSpace": "workstationLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.001837,
+          1.441885,
+          0.439375
+        ],
+        "ToyChin": [
+          -0.002222,
+          0.789805,
+          0.548934
+        ],
+        "ToyButtContact": [
+          -0.002245,
+          0.42844,
+          0.63545
+        ],
+        "ToyPalmL": [
+          -0.128167,
+          0.699729,
+          0.507966
+        ],
+        "ToyPalmR": [
+          0.11691,
+          0.662376,
+          0.496605
+        ],
+        "ToySoleL": [
+          -0.151873,
+          0.152831,
+          0.189087
+        ],
+        "ToySoleR": [
+          0.188737,
+          0.15282,
+          0.189235
+        ]
+      }
+    },
+    {
+      "clip": "sit.fidget",
+      "normalizedTime": 0.75,
+      "coordinateSpace": "workstationLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.002247,
+          1.443982,
+          0.444396
+        ],
+        "ToyChin": [
+          -0.001899,
+          0.79321,
+          0.561478
+        ],
+        "ToyButtContact": [
+          -0.002245,
+          0.42844,
+          0.63545
+        ],
+        "ToyPalmL": [
+          -0.127917,
+          0.705087,
+          0.507357
+        ],
+        "ToyPalmR": [
+          0.119719,
+          0.661087,
+          0.493582
+        ],
+        "ToySoleL": [
+          -0.151873,
+          0.152831,
+          0.189087
+        ],
+        "ToySoleR": [
+          0.188737,
+          0.15282,
+          0.189235
+        ]
+      }
+    },
+    {
+      "clip": "sit.fidget",
+      "normalizedTime": 1,
+      "coordinateSpace": "workstationLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.00184,
+          1.443587,
+          0.438533
+        ],
+        "ToyChin": [
+          -0.00222,
+          0.796459,
+          0.574321
+        ],
+        "ToyButtContact": [
+          -0.002245,
+          0.42844,
+          0.63545
+        ],
+        "ToyPalmL": [
+          -0.129435,
+          0.702205,
+          0.502432
+        ],
+        "ToyPalmR": [
+          0.118744,
+          0.664744,
+          0.490619
+        ],
+        "ToySoleL": [
+          -0.151873,
+          0.152831,
+          0.189087
+        ],
+        "ToySoleR": [
+          0.188737,
+          0.15282,
+          0.189235
+        ]
+      }
+    },
+    {
       "clip": "sit.idle",
       "normalizedTime": 0,
       "coordinateSpace": "workstationLocal",
@@ -7563,6 +8028,216 @@
           0.188737,
           0.15282,
           0.189235
+        ]
+      }
+    },
+    {
+      "clip": "stretch",
+      "normalizedTime": 0,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.034906,
+          1.550371,
+          0.093866
+        ],
+        "ToyChin": [
+          0.003447,
+          0.909906,
+          -0.065964
+        ],
+        "ToyButtContact": [
+          -0.00087,
+          0.52942,
+          -0.047782
+        ],
+        "ToyPalmL": [
+          0.184051,
+          0.660377,
+          -0.039491
+        ],
+        "ToyPalmR": [
+          -0.134511,
+          0.681998,
+          -0.149791
+        ],
+        "ToySoleL": [
+          0.181883,
+          -0.040009,
+          0.17575
+        ],
+        "ToySoleR": [
+          -0.21225,
+          -0.039567,
+          -0.196651
+        ]
+      }
+    },
+    {
+      "clip": "stretch",
+      "normalizedTime": 0.25,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.035268,
+          1.551351,
+          0.053627
+        ],
+        "ToyChin": [
+          -0.001534,
+          0.896189,
+          -0.029066
+        ],
+        "ToyButtContact": [
+          -0.002636,
+          0.522109,
+          -0.053255
+        ],
+        "ToyPalmL": [
+          0.175664,
+          0.698681,
+          0.128709
+        ],
+        "ToyPalmR": [
+          -0.130441,
+          0.67,
+          -0.119326
+        ],
+        "ToySoleL": [
+          0.182065,
+          -0.038543,
+          0.175925
+        ],
+        "ToySoleR": [
+          -0.212128,
+          -0.038126,
+          -0.196485
+        ]
+      }
+    },
+    {
+      "clip": "stretch",
+      "normalizedTime": 0.5,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.031909,
+          1.561133,
+          0.036189
+        ],
+        "ToyChin": [
+          -0.00315,
+          0.905646,
+          -0.045802
+        ],
+        "ToyButtContact": [
+          -0.007059,
+          0.529353,
+          -0.047974
+        ],
+        "ToyPalmL": [
+          0.16226,
+          0.755595,
+          0.168312
+        ],
+        "ToyPalmR": [
+          -0.141183,
+          0.681144,
+          -0.125686
+        ],
+        "ToySoleL": [
+          0.182341,
+          -0.04002,
+          0.175666
+        ],
+        "ToySoleR": [
+          -0.211797,
+          -0.039557,
+          -0.196725
+        ]
+      }
+    },
+    {
+      "clip": "stretch",
+      "normalizedTime": 0.75,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.035377,
+          1.551436,
+          0.053112
+        ],
+        "ToyChin": [
+          -0.001809,
+          0.896066,
+          -0.027974
+        ],
+        "ToyButtContact": [
+          -0.002801,
+          0.522169,
+          -0.053083
+        ],
+        "ToyPalmL": [
+          0.175887,
+          0.698339,
+          0.128003
+        ],
+        "ToyPalmR": [
+          -0.130473,
+          0.670187,
+          -0.119664
+        ],
+        "ToySoleL": [
+          0.182073,
+          -0.038549,
+          0.175927
+        ],
+        "ToySoleR": [
+          -0.21212,
+          -0.038131,
+          -0.196483
+        ]
+      }
+    },
+    {
+      "clip": "stretch",
+      "normalizedTime": 1,
+      "coordinateSpace": "actorLocal",
+      "landmarks": {
+        "ToyHeadTop": [
+          -0.034888,
+          1.550064,
+          0.094869
+        ],
+        "ToyChin": [
+          0.003776,
+          0.910497,
+          -0.068443
+        ],
+        "ToyButtContact": [
+          -0.000789,
+          0.529343,
+          -0.048125
+        ],
+        "ToyPalmL": [
+          0.183314,
+          0.660263,
+          -0.037312
+        ],
+        "ToyPalmR": [
+          -0.134764,
+          0.681595,
+          -0.149243
+        ],
+        "ToySoleL": [
+          0.181881,
+          -0.039945,
+          0.175758
+        ],
+        "ToySoleR": [
+          -0.212253,
+          -0.039504,
+          -0.196643
         ]
       }
     },

@@ -321,14 +321,14 @@ check(
 
 console.log('\n[routines] real clips and exact phase scripts');
 const clipByRoutine = {
-  refreshment: clipForPerformance(performanceForRoutine('consume')).clip,
-  library: clipForPerformance(performanceForRoutine('inspect')).clip,
-  social: clipForPerformance(performanceForRoutine('social')).clip,
-  phone: clipForPerformance(performanceForRoutine('phone')).clip,
-  'seated-shift': clipForPerformance(performanceForRoutine('seated-shift')).clip,
-  'desk-fidget': clipForPerformance(performanceForRoutine('desk-fidget')).clip,
-  'look-around': clipForPerformance(performanceForRoutine('look-around')).clip,
-  stretch: clipForPerformance(performanceForRoutine('stretch')).clip,
+  refreshment: clipForPerformance(performanceForRoutine('consume', 0)).clip,
+  library: clipForPerformance(performanceForRoutine('inspect', 0)).clip,
+  social: clipForPerformance(performanceForRoutine('social', 0)).clip,
+  phone: clipForPerformance(performanceForRoutine('phone', 0)).clip,
+  'seated-shift': clipForPerformance(performanceForRoutine('seated-shift', 0)).clip,
+  'desk-fidget': clipForPerformance(performanceForRoutine('desk-fidget', 0)).clip,
+  'look-around': clipForPerformance(performanceForRoutine('look-around', 0)).clip,
+  stretch: clipForPerformance(performanceForRoutine('stretch', 0)).clip,
 };
 check(
   'all eight semantic routines reach their shipped clips',
@@ -338,10 +338,10 @@ check(
       library: 'inspect.open',
       social: 'idle.talk',
       phone: 'phone',
-      'seated-shift': 'sit.talk',
-      'desk-fidget': 'sit.talk',
-      'look-around': 'wait.foldarms',
-      stretch: 'idle',
+      'seated-shift': 'sit.idle',
+      'desk-fidget': 'sit.fidget',
+      'look-around': 'look.around',
+      stretch: 'stretch',
     }),
   json(clipByRoutine),
 );
@@ -1025,7 +1025,7 @@ const direction = {
   phase: 'dwell' as const,
   away: false,
   partnerId: null,
-  performance: performanceForRoutine('phone'),
+  performance: performanceForRoutine('phone', 0),
   staging: null,
 };
 const overlaid = applyAmbientCues(idleFrame, [direction]);
@@ -1040,7 +1040,7 @@ const realFactVariants = [
   { ...idleActor, status: 'working' as const },
   { ...idleActor, running: true },
   { ...idleActor, delivering: true },
-  { ...idleActor, performance: performanceForRoutine('inspect') },
+  { ...idleActor, performance: performanceForRoutine('inspect', 0) },
   {
     ...idleActor,
     staging: {

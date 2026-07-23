@@ -206,8 +206,7 @@ function samplePropAttaches(scene, propsScene, propAttach, metrics) {
       reach: round(reach),
       headDistance: round(headDistance),
       unexpectedFaceRisk,
-      pass:
-        !box.isEmpty() && reach <= metrics.silhouette.gates.propReachMax && !unexpectedFaceRisk,
+      pass: !box.isEmpty() && reach <= metrics.silhouette.gates.propReachMax && !unexpectedFaceRisk,
     };
     if (kind === 'laptop') {
       sample.visibleAtDesk = box.max.y >= metrics.workstation.deskTop;
@@ -355,9 +354,7 @@ for (const bodyType of Object.keys(characterContract.bodyTypeGirth)) {
     const variantSitIdle = playAt(mixer, clipsByName, body, 'sit.idle', 0.5);
     const variantSitTalk = playAt(mixer, clipsByName, body, 'sit.talk', 0.5);
     const contact = {
-      soleDelta: round(
-        Math.max(Math.abs(landmarks.ToySoleL[1]), Math.abs(landmarks.ToySoleR[1])),
-      ),
+      soleDelta: round(Math.max(Math.abs(landmarks.ToySoleL[1]), Math.abs(landmarks.ToySoleR[1]))),
       seatButtDelta: round(
         Math.abs(variantSitIdle.ToyButtContact[1] - metrics.workstation.seatTop),
       ),
@@ -540,21 +537,16 @@ const propAttachSamples = variantMeasurements.find(
 ).propAttach;
 for (const sample of propAttachSamples) {
   checks.push(
-    check(
-      `prop-attach:${sample.kind}`,
-      sample.pass,
-      sample,
-      { reachMax: metrics.silhouette.gates.propReachMax, unexpectedFaceRisk: false },
-    ),
+    check(`prop-attach:${sample.kind}`, sample.pass, sample, {
+      reachMax: metrics.silhouette.gates.propReachMax,
+      unexpectedFaceRisk: false,
+    }),
   );
   if (sample.kind === 'laptop') {
     checks.push(
-      check(
-        'held-laptop-aabb',
-        sample.visibleAtDesk && sample.clearOfDesk,
-        sample,
-        { deskPenetrationMax: 0.01 },
-      ),
+      check('held-laptop-aabb', sample.visibleAtDesk && sample.clearOfDesk, sample, {
+        deskPenetrationMax: 0.01,
+      }),
     );
   }
 }

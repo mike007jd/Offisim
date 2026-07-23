@@ -32,6 +32,10 @@
  *   UAL2  Chest_Open→inspect.open  Consume→consume            Idle_FoldArms_Loop→wait.foldarms
  *         Idle_No_Loop→blocked.headshake  Idle_TalkingPhone_Loop→phone
  *         Walk_Carry_Loop→carry    Yes→celebrate.yes
+ *   derived (procedural, baked from the retained clips):
+ *         sit.type / approval.wait / look.around / sit.fidget / stretch
+ *         (look.around, sit.fidget, stretch are also re-derivable from the
+ *         committed GLB alone via scripts/derive-character-action-clips.mjs)
  *
  * The raw packs are a dev-machine artifact (downloaded + unpacked pack
  * contents) and are NOT checked in. CHARACTER_ASSETS_RAW_DIR is REQUIRED —
@@ -179,7 +183,10 @@ const UAL2_CLIP_RENAMES = {
 /**
  * Authored at build time from the retained CC0 skeleton clips. They are baked
  * as ordinary full glTF animations — the runtime needs no additive-animation
- * feature or source-pack access.
+ * feature or source-pack access. The same five clips are also re-derivable
+ * from the committed animations.glb alone via
+ * `scripts/derive-character-action-clips.mjs` (look.around/sit.fidget/stretch;
+ * identical 24-name clip set + provenance).
  */
 const PROCEDURAL_ANIMATION_SPECS = {
   'sit.type': {
@@ -200,6 +207,8 @@ const PROCEDURAL_ANIMATION_SPECS = {
       'index_01_r',
       'middle_01_r',
     ],
+    poseWeightFor: (joint) => typingPoseWeight(joint),
+    eulerDeltaFor: (joint, normalizedTime) => typingEulerDelta(joint, normalizedTime),
   },
   'approval.wait': {
     baseClip: 'idle',
@@ -217,6 +226,64 @@ const PROCEDURAL_ANIMATION_SPECS = {
       'lowerarm_r',
       'hand_r',
     ],
+    poseWeightFor: (_joint, normalizedTime) => smoothstep(normalizedTime / 0.55),
+    eulerDeltaFor: () => [0, 0, 0],
+  },
+  'look.around': {
+    baseClip: 'idle',
+    poseReferenceClip: 'idle',
+    poseReferenceTime: 0.25,
+    durationSeconds: 2.4,
+    mode: 'loop',
+    modifiedJoints: ['neck_01', 'Head', 'spine_03'],
+    poseWeightFor: () => 0,
+    eulerDeltaFor: (joint, normalizedTime) => lookAroundEulerDelta(joint, normalizedTime),
+  },
+  'sit.fidget': {
+    baseClip: 'sit.idle',
+    poseReferenceClip: 'sit.type',
+    poseReferenceTime: 0.5,
+    durationSeconds: 2.4,
+    mode: 'loop',
+    modifiedJoints: [
+      'clavicle_l',
+      'upperarm_l',
+      'lowerarm_l',
+      'hand_l',
+      'clavicle_r',
+      'upperarm_r',
+      'lowerarm_r',
+      'hand_r',
+      'spine_01',
+      'Head',
+    ],
+    poseWeightFor: (joint) => fidgetPoseWeight(joint),
+    eulerDeltaFor: (joint, normalizedTime) => fidgetEulerDelta(joint, normalizedTime),
+  },
+  // poseReferenceClip/poseReferenceTime are picked deterministically at build
+  // time (most arms-up frame across the celebration clips); see buildAnimations.
+  stretch: {
+    baseClip: 'idle',
+    poseReferenceClip: null,
+    poseReferenceTime: null,
+    durationSeconds: 2.2,
+    mode: 'hold',
+    modifiedJoints: [
+      'clavicle_l',
+      'upperarm_l',
+      'lowerarm_l',
+      'hand_l',
+      'clavicle_r',
+      'upperarm_r',
+      'lowerarm_r',
+      'hand_r',
+      'spine_02',
+      'spine_03',
+      'neck_01',
+      'Head',
+    ],
+    poseWeightFor: (joint, normalizedTime) => stretchPoseWeight(joint, normalizedTime),
+    eulerDeltaFor: (joint, normalizedTime) => stretchEulerDelta(joint, normalizedTime),
   },
 };
 
@@ -592,14 +659,7 @@ async function buildToyBody(io, manifest) {
     const handName = `hand_${side}`;
     const handCenter = add3(jointPosition(handName), [side === 'l' ? 0.018 : -0.018, 0, 0.018]);
     handCenters[side] = handCenter;
-    addToyEllipsoid(
-      skinGeometry,
-      handCenter,
-      TOY_GEOMETRY.handRadii,
-      joint(handName).index,
-      7,
-      10,
-    );
+    addToyEllipsoid(skinGeometry, handCenter, TOY_GEOMETRY.handRadii, joint(handName).index, 7, 10);
   }
 
   addToyEllipsoid(
@@ -784,17 +844,14 @@ async function buildToyBody(io, manifest) {
   const shoulderWidthUnits = Math.abs(
     jointPosition('upperarm_l')[0] - jointPosition('upperarm_r')[0],
   );
-  const sweaterTorsoWidthUnits =
-    shoulderWidthUnits * TOY_GARMENTS.torsoWidthToShoulder * 2 * 1.08;
+  const sweaterTorsoWidthUnits = shoulderWidthUnits * TOY_GARMENTS.torsoWidthToShoulder * 2 * 1.08;
   const sleeveShoulderWidthUnits =
     shoulderWidthUnits * (1 + 2 * TOY_GARMENTS.upperSleeveStartToShoulder);
   const garmentShoulderWidthUnits = Math.max(sweaterTorsoWidthUnits, sleeveShoulderWidthUnits);
   const round6 = (value) => Number(value.toFixed(6));
   const variantMatrix = [];
   for (const [bodyType, girth] of Object.entries(TOY_CHARACTER_CONTRACT.bodyTypeGirth)) {
-    for (const [headShape, headScale] of Object.entries(
-      TOY_CHARACTER_CONTRACT.headShapeScale,
-    )) {
+    for (const [headShape, headScale] of Object.entries(TOY_CHARACTER_CONTRACT.headShapeScale)) {
       const variantHeadTop = headCenter[1] + headRadii[1] * headScale[1];
       const variantHeadBottom = headCenter[1] - headRadii[1] * headScale[1];
       const totalHeightScene = (variantHeadTop - TOY_SHOE_BOTTOM_Y) * sceneScale;
@@ -1167,6 +1224,157 @@ function typingEulerDelta(joint, normalizedTime) {
   }
 }
 
+/*
+ * Direct-V2 derived clip design (mirrors derive-character-action-clips.mjs).
+ * All periodic terms complete an integer number of cycles per loop so
+ * first/last frames match exactly; lower-body tracks stay exact base copies.
+ */
+const DERIVED_TAU = Math.PI * 2;
+
+function fidgetPoseWeight(joint) {
+  if (joint.startsWith('clavicle_')) return 0.35;
+  if (joint.startsWith('upperarm_')) return 0.45;
+  if (joint.startsWith('lowerarm_')) return 0.6;
+  if (joint === 'hand_l') return 0.65;
+  if (joint === 'hand_r') return 0.6;
+  return 0;
+}
+
+function fidgetEulerDelta(joint, normalizedTime) {
+  const slow = Math.sin(normalizedTime * DERIVED_TAU);
+  const mid = Math.sin(normalizedTime * DERIVED_TAU * 2);
+  const quick = Math.sin(normalizedTime * DERIVED_TAU * 3);
+  switch (joint) {
+    case 'lowerarm_l':
+      return [0.02 * quick, 0, 0.012 * mid];
+    case 'lowerarm_r':
+      return [-0.02 * quick, 0, -0.012 * mid];
+    case 'hand_l':
+      return [0.045 * quick, 0.03 * mid, 0];
+    case 'hand_r':
+      return [-0.045 * quick, -0.03 * mid, 0];
+    case 'spine_01':
+      return [0.012 * slow, 0, 0.01 * mid];
+    case 'Head':
+      return [0.02 * mid, 0.035 * slow, 0];
+    default:
+      return [0, 0, 0];
+  }
+}
+
+function lookAroundEulerDelta(joint, normalizedTime) {
+  const scan = Math.sin(normalizedTime * DERIVED_TAU);
+  const nod = Math.sin(normalizedTime * DERIVED_TAU * 2);
+  switch (joint) {
+    case 'neck_01':
+      return [0.03 * nod, 0.16 * scan, 0];
+    case 'Head':
+      return [0.05 * nod, 0.3 * scan, 0];
+    case 'spine_03':
+      return [0, 0.04 * scan, 0];
+    default:
+      return [0, 0, 0];
+  }
+}
+
+function stretchEnvelope(normalizedTime) {
+  return Math.sin(normalizedTime * Math.PI);
+}
+
+function stretchPoseWeight(joint, normalizedTime) {
+  const envelope = stretchEnvelope(normalizedTime);
+  if (joint.startsWith('clavicle_')) return 0.3 * envelope;
+  if (joint.startsWith('upperarm_')) return 0.5 * envelope;
+  if (joint.startsWith('lowerarm_')) return 0.35 * envelope;
+  if (joint.startsWith('hand_')) return 0.3 * envelope;
+  if (joint === 'spine_02' || joint === 'spine_03') return 0.25 * envelope;
+  if (joint === 'neck_01' || joint === 'Head') return 0.2 * envelope;
+  return 0;
+}
+
+function stretchEulerDelta(joint, normalizedTime) {
+  const envelope = stretchEnvelope(normalizedTime);
+  switch (joint) {
+    case 'spine_02':
+      return [-0.05 * envelope, 0, 0];
+    case 'Head':
+      return [-0.06 * envelope, 0, 0];
+    default:
+      return [0, 0, 0];
+  }
+}
+
+function saveSkeletonPose(document) {
+  return document
+    .getRoot()
+    .listNodes()
+    .map((node) => ({
+      node,
+      translation: node.getTranslation(),
+      rotation: node.getRotation(),
+      scale: node.getScale(),
+    }));
+}
+
+function restoreSkeletonPose(saved) {
+  for (const { node, translation, rotation, scale } of saved) {
+    node.setTranslation(translation);
+    node.setRotation(rotation);
+    node.setScale(scale);
+  }
+}
+
+function averageHandHeight(document, animation, time) {
+  for (const channel of animation.listChannels()) {
+    const node = channel.getTargetNode();
+    if (!node) continue;
+    const value = sampleAnimationChannel(channel, time);
+    const path = channel.getTargetPath();
+    if (path === 'rotation') node.setRotation(value);
+    else if (path === 'translation') node.setTranslation(value);
+    else if (path === 'scale') node.setScale(value);
+  }
+  const nodesByName = new Map(
+    document
+      .getRoot()
+      .listNodes()
+      .map((node) => [node.getName(), node]),
+  );
+  const left = nodesByName.get('hand_l');
+  const right = nodesByName.get('hand_r');
+  if (!left || !right) fail('animations: rig is missing hand joints');
+  return (left.getWorldTranslation()[1] + right.getWorldTranslation()[1]) / 2;
+}
+
+/**
+ * Deterministically pick (clip, normalizedTime) with the highest average
+ * hand position across the celebration candidates — the most readable
+ * arms-up reference for the restrained stretch. Same rule as
+ * derive-character-action-clips.mjs so both pipelines agree.
+ */
+function pickStretchReference(document) {
+  const candidates = ['celebrate.yes', 'celebrate.dance'];
+  const saved = saveSkeletonPose(document);
+  let best = null;
+  for (const name of candidates) {
+    const animation = document
+      .getRoot()
+      .listAnimations()
+      .find((candidate) => candidate.getName() === name);
+    if (!animation) fail(`animations: stretch reference candidate '${name}' is missing`);
+    const duration = animationDuration(animation);
+    for (let step = 0; step <= 20; step += 1) {
+      const normalizedTime = step / 20;
+      const height = averageHandHeight(document, animation, normalizedTime * duration);
+      if (best === null || height > best.height) {
+        best = { clip: name, normalizedTime, height };
+      }
+    }
+  }
+  restoreSkeletonPose(saved);
+  return { clip: best.clip, normalizedTime: best.normalizedTime };
+}
+
 function addAnimationChannel(document, animation, buffer, sourceChannel, inputArray, outputArray) {
   const target = sourceChannel.getTargetNode();
   const path = sourceChannel.getTargetPath();
@@ -1253,15 +1461,12 @@ function createProceduralAnimation(document, name, spec) {
           referenceChannel,
           spec.poseReferenceTime * referenceDuration,
         );
-        const poseWeight =
-          name === 'sit.type' ? typingPoseWeight(joint) : smoothstep(normalizedTime / 0.55);
+        const poseWeight = spec.poseWeightFor(joint, normalizedTime);
         let rotation = slerpQuaternion(baseRotation, referenceRotation, poseWeight);
-        if (name === 'sit.type') {
-          rotation = multiplyQuaternions(
-            rotation,
-            quaternionFromEulerXYZ(typingEulerDelta(joint, normalizedTime)),
-          );
-        }
+        rotation = multiplyQuaternions(
+          rotation,
+          quaternionFromEulerXYZ(spec.eulerDeltaFor(joint, normalizedTime)),
+        );
         values.set(rotation, frame * 4);
       }
       addAnimationChannel(document, animation, buffer, sourceChannel, times, values);
@@ -1407,8 +1612,17 @@ async function buildAnimations(io, manifest) {
   if (dropped.size > 0)
     console.log(`  animations: dropped channels targeting [${[...dropped].join(', ')}]`);
 
+  const stretchReference = pickStretchReference(target);
+  const proceduralSpecs = {
+    ...PROCEDURAL_ANIMATION_SPECS,
+    stretch: {
+      ...PROCEDURAL_ANIMATION_SPECS.stretch,
+      poseReferenceClip: stretchReference.clip,
+      poseReferenceTime: stretchReference.normalizedTime,
+    },
+  };
   const proceduralAnimations = Object.fromEntries(
-    Object.entries(PROCEDURAL_ANIMATION_SPECS).map(([name, spec]) => [
+    Object.entries(proceduralSpecs).map(([name, spec]) => [
       name,
       createProceduralAnimation(target, name, spec),
     ]),
@@ -1434,8 +1648,10 @@ async function buildAnimations(io, manifest) {
     }
   }
 
-  manifest.rootMotionOracle = assertInPlaceRootMotion(root.listAnimations());
   await target.transform(resample(), prune(), dedup(), unpartition());
+  // The oracle audits the exact tracks being shipped (post-resample), matching
+  // the ledger semantics of derive-character-action-clips.mjs.
+  manifest.rootMotionOracle = assertInPlaceRootMotion(root.listAnimations());
   await target.transform(meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
 
   const clipNames = root
@@ -1669,7 +1885,8 @@ function writeLicenses() {
     '- Source clips: Quaternius CC0 rig clips from the packs listed below.',
     '- License: the baked animation derivatives remain CC0 1.0; the build logic is',
     '  covered by the Offisim repository license.',
-    '- Used for: the `sit.type` and `approval.wait` animation tracks.',
+    '- Used for: the `sit.type`, `approval.wait`, `look.around`, `sit.fidget`, and',
+    '  `stretch` animation tracks.',
     '',
   ].join('\n');
   writeFileSync(join(OUT_DIR, 'LICENSES.md'), `${header}\n${sections.join('\n\n')}\n`);

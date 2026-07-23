@@ -10,7 +10,9 @@ import type { CharacterPerformanceState } from '@offisim/shared-types';
  * share `interact`, standing document inspection uses `inspect.open`, and
  * thinking rests in `wait.foldarms`. Seated typing and approval are authored
  * clips, not talk/blocked proxies. `phone` / `consume` have a typed P5 routine
- * seam; `sit.enter` / `sit.exit` are posture transitions and `tpose` is the rig
+ * seam; `seated-shift` / `desk-fidget` / `look-around` / `stretch` are the
+ * direct-V2 semantic micro-actions (explicit workGesture → explicit clip);
+ * `sit.enter` / `sit.exit` are posture transitions and `tpose` is the rig
  * reference.
  */
 
@@ -26,13 +28,16 @@ export const CLIP_NAMES = [
   'idle.talk',
   'inspect.open',
   'interact',
+  'look.around',
   'phone',
   'pickup',
   'sit.enter',
   'sit.exit',
+  'sit.fidget',
   'sit.idle',
   'sit.talk',
   'sit.type',
+  'stretch',
   'tpose',
   'wait.foldarms',
   'walk',
@@ -44,8 +49,20 @@ export const MAX_CHARACTER_CLIPS = 24;
 
 export type ClipName = (typeof CLIP_NAMES)[number];
 
+/**
+ * Opaque semantic identity for one selection. Built from the typed performance
+ * layers at map time (never parsed downstream, never inferred from the clip
+ * name), so two states that share a clip still carry distinct identities.
+ */
+export type ClipSemanticIdentity = string;
+
 export interface ClipSelection {
   readonly clip: ClipName;
+  /** Explicit typed semantic identity (performance layers, or `clip:` for
+   *  clip-only selections such as posture transitions / QA sequencing). */
+  readonly semantic: ClipSemanticIdentity;
+  /** Stable loop-diversification lane from the performance state. */
+  readonly variant: CharacterPerformanceState['variant'];
   /** Looping ambient clip; one-shots without `returnTo` hold their last frame. */
   readonly loop: boolean;
   /** Crossfade duration in seconds when entering this clip. */
@@ -61,7 +78,7 @@ const CELEBRATE_FADE = 0.2;
 const DEFAULT_FADE = 0.3;
 
 /** Playback metadata for every shipped clip (total over CLIP_NAMES). */
-export const CLIP_META: Record<ClipName, Omit<ClipSelection, 'clip'>> = {
+export const CLIP_META: Record<ClipName, Omit<ClipSelection, 'clip' | 'semantic' | 'variant'>> = {
   'approval.wait': { loop: false, fade: 0.22, reducedPoseTime: 1.6 },
   'blocked.headshake': {
     loop: false,
@@ -87,13 +104,16 @@ export const CLIP_META: Record<ClipName, Omit<ClipSelection, 'clip'>> = {
   'idle.talk': { loop: true, fade: DEFAULT_FADE, reducedPoseTime: 0.6 },
   'inspect.open': { loop: false, fade: 0.24, reducedPoseTime: 0.8 },
   interact: { loop: true, fade: 0.24, reducedPoseTime: 0.4 },
+  'look.around': { loop: true, fade: 0.24, reducedPoseTime: 1.0 },
   phone: { loop: true, fade: 0.24, reducedPoseTime: 0.8 },
   pickup: { loop: false, fade: 0.24, reducedPoseTime: 0.7 },
   'sit.enter': { loop: false, fade: LOCOMOTION_FADE, reducedPoseTime: 0 },
   'sit.exit': { loop: false, fade: LOCOMOTION_FADE, reducedPoseTime: 0 },
+  'sit.fidget': { loop: true, fade: 0.24, reducedPoseTime: 0.8 },
   'sit.idle': { loop: true, fade: DEFAULT_FADE, reducedPoseTime: 0 },
   'sit.talk': { loop: true, fade: DEFAULT_FADE, reducedPoseTime: 0.7 },
   'sit.type': { loop: true, fade: 0.22, reducedPoseTime: 0.4 },
+  stretch: { loop: false, fade: 0.22, reducedPoseTime: 1.1, returnTo: 'idle' },
   tpose: { loop: false, fade: DEFAULT_FADE, reducedPoseTime: 0 },
   'wait.foldarms': { loop: true, fade: 0.24, reducedPoseTime: 0.7 },
   walk: { loop: true, fade: LOCOMOTION_FADE, reducedPoseTime: 0.2 },
@@ -106,13 +126,40 @@ export const POSTURE_TRANSITION_CLIPS = {
   sitExit: 'sit.exit',
 } as const satisfies Record<string, ClipName>;
 
-function select(clip: ClipName): ClipSelection {
-  return { clip, ...CLIP_META[clip] };
+function select(
+  clip: ClipName,
+  semantic?: ClipSemanticIdentity,
+  variant?: CharacterPerformanceState['variant'],
+): ClipSelection {
+  return {
+    clip,
+    semantic: semantic ?? `clip:${clip}`,
+    variant: variant ?? 0,
+    ...CLIP_META[clip],
+  };
 }
 
 /** Explicit clip selection for the release QA sequencer; shares production playback metadata. */
 export function selectionForClip(clip: ClipName): ClipSelection {
   return select(clip);
+}
+
+/**
+ * Explicit typed semantic identity for a performance state. This is the ONLY
+ * place semantics are serialized; playback compares the opaque result and never
+ * interprets it (and never recovers semantics from the clip name).
+ */
+function semanticIdentityFor(perf: CharacterPerformanceState): ClipSemanticIdentity {
+  return [
+    'perf',
+    perf.locomotion,
+    perf.posture,
+    perf.workGesture,
+    perf.socialGesture,
+    perf.expression,
+    perf.prop ?? 'none',
+    perf.intensity,
+  ].join('|');
 }
 
 function walkClip(perf: CharacterPerformanceState): ClipName {
@@ -132,6 +179,8 @@ function sitClip(perf: CharacterPerformanceState): ClipName {
     case 'note':
     case 'annotate':
       return 'sit.type';
+    case 'desk-fidget':
+      return 'sit.fidget';
     case 'read':
     case 'inspect-terminal':
     case 'write-board':
@@ -140,6 +189,7 @@ function sitClip(perf: CharacterPerformanceState): ClipName {
     case 'approval-wait':
     case 'phone':
     case 'consume':
+    case 'seated-shift':
       return 'sit.idle';
     default:
       break;
@@ -152,6 +202,8 @@ function standClip(perf: CharacterPerformanceState): ClipName {
   if (perf.workGesture === 'approval-wait') return 'approval.wait';
   if (perf.workGesture === 'phone') return 'phone';
   if (perf.workGesture === 'consume') return 'consume';
+  if (perf.workGesture === 'look-around') return 'look.around';
+  if (perf.workGesture === 'stretch') return 'stretch';
   if (perf.workGesture === 'point' && perf.expression === 'happy') {
     return perf.intensity === 2 ? 'celebrate.dance' : 'celebrate.yes';
   }
@@ -182,11 +234,14 @@ function standClip(perf: CharacterPerformanceState): ClipName {
 /**
  * Total, deterministic clip selection for a performance state.
  * Never returns undefined; unknown combinations fall back to the posture idle.
+ * The selection carries the explicit typed semantic identity plus the stable
+ * variant so playback can tell same-clip semantic changes apart.
  */
 export function clipForPerformance(perf: CharacterPerformanceState): ClipSelection {
-  if (perf.locomotion === 'walk') return select(walkClip(perf));
-  if (perf.posture === 'sit') return select(sitClip(perf));
-  return select(standClip(perf));
+  const semantic = semanticIdentityFor(perf);
+  if (perf.locomotion === 'walk') return select(walkClip(perf), semantic, perf.variant);
+  if (perf.posture === 'sit') return select(sitClip(perf), semantic, perf.variant);
+  return select(standClip(perf), semantic, perf.variant);
 }
 
 /** The resting clip for a posture — the deterministic fallback / re-entry pose. */

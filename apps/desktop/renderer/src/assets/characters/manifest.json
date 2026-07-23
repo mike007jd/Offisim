@@ -601,111 +601,126 @@
     "allTranslationKeysChecked": true,
     "maxAbsDeltaThreshold": 0.00001,
     "maxObservedAbsDelta": 0,
-    "clipsChecked": 21,
-    "translationChannelsChecked": 21,
+    "clipsChecked": 24,
+    "translationChannelsChecked": 24,
     "clips": {
       "tpose": {
-        "keysChecked": 76,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "celebrate.dance": {
-        "keysChecked": 31,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "idle": {
-        "keysChecked": 76,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "idle.talk": {
-        "keysChecked": 89,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "interact": {
-        "keysChecked": 61,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "pickup": {
-        "keysChecked": 26,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "sit.enter": {
-        "keysChecked": 40,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "sit.exit": {
-        "keysChecked": 32,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "sit.idle": {
-        "keysChecked": 51,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "sit.talk": {
-        "keysChecked": 89,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "walk.formal": {
-        "keysChecked": 41,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "walk": {
-        "keysChecked": 41,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "inspect.open": {
-        "keysChecked": 42,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "consume": {
-        "keysChecked": 41,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "wait.foldarms": {
-        "keysChecked": 76,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "blocked.headshake": {
-        "keysChecked": 76,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "phone": {
-        "keysChecked": 89,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "carry": {
-        "keysChecked": 61,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "celebrate.yes": {
-        "keysChecked": 76,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "sit.type": {
-        "keysChecked": 51,
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       },
       "approval.wait": {
-        "keysChecked": 76,
+        "keysChecked": 2,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "look.around": {
+        "keysChecked": 2,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "sit.fidget": {
+        "keysChecked": 2,
+        "rootTranslationTracks": 1,
+        "maxAbsDelta": 0
+      },
+      "stretch": {
+        "keysChecked": 2,
         "rootTranslationTracks": 1,
         "maxAbsDelta": 0
       }
@@ -723,13 +738,16 @@
     "idle.talk",
     "inspect.open",
     "interact",
+    "look.around",
     "phone",
     "pickup",
     "sit.enter",
     "sit.exit",
+    "sit.fidget",
     "sit.idle",
     "sit.talk",
     "sit.type",
+    "stretch",
     "tpose",
     "wait.foldarms",
     "walk",
@@ -756,7 +774,10 @@
     "carry": "UAL2:Walk_Carry_Loop",
     "celebrate.yes": "UAL2:Yes",
     "sit.type": "offisim-procedural:sit.type",
-    "approval.wait": "offisim-procedural:approval.wait"
+    "approval.wait": "offisim-procedural:approval.wait",
+    "look.around": "offisim-procedural:look.around",
+    "sit.fidget": "offisim-procedural:sit.fidget",
+    "stretch": "offisim-procedural:stretch"
   },
   "proceduralAnimations": {
     "sit.type": {
@@ -796,6 +817,61 @@
         "hand_r"
       ],
       "lowerBodyPolicy": "exact idle channels with duration-normalized key times"
+    },
+    "look.around": {
+      "baseClip": "idle",
+      "poseReferenceClip": "idle",
+      "mode": "loop",
+      "durationSeconds": 2.4,
+      "sampleRate": 30,
+      "modifiedJoints": [
+        "neck_01",
+        "Head",
+        "spine_03"
+      ],
+      "lowerBodyPolicy": "exact idle channels with duration-normalized key times"
+    },
+    "sit.fidget": {
+      "baseClip": "sit.idle",
+      "poseReferenceClip": "sit.type",
+      "mode": "loop",
+      "durationSeconds": 2.4,
+      "sampleRate": 30,
+      "modifiedJoints": [
+        "clavicle_l",
+        "upperarm_l",
+        "lowerarm_l",
+        "hand_l",
+        "clavicle_r",
+        "upperarm_r",
+        "lowerarm_r",
+        "hand_r",
+        "spine_01",
+        "Head"
+      ],
+      "lowerBodyPolicy": "exact sit.idle channels with duration-normalized key times"
+    },
+    "stretch": {
+      "baseClip": "idle",
+      "poseReferenceClip": "celebrate.yes",
+      "mode": "hold",
+      "durationSeconds": 2.2,
+      "sampleRate": 30,
+      "modifiedJoints": [
+        "clavicle_l",
+        "upperarm_l",
+        "lowerarm_l",
+        "hand_l",
+        "clavicle_r",
+        "upperarm_r",
+        "lowerarm_r",
+        "hand_r",
+        "spine_02",
+        "spine_03",
+        "neck_01",
+        "Head"
+      ],
+      "lowerBodyPolicy": "exact idle channels with duration-normalized key times"
     }
   },
   "animationRetarget": {
@@ -827,7 +903,7 @@
   },
   "files": {
     "LICENSES.md": 4199,
-    "animations.glb": 547280,
+    "animations.glb": 600776,
     "body_toy.glb": 58396,
     "hair_01.glb": 8880,
     "hair_02.glb": 10416,
@@ -843,5 +919,5 @@
     "hair_12.glb": 9344,
     "props.glb": 52248
   },
-  "totalBytes": 776711
+  "totalBytes": 830207
 }

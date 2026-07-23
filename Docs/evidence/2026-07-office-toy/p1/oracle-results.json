@@ -161,7 +161,7 @@
     {
       "name": "manifest exactly covers shipped assets, byte sizes, and 25 MiB budget",
       "pass": true,
-      "detail": "776711/26214400"
+      "detail": "830207/26214400"
     },
     {
       "name": "licenses identify authored P1 geometry",
@@ -182,7 +182,7 @@
   "assets": {
     "files": {
       "LICENSES.md": 4199,
-      "animations.glb": 547280,
+      "animations.glb": 600776,
       "body_toy.glb": 58396,
       "hair_01.glb": 8880,
       "hair_02.glb": 10416,
@@ -200,7 +200,7 @@
     },
     "sha256": {
       "LICENSES.md": "c2dcae5c3cf99f34c4aa87173968f089bcc5c854b479c078c2a6856d8db82135",
-      "animations.glb": "ddcd02a7a8a1a86c74644ef77b57a4895fd1a17f0be658046c256596d5d5fd71",
+      "animations.glb": "f7bedb6ba84cc362cd629801771865b7857647553760d5f6bb88a13526e557bf",
       "body_toy.glb": "7fd7f761e6a886bb25413504e6b1ea7317c553f2a6c6b116f42c429c45e9e10e",
       "hair_01.glb": "76a400e30bb046aa8a4c0d25c3f21c59c4c3cb33c0c274e1bbcf2e3e3fa528e8",
       "hair_02.glb": "ed16569a4bf4dd0a0336c39137c2e86843599270594401a68b63f8229348782c",
@@ -216,7 +216,7 @@
       "hair_12.glb": "c7c445d2bbacb457447e3e01292be9b57daaa6aafd9ab6ca1e1d8907168d2d07",
       "props.glb": "caa4a05a39e918c8fdc9e40650f7dc103e1d1ae2e357bf55d42671b0bc0d8f94"
     },
-    "totalBytes": 776711,
+    "totalBytes": 830207,
     "budgetBytes": 26214400
   }
 }
