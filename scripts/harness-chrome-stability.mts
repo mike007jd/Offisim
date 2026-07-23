@@ -217,7 +217,10 @@ check('Team and AI Accounts share Offisim-owned engine identity glyphs', () => {
 
 check('composer settings drill in within one menu and preserve footer space', () => {
   assert.doesNotMatch(composerSettings, /DropdownMenuSub/);
-  assert.match(composerSettings, /type PickerLayer = 'root' \| 'model' \| 'reasoning' \| 'mode'/);
+  assert.match(
+    composerSettings,
+    /type PickerLayer = 'root' \| 'model' \| 'reasoning' \| 'speed' \| 'mode'/,
+  );
   assert.match(composerSettings, /ArrowLeft/);
   assert.match(composerSettings, /modelLeafId\(effectiveModel\)/);
   const trigger =

@@ -197,7 +197,11 @@ export function projectRunnableModelOptions(
     .flatMap((engine) => {
       const base = {
         selectionKind: 'orchestration-engine' as const,
-        accountName: 'Orchestration engines',
+        // Expanded engines group their model rows under the engine's own name;
+        // a lone engine-managed row keeps the generic group label.
+        accountName: MODEL_PASSTHROUGH_ENGINES.has(engine.engineId)
+          ? engine.displayName
+          : 'Orchestration engines',
         accountId: `${engine.engineId}:local`,
         engineId: engine.engineId,
         billingMode: 'subscription' as const,
