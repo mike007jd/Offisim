@@ -1714,6 +1714,7 @@ fn orchestration_capabilities() -> Value {
             "toolCalls": true,
             "fileChanges": true,
         },
+        "pace": { "speedReport": "unreported" },
         "interactionRoutes": {
             "browser": [{
                 "id": "offisim-browser",

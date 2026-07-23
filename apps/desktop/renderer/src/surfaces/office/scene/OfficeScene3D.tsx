@@ -19,6 +19,8 @@ import { openArtifactClaim } from '@/surfaces/office/stage-viewer/artifact-claim
 import {
   CHARACTER_TURN_RATE_PER_SECOND,
   CHARACTER_WALK_SPEED_UNITS_PER_SECOND,
+  type PaceSignal,
+  animationTempoForPace,
   animationTempoForRole,
 } from '@offisim/dramaturgy';
 import type {
@@ -302,6 +304,7 @@ function EmployeeUnit({
   attention,
   dragging,
   performance,
+  pace,
   zones,
   pathfinder,
   entryFrom,
@@ -332,6 +335,7 @@ function EmployeeUnit({
   attention: boolean;
   dragging: boolean;
   performance?: CharacterPerformanceState;
+  pace: PaceSignal;
   zones: ZoneDef[];
   /** Floor pathfinder (H1/H2); null → the straight-line lerp fallback. */
   pathfinder: OfficePathfinder | null;
@@ -522,8 +526,12 @@ function EmployeeUnit({
   );
   // Employee performance profile flavor — tempo scales animation speed only.
   const tempo = useMemo(
-    () => animationTempoForRole((employee.roleSlug ?? 'developer') as RoleSlug),
-    [employee.roleSlug],
+    () =>
+      animationTempoForPace(
+        animationTempoForRole((employee.roleSlug ?? 'developer') as RoleSlug),
+        pace,
+      ),
+    [employee.roleSlug, pace],
   );
   const phase = useMemo(
     () => (employee.id.charCodeAt(employee.id.length - 1) % 10) * 0.6,
@@ -917,7 +925,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
   // bubbles, and selection all come from here — along with the shared
   // actorById index; hover + drag feed its input state so the cues carry
   // them. Only world geometry stays local.
-  const { frame, actorById } = useSceneCueFrame({
+  const { frame, actorById, pace } = useSceneCueFrame({
     prefabs: stagingPrefabs,
     actorPositions: placementsByEmployee,
     routeFor,
@@ -1142,6 +1150,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
                   attention={attentionEmployeeId === employee.id}
                   dragging={cue?.dragging ?? false}
                   performance={performance}
+                  pace={pace}
                   zones={zoneDefs}
                   pathfinder={pathfinder}
                   entryFrom={

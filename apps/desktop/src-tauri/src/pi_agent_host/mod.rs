@@ -299,6 +299,7 @@ fn codex_unavailable_account() -> serde_json::Value {
             "permissionModes": ["plan", "ask", "auto", "full"],
             "interactions": { "approval": true, "userInput": true },
             "processEvents": { "reasoning": true, "toolCalls": true, "fileChanges": true },
+            "pace": { "speedReport": "unreported" },
             "interactionRoutes": {
                 "browser": [{
                     "id": "offisim-browser",
@@ -344,6 +345,7 @@ fn claude_unavailable_account() -> serde_json::Value {
             "permissionModes": ["plan", "auto", "full"],
             "interactions": { "approval": false, "userInput": false },
             "processEvents": { "reasoning": true, "toolCalls": true, "fileChanges": true },
+            "pace": { "speedReport": "unreported" },
             "interactionRoutes": {
                 "browser": [{
                     "id": "offisim-browser",

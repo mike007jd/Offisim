@@ -68,6 +68,14 @@ export {
 export type { EmployeeStaging } from './office-projection.js';
 export { currentBeatsByEmployee, projectOfficeStaging } from './office-projection.js';
 export { animationTempoForRole } from './profiles.js';
+export type { DeclaredPaceMode, PaceSignal } from './pace.js';
+export {
+  activeDeclaredPaceMode,
+  NEUTRAL_PACE,
+  animationTempoForPace,
+  composePaceSignal,
+  observedCadenceMultiplier,
+} from './pace.js';
 export {
   CHARACTER_TURN_RATE_PER_SECOND,
   CHARACTER_WALK_ANIMATION_TIME_SCALE,

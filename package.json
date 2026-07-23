@@ -71,6 +71,7 @@
     "harness:office-projection": "node scripts/run-harnesses.mjs --only office-projection",
     "harness:mission-office-projection": "node scripts/run-harnesses.mjs --only mission-office-projection",
     "harness:dramaturgy-modes": "node scripts/run-harnesses.mjs --only dramaturgy-modes",
+    "harness:pace-projection": "node scripts/run-harnesses.mjs --only pace-projection",
     "harness:dramaturgy-stress": "node scripts/run-harnesses.mjs --only dramaturgy-stress",
     "harness:scene-cue": "node scripts/run-harnesses.mjs --only scene-cue",
     "harness:character-toy-p0": "node scripts/run-harnesses.mjs --only character-toy-p0",

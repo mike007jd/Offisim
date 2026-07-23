@@ -119,6 +119,7 @@ const capabilities = {
     ],
   },
   processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  pace: { speedReport: 'unreported' },
 };
 const runtimeStatus: AiRuntimeStatus = {
   checkedAt: '2026-07-17T00:00:00Z',

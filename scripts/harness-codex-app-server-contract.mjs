@@ -98,6 +98,7 @@ for (const field of [
   'orchestrationEngines',
   'permissionModes',
   'processEvents',
+  'pace',
   'interactionRoutes',
   'userInput',
   'fileChanges',

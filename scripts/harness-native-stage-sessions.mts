@@ -78,6 +78,7 @@ const routeManifest = {
     ],
   },
   processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+  pace: { speedReport: 'unreported' },
 } as const satisfies RuntimeEngineCapabilityManifest;
 
 assert.equal(
