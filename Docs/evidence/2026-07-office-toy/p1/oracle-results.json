@@ -44,7 +44,7 @@
       "detail": ""
     },
     {
-      "name": "appearance draft uses the office resolver for every effective color",
+      "name": "appearance draft uses the office resolver and hire seed survives repository create",
       "pass": true,
       "detail": ""
     },
@@ -69,7 +69,7 @@
       "detail": ""
     },
     {
-      "name": "six transformed hair silhouettes wrap the head with a visible front hairline while clearing eyes",
+      "name": "all transformed hair silhouettes wrap the head with a visible front hairline while clearing eyes",
       "pass": true,
       "detail": ""
     },
@@ -85,6 +85,16 @@
     },
     {
       "name": "four garment silhouettes and role badge exist",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "single-source 9-variant silhouette matrix is complete and green",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "name": "runtime garments consume the metrics proportion contract",
       "pass": true,
       "detail": ""
     },
@@ -109,7 +119,7 @@
       "detail": ""
     },
     {
-      "name": "laptop attach has one source shared with the P0 contact oracle",
+      "name": "all prop attaches have one source shared with the P0 contact oracle",
       "pass": true,
       "detail": ""
     },
@@ -139,14 +149,19 @@
       "detail": ""
     },
     {
-      "name": "hair manifest ships six assets",
+      "name": "hair manifest ships every contract asset",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "manifest file keys are deterministic",
       "pass": true,
       "detail": ""
     },
     {
       "name": "manifest exactly covers shipped assets, byte sizes, and 25 MiB budget",
       "pass": true,
-      "detail": "726087/26214400"
+      "detail": "776711/26214400"
     },
     {
       "name": "licenses identify authored P1 geometry",
@@ -166,30 +181,42 @@
   ],
   "assets": {
     "files": {
-      "LICENSES.md": 4203,
+      "LICENSES.md": 4199,
       "animations.glb": 547280,
-      "body_toy.glb": 58524,
+      "body_toy.glb": 58396,
       "hair_01.glb": 8880,
       "hair_02.glb": 10416,
-      "hair_03.glb": 9652,
-      "hair_04.glb": 18900,
+      "hair_03.glb": 9760,
+      "hair_04.glb": 13316,
       "hair_05.glb": 6972,
       "hair_06.glb": 9012,
+      "hair_07.glb": 11244,
+      "hair_08.glb": 9448,
+      "hair_09.glb": 14284,
+      "hair_10.glb": 4928,
+      "hair_11.glb": 6984,
+      "hair_12.glb": 9344,
       "props.glb": 52248
     },
     "sha256": {
-      "LICENSES.md": "83a0982016bc96acbc037a6522125b4383f6225e0129b2d9eb48ef1aff2be08c",
+      "LICENSES.md": "c2dcae5c3cf99f34c4aa87173968f089bcc5c854b479c078c2a6856d8db82135",
       "animations.glb": "ddcd02a7a8a1a86c74644ef77b57a4895fd1a17f0be658046c256596d5d5fd71",
-      "body_toy.glb": "a6786c46667910b9fa8f2e811a5f17cee11fdeb93f503aaa480d3a90b17e45d0",
+      "body_toy.glb": "7fd7f761e6a886bb25413504e6b1ea7317c553f2a6c6b116f42c429c45e9e10e",
       "hair_01.glb": "76a400e30bb046aa8a4c0d25c3f21c59c4c3cb33c0c274e1bbcf2e3e3fa528e8",
       "hair_02.glb": "ed16569a4bf4dd0a0336c39137c2e86843599270594401a68b63f8229348782c",
-      "hair_03.glb": "1030e9c6565ce2e93fc308cacd36b53680ad933aefa8523a17447ba3e38cc5ab",
-      "hair_04.glb": "4f8e529cb6ed527277ea9f600f4232b157d0c3e4f1246bbd961540a8103a9f80",
+      "hair_03.glb": "527e0cfa6a0233362e42fba9f308ec497bfcff67ca7ad96b1860566052af7107",
+      "hair_04.glb": "02154039e509fcefda029cb5261b7163b16a038c423de7911435fc357d88b83a",
       "hair_05.glb": "908489693156e16306cb7a598d508cf8cb8968c8e3ebc621aa5d041f97abbace",
       "hair_06.glb": "3c1b65446abe4502fbbfb0fbc7d9356a96e68e6db2756e108d85dc35e088331c",
+      "hair_07.glb": "4bfade9fa8fc16a2634690e6b591d75beb276bc36237de4705d290f327e0d0ed",
+      "hair_08.glb": "47ec45e46f78ffd799bedf6669ab84434b02b4337757adc5e59d8701716124b4",
+      "hair_09.glb": "b399735ab6f2049a4427c0145f46d3d7dc03921ee96883f14088f7db471c071e",
+      "hair_10.glb": "8fd1151f09baaab7bd3b3778e283cd1d18b2490038eb403bae2cb704eee7bc48",
+      "hair_11.glb": "b4d6eef4b9337c2d54ed46e64e4e47c0d705cca8a8693d35b4ef9a59b564cd24",
+      "hair_12.glb": "c7c445d2bbacb457447e3e01292be9b57daaa6aafd9ab6ca1e1d8907168d2d07",
       "props.glb": "caa4a05a39e918c8fdc9e40650f7dc103e1d1ae2e357bf55d42671b0bc0d8f94"
     },
-    "totalBytes": 726087,
+    "totalBytes": 776711,
     "budgetBytes": 26214400
   }
 }

@@ -29,7 +29,9 @@ import {
   type LocalChatterHistory,
   type LocalChatterInput,
   type LocalChatterPairHistory,
+  type LocalChatterPresentation,
   type LocalChatterResult,
+  type LocalChatterUtterance,
   emptyLocalChatterHistory,
   pairKeyFor,
   selectLocalChatter,
@@ -420,6 +422,83 @@ section('[paths] pair rotation');
       unrelatedPair.nextHistory.perPair[pairCD]?.lastScriptId ===
         unrelatedPair.presentation.pairScriptId,
   );
+
+  const negativeIndex = mustChatter(
+    selectLocalChatter(
+      baseInput({
+        actors,
+        seed: 'negative-pair-index',
+        nowMs,
+        history: historyWith({
+          perPair: {
+            [pairAB]: {
+              lastAtMs: nowMs - CHATTER_PAIR_COOLDOWN_MS,
+              nextScriptIndex: -1,
+              lastScriptId: 'pair.snack',
+            },
+          },
+        }),
+      }),
+    ),
+    'negative pair script index remains playable',
+  );
+  check(
+    'negative pair script index wraps to a valid script',
+    negativeIndex.presentation.pairScriptId === 'pair.stretch',
+    String(negativeIndex.presentation.pairScriptId),
+  );
+}
+
+section('[paths] mixed initial pair scripts');
+{
+  const nowMs = 5_000_000;
+  const seeds = [
+    'pair-mix-alpha',
+    'pair-mix-beta',
+    'pair-mix-gamma',
+    'pair-mix-delta',
+    'pair-mix-epsilon',
+    'pair-mix-zeta',
+  ] as const;
+  const samples = seeds.map((seed) => {
+    const first = mustChatter(
+      selectLocalChatter(baseInput({ actors: [actor('ava'), actor('ben')], seed, nowMs })),
+      `${seed} first pair`,
+    );
+    const second = mustChatter(
+      selectLocalChatter(baseInput({ actors: [actor('cy'), actor('dia')], seed, nowMs })),
+      `${seed} second pair`,
+    );
+    const firstIndex = PAIR_DIALOGUE_SCRIPTS.findIndex(
+      (script) => script.id === first.presentation.pairScriptId,
+    );
+    const secondIndex = PAIR_DIALOGUE_SCRIPTS.findIndex(
+      (script) => script.id === second.presentation.pairScriptId,
+    );
+    return {
+      scripts: [first.presentation.pairScriptId, second.presentation.pairScriptId],
+      offset:
+        (secondIndex - firstIndex + PAIR_DIALOGUE_SCRIPTS.length) % PAIR_DIALOGUE_SCRIPTS.length,
+    };
+  });
+  check(
+    'fixed pair-mixing fixture is deterministic',
+    json(samples) ===
+      json([
+        { scripts: ['pair.snack', 'pair.coffee'], offset: 2 },
+        { scripts: ['pair.snack', 'pair.snack'], offset: 0 },
+        { scripts: ['pair.snack', 'pair.coffee'], offset: 2 },
+        { scripts: ['pair.window', 'pair.window'], offset: 0 },
+        { scripts: ['pair.window', 'pair.snack'], offset: 1 },
+        { scripts: ['pair.window', 'pair.coffee'], offset: 3 },
+      ]),
+    json(samples),
+  );
+  check(
+    'distinct pairs do not keep a constant script-index translation across seeds',
+    new Set(samples.map((sample) => sample.offset)).size > 1,
+    json(samples),
+  );
 }
 
 section('[paths] recent solo copy rotation');
@@ -481,7 +560,7 @@ section('[cooldown] global / actor / pair boundaries');
         }),
       ),
       'global exact',
-    ).status === 'chatter',
+    ).nextHistory.lastGlobalAtMs === nowMs,
   );
 
   check(
@@ -513,30 +592,34 @@ section('[cooldown] global / actor / pair boundaries');
         }),
       ),
       'actor exact',
-    ).status === 'chatter',
+    ).nextHistory.lastActorAtMs.ava === nowMs,
   );
 
   const pairKey = pairKeyFor('ava', 'ben');
-  check(
-    'pair cooldown: 1ms before → suppressed',
-    suppressedReason(
-      selectLocalChatter(
-        baseInput({
-          actors: [actor('ava'), actor('ben')],
-          nowMs,
-          history: historyWith({
-            lastGlobalAtMs: nowMs - CHATTER_GLOBAL_COOLDOWN_MS,
-            perPair: {
-              [pairKey]: {
-                lastAtMs: nowMs - CHATTER_PAIR_COOLDOWN_MS + 1,
-                nextScriptIndex: 1,
-                lastScriptId: 'pair.coffee',
-              },
+  const pairCooldownFallback = mustChatter(
+    selectLocalChatter(
+      baseInput({
+        actors: [actor('ava'), actor('ben')],
+        nowMs,
+        history: historyWith({
+          lastGlobalAtMs: nowMs - CHATTER_GLOBAL_COOLDOWN_MS,
+          perPair: {
+            [pairKey]: {
+              lastAtMs: nowMs - CHATTER_PAIR_COOLDOWN_MS + 1,
+              nextScriptIndex: 1,
+              lastScriptId: 'pair.coffee',
             },
-          }),
+          },
         }),
-      ),
-    ) === 'pair-cooldown',
+      }),
+    ),
+    'pair cooldown solo fallback',
+  );
+  check(
+    'pair cooldown: 1ms before → dual-actor solo fallback',
+    pairCooldownFallback.presentation.kind.startsWith('solo') &&
+      pairCooldownFallback.presentation.actorIds.length === 1,
+    json(pairCooldownFallback.presentation),
   );
   check(
     'pair cooldown: exactly at → eligible',
@@ -653,6 +736,12 @@ section('[copy] catalog integrity and safety');
     if (forbiddenEn.test(en[key]) || forbiddenZh.test(zh[key])) unsafe += 1;
   }
   check('every key resolves in en and zh-CN', missing === 0, `missing=${missing}`);
+  check(
+    'zh-CN lamp and cable copy use native phrasing',
+    zh['solo.playful.lamp'] === '台灯情绪：有点戏精。' &&
+      zh['solo.complaint.cable'] === '桌下线缆又打结了。',
+    `lamp=${zh['solo.playful.lamp']} cable=${zh['solo.complaint.cable']}`,
+  );
   check(
     'concise limits hold',
     tooLong === 0,
@@ -774,18 +863,21 @@ section('[presentation] integration shape');
     'shape',
   );
   const p = result.presentation;
+  const exportedPresentation: LocalChatterPresentation = p;
+  const exportedUtterances: readonly LocalChatterUtterance[] = p.utterances;
   check('stable id present', typeof p.id === 'string' && p.id.startsWith('chatter:'));
   check('priority marker', p.priority === 'local-chatter');
   check('timing metadata', typeof p.startAtMs === 'number' && typeof p.holdMs === 'number');
   check(
     'utterance fields',
-    p.utterances.every(
-      (u) =>
-        typeof u.actorId === 'string' &&
-        typeof u.copyKey === 'string' &&
-        typeof u.text === 'string' &&
-        u.text.length > 0,
-    ),
+    exportedPresentation === p &&
+      exportedUtterances.every(
+        (u) =>
+          typeof u.actorId === 'string' &&
+          typeof u.copyKey === 'string' &&
+          typeof u.text === 'string' &&
+          u.text.length > 0,
+      ),
   );
 }
 

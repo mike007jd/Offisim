@@ -74,6 +74,8 @@
     "harness:pace-projection": "node scripts/run-harnesses.mjs --only pace-projection",
     "harness:dramaturgy-stress": "node scripts/run-harnesses.mjs --only dramaturgy-stress",
     "harness:scene-cue": "node scripts/run-harnesses.mjs --only scene-cue",
+    "harness:character-toy-p0": "node scripts/run-harnesses.mjs --only character-toy-p0",
+    "harness:character-toy-p1": "node scripts/run-harnesses.mjs --only character-toy-p1",
     "harness:character-clip-map": "node scripts/run-harnesses.mjs --only character-clip-map",
     "harness:character-actions-p3": "node scripts/run-harnesses.mjs --only character-actions-p3",
     "harness:office-visual-language-p4": "node scripts/run-harnesses.mjs --only office-visual-language-p4",

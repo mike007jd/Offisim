@@ -338,6 +338,24 @@ check(
   ['blazer', 'shirt', 'sweater', 'dress'].every((outfit) => garments.includes(`'${outfit}'`)) &&
     garments.includes('roleBadge'),
 );
+const silhouetteMatrix = manifest.bodies.toy.measurements?.variantMatrix ?? [];
+check(
+  'single-source 9-variant silhouette matrix is complete and green',
+  JSON.stringify(manifest.bodies.toy.measurements?.geometryUnits) ===
+    JSON.stringify(toyMetrics.silhouette.geometryUnits) &&
+    JSON.stringify(manifest.bodies.toy.measurements?.garmentProportions) ===
+      JSON.stringify(toyMetrics.silhouette.garmentProportions) &&
+    silhouetteMatrix.length === 9 &&
+    new Set(silhouetteMatrix.map((variant) => variant.id)).size === 9 &&
+    silhouetteMatrix.every((variant) => variant.pass === true),
+  JSON.stringify(silhouetteMatrix.filter((variant) => !variant.pass)),
+);
+check(
+  'runtime garments consume the metrics proportion contract',
+  garments.includes("import toyPerformanceMetrics from '../toy-performance-metrics.json'") &&
+    garments.includes('const GARMENT_PROPORTIONS') &&
+    !/shoulderW \* 0\.(33|23|115|094)/.test(garments),
+);
 check(
   'five performance props map to visible accessories',
   JSON.stringify(contract.performancePropAsset) ===
@@ -370,9 +388,10 @@ check(
     !character.includes('diagnosticClip'),
 );
 check(
-  'laptop attach has one source shared with the P0 contact oracle',
+  'all prop attaches have one source shared with the P0 contact oracle',
   toyMetrics.heldProps === undefined &&
-    p0Harness.includes('characterContract.propAttach.laptop') &&
+    p0Harness.includes('samplePropAttaches(') &&
+    p0Harness.includes('characterContract.propAttach') &&
     !p0Harness.includes('metrics.heldProps'),
 );
 
@@ -446,6 +465,14 @@ check(
     expectedHairAssets.every((asset) => existsSync(join(CHARACTER_DIR, `${asset}.glb`))),
 );
 const files = Object.keys(manifest.files ?? {});
+const codeUnitSortedFiles = [...files].sort((left, right) =>
+  left < right ? -1 : left > right ? 1 : 0,
+);
+check(
+  'manifest file keys are deterministic',
+  JSON.stringify(files) === JSON.stringify(codeUnitSortedFiles) &&
+    !(await text(join(ROOT, 'scripts/build-character-assets.mjs'))).includes('localeCompare'),
+);
 const actualAssetFiles = characterDirEntries
   .filter(
     (entry) => entry.isFile() && (entry.name.endsWith('.glb') || entry.name === 'LICENSES.md'),
