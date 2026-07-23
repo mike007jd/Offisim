@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "result": "PASS",
+  "sourceCommit": "0780eca301a71075d1eaf225f080c2346c46618a",
+  "verifiedAt": "2026-07-23T22:33:18+12:00",
+  "runtimeTarget": "apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Offisim.app",
+  "executableSha256": "3323401c727a09b4e45c32fb61adc3395948f5331a19c3dc8bbef0511347e8e6",
+  "codesign": {
+    "status": "PASS",
+    "identity": "Developer ID Application: Haosheng Li (9MP925J67C)",
+    "teamIdentifier": "9MP925J67C",
+    "timestamp": "2026-07-23T22:31:27+12:00"
+  },
+  "notarization": {
+    "status": "SKIPPED",
+    "reason": "No Apple ID or App Store Connect API notarization credential tuple was available."
+  },
+  "files": [
+    {
+      "path": "01-default-office-camera.jpeg",
+      "sha256": "8cbd19f3fafc0d43f67f9ff2cd2822a9bbbfdf0376005ad4f96e7f4efe83e702"
+    },
+    {
+      "path": "02-active-run-t00.jpeg",
+      "sha256": "8051f3bcea75da149a744db4dc41eb54a3767f6a7d088a256ed6361c71dad64b"
+    },
+    {
+      "path": "03-active-run-t30.jpeg",
+      "sha256": "529784565490f368068a4d0d0eb05109e06f9683f1916f812db03225c8b01246"
+    },
+    {
+      "path": "04-active-run-t60.jpeg",
+      "sha256": "7d91bb8352fd68bcf657903addf66240b3dd13738631f35dad783bb7847a1e0a"
+    },
+    {
+      "path": "05-representative-character-variants.jpeg",
+      "sha256": "2b435a65416909049a481a083bb204553ac8b0e38867567082411cf8872da509"
+    },
+    {
+      "path": "06-rest-area-entry.jpeg",
+      "sha256": "58d73dc7e5cbd58d30f0d93dca77205d9509486b545bf8adc43aef8a99f6161d"
+    },
+    {
+      "path": "07-rest-area-transit.jpeg",
+      "sha256": "cbe5703505dff60d8ba393be5a1293ffb568bb838495fba71c95df96f0de297b"
+    },
+    {
+      "path": "08-rest-area-activity.jpeg",
+      "sha256": "32a58d2f215d82d87ab2f6e85cc27811c8888d5ee649630e28b5632586b2ccf0"
+    },
+    {
+      "path": "09-chatter-turn-1.jpeg",
+      "sha256": "5827e9599e2c13cc77e62e0bf8fc4b42565a955265c8cb5d48e82554d5df0fa5"
+    },
+    {
+      "path": "10-chatter-turn-2.jpeg",
+      "sha256": "002e17c6cf519520fa8aaaf9df41f9b35d31f2629ee380955f2752fbcc7356a8"
+    },
+    {
+      "path": "11-reduced-motion-setting-on.jpeg",
+      "sha256": "47cae59256e886b363a8d453d2bb47708939120f5b86d4347e55c2af2e54208e"
+    },
+    {
+      "path": "12-reduced-motion-static-t00.jpeg",
+      "sha256": "add3786c2c88534410eb3b0a0d556c9e9fbb596332b3cee5eb009325e8bdf57b"
+    },
+    {
+      "path": "13-reduced-motion-static-t01.jpeg",
+      "sha256": "07d8b8b4646b123b61231b84a21572ac9e02bf8526aaf5894539eac0e8ae67e7"
+    },
+    {
+      "path": "14-final-rebuilt-app-smoke.jpeg",
+      "sha256": "accebfa9eb85f0586b251375e334fbe054811bf69671e4ba8c5c3a87f306cf76"
+    }
+  ]
+}
