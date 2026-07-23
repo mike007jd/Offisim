@@ -100,13 +100,13 @@ type LocalChatterSuppressedReason =
 
 type LocalChatterKind = 'solo-playful' | 'solo-complaint' | 'pair-dialogue';
 
-interface LocalChatterUtterance {
+export interface LocalChatterUtterance {
   readonly actorId: string;
   readonly copyKey: ChatterCopyKey;
   readonly text: string;
 }
 
-interface LocalChatterPresentation {
+export interface LocalChatterPresentation {
   readonly id: string;
   readonly kind: LocalChatterKind;
   readonly locale: ChatterLocale;
@@ -162,7 +162,13 @@ function sortedActors(actors: readonly LocalChatterActor[]): LocalChatterActor[]
 
 function pickIndex(seedMaterial: string, length: number): number {
   if (length <= 0) return 0;
-  return hashStringToInt(seedMaterial) % length;
+  let mixed = hashStringToInt(seedMaterial);
+  mixed ^= mixed >>> 16;
+  mixed = Math.imul(mixed, 0x85ebca6b);
+  mixed ^= mixed >>> 13;
+  mixed = Math.imul(mixed, 0xc2b2ae35);
+  mixed ^= mixed >>> 16;
+  return (mixed >>> 0) % length;
 }
 
 type SoloCandidate = {
@@ -237,7 +243,10 @@ function buildPairCandidates(
       const scriptIndex =
         pairHistory?.nextScriptIndex ??
         pickIndex(`${seed}|${timeBucket}|${pairKey}|initial-script`, PAIR_DIALOGUE_SCRIPTS.length);
-      const script = PAIR_DIALOGUE_SCRIPTS[scriptIndex % PAIR_DIALOGUE_SCRIPTS.length];
+      const normalizedScriptIndex =
+        ((scriptIndex % PAIR_DIALOGUE_SCRIPTS.length) + PAIR_DIALOGUE_SCRIPTS.length) %
+        PAIR_DIALOGUE_SCRIPTS.length;
+      const script = PAIR_DIALOGUE_SCRIPTS[normalizedScriptIndex];
       if (!script) continue;
       pairs.push({
         kind: 'pair-dialogue',
@@ -387,8 +396,8 @@ export function selectLocalChatter(input: LocalChatterInput): LocalChatterResult
     return { status: 'suppressed', reason: 'actor-cooldown' };
   }
 
-  // Social path: two or more eligible actors open paired dialogue only.
-  // A single eligible actor opens solo playful/complaint lines.
+  // Prefer paired dialogue whenever at least one pair is playable. If every
+  // pair is cooling down, keep the office alive with a solo line instead.
   let candidates: readonly ChatterCandidate[];
   if (eligibleAfterActorCd.length >= 2) {
     const { pairs, anyPairOnCooldown } = buildPairCandidates(
@@ -398,13 +407,20 @@ export function selectLocalChatter(input: LocalChatterInput): LocalChatterResult
       input.seed,
       timeBucket,
     );
-    if (pairs.length === 0) {
-      return {
-        status: 'suppressed',
-        reason: anyPairOnCooldown ? 'pair-cooldown' : 'no-candidate',
-      };
+    if (pairs.length > 0) {
+      candidates = pairs;
+    } else {
+      candidates = buildSoloCandidates(eligibleAfterActorCd, input.history.recentCopyKeys);
+      if (candidates.length === 0 && input.history.recentCopyKeys.length > 0) {
+        candidates = buildSoloCandidates(eligibleAfterActorCd, []);
+      }
+      if (candidates.length === 0) {
+        return {
+          status: 'suppressed',
+          reason: anyPairOnCooldown ? 'pair-cooldown' : 'no-candidate',
+        };
+      }
     }
-    candidates = pairs;
   } else {
     candidates = buildSoloCandidates(eligibleAfterActorCd, input.history.recentCopyKeys);
     if (candidates.length === 0 && input.history.recentCopyKeys.length > 0) {

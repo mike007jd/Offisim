@@ -52,6 +52,7 @@ const GARMENT_ROUGHNESS = 0.74;
 
 /** Numeric garment silhouette contract shared with the asset builder and oracles. */
 const GARMENT_PROPORTIONS = toyPerformanceMetrics.silhouette.garmentProportions;
+const PROPORTION_CORRECTIONS = toyPerformanceMetrics.silhouette.proportionCorrections;
 
 export interface GarmentColors {
   /** Torso / sleeve base (matches Body_Top tint). */
@@ -188,19 +189,10 @@ export function attachGarments(
   // ── Torso shell (all outfits) — oval cylinder covering the bodysuit torso.
   const torsoBottom = pPelvis.clone();
   const torsoCenter = pTop.clone().add(torsoBottom).multiplyScalar(0.5);
-  const torsoLen = pTop.distanceTo(torsoBottom) * 1.04;
-  let widthR = shoulderW * GARMENT_PROPORTIONS.torsoWidthToShoulder;
-  let depthR = shoulderW * GARMENT_PROPORTIONS.torsoDepthToShoulder;
-  if (outfit === 'sweater') {
-    widthR *= 1.08;
-    depthR *= 1.22;
-  } else if (outfit === 'shirt') {
-    widthR *= 0.98;
-    depthR *= 0.92;
-  } else if (isDress) {
-    widthR *= 0.95;
-    depthR *= 0.9;
-  }
+  const torsoLen = pTop.distanceTo(torsoBottom) * PROPORTION_CORRECTIONS.garmentTorsoLength;
+  const outfitTorsoScale = PROPORTION_CORRECTIONS.garmentTorsoByOutfit[outfit];
+  const widthR = shoulderW * GARMENT_PROPORTIONS.torsoWidthToShoulder * outfitTorsoScale.width;
+  const depthR = shoulderW * GARMENT_PROPORTIONS.torsoDepthToShoulder * outfitTorsoScale.depth;
   {
     const geometry = new CylinderGeometry(widthR, widthR, torsoLen, 16, 1);
     geometry.scale(1, 1, depthR / widthR); // flatten front-to-back into an oval
