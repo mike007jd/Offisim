@@ -87,6 +87,7 @@
     "harness:office-seating-p2": "node scripts/run-harnesses.mjs --only office-seating-p2",
     "build:character-assets": "node scripts/build-character-assets.mjs",
     "build:character-hair-assets": "node scripts/build-character-hair-assets.mjs",
+    "derive:character-action-clips": "node scripts/derive-character-action-clips.mjs",
     "harness:employee-version-on-save": "node scripts/run-harnesses.mjs --only employee-version-on-save",
     "harness:employee-seniority": "node scripts/run-harnesses.mjs --only employee-seniority",
     "harness:employee-memory": "node scripts/run-harnesses.mjs --only employee-memory",

@@ -22,9 +22,11 @@ export interface CharacterPlaybackState {
   readonly actualPosture: Posture;
   readonly desired: CharacterPlaybackTarget | null;
   readonly activeClip: ClipName | null;
+  /** Latest semantic identity of the clip action currently owned by the mixer. */
+  readonly activeSelection: ClipSelection | null;
   readonly transition: ActivePostureTransition | null;
   /** One-shot already returned to rest; suppress replay until semantics change. */
-  readonly completedSelection: ClipName | null;
+  readonly completedSelection: ClipSelection | null;
 }
 
 export interface CharacterPlaybackCommand {
@@ -43,11 +45,27 @@ interface PlaybackRequestOptions {
   readonly forceRestart?: boolean;
 }
 
+/**
+ * Playback identity = clip + explicit typed semantic identity + stable variant.
+ * The semantic string is opaque here: it is only ever compared for equality,
+ * never interpreted to recover semantics.
+ */
+function sameSelectionIdentity(
+  left: ClipSelection | null | undefined,
+  right: ClipSelection | null | undefined,
+): boolean {
+  if (!left || !right) return false;
+  return (
+    left.clip === right.clip && left.semantic === right.semantic && left.variant === right.variant
+  );
+}
+
 export function createCharacterPlaybackState(actualPosture: Posture): CharacterPlaybackState {
   return {
     actualPosture,
     desired: null,
     activeClip: null,
+    activeSelection: null,
     transition: null,
     completedSelection: null,
   };
@@ -82,7 +100,7 @@ function play(
   instant: boolean,
 ): CharacterPlaybackResult {
   return {
-    state: { ...state, activeClip: selection.clip },
+    state: { ...state, activeClip: selection.clip, activeSelection: selection },
     command: { selection, instant },
     completedTransition: null,
   };
@@ -100,6 +118,8 @@ export function requestCharacterPlayback(
 ): CharacterPlaybackResult {
   const semanticsChanged =
     current.desired?.selection.clip !== desired.selection.clip ||
+    current.desired?.selection.semantic !== desired.selection.semantic ||
+    current.desired?.selection.variant !== desired.selection.variant ||
     current.desired?.posture !== desired.posture;
   let state: CharacterPlaybackState = {
     ...current,
@@ -114,7 +134,18 @@ export function requestCharacterPlayback(
       transition: null,
       completedSelection: null,
     };
-    if (state.activeClip === desired.selection.clip && !options.forceRestart) {
+    if (state.activeSelection?.clip === desired.selection.clip && desired.selection.loop) {
+      return {
+        state: {
+          ...state,
+          activeClip: desired.selection.clip,
+          activeSelection: desired.selection,
+        },
+        command: null,
+        completedTransition: null,
+      };
+    }
+    if (sameSelectionIdentity(state.activeSelection, desired.selection) && !options.forceRestart) {
       return { state, command: null, completedTransition: null };
     }
     return play(state, desired.selection, true);
@@ -137,10 +168,26 @@ export function requestCharacterPlayback(
     return play(state, selectionForClip(transitionClip), false);
   }
 
+  // Three.js caches one AnimationAction per clip. A new loop variant is only
+  // semantic metadata for the already-running action: restarting it would
+  // reset the shared action and jump to the variant's entry phase. Keep the
+  // current mixer time and silently retarget ownership instead.
+  if (state.activeSelection?.clip === desired.selection.clip && desired.selection.loop) {
+    return {
+      state: {
+        ...state,
+        activeClip: desired.selection.clip,
+        activeSelection: desired.selection,
+      },
+      command: null,
+      completedTransition: null,
+    };
+  }
+
   if (
     !options.forceRestart &&
-    (state.activeClip === desired.selection.clip ||
-      state.completedSelection === desired.selection.clip)
+    (sameSelectionIdentity(state.activeSelection, desired.selection) ||
+      sameSelectionIdentity(state.completedSelection, desired.selection))
   ) {
     return { state, command: null, completedTransition: null };
   }
@@ -179,5 +226,5 @@ export function finishCharacterPlayback(
   }
 
   const resting = selectionForClip(desired.selection.returnTo);
-  return play({ ...current, completedSelection: desired.selection.clip }, resting, false);
+  return play({ ...current, completedSelection: desired.selection }, resting, false);
 }

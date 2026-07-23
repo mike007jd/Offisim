@@ -34,6 +34,18 @@ type AmbientMicroRoutineKind = Extract<
   'desk-fidget' | 'look-around' | 'stretch'
 >;
 
+/** Stable loop-diversification lane carried by every performance state. */
+export type PerformanceVariant = CharacterPerformanceState['variant'];
+
+/**
+ * Bounded projection of a beat's seed-derived variant onto the four-lane
+ * performance variant. Pure and stable: the same beat always projects the
+ * same lane, and the lane never escapes 0–3.
+ */
+function projectBeatVariant(variant: number): PerformanceVariant {
+  return (((variant % 4) + 4) % 4) as PerformanceVariant;
+}
+
 /** A neutral resting state (used as the base layer / idle default). */
 export const IDLE_PERFORMANCE: CharacterPerformanceState = {
   locomotion: 'idle',
@@ -42,6 +54,7 @@ export const IDLE_PERFORMANCE: CharacterPerformanceState = {
   socialGesture: 'none',
   expression: 'neutral',
   intensity: 0,
+  variant: 0,
 };
 
 /**
@@ -63,6 +76,7 @@ export function performanceForStatus(
         expression: 'focus',
         prop: posture === 'sit' ? 'laptop' : 'terminal',
         intensity: 1,
+        variant: 0,
       };
     case 'approval':
       return {
@@ -73,6 +87,7 @@ export function performanceForStatus(
         expression: 'thinking',
         prop: 'document',
         intensity: 1,
+        variant: 0,
       };
     case 'blocked':
       return {
@@ -82,6 +97,7 @@ export function performanceForStatus(
         socialGesture: 'none',
         expression: 'worried',
         intensity: 2,
+        variant: 0,
       };
     case 'idle':
       return { ...IDLE_PERFORMANCE, posture };
@@ -97,9 +113,10 @@ export function performanceForStatus(
  * 2D and 3D scenes never diverge on how a beat looks.
  */
 export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
+  const variant = projectBeatVariant(beat.variant);
   switch (beat.kind) {
     case 'receive-task':
-      return { ...IDLE_PERFORMANCE, expression: 'focus', intensity: 1 };
+      return { ...IDLE_PERFORMANCE, expression: 'focus', intensity: 1, variant };
     case 'plan':
       return {
         locomotion: 'idle',
@@ -109,6 +126,7 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         expression: 'thinking',
         prop: 'pointer',
         intensity: 1,
+        variant,
       };
     case 'delegate':
       return {
@@ -119,6 +137,7 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         expression: 'focus',
         prop: 'document',
         intensity: 1,
+        variant,
       };
     case 'review':
       return {
@@ -129,6 +148,7 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         expression: 'focus',
         prop: 'pointer',
         intensity: 1,
+        variant,
       };
     case 'research':
       return {
@@ -139,6 +159,7 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         expression: 'focus',
         prop: 'document',
         intensity: 1,
+        variant,
       };
     case 'compute':
       return {
@@ -149,6 +170,7 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         expression: 'focus',
         prop: 'terminal',
         intensity: 1,
+        variant,
       };
     case 'produce':
       return performanceForActivity(beat);
@@ -163,6 +185,7 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         expression: 'thinking',
         prop: 'document',
         intensity: 1,
+        variant,
       };
     case 'failure':
       return {
@@ -172,11 +195,12 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         socialGesture: 'none',
         expression: 'worried',
         intensity: 2,
+        variant,
       };
     case 'cancelled':
       // Neutral stopped state (PRD): the actor simply returns to rest — no
       // worried/blocked tell, no celebration.
-      return IDLE_PERFORMANCE;
+      return { ...IDLE_PERFORMANCE, variant: 0 };
     case 'join':
       return {
         locomotion: 'idle',
@@ -186,6 +210,7 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         expression: 'neutral',
         prop: 'document',
         intensity: 1,
+        variant,
       };
     case 'complete':
       return {
@@ -198,18 +223,22 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
         // variant gets the short dance. Both shipped clips therefore
         // have a real deterministic producer without making celebration noisy.
         intensity: beat.variant % 4 === 0 ? 2 : 1,
+        variant,
       };
     default:
-      return IDLE_PERFORMANCE;
+      return { ...IDLE_PERFORMANCE, variant };
   }
 }
 
 /**
  * Typed P5 seam for routine micro-actions. Keeping this in dramaturgy means the
- * ambient scheduler requests semantic behavior, never a renderer clip.
+ * ambient scheduler requests semantic behavior, never a renderer clip. Every
+ * routine maps to an unambiguous explicit state; the variant lane is supplied
+ * by the caller (seeded in ambient, projected for beats) and never inferred.
  */
 export function performanceForRoutine(
   kind: RoutinePerformanceKind | AmbientMicroRoutineKind,
+  variant: PerformanceVariant,
 ): CharacterPerformanceState {
   if (kind === 'social') {
     return {
@@ -219,46 +248,51 @@ export function performanceForRoutine(
       socialGesture: 'discuss',
       expression: 'neutral',
       intensity: 0,
+      variant,
     };
   }
   if (kind === 'seated-shift') {
     return {
       locomotion: 'idle',
       posture: 'sit',
-      workGesture: 'none',
-      socialGesture: 'nod',
+      workGesture: 'seated-shift',
+      socialGesture: 'none',
       expression: 'neutral',
       intensity: 0,
+      variant,
     };
   }
   if (kind === 'desk-fidget') {
     return {
       locomotion: 'idle',
       posture: 'sit',
-      workGesture: 'none',
-      socialGesture: 'nod',
+      workGesture: 'desk-fidget',
+      socialGesture: 'none',
       expression: 'neutral',
       intensity: 0,
+      variant,
     };
   }
   if (kind === 'look-around') {
     return {
       locomotion: 'idle',
       posture: 'stand',
-      workGesture: 'none',
+      workGesture: 'look-around',
       socialGesture: 'none',
-      expression: 'thinking',
+      expression: 'neutral',
       intensity: 0,
+      variant,
     };
   }
   if (kind === 'stretch') {
     return {
       locomotion: 'idle',
       posture: 'stand',
-      workGesture: 'none',
+      workGesture: 'stretch',
       socialGesture: 'none',
       expression: 'neutral',
       intensity: 0,
+      variant,
     };
   }
   const workGesture: WorkGesture = kind === 'inspect' ? 'read' : kind;
@@ -270,11 +304,13 @@ export function performanceForRoutine(
     expression: kind === 'phone' || kind === 'inspect' ? 'focus' : 'neutral',
     ...(kind === 'inspect' ? { prop: 'document' as const } : {}),
     intensity: 0,
+    variant,
   };
 }
 
 /** Activity/produce beats refine the work gesture from the tool-fact activity kind. */
 function performanceForActivity(beat: SceneBeat): CharacterPerformanceState {
+  const variant = projectBeatVariant(beat.variant);
   // Artifact milestones are delivery choreography, never another workstation
   // typing beat. At rest this plays the handoff/pickup gesture; while the scene
   // is relocating the actor, the same document-bearing state selects `carry`.
@@ -287,6 +323,7 @@ function performanceForActivity(beat: SceneBeat): CharacterPerformanceState {
       expression: 'focus',
       prop: 'document',
       intensity: 1,
+      variant,
     };
   }
   switch (beat.activityKind) {
@@ -300,6 +337,7 @@ function performanceForActivity(beat: SceneBeat): CharacterPerformanceState {
         expression: 'focus',
         prop: 'document',
         intensity: 1,
+        variant,
       };
     case 'shell':
     case 'build':
@@ -312,6 +350,7 @@ function performanceForActivity(beat: SceneBeat): CharacterPerformanceState {
         expression: 'focus',
         prop: 'terminal',
         intensity: 1,
+        variant,
       };
     case 'inspect':
       return {
@@ -322,9 +361,10 @@ function performanceForActivity(beat: SceneBeat): CharacterPerformanceState {
         expression: 'focus',
         prop: 'terminal',
         intensity: 1,
+        variant,
       };
     case 'wait':
-      return { ...IDLE_PERFORMANCE, expression: 'thinking', intensity: 0 };
+      return { ...IDLE_PERFORMANCE, expression: 'thinking', intensity: 0, variant };
     default:
       // write / edit / artifact / unknown → typing at the workstation.
       return {
@@ -335,6 +375,7 @@ function performanceForActivity(beat: SceneBeat): CharacterPerformanceState {
         expression: 'focus',
         prop: 'laptop',
         intensity: 1,
+        variant,
       };
   }
 }

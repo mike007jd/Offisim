@@ -36,6 +36,10 @@ import {
   clipForPerformance,
   selectionForClip,
 } from '../apps/desktop/renderer/src/surfaces/office/scene/character/clip-map.js';
+import {
+  BODY_TYPE_GIRTH,
+  HEAD_SHAPE_SCALE,
+} from '../apps/desktop/renderer/src/surfaces/office/scene/character/toy-character-contract.js';
 
 /**
  * Phase-3 character-action oracle.
@@ -69,7 +73,13 @@ const ORIGINAL_CLIPS = [
   'walk',
   'walk.formal',
 ] as const;
-const PROCEDURAL_CLIPS = ['approval.wait', 'sit.type'] as const;
+const PROCEDURAL_CLIPS = [
+  'approval.wait',
+  'look.around',
+  'sit.fidget',
+  'sit.type',
+  'stretch',
+] as const;
 const EXPECTED_CLIPS = [...ORIGINAL_CLIPS, ...PROCEDURAL_CLIPS].sort();
 const MAX_CLIP_COUNT = 24;
 const ASSET_BUDGET_BYTES = 25 * 1024 * 1024;
@@ -78,6 +88,7 @@ const QUATERNION_NORM_TOLERANCE = 2e-3;
 
 interface ProceduralAnimationManifest {
   readonly baseClip: string;
+  readonly poseReferenceTime?: number;
   readonly mode: 'loop' | 'hold';
   readonly durationSeconds: number;
   readonly modifiedJoints: readonly string[];
@@ -304,7 +315,7 @@ check(
 );
 check(
   arraysEqual(sortedUnique(glbClips), EXPECTED_CLIPS),
-  `GLB clip set must be the original 19 plus approval.wait/sit.type; got ${sortedUnique(glbClips).join(', ')}`,
+  `GLB clip set must be the original 19 plus five committed-asset derived clips; got ${sortedUnique(glbClips).join(', ')}`,
 );
 check(
   arraysEqual(sortedUnique(manifestClips), EXPECTED_CLIPS),
@@ -421,6 +432,14 @@ for (const clip of PROCEDURAL_CLIPS) {
     metadata.durationSeconds >= 0.75 && metadata.durationSeconds <= 3,
     `${clip}: duration ${metadata.durationSeconds}s is outside 0.75–3.0s`,
   );
+  if (clip === 'stretch') {
+    check(
+      typeof metadata.poseReferenceTime === 'number' &&
+        metadata.poseReferenceTime >= 0 &&
+        metadata.poseReferenceTime <= 1,
+      `stretch: normalized poseReferenceTime provenance is missing (${metadata.poseReferenceTime})`,
+    );
+  }
 }
 
 const seatedTyping: CharacterPerformanceState = {
@@ -431,6 +450,7 @@ const seatedTyping: CharacterPerformanceState = {
   expression: 'focus',
   prop: 'laptop',
   intensity: 1,
+  variant: 0,
 };
 check(
   clipForPerformance(seatedTyping).clip === ('sit.type' as string),
@@ -539,9 +559,9 @@ check(
 );
 
 check(
-  clipForPerformance(performanceForRoutine('phone')).clip === 'phone' &&
-    clipForPerformance(performanceForRoutine('consume')).clip === 'consume' &&
-    clipForPerformance(performanceForRoutine('inspect')).clip === 'inspect.open',
+  clipForPerformance(performanceForRoutine('phone', 0)).clip === 'phone' &&
+    clipForPerformance(performanceForRoutine('consume', 0)).clip === 'consume' &&
+    clipForPerformance(performanceForRoutine('inspect', 0)).clip === 'inspect.open',
   'P5 routine seam does not reach phone/consume/inspect.open semantically',
 );
 const beatKinds: SceneBeat['kind'][] = [
@@ -581,6 +601,145 @@ for (const kind of beatKinds) {
   }
 }
 
+// The dramaturgy layer must preserve thirteen user-observable semantic intents
+// even when several intentionally share a physical clip.
+const semanticPerformances: readonly {
+  readonly label: string;
+  readonly performance: CharacterPerformanceState;
+  readonly expectedClip: string;
+}[] = [
+  {
+    label: 'idle',
+    performance: {
+      locomotion: 'idle',
+      posture: 'stand',
+      workGesture: 'none',
+      socialGesture: 'none',
+      expression: 'neutral',
+      intensity: 0,
+      variant: 0,
+    },
+    expectedClip: 'idle',
+  },
+  {
+    label: 'seated-type',
+    performance: seatedTyping,
+    expectedClip: 'sit.type',
+  },
+  {
+    label: 'read-document',
+    performance: {
+      locomotion: 'idle',
+      posture: 'stand',
+      workGesture: 'read',
+      socialGesture: 'none',
+      expression: 'focus',
+      prop: 'document',
+      intensity: 1,
+      variant: 0,
+    },
+    expectedClip: 'inspect.open',
+  },
+  {
+    label: 'inspect-terminal',
+    performance: {
+      locomotion: 'idle',
+      posture: 'stand',
+      workGesture: 'inspect-terminal',
+      socialGesture: 'none',
+      expression: 'focus',
+      prop: 'terminal',
+      intensity: 1,
+      variant: 0,
+    },
+    expectedClip: 'interact',
+  },
+  {
+    label: 'write-board',
+    performance: {
+      locomotion: 'idle',
+      posture: 'stand',
+      workGesture: 'write-board',
+      socialGesture: 'none',
+      expression: 'focus',
+      prop: 'pointer',
+      intensity: 1,
+      variant: 0,
+    },
+    expectedClip: 'interact',
+  },
+  {
+    label: 'point-celebrate',
+    performance: {
+      locomotion: 'idle',
+      posture: 'stand',
+      workGesture: 'point',
+      socialGesture: 'none',
+      expression: 'happy',
+      intensity: 2,
+      variant: 0,
+    },
+    expectedClip: 'celebrate.dance',
+  },
+  {
+    label: 'handoff',
+    performance: {
+      locomotion: 'idle',
+      posture: 'stand',
+      workGesture: 'handoff',
+      socialGesture: 'none',
+      expression: 'neutral',
+      prop: 'document',
+      intensity: 1,
+      variant: 0,
+    },
+    expectedClip: 'pickup',
+  },
+  {
+    label: 'approval',
+    performance: approval,
+    expectedClip: 'approval.wait',
+  },
+  {
+    label: 'phone',
+    performance: performanceForRoutine('phone', 0),
+    expectedClip: 'phone',
+  },
+  {
+    label: 'consume',
+    performance: performanceForRoutine('consume', 0),
+    expectedClip: 'consume',
+  },
+  {
+    label: 'desk-fidget',
+    performance: performanceForRoutine('desk-fidget', 0),
+    expectedClip: 'sit.fidget',
+  },
+  {
+    label: 'look-around',
+    performance: performanceForRoutine('look-around', 0),
+    expectedClip: 'look.around',
+  },
+  {
+    label: 'stretch',
+    performance: performanceForRoutine('stretch', 0),
+    expectedClip: 'stretch',
+  },
+];
+const semanticSelections = semanticPerformances.map(({ label, performance, expectedClip }) => {
+  const selection = clipForPerformance(performance);
+  check(
+    selection.clip === expectedClip,
+    `${label}: expected ${expectedClip}, got ${selection.clip}`,
+  );
+  return selection;
+});
+check(
+  semanticPerformances.length === 13 &&
+    new Set(semanticSelections.map((selection) => selection.semantic)).size === 13,
+  'the 13 user-observable intents collapsed onto fewer semantic playback identities',
+);
+
 // Live playback FSM: atomic posture transitions, stale-finish immunity, bounded
 // one-shots, and reduced-motion semantic pose selection.
 const typingTarget = { posture: 'sit' as const, selection: selectionForClip('sit.type') };
@@ -588,6 +747,59 @@ const approvalTarget = {
   posture: 'stand' as const,
   selection: selectionForClip('approval.wait'),
 };
+const seatedRest = performanceForRoutine('seated-shift', 0);
+const seatedRestVariant = performanceForRoutine('seated-shift', 1);
+const plainSeatedRest: CharacterPerformanceState = {
+  locomotion: 'idle',
+  posture: 'sit',
+  workGesture: 'none',
+  socialGesture: 'none',
+  expression: 'neutral',
+  intensity: 0,
+  variant: 0,
+};
+let identityMachine = createCharacterPlaybackState('sit');
+identityMachine = requestCharacterPlayback(
+  identityMachine,
+  { posture: 'sit', selection: clipForPerformance(plainSeatedRest) },
+  { reducedMotion: false },
+).state;
+let identityStep = requestCharacterPlayback(
+  identityMachine,
+  { posture: 'sit', selection: clipForPerformance(seatedRest) },
+  { reducedMotion: false },
+);
+check(
+  identityStep.command == null &&
+    identityStep.state.activeSelection?.semantic === clipForPerformance(seatedRest).semantic,
+  'same-clip loop semantic change restarted or failed to retarget identity',
+);
+identityMachine = identityStep.state;
+identityStep = requestCharacterPlayback(
+  identityMachine,
+  { posture: 'sit', selection: clipForPerformance(seatedRest) },
+  { reducedMotion: false },
+);
+check(identityStep.command == null, 'unchanged semantic identity restarted');
+identityStep = requestCharacterPlayback(
+  identityStep.state,
+  { posture: 'sit', selection: clipForPerformance(seatedRestVariant) },
+  { reducedMotion: false },
+);
+check(
+  identityStep.command == null &&
+    identityStep.state.activeSelection?.clip === 'sit.idle' &&
+    identityStep.state.activeSelection.variant === 1,
+  'same-clip loop variant change restarted or failed to retarget identity',
+);
+identityStep = requestCharacterPlayback(identityStep.state, typingTarget, {
+  reducedMotion: false,
+});
+check(
+  identityStep.command?.selection.clip === 'sit.type',
+  'switching from a retargeted loop to a new clip did not start normally',
+);
+
 let machine = createCharacterPlaybackState('sit');
 let step = requestCharacterPlayback(machine, typingTarget, { reducedMotion: false });
 check(step.command?.selection.clip === 'sit.type', 'initial seated work did not start sit.type');
@@ -649,6 +861,7 @@ const typingWithLaptop: CharacterPerformanceState = {
   expression: 'focus',
   prop: 'laptop',
   intensity: 1,
+  variant: 0,
 };
 for (const origin of ['entry', 'drop-return'] as const) {
   const plan = planCharacterMove({
@@ -715,6 +928,22 @@ check(
 check(
   shouldPromoteSitExit('sit-exit', createCharacterPlaybackState('stand').actualPosture, false),
   'already-standing settled actor did not promote directly to walk',
+);
+
+machine = createCharacterPlaybackState('stand');
+const headshake = {
+  posture: 'stand' as const,
+  selection: selectionForClip('blocked.headshake'),
+};
+machine = requestCharacterPlayback(machine, headshake, { reducedMotion: false }).state;
+step = requestCharacterPlayback(
+  machine,
+  { ...headshake, selection: { ...headshake.selection, variant: 1 } },
+  { reducedMotion: false },
+);
+check(
+  step.command?.selection.clip === 'blocked.headshake' && step.command.selection.variant === 1,
+  'same-clip one-shot retrigger did not restart',
 );
 
 machine = createCharacterPlaybackState('stand');
@@ -816,6 +1045,69 @@ for (const time of comparisonTimes) {
 check(typeVsIdle / comparisonTimes.length >= 0.2, 'sit.type is not distinct from sit.idle');
 check(typeVsTalk / comparisonTimes.length >= 0.025, 'sit.type is not distinct from sit.talk');
 
+let fidgetVsIdle = 0;
+let stretchVsIdle = 0;
+for (const time of comparisonTimes) {
+  setActorTransform(body, metrics, manifest, true);
+  const fidget = playLandmarks(mixer, threeClips, body, 'sit.fidget', time);
+  const seatedIdle = playLandmarks(mixer, threeClips, body, 'sit.idle', time);
+  fidgetVsIdle +=
+    distance(fidget.ToyPalmL, seatedIdle.ToyPalmL) + distance(fidget.ToyPalmR, seatedIdle.ToyPalmR);
+  setActorTransform(body, metrics, manifest, false);
+  const stretchSample = playLandmarks(mixer, threeClips, body, 'stretch', time);
+  const standingIdle = playLandmarks(mixer, threeClips, body, 'idle', time);
+  stretchVsIdle +=
+    distance(stretchSample.ToyPalmL, standingIdle.ToyPalmL) +
+    distance(stretchSample.ToyPalmR, standingIdle.ToyPalmR);
+}
+check(
+  fidgetVsIdle / comparisonTimes.length >= 0.005,
+  'sit.fidget is not visibly distinct from sit.idle',
+);
+check(
+  stretchVsIdle / comparisonTimes.length >= 0.15,
+  `stretch is not visibly distinct from idle (${stretchVsIdle / comparisonTimes.length})`,
+);
+
+// Nine appearance combinations must preserve the authored chair/floor contacts.
+// bodyType changes wrapper XZ girth; headShape only changes the Head bone, so
+// neither is allowed to perturb vertical contact across the three new actions.
+const bodyTypes = ['slim', 'normal', 'stocky'] as const;
+const headShapes = ['round', 'soft-square', 'capsule'] as const;
+const headBone = requireObject(body, 'Head');
+let appearanceCombinations = 0;
+for (const bodyType of bodyTypes) {
+  for (const headShape of headShapes) {
+    appearanceCombinations += 1;
+    const headScale = HEAD_SHAPE_SCALE[headShape];
+    headBone.scale.set(...headScale);
+    for (const [clipName, seated] of [
+      ['sit.fidget', true],
+      ['look.around', false],
+      ['stretch', false],
+    ] as const) {
+      setActorTransform(body, metrics, manifest, seated);
+      body.scale.x *= BODY_TYPE_GIRTH[bodyType];
+      body.scale.z *= BODY_TYPE_GIRTH[bodyType];
+      for (const normalizedTime of [0, 0.25, 0.5, 0.75, 1]) {
+        const sample = playLandmarks(mixer, threeClips, body, clipName, normalizedTime);
+        const verticalContactError = seated
+          ? Math.abs(sample.ToyButtContact[1] - metrics.workstation.seatTop)
+          : Math.max(Math.abs(sample.ToySoleL[1]), Math.abs(sample.ToySoleR[1]));
+        check(
+          verticalContactError <= 0.05,
+          `${bodyType}/${headShape}/${clipName}: vertical contact drift ${verticalContactError}`,
+        );
+      }
+    }
+  }
+}
+check(
+  appearanceCombinations === 9,
+  `expected 9 appearance combinations, saw ${appearanceCombinations}`,
+);
+headBone.scale.set(...HEAD_SHAPE_SCALE.round);
+
 setActorTransform(body, metrics, manifest, false);
 const approvalFinal = playLandmarks(mixer, threeClips, body, 'approval.wait', 1);
 const idleFinal = playLandmarks(mixer, threeClips, body, 'idle', 1);
@@ -863,9 +1155,32 @@ function trackDistance(left: Float32Array, right: Float32Array, quaternion: bool
   }
   return Math.hypot(...left.map((value, index) => value - right[index]));
 }
+const lookAroundClip = threeClips.get('look.around');
+const idleClip = threeClips.get('idle');
+check(lookAroundClip && idleClip, 'look-around comparison sources are missing');
+if (lookAroundClip && idleClip) {
+  let maxHeadTurn = 0;
+  for (const normalizedTime of comparisonTimes) {
+    const lookHead = sampleTrack(lookAroundClip, 'Head.quaternion', normalizedTime);
+    const idleHead = sampleTrack(idleClip, 'Head.quaternion', normalizedTime);
+    check(lookHead && idleHead, 'look-around Head quaternion track is missing');
+    if (lookHead && idleHead) {
+      maxHeadTurn = Math.max(maxHeadTurn, trackDistance(lookHead, idleHead, true));
+    }
+  }
+  check(maxHeadTurn >= 0.2, `look.around head turn is too subtle (${maxHeadTurn})`);
+  const lookStart = sampleTrack(lookAroundClip, 'Head.quaternion', 0);
+  const lookEnd = sampleTrack(lookAroundClip, 'Head.quaternion', 1);
+  const lookSeam =
+    lookStart && lookEnd ? trackDistance(lookStart, lookEnd, true) : Number.POSITIVE_INFINITY;
+  check(lookSeam <= 0.01, `look.around has a visible loop seam (${lookSeam})`);
+}
 for (const [derivedName, baseName] of [
   ['sit.type', 'sit.idle'],
   ['approval.wait', 'idle'],
+  ['sit.fidget', 'sit.idle'],
+  ['look.around', 'idle'],
+  ['stretch', 'idle'],
 ] as const) {
   const derived = threeClips.get(derivedName);
   const base = threeClips.get(baseName);
