@@ -67,6 +67,7 @@ export function performanceForMovementPhase(
       socialGesture: 'none',
       expression: 'neutral',
       intensity: 0,
+      variant: 0,
     };
   }
   if (phase === 'walk') {

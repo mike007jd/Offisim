@@ -23,7 +23,7 @@ import {
  * Locks the GltfCharacter animation contract:
  *  - totality: every CharacterPerformanceState in the full semantic space
  *    (locomotion × posture × workGesture × socialGesture × expression × prop ×
- *    intensity — unions enumerated exhaustively, compiler-enforced) yields a
+ *    intensity × variant — unions enumerated exhaustively, compiler-enforced) yields a
  *    defined selection whose clip exists in CLIP_NAMES;
  *  - determinism: identical inputs give identical selections;
  *  - manifest sync: CLIP_NAMES matches exactly the clip set emitted into
@@ -58,6 +58,10 @@ const WORK_GESTURES = keysOf<WorkGesture>({
   'approval-wait': true,
   phone: true,
   consume: true,
+  'seated-shift': true,
+  'desk-fidget': true,
+  'look-around': true,
+  stretch: true,
 });
 const SOCIAL_GESTURES = keysOf<SocialGesture>({
   none: true,
@@ -77,6 +81,7 @@ const PROPS: (Prop | undefined)[] = [
   ...keysOf<Prop>({ laptop: true, document: true, tablet: true, terminal: true, pointer: true }),
 ];
 const INTENSITIES: CharacterPerformanceState['intensity'][] = [0, 1, 2];
+const VARIANTS: CharacterPerformanceState['variant'][] = [0, 1, 2, 3];
 
 const clipNameSet = new Set<string>(CLIP_NAMES);
 
@@ -115,34 +120,37 @@ for (const locomotion of LOCOMOTIONS) {
         for (const expression of EXPRESSIONS) {
           for (const prop of PROPS) {
             for (const intensity of INTENSITIES) {
-              const perf: CharacterPerformanceState = {
-                locomotion,
-                posture,
-                workGesture,
-                socialGesture,
-                expression,
-                ...(prop === undefined ? {} : { prop }),
-                intensity,
-              };
-              states += 1;
-              const first = clipForPerformance(perf);
-              if (
-                first === undefined ||
-                !clipNameSet.has(first.clip) ||
-                typeof first.loop !== 'boolean' ||
-                !(first.fade > 0)
-              ) {
+              for (const variant of VARIANTS) {
+                const perf: CharacterPerformanceState = {
+                  locomotion,
+                  posture,
+                  workGesture,
+                  socialGesture,
+                  expression,
+                  ...(prop === undefined ? {} : { prop }),
+                  intensity,
+                  variant,
+                };
+                states += 1;
+                const first = clipForPerformance(perf);
+                if (
+                  first === undefined ||
+                  !clipNameSet.has(first.clip) ||
+                  typeof first.loop !== 'boolean' ||
+                  !(first.fade > 0)
+                ) {
+                  check(
+                    false,
+                    `non-total selection for ${JSON.stringify(perf)} → ${JSON.stringify(first)}`,
+                  );
+                  continue;
+                }
+                const second = clipForPerformance(perf);
                 check(
-                  false,
-                  `non-total selection for ${JSON.stringify(perf)} → ${JSON.stringify(first)}`,
+                  JSON.stringify(first) === JSON.stringify(second),
+                  `non-deterministic selection for ${JSON.stringify(perf)}`,
                 );
-                continue;
               }
-              const second = clipForPerformance(perf);
-              check(
-                JSON.stringify(first) === JSON.stringify(second),
-                `non-deterministic selection for ${JSON.stringify(perf)}`,
-              );
             }
           }
         }
@@ -150,8 +158,8 @@ for (const locomotion of LOCOMOTIONS) {
     }
   }
 }
-// 2 locomotion × 2 posture × 12 work × 4 social × 5 expression × 6 prop × 3 intensity.
-check(states === 17280, `expected 17280 enumerated states, saw ${states}`);
+// 2 locomotion × 2 posture × 16 work × 4 social × 5 expression × 6 prop × 3 intensity × 4 variants.
+check(states === 92160, `expected 92160 enumerated states, saw ${states}`);
 
 // 4. Posture idles + transitions resolve against the shipped clip set.
 for (const posture of POSTURES) {
@@ -174,6 +182,7 @@ const anchor = (
     socialGesture: 'none',
     expression: 'neutral',
     intensity: 1,
+    variant: 0,
     ...overrides,
   };
   const got = clipForPerformance(perf).clip;
@@ -198,6 +207,10 @@ anchor(
 );
 anchor({ workGesture: 'handoff', prop: 'document' }, 'pickup', 'handoff picks up');
 anchor({ posture: 'sit' }, 'sit.idle', 'seated rest idles');
+anchor({ posture: 'sit', workGesture: 'seated-shift' }, 'sit.idle', 'seated shift rests');
+anchor({ posture: 'sit', workGesture: 'desk-fidget' }, 'sit.fidget', 'desk fidget');
+anchor({ workGesture: 'look-around' }, 'look.around', 'look around');
+anchor({ workGesture: 'stretch' }, 'stretch', 'stretch');
 anchor(
   { locomotion: 'walk', workGesture: 'approval-wait', prop: 'document' },
   'carry',
@@ -218,8 +231,11 @@ const REACHABILITY = {
     'interact',
     'pickup',
     'sit.idle',
+    'sit.fidget',
     'sit.talk',
     'sit.type',
+    'look.around',
+    'stretch',
     'wait.foldarms',
     'walk',
     'walk.formal',

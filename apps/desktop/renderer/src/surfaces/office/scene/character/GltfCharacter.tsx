@@ -331,12 +331,19 @@ function RigView({
     if (!next) return;
     const previousClip = playback.current.activeClip;
     const previous = previousClip ? actions[previousClip] : null;
+    // useAnimations returns the same AnimationAction for the same named clip.
+    // A loop retarget is metadata-only; never reset or phase-seek that action.
+    if (selection.loop && previous === next) return;
     next.reset();
     next.clampWhenFinished = !selection.loop;
     const duration = next.getClip().duration;
     if (selection.loop) {
       next.setLoop(LoopRepeat, Number.POSITIVE_INFINITY);
-      if (duration > 0) next.time = (phase * 1.7) % duration;
+      // On genuine clip entry, employee phase plus the stable performance
+      // variant desynchronize loops:
+      // two actors sharing a clip but differing in semantics/variant hold
+      // distinct phases, so ambient loops never lockstep across the room.
+      if (duration > 0) next.time = (phase * 1.7 + selection.variant * (duration / 4)) % duration;
     } else {
       next.setLoop(LoopOnce, 1);
     }

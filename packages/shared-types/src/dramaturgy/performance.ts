@@ -22,11 +22,21 @@ export type WorkGesture =
   | 'handoff'
   | 'approval-wait'
   | 'phone'
-  | 'consume';
+  | 'consume'
+  | 'seated-shift'
+  | 'desk-fidget'
+  | 'look-around'
+  | 'stretch';
 
 /** Deterministic micro-actions consumed by the P5 ambient scheduler. */
 export type RoutineWorkGesture = Extract<WorkGesture, 'phone' | 'consume'>;
 export type RoutinePerformanceKind = RoutineWorkGesture | 'inspect' | 'social' | 'seated-shift';
+
+/**
+ * Bounded loop-diversification lane. Carried on every performance state so two
+ * actors with identical semantics can still hold a stable, distinct loop phase.
+ */
+export type PerformanceVariant = 0 | 1 | 2 | 3;
 
 export type SocialGesture = 'none' | 'listen' | 'nod' | 'discuss';
 export type Expression = 'neutral' | 'focus' | 'thinking' | 'worried' | 'happy';
@@ -40,4 +50,6 @@ export interface CharacterPerformanceState {
   readonly expression: Expression;
   readonly prop?: Prop;
   readonly intensity: 0 | 1 | 2;
+  /** Stable seeded loop-diversification lane; always present, never inferred. */
+  readonly variant: PerformanceVariant;
 }

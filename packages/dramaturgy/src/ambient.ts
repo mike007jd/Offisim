@@ -163,6 +163,27 @@ function routineFor(seed: string, employeeId: string, sequence: number): Ambient
   return choices[index] as AmbientRoutineKind;
 }
 
+/**
+ * Stable loop-diversification lane for one activity. Pure seeded function of
+ * the scheduler seed, employee, activity sequence and routine, isolated in its
+ * own FNV domain so it can never shift routine/timing decisions.
+ */
+function performanceVariantFor(
+  seed: string,
+  employeeId: string,
+  sequence: number,
+  routine: AmbientRoutineKind,
+): CharacterPerformanceState['variant'] {
+  return seededInteger(
+    seed,
+    employeeId,
+    sequence,
+    `performance-variant:${routine}`,
+    0,
+    3,
+  ) as CharacterPerformanceState['variant'];
+}
+
 function freeAnchorsByDistance(
   kind: 'refreshment' | 'library-inspect',
   home: AmbientActorHome,
@@ -389,30 +410,40 @@ function stagingFor(activity: AmbientActivity, phase: AmbientActivityPhase): Act
   };
 }
 
-function destinationPerformance(activity: AmbientActivity): CharacterPerformanceState {
+function destinationPerformance(
+  activity: AmbientActivity,
+  seed: string,
+): CharacterPerformanceState {
+  const variant = performanceVariantFor(
+    seed,
+    activity.moverId,
+    activity.sequence,
+    activity.routine,
+  );
   switch (activity.routine) {
     case 'refreshment':
-      return performanceForRoutine('consume');
+      return performanceForRoutine('consume', variant);
     case 'library':
-      return performanceForRoutine('inspect');
+      return performanceForRoutine('inspect', variant);
     case 'social':
-      return performanceForRoutine('social');
+      return performanceForRoutine('social', variant);
     case 'phone':
-      return performanceForRoutine('phone');
+      return performanceForRoutine('phone', variant);
     case 'seated-shift':
-      return performanceForRoutine('seated-shift');
+      return performanceForRoutine('seated-shift', variant);
     case 'desk-fidget':
-      return performanceForRoutine('desk-fidget');
+      return performanceForRoutine('desk-fidget', variant);
     case 'look-around':
-      return performanceForRoutine('look-around');
+      return performanceForRoutine('look-around', variant);
     case 'stretch':
-      return performanceForRoutine('stretch');
+      return performanceForRoutine('stretch', variant);
   }
 }
 
 function directionsFor(
   activities: readonly AmbientActivity[],
   now: number,
+  seed: string,
 ): AmbientActorDirection[] {
   const directions: AmbientActorDirection[] = [];
   for (const activity of activities) {
@@ -423,7 +454,7 @@ function directionsFor(
             ...IDLE_PERFORMANCE,
             posture: activity.homePosture === 'sitting' ? ('sit' as const) : ('stand' as const),
           }
-        : destinationPerformance(activity);
+        : destinationPerformance(activity, seed);
     directions.push({
       employeeId: activity.moverId,
       routine: activity.routine,
@@ -440,7 +471,13 @@ function directionsFor(
         phase,
         away: false,
         partnerId: activity.moverId,
-        performance: { ...performanceForRoutine('social'), posture: 'sit' },
+        performance: {
+          ...performanceForRoutine(
+            'social',
+            performanceVariantFor(seed, activity.partnerId, activity.sequence, 'social'),
+          ),
+          posture: 'sit',
+        },
         staging: null,
       });
     }
@@ -817,7 +854,7 @@ export function advanceAmbientScheduler(
   };
   return {
     state,
-    directions: directionsFor(activities, input.now),
+    directions: directionsFor(activities, input.now, input.seed),
     nextWakeAt: nextBoundary(clocks, activities, input.now),
   };
 }
