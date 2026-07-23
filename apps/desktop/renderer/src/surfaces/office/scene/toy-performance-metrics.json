@@ -5,6 +5,48 @@
     "minimumHeadCount": 2.2,
     "maximumHeadCount": 2.6
   },
+  "silhouette": {
+    "geometryUnits": {
+      "neckRadius": 0.095,
+      "lowerTorsoRadii": [0.275, 0.245, 0.205],
+      "chestRadii": [0.3, 0.265, 0.22],
+      "pelvisRadii": [0.285, 0.2, 0.215],
+      "upperArmRadius": 0.1,
+      "lowerArmRadius": 0.088,
+      "handRadii": [0.112, 0.088, 0.1],
+      "thighRadius": 0.13,
+      "calfRadius": 0.112,
+      "shoeRadii": [0.12, 0.09, 0.17]
+    },
+    "garmentProportions": {
+      "torsoWidthToShoulder": 0.27,
+      "torsoDepthToShoulder": 0.19,
+      "upperSleeveStartToShoulder": 0.085,
+      "upperSleeveEndToShoulder": 0.072,
+      "lowerSleeveStartToShoulder": 0.07,
+      "lowerSleeveEndToShoulder": 0.055,
+      "trouserHipToShoulder": 0.105,
+      "trouserKneeToShoulder": 0.082,
+      "trouserAnkleToShoulder": 0.065
+    },
+    "gates": {
+      "canonicalChestToHead": [0.75, 0.87],
+      "allNormalChestToHeadMax": 0.9,
+      "stockyChestToHeadMax": 0.9,
+      "normalGarmentShoulderToHeadMax": 1.12,
+      "stockyGarmentShoulderToHeadMax": 1.32,
+      "thighToChestMax": 0.46,
+      "shoeLengthToHeightMax": 0.205,
+      "shoeWidthToHeadMax": 0.36,
+      "handToHead": [0.26, 0.34],
+      "handToSleeveMin": 1.15,
+      "roundHeightTolerance": 0.005,
+      "allHeight": [1.59, 1.67],
+      "seatDeltaMax": 0.05,
+      "deskPalmDeltaMax": 0.08,
+      "propReachMax": 0.12
+    }
+  },
   "workstation": {
     "deskDepth": {
       "standard": 1.25,
