@@ -509,6 +509,12 @@ section('[boundary] integration source contracts');
     /off-scene-chatter-in\s+var\(--off-motion-fast\)\s+var\(--off-motion-ease\)/.test(css),
   );
   check(
+    'chatter bubble keeps a readable intrinsic width at the default 3D camera',
+    /\.off-scene-chatter\s*\{[\s\S]*?width:\s*max-content/.test(css) &&
+      /\.off-scene-chatter\s*\{[\s\S]*?min-width:\s*64px/.test(css) &&
+      /\.off-scene-chatter\s*\{[\s\S]*?word-break:\s*normal/.test(css),
+  );
+  check(
     'OfficeScene3D disables chatter in PIP',
     /const\s+chatterEnabled\s*=\s*!pip\s*&&/.test(scene3d),
   );

@@ -491,8 +491,10 @@
 .off-scene-chatter {
   position: relative;
   display: inline-block;
-  max-width: 96px;
-  min-width: 36px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 120px;
+  min-width: 64px;
   padding: 4px 8px 5px;
   border: 1px solid var(--off-line-soft);
   border-radius: var(--off-r-md);
@@ -504,7 +506,8 @@
   line-height: 1.25;
   text-align: center;
   white-space: normal;
-  word-break: break-word;
+  overflow-wrap: anywhere;
+  word-break: normal;
   transform: translateY(-100%);
   pointer-events: none;
   user-select: none;
