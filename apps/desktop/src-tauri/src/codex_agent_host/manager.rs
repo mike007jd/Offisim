@@ -31,6 +31,9 @@ use crate::time_util::{rfc3339_from_unix, stable_hex};
 use super::protocol::{
     CodexConnection, CodexHostError, StartupCancellation, CODEX_ADAPTER_ID, CODEX_ADAPTER_VERSION,
 };
+use super::run_options::{
+    codex_run_option_model, validate_codex_run_selection, ValidatedCodexRunSelection,
+};
 use super::stream::{
     opaque_session_id, PendingInteractionKind, PendingUserInputQuestion, RunMetadata, RunOutcome,
     RunStream,
@@ -256,6 +259,7 @@ struct NativeThreadSetup {
 struct NativeThreadStart<'a> {
     cwd: &'a Path,
     continuation: Option<&'a CodexNativeThreadRef>,
+    requested_model: Option<&'a str>,
     ephemeral: bool,
     policy: &'a PermissionPolicy,
     developer_instructions: Option<&'a str>,
@@ -264,7 +268,10 @@ struct NativeThreadStart<'a> {
 struct NativeTurnStart<'a> {
     cwd: &'a Path,
     thread_id: &'a str,
-    model: &'a str,
+    actual_model: &'a str,
+    requested_model: Option<&'a str>,
+    effort: Option<&'a str>,
+    service_tier: Option<&'a str>,
     policy: &'a PermissionPolicy,
     client_user_message_id: &'a str,
     text: &'a str,
@@ -305,12 +312,18 @@ pub(super) async fn execute_impl(
     require_resume: bool,
 ) -> Result<CodexAgentHostResponse, String> {
     validate_execute_request(&req)?;
+    validate_execution_target(&req.expected_target)?;
+    let run_selection = validate_codex_run_selection(
+        &req.expected_target.model_id,
+        req.effort.as_deref(),
+        req.speed_mode.as_deref(),
+    )?;
     let mode = ExecuteMode::from_resume(require_resume);
     validate_execute_mode(&req, mode)?;
     let state = app.state::<CodexAgentHostState>();
     state.claim_request(&req.request_id)?;
 
-    let result = execute_claimed(app.clone(), &state, &req, on_event, mode).await;
+    let result = execute_claimed(app.clone(), &state, &req, on_event, mode, run_selection).await;
     if state.run(&req.request_id).is_none() {
         state.release_claim(&req.request_id);
     }
@@ -323,11 +336,11 @@ async fn execute_claimed(
     req: &CodexAgentExecuteRequest,
     on_event: Channel<CodexAgentHostEvent>,
     mode: ExecuteMode,
+    run_selection: ValidatedCodexRunSelection,
 ) -> Result<CodexAgentHostResponse, String> {
     let startup_cancellation = state
         .startup_cancellation(&req.request_id)
         .ok_or_else(|| "Codex request startup authority is unavailable.".to_string())?;
-    validate_execution_target(&req.expected_target)?;
     let requested_continuation = resolve_requested_continuation(req, mode)?;
     let execute_continuation = if mode.is_resume() {
         None
@@ -368,7 +381,8 @@ async fn execute_claimed(
         .filter(|value| !value.is_empty())
         .unwrap_or(req.request_id.as_str())
         .to_string();
-    let provenance = execution_provenance(&req.expected_target, &run_id);
+    let provenance =
+        execution_provenance(&req.expected_target, &run_id, run_selection.requested_model);
     publish_prepared(
         &stream,
         &req.request_id,
@@ -467,6 +481,7 @@ async fn execute_claimed(
         NativeThreadStart {
             cwd: &workspace.cwd,
             continuation: continuation.as_ref(),
+            requested_model: run_selection.requested_model,
             ephemeral: false,
             policy: &policy,
             developer_instructions: developer_instructions.as_deref(),
@@ -512,7 +527,10 @@ async fn execute_claimed(
                 NativeTurnStart {
                     cwd: &workspace.cwd,
                     thread_id: &setup.native_thread_ref.thread_id,
-                    model: &actual_model_id,
+                    actual_model: &actual_model_id,
+                    requested_model: run_selection.requested_model,
+                    effort: run_selection.effort,
+                    service_tier: run_selection.service_tier,
                     policy: &policy,
                     client_user_message_id: req
                         .client_user_message_id
@@ -555,6 +573,8 @@ pub(super) async fn enhance_impl(
     validate_required(&req.request_id, "requestId")?;
     validate_required(&req.text, "text")?;
     validate_required(&req.system_prompt, "systemPrompt")?;
+    validate_execution_target(&req.expected_target)?;
+    let run_selection = validate_codex_run_selection(&req.expected_target.model_id, None, None)?;
     if req
         .source_provenance
         .as_ref()
@@ -565,7 +585,14 @@ pub(super) async fn enhance_impl(
     let state = app.state::<CodexAgentHostState>();
     state.claim_request(&req.request_id)?;
 
-    let result = enhance_claimed(app.clone(), &state, &req, on_event).await;
+    let result = enhance_claimed(
+        app.clone(),
+        &state,
+        &req,
+        on_event,
+        run_selection.requested_model,
+    )
+    .await;
     if state.run(&req.request_id).is_none() {
         state.release_claim(&req.request_id);
     }
@@ -577,13 +604,13 @@ async fn enhance_claimed(
     state: &CodexAgentHostState,
     req: &CodexAgentEnhanceRequest,
     on_event: Channel<CodexAgentHostEvent>,
+    requested_model: Option<&'static str>,
 ) -> Result<CodexAgentHostResponse, String> {
     let startup_cancellation = state
         .startup_cancellation(&req.request_id)
         .ok_or_else(|| "Codex request startup authority is unavailable.".to_string())?;
-    validate_execution_target(&req.expected_target)?;
     let stream = RunStream::new(req.request_id.clone(), on_event);
-    let provenance = execution_provenance(&req.expected_target, &req.request_id);
+    let provenance = execution_provenance(&req.expected_target, &req.request_id, requested_model);
     publish_prepared(
         &stream,
         &req.request_id,
@@ -640,6 +667,7 @@ async fn enhance_claimed(
         NativeThreadStart {
             cwd: &neutral,
             continuation: None,
+            requested_model,
             ephemeral: true,
             policy: &policy,
             developer_instructions: Some(&req.system_prompt),
@@ -677,7 +705,10 @@ async fn enhance_claimed(
                 NativeTurnStart {
                     cwd: &neutral,
                     thread_id: &setup.native_thread_ref.thread_id,
-                    model: &actual_model_id,
+                    actual_model: &actual_model_id,
+                    requested_model,
+                    effort: None,
+                    service_tier: None,
                     policy: &policy,
                     client_user_message_id: &req.request_id,
                     text: &req.text,
@@ -864,6 +895,7 @@ async fn start_native_thread(
     let NativeThreadStart {
         cwd,
         continuation,
+        requested_model,
         ephemeral,
         policy,
         developer_instructions,
@@ -881,7 +913,7 @@ async fn start_native_thread(
                 json!({
                     "threadId": native.thread_id,
                     "cwd": cwd_text,
-                    "model": null,
+                    "model": requested_model,
                     "approvalPolicy": policy.approval_policy,
                     "sandbox": policy.thread_sandbox,
                     "serviceTier": null,
@@ -895,7 +927,7 @@ async fn start_native_thread(
                 "thread/start",
                 json!({
                     "cwd": cwd_text,
-                    "model": null,
+                    "model": requested_model,
                     "approvalPolicy": policy.approval_policy,
                     "sandbox": policy.thread_sandbox,
                     "serviceTier": null,
@@ -928,7 +960,10 @@ async fn start_native_turn(
     let NativeTurnStart {
         cwd,
         thread_id,
-        model,
+        actual_model,
+        requested_model,
+        effort,
+        service_tier,
         policy,
         client_user_message_id,
         text,
@@ -940,7 +975,7 @@ async fn start_native_turn(
     // Codex collaboration mode is sticky on a native thread. Send an explicit
     // mode on every Turn so Auto -> Plan, Plan -> Auto, and resumed tasks all
     // preserve the Offisim composer selection instead of inheriting old state.
-    let collaboration_mode = turn_collaboration_mode(policy, model);
+    let collaboration_mode = turn_collaboration_mode(policy, actual_model);
 
     let mut input = vec![json!({"type": "text", "text": text})];
     input.extend(images.iter().map(|image| {
@@ -957,9 +992,9 @@ async fn start_native_turn(
                 "input": input,
                 "cwd": cwd_text,
                 "clientUserMessageId": client_user_message_id,
-                "model": null,
-                "effort": null,
-                "serviceTier": null,
+                "model": requested_model,
+                "effort": effort,
+                "serviceTier": service_tier,
                 "approvalPolicy": policy.approval_policy,
                 "sandboxPolicy": policy.turn_sandbox,
                 "collaborationMode": collaboration_mode,
@@ -1745,9 +1780,14 @@ fn validate_execution_target(target: &CodexExecutionTarget) -> Result<(), String
     if target.engine_id != ENGINE_ID
         || target.account_id != ACCOUNT_ID
         || target.billing_mode != BILLING_MODE
-        || target.model_id != MODEL_ID
     {
         return Err("The Codex execution target must use the local orchestration engine.".into());
+    }
+    if target.model_id != MODEL_ID && codex_run_option_model(&target.model_id).is_none() {
+        return Err(format!(
+            "The saved Codex model \"{}\" is no longer available.",
+            target.model_id
+        ));
     }
     if target.model_source.kind != "native"
         || target.model_source.source_url.is_some()
@@ -1761,7 +1801,11 @@ fn validate_execution_target(target: &CodexExecutionTarget) -> Result<(), String
     Ok(())
 }
 
-fn execution_provenance(target: &CodexExecutionTarget, run_id: &str) -> CodexExecutionProvenance {
+fn execution_provenance(
+    target: &CodexExecutionTarget,
+    run_id: &str,
+    requested_model: Option<&str>,
+) -> CodexExecutionProvenance {
     CodexExecutionProvenance {
         engine_id: target.engine_id.clone(),
         account_id: target.account_id.clone(),
@@ -1770,7 +1814,7 @@ fn execution_provenance(target: &CodexExecutionTarget, run_id: &str) -> CodexExe
         model_source: target.model_source.clone(),
         run_id: run_id.to_string(),
         adapter: adapter_identity(),
-        requested_model_id: None,
+        requested_model_id: requested_model.map(str::to_string),
         actual_model_id: None,
     }
 }
@@ -2036,6 +2080,7 @@ mod tests {
             NativeThreadStart {
                 cwd: &root,
                 continuation: Some(&continuation),
+                requested_model: Some("gpt-5.4"),
                 ephemeral: false,
                 policy: &policy,
                 developer_instructions: None,
@@ -2177,7 +2222,7 @@ assert notification["method"] == "initialized" and "id" not in notification
 
 request = read_message()
 assert request["method"] == "thread/start"
-assert request["params"]["model"] is None
+assert request["params"]["model"] == "gpt-5.4"
 assert request["params"]["serviceTier"] is None
 cwd = request["params"]["cwd"]
 respond(request, {"thread": {"id": "thread-1", "sessionId": "session-1"}, "cwd": cwd, "model": "gpt-5.4-high"})
@@ -2191,9 +2236,9 @@ assert request["params"]["input"] == [
 assert request["params"]["approvalPolicy"] == "never"
 assert request["params"]["sandboxPolicy"] == {"type": "readOnly", "networkAccess": False}
 assert request["params"]["collaborationMode"] == {"mode": "plan", "settings": {"model": "gpt-5.4-high"}}
-assert request["params"]["model"] is None
-assert request["params"]["effort"] is None
-assert request["params"]["serviceTier"] is None
+assert request["params"]["model"] == "gpt-5.4"
+assert request["params"]["effort"] == "high"
+assert request["params"]["serviceTier"] == "fast"
 respond(request, {"turn": {"id": "turn-1", "status": "inProgress"}})
 
 send({"method": "attestation/read", "id": "unsupported-1", "params": None})
@@ -2365,6 +2410,8 @@ assert notification["method"] == "initialized" and "id" not in notification
 
 request = read_message()
 assert request["method"] == "thread/resume"
+assert request["params"]["model"] == "gpt-5.4"
+assert request["params"]["serviceTier"] is None
 thread_id = request["params"]["threadId"]
 send({"id": request["id"], "error": {"code": -32600, "message": "no rollout found for thread id " + thread_id}})
 time.sleep(30)
@@ -2395,6 +2442,8 @@ time.sleep(30)
             native_session_mode: CodexNativeSessionMode::Tracked,
             native_session_reset_source_run_id: None,
             permission_mode: Some("auto".into()),
+            effort: None,
+            speed_mode: None,
             system_prompt_append: None,
             project_experience: None,
             skill_paths: None,
@@ -2500,7 +2549,7 @@ time.sleep(30)
             engine_id: ENGINE_ID.into(),
             account_id: ACCOUNT_ID.into(),
             billing_mode: BILLING_MODE.into(),
-            model_id: MODEL_ID.into(),
+            model_id: "gpt-5.4".into(),
             model_source: CodexModelSource {
                 kind: "native".into(),
                 source_url: None,
@@ -2508,12 +2557,15 @@ time.sleep(30)
             },
         };
         validate_execution_target(&target).unwrap();
+        let selection =
+            validate_codex_run_selection(&target.model_id, Some("high"), Some("fast")).unwrap();
         let policy = permission_policy(Some("plan"), &root, true).unwrap();
         let setup = start_native_thread(
             &connection,
             NativeThreadStart {
                 cwd: &root,
                 continuation: None,
+                requested_model: selection.requested_model,
                 ephemeral: false,
                 policy: &policy,
                 developer_instructions: None,
@@ -2521,9 +2573,12 @@ time.sleep(30)
         )
         .await
         .unwrap();
+        let mut provenance =
+            execution_provenance(&target, "conformance-run", selection.requested_model);
+        provenance.actual_model_id = setup.actual_model_id.clone();
         stream.set_metadata(RunMetadata {
             model: model_summary(setup.actual_model_id.as_deref().unwrap()),
-            provenance: execution_provenance(&target, "conformance-run"),
+            provenance,
             native_thread_ref: setup.native_thread_ref.clone(),
             expose_session: true,
         });
@@ -2536,7 +2591,10 @@ time.sleep(30)
             NativeTurnStart {
                 cwd: &root,
                 thread_id: &setup.native_thread_ref.thread_id,
-                model: setup.actual_model_id.as_deref().unwrap(),
+                actual_model: setup.actual_model_id.as_deref().unwrap(),
+                requested_model: selection.requested_model,
+                effort: selection.effort,
+                service_tier: selection.service_tier,
                 policy: &policy,
                 client_user_message_id: "user-message-1",
                 text: "Run the conformance fixture",
@@ -2595,6 +2653,9 @@ time.sleep(30)
         };
         assert_eq!(response.text, "# Plan\n\n1. Inspect\n2. Report");
         assert_eq!(response.model.unwrap().id.as_deref(), Some("gpt-5.4-high"));
+        let provenance = response.provenance.unwrap();
+        assert_eq!(provenance.requested_model_id.as_deref(), Some("gpt-5.4"));
+        assert_eq!(provenance.actual_model_id.as_deref(), Some("gpt-5.4-high"));
         let usage = response.usage.unwrap();
         assert_eq!(usage["scope"]["kind"], "subscription-run-diagnostic");
         assert_eq!(usage["input"], 9);
@@ -2602,6 +2663,7 @@ time.sleep(30)
         assert_eq!(usage["cacheRead"], 1);
         assert_eq!(usage["usageSource"]["kind"], "adapter");
         assert_eq!(usage["cost"]["kind"], "unavailable");
+        assert!(usage.get("executionSpeed").is_none());
         let after_clock = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -2681,6 +2743,7 @@ time.sleep(30)
             NativeThreadStart {
                 cwd: &root,
                 continuation: None,
+                requested_model: None,
                 ephemeral: false,
                 policy: &policy,
                 developer_instructions: None,
@@ -2693,7 +2756,10 @@ time.sleep(30)
             NativeTurnStart {
                 cwd: &root,
                 thread_id: &setup.native_thread_ref.thread_id,
-                model: setup.actual_model_id.as_deref().unwrap(),
+                actual_model: setup.actual_model_id.as_deref().unwrap(),
+                requested_model: None,
+                effort: None,
+                service_tier: None,
                 policy: &policy,
                 client_user_message_id: "ask-user-message",
                 text: "Attempt a write only after approval",
@@ -2755,10 +2821,70 @@ time.sleep(30)
             "nativeSessionMode": "futureMode"
         });
         assert!(serde_json::from_value::<CodexAgentExecuteRequest>(request.clone()).is_err());
+        let mut valid = request.clone();
+        valid["nativeSessionMode"] = json!("tracked");
+        let decoded = serde_json::from_value::<CodexAgentExecuteRequest>(valid.clone()).unwrap();
+        assert_eq!(decoded.effort, None);
+        assert_eq!(decoded.speed_mode, None);
+
+        valid["effort"] = json!("high");
+        valid["speedMode"] = json!("fast");
+        let decoded = serde_json::from_value::<CodexAgentExecuteRequest>(valid).unwrap();
+        assert_eq!(decoded.effort.as_deref(), Some("high"));
+        assert_eq!(decoded.speed_mode.as_deref(), Some("fast"));
+
         let mut unknown = request;
         unknown["nativeSessionMode"] = json!("tracked");
         unknown["silentFallback"] = json!(true);
         assert!(serde_json::from_value::<CodexAgentExecuteRequest>(unknown).is_err());
+    }
+
+    #[test]
+    fn execution_target_and_run_selection_enforce_the_typed_catalog() {
+        let mut target = execute_request().expected_target;
+        validate_execution_target(&target).unwrap();
+        let managed =
+            validate_codex_run_selection(&target.model_id, None, Some("standard")).unwrap();
+        assert_eq!(managed.requested_model, None);
+        assert_eq!(managed.service_tier, None);
+
+        target.model_id = "gpt-5.4".into();
+        validate_execution_target(&target).unwrap();
+        let explicit =
+            validate_codex_run_selection(&target.model_id, Some("xhigh"), Some("fast")).unwrap();
+        assert_eq!(explicit.requested_model, Some("gpt-5.4"));
+        assert_eq!(explicit.effort, Some("xhigh"));
+        assert_eq!(explicit.service_tier, Some("fast"));
+
+        target.model_id = "retired-model".into();
+        assert!(validate_execution_target(&target)
+            .unwrap_err()
+            .contains("no longer available"));
+        assert!(validate_codex_run_selection(&target.model_id, None, None).is_err());
+        assert!(validate_codex_run_selection("gpt-5.4", Some("extreme"), None).is_err());
+        assert!(validate_codex_run_selection("gpt-5.4-mini", Some("xhigh"), None).is_err());
+        assert!(validate_codex_run_selection("gpt-5.4", None, Some("turbo")).is_err());
+
+        target.model_id = MODEL_ID.into();
+        target.engine_id = "another-engine".into();
+        assert!(validate_execution_target(&target).is_err());
+        target.engine_id = ENGINE_ID.into();
+        target.model_source.source_url = Some("https://example.invalid/catalog".into());
+        assert!(validate_execution_target(&target).is_err());
+    }
+
+    #[test]
+    fn provenance_records_only_an_explicit_requested_model() {
+        let managed_target = execute_request().expected_target;
+        let managed = execution_provenance(&managed_target, "managed-run", None);
+        assert_eq!(managed.requested_model_id, None);
+        assert_eq!(managed.actual_model_id, None);
+
+        let mut explicit_target = managed_target;
+        explicit_target.model_id = "gpt-5.4".into();
+        let explicit = execution_provenance(&explicit_target, "explicit-run", Some("gpt-5.4"));
+        assert_eq!(explicit.requested_model_id.as_deref(), Some("gpt-5.4"));
+        assert_eq!(explicit.actual_model_id, None);
     }
 
     #[test]
@@ -2772,20 +2898,23 @@ time.sleep(30)
         ] {
             let policy = permission_policy(Some(mode), root, true).unwrap();
             assert_eq!(policy.native_collaboration_mode, expected_native_mode);
-            let collaboration = turn_collaboration_mode(&policy, "gpt-test");
+            let collaboration = turn_collaboration_mode(&policy, "gpt-5.4-high");
             assert_eq!(collaboration["mode"], expected_native_mode);
-            assert_eq!(collaboration["settings"], json!({ "model": "gpt-test" }));
+            assert_eq!(
+                collaboration["settings"],
+                json!({ "model": "gpt-5.4-high" })
+            );
         }
 
         let plan = permission_policy(Some("plan"), root, true).unwrap();
         assert_eq!(
-            turn_collaboration_mode(&plan, "gpt-test")["settings"],
-            json!({ "model": "gpt-test" })
+            turn_collaboration_mode(&plan, "gpt-5.4-high")["settings"],
+            json!({ "model": "gpt-5.4-high" })
         );
         let auto = permission_policy(Some("auto"), root, true).unwrap();
         assert_eq!(
-            turn_collaboration_mode(&auto, "gpt-test")["settings"],
-            json!({ "model": "gpt-test" })
+            turn_collaboration_mode(&auto, "gpt-5.4-high")["settings"],
+            json!({ "model": "gpt-5.4-high" })
         );
 
         let ask = permission_policy(Some("ask"), root, true).unwrap();
@@ -2804,6 +2933,11 @@ time.sleep(30)
         assert_eq!(enhance.native_collaboration_mode, "default");
         assert_eq!(enhance.thread_sandbox, "read-only");
         assert_eq!(enhance.turn_sandbox["type"], "readOnly");
+
+        assert_eq!(
+            orchestration_capabilities()["pace"]["speedReport"],
+            "unreported"
+        );
     }
 
     #[test]

@@ -280,6 +280,11 @@ async function seedThread(
     kind: 'orchestration-engine',
     engineId: 'codex',
   });
+  const explicitEngineModelSelector = serializeRuntimeExecutionSelector({
+    kind: 'orchestration-engine',
+    engineId: 'codex',
+    modelId: 'gpt-5.6-sol',
+  });
   const inherited = {
     model: serializeRuntimeExecutionSelector({
       kind: 'api-model',
@@ -287,7 +292,12 @@ async function seedThread(
     }),
     thinkingLevel: 'medium',
   };
-  const validSelectors = [inherited.model, employeeSelector, engineSelector];
+  const validSelectors = [
+    inherited.model,
+    employeeSelector,
+    engineSelector,
+    explicitEngineModelSelector,
+  ];
   const bound = resolveEmployeeRuntimeSelection(
     { model: employeeSelector, thinking_level: 'high' },
     validSelectors,
@@ -307,6 +317,17 @@ async function seedThread(
     'employee orchestration-engine binding overrides via its serialized selector',
     engineBound.model === engineSelector && engineBound.thinkingLevel === 'medium',
     JSON.stringify(engineBound),
+  );
+  const explicitEngineModelBound = resolveEmployeeRuntimeSelection(
+    { model: explicitEngineModelSelector, thinking_level: 'xhigh' },
+    validSelectors,
+    inherited,
+  );
+  check(
+    'employee explicit orchestration model binding remains a valid serialized selector',
+    explicitEngineModelBound.model === explicitEngineModelSelector &&
+      explicitEngineModelBound.thinkingLevel === 'xhigh',
+    JSON.stringify(explicitEngineModelBound),
   );
   const unbound = resolveEmployeeRuntimeSelection(
     { model: null, thinking_level: null },

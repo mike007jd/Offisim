@@ -21,6 +21,7 @@ import {
   type RunFailureKind,
   type RuntimeEngineCapabilityManifest,
   type RuntimeEvent,
+  type RuntimeSpeedMode,
   type WorkspaceDiagnosticsUpdatedPayload,
   classifyRunFailure,
 } from '@offisim/shared-types';
@@ -158,6 +159,7 @@ export {
   trustedNativeSessionPrestartCode,
 } from './run-context.js';
 import { resolveThreadMode } from './pi-thread-mode-store.js';
+import { resolveThreadSpeedOverride } from './pi-thread-speed-store.js';
 import { resolveThreadThinkingOverride } from './pi-thread-thinking-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
 
@@ -280,6 +282,8 @@ export interface DesktopAgentRunInput {
    * the model's reasoning capabilities; this only forwards the string.
    */
   thinkingLevel?: string;
+  /** Explicit per-thread Codex service tier. Omitted means the engine's standard default. */
+  speedMode?: RuntimeSpeedMode;
   /** Explicit recovery from a backend-proven broken native Conversation
    * session. Ordinary turns always stay `tracked`; only the in-thread
    * Start-fresh action may request `fresh`. */
@@ -1003,6 +1007,10 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         thinkingLevel:
           typeof context?.thinkingLevel === 'string' && context.thinkingLevel.trim()
             ? context.thinkingLevel.trim()
+            : undefined,
+        speedMode:
+          context?.speedMode === 'standard' || context?.speedMode === 'fast'
+            ? context.speedMode
             : undefined,
         ...(context?.conversationProjection
           ? { conversationProjection: context.conversationProjection }
@@ -1841,6 +1849,10 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     let resolvedModel = input.model?.trim() || undefined;
     let resolvedThinkingLevel =
       input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId);
+    const resolvedSpeedMode =
+      this.engineId === 'codex'
+        ? (input.speedMode ?? resolveThreadSpeedOverride(input.threadId))
+        : undefined;
     const runtimeContext: PersistedRunContext = {
       requestId,
       streamCursor: 0,
@@ -1863,6 +1875,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       provenance: null,
       permissionMode,
       thinkingLevel: resolvedThinkingLevel ?? null,
+      ...(this.engineId === 'codex' ? { speedMode: resolvedSpeedMode ?? null } : {}),
       projectId,
       conversationProjection: input.conversationProjection ?? null,
       recoveryLane: input.missionId
@@ -2341,6 +2354,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             workspaceRequirement,
             nativeSessionMode,
             permissionMode,
+            ...(resolvedThinkingLevel ? { effort: resolvedThinkingLevel } : {}),
+            ...(resolvedSpeedMode === 'fast' ? { speedMode: 'fast' } : {}),
             systemPromptAppend: effectiveSystemPromptAppend ?? undefined,
             projectExperience: projectExperience ?? undefined,
             skillPaths,

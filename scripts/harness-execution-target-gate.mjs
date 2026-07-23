@@ -334,5 +334,37 @@ checks += 1;
   checks += 1;
 }
 
+{
+  const executionSelection = readFileSync(
+    new URL('../apps/desktop/renderer/src/runtime/execution-selection.ts', import.meta.url),
+    'utf8',
+  );
+  const threadAuthority = readFileSync(
+    new URL('../apps/desktop/renderer/src/runtime/thread-execution-authority.ts', import.meta.url),
+    'utf8',
+  );
+  const desktopRuntime = readFileSync(
+    new URL('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(executionSelection, /readonly modelId\?: string/u);
+  assert.match(executionSelection, /const separator = value\.indexOf\(':'\)/u);
+  assert.match(executionSelection, /saved model is no longer available/u);
+  assert.match(
+    threadAuthority,
+    /target\.modelId === 'engine-managed'[\s\S]*target\.engineId[\s\S]*`\$\{target\.engineId\}:\$\{target\.modelId\}`/u,
+  );
+  assert.match(desktopRuntime, /this\.engineId === 'codex'[\s\S]*resolveThreadSpeedOverride/u);
+  assert.match(
+    desktopRuntime,
+    /\.\.\.\(resolvedThinkingLevel \? \{ effort: resolvedThinkingLevel \} : \{\}\)/u,
+  );
+  assert.match(
+    desktopRuntime,
+    /\.\.\.\(resolvedSpeedMode === 'fast' \? \{ speedMode: 'fast' \} : \{\}\)/u,
+  );
+  checks += 1;
+}
+
 console.log(`execution-target-gate: ${checks}/${checks} checks passed`);
 console.log('execution-target-gate OK');

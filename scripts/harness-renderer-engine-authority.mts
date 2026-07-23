@@ -48,6 +48,14 @@ const codexTarget: AiExecutionTarget = {
   modelSource: { kind: 'native' },
 };
 const codexAuthority = { target: codexTarget, runtimeModelRef: 'codex' };
+const codexExplicitTarget: AiExecutionTarget = {
+  ...codexTarget,
+  modelId: 'gpt-5.6-sol',
+};
+const codexExplicitAuthority = {
+  target: codexExplicitTarget,
+  runtimeModelRef: 'codex:gpt-5.6-sol',
+};
 
 function root(runId: string, startedAt: string, executionTarget: unknown, model = 'codex') {
   return {
@@ -80,6 +88,21 @@ assert.deepEqual(
   ),
   codexAuthority,
   'engine-reported Codex model diagnostics must not replace the engine-owned selector',
+);
+assert.deepEqual(
+  resolveAuthoritativeThreadExecutionAuthority(
+    [
+      root(
+        'codex-explicit-model',
+        '2026-07-17T03:30:00Z',
+        codexExplicitTarget,
+        'codex:gpt-5.6-sol',
+      ),
+    ],
+    'company-1',
+  ),
+  codexExplicitAuthority,
+  'an explicit native model must remain part of durable execution authority',
 );
 assert.deepEqual(planThreadExecutionSelection(codexAuthority, undefined, undefined), {
   requestedModel: undefined,
@@ -135,6 +158,20 @@ const runtimeStatus: AiRuntimeStatus = {
       docsUrl: 'https://developers.openai.com/codex/auth',
       checkedAt: '2026-07-17T00:00:00Z',
       capabilities,
+      runOptions: {
+        models: [
+          {
+            id: 'gpt-5.6-sol',
+            displayName: 'GPT-5.6 Sol',
+            isDefault: true,
+            reasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+            defaultReasoningEffort: 'medium',
+            speedModes: ['standard', 'fast'],
+          },
+        ],
+        sourceUrl: 'https://learn.chatgpt.com/docs/config-file/config-reference',
+        checkedAt: '2026-07-24',
+      },
     },
   ],
 };
@@ -148,6 +185,23 @@ assert.deepEqual(
 assert.deepEqual(
   resolveRuntimeExecutionSelection(runtimeStatus, undefined, codexTarget, 'codex'),
   codexAuthority,
+);
+assert.deepEqual(
+  resolveRuntimeExecutionSelection(runtimeStatus, {
+    kind: 'orchestration-engine',
+    engineId: 'codex',
+    modelId: 'gpt-5.6-sol',
+  }),
+  codexExplicitAuthority,
+);
+assert.deepEqual(
+  resolveRuntimeExecutionSelection(
+    runtimeStatus,
+    undefined,
+    codexExplicitTarget,
+    'codex:gpt-5.6-sol',
+  ),
+  codexExplicitAuthority,
 );
 const openRouterTarget: AiExecutionTarget = {
   engineId: 'api',
@@ -345,7 +399,14 @@ assert.deepEqual(
 );
 for (const call of calls.slice(0, 2)) {
   const payload = (call.args as { req: Record<string, unknown> }).req;
-  for (const engineManaged of ['model', 'runtimeModelRef', 'thinkingLevel', 'serviceTier']) {
+  for (const engineManaged of [
+    'model',
+    'runtimeModelRef',
+    'thinkingLevel',
+    'serviceTier',
+    'effort',
+    'speedMode',
+  ]) {
     assert.equal(
       payload[engineManaged],
       undefined,
@@ -417,7 +478,10 @@ assert.doesNotMatch(
   /resolveRuntimeExecutionSelection\([\s\S]{0,360}?catch\s*\{\s*return \[\];/u,
   'same-lane roster selector failures must not silently remove an employee',
 );
-assert.match(executionSelectionSource, /modelId: 'engine-managed'/u);
+assert.match(
+  executionSelectionSource,
+  /const ENGINE_MANAGED_MODEL_ID = 'engine-managed'[\s\S]*modelId = ENGINE_MANAGED_MODEL_ID/u,
+);
 assert.match(executionSelectionSource, /modelSource: \{ kind: 'native' \}/u);
 
 const composerSource = source(

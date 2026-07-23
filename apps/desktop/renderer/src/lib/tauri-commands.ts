@@ -4,6 +4,7 @@ import type {
   AiRuntimeStatus,
   AttachmentMeta,
   CollaborationProfile,
+  RuntimeSpeedMode,
   TurnExecutionProvenance,
   WorkspaceBoundProvenance,
   WorkspaceUnavailableProvenance,
@@ -389,6 +390,8 @@ interface CodexAgentExecuteRequest {
   nativeSessionMode: 'tracked' | 'fresh';
   nativeSessionResetSourceRunId?: string | null;
   permissionMode?: string | null;
+  effort?: string | null;
+  speedMode?: RuntimeSpeedMode | null;
   systemPromptAppend?: string | null;
   projectExperience?: string | null;
   skillPaths?: string[] | null;

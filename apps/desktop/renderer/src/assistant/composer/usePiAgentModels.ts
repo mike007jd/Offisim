@@ -2,7 +2,10 @@ import { isTauriRuntime } from '@/data/adapters.js';
 import { aiAccountLaneKey } from '@/data/ai-model-presentation.js';
 import { queryKeys } from '@/data/query-keys.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
-import { serializeRuntimeExecutionSelector } from '@/runtime/execution-selection.js';
+import {
+  MODEL_PASSTHROUGH_ENGINES,
+  serializeRuntimeExecutionSelector,
+} from '@/runtime/execution-selection.js';
 import { THINKING_LEVELS, type ThinkingLevel } from '@/runtime/pi-thread-thinking-store.js';
 import { getRepos } from '@/runtime/repos.js';
 import {
@@ -15,6 +18,7 @@ import type {
   OrchestrationEngineRunOptions,
   OrchestrationEngineState,
   RuntimeEngineCapabilityManifest,
+  RuntimeSpeedMode,
 } from '@offisim/shared-types';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -39,6 +43,9 @@ export interface AgentRuntimeModelOption {
   reasoning: boolean;
   reasoningEfforts: readonly ThinkingLevel[];
   defaultReasoningEffort?: ThinkingLevel;
+  speedModes: readonly RuntimeSpeedMode[];
+  fastModeNote?: string;
+  note?: string;
   capabilities: RuntimeEngineCapabilityManifest;
 }
 
@@ -180,29 +187,68 @@ export function projectRunnableModelOptions(
         reasoning: model.capabilities.reasoning,
         reasoningEfforts,
         ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}),
+        speedModes: ['standard'],
         capabilities: API_RUNTIME_CAPABILITIES,
       };
     });
 
   const orchestrationEngines: AgentRuntimeModelOption[] = rawStatus.orchestrationEngines
     .filter((engine) => engine.state === 'ready')
-    .map((engine) => ({
-      selectionKind: 'orchestration-engine',
-      value: serializeRuntimeExecutionSelector({
-        kind: 'orchestration-engine',
+    .flatMap((engine) => {
+      const base = {
+        selectionKind: 'orchestration-engine' as const,
+        accountName: 'Orchestration engines',
+        accountId: `${engine.engineId}:local`,
         engineId: engine.engineId,
-      }),
-      name: engine.displayName,
-      accountName: 'Orchestration engines',
-      accountId: `${engine.engineId}:local`,
-      engineId: engine.engineId,
-      modelId: 'engine-managed',
-      billingMode: 'subscription',
-      availability: 'available',
-      reasoning: false,
-      reasoningEfforts: [],
-      capabilities: engine.capabilities,
-    }));
+        billingMode: 'subscription' as const,
+        availability: 'available' as const,
+        capabilities: engine.capabilities,
+      };
+      if (!MODEL_PASSTHROUGH_ENGINES.has(engine.engineId)) {
+        return [
+          {
+            ...base,
+            value: serializeRuntimeExecutionSelector({
+              kind: 'orchestration-engine',
+              engineId: engine.engineId,
+            }),
+            name: engine.displayName,
+            modelId: 'engine-managed',
+            reasoning: false,
+            reasoningEfforts: [],
+            speedModes: ['standard'] as const,
+          },
+        ];
+      }
+      const defaultModels = engine.runOptions?.models.filter((model) => model.isDefault) ?? [];
+      const defaultModel = defaultModels.length === 1 ? defaultModels[0] : undefined;
+      if (!defaultModel || !engine.runOptions?.models.length) return [];
+      const projectModel = (
+        model: (typeof engine.runOptions.models)[number],
+        engineDefault: boolean,
+      ): AgentRuntimeModelOption => ({
+        ...base,
+        value: serializeRuntimeExecutionSelector({
+          kind: 'orchestration-engine',
+          engineId: engine.engineId,
+          ...(engineDefault ? {} : { modelId: model.id }),
+        }),
+        name: engineDefault ? 'Engine default' : model.displayName,
+        modelId: engineDefault ? 'engine-managed' : model.id,
+        reasoning: model.reasoningEfforts.length > 0,
+        reasoningEfforts: model.reasoningEfforts,
+        ...(model.defaultReasoningEffort
+          ? { defaultReasoningEffort: model.defaultReasoningEffort }
+          : {}),
+        speedModes: model.speedModes,
+        ...(model.fastModeNote ? { fastModeNote: model.fastModeNote } : {}),
+        ...(model.note ? { note: model.note } : {}),
+      });
+      return [
+        projectModel(defaultModel, true),
+        ...engine.runOptions.models.map((model) => projectModel(model, false)),
+      ];
+    });
 
   return [...apiModels, ...orchestrationEngines];
 }

@@ -1,6 +1,9 @@
 import { invokeCommand } from '@/lib/tauri-commands.js';
 import { titleizeSlug } from '@/lib/utils.js';
-import { serializeRuntimeExecutionSelector } from '@/runtime/execution-selection.js';
+import {
+  MODEL_PASSTHROUGH_ENGINES,
+  serializeRuntimeExecutionSelector,
+} from '@/runtime/execution-selection.js';
 import type { EmployeeRow, McpToolGrantRow, RuntimeRepositories } from '@offisim/core/browser';
 import type { DelegationRosterEntry } from '@offisim/shared-types';
 import { buildProjectExperienceSection } from './employee-project-memory-format.js';
@@ -319,12 +322,26 @@ export async function buildDelegationContext(
           ),
         ...(runtimeStatus?.orchestrationEngines ?? [])
           .filter((engine) => engine.state === 'ready' && Boolean(engine.engineId?.trim()))
-          .map((engine) =>
-            serializeRuntimeExecutionSelector({
+          .flatMap((engine) => {
+            const engineSelector = serializeRuntimeExecutionSelector({
               kind: 'orchestration-engine',
               engineId: engine.engineId,
-            }),
-          ),
+            });
+            if (!MODEL_PASSTHROUGH_ENGINES.has(engine.engineId)) return [engineSelector];
+            const defaultModels =
+              engine.runOptions?.models.filter((model) => model.isDefault) ?? [];
+            if (defaultModels.length !== 1 || !engine.runOptions?.models.length) return [];
+            return [
+              engineSelector,
+              ...engine.runOptions.models.map((model) =>
+                serializeRuntimeExecutionSelector({
+                  kind: 'orchestration-engine',
+                  engineId: engine.engineId,
+                  modelId: model.id,
+                }),
+              ),
+            ];
+          }),
       ],
       inheritedRuntime,
     ),

@@ -6,7 +6,11 @@ import {
 } from '@/lib/tauri-commands.js';
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import { isResettableNativeSessionPrestartCode } from '@offisim/core/browser';
-import type { AiExecutionTarget, WorkspaceProvenance } from '@offisim/shared-types';
+import type {
+  AiExecutionTarget,
+  RuntimeSpeedMode,
+  WorkspaceProvenance,
+} from '@offisim/shared-types';
 import type {
   CompetitiveDraftContext,
   ConversationRunProjectionRef,
@@ -46,6 +50,7 @@ export interface PersistedRunContext {
   provenance: TurnExecutionProvenance | null;
   permissionMode: string;
   thinkingLevel: string | null;
+  speedMode?: RuntimeSpeedMode | null;
   projectId: string | null;
   conversationProjection: ConversationRunProjectionRef | null;
   createdAt: string;
@@ -116,6 +121,8 @@ export function parseRunContext(
           : null,
       permissionMode: typeof parsed.permissionMode === 'string' ? parsed.permissionMode : undefined,
       thinkingLevel: typeof parsed.thinkingLevel === 'string' ? parsed.thinkingLevel : null,
+      speedMode:
+        parsed.speedMode === 'standard' || parsed.speedMode === 'fast' ? parsed.speedMode : null,
       projectId: typeof parsed.projectId === 'string' ? parsed.projectId : null,
       conversationProjection:
         parsed.conversationProjection &&
