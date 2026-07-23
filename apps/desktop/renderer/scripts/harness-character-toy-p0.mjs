@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { AnimationMixer, Box3, Vector3 } from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -21,6 +21,10 @@ const CHARACTER_CONTRACT_URL = new URL(
   ROOT,
 );
 const EVIDENCE_URL = new URL('Docs/evidence/2026-07-office-toy/p0/oracle-results.json', ROOT);
+const PROPORTION_EVIDENCE_URL = new URL(
+  'Docs/evidence/2026-07-office-toy/p7-proportions/oracle-results.json',
+  ROOT,
+);
 const LANDMARKS = [
   'ToyHeadTop',
   'ToyChin',
@@ -136,6 +140,28 @@ function setActorTransform(scene, metrics, seated) {
   );
 }
 
+function setVariantTransform(scene, metrics, bodyType, headShape) {
+  const sceneScale = metrics.character.height / manifest.bodies.toy.heightUnits;
+  const girth = characterContract.bodyTypeGirth[bodyType];
+  const headScale = characterContract.headShapeScale[headShape];
+  scene.position.set(0, 0, 0);
+  scene.rotation.set(0, 0, 0);
+  scene.scale.set(sceneScale * girth, sceneScale, sceneScale * girth);
+  requireObject(scene, 'Head').scale.fromArray(headScale);
+}
+
+function setVariantWorkstationTransform(scene, metrics, bodyType, headShape, seated) {
+  const workstation = metrics.workstation;
+  const actorZ = workstation.deskDepth.standard / 2 + workstation.seatForward;
+  setVariantTransform(scene, metrics, bodyType, headShape);
+  scene.rotation.set(0, seated ? Math.PI : 0, 0);
+  scene.position.set(
+    0,
+    seated ? workstation.seatedBodyLift : 0,
+    seated ? actorZ - workstation.seatedBodyForward : 0,
+  );
+}
+
 function sampleLandmarks(scene) {
   scene.updateMatrixWorld(true);
   return Object.fromEntries(
@@ -154,6 +180,42 @@ function playAt(mixer, clipsByName, scene, clipName, normalizedTime) {
   mixer.clipAction(clip).reset().play();
   mixer.setTime(clip.duration * Math.min(normalizedTime, 0.999999));
   return sampleLandmarks(scene);
+}
+
+function samplePropAttaches(scene, propsScene, propAttach, metrics) {
+  const headPoint = requireObject(scene, 'Head').getWorldPosition(new Vector3());
+  return Object.entries(propAttach).map(([kind, spec]) => {
+    const prop = requireObject(propsScene, spec.node).clone(true);
+    prop.position.fromArray(spec.position);
+    prop.rotation.fromArray(spec.rotation);
+    requireObject(scene, spec.bone).add(prop);
+    scene.updateMatrixWorld(true);
+    const box = new Box3().setFromObject(prop);
+    const targetName =
+      spec.bone === 'Head' ? 'Head' : spec.bone === 'hand_l' ? 'ToyPalmL' : 'ToyPalmR';
+    const targetPoint = requireObject(scene, targetName).getWorldPosition(new Vector3());
+    const reach = box.distanceToPoint(targetPoint);
+    const headDistance = box.distanceToPoint(headPoint);
+    const unexpectedFaceRisk = spec.bone !== 'Head' && box.containsPoint(headPoint);
+    const sample = {
+      kind,
+      node: spec.node,
+      attachBone: spec.bone,
+      target: targetName,
+      aabb: { min: roundVector(box.min), max: roundVector(box.max) },
+      reach: round(reach),
+      headDistance: round(headDistance),
+      unexpectedFaceRisk,
+      pass: !box.isEmpty() && reach <= metrics.silhouette.gates.propReachMax && !unexpectedFaceRisk,
+    };
+    if (kind === 'laptop') {
+      sample.visibleAtDesk = box.max.y >= metrics.workstation.deskTop;
+      sample.clearOfDesk = box.min.y >= metrics.workstation.deskTop - 0.01;
+      sample.pass = sample.pass && sample.visibleAtDesk && sample.clearOfDesk;
+    }
+    prop.removeFromParent();
+    return sample;
+  });
 }
 
 function inspectFinalRootMotion(clips) {
@@ -257,6 +319,102 @@ checks.push(
     },
   ),
 );
+checks.push(
+  check(
+    'measurement-contract-drift',
+    JSON.stringify(manifest.bodies.toy.measurements?.geometryUnits) ===
+      JSON.stringify(metrics.silhouette.geometryUnits) &&
+      JSON.stringify(manifest.bodies.toy.measurements?.garmentProportions) ===
+        JSON.stringify(metrics.silhouette.garmentProportions) &&
+      manifest.bodies.toy.measurements?.variantMatrix?.length === 9,
+    manifest.bodies.toy.measurements,
+    'manifest measurements match toy-performance-metrics and contain 9 shipped variants',
+  ),
+);
+
+const variantMeasurements = [];
+for (const bodyType of Object.keys(characterContract.bodyTypeGirth)) {
+  for (const headShape of Object.keys(characterContract.headShapeScale)) {
+    const id = `${bodyType}:${headShape}`;
+    const declared = manifest.bodies.toy.measurements.variantMatrix.find(
+      (variant) => variant.id === id,
+    );
+    setVariantTransform(body, metrics, bodyType, headShape);
+    const landmarks = playAt(mixer, clipsByName, body, 'tpose', 0);
+    const totalHeightScene =
+      landmarks.ToyHeadTop[1] - Math.min(landmarks.ToySoleL[1], landmarks.ToySoleR[1]);
+    const effectiveHeadHeightScene = landmarks.ToyHeadTop[1] - landmarks.ToyChin[1];
+    const measured = {
+      id,
+      totalHeightScene: round(totalHeightScene),
+      effectiveHeadHeightScene: round(effectiveHeadHeightScene),
+      headCount: round(totalHeightScene / effectiveHeadHeightScene),
+    };
+    setVariantWorkstationTransform(body, metrics, bodyType, headShape, true);
+    const variantSitIdle = playAt(mixer, clipsByName, body, 'sit.idle', 0.5);
+    const variantSitTalk = playAt(mixer, clipsByName, body, 'sit.talk', 0.5);
+    const contact = {
+      soleDelta: round(Math.max(Math.abs(landmarks.ToySoleL[1]), Math.abs(landmarks.ToySoleR[1]))),
+      seatButtDelta: round(
+        Math.abs(variantSitIdle.ToyButtContact[1] - metrics.workstation.seatTop),
+      ),
+      deskPalmDelta: round(
+        Math.max(
+          Math.abs(variantSitTalk.ToyPalmL[1] - metrics.workstation.deskTop),
+          Math.abs(variantSitTalk.ToyPalmR[1] - metrics.workstation.deskTop),
+        ),
+      ),
+    };
+    const propAttach = samplePropAttaches(
+      body,
+      propsAsset.gltf.scene,
+      characterContract.propAttach,
+      metrics,
+    );
+    const gates = metrics.silhouette.gates;
+    const canonicalChestBand = gates.canonicalChestToHead;
+    const pass =
+      declared?.pass === true &&
+      Math.abs(effectiveHeadHeightScene - declared.effectiveHeadHeightScene) <= 0.0002 &&
+      totalHeightScene >= gates.allHeight[0] &&
+      totalHeightScene <= gates.allHeight[1] + gates.roundHeightTolerance &&
+      totalHeightScene / effectiveHeadHeightScene >= metrics.character.minimumHeadCount &&
+      totalHeightScene / effectiveHeadHeightScene <= metrics.character.maximumHeadCount &&
+      declared.ratios.thighToChest <= gates.thighToChestMax &&
+      declared.ratios.shoeLengthToHeight <= gates.shoeLengthToHeightMax &&
+      declared.ratios.shoeWidthToHead <= gates.shoeWidthToHeadMax &&
+      declared.ratios.handToHead >= gates.handToHead[0] &&
+      declared.ratios.handToHead <= gates.handToHead[1] &&
+      declared.ratios.handToSleeve >= gates.handToSleeveMin &&
+      contact.soleDelta <= GROUND_TOLERANCE &&
+      contact.seatButtDelta <= gates.seatDeltaMax &&
+      contact.deskPalmDelta <= gates.deskPalmDeltaMax &&
+      propAttach.length === Object.keys(characterContract.propAttach).length &&
+      propAttach.every((sample) => sample.pass) &&
+      (id !== 'normal:round' ||
+        (declared.ratios.chestToHead >= canonicalChestBand[0] &&
+          declared.ratios.chestToHead <= canonicalChestBand[1]));
+    variantMeasurements.push({ ...measured, contact, propAttach, declared, pass });
+  }
+}
+checks.push(
+  check(
+    'shipped-variant-proportion-matrix',
+    variantMeasurements.length === 9 && variantMeasurements.every((variant) => variant.pass),
+    variantMeasurements.map((variant) => ({
+      id: variant.id,
+      totalHeightScene: variant.totalHeightScene,
+      effectiveHeadHeightScene: variant.effectiveHeadHeightScene,
+      headCount: variant.headCount,
+      contact: variant.contact,
+      propAttachPassed: variant.propAttach.filter((sample) => sample.pass).length,
+      propAttachTotal: variant.propAttach.length,
+      pass: variant.pass,
+    })),
+    'all 9 bodyType × headShape bind envelopes pass, with runtime tpose head geometry independently sampled',
+  ),
+);
+setVariantTransform(body, metrics, 'normal', 'round');
 const tposeSoleDistance = Math.max(Math.abs(tpose.ToySoleL[1]), Math.abs(tpose.ToySoleR[1]));
 checks.push(
   check(
@@ -374,33 +532,24 @@ contactSamples.push({
   pass: buttDelta <= 0.05 && buttInChairFootprint,
 });
 
-const laptopContract = characterContract.propAttach.laptop;
-const laptopSource = requireObject(propsAsset.gltf.scene, laptopContract.node);
-const laptop = laptopSource.clone(true);
-laptop.position.fromArray(laptopContract.position);
-laptop.rotation.fromArray(laptopContract.rotation);
-requireObject(body, laptopContract.bone).add(laptop);
-body.updateMatrixWorld(true);
-const laptopBox = new Box3().setFromObject(laptop);
-const palmL = requireObject(body, 'ToyPalmL').getWorldPosition(new Vector3());
-const laptopDistanceToPalm = laptopBox.distanceToPoint(palmL);
-const laptopVisible = !laptopBox.isEmpty() && laptopBox.max.y >= metrics.workstation.deskTop;
-const laptopClearOfDesk = laptopBox.min.y >= metrics.workstation.deskTop - 0.01;
-checks.push(
-  check(
-    'held-laptop-aabb',
-    laptopVisible && laptopClearOfDesk && laptopDistanceToPalm <= 0.12,
-    {
-      min: roundVector(laptopBox.min),
-      max: roundVector(laptopBox.max),
-      distanceToPalm: round(laptopDistanceToPalm),
-      visible: laptopVisible,
-      clearOfDesk: laptopClearOfDesk,
-    },
-    { distanceToPalmMax: 0.12, deskPenetrationMax: 0.01 },
-  ),
-);
-laptop.removeFromParent();
+const propAttachSamples = variantMeasurements.find(
+  (variant) => variant.id === 'normal:round',
+).propAttach;
+for (const sample of propAttachSamples) {
+  checks.push(
+    check(`prop-attach:${sample.kind}`, sample.pass, sample, {
+      reachMax: metrics.silhouette.gates.propReachMax,
+      unexpectedFaceRisk: false,
+    }),
+  );
+  if (sample.kind === 'laptop') {
+    checks.push(
+      check('held-laptop-aabb', sample.visibleAtDesk && sample.clearOfDesk, sample, {
+        deskPenetrationMax: 0.01,
+      }),
+    );
+  }
+}
 
 for (const clipName of LOCOMOTION_CLIPS) {
   const clip = clipsByName.get(clipName);
@@ -439,11 +588,17 @@ const report = {
   winding,
   finalRootMotion,
   contactSamples,
+  propAttachSamples,
+  variantMeasurements,
   samples,
 };
 
 if (process.env.CHARACTER_TOY_ORACLE_NO_WRITE !== '1') {
-  await writeFile(EVIDENCE_URL, `${JSON.stringify(report, null, 2)}\n`);
+  await mkdir(new URL('.', EVIDENCE_URL), { recursive: true });
+  const serializedReport = `${JSON.stringify(report, null, 2)}\n`;
+  await writeFile(EVIDENCE_URL, serializedReport);
+  await mkdir(new URL('.', PROPORTION_EVIDENCE_URL), { recursive: true });
+  await writeFile(PROPORTION_EVIDENCE_URL, serializedReport);
 }
 console.log(
   `[toy-p0] ${checks.filter((item) => item.pass).length}/${checks.length} checks passed; ` +

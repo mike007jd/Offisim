@@ -11,6 +11,7 @@ import {
   Quaternion,
   Vector3,
 } from 'three';
+import toyPerformanceMetrics from '../toy-performance-metrics.json';
 
 /**
  * Procedural office garments for the GltfCharacter rig.
@@ -48,6 +49,10 @@ import {
 const UP_Y = new Vector3(0, 1, 0);
 const UNIT_SCALE = new Vector3(1, 1, 1);
 const GARMENT_ROUGHNESS = 0.74;
+
+/** Numeric garment silhouette contract shared with the asset builder and oracles. */
+const GARMENT_PROPORTIONS = toyPerformanceMetrics.silhouette.garmentProportions;
+const PROPORTION_CORRECTIONS = toyPerformanceMetrics.silhouette.proportionCorrections;
 
 export interface GarmentColors {
   /** Torso / sleeve base (matches Body_Top tint). */
@@ -184,19 +189,10 @@ export function attachGarments(
   // ── Torso shell (all outfits) — oval cylinder covering the bodysuit torso.
   const torsoBottom = pPelvis.clone();
   const torsoCenter = pTop.clone().add(torsoBottom).multiplyScalar(0.5);
-  const torsoLen = pTop.distanceTo(torsoBottom) * 1.04;
-  let widthR = shoulderW * 0.33;
-  let depthR = shoulderW * 0.23;
-  if (outfit === 'sweater') {
-    widthR *= 1.08;
-    depthR *= 1.22;
-  } else if (outfit === 'shirt') {
-    widthR *= 0.98;
-    depthR *= 0.92;
-  } else if (isDress) {
-    widthR *= 0.95;
-    depthR *= 0.9;
-  }
+  const torsoLen = pTop.distanceTo(torsoBottom) * PROPORTION_CORRECTIONS.garmentTorsoLength;
+  const outfitTorsoScale = PROPORTION_CORRECTIONS.garmentTorsoByOutfit[outfit];
+  const widthR = shoulderW * GARMENT_PROPORTIONS.torsoWidthToShoulder * outfitTorsoScale.width;
+  const depthR = shoulderW * GARMENT_PROPORTIONS.torsoDepthToShoulder * outfitTorsoScale.depth;
   {
     const geometry = new CylinderGeometry(widthR, widthR, torsoLen, 16, 1);
     geometry.scale(1, 1, depthR / widthR); // flatten front-to-back into an oval
@@ -208,10 +204,38 @@ export function attachGarments(
   const lowerArmR = bone('lowerarm_r');
   const handL = bone('hand_l');
   const handR = bone('hand_r');
-  segment(upperArmL, lowerArmL, upperArmL, shoulderW * 0.115, shoulderW * 0.094, colors.clothing);
-  segment(upperArmR, lowerArmR, upperArmR, shoulderW * 0.115, shoulderW * 0.094, colors.clothing);
-  segment(lowerArmL, handL, lowerArmL, shoulderW * 0.09, shoulderW * 0.07, colors.clothing);
-  segment(lowerArmR, handR, lowerArmR, shoulderW * 0.09, shoulderW * 0.07, colors.clothing);
+  segment(
+    upperArmL,
+    lowerArmL,
+    upperArmL,
+    shoulderW * GARMENT_PROPORTIONS.upperSleeveStartToShoulder,
+    shoulderW * GARMENT_PROPORTIONS.upperSleeveEndToShoulder,
+    colors.clothing,
+  );
+  segment(
+    upperArmR,
+    lowerArmR,
+    upperArmR,
+    shoulderW * GARMENT_PROPORTIONS.upperSleeveStartToShoulder,
+    shoulderW * GARMENT_PROPORTIONS.upperSleeveEndToShoulder,
+    colors.clothing,
+  );
+  segment(
+    lowerArmL,
+    handL,
+    lowerArmL,
+    shoulderW * GARMENT_PROPORTIONS.lowerSleeveStartToShoulder,
+    shoulderW * GARMENT_PROPORTIONS.lowerSleeveEndToShoulder,
+    colors.clothing,
+  );
+  segment(
+    lowerArmR,
+    handR,
+    lowerArmR,
+    shoulderW * GARMENT_PROPORTIONS.lowerSleeveStartToShoulder,
+    shoulderW * GARMENT_PROPORTIONS.lowerSleeveEndToShoulder,
+    colors.clothing,
+  );
 
   // Small always-on role badge: a rounded, matte chest cue whose color comes
   // from the art-bible role family. It never inherits or encodes skin tone.
@@ -320,9 +344,9 @@ export function attachGarments(
     geometry.scale(1, 1, depthR / widthR);
     attach(geometry, colors.clothing, pelvis, basis(skirtCenter), 'dressSkirt');
   } else {
-    const legHipR = shoulderW * 0.13;
-    const legKneeR = shoulderW * 0.1;
-    const legAnkleR = shoulderW * 0.078;
+    const legHipR = shoulderW * GARMENT_PROPORTIONS.trouserHipToShoulder;
+    const legKneeR = shoulderW * GARMENT_PROPORTIONS.trouserKneeToShoulder;
+    const legAnkleR = shoulderW * GARMENT_PROPORTIONS.trouserAnkleToShoulder;
     const footR = bone('foot_r');
     segment(thighL, calfL, thighL, legHipR, legKneeR, colors.bottom);
     segment(thighR, calfR, thighR, legHipR, legKneeR, colors.bottom);
