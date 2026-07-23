@@ -8,6 +8,7 @@
  * across render modes.
  */
 import type {
+  AmbientRoutineKind,
   CharacterPerformanceState,
   CharacterStatus,
   Posture,
@@ -27,6 +28,11 @@ export type {
   SocialGesture,
   WorkGesture,
 } from '@offisim/shared-types';
+
+type AmbientMicroRoutineKind = Extract<
+  AmbientRoutineKind,
+  'desk-fidget' | 'look-around' | 'stretch'
+>;
 
 /** A neutral resting state (used as the base layer / idle default). */
 export const IDLE_PERFORMANCE: CharacterPerformanceState = {
@@ -202,7 +208,9 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
  * Typed P5 seam for routine micro-actions. Keeping this in dramaturgy means the
  * ambient scheduler requests semantic behavior, never a renderer clip.
  */
-export function performanceForRoutine(kind: RoutinePerformanceKind): CharacterPerformanceState {
+export function performanceForRoutine(
+  kind: RoutinePerformanceKind | AmbientMicroRoutineKind,
+): CharacterPerformanceState {
   if (kind === 'social') {
     return {
       locomotion: 'idle',
@@ -219,6 +227,36 @@ export function performanceForRoutine(kind: RoutinePerformanceKind): CharacterPe
       posture: 'sit',
       workGesture: 'none',
       socialGesture: 'nod',
+      expression: 'neutral',
+      intensity: 0,
+    };
+  }
+  if (kind === 'desk-fidget') {
+    return {
+      locomotion: 'idle',
+      posture: 'sit',
+      workGesture: 'none',
+      socialGesture: 'nod',
+      expression: 'neutral',
+      intensity: 0,
+    };
+  }
+  if (kind === 'look-around') {
+    return {
+      locomotion: 'idle',
+      posture: 'stand',
+      workGesture: 'none',
+      socialGesture: 'none',
+      expression: 'thinking',
+      intensity: 0,
+    };
+  }
+  if (kind === 'stretch') {
+    return {
+      locomotion: 'idle',
+      posture: 'stand',
+      workGesture: 'none',
+      socialGesture: 'none',
       expression: 'neutral',
       intensity: 0,
     };
