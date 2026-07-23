@@ -1,14 +1,20 @@
 /**
  * Office local-chatter 3D integration gate.
  *
- * Locks pure projection/suppression helpers and source boundaries for the
- * React/scene integration. No fake browser timers, model, network, or
- * persistence. Foundation selector constants remain authoritative.
+ * Drives the injected-clock state machine with a manual timer queue and locks
+ * pure projection/suppression helpers plus React/scene source boundaries. No
+ * browser DOM, model, network, or persistence.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
+  type LocalChatterClock,
+  type LocalChatterMachineInput,
+  createLocalChatterMachine,
+} from '../apps/desktop/renderer/src/surfaces/office/scene/local-chatter-machine.js';
+import {
   CHATTER_MAX_VISIBLE_DEFAULT,
+  type LocalChatterActor,
   type LocalChatterResult,
   emptyLocalChatterHistory,
   selectLocalChatter,
@@ -39,6 +45,7 @@ const { check, section } = h;
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const HOOK_SRC = `${ROOT}/apps/desktop/renderer/src/surfaces/office/scene/use-local-chatter.ts`;
+const MACHINE_SRC = `${ROOT}/apps/desktop/renderer/src/surfaces/office/scene/local-chatter-machine.ts`;
 const SCENE3D_SRC = `${ROOT}/apps/desktop/renderer/src/surfaces/office/scene/OfficeScene3D.tsx`;
 const SCENE2D_SRC = `${ROOT}/apps/desktop/renderer/src/surfaces/office/scene/OfficeScene2D.tsx`;
 const CUE_REACT_SRC = `${ROOT}/apps/desktop/renderer/src/assistant/runtime/scene-cue-react.ts`;
@@ -88,6 +95,272 @@ function mustChatter(result: LocalChatterResult, label: string): LocalChatterPre
   check(label, result.status === 'chatter', JSON.stringify(result));
   if (result.status === 'chatter') return result.presentation;
   throw new Error(`expected chatter for ${label}`);
+}
+
+class VirtualChatterClock implements LocalChatterClock<number> {
+  private nextId = 1;
+  private runCount = 0;
+  private readonly timers = new Map<
+    number,
+    { readonly atMs: number; readonly callback: () => void }
+  >();
+
+  constructor(private currentMs: number) {}
+
+  now = (): number => this.currentMs;
+
+  setTimeout = (callback: () => void, delayMs: number): number => {
+    const id = this.nextId++;
+    this.timers.set(id, {
+      atMs: this.currentMs + Math.max(0, delayMs),
+      callback,
+    });
+    return id;
+  };
+
+  clearTimeout = (id: number): void => {
+    this.timers.delete(id);
+  };
+
+  advanceBy(deltaMs: number): void {
+    const targetMs = this.currentMs + deltaMs;
+    while (true) {
+      const next = [...this.timers.entries()]
+        .filter(([, timer]) => timer.atMs <= targetMs)
+        .sort(([leftId, left], [rightId, right]) => left.atMs - right.atMs || leftId - rightId)[0];
+      if (!next) break;
+      const [id, timer] = next;
+      this.timers.delete(id);
+      this.currentMs = timer.atMs;
+      this.runCount += 1;
+      timer.callback();
+    }
+    this.currentMs = targetMs;
+  }
+
+  pendingCount(): number {
+    return this.timers.size;
+  }
+
+  callbacksRun(): number {
+    return this.runCount;
+  }
+
+  nextDueAtMs(): number | null {
+    const dueTimes = [...this.timers.values()].map((timer) => timer.atMs);
+    return dueTimes.length === 0 ? null : Math.min(...dueTimes);
+  }
+}
+
+function machineInput(
+  scopeKey: string,
+  actors: readonly LocalChatterActor[],
+  over: Partial<LocalChatterMachineInput> = {},
+): LocalChatterMachineInput {
+  return {
+    enabled: over.enabled ?? true,
+    scopeKey,
+    locale: over.locale ?? 'en',
+    reducedMotion: over.reducedMotion ?? false,
+    runtimeTruthActive: over.runtimeTruthActive ?? false,
+    statusExplanationActive: over.statusExplanationActive ?? false,
+    actors,
+    frameActorIds: over.frameActorIds ?? new Set(actors.map((actor) => actor.actorId)),
+  };
+}
+
+// ── State-machine behavior ──────────────────────────────────────────────────
+
+section('[machine] attempt through complete pair timeline');
+{
+  const startMs = 5_000_000;
+  const clock = new VirtualChatterClock(startMs);
+  const actors: readonly LocalChatterActor[] = [
+    { actorId: 'ava', presentationState: 'idle', safeVisualWindow: true },
+    { actorId: 'ben', presentationState: 'idle', safeVisualWindow: true },
+  ];
+  const machine = createLocalChatterMachine({ clock });
+  machine.update(machineInput('co::timeline', actors));
+
+  check(
+    'machine schedules first attempt at 1750ms',
+    clock.pendingCount() === 1 && clock.nextDueAtMs() === startMs + LOCAL_CHATTER_FIRST_ATTEMPT_MS,
+  );
+  clock.advanceBy(LOCAL_CHATTER_FIRST_ATTEMPT_MS - 1);
+  check(
+    'machine stays empty before first attempt',
+    machine.getSnapshot().activePresentation == null,
+  );
+
+  clock.advanceBy(1);
+  const presentation = machine.getSnapshot().activePresentation;
+  check(
+    'machine attempt starts pair presentation',
+    presentation?.kind === 'pair-dialogue' &&
+      visibleBubblesFromPresentation(presentation, machine.getSnapshot().clockMs).size === 1,
+  );
+  if (!presentation || presentation.kind !== 'pair-dialogue') {
+    throw new Error('expected pair presentation from machine timeline');
+  }
+  const firstActorId = presentation.utterances[0]?.actorId;
+  const secondActorId = presentation.utterances[1]?.actorId;
+
+  clock.advanceBy(presentation.holdMs);
+  check(
+    'machine advances to pair gap boundary',
+    visibleBubblesFromPresentation(
+      machine.getSnapshot().activePresentation,
+      machine.getSnapshot().clockMs,
+    ).size === 0,
+  );
+  clock.advanceBy(presentation.utteranceGapMs);
+  check(
+    'machine advances from first to second utterance',
+    firstActorId !== secondActorId &&
+      visibleBubblesFromPresentation(
+        machine.getSnapshot().activePresentation,
+        machine.getSnapshot().clockMs,
+      ).get(secondActorId ?? '')?.actorId === secondActorId,
+  );
+  clock.advanceBy(presentation.holdMs);
+  check(
+    'machine clears bubbles at presentation end',
+    machine.getSnapshot().activePresentation == null &&
+      visibleBubblesFromPresentation(
+        machine.getSnapshot().activePresentation,
+        machine.getSnapshot().clockMs,
+      ).size === 0,
+  );
+  machine.dispose();
+}
+
+section('[machine] retry scheduling');
+{
+  const startMs = 5_100_000;
+  const clock = new VirtualChatterClock(startMs);
+  const busyActors: readonly LocalChatterActor[] = [
+    { actorId: 'ava', presentationState: 'busy', safeVisualWindow: true },
+  ];
+  const eligibleActors: readonly LocalChatterActor[] = [
+    { actorId: 'ava', presentationState: 'idle', safeVisualWindow: true },
+  ];
+  const machine = createLocalChatterMachine({ clock });
+  machine.update(machineInput('co::retry', busyActors));
+  clock.advanceBy(LOCAL_CHATTER_FIRST_ATTEMPT_MS);
+  check(
+    'machine schedules 4000ms retry after suppressed attempt',
+    machine.getSnapshot().activePresentation == null &&
+      clock.nextDueAtMs() === startMs + LOCAL_CHATTER_FIRST_ATTEMPT_MS + LOCAL_CHATTER_RETRY_MS,
+  );
+  machine.update(machineInput('co::retry', eligibleActors));
+  clock.advanceBy(LOCAL_CHATTER_RETRY_MS);
+  check(
+    'machine retry uses latest eligible actors',
+    machine.getSnapshot().activePresentation != null,
+  );
+  machine.dispose();
+}
+
+section('[machine] suppression and speaker preemption');
+{
+  const eligibleActors: readonly LocalChatterActor[] = [
+    { actorId: 'ava', presentationState: 'idle', safeVisualWindow: true },
+    { actorId: 'ben', presentationState: 'idle', safeVisualWindow: true },
+  ];
+  const suppressions: readonly [string, Partial<LocalChatterMachineInput>][] = [
+    ['runtime truth', { runtimeTruthActive: true }],
+    ['status explanation', { statusExplanationActive: true }],
+    ['disabled', { enabled: false }],
+  ];
+  for (const [label, suppression] of suppressions) {
+    const clock = new VirtualChatterClock(5_200_000);
+    const machine = createLocalChatterMachine({ clock });
+    machine.update(machineInput(`co::preempt-${label}`, eligibleActors));
+    clock.advanceBy(LOCAL_CHATTER_FIRST_ATTEMPT_MS);
+    machine.update(machineInput(`co::preempt-${label}`, eligibleActors, suppression));
+    check(
+      `machine ${label} preempts active presentation immediately`,
+      machine.getSnapshot().activePresentation == null && clock.pendingCount() === 0,
+    );
+    machine.dispose();
+  }
+
+  const clock = new VirtualChatterClock(5_300_000);
+  const machine = createLocalChatterMachine({ clock });
+  machine.update(machineInput('co::speaker-preempt', eligibleActors));
+  clock.advanceBy(LOCAL_CHATTER_FIRST_ATTEMPT_MS);
+  const ineligibleActors = eligibleActors.map((actor, index) => ({
+    ...actor,
+    safeVisualWindow: index !== 0,
+  }));
+  machine.update(machineInput('co::speaker-preempt', ineligibleActors));
+  check(
+    'machine speaker ineligibility preempts active presentation',
+    machine.getSnapshot().activePresentation == null &&
+      clock.nextDueAtMs() === clock.now() + LOCAL_CHATTER_FIRST_ATTEMPT_MS,
+  );
+  machine.dispose();
+}
+
+section('[machine] scope reset');
+{
+  const clock = new VirtualChatterClock(5_400_000);
+  const actors: readonly LocalChatterActor[] = [
+    { actorId: 'ava', presentationState: 'idle', safeVisualWindow: true },
+  ];
+  const machine = createLocalChatterMachine({ clock });
+  machine.update(machineInput('co::scope-a', actors));
+  clock.advanceBy(LOCAL_CHATTER_FIRST_ATTEMPT_MS);
+  check(
+    'machine history records completed attempt before scope reset',
+    machine.getSnapshot().history.lastGlobalAtMs === clock.now(),
+  );
+  machine.update(machineInput('co::scope-b', actors));
+  const reset = machine.getSnapshot();
+  check(
+    'machine scope change clears active presentation and clock',
+    reset.scopeKey === 'co::scope-b' && reset.activePresentation == null && reset.clockMs === 0,
+  );
+  check(
+    'machine scope change resets all chatter history',
+    reset.history.lastGlobalAtMs == null &&
+      Object.keys(reset.history.lastActorAtMs).length === 0 &&
+      Object.keys(reset.history.perPair).length === 0 &&
+      reset.history.recentCopyKeys.length === 0,
+  );
+  check(
+    'machine scope change replaces old timer with fresh first attempt',
+    clock.pendingCount() === 1 &&
+      clock.nextDueAtMs() === clock.now() + LOCAL_CHATTER_FIRST_ATTEMPT_MS,
+  );
+  machine.dispose();
+}
+
+section('[machine] dispose cleanup');
+{
+  const clock = new VirtualChatterClock(5_500_000);
+  const actors: readonly LocalChatterActor[] = [
+    { actorId: 'ava', presentationState: 'idle', safeVisualWindow: true },
+    { actorId: 'ben', presentationState: 'idle', safeVisualWindow: true },
+  ];
+  const machine = createLocalChatterMachine({ clock });
+  machine.update(machineInput('co::dispose', actors));
+  clock.advanceBy(LOCAL_CHATTER_FIRST_ATTEMPT_MS);
+  const callbacksBeforeDispose = clock.callbacksRun();
+  check(
+    'machine has owned presentation timer before dispose',
+    machine.getSnapshot().activePresentation != null && clock.pendingCount() === 1,
+  );
+  machine.dispose();
+  check(
+    'machine dispose empties timer queue and active presentation',
+    clock.pendingCount() === 0 && machine.getSnapshot().activePresentation == null,
+  );
+  clock.advanceBy(60_000);
+  check(
+    'machine dispose leaves no residual callbacks',
+    clock.callbacksRun() === callbacksBeforeDispose && clock.pendingCount() === 0,
+  );
 }
 
 // ── Scope / locale / attempt constants ──────────────────────────────────────
@@ -416,6 +689,7 @@ check(
 section('[boundary] integration source contracts');
 {
   const hook = readFileSync(HOOK_SRC, 'utf8');
+  const machine = readFileSync(MACHINE_SRC, 'utf8');
   const scene3d = readFileSync(SCENE3D_SRC, 'utf8');
   const scene2d = readFileSync(SCENE2D_SRC, 'utf8');
   const cueReact = readFileSync(CUE_REACT_SRC, 'utf8');
@@ -426,6 +700,7 @@ section('[boundary] integration source contracts');
   const foundationCopy = readFileSync(FOUNDATION_COPY_SRC, 'utf8');
 
   const hookCode = codeOnly(hook);
+  const machineCode = codeOnly(machine);
   const cueCode = codeOnly(cueReact);
   const scene2dCode = codeOnly(scene2d);
 
@@ -452,33 +727,57 @@ section('[boundary] integration source contracts');
     !/chatter|local-chatter/.test(codeOnly(annotation)),
   );
   check(
-    'hook cleanup uses clearTimeout',
-    /\bclearTimeout\b/.test(hookCode) && !/\bsetInterval\b/.test(hookCode),
+    'machine cleanup uses clearTimeout',
+    /\bclearTimeout\b/.test(machineCode) && !/\bsetInterval\b/.test(machineCode),
   );
   check(
     'scope change render fails closed before effect reset',
-    /scopeRef\.current\s*!==\s*scopeKey\s*\|\|\s*suppressed/.test(hookCode),
+    /machineSnapshot\?\.scopeKey\s*!==\s*scopeKey\s*\|\|\s*suppressed/.test(hookCode),
   );
   check(
     'render projection has deterministic clock fallback',
-    /clockMs\s*>\s*0\s*\?\s*clockMs\s*:\s*activePresentation\.startAtMs/.test(hookCode),
+    /machineSnapshot\.clockMs\s*>\s*0[\s\S]*?\?\s*machineSnapshot\.clockMs[\s\S]*?:\s*activePresentation\.startAtMs/.test(
+      hookCode,
+    ),
   );
-  check('hook uses one-shot setTimeout scheduling', /\bsetTimeout\b/.test(hookCode));
+  check('machine uses one-shot setTimeout scheduling', /\bsetTimeout\b/.test(machineCode));
+  check(
+    'hook only adapts Date.now and window timers into machine clock',
+    /createLocalChatterMachine/.test(hookCode) &&
+      /\bDate\.now\s*\(/.test(hookCode) &&
+      /\bwindow\.setTimeout\s*\(/.test(hookCode) &&
+      /\bwindow\.clearTimeout\s*\(/.test(hookCode),
+  );
+  check(
+    'machine has no browser or wall-clock dependency',
+    !/\bwindow\b/.test(machineCode) && !/\bDate\.now\s*\(/.test(machineCode),
+  );
+  check(
+    'hook performs no render-phase ref writes',
+    !/\b\w+Ref\.current\s*=\s*/.test(
+      hookCode.replace(/useEffect\s*\([\s\S]*?\n\s*\},\s*\[[\s\S]*?\]\s*\);/g, ''),
+    ),
+  );
   check('hook does not call ambient subscription', !/useOfficeAmbientDirections/.test(hookCode));
   check(
-    'hook forbids network/persistence/random',
-    !/\bfetch\s*\(/.test(hookCode) &&
-      !/\blocalStorage\b/.test(hookCode) &&
-      !/\bMath\.random\s*\(/.test(hookCode) &&
-      !/@tauri-apps\//.test(hookCode),
+    'chatter integration forbids network/persistence/random',
+    !/\bfetch\s*\(/.test(`${hookCode}\n${machineCode}`) &&
+      !/\blocalStorage\b/.test(`${hookCode}\n${machineCode}`) &&
+      !/\bMath\.random\s*\(/.test(`${hookCode}\n${machineCode}`) &&
+      !/@tauri-apps\//.test(`${hookCode}\n${machineCode}`),
   );
   check(
-    'hook uses foundation selectLocalChatter + empty history',
-    /selectLocalChatter/.test(hookCode) && /emptyLocalChatterHistory/.test(hookCode),
+    'machine uses foundation selectLocalChatter + empty history',
+    /selectLocalChatter/.test(machineCode) && /emptyLocalChatterHistory/.test(machineCode),
   );
   check(
-    'hook passes CHATTER_MAX_VISIBLE_DEFAULT as maxVisible',
-    /maxVisible:\s*CHATTER_MAX_VISIBLE_DEFAULT/.test(hookCode),
+    'machine passes CHATTER_MAX_VISIBLE_DEFAULT as maxVisible',
+    /maxVisible:\s*CHATTER_MAX_VISIBLE_DEFAULT/.test(machineCode),
+  );
+  check(
+    'attempt encodes inactive budget without dead bubble projection',
+    /activeChatterCount:\s*0/.test(machineCode) &&
+      !/const\s+visible\s*=\s*visibleBubblesFromPresentation/.test(machineCode),
   );
   check(
     'idle helper mirrors actorAcceptsAmbientCue conditions',
