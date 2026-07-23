@@ -105,6 +105,10 @@ pub(crate) struct ClaudeAgentExecuteRequest {
     native_session_mode: ClaudeNativeSessionMode,
     native_session_reset_source_run_id: Option<String>,
     permission_mode: Option<String>,
+    #[serde(default)]
+    effort: Option<String>,
+    #[serde(default)]
+    speed_mode: Option<String>,
     system_prompt_append: Option<String>,
     #[serde(default)]
     project_experience: Option<String>,
@@ -154,14 +158,31 @@ fn into_claude_code_message(error: HostError) -> (String, String) {
     )
 }
 
-fn validate_target(target: &ClaudeExecutionTarget) -> Result<(), HostError> {
+fn validate_target(
+    target: &ClaudeExecutionTarget,
+    speed_mode: Option<&str>,
+) -> Result<(), HostError> {
     if target.engine_id != ENGINE_ID
         || target.account_id != "claude:local"
         || target.billing_mode != "subscription"
-        || target.model_id != "engine-managed"
     {
         return Err(HostError::Request(
             "The Claude request must use the local orchestration engine.".into(),
+        ));
+    }
+    if !matches!(
+        target.model_id.as_str(),
+        "engine-managed" | "sonnet" | "opus" | "haiku" | "fable"
+    ) {
+        return Err(HostError::Request(format!(
+            "The saved Claude model \"{}\" is no longer available.",
+            target.model_id
+        )));
+    }
+    if speed_mode == Some("fast") && target.model_id != "opus" {
+        return Err(HostError::Request(
+            "Claude fast mode requires the explicit opus model; engine-managed and other models are not accepted."
+                .into(),
         ));
     }
     if target.model_source.kind != "native"
@@ -314,6 +335,10 @@ fn execute_payload(
         "workspaceAvailability": workspace_availability,
         "nativeSessionId": native_session_id,
         "permissionMode": req.permission_mode,
+        "model": (req.expected_target.model_id != "engine-managed")
+            .then_some(req.expected_target.model_id.as_str()),
+        "effort": req.effort,
+        "speedMode": req.speed_mode,
         "systemPromptAppend": system_prompt_append,
         "skillPluginDir": skill_plugin_dir.map(|path| path.to_string_lossy().to_string()),
         "rootRunId": req.root_run_id,
@@ -388,7 +413,7 @@ async fn do_execute<R: tauri::Runtime>(
     required_text(Some(&req.thread_id), "threadId", CLAUDE_LANE)?;
     let project_id = required_text(req.project_id.as_ref(), "projectId", CLAUDE_LANE)?;
     let root_run_id = required_text(req.root_run_id.as_ref(), "rootRunId", CLAUDE_LANE)?;
-    validate_target(&req.expected_target)?;
+    validate_target(&req.expected_target, req.speed_mode.as_deref())?;
     if is_resume && req.workspace_requirement.is_optional() {
         return Err(HostError::Request(
             "workspaceRequirement must be required for durable resume.".into(),
@@ -674,7 +699,7 @@ async fn do_enhance<R: tauri::Runtime>(
     required_text(Some(&req.request_id), "requestId", CLAUDE_LANE)?;
     required_text(Some(&req.text), "text", CLAUDE_LANE)?;
     required_text(Some(&req.system_prompt), "systemPrompt", CLAUDE_LANE)?;
-    validate_target(&req.expected_target)?;
+    validate_target(&req.expected_target, None)?;
     let cwd = neutral_cwd(app)?;
     let dev_root = dev_workspace_root();
     let script_path = sidecar_script_path(app, dev_root.as_ref(), CLAUDE_LANE)?;
@@ -828,13 +853,39 @@ mod tests {
 
     #[test]
     fn claude_target_is_canonical_orchestration_identity() {
-        assert!(validate_target(&target()).is_ok());
+        for model_id in ["engine-managed", "sonnet", "opus", "haiku", "fable"] {
+            let mut valid = target();
+            valid.model_id = model_id.into();
+            assert!(validate_target(&valid, None).is_ok(), "{model_id}");
+        }
         let mut invalid = target();
         invalid.billing_mode = "api".into();
         assert!(matches!(
-            validate_target(&invalid),
+            validate_target(&invalid, None),
             Err(HostError::Request(_))
         ));
+        invalid = target();
+        invalid.model_id = "retired-model".into();
+        assert!(matches!(
+            validate_target(&invalid, None),
+            Err(HostError::Request(_))
+        ));
+    }
+
+    #[test]
+    fn claude_fast_mode_requires_explicit_opus() {
+        let mut opus = target();
+        opus.model_id = "opus".into();
+        assert!(validate_target(&opus, Some("fast")).is_ok());
+        for model_id in ["engine-managed", "sonnet", "haiku", "fable"] {
+            let mut invalid = target();
+            invalid.model_id = model_id.into();
+            let error = validate_target(&invalid, Some("fast")).unwrap_err();
+            assert!(
+                matches!(error, HostError::Request(message) if message.contains("explicit opus")),
+                "{model_id}"
+            );
+        }
     }
 
     #[test]
@@ -866,10 +917,12 @@ mod tests {
 
     #[test]
     fn claude_execute_payload_never_contains_a_session_file() {
+        let mut explicit_target = target();
+        explicit_target.model_id = "opus".into();
         let request = ClaudeAgentExecuteRequest {
             request_id: "request".into(),
             text: "work".into(),
-            expected_target: target(),
+            expected_target: explicit_target,
             company_id: "company".into(),
             thread_id: "thread".into(),
             project_id: Some("project".into()),
@@ -879,6 +932,8 @@ mod tests {
             native_session_mode: ClaudeNativeSessionMode::Tracked,
             native_session_reset_source_run_id: None,
             permission_mode: Some("auto".into()),
+            effort: Some("xhigh".into()),
+            speed_mode: Some("fast".into()),
             system_prompt_append: None,
             project_experience: None,
             skill_paths: None,
@@ -898,6 +953,14 @@ mod tests {
         assert_eq!(payload["nativeSessionId"], "opaque-session");
         assert!(payload.get("sessionFile").is_none());
         assert_eq!(payload["expectedTarget"]["engineId"], "claude");
+        assert_eq!(payload["model"], "opus");
+        assert_eq!(payload["effort"], "xhigh");
+        assert_eq!(payload["speedMode"], "fast");
         assert_eq!(payload["skillPluginDir"], "/tmp/offisim-skills-plugin");
+
+        let encoded = serde_json::to_value(&request).unwrap();
+        let decoded: ClaudeAgentExecuteRequest = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded.effort.as_deref(), Some("xhigh"));
+        assert_eq!(decoded.speed_mode.as_deref(), Some("fast"));
     }
 }

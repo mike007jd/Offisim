@@ -32,7 +32,7 @@ export type RuntimeExecutionSelector =
       readonly modelId?: string;
     };
 
-export const MODEL_PASSTHROUGH_ENGINES: ReadonlySet<string> = new Set(['codex']);
+export const MODEL_PASSTHROUGH_ENGINES: ReadonlySet<string> = new Set(['codex', 'claude']);
 
 const ENGINE_MANAGED_MODEL_ID = 'engine-managed';
 

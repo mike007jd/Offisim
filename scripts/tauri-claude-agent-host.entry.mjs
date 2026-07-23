@@ -298,7 +298,6 @@ function validateTarget(target) {
     target.engineId !== ENGINE_ID ||
     target.accountId !== ACCOUNT_ID ||
     target.billingMode !== BILLING_MODE ||
-    target.modelId !== MODEL_ID ||
     !isRecord(target.modelSource) ||
     target.modelSource.kind !== 'native' ||
     'sourceUrl' in target.modelSource ||
@@ -309,11 +308,20 @@ function validateTarget(target) {
       'execution-target-mismatch',
     );
   }
+  if (
+    target.modelId !== MODEL_ID &&
+    !CLAUDE_RUN_OPTIONS.models.some((model) => model.id === target.modelId)
+  ) {
+    throw hostError(
+      `The saved Claude model "${String(target.modelId)}" is no longer available.`,
+      'execution-target-mismatch',
+    );
+  }
   return {
     engineId: ENGINE_ID,
     accountId: ACCOUNT_ID,
     billingMode: BILLING_MODE,
-    modelId: MODEL_ID,
+    modelId: target.modelId,
     modelSource: { kind: 'native' },
   };
 }
@@ -328,6 +336,48 @@ async function validatePayload(payload) {
     throw hostError('Claude requestId and text are required.', 'request-invalid');
   }
   const target = validateTarget(payload.expectedTarget);
+  const model = nonEmpty(payload.model);
+  const expectedModel = target.modelId === MODEL_ID ? undefined : target.modelId;
+  if (payload.mode === 'execute' && model !== expectedModel) {
+    throw hostError(
+      'Claude model payload does not match the exact execution target.',
+      'execution-target-mismatch',
+    );
+  }
+  const runOptionModel =
+    target.modelId === MODEL_ID
+      ? CLAUDE_RUN_OPTIONS.models.find((candidate) => candidate.isDefault)
+      : CLAUDE_RUN_OPTIONS.models.find((candidate) => candidate.id === target.modelId);
+  if (!runOptionModel) {
+    throw hostError('Claude run options do not declare one default model.', 'request-invalid');
+  }
+  const effort = nonEmpty(payload.effort);
+  if (
+    (payload.effort !== undefined && payload.effort !== null && !effort) ||
+    (effort && !runOptionModel.reasoningEfforts.includes(effort))
+  ) {
+    throw hostError(
+      `Claude effort must be one of: ${runOptionModel.reasoningEfforts.join(', ')}.`,
+      'request-invalid',
+    );
+  }
+  const speedMode = nonEmpty(payload.speedMode);
+  if (
+    payload.speedMode !== undefined &&
+    payload.speedMode !== null &&
+    (!speedMode || !runOptionModel.speedModes.includes(speedMode))
+  ) {
+    if (speedMode === 'fast') {
+      throw hostError(
+        'Claude fast mode requires the explicit opus model; engine-managed and other models are not accepted.',
+        'request-invalid',
+      );
+    }
+    throw hostError(
+      `Claude speedMode must be one of: ${runOptionModel.speedModes.join(', ')}.`,
+      'request-invalid',
+    );
+  }
   const cwd = await realpath(nonEmpty(payload.cwd) ?? process.cwd());
   const actualCwd = await realpath(process.cwd());
   if (cwd !== actualCwd) {
@@ -342,7 +392,17 @@ async function validatePayload(payload) {
   if (payload.mode === 'enhance' && !nonEmpty(payload.systemPrompt)) {
     throw hostError('Claude enhance requires systemPrompt.', 'request-invalid');
   }
-  return { ...payload, requestId, text, target, cwd };
+  return {
+    ...payload,
+    requestId,
+    text,
+    target,
+    cwd,
+    model,
+    effort,
+    speedMode,
+    runOptionModel,
+  };
 }
 
 function permissionMode(value) {
@@ -389,9 +449,13 @@ function cliArgs(payload, sessionId) {
     '--setting-sources',
     '',
   ];
+  if (payload.model) args.push('--model', payload.model);
+  if (payload.effort) args.push('--effort', payload.effort);
+  const settings = hasWorkspace ? JSON.parse(hookSettings(payload.cwd)) : {};
+  if (payload.speedMode === 'fast') settings.fastMode = true;
+  if (Object.keys(settings).length) args.push('--settings', JSON.stringify(settings));
   if (hasWorkspace) {
     args.push('--permission-mode', permissionMode(payload.permissionMode));
-    args.push('--settings', hookSettings(payload.cwd));
     const systemPrompt = nonEmpty(payload.systemPromptAppend);
     if (systemPrompt) args.push('--append-system-prompt', systemPrompt);
     const skillPluginDir = nonEmpty(payload.skillPluginDir);
@@ -419,7 +483,7 @@ function summarizeToolInput(input) {
   return Object.keys(input).length ? clampText(input) : undefined;
 }
 
-function usageProjection(frame, durationMs) {
+function usageProjection(frame, durationMs, modelId) {
   const usage = isRecord(frame.usage) ? frame.usage : {};
   const cacheCreation = finiteCount(usage.cache_creation_input_tokens);
   const cacheRead = finiteCount(usage.cache_read_input_tokens);
@@ -432,7 +496,7 @@ function usageProjection(frame, durationMs) {
       kind: 'subscription-run-diagnostic',
       engineId: ENGINE_ID,
       accountId: ACCOUNT_ID,
-      modelId: MODEL_ID,
+      modelId,
     },
     ...(input !== undefined ? { input } : {}),
     ...(output !== undefined ? { output } : {}),
@@ -549,6 +613,12 @@ async function runClaude(payloadValue) {
   const sessionId = nonEmpty(payload.nativeSessionId) ?? randomUUID();
   const runId = nonEmpty(payload.rootRunId) ?? payload.requestId;
   const identity = responseProvenance(payload.target, runId);
+  const model = {
+    id: payload.model ? `${ENGINE_ID}:${payload.model}` : ENGINE_ID,
+    name: payload.runOptionModel.displayName,
+    api: CLAUDE_ADAPTER.id,
+    reasoning: payload.runOptionModel.reasoningEfforts.length > 0,
+  };
   emit(
     executionPreparedLine({
       prepareId: randomUUID(),
@@ -591,7 +661,7 @@ async function runClaude(payloadValue) {
     if (frame.type === 'system' && frame.subtype === 'init') {
       if (!state.started) {
         state.started = true;
-        emit(startedLine({ sessionId: nonEmpty(frame.session_id) ?? sessionId }));
+        emit(startedLine({ sessionId: nonEmpty(frame.session_id) ?? sessionId, model }));
       }
     } else if (frame.type === 'stream_event') {
       consumeStreamEvent(frame, state);
@@ -622,7 +692,9 @@ async function runClaude(payloadValue) {
       'upstream',
     );
   }
-  if (!state.started) emit(startedLine({ sessionId: nonEmpty(result.session_id) ?? sessionId }));
+  if (!state.started) {
+    emit(startedLine({ sessionId: nonEmpty(result.session_id) ?? sessionId, model }));
+  }
   const text = nonEmpty(result.result) ?? state.text;
   emit(messageEndLine({ text, stopReason: nonEmpty(result.stop_reason) ?? result.subtype }));
   const durationMs = Math.max(0, Date.now() - startedAt);
@@ -634,7 +706,7 @@ async function runClaude(payloadValue) {
         ? { sessionId: nonEmpty(result.session_id) ?? sessionId }
         : {}),
       provenance: identity,
-      usage: usageProjection(result, durationMs),
+      usage: usageProjection(result, durationMs, payload.target.modelId),
     }),
   );
 }

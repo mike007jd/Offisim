@@ -122,6 +122,8 @@ assert.deepEqual(
   rustFields('ClaudeAgentExecuteRequest'),
   'renderer and Rust Claude execute fields must remain lockstep',
 );
+assert.ok(tsFields('ClaudeAgentExecuteRequest').includes('effort'));
+assert.ok(tsFields('ClaudeAgentExecuteRequest').includes('speedMode'));
 assert.deepEqual(
   tsFields('ClaudeAgentEnhanceRequest'),
   rustFields('ClaudeAgentEnhanceRequest'),
@@ -389,11 +391,125 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   assert.ok(invokedArgs.includes('--session-id'));
   assert.equal(invokedArgs[invokedArgs.indexOf('--plugin-dir') + 1], skillPluginDir);
   assert.ok(!invokedArgs.includes('--model'));
+  assert.ok(!invokedArgs.includes('--effort'));
   assert.ok(!invokedArgs.includes('--dangerously-skip-permissions'));
+  assert.equal(invokedArgs.filter((arg) => arg === '--settings').length, 1);
   const settings = JSON.parse(invokedArgs[invokedArgs.indexOf('--settings') + 1]);
   assert.equal(settings.sandbox.failIfUnavailable, true);
   assert.equal(settings.sandbox.allowUnsandboxedCommands, false);
   assert.ok(settings.hooks.PreToolUse[0].hooks[0].args.includes('--workspace-hook'));
+  assert.equal(settings.fastMode, undefined);
+  const defaultStarted = execute.frames.find((frame) => frame.kind === 'started');
+  assert.equal(defaultStarted?.model?.id, 'claude');
+  assert.equal(defaultStarted?.model?.reasoning, true);
+  assert.equal(response.usage.scope.modelId, 'engine-managed');
+
+  const opusTarget = { ...target, modelId: 'opus' };
+  const explicitResume = await runHost({
+    cwd: workspace,
+    env,
+    payload: {
+      mode: 'execute',
+      requestId: 'request-opus-fast',
+      text: 'resume with explicit options',
+      cwd: workspace,
+      workspaceAvailability: 'bound',
+      permissionMode: 'auto',
+      model: 'opus',
+      effort: 'xhigh',
+      speedMode: 'fast',
+      systemPromptAppend: null,
+      skillPluginDir,
+      rootRunId: 'run-opus-fast',
+      nativeSessionId: 'opaque-resume',
+      expectedTarget: opusTarget,
+    },
+  });
+  assert.equal(explicitResume.code, 0, explicitResume.errorOutput || explicitResume.output);
+  const explicitArgs = JSON.parse(await readFile(argsLog, 'utf8'));
+  assert.equal(explicitArgs[explicitArgs.indexOf('--model') + 1], 'opus');
+  assert.equal(explicitArgs[explicitArgs.indexOf('--effort') + 1], 'xhigh');
+  assert.equal(explicitArgs[explicitArgs.indexOf('--resume') + 1], 'opaque-resume');
+  assert.ok(!explicitArgs.includes('--session-id'));
+  assert.equal(explicitArgs.filter((arg) => arg === '--settings').length, 1);
+  const explicitSettings = JSON.parse(explicitArgs[explicitArgs.indexOf('--settings') + 1]);
+  assert.equal(explicitSettings.fastMode, true);
+  assert.equal(explicitSettings.sandbox.failIfUnavailable, true);
+  assert.ok(explicitSettings.hooks.PreToolUse[0].hooks[0].args.includes('--workspace-hook'));
+  const explicitStarted = explicitResume.frames.find((frame) => frame.kind === 'started');
+  assert.equal(explicitStarted?.model?.id, 'claude:opus');
+  assert.equal(explicitStarted?.model?.reasoning, true);
+  const explicitResponse = explicitResume.frames.at(-1)?.response;
+  assert.equal(explicitResponse.provenance.modelId, 'opus');
+  assert.equal(explicitResponse.usage.scope.modelId, 'opus');
+
+  const unboundFast = await runHost({
+    cwd: workspace,
+    env,
+    payload: {
+      mode: 'execute',
+      requestId: 'request-opus-fast-unbound',
+      text: 'run without workspace hooks',
+      cwd: workspace,
+      workspaceAvailability: 'unavailable',
+      permissionMode: 'plan',
+      model: 'opus',
+      effort: 'low',
+      speedMode: 'fast',
+      rootRunId: 'run-opus-fast-unbound',
+      nativeSessionId: null,
+      expectedTarget: opusTarget,
+    },
+  });
+  assert.equal(unboundFast.code, 0, unboundFast.errorOutput || unboundFast.output);
+  const unboundArgs = JSON.parse(await readFile(argsLog, 'utf8'));
+  assert.equal(unboundArgs.filter((arg) => arg === '--settings').length, 1);
+  assert.deepEqual(JSON.parse(unboundArgs[unboundArgs.indexOf('--settings') + 1]), {
+    fastMode: true,
+  });
+
+  const invalidFast = await runHost({
+    cwd: workspace,
+    env,
+    payload: {
+      mode: 'execute',
+      requestId: 'request-sonnet-fast',
+      text: 'reject unsupported fast mode',
+      cwd: workspace,
+      workspaceAvailability: 'bound',
+      permissionMode: 'auto',
+      model: 'sonnet',
+      speedMode: 'fast',
+      rootRunId: 'run-sonnet-fast',
+      nativeSessionId: null,
+      expectedTarget: { ...target, modelId: 'sonnet' },
+    },
+  });
+  assert.notEqual(invalidFast.code, 0);
+  assert.equal(invalidFast.frames.at(-1)?.kind, 'error');
+  assert.equal(invalidFast.frames.at(-1)?.code, 'request-invalid');
+  assert.match(invalidFast.frames.at(-1)?.message ?? '', /explicit opus/u);
+
+  const invalidEffort = await runHost({
+    cwd: workspace,
+    env,
+    payload: {
+      mode: 'execute',
+      requestId: 'request-invalid-effort',
+      text: 'reject invalid effort',
+      cwd: workspace,
+      workspaceAvailability: 'bound',
+      permissionMode: 'auto',
+      model: 'opus',
+      effort: 'ultra',
+      rootRunId: 'run-invalid-effort',
+      nativeSessionId: null,
+      expectedTarget: opusTarget,
+    },
+  });
+  assert.notEqual(invalidEffort.code, 0);
+  assert.equal(invalidEffort.frames.at(-1)?.code, 'request-invalid');
+  assert.match(invalidEffort.frames.at(-1)?.message ?? '', /low, medium, high, xhigh, max/u);
 
   const stopped = await runHost({
     cwd: workspace,

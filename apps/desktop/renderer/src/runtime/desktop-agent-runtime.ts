@@ -1850,7 +1850,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     let resolvedThinkingLevel =
       input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId);
     const resolvedSpeedMode =
-      this.engineId === 'codex'
+      this.engineId === 'codex' || this.engineId === 'claude'
         ? (input.speedMode ?? resolveThreadSpeedOverride(input.threadId))
         : undefined;
     const runtimeContext: PersistedRunContext = {
@@ -1875,7 +1875,9 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       provenance: null,
       permissionMode,
       thinkingLevel: resolvedThinkingLevel ?? null,
-      ...(this.engineId === 'codex' ? { speedMode: resolvedSpeedMode ?? null } : {}),
+      ...(this.engineId === 'codex' || this.engineId === 'claude'
+        ? { speedMode: resolvedSpeedMode ?? null }
+        : {}),
       projectId,
       conversationProjection: input.conversationProjection ?? null,
       recoveryLane: input.missionId
@@ -2392,6 +2394,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             workspaceRequirement,
             nativeSessionMode,
             permissionMode,
+            ...(resolvedThinkingLevel ? { effort: resolvedThinkingLevel } : {}),
+            ...(resolvedSpeedMode === 'fast' ? { speedMode: 'fast' } : {}),
             systemPromptAppend: effectiveSystemPromptAppend ?? undefined,
             projectExperience: projectExperience ?? undefined,
             skillPaths,

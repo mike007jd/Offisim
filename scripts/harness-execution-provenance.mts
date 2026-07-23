@@ -317,6 +317,104 @@ check(
   },
 );
 
+const claudeRuntimeStatus = {
+  ...codexRuntimeStatus,
+  orchestrationEngines: [
+    {
+      ...codexRuntimeStatus.orchestrationEngines[0],
+      engineId: 'claude',
+      displayName: 'Claude',
+      loginCommand: 'claude auth login',
+      docsUrl: 'https://code.claude.com/docs/en/authentication',
+      runOptions: {
+        models: [
+          {
+            id: 'sonnet',
+            displayName: 'Sonnet',
+            isDefault: true,
+            reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+            speedModes: ['standard'],
+          },
+          {
+            id: 'opus',
+            displayName: 'Opus',
+            reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+            speedModes: ['standard', 'fast'],
+            fastModeNote: 'Fast mode bills usage credits beyond your subscription',
+          },
+          {
+            id: 'haiku',
+            displayName: 'Haiku',
+            reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+            speedModes: ['standard'],
+          },
+          {
+            id: 'fable',
+            displayName: 'Fable',
+            reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+            speedModes: ['standard'],
+          },
+        ],
+        sourceUrl: 'https://code.claude.com/docs/en/cli-reference',
+        checkedAt: '2026-07-24',
+      },
+    },
+  ],
+} satisfies AiRuntimeStatus;
+
+check('Claude three-segment selectors round-trip an explicit native model', () => {
+  const selector = {
+    kind: 'orchestration-engine',
+    engineId: 'claude',
+    modelId: 'opus',
+  } as const;
+  assert.equal(serializeRuntimeExecutionSelector(selector), 'orchestration-engine:claude:opus');
+  assert.deepEqual(parseRuntimeExecutionSelector('orchestration-engine:claude:opus'), selector);
+});
+
+check('Claude engine-default, explicit, and frozen selectors preserve native authority', () => {
+  assert.deepEqual(
+    resolveRuntimeExecutionSelection(claudeRuntimeStatus, {
+      kind: 'orchestration-engine',
+      engineId: 'claude',
+    }),
+    {
+      target: {
+        engineId: 'claude',
+        accountId: 'claude:local',
+        billingMode: 'subscription',
+        modelId: 'engine-managed',
+        modelSource: { kind: 'native' },
+      },
+      runtimeModelRef: 'claude',
+    },
+  );
+  const explicit = resolveRuntimeExecutionSelection(claudeRuntimeStatus, {
+    kind: 'orchestration-engine',
+    engineId: 'claude',
+    modelId: 'opus',
+  });
+  assert.deepEqual(explicit, {
+    target: {
+      engineId: 'claude',
+      accountId: 'claude:local',
+      billingMode: 'subscription',
+      modelId: 'opus',
+      modelSource: { kind: 'native' },
+    },
+    runtimeModelRef: 'claude:opus',
+  });
+  assert.deepEqual(
+    resolveRuntimeExecutionSelection(
+      claudeRuntimeStatus,
+      undefined,
+      explicit.target,
+      explicit.runtimeModelRef,
+    ),
+    explicit,
+  );
+});
+
 const isolatedJob = { ...orchestrationTurn, runId: 'title-job-1' };
 check('an isolated text job may have its own run id', () => {
   assert.doesNotThrow(() => assertSameExecutionAccount(orchestrationTurn, isolatedJob));
@@ -489,7 +587,10 @@ check('root runs persist their exact target before execution and retain host pro
   assert.match(desktopRuntimeSource, /requireTurnExecutionProvenance/u);
   assert.match(desktopRuntimeSource, /runtimeContext\.executionTarget = executionTarget/u);
   assert.match(desktopRuntimeSource, /runtimeContext\.model = resolvedModel/u);
-  assert.match(desktopRuntimeSource, /const resolvedSpeedMode =[\s\S]*this\.engineId === 'codex'/u);
+  assert.match(
+    desktopRuntimeSource,
+    /const resolvedSpeedMode =[\s\S]*this\.engineId === 'codex' \|\| this\.engineId === 'claude'/u,
+  );
   assert.match(
     desktopRuntimeSource,
     /\.\.\.\(resolvedThinkingLevel \? \{ effort: resolvedThinkingLevel \} : \{\}\)/u,

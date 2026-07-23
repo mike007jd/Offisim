@@ -415,6 +415,8 @@ interface ClaudeAgentExecuteRequest {
   nativeSessionMode: 'tracked' | 'fresh';
   nativeSessionResetSourceRunId?: string | null;
   permissionMode?: string | null;
+  effort?: string | null;
+  speedMode?: RuntimeSpeedMode | null;
   systemPromptAppend?: string | null;
   projectExperience?: string | null;
   skillPaths?: string[] | null;

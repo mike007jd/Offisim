@@ -51,6 +51,39 @@ const runOptions: OrchestrationEngineRunOptions = {
   checkedAt: '2026-07-24',
 };
 
+const claudeRunOptions: OrchestrationEngineRunOptions = {
+  models: [
+    {
+      id: 'sonnet',
+      displayName: 'Sonnet (claude-sonnet-5)',
+      isDefault: true,
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      speedModes: ['standard'],
+    },
+    {
+      id: 'opus',
+      displayName: 'Opus (claude-opus-4-8)',
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      speedModes: ['standard', 'fast'],
+      fastModeNote: 'Fast mode bills usage credits beyond your subscription',
+    },
+    {
+      id: 'haiku',
+      displayName: 'Haiku (claude-haiku-4-5)',
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      speedModes: ['standard'],
+    },
+    {
+      id: 'fable',
+      displayName: 'Fable (claude-fable-5)',
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      speedModes: ['standard'],
+    },
+  ],
+  sourceUrl: 'https://code.claude.com/docs/en/cli-reference',
+  checkedAt: '2026-07-24',
+};
+
 function orchestrationEngine(
   engineId: string,
   state: OrchestrationEngineState,
@@ -110,7 +143,7 @@ function runtimeStatus(
 }
 
 const ready = orchestrationEngine('codex', 'ready', { runOptions });
-const readyClaude = orchestrationEngine('claude', 'ready', { runOptions });
+const readyClaude = orchestrationEngine('claude', 'ready', { runOptions: claudeRunOptions });
 const notSignedIn = orchestrationEngine('claude-pending', 'not-signed-in', {
   statusReason: 'Sign in first.',
 });
@@ -201,11 +234,63 @@ assert.deepEqual(
     {
       selectionKind: 'orchestration-engine',
       value: 'orchestration-engine:claude',
-      name: 'claude display',
+      name: 'Engine default',
       engineId: 'claude',
       modelId: 'engine-managed',
-      reasoning: false,
-      reasoningEfforts: [],
+      reasoning: true,
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      defaultReasoningEffort: undefined,
+      speedModes: ['standard'],
+      fastModeNote: undefined,
+      note: undefined,
+    },
+    {
+      selectionKind: 'orchestration-engine',
+      value: 'orchestration-engine:claude:sonnet',
+      name: 'Sonnet (claude-sonnet-5)',
+      engineId: 'claude',
+      modelId: 'sonnet',
+      reasoning: true,
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      defaultReasoningEffort: undefined,
+      speedModes: ['standard'],
+      fastModeNote: undefined,
+      note: undefined,
+    },
+    {
+      selectionKind: 'orchestration-engine',
+      value: 'orchestration-engine:claude:opus',
+      name: 'Opus (claude-opus-4-8)',
+      engineId: 'claude',
+      modelId: 'opus',
+      reasoning: true,
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      defaultReasoningEffort: undefined,
+      speedModes: ['standard', 'fast'],
+      fastModeNote: 'Fast mode bills usage credits beyond your subscription',
+      note: undefined,
+    },
+    {
+      selectionKind: 'orchestration-engine',
+      value: 'orchestration-engine:claude:haiku',
+      name: 'Haiku (claude-haiku-4-5)',
+      engineId: 'claude',
+      modelId: 'haiku',
+      reasoning: true,
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      defaultReasoningEffort: undefined,
+      speedModes: ['standard'],
+      fastModeNote: undefined,
+      note: undefined,
+    },
+    {
+      selectionKind: 'orchestration-engine',
+      value: 'orchestration-engine:claude:fable',
+      name: 'Fable (claude-fable-5)',
+      engineId: 'claude',
+      modelId: 'fable',
+      reasoning: true,
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
       defaultReasoningEffort: undefined,
       speedModes: ['standard'],
       fastModeNote: undefined,
@@ -261,7 +346,7 @@ assert.deepEqual(
 assert.equal(directory[0]?.displayName, 'codex display');
 assert.equal(directory[0]?.loginCommand, 'codex login');
 assert.deepEqual(directory[0]?.runOptions, runOptions);
-assert.deepEqual(directory[1]?.runOptions, runOptions);
+assert.deepEqual(directory[1]?.runOptions, claudeRunOptions);
 assert.equal(directory[2]?.statusReason, 'Sign in first.');
 assert.equal(directory[3]?.statusReason, 'Install the CLI.');
 assert.equal(directory[4]?.statusReason, 'Status inspection failed.');

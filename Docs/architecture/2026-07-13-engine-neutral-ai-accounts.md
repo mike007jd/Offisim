@@ -73,9 +73,10 @@ Offisim does not rebuild provider usage windows, remaining/reset/credits, model
 catalog validation, or account-health accounting for orchestration engines.
 
 API runs retain provider/model provenance and API cost metadata. Orchestration
-runs retain engine identity, opaque native session reference, reported token
-counts, duration, and a no-API-cost marker. The model actually reported by the
-CLI may be diagnostic metadata, but it is not an Offisim selection contract.
+runs retain the native execution target, declared run-option overrides, opaque
+native session reference, reported token counts, duration, and a no-API-cost
+marker. A model actually reported by the CLI remains native diagnostic metadata
+and does not become an Offisim-owned catalog or pricing projection.
 
 ## Model catalog contract
 
@@ -83,8 +84,12 @@ Pi's `~/.pi/agent/models.json` is the dynamic truth for API providers and models
 User-configured entries are valid without an Offisim closed-world allowlist.
 Exact ids remain the execution value; source URL and checked-at metadata are
 required for Offisim-owned official catalog entries but optional for user-owned
-configuration. External CLI orchestration engines own their model choice and do
-not expose an Offisim model selector.
+configuration. External CLI orchestration engines may declare a closed official
+run-option table for models, effort levels, and speed modes, including `sourceUrl`
+and `checkedAt`. Offisim exposes only declared options and passes them through as
+official CLI parameters; it does not create an Offisim price projection.
+Execution provenance remains native, while the CLI continues to own credentials,
+account identity, authentication, and subscription billing.
 
 ## Credentials and native state
 
