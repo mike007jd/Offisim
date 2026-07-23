@@ -96,9 +96,9 @@ const ZH_CN_COPY = {
   'solo.playful.sticky': '便利贴又在密谋了。',
   'solo.playful.mug': '这只杯子知道太多。',
   'solo.playful.window': '窗外云彩在认真营业。',
-  'solo.playful.lamp': '台灯情绪：轻轻戏剧。',
+  'solo.playful.lamp': '台灯情绪：有点戏精。',
   'solo.complaint.chair': '这把椅子很有想法。',
-  'solo.complaint.cable': '线材意面又现身了。',
+  'solo.complaint.cable': '桌下线缆又打结了。',
   'solo.complaint.fridge': '冰箱悬案仍在续写。',
   'solo.complaint.drawer': '抽屉吱呀，第三幕。',
   'solo.complaint.clock': '墙上的钟很会演戏。',
@@ -119,7 +119,8 @@ const COPY_BY_LOCALE: Record<ChatterLocale, Readonly<Record<ChatterCopyKey, stri
 
 /**
  * Normalize BCP-47-ish tags for this local chatter slice.
- * Common Simplified Chinese aliases map to `zh-CN`; everything else → `en`.
+ * Chinese locale tags, including Traditional variants, map to `zh-CN`;
+ * everything else → `en`.
  */
 export function normalizeChatterLocale(tag: string | null | undefined): ChatterLocale {
   if (typeof tag !== 'string') return 'en';
