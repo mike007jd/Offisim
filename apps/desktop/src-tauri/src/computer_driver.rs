@@ -16,6 +16,8 @@ pub struct ComputerDriverStatus {
     pub daemon_running: bool,
 }
 
+const CUA_DRIVER_PROCESS_NAME: &str = "cua-driver";
+
 #[tauri::command]
 pub async fn computer_driver_status() -> Result<ComputerDriverStatus, String> {
     let binary = find_cua_driver_binary();
@@ -23,15 +25,30 @@ pub async fn computer_driver_status() -> Result<ComputerDriverStatus, String> {
         Some(path) => command_stdout(path, &["--version"]).await.map(first_line),
         None => None,
     };
-    let permissions_status = match binary.as_ref() {
-        Some(path) => command_stdout(path, &["permissions", "status"]).await,
-        None => None,
+    // Checked 2026-07-24: the official CLI reference documents `cua-driver status`
+    // as the authoritative daemon-running probe:
+    // https://cua.ai/docs/reference/cua-driver/cli-reference
+    let status_probe_running = match binary.as_ref() {
+        Some(path) => command_stdout(path, &["status"]).await.is_some(),
+        None => false,
     };
-    let daemon_running = permissions_status
-        .as_deref()
-        .map(permissions_status_indicates_daemon)
-        .unwrap_or(false)
-        || process_probe_daemon_running().await;
+    let daemon_running = if status_probe_running {
+        true
+    } else if process_probe_daemon_running().await {
+        true
+    } else {
+        // Checked 2026-07-24: the install guide says this command reads grants
+        // through the daemon and reports `unknown` when no daemon is running:
+        // https://cua.ai/docs/how-to-guides/driver/install
+        match binary.as_ref() {
+            Some(path) => command_stdout(path, &["permissions", "status"])
+                .await
+                .as_deref()
+                .map(permissions_status_indicates_daemon)
+                .unwrap_or(false),
+            None => false,
+        }
+    };
 
     Ok(ComputerDriverStatus {
         installed: binary.is_some(),
@@ -71,22 +88,64 @@ fn permissions_status_indicates_daemon(output: &str) -> bool {
     if lower.contains("unknown") || lower.contains("not running") || lower.contains("no daemon") {
         return false;
     }
-    lower.contains("accessibility") || lower.contains("screen recording")
+
+    let source_is_daemon = lower.lines().any(|line| {
+        line.split_once(':')
+            .map(|(label, value)| label.trim() == "source" && value.trim() == "driver-daemon")
+            .unwrap_or(false)
+    });
+    let has_definitive_permission = |permission: &str| {
+        lower.lines().any(|line| {
+            line.split_once(':')
+                .map(|(label, value)| {
+                    label.trim() == permission
+                        && value.split_whitespace().any(|word| {
+                            matches!(word.trim_matches(['.', '✅']), "granted" | "denied")
+                        })
+                })
+                .unwrap_or(false)
+        })
+    };
+
+    source_is_daemon
+        && has_definitive_permission("accessibility")
+        && has_definitive_permission("screen recording")
+}
+
+fn pgrep_output_indicates_daemon(output: &str) -> bool {
+    output.lines().any(|line| {
+        let mut fields = line.split_whitespace();
+        fields
+            .next()
+            .map(|pid| !pid.is_empty() && pid.bytes().all(|byte| byte.is_ascii_digit()))
+            .unwrap_or(false)
+            && fields.next() == Some(CUA_DRIVER_PROCESS_NAME)
+            && fields.next().is_none()
+    })
 }
 
 async fn process_probe_daemon_running() -> bool {
+    // Checked 2026-07-24: the install guide names the executable `cua-driver`,
+    // while the CLI reference defines `serve` as its long-running daemon mode.
+    // `pgrep -x` therefore uses the exact executable name instead of matching
+    // arbitrary command lines containing driver or serve text:
+    // https://cua.ai/docs/how-to-guides/driver/install
+    // https://cua.ai/docs/reference/cua-driver/cli-reference
     let Ok(result) = timeout(
         Duration::from_secs(2),
         Command::new("pgrep")
-            .arg("-f")
-            .arg("CuaDriver|cua-driver.*serve")
-            .status(),
+            .args(["-x", "-l", CUA_DRIVER_PROCESS_NAME])
+            .output(),
     )
     .await
     else {
         return false;
     };
-    result.map(|status| status.success()).unwrap_or(false)
+    let Ok(output) = result else {
+        return false;
+    };
+    output.status.success()
+        && pgrep_output_indicates_daemon(String::from_utf8_lossy(&output.stdout).as_ref())
 }
 
 fn find_cua_driver_binary() -> Option<PathBuf> {
@@ -155,8 +214,28 @@ mod tests {
         assert!(!permissions_status_indicates_daemon(
             "Accessibility: unknown\nScreen Recording: unknown",
         ));
-        assert!(permissions_status_indicates_daemon(
+        assert!(!permissions_status_indicates_daemon(
+            "Accessibility:\nScreen Recording:",
+        ));
+        assert!(!permissions_status_indicates_daemon(
             "Accessibility: granted\nScreen Recording: denied",
+        ));
+        assert!(!permissions_status_indicates_daemon(
+            "Accessibility: granted\nScreen Recording: denied\nSource: driver-daemon-stale",
+        ));
+        assert!(permissions_status_indicates_daemon(
+            "Accessibility:    ✅ granted\nScreen Recording: ✅ denied\nSource: driver-daemon",
+        ));
+    }
+
+    #[test]
+    fn exact_process_probe_accepts_only_cua_driver_process_name() {
+        assert!(pgrep_output_indicates_daemon("76213 cua-driver\n"));
+        assert!(!pgrep_output_indicates_daemon("launcher cua-driver\n"));
+        assert!(!pgrep_output_indicates_daemon("76213 CuaDriver\n"));
+        assert!(!pgrep_output_indicates_daemon("76213 cua-driver-helper\n",));
+        assert!(!pgrep_output_indicates_daemon(
+            "76213 zsh cua-driver serve\n",
         ));
     }
 
