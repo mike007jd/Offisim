@@ -23,7 +23,7 @@ const h = createHarness();
 import assert from 'node:assert/strict';
 import { parseToolRichDetail } from '../packages/shared-types/src/index.js';
 import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
-const TOTAL = 25;
+const TOTAL = 27;
 const check = h.checkAsync;
 
 type Tool = Record<string, unknown> & { name: string };
@@ -326,6 +326,82 @@ async function main(): Promise<void> {
     assert.deepEqual(calls[0], ['filesystem', 'read_file', { path: 'legacy' }]);
     assert.equal(res.content[0].text, 'legacy');
   });
+
+  await check('(6c) mcp_call redacts credential-shaped audit arguments recursively', async () => {
+    const emitted: unknown[] = [];
+    const calls: object[] = [];
+    const env = makeFakePi();
+    createMcpBridgeExtensionFactory({
+      mcpTools: [READ_TOOL],
+      requestMcpResult: async (_server: string, _toolName: string, args: object) => {
+        calls.push(args);
+        return { ok: true, content: [{ type: 'text', text: 'read complete' }] };
+      },
+      emit: (line: unknown) => emitted.push(line),
+      threadId: 'thread-1',
+      rootRunId: 'run-1',
+      employeeId: 'emp-1',
+    } as never)(env.pi as never);
+    const tool = mcpCallTool(env);
+    const input = {
+      text: 'password: hunter2 token=ghp_abcdef1234567890',
+      benign: 'keep this value',
+      nested: [{ note: 'authorization BearerSecret123' }],
+    };
+    await tool.execute('call-redacted-arguments', { name: 'read_file', input });
+
+    assert.deepEqual(calls, [input], 'the MCP server must receive the original arguments');
+    assert.deepEqual((emitted[0] as { payload?: { arguments?: unknown } }).payload?.arguments, {
+      text: 'password: ••• token=•••',
+      benign: 'keep this value',
+      nested: [{ note: 'authorization •••' }],
+    });
+  });
+
+  await check(
+    '(6d) mcp_call redacts credential-shaped audit result content recursively',
+    async () => {
+      const emitted: unknown[] = [];
+      const env = makeFakePi();
+      createMcpBridgeExtensionFactory({
+        mcpTools: [READ_TOOL],
+        requestMcpResult: async () => ({
+          ok: true,
+          content: [
+            {
+              type: 'text',
+              text: 'issued sk-abcdef1234567890 for the benign account',
+              metadata: { label: 'keep this label' },
+            },
+          ],
+        }),
+        emit: (line: unknown) => emitted.push(line),
+        threadId: 'thread-1',
+        rootRunId: 'run-1',
+        employeeId: 'emp-1',
+      } as never)(env.pi as never);
+      const tool = mcpCallTool(env);
+      const res = await tool.execute('call-redacted-result', {
+        name: 'read_file',
+        input: { path: 'a' },
+      });
+
+      assert.equal(
+        res.content[0].text,
+        'issued sk-abcdef1234567890 for the benign account',
+        'the model-facing MCP result must stay unchanged',
+      );
+      assert.deepEqual((emitted[0] as { payload?: { result?: unknown } }).payload?.result, {
+        content: [
+          {
+            type: 'text',
+            text: 'issued ••• for the benign account',
+            metadata: { label: 'keep this label' },
+          },
+        ],
+      });
+    },
+  );
 
   await check(
     '(7) mcp_call on an unknown tool errors WITHOUT invoking requestMcpResult',

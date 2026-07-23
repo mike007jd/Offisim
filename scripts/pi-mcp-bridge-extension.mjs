@@ -127,13 +127,25 @@ const SENSITIVE_KEY_VALUE_PATTERN =
 const SENSITIVE_TOKEN_PATTERN =
   /\b(sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{8,}|gho_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|xox[baprs]-[A-Za-z0-9-]{8,}|AKIA[0-9A-Z]{12,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,})\b/g;
 
-// Mask credential-shaped content before the typed text leaves the host.
-// Mirrored in shared-types agent-run.ts (parse side).
+// Mask credential-shaped content before computer previews or persisted MCP audit
+// payloads leave the host. Pattern literals are mirrored in shared-types
+// agent-run.ts (parse side) and gated by check-redaction-pattern-sync.mjs.
 function redactSensitiveText(text) {
   if (!text) return text;
   return text
     .replace(SENSITIVE_KEY_VALUE_PATTERN, (_match, key, sep) => `${key}${sep}•••`)
     .replace(SENSITIVE_TOKEN_PATTERN, '•••');
+}
+
+function redactSensitiveStructure(value) {
+  if (typeof value === 'string') return redactSensitiveText(value);
+  if (Array.isArray(value)) return value.map((item) => redactSensitiveStructure(item));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, redactSensitiveStructure(nested)]),
+    );
+  }
+  return value;
 }
 
 function firstImageBlock(content) {
@@ -576,8 +588,11 @@ function emitMcpAuditLine({
       payload: {
         server,
         tool: toolName,
-        arguments: args,
-        result: result?.ok === true ? { content: result.content ?? null } : null,
+        arguments: redactSensitiveStructure(args),
+        result:
+          result?.ok === true
+            ? { content: redactSensitiveStructure(result.content ?? null) }
+            : null,
         ...(computerDetail ? { computer: computerDetail.computer } : {}),
         isError: result?.ok === true ? result.isError === true : true,
         error: result?.ok === true ? null : (result?.error ?? 'unknown error'),
