@@ -3,9 +3,10 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { AnimationMixer, Box3, Vector3 } from 'three';
+import { AnimationMixer, Box3, Object3D, Vector3 } from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 globalThis.ProgressEvent ??= class ProgressEvent {};
 globalThis.self ??= globalThis;
@@ -128,6 +129,159 @@ function inspectMeshWinding(root) {
   return result;
 }
 
+function syncSkinnedMeshes(root) {
+  root.updateMatrixWorld(true);
+  root.traverse((object) => {
+    if (object.isSkinnedMesh) object.skeleton.update();
+  });
+}
+
+function dominantBoneWorldPoints(mesh, boneName) {
+  const skinIndex = mesh.geometry.getAttribute('skinIndex');
+  const skinWeight = mesh.geometry.getAttribute('skinWeight');
+  if (!skinIndex || !skinWeight || !mesh.skeleton) {
+    throw new Error(`mesh '${mesh.name}' is missing skin attributes`);
+  }
+  const component = [
+    (attribute, index) => attribute.getX(index),
+    (attribute, index) => attribute.getY(index),
+    (attribute, index) => attribute.getZ(index),
+    (attribute, index) => attribute.getW(index),
+  ];
+  const point = new Vector3();
+  const points = [];
+  for (let vertex = 0; vertex < skinIndex.count; vertex += 1) {
+    let dominant = 0;
+    for (let slot = 1; slot < 4; slot += 1) {
+      if (component[slot](skinWeight, vertex) > component[dominant](skinWeight, vertex)) {
+        dominant = slot;
+      }
+    }
+    const boneIndex = component[dominant](skinIndex, vertex);
+    if (mesh.skeleton.bones[boneIndex]?.name !== boneName) continue;
+    mesh.getVertexPosition(vertex, point);
+    points.push(mesh.localToWorld(point.clone()));
+  }
+  if (points.length === 0) {
+    throw new Error(`mesh '${mesh.name}' has no vertices dominated by '${boneName}'`);
+  }
+  return points;
+}
+
+function axisSpan(points, axis) {
+  const values = points.map((point) => point.getComponent(axis));
+  return Math.max(...values) - Math.min(...values);
+}
+
+function measureVariantGeometry(scene, metrics, bodyType) {
+  syncSkinnedMeshes(scene);
+  const skin = requireObject(scene, 'Body_Skin_Light');
+  const top = requireObject(scene, 'Body_Top');
+  const bottom = requireObject(scene, 'Body_Bottom');
+  const shoes = requireObject(scene, 'Body_Shoes');
+  const headPoints = dominantBoneWorldPoints(skin, 'Head');
+  const chestPoints = dominantBoneWorldPoints(top, 'spine_03');
+  const handPoints = dominantBoneWorldPoints(skin, 'hand_l');
+  const lowerArmPoints = dominantBoneWorldPoints(top, 'lowerarm_l');
+  const thighPoints = dominantBoneWorldPoints(bottom, 'thigh_l');
+  const shoePoints = dominantBoneWorldPoints(shoes, 'foot_l');
+  const upperArmLPoints = dominantBoneWorldPoints(top, 'upperarm_l');
+  const upperArmRPoints = dominantBoneWorldPoints(top, 'upperarm_r');
+  const girth = characterContract.bodyTypeGirth[bodyType];
+  const sceneScale = metrics.character.height / manifest.bodies.toy.heightUnits;
+  const handLX = requireObject(scene, 'hand_l').getWorldPosition(new Vector3()).x;
+  const shoulderLX = requireObject(scene, 'upperarm_l').getWorldPosition(new Vector3()).x;
+  const shoulderRX = requireObject(scene, 'upperarm_r').getWorldPosition(new Vector3()).x;
+  const shoulderAllowance =
+    metrics.silhouette.geometryUnits.upperArmRadius * sceneScale * girth * 1.05;
+  const sleeveAllowance =
+    metrics.silhouette.geometryUnits.lowerArmRadius * sceneScale * girth * 1.05;
+  const bodyShoulderPoints = [
+    ...chestPoints,
+    ...upperArmLPoints.filter((point) => point.x <= shoulderLX + shoulderAllowance),
+    ...upperArmRPoints.filter((point) => point.x >= shoulderRX - shoulderAllowance),
+  ];
+  const bodySleeveWristPoints = lowerArmPoints.filter(
+    (point) => point.x >= handLX - sleeveAllowance,
+  );
+  if (bodySleeveWristPoints.length === 0) {
+    throw new Error(`variant '${bodyType}' has no distal lower-arm contour vertices`);
+  }
+  return {
+    headWidthScene: axisSpan(headPoints, 0),
+    chestWidthScene: axisSpan(chestPoints, 0),
+    hipWidthScene: axisSpan(dominantBoneWorldPoints(bottom, 'pelvis'), 0),
+    bodyShoulderWidthScene: axisSpan(bodyShoulderPoints, 0),
+    handWidthScene: axisSpan(handPoints, 0),
+    bodySleeveWristWidthScene: axisSpan(bodySleeveWristPoints, 1),
+    thighDiameterScene: axisSpan(thighPoints, 0),
+    shoeWidthScene: axisSpan(shoePoints, 0),
+    shoeHeightScene: axisSpan(shoePoints, 1),
+    shoeLengthScene: axisSpan(shoePoints, 2),
+  };
+}
+
+function compareDeclaredMeasurements(measured, declared, tolerance) {
+  const measurementKeys = [
+    'totalHeightScene',
+    'effectiveHeadHeightScene',
+    'headWidthScene',
+    'chestWidthScene',
+    'hipWidthScene',
+    'bodyShoulderWidthScene',
+    'handWidthScene',
+    'bodySleeveWristWidthScene',
+    'thighDiameterScene',
+    'shoeWidthScene',
+    'shoeHeightScene',
+    'shoeLengthScene',
+  ];
+  const ratioKeys = [
+    'chestToHead',
+    'bodyShoulderToHead',
+    'thighToChest',
+    'handToHead',
+    'handToBodySleeve',
+    'shoeWidthToHead',
+    'shoeLengthToHeight',
+    'chestWidthToHeight',
+  ];
+  const differences = Object.fromEntries([
+    ...measurementKeys.map((key) => [key, round(Math.abs(measured[key] - declared?.[key]))]),
+    ...ratioKeys.map((key) => [
+      `ratios.${key}`,
+      round(Math.abs(measured.ratios[key] - declared?.ratios?.[key])),
+    ]),
+  ]);
+  return {
+    pass:
+      declared?.pass === true &&
+      Object.values(differences).every(
+        (difference) => Number.isFinite(difference) && difference <= tolerance,
+      ),
+    tolerance,
+    differences,
+  };
+}
+
+function boxInTargetSpace(root, target) {
+  const box = new Box3();
+  const point = new Vector3();
+  root.updateMatrixWorld(true);
+  root.traverse((object) => {
+    if (!object.isMesh) return;
+    const position = object.geometry.getAttribute('position');
+    if (!position) return;
+    for (let vertex = 0; vertex < position.count; vertex += 1) {
+      object.getVertexPosition(vertex, point);
+      object.localToWorld(point);
+      target.worldToLocal(point);
+      box.expandByPoint(point);
+    }
+  });
+  return box;
+}
+
 function setActorTransform(scene, metrics, seated) {
   const workstation = metrics.workstation;
   const actorZ = workstation.deskDepth.standard / 2 + workstation.seatForward;
@@ -188,13 +342,38 @@ function samplePropAttaches(scene, propsScene, propAttach, metrics) {
     const prop = requireObject(propsScene, spec.node).clone(true);
     prop.position.fromArray(spec.position);
     prop.rotation.fromArray(spec.rotation);
-    requireObject(scene, spec.bone).add(prop);
-    scene.updateMatrixWorld(true);
+    const attachBone = requireObject(scene, spec.bone);
+    prop.updateMatrixWorld(true);
+    const expectedReference = new Object3D();
+    expectedReference.updateMatrixWorld(true);
+    const expectedCenterLocal = boxInTargetSpace(prop, expectedReference).getCenter(new Vector3());
+    attachBone.add(prop);
+    syncSkinnedMeshes(scene);
     const box = new Box3().setFromObject(prop);
+    const boneLocalBox = boxInTargetSpace(prop, attachBone);
     const targetName =
       spec.bone === 'Head' ? 'Head' : spec.bone === 'hand_l' ? 'ToyPalmL' : 'ToyPalmR';
     const targetPoint = requireObject(scene, targetName).getWorldPosition(new Vector3());
-    const reach = box.distanceToPoint(targetPoint);
+    const targetLocal = attachBone.worldToLocal(targetPoint.clone());
+    const actualCenterLocal = boneLocalBox.getCenter(new Vector3());
+    const centerOffsetLocal = actualCenterLocal.clone().sub(targetLocal);
+    const expectedCenterOffsetLocal = expectedCenterLocal.clone().sub(targetLocal);
+    const centerOffsetError = centerOffsetLocal.clone().sub(expectedCenterOffsetLocal);
+    const centerDistance = centerOffsetLocal.length();
+    const expectedCenterDistance = expectedCenterOffsetLocal.length();
+    const distanceTolerance = metrics.silhouette.gates.propCenterDistanceTolerance;
+    const distanceRange = [
+      Math.max(
+        metrics.silhouette.gates.propCenterDistanceFloor,
+        expectedCenterDistance - distanceTolerance,
+      ),
+      expectedCenterDistance + distanceTolerance,
+    ];
+    const offsetTolerance = metrics.silhouette.gates.propCenterOffsetTolerance;
+    const centerOffsetPass =
+      Math.max(...centerOffsetError.toArray().map(Math.abs)) <= offsetTolerance &&
+      centerDistance >= distanceRange[0] &&
+      centerDistance <= distanceRange[1];
     const headDistance = box.distanceToPoint(headPoint);
     const unexpectedFaceRisk = spec.bone !== 'Head' && box.containsPoint(headPoint);
     const sample = {
@@ -203,10 +382,15 @@ function samplePropAttaches(scene, propsScene, propAttach, metrics) {
       attachBone: spec.bone,
       target: targetName,
       aabb: { min: roundVector(box.min), max: roundVector(box.max) },
-      reach: round(reach),
+      centerOffsetLocal: roundVector(centerOffsetLocal),
+      expectedCenterOffsetLocal: roundVector(expectedCenterOffsetLocal),
+      centerOffsetError: roundVector(centerOffsetError),
+      centerDistance: round(centerDistance),
+      expectedCenterDistance: round(expectedCenterDistance),
+      centerDistanceRange: distanceRange.map(round),
       headDistance: round(headDistance),
       unexpectedFaceRisk,
-      pass: !box.isEmpty() && reach <= metrics.silhouette.gates.propReachMax && !unexpectedFaceRisk,
+      pass: !box.isEmpty() && centerOffsetPass && !unexpectedFaceRisk,
     };
     if (kind === 'laptop') {
       sample.visibleAtDesk = box.max.y >= metrics.workstation.deskTop;
@@ -258,6 +442,7 @@ const [manifest, metrics, characterContract, bodyAsset, animationAsset, propsAss
     loadGltf('props.glb'),
   ]);
 
+const bindBody = cloneSkeleton(bodyAsset.gltf.scene);
 const body = bodyAsset.gltf.scene;
 const clips = animationAsset.gltf.animations;
 const clipsByName = new Map(clips.map((clip) => [clip.name, clip]));
@@ -336,23 +521,38 @@ const variantMeasurements = [];
 for (const bodyType of Object.keys(characterContract.bodyTypeGirth)) {
   for (const headShape of Object.keys(characterContract.headShapeScale)) {
     const id = `${bodyType}:${headShape}`;
+    const variantBody = cloneSkeleton(bindBody);
+    const variantMixer = new AnimationMixer(variantBody);
     const declared = manifest.bodies.toy.measurements.variantMatrix.find(
       (variant) => variant.id === id,
     );
-    setVariantTransform(body, metrics, bodyType, headShape);
-    const landmarks = playAt(mixer, clipsByName, body, 'tpose', 0);
+    setVariantTransform(variantBody, metrics, bodyType, headShape);
+    const landmarks = sampleLandmarks(variantBody);
     const totalHeightScene =
       landmarks.ToyHeadTop[1] - Math.min(landmarks.ToySoleL[1], landmarks.ToySoleR[1]);
     const effectiveHeadHeightScene = landmarks.ToyHeadTop[1] - landmarks.ToyChin[1];
+    const geometry = measureVariantGeometry(variantBody, metrics, bodyType);
+    const ratios = {
+      chestToHead: geometry.chestWidthScene / geometry.headWidthScene,
+      bodyShoulderToHead: geometry.bodyShoulderWidthScene / geometry.headWidthScene,
+      thighToChest: geometry.thighDiameterScene / geometry.chestWidthScene,
+      handToHead: geometry.handWidthScene / geometry.headWidthScene,
+      handToBodySleeve: geometry.handWidthScene / geometry.bodySleeveWristWidthScene,
+      shoeWidthToHead: geometry.shoeWidthScene / geometry.headWidthScene,
+      shoeLengthToHeight: geometry.shoeLengthScene / totalHeightScene,
+      chestWidthToHeight: geometry.chestWidthScene / totalHeightScene,
+    };
     const measured = {
       id,
       totalHeightScene: round(totalHeightScene),
       effectiveHeadHeightScene: round(effectiveHeadHeightScene),
       headCount: round(totalHeightScene / effectiveHeadHeightScene),
+      ...Object.fromEntries(Object.entries(geometry).map(([key, value]) => [key, round(value)])),
+      ratios: Object.fromEntries(Object.entries(ratios).map(([key, value]) => [key, round(value)])),
     };
-    setVariantWorkstationTransform(body, metrics, bodyType, headShape, true);
-    const variantSitIdle = playAt(mixer, clipsByName, body, 'sit.idle', 0.5);
-    const variantSitTalk = playAt(mixer, clipsByName, body, 'sit.talk', 0.5);
+    setVariantWorkstationTransform(variantBody, metrics, bodyType, headShape, true);
+    const variantSitIdle = playAt(variantMixer, clipsByName, variantBody, 'sit.idle', 0.5);
+    const variantSitTalk = playAt(variantMixer, clipsByName, variantBody, 'sit.talk', 0.5);
     const contact = {
       soleDelta: round(Math.max(Math.abs(landmarks.ToySoleL[1]), Math.abs(landmarks.ToySoleR[1]))),
       seatButtDelta: round(
@@ -366,37 +566,114 @@ for (const bodyType of Object.keys(characterContract.bodyTypeGirth)) {
       ),
     };
     const propAttach = samplePropAttaches(
-      body,
+      variantBody,
       propsAsset.gltf.scene,
       characterContract.propAttach,
       metrics,
     );
     const gates = metrics.silhouette.gates;
     const canonicalChestBand = gates.canonicalChestToHead;
-    const pass =
-      declared?.pass === true &&
-      Math.abs(effectiveHeadHeightScene - declared.effectiveHeadHeightScene) <= 0.0002 &&
+    const chestWidthToHeightBand = gates.chestWidthToHeightByBodyType[bodyType];
+    const handToBodySleeveBand = gates.handToBodySleeveByBodyType[bodyType];
+    const declaredCrossCheck = compareDeclaredMeasurements(
+      measured,
+      declared,
+      gates.declaredMeasurementTolerance,
+    );
+    const proportionPass =
       totalHeightScene >= gates.allHeight[0] &&
       totalHeightScene <= gates.allHeight[1] + gates.roundHeightTolerance &&
       totalHeightScene / effectiveHeadHeightScene >= metrics.character.minimumHeadCount &&
       totalHeightScene / effectiveHeadHeightScene <= metrics.character.maximumHeadCount &&
-      declared.ratios.thighToChest <= gates.thighToChestMax &&
-      declared.ratios.shoeLengthToHeight <= gates.shoeLengthToHeightMax &&
-      declared.ratios.shoeWidthToHead <= gates.shoeWidthToHeadMax &&
-      declared.ratios.handToHead >= gates.handToHead[0] &&
-      declared.ratios.handToHead <= gates.handToHead[1] &&
-      declared.ratios.handToSleeve >= gates.handToSleeveMin &&
+      ratios.chestToHead <= gates.chestToHeadMax &&
+      ratios.bodyShoulderToHead <= gates.bodyShoulderToHeadMax &&
+      ratios.thighToChest <= gates.thighToChestMax &&
+      ratios.shoeLengthToHeight <= gates.shoeLengthToHeightMax &&
+      ratios.shoeWidthToHead <= gates.shoeWidthToHeadMax &&
+      ratios.handToHead >= gates.handToHead[0] &&
+      ratios.handToHead <= gates.handToHead[1] &&
+      ratios.handToBodySleeve >= handToBodySleeveBand[0] &&
+      ratios.handToBodySleeve <= handToBodySleeveBand[1] &&
+      (id !== 'normal:round' ||
+        (ratios.chestToHead >= canonicalChestBand[0] &&
+          ratios.chestToHead <= canonicalChestBand[1]));
+    const girthPass =
+      ratios.chestWidthToHeight >= chestWidthToHeightBand[0] &&
+      ratios.chestWidthToHeight <= chestWidthToHeightBand[1];
+    const contactPass =
       contact.soleDelta <= GROUND_TOLERANCE &&
       contact.seatButtDelta <= gates.seatDeltaMax &&
-      contact.deskPalmDelta <= gates.deskPalmDeltaMax &&
+      contact.deskPalmDelta <= gates.deskPalmDeltaMax;
+    const propAttachPass =
       propAttach.length === Object.keys(characterContract.propAttach).length &&
-      propAttach.every((sample) => sample.pass) &&
-      (id !== 'normal:round' ||
-        (declared.ratios.chestToHead >= canonicalChestBand[0] &&
-          declared.ratios.chestToHead <= canonicalChestBand[1]));
-    variantMeasurements.push({ ...measured, contact, propAttach, declared, pass });
+      propAttach.every((sample) => sample.pass);
+    const pass =
+      declaredCrossCheck.pass && proportionPass && girthPass && contactPass && propAttachPass;
+    variantMeasurements.push({
+      ...measured,
+      contact,
+      propAttach,
+      declared,
+      declaredCrossCheck,
+      gateResults: { proportionPass, girthPass, contactPass, propAttachPass },
+      pass,
+    });
   }
 }
+checks.push(
+  check(
+    'declared-variant-measurement-cross-check',
+    variantMeasurements.every((variant) => variant.declaredCrossCheck.pass),
+    variantMeasurements.map((variant) => ({
+      id: variant.id,
+      ...variant.declaredCrossCheck,
+    })),
+    `manifest declarations match independently loaded GLB POSITION measurements within ${metrics.silhouette.gates.declaredMeasurementTolerance}`,
+  ),
+);
+checks.push(
+  check(
+    'measured-body-proportion-gates',
+    variantMeasurements.every((variant) => variant.gateResults.proportionPass),
+    variantMeasurements.map((variant) => ({
+      id: variant.id,
+      ratios: variant.ratios,
+      pass: variant.gateResults.proportionPass,
+    })),
+    'all width and height ratios are computed from GLB POSITION vertices, not manifest declarations',
+  ),
+);
+checks.push(
+  check(
+    'girth-sensitive-chest-width-bands',
+    variantMeasurements.every((variant) => variant.gateResults.girthPass),
+    variantMeasurements.map((variant) => ({
+      id: variant.id,
+      chestWidthToHeight: variant.ratios.chestWidthToHeight,
+      expected: metrics.silhouette.gates.chestWidthToHeightByBodyType[variant.id.split(':')[0]],
+      pass: variant.gateResults.girthPass,
+    })),
+    'slim, normal, and stocky occupy distinct chestWidth/totalHeight bands because height is not girth-scaled',
+  ),
+);
+checks.push(
+  check(
+    'prop-attach-center-offsets',
+    variantMeasurements.every((variant) => variant.gateResults.propAttachPass),
+    variantMeasurements.flatMap((variant) =>
+      variant.propAttach.map((sample) => ({
+        variant: variant.id,
+        kind: sample.kind,
+        centerDistance: sample.centerDistance,
+        expectedCenterDistance: sample.expectedCenterDistance,
+        centerDistanceRange: sample.centerDistanceRange,
+        centerOffsetError: sample.centerOffsetError,
+        pass: sample.pass,
+      })),
+    ),
+    'all 81 variant/accessory samples match contract-derived AABB-center offset vectors and nonzero distance bounds',
+  ),
+);
 checks.push(
   check(
     'shipped-variant-proportion-matrix',
@@ -406,6 +683,16 @@ checks.push(
       totalHeightScene: variant.totalHeightScene,
       effectiveHeadHeightScene: variant.effectiveHeadHeightScene,
       headCount: variant.headCount,
+      widths: {
+        head: variant.headWidthScene,
+        chest: variant.chestWidthScene,
+        bodyShoulder: variant.bodyShoulderWidthScene,
+        hand: variant.handWidthScene,
+        bodySleeveWrist: variant.bodySleeveWristWidthScene,
+        thigh: variant.thighDiameterScene,
+        shoe: variant.shoeWidthScene,
+      },
+      ratios: variant.ratios,
       contact: variant.contact,
       propAttachPassed: variant.propAttach.filter((sample) => sample.pass).length,
       propAttachTotal: variant.propAttach.length,
@@ -538,7 +825,8 @@ const propAttachSamples = variantMeasurements.find(
 for (const sample of propAttachSamples) {
   checks.push(
     check(`prop-attach:${sample.kind}`, sample.pass, sample, {
-      reachMax: metrics.silhouette.gates.propReachMax,
+      centerOffsetTolerance: metrics.silhouette.gates.propCenterOffsetTolerance,
+      centerDistanceRange: sample.centerDistanceRange,
       unexpectedFaceRisk: false,
     }),
   );

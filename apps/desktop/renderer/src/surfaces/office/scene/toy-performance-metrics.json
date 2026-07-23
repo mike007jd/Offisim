@@ -41,20 +41,37 @@
     },
     "gates": {
       "canonicalChestToHead": [0.75, 0.87],
-      "allNormalChestToHeadMax": 0.9,
-      "stockyChestToHeadMax": 0.9,
-      "normalGarmentShoulderToHeadMax": 1.12,
-      "stockyGarmentShoulderToHeadMax": 1.32,
+      "chestToHeadMax": 0.9,
+      "bodyShoulderToHeadMax": 0.9,
       "thighToChestMax": 0.46,
       "shoeLengthToHeightMax": 0.205,
       "shoeWidthToHeadMax": 0.36,
       "handToHead": [0.26, 0.34],
-      "handToSleeveMin": 1.15,
+      "handToBodySleeveByBodyType": {
+        "slim": [1.15, 1.25],
+        "normal": [1.38, 1.48],
+        "stocky": [1.63, 1.75]
+      },
+      "chestWidthToHeightByBodyType": {
+        "slim": [0.23, 0.255],
+        "normal": [0.275, 0.305],
+        "stocky": [0.325, 0.36]
+      },
+      "girthGateRationale": "chest/head and other XZ-only ratios cancel the shared bodyType girth factor; chestWidth/totalHeight is the girth-sensitive contract",
+      "declaredMeasurementTolerance": 0.0005,
+      "garmentShoulderWidthToHeightByBodyType": {
+        "slim": [0.17, 0.185],
+        "normal": [0.2, 0.22],
+        "stocky": [0.24, 0.26]
+      },
+      "garmentSleeveCuffWidthToHeight": [0.02, 0.03],
       "roundHeightTolerance": 0.005,
       "allHeight": [1.59, 1.67],
       "seatDeltaMax": 0.05,
       "deskPalmDeltaMax": 0.08,
-      "propReachMax": 0.12
+      "propCenterOffsetTolerance": 0.002,
+      "propCenterDistanceTolerance": 0.002,
+      "propCenterDistanceFloor": 0.01
     }
   },
   "workstation": {

@@ -93,10 +93,8 @@
           0.75,
           0.87
         ],
-        "allNormalChestToHeadMax": 0.9,
-        "stockyChestToHeadMax": 0.9,
-        "normalGarmentShoulderToHeadMax": 1.12,
-        "stockyGarmentShoulderToHeadMax": 1.32,
+        "chestToHeadMax": 0.9,
+        "bodyShoulderToHeadMax": 0.9,
         "thighToChestMax": 0.46,
         "shoeLengthToHeightMax": 0.205,
         "shoeWidthToHeadMax": 0.36,
@@ -104,7 +102,54 @@
           0.26,
           0.34
         ],
-        "handToSleeveMin": 1.15,
+        "handToBodySleeveByBodyType": {
+          "slim": [
+            1.15,
+            1.25
+          ],
+          "normal": [
+            1.38,
+            1.48
+          ],
+          "stocky": [
+            1.63,
+            1.75
+          ]
+        },
+        "chestWidthToHeightByBodyType": {
+          "slim": [
+            0.23,
+            0.255
+          ],
+          "normal": [
+            0.275,
+            0.305
+          ],
+          "stocky": [
+            0.325,
+            0.36
+          ]
+        },
+        "girthGateRationale": "chest/head and other XZ-only ratios cancel the shared bodyType girth factor; chestWidth/totalHeight is the girth-sensitive contract",
+        "declaredMeasurementTolerance": 0.0005,
+        "garmentShoulderWidthToHeightByBodyType": {
+          "slim": [
+            0.17,
+            0.185
+          ],
+          "normal": [
+            0.2,
+            0.22
+          ],
+          "stocky": [
+            0.24,
+            0.26
+          ]
+        },
+        "garmentSleeveCuffWidthToHeight": [
+          0.02,
+          0.03
+        ],
         "roundHeightTolerance": 0.005,
         "allHeight": [
           1.59,
@@ -112,7 +157,9 @@
         ],
         "seatDeltaMax": 0.05,
         "deskPalmDeltaMax": 0.08,
-        "propReachMax": 0.12
+        "propCenterOffsetTolerance": 0.002,
+        "propCenterDistanceTolerance": 0.002,
+        "propCenterDistanceFloor": 0.01
       }
     },
     "workstation": {
@@ -262,7 +309,7 @@
       "id": "measurement-contract-drift",
       "pass": true,
       "observed": {
-        "source": "generated procedural geometry plus shipped runtime girth/head-shape contracts",
+        "source": "generated POSITION vertices grouped by rigid skin joint plus shipped runtime girth/head-shape transforms",
         "sceneScale": 0.803457,
         "geometryUnits": {
           "neckRadius": 0.095,
@@ -309,13 +356,16 @@
         },
         "baseEnvelopeUnits": {
           "shoulderJointWidth": 0.424023,
-          "worstGarmentShoulderWidth": 0.496107,
-          "chestWidth": 0.6,
-          "hipWidth": 0.57,
-          "handWidth": 0.224,
-          "shoeWidth": 0.24,
+          "headWidth": 0.748907,
+          "chestWidth": 0.584957,
+          "hipWidth": 0.555709,
+          "bodyShoulderWidth": 0.584957,
+          "handWidth": 0.218384,
+          "bodySleeveWristWidth": 0.15242,
+          "thighDiameter": 0.26,
+          "shoeWidth": 0.233983,
           "shoeHeight": 0.18,
-          "shoeLength": 0.34
+          "shoeLength": 0.331475
         },
         "variantMatrix": [
           {
@@ -332,23 +382,24 @@
             "effectiveHeadHeightScene": 0.661224,
             "headCount": 2.45,
             "headWidthScene": 0.50544,
-            "chestWidthScene": 0.404942,
-            "hipWidthScene": 0.384695,
-            "shoulderEnvelopeWidthScene": 0.334825,
-            "handWidthScene": 0.151178,
-            "sleeveWristWidthScene": 0.031479,
+            "chestWidthScene": 0.39479,
+            "hipWidthScene": 0.37505,
+            "bodyShoulderWidthScene": 0.39479,
+            "handWidthScene": 0.147388,
+            "bodySleeveWristWidthScene": 0.122463,
             "thighDiameterScene": 0.175475,
-            "shoeWidthScene": 0.161977,
+            "shoeWidthScene": 0.157916,
             "shoeHeightScene": 0.144622,
-            "shoeLengthScene": 0.229467,
+            "shoeLengthScene": 0.223714,
             "ratios": {
-              "chestToHead": 0.801168,
-              "garmentShoulderToHead": 0.662442,
-              "thighToChest": 0.433333,
-              "handToHead": 0.299103,
-              "handToSleeve": 4.802482,
-              "shoeWidthToHead": 0.320467,
-              "shoeLengthToHeight": 0.141646
+              "chestToHead": 0.781081,
+              "bodyShoulderToHead": 0.781081,
+              "thighToChest": 0.444477,
+              "handToHead": 0.291604,
+              "handToBodySleeve": 1.203529,
+              "shoeWidthToHead": 0.312432,
+              "shoeLengthToHeight": 0.138095,
+              "chestWidthToHeight": 0.243697
             },
             "pass": true
           },
@@ -366,23 +417,24 @@
             "effectiveHeadHeightScene": 0.621551,
             "headCount": 2.574468,
             "headWidthScene": 0.555984,
-            "chestWidthScene": 0.404942,
-            "hipWidthScene": 0.384695,
-            "shoulderEnvelopeWidthScene": 0.334825,
-            "handWidthScene": 0.151178,
-            "sleeveWristWidthScene": 0.031479,
+            "chestWidthScene": 0.39479,
+            "hipWidthScene": 0.37505,
+            "bodyShoulderWidthScene": 0.39479,
+            "handWidthScene": 0.147388,
+            "bodySleeveWristWidthScene": 0.122463,
             "thighDiameterScene": 0.175475,
-            "shoeWidthScene": 0.161977,
+            "shoeWidthScene": 0.157916,
             "shoeHeightScene": 0.144622,
-            "shoeLengthScene": 0.229467,
+            "shoeLengthScene": 0.223714,
             "ratios": {
-              "chestToHead": 0.728334,
-              "garmentShoulderToHead": 0.60222,
-              "thighToChest": 0.433333,
-              "handToHead": 0.271912,
-              "handToSleeve": 4.802482,
-              "shoeWidthToHead": 0.291334,
-              "shoeLengthToHeight": 0.143402
+              "chestToHead": 0.710074,
+              "bodyShoulderToHead": 0.710074,
+              "thighToChest": 0.444477,
+              "handToHead": 0.265094,
+              "handToBodySleeve": 1.203529,
+              "shoeWidthToHead": 0.284029,
+              "shoeLengthToHeight": 0.139807,
+              "chestWidthToHeight": 0.246718
             },
             "pass": true
           },
@@ -400,23 +452,24 @@
             "effectiveHeadHeightScene": 0.740571,
             "headCount": 2.241071,
             "headWidthScene": 0.454896,
-            "chestWidthScene": 0.404942,
-            "hipWidthScene": 0.384695,
-            "shoulderEnvelopeWidthScene": 0.334825,
-            "handWidthScene": 0.151178,
-            "sleeveWristWidthScene": 0.031479,
+            "chestWidthScene": 0.39479,
+            "hipWidthScene": 0.37505,
+            "bodyShoulderWidthScene": 0.39479,
+            "handWidthScene": 0.147388,
+            "bodySleeveWristWidthScene": 0.122463,
             "thighDiameterScene": 0.175475,
-            "shoeWidthScene": 0.161977,
+            "shoeWidthScene": 0.157916,
             "shoeHeightScene": 0.144622,
-            "shoeLengthScene": 0.229467,
+            "shoeLengthScene": 0.223714,
             "ratios": {
-              "chestToHead": 0.890187,
-              "garmentShoulderToHead": 0.736047,
-              "thighToChest": 0.433333,
-              "handToHead": 0.332336,
-              "handToSleeve": 4.802482,
-              "shoeWidthToHead": 0.356075,
-              "shoeLengthToHeight": 0.138261
+              "chestToHead": 0.867868,
+              "bodyShoulderToHead": 0.867868,
+              "thighToChest": 0.444477,
+              "handToHead": 0.324004,
+              "handToBodySleeve": 1.203529,
+              "shoeWidthToHead": 0.347147,
+              "shoeLengthToHeight": 0.134794,
+              "chestWidthToHeight": 0.237872
             },
             "pass": true
           },
@@ -434,23 +487,24 @@
             "effectiveHeadHeightScene": 0.661224,
             "headCount": 2.45,
             "headWidthScene": 0.601714,
-            "chestWidthScene": 0.482074,
-            "hipWidthScene": 0.45797,
-            "shoulderEnvelopeWidthScene": 0.398601,
-            "handWidthScene": 0.179974,
-            "sleeveWristWidthScene": 0.037475,
+            "chestWidthScene": 0.469988,
+            "hipWidthScene": 0.446488,
+            "bodyShoulderWidthScene": 0.469988,
+            "handWidthScene": 0.175462,
+            "bodySleeveWristWidthScene": 0.122463,
             "thighDiameterScene": 0.208899,
-            "shoeWidthScene": 0.19283,
+            "shoeWidthScene": 0.187995,
             "shoeHeightScene": 0.144622,
-            "shoeLengthScene": 0.273175,
+            "shoeLengthScene": 0.266326,
             "ratios": {
-              "chestToHead": 0.801168,
-              "garmentShoulderToHead": 0.662442,
-              "thighToChest": 0.433333,
-              "handToHead": 0.299103,
-              "handToSleeve": 4.802482,
-              "shoeWidthToHead": 0.320467,
-              "shoeLengthToHeight": 0.168627
+              "chestToHead": 0.781081,
+              "bodyShoulderToHead": 0.781081,
+              "thighToChest": 0.444477,
+              "handToHead": 0.291604,
+              "handToBodySleeve": 1.432772,
+              "shoeWidthToHead": 0.312432,
+              "shoeLengthToHeight": 0.164399,
+              "chestWidthToHeight": 0.290116
             },
             "pass": true
           },
@@ -468,23 +522,24 @@
             "effectiveHeadHeightScene": 0.621551,
             "headCount": 2.574468,
             "headWidthScene": 0.661886,
-            "chestWidthScene": 0.482074,
-            "hipWidthScene": 0.45797,
-            "shoulderEnvelopeWidthScene": 0.398601,
-            "handWidthScene": 0.179974,
-            "sleeveWristWidthScene": 0.037475,
+            "chestWidthScene": 0.469988,
+            "hipWidthScene": 0.446488,
+            "bodyShoulderWidthScene": 0.469988,
+            "handWidthScene": 0.175462,
+            "bodySleeveWristWidthScene": 0.122463,
             "thighDiameterScene": 0.208899,
-            "shoeWidthScene": 0.19283,
+            "shoeWidthScene": 0.187995,
             "shoeHeightScene": 0.144622,
-            "shoeLengthScene": 0.273175,
+            "shoeLengthScene": 0.266326,
             "ratios": {
-              "chestToHead": 0.728334,
-              "garmentShoulderToHead": 0.60222,
-              "thighToChest": 0.433333,
-              "handToHead": 0.271912,
-              "handToSleeve": 4.802482,
-              "shoeWidthToHead": 0.291334,
-              "shoeLengthToHeight": 0.170717
+              "chestToHead": 0.710074,
+              "bodyShoulderToHead": 0.710074,
+              "thighToChest": 0.444477,
+              "handToHead": 0.265094,
+              "handToBodySleeve": 1.432772,
+              "shoeWidthToHead": 0.284029,
+              "shoeLengthToHeight": 0.166437,
+              "chestWidthToHeight": 0.293712
             },
             "pass": true
           },
@@ -502,23 +557,24 @@
             "effectiveHeadHeightScene": 0.740571,
             "headCount": 2.241071,
             "headWidthScene": 0.541543,
-            "chestWidthScene": 0.482074,
-            "hipWidthScene": 0.45797,
-            "shoulderEnvelopeWidthScene": 0.398601,
-            "handWidthScene": 0.179974,
-            "sleeveWristWidthScene": 0.037475,
+            "chestWidthScene": 0.469988,
+            "hipWidthScene": 0.446488,
+            "bodyShoulderWidthScene": 0.469988,
+            "handWidthScene": 0.175462,
+            "bodySleeveWristWidthScene": 0.122463,
             "thighDiameterScene": 0.208899,
-            "shoeWidthScene": 0.19283,
+            "shoeWidthScene": 0.187995,
             "shoeHeightScene": 0.144622,
-            "shoeLengthScene": 0.273175,
+            "shoeLengthScene": 0.266326,
             "ratios": {
-              "chestToHead": 0.890187,
-              "garmentShoulderToHead": 0.736047,
-              "thighToChest": 0.433333,
-              "handToHead": 0.332336,
-              "handToSleeve": 4.802482,
-              "shoeWidthToHead": 0.356075,
-              "shoeLengthToHeight": 0.164596
+              "chestToHead": 0.867868,
+              "bodyShoulderToHead": 0.867868,
+              "thighToChest": 0.444477,
+              "handToHead": 0.324004,
+              "handToBodySleeve": 1.432772,
+              "shoeWidthToHead": 0.347147,
+              "shoeLengthToHeight": 0.160469,
+              "chestWidthToHeight": 0.283181
             },
             "pass": true
           },
@@ -536,23 +592,24 @@
             "effectiveHeadHeightScene": 0.661224,
             "headCount": 2.45,
             "headWidthScene": 0.710023,
-            "chestWidthScene": 0.568848,
-            "hipWidthScene": 0.540405,
-            "shoulderEnvelopeWidthScene": 0.470349,
-            "handWidthScene": 0.21237,
-            "sleeveWristWidthScene": 0.044221,
+            "chestWidthScene": 0.554585,
+            "hipWidthScene": 0.526856,
+            "bodyShoulderWidthScene": 0.554585,
+            "handWidthScene": 0.207045,
+            "bodySleeveWristWidthScene": 0.122463,
             "thighDiameterScene": 0.246501,
-            "shoeWidthScene": 0.227539,
+            "shoeWidthScene": 0.221834,
             "shoeHeightScene": 0.144622,
-            "shoeLengthScene": 0.322347,
+            "shoeLengthScene": 0.314265,
             "ratios": {
-              "chestToHead": 0.801168,
-              "garmentShoulderToHead": 0.662442,
-              "thighToChest": 0.433333,
-              "handToHead": 0.299103,
-              "handToSleeve": 4.802482,
-              "shoeWidthToHead": 0.320467,
-              "shoeLengthToHeight": 0.19898
+              "chestToHead": 0.781081,
+              "bodyShoulderToHead": 0.781081,
+              "thighToChest": 0.444477,
+              "handToHead": 0.291604,
+              "handToBodySleeve": 1.690671,
+              "shoeWidthToHead": 0.312432,
+              "shoeLengthToHeight": 0.193991,
+              "chestWidthToHeight": 0.342337
             },
             "pass": true
           },
@@ -570,23 +627,24 @@
             "effectiveHeadHeightScene": 0.621551,
             "headCount": 2.574468,
             "headWidthScene": 0.781025,
-            "chestWidthScene": 0.568848,
-            "hipWidthScene": 0.540405,
-            "shoulderEnvelopeWidthScene": 0.470349,
-            "handWidthScene": 0.21237,
-            "sleeveWristWidthScene": 0.044221,
+            "chestWidthScene": 0.554585,
+            "hipWidthScene": 0.526856,
+            "bodyShoulderWidthScene": 0.554585,
+            "handWidthScene": 0.207045,
+            "bodySleeveWristWidthScene": 0.122463,
             "thighDiameterScene": 0.246501,
-            "shoeWidthScene": 0.227539,
+            "shoeWidthScene": 0.221834,
             "shoeHeightScene": 0.144622,
-            "shoeLengthScene": 0.322347,
+            "shoeLengthScene": 0.314265,
             "ratios": {
-              "chestToHead": 0.728334,
-              "garmentShoulderToHead": 0.60222,
-              "thighToChest": 0.433333,
-              "handToHead": 0.271912,
-              "handToSleeve": 4.802482,
-              "shoeWidthToHead": 0.291334,
-              "shoeLengthToHeight": 0.201446
+              "chestToHead": 0.710074,
+              "bodyShoulderToHead": 0.710074,
+              "thighToChest": 0.444477,
+              "handToHead": 0.265094,
+              "handToBodySleeve": 1.690671,
+              "shoeWidthToHead": 0.284029,
+              "shoeLengthToHeight": 0.196396,
+              "chestWidthToHeight": 0.34658
             },
             "pass": true
           },
@@ -604,23 +662,24 @@
             "effectiveHeadHeightScene": 0.740571,
             "headCount": 2.241071,
             "headWidthScene": 0.639021,
-            "chestWidthScene": 0.568848,
-            "hipWidthScene": 0.540405,
-            "shoulderEnvelopeWidthScene": 0.470349,
-            "handWidthScene": 0.21237,
-            "sleeveWristWidthScene": 0.044221,
+            "chestWidthScene": 0.554585,
+            "hipWidthScene": 0.526856,
+            "bodyShoulderWidthScene": 0.554585,
+            "handWidthScene": 0.207045,
+            "bodySleeveWristWidthScene": 0.122463,
             "thighDiameterScene": 0.246501,
-            "shoeWidthScene": 0.227539,
+            "shoeWidthScene": 0.221834,
             "shoeHeightScene": 0.144622,
-            "shoeLengthScene": 0.322347,
+            "shoeLengthScene": 0.314265,
             "ratios": {
-              "chestToHead": 0.890187,
-              "garmentShoulderToHead": 0.736047,
-              "thighToChest": 0.433333,
-              "handToHead": 0.332336,
-              "handToSleeve": 4.802482,
-              "shoeWidthToHead": 0.356075,
-              "shoeLengthToHeight": 0.194223
+              "chestToHead": 0.867868,
+              "bodyShoulderToHead": 0.867868,
+              "thighToChest": 0.444477,
+              "handToHead": 0.324004,
+              "handToBodySleeve": 1.690671,
+              "shoeWidthToHead": 0.347147,
+              "shoeLengthToHeight": 0.189354,
+              "chestWidthToHeight": 0.334153
             },
             "pass": true
           }
@@ -629,16 +688,1809 @@
       "expected": "manifest measurements match toy-performance-metrics and contain 9 shipped variants"
     },
     {
+      "id": "declared-variant-measurement-cross-check",
+      "pass": true,
+      "observed": [
+        {
+          "id": "slim:round",
+          "pass": true,
+          "tolerance": 0.0005,
+          "differences": {
+            "totalHeightScene": 0.000011,
+            "effectiveHeadHeightScene": 0.000004,
+            "headWidthScene": 0.000039,
+            "chestWidthScene": 0.000014,
+            "hipWidthScene": 0.000018,
+            "bodyShoulderWidthScene": 0.000014,
+            "handWidthScene": 0.000003,
+            "bodySleeveWristWidthScene": 0.000024,
+            "thighDiameterScene": 0.000022,
+            "shoeWidthScene": 0.000004,
+            "shoeHeightScene": 0.000012,
+            "shoeLengthScene": 0.000016,
+            "ratios.chestToHead": 0.000087,
+            "ratios.bodyShoulderToHead": 0.000087,
+            "ratios.thighToChest": 0.00004,
+            "ratios.handToHead": 0.000017,
+            "ratios.handToBodySleeve": 0.000261,
+            "ratios.shoeWidthToHead": 0.000031,
+            "ratios.shoeLengthToHeight": 0.000009,
+            "ratios.chestWidthToHeight": 0.000006
+          }
+        },
+        {
+          "id": "slim:soft-square",
+          "pass": true,
+          "tolerance": 0.0005,
+          "differences": {
+            "totalHeightScene": 0.000001,
+            "effectiveHeadHeightScene": 0.000018,
+            "headWidthScene": 0.000043,
+            "chestWidthScene": 0.000014,
+            "hipWidthScene": 0.000018,
+            "bodyShoulderWidthScene": 0.000014,
+            "handWidthScene": 0.000003,
+            "bodySleeveWristWidthScene": 0.000024,
+            "thighDiameterScene": 0.000022,
+            "shoeWidthScene": 0.000004,
+            "shoeHeightScene": 0.000012,
+            "shoeLengthScene": 0.000016,
+            "ratios.chestToHead": 0.000079,
+            "ratios.bodyShoulderToHead": 0.000079,
+            "ratios.thighToChest": 0.00004,
+            "ratios.handToHead": 0.000015,
+            "ratios.handToBodySleeve": 0.000261,
+            "ratios.shoeWidthToHead": 0.000028,
+            "ratios.shoeLengthToHeight": 0.00001,
+            "ratios.chestWidthToHeight": 0.000008
+          }
+        },
+        {
+          "id": "slim:capsule",
+          "pass": true,
+          "tolerance": 0.0005,
+          "differences": {
+            "totalHeightScene": 0.00006,
+            "effectiveHeadHeightScene": 0.000104,
+            "headWidthScene": 0.000035,
+            "chestWidthScene": 0.000014,
+            "hipWidthScene": 0.000018,
+            "bodyShoulderWidthScene": 0.000014,
+            "handWidthScene": 0.000003,
+            "bodySleeveWristWidthScene": 0.000024,
+            "thighDiameterScene": 0.000022,
+            "shoeWidthScene": 0.000004,
+            "shoeHeightScene": 0.000012,
+            "shoeLengthScene": 0.000016,
+            "ratios.chestToHead": 0.000097,
+            "ratios.bodyShoulderToHead": 0.000097,
+            "ratios.thighToChest": 0.00004,
+            "ratios.handToHead": 0.000019,
+            "ratios.handToBodySleeve": 0.000261,
+            "ratios.shoeWidthToHead": 0.000035,
+            "ratios.shoeLengthToHeight": 0.000005,
+            "ratios.chestWidthToHeight": 0
+          }
+        },
+        {
+          "id": "normal:round",
+          "pass": true,
+          "tolerance": 0.0005,
+          "differences": {
+            "totalHeightScene": 0.000011,
+            "effectiveHeadHeightScene": 0.000004,
+            "headWidthScene": 0.000047,
+            "chestWidthScene": 0.000016,
+            "hipWidthScene": 0.000022,
+            "bodyShoulderWidthScene": 0.000016,
+            "handWidthScene": 0.000003,
+            "bodySleeveWristWidthScene": 0.000024,
+            "thighDiameterScene": 0.000026,
+            "shoeWidthScene": 0.000004,
+            "shoeHeightScene": 0.000012,
+            "shoeLengthScene": 0.000019,
+            "ratios.chestToHead": 0.000087,
+            "ratios.bodyShoulderToHead": 0.000087,
+            "ratios.thighToChest": 0.00004,
+            "ratios.handToHead": 0.000017,
+            "ratios.handToBodySleeve": 0.000311,
+            "ratios.shoeWidthToHead": 0.000031,
+            "ratios.shoeLengthToHeight": 0.000011,
+            "ratios.chestWidthToHeight": 0.000008
+          }
+        },
+        {
+          "id": "normal:soft-square",
+          "pass": true,
+          "tolerance": 0.0005,
+          "differences": {
+            "totalHeightScene": 0.000001,
+            "effectiveHeadHeightScene": 0.000018,
+            "headWidthScene": 0.000051,
+            "chestWidthScene": 0.000016,
+            "hipWidthScene": 0.000022,
+            "bodyShoulderWidthScene": 0.000016,
+            "handWidthScene": 0.000003,
+            "bodySleeveWristWidthScene": 0.000024,
+            "thighDiameterScene": 0.000026,
+            "shoeWidthScene": 0.000004,
+            "shoeHeightScene": 0.000012,
+            "shoeLengthScene": 0.000019,
+            "ratios.chestToHead": 0.000079,
+            "ratios.bodyShoulderToHead": 0.000079,
+            "ratios.thighToChest": 0.00004,
+            "ratios.handToHead": 0.000015,
+            "ratios.handToBodySleeve": 0.000311,
+            "ratios.shoeWidthToHead": 0.000028,
+            "ratios.shoeLengthToHeight": 0.000012,
+            "ratios.chestWidthToHeight": 0.00001
+          }
+        },
+        {
+          "id": "normal:capsule",
+          "pass": true,
+          "tolerance": 0.0005,
+          "differences": {
+            "totalHeightScene": 0.00006,
+            "effectiveHeadHeightScene": 0.000104,
+            "headWidthScene": 0.000042,
+            "chestWidthScene": 0.000016,
+            "hipWidthScene": 0.000022,
+            "bodyShoulderWidthScene": 0.000016,
+            "handWidthScene": 0.000003,
+            "bodySleeveWristWidthScene": 0.000024,
+            "thighDiameterScene": 0.000026,
+            "shoeWidthScene": 0.000004,
+            "shoeHeightScene": 0.000012,
+            "shoeLengthScene": 0.000019,
+            "ratios.chestToHead": 0.000097,
+            "ratios.bodyShoulderToHead": 0.000097,
+            "ratios.thighToChest": 0.00004,
+            "ratios.handToHead": 0.000019,
+            "ratios.handToBodySleeve": 0.000311,
+            "ratios.shoeWidthToHead": 0.000035,
+            "ratios.shoeLengthToHeight": 0.000006,
+            "ratios.chestWidthToHeight": 0
+          }
+        },
+        {
+          "id": "stocky:round",
+          "pass": true,
+          "tolerance": 0.0005,
+          "differences": {
+            "totalHeightScene": 0.000011,
+            "effectiveHeadHeightScene": 0.000004,
+            "headWidthScene": 0.000055,
+            "chestWidthScene": 0.000019,
+            "hipWidthScene": 0.000026,
+            "bodyShoulderWidthScene": 0.000019,
+            "handWidthScene": 0.000004,
+            "bodySleeveWristWidthScene": 0.000024,
+            "thighDiameterScene": 0.000031,
+            "shoeWidthScene": 0.000005,
+            "shoeHeightScene": 0.000012,
+            "shoeLengthScene": 0.000023,
+            "ratios.chestToHead": 0.000087,
+            "ratios.bodyShoulderToHead": 0.000087,
+            "ratios.thighToChest": 0.00004,
+            "ratios.handToHead": 0.000017,
+            "ratios.handToBodySleeve": 0.000367,
+            "ratios.shoeWidthToHead": 0.000031,
+            "ratios.shoeLengthToHeight": 0.000013,
+            "ratios.chestWidthToHeight": 0.00001
+          }
+        },
+        {
+          "id": "stocky:soft-square",
+          "pass": true,
+          "tolerance": 0.0005,
+          "differences": {
+            "totalHeightScene": 0.000001,
+            "effectiveHeadHeightScene": 0.000018,
+            "headWidthScene": 0.00006,
+            "chestWidthScene": 0.000019,
+            "hipWidthScene": 0.000026,
+            "bodyShoulderWidthScene": 0.000019,
+            "handWidthScene": 0.000004,
+            "bodySleeveWristWidthScene": 0.000024,
+            "thighDiameterScene": 0.000031,
+            "shoeWidthScene": 0.000005,
+            "shoeHeightScene": 0.000012,
+            "shoeLengthScene": 0.000023,
+            "ratios.chestToHead": 0.000079,
+            "ratios.bodyShoulderToHead": 0.000079,
+            "ratios.thighToChest": 0.00004,
+            "ratios.handToHead": 0.000015,
+            "ratios.handToBodySleeve": 0.000367,
+            "ratios.shoeWidthToHead": 0.000028,
+            "ratios.shoeLengthToHeight": 0.000015,
+            "ratios.chestWidthToHeight": 0.000012
+          }
+        },
+        {
+          "id": "stocky:capsule",
+          "pass": true,
+          "tolerance": 0.0005,
+          "differences": {
+            "totalHeightScene": 0.00006,
+            "effectiveHeadHeightScene": 0.000104,
+            "headWidthScene": 0.000049,
+            "chestWidthScene": 0.000019,
+            "hipWidthScene": 0.000026,
+            "bodyShoulderWidthScene": 0.000019,
+            "handWidthScene": 0.000004,
+            "bodySleeveWristWidthScene": 0.000024,
+            "thighDiameterScene": 0.000031,
+            "shoeWidthScene": 0.000005,
+            "shoeHeightScene": 0.000012,
+            "shoeLengthScene": 0.000023,
+            "ratios.chestToHead": 0.000097,
+            "ratios.bodyShoulderToHead": 0.000097,
+            "ratios.thighToChest": 0.00004,
+            "ratios.handToHead": 0.000019,
+            "ratios.handToBodySleeve": 0.000367,
+            "ratios.shoeWidthToHead": 0.000035,
+            "ratios.shoeLengthToHeight": 0.000007,
+            "ratios.chestWidthToHeight": 0.000001
+          }
+        }
+      ],
+      "expected": "manifest declarations match independently loaded GLB POSITION measurements within 0.0005"
+    },
+    {
+      "id": "measured-body-proportion-gates",
+      "pass": true,
+      "observed": [
+        {
+          "id": "slim:round",
+          "ratios": {
+            "chestToHead": 0.780994,
+            "bodyShoulderToHead": 0.780994,
+            "thighToChest": 0.444437,
+            "handToHead": 0.291587,
+            "handToBodySleeve": 1.20379,
+            "shoeWidthToHead": 0.312401,
+            "shoeLengthToHeight": 0.138086,
+            "chestWidthToHeight": 0.243691
+          },
+          "pass": true
+        },
+        {
+          "id": "slim:soft-square",
+          "ratios": {
+            "chestToHead": 0.709995,
+            "bodyShoulderToHead": 0.709995,
+            "thighToChest": 0.444437,
+            "handToHead": 0.265079,
+            "handToBodySleeve": 1.20379,
+            "shoeWidthToHead": 0.284001,
+            "shoeLengthToHeight": 0.139797,
+            "chestWidthToHeight": 0.24671
+          },
+          "pass": true
+        },
+        {
+          "id": "slim:capsule",
+          "ratios": {
+            "chestToHead": 0.867771,
+            "bodyShoulderToHead": 0.867771,
+            "thighToChest": 0.444437,
+            "handToHead": 0.323985,
+            "handToBodySleeve": 1.20379,
+            "shoeWidthToHead": 0.347112,
+            "shoeLengthToHeight": 0.134789,
+            "chestWidthToHeight": 0.237872
+          },
+          "pass": true
+        },
+        {
+          "id": "normal:round",
+          "ratios": {
+            "chestToHead": 0.780994,
+            "bodyShoulderToHead": 0.780994,
+            "thighToChest": 0.444437,
+            "handToHead": 0.291587,
+            "handToBodySleeve": 1.433083,
+            "shoeWidthToHead": 0.312401,
+            "shoeLengthToHeight": 0.164388,
+            "chestWidthToHeight": 0.290108
+          },
+          "pass": true
+        },
+        {
+          "id": "normal:soft-square",
+          "ratios": {
+            "chestToHead": 0.709995,
+            "bodyShoulderToHead": 0.709995,
+            "thighToChest": 0.444437,
+            "handToHead": 0.265079,
+            "handToBodySleeve": 1.433083,
+            "shoeWidthToHead": 0.284001,
+            "shoeLengthToHeight": 0.166425,
+            "chestWidthToHeight": 0.293702
+          },
+          "pass": true
+        },
+        {
+          "id": "normal:capsule",
+          "ratios": {
+            "chestToHead": 0.867771,
+            "bodyShoulderToHead": 0.867771,
+            "thighToChest": 0.444437,
+            "handToHead": 0.323985,
+            "handToBodySleeve": 1.433083,
+            "shoeWidthToHead": 0.347112,
+            "shoeLengthToHeight": 0.160463,
+            "chestWidthToHeight": 0.283181
+          },
+          "pass": true
+        },
+        {
+          "id": "stocky:round",
+          "ratios": {
+            "chestToHead": 0.780994,
+            "bodyShoulderToHead": 0.780994,
+            "thighToChest": 0.444437,
+            "handToHead": 0.291587,
+            "handToBodySleeve": 1.691038,
+            "shoeWidthToHead": 0.312401,
+            "shoeLengthToHeight": 0.193978,
+            "chestWidthToHeight": 0.342327
+          },
+          "pass": true
+        },
+        {
+          "id": "stocky:soft-square",
+          "ratios": {
+            "chestToHead": 0.709995,
+            "bodyShoulderToHead": 0.709995,
+            "thighToChest": 0.444437,
+            "handToHead": 0.265079,
+            "handToBodySleeve": 1.691038,
+            "shoeWidthToHead": 0.284001,
+            "shoeLengthToHeight": 0.196381,
+            "chestWidthToHeight": 0.346568
+          },
+          "pass": true
+        },
+        {
+          "id": "stocky:capsule",
+          "ratios": {
+            "chestToHead": 0.867771,
+            "bodyShoulderToHead": 0.867771,
+            "thighToChest": 0.444437,
+            "handToHead": 0.323985,
+            "handToBodySleeve": 1.691038,
+            "shoeWidthToHead": 0.347112,
+            "shoeLengthToHeight": 0.189347,
+            "chestWidthToHeight": 0.334154
+          },
+          "pass": true
+        }
+      ],
+      "expected": "all width and height ratios are computed from GLB POSITION vertices, not manifest declarations"
+    },
+    {
+      "id": "girth-sensitive-chest-width-bands",
+      "pass": true,
+      "observed": [
+        {
+          "id": "slim:round",
+          "chestWidthToHeight": 0.243691,
+          "expected": [
+            0.23,
+            0.255
+          ],
+          "pass": true
+        },
+        {
+          "id": "slim:soft-square",
+          "chestWidthToHeight": 0.24671,
+          "expected": [
+            0.23,
+            0.255
+          ],
+          "pass": true
+        },
+        {
+          "id": "slim:capsule",
+          "chestWidthToHeight": 0.237872,
+          "expected": [
+            0.23,
+            0.255
+          ],
+          "pass": true
+        },
+        {
+          "id": "normal:round",
+          "chestWidthToHeight": 0.290108,
+          "expected": [
+            0.275,
+            0.305
+          ],
+          "pass": true
+        },
+        {
+          "id": "normal:soft-square",
+          "chestWidthToHeight": 0.293702,
+          "expected": [
+            0.275,
+            0.305
+          ],
+          "pass": true
+        },
+        {
+          "id": "normal:capsule",
+          "chestWidthToHeight": 0.283181,
+          "expected": [
+            0.275,
+            0.305
+          ],
+          "pass": true
+        },
+        {
+          "id": "stocky:round",
+          "chestWidthToHeight": 0.342327,
+          "expected": [
+            0.325,
+            0.36
+          ],
+          "pass": true
+        },
+        {
+          "id": "stocky:soft-square",
+          "chestWidthToHeight": 0.346568,
+          "expected": [
+            0.325,
+            0.36
+          ],
+          "pass": true
+        },
+        {
+          "id": "stocky:capsule",
+          "chestWidthToHeight": 0.334154,
+          "expected": [
+            0.325,
+            0.36
+          ],
+          "pass": true
+        }
+      ],
+      "expected": "slim, normal, and stocky occupy distinct chestWidth/totalHeight bands because height is not girth-scaled"
+    },
+    {
+      "id": "prop-attach-center-offsets",
+      "pass": true,
+      "observed": [
+        {
+          "variant": "slim:round",
+          "kind": "laptop",
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:round",
+          "kind": "clipboard",
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:round",
+          "kind": "tablet",
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:round",
+          "kind": "terminal",
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:round",
+          "kind": "pointer",
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:round",
+          "kind": "headset",
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:round",
+          "kind": "swatch",
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:round",
+          "kind": "checklist",
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:round",
+          "kind": "keycard",
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:soft-square",
+          "kind": "laptop",
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:soft-square",
+          "kind": "clipboard",
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:soft-square",
+          "kind": "tablet",
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:soft-square",
+          "kind": "terminal",
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:soft-square",
+          "kind": "pointer",
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:soft-square",
+          "kind": "headset",
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:soft-square",
+          "kind": "swatch",
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:soft-square",
+          "kind": "checklist",
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:soft-square",
+          "kind": "keycard",
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:capsule",
+          "kind": "laptop",
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:capsule",
+          "kind": "clipboard",
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:capsule",
+          "kind": "tablet",
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:capsule",
+          "kind": "terminal",
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:capsule",
+          "kind": "pointer",
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:capsule",
+          "kind": "headset",
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:capsule",
+          "kind": "swatch",
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:capsule",
+          "kind": "checklist",
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "slim:capsule",
+          "kind": "keycard",
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:round",
+          "kind": "laptop",
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:round",
+          "kind": "clipboard",
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:round",
+          "kind": "tablet",
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:round",
+          "kind": "terminal",
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:round",
+          "kind": "pointer",
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:round",
+          "kind": "headset",
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:round",
+          "kind": "swatch",
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:round",
+          "kind": "checklist",
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:round",
+          "kind": "keycard",
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:soft-square",
+          "kind": "laptop",
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:soft-square",
+          "kind": "clipboard",
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:soft-square",
+          "kind": "tablet",
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:soft-square",
+          "kind": "terminal",
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:soft-square",
+          "kind": "pointer",
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:soft-square",
+          "kind": "headset",
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:soft-square",
+          "kind": "swatch",
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:soft-square",
+          "kind": "checklist",
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:soft-square",
+          "kind": "keycard",
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:capsule",
+          "kind": "laptop",
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:capsule",
+          "kind": "clipboard",
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:capsule",
+          "kind": "tablet",
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:capsule",
+          "kind": "terminal",
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:capsule",
+          "kind": "pointer",
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:capsule",
+          "kind": "headset",
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:capsule",
+          "kind": "swatch",
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:capsule",
+          "kind": "checklist",
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "normal:capsule",
+          "kind": "keycard",
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:round",
+          "kind": "laptop",
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:round",
+          "kind": "clipboard",
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:round",
+          "kind": "tablet",
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:round",
+          "kind": "terminal",
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:round",
+          "kind": "pointer",
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:round",
+          "kind": "headset",
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:round",
+          "kind": "swatch",
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:round",
+          "kind": "checklist",
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:round",
+          "kind": "keycard",
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:soft-square",
+          "kind": "laptop",
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:soft-square",
+          "kind": "clipboard",
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:soft-square",
+          "kind": "tablet",
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:soft-square",
+          "kind": "terminal",
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:soft-square",
+          "kind": "pointer",
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:soft-square",
+          "kind": "headset",
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:soft-square",
+          "kind": "swatch",
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:soft-square",
+          "kind": "checklist",
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:soft-square",
+          "kind": "keycard",
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:capsule",
+          "kind": "laptop",
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:capsule",
+          "kind": "clipboard",
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:capsule",
+          "kind": "tablet",
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:capsule",
+          "kind": "terminal",
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:capsule",
+          "kind": "pointer",
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:capsule",
+          "kind": "headset",
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:capsule",
+          "kind": "swatch",
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:capsule",
+          "kind": "checklist",
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        {
+          "variant": "stocky:capsule",
+          "kind": "keycard",
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        }
+      ],
+      "expected": "all 81 variant/accessory samples match contract-derived AABB-center offset vectors and nonzero distance bounds"
+    },
+    {
       "id": "shipped-variant-proportion-matrix",
       "pass": true,
       "observed": [
         {
           "id": "slim:round",
-          "totalHeightScene": 1.6347,
-          "effectiveHeadHeightScene": 0.661216,
-          "headCount": 2.472263,
+          "totalHeightScene": 1.619989,
+          "effectiveHeadHeightScene": 0.66122,
+          "headCount": 2.45,
+          "widths": {
+            "head": 0.505479,
+            "chest": 0.394776,
+            "bodyShoulder": 0.394776,
+            "hand": 0.147391,
+            "bodySleeveWrist": 0.122439,
+            "thigh": 0.175453,
+            "shoe": 0.157912
+          },
+          "ratios": {
+            "chestToHead": 0.780994,
+            "bodyShoulderToHead": 0.780994,
+            "thighToChest": 0.444437,
+            "handToHead": 0.291587,
+            "handToBodySleeve": 1.20379,
+            "shoeWidthToHead": 0.312401,
+            "shoeLengthToHeight": 0.138086,
+            "chestWidthToHeight": 0.243691
+          },
           "contact": {
-            "soleDelta": 0.0381,
+            "soleDelta": 0.004017,
             "seatButtDelta": 0.00844,
             "deskPalmDelta": 0.038338
           },
@@ -648,11 +2500,30 @@
         },
         {
           "id": "slim:soft-square",
-          "totalHeightScene": 1.614876,
-          "effectiveHeadHeightScene": 0.621568,
-          "headCount": 2.598068,
+          "totalHeightScene": 1.600164,
+          "effectiveHeadHeightScene": 0.621569,
+          "headCount": 2.574395,
+          "widths": {
+            "head": 0.556027,
+            "chest": 0.394776,
+            "bodyShoulder": 0.394776,
+            "hand": 0.147391,
+            "bodySleeveWrist": 0.122439,
+            "thigh": 0.175453,
+            "shoe": 0.157912
+          },
+          "ratios": {
+            "chestToHead": 0.709995,
+            "bodyShoulderToHead": 0.709995,
+            "thighToChest": 0.444437,
+            "handToHead": 0.265079,
+            "handToBodySleeve": 1.20379,
+            "shoeWidthToHead": 0.284001,
+            "shoeLengthToHeight": 0.139797,
+            "chestWidthToHeight": 0.24671
+          },
           "contact": {
-            "soleDelta": 0.0381,
+            "soleDelta": 0.004017,
             "seatButtDelta": 0.00844,
             "deskPalmDelta": 0.038338
           },
@@ -662,11 +2533,30 @@
         },
         {
           "id": "slim:capsule",
-          "totalHeightScene": 1.674317,
-          "effectiveHeadHeightScene": 0.74045,
-          "headCount": 2.261215,
+          "totalHeightScene": 1.659613,
+          "effectiveHeadHeightScene": 0.740467,
+          "headCount": 2.241306,
+          "widths": {
+            "head": 0.454931,
+            "chest": 0.394776,
+            "bodyShoulder": 0.394776,
+            "hand": 0.147391,
+            "bodySleeveWrist": 0.122439,
+            "thigh": 0.175453,
+            "shoe": 0.157912
+          },
+          "ratios": {
+            "chestToHead": 0.867771,
+            "bodyShoulderToHead": 0.867771,
+            "thighToChest": 0.444437,
+            "handToHead": 0.323985,
+            "handToBodySleeve": 1.20379,
+            "shoeWidthToHead": 0.347112,
+            "shoeLengthToHeight": 0.134789,
+            "chestWidthToHeight": 0.237872
+          },
           "contact": {
-            "soleDelta": 0.0381,
+            "soleDelta": 0.004017,
             "seatButtDelta": 0.00844,
             "deskPalmDelta": 0.038338
           },
@@ -676,11 +2566,30 @@
         },
         {
           "id": "normal:round",
-          "totalHeightScene": 1.6347,
-          "effectiveHeadHeightScene": 0.661216,
-          "headCount": 2.472263,
+          "totalHeightScene": 1.619989,
+          "effectiveHeadHeightScene": 0.66122,
+          "headCount": 2.45,
+          "widths": {
+            "head": 0.601761,
+            "chest": 0.469972,
+            "bodyShoulder": 0.469972,
+            "hand": 0.175465,
+            "bodySleeveWrist": 0.122439,
+            "thigh": 0.208873,
+            "shoe": 0.187991
+          },
+          "ratios": {
+            "chestToHead": 0.780994,
+            "bodyShoulderToHead": 0.780994,
+            "thighToChest": 0.444437,
+            "handToHead": 0.291587,
+            "handToBodySleeve": 1.433083,
+            "shoeWidthToHead": 0.312401,
+            "shoeLengthToHeight": 0.164388,
+            "chestWidthToHeight": 0.290108
+          },
           "contact": {
-            "soleDelta": 0.0381,
+            "soleDelta": 0.004017,
             "seatButtDelta": 0.00844,
             "deskPalmDelta": 0.038338
           },
@@ -690,11 +2599,30 @@
         },
         {
           "id": "normal:soft-square",
-          "totalHeightScene": 1.614876,
-          "effectiveHeadHeightScene": 0.621568,
-          "headCount": 2.598068,
+          "totalHeightScene": 1.600164,
+          "effectiveHeadHeightScene": 0.621569,
+          "headCount": 2.574395,
+          "widths": {
+            "head": 0.661937,
+            "chest": 0.469972,
+            "bodyShoulder": 0.469972,
+            "hand": 0.175465,
+            "bodySleeveWrist": 0.122439,
+            "thigh": 0.208873,
+            "shoe": 0.187991
+          },
+          "ratios": {
+            "chestToHead": 0.709995,
+            "bodyShoulderToHead": 0.709995,
+            "thighToChest": 0.444437,
+            "handToHead": 0.265079,
+            "handToBodySleeve": 1.433083,
+            "shoeWidthToHead": 0.284001,
+            "shoeLengthToHeight": 0.166425,
+            "chestWidthToHeight": 0.293702
+          },
           "contact": {
-            "soleDelta": 0.0381,
+            "soleDelta": 0.004017,
             "seatButtDelta": 0.00844,
             "deskPalmDelta": 0.038338
           },
@@ -704,11 +2632,30 @@
         },
         {
           "id": "normal:capsule",
-          "totalHeightScene": 1.674317,
-          "effectiveHeadHeightScene": 0.74045,
-          "headCount": 2.261215,
+          "totalHeightScene": 1.659613,
+          "effectiveHeadHeightScene": 0.740467,
+          "headCount": 2.241306,
+          "widths": {
+            "head": 0.541585,
+            "chest": 0.469972,
+            "bodyShoulder": 0.469972,
+            "hand": 0.175465,
+            "bodySleeveWrist": 0.122439,
+            "thigh": 0.208873,
+            "shoe": 0.187991
+          },
+          "ratios": {
+            "chestToHead": 0.867771,
+            "bodyShoulderToHead": 0.867771,
+            "thighToChest": 0.444437,
+            "handToHead": 0.323985,
+            "handToBodySleeve": 1.433083,
+            "shoeWidthToHead": 0.347112,
+            "shoeLengthToHeight": 0.160463,
+            "chestWidthToHeight": 0.283181
+          },
           "contact": {
-            "soleDelta": 0.0381,
+            "soleDelta": 0.004017,
             "seatButtDelta": 0.00844,
             "deskPalmDelta": 0.038338
           },
@@ -718,11 +2665,30 @@
         },
         {
           "id": "stocky:round",
-          "totalHeightScene": 1.6347,
-          "effectiveHeadHeightScene": 0.661216,
-          "headCount": 2.472263,
+          "totalHeightScene": 1.619989,
+          "effectiveHeadHeightScene": 0.66122,
+          "headCount": 2.45,
+          "widths": {
+            "head": 0.710078,
+            "chest": 0.554566,
+            "bodyShoulder": 0.554566,
+            "hand": 0.207049,
+            "bodySleeveWrist": 0.122439,
+            "thigh": 0.24647,
+            "shoe": 0.221829
+          },
+          "ratios": {
+            "chestToHead": 0.780994,
+            "bodyShoulderToHead": 0.780994,
+            "thighToChest": 0.444437,
+            "handToHead": 0.291587,
+            "handToBodySleeve": 1.691038,
+            "shoeWidthToHead": 0.312401,
+            "shoeLengthToHeight": 0.193978,
+            "chestWidthToHeight": 0.342327
+          },
           "contact": {
-            "soleDelta": 0.0381,
+            "soleDelta": 0.004017,
             "seatButtDelta": 0.00844,
             "deskPalmDelta": 0.038338
           },
@@ -732,11 +2698,30 @@
         },
         {
           "id": "stocky:soft-square",
-          "totalHeightScene": 1.614876,
-          "effectiveHeadHeightScene": 0.621568,
-          "headCount": 2.598068,
+          "totalHeightScene": 1.600164,
+          "effectiveHeadHeightScene": 0.621569,
+          "headCount": 2.574395,
+          "widths": {
+            "head": 0.781085,
+            "chest": 0.554566,
+            "bodyShoulder": 0.554566,
+            "hand": 0.207049,
+            "bodySleeveWrist": 0.122439,
+            "thigh": 0.24647,
+            "shoe": 0.221829
+          },
+          "ratios": {
+            "chestToHead": 0.709995,
+            "bodyShoulderToHead": 0.709995,
+            "thighToChest": 0.444437,
+            "handToHead": 0.265079,
+            "handToBodySleeve": 1.691038,
+            "shoeWidthToHead": 0.284001,
+            "shoeLengthToHeight": 0.196381,
+            "chestWidthToHeight": 0.346568
+          },
           "contact": {
-            "soleDelta": 0.0381,
+            "soleDelta": 0.004017,
             "seatButtDelta": 0.00844,
             "deskPalmDelta": 0.038338
           },
@@ -746,11 +2731,30 @@
         },
         {
           "id": "stocky:capsule",
-          "totalHeightScene": 1.674317,
-          "effectiveHeadHeightScene": 0.74045,
-          "headCount": 2.261215,
+          "totalHeightScene": 1.659613,
+          "effectiveHeadHeightScene": 0.740467,
+          "headCount": 2.241306,
+          "widths": {
+            "head": 0.63907,
+            "chest": 0.554566,
+            "bodyShoulder": 0.554566,
+            "hand": 0.207049,
+            "bodySleeveWrist": 0.122439,
+            "thigh": 0.24647,
+            "shoe": 0.221829
+          },
+          "ratios": {
+            "chestToHead": 0.867771,
+            "bodyShoulderToHead": 0.867771,
+            "thighToChest": 0.444437,
+            "handToHead": 0.323985,
+            "handToBodySleeve": 1.691038,
+            "shoeWidthToHead": 0.347112,
+            "shoeLengthToHeight": 0.189347,
+            "chestWidthToHeight": 0.334154
+          },
           "contact": {
-            "soleDelta": 0.0381,
+            "soleDelta": 0.004017,
             "seatButtDelta": 0.00844,
             "deskPalmDelta": 0.038338
           },
@@ -1140,7 +3144,27 @@
             0.538883
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          -0.088,
+          0.042,
+          0.112
+        ],
+        "expectedCenterOffsetLocal": [
+          -0.088,
+          0.042,
+          0.112
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.148499,
+        "expectedCenterDistance": 0.148499,
+        "centerDistanceRange": [
+          0.146499,
+          0.150499
+        ],
         "headDistance": 0.138112,
         "unexpectedFaceRisk": false,
         "pass": true,
@@ -1148,7 +3172,11 @@
         "clearOfDesk": true
       },
       "expected": {
-        "reachMax": 0.12,
+        "centerOffsetTolerance": 0.002,
+        "centerDistanceRange": [
+          0.146499,
+          0.150499
+        ],
         "unexpectedFaceRisk": false
       }
     },
@@ -1172,7 +3200,27 @@
             0.538883
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          -0.088,
+          0.042,
+          0.112
+        ],
+        "expectedCenterOffsetLocal": [
+          -0.088,
+          0.042,
+          0.112
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.148499,
+        "expectedCenterDistance": 0.148499,
+        "centerDistanceRange": [
+          0.146499,
+          0.150499
+        ],
         "headDistance": 0.138112,
         "unexpectedFaceRisk": false,
         "pass": true,
@@ -1203,13 +3251,37 @@
             0.482187
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          0.088,
+          0.05687,
+          -0.003
+        ],
+        "expectedCenterOffsetLocal": [
+          0.088,
+          0.05687,
+          -0.003
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.10482,
+        "expectedCenterDistance": 0.10482,
+        "centerDistanceRange": [
+          0.10282,
+          0.10682
+        ],
         "headDistance": 0.11775,
         "unexpectedFaceRisk": false,
         "pass": true
       },
       "expected": {
-        "reachMax": 0.12,
+        "centerOffsetTolerance": 0.002,
+        "centerDistanceRange": [
+          0.10282,
+          0.10682
+        ],
         "unexpectedFaceRisk": false
       }
     },
@@ -1233,13 +3305,37 @@
             0.486308
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          0.088,
+          0.043039,
+          0.002
+        ],
+        "expectedCenterOffsetLocal": [
+          0.088,
+          0.043039,
+          0.002
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.097982,
+        "expectedCenterDistance": 0.097982,
+        "centerDistanceRange": [
+          0.095982,
+          0.099982
+        ],
         "headDistance": 0.112223,
         "unexpectedFaceRisk": false,
         "pass": true
       },
       "expected": {
-        "reachMax": 0.12,
+        "centerOffsetTolerance": 0.002,
+        "centerDistanceRange": [
+          0.095982,
+          0.099982
+        ],
         "unexpectedFaceRisk": false
       }
     },
@@ -1263,13 +3359,37 @@
             0.58865
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          -0.088,
+          0.022646,
+          -0.029366
+        ],
+        "expectedCenterOffsetLocal": [
+          -0.088,
+          0.022646,
+          -0.029366
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.095495,
+        "expectedCenterDistance": 0.095495,
+        "centerDistanceRange": [
+          0.093495,
+          0.097495
+        ],
         "headDistance": 0.152063,
         "unexpectedFaceRisk": false,
         "pass": true
       },
       "expected": {
-        "reachMax": 0.12,
+        "centerOffsetTolerance": 0.002,
+        "centerDistanceRange": [
+          0.093495,
+          0.097495
+        ],
         "unexpectedFaceRisk": false
       }
     },
@@ -1293,13 +3413,37 @@
             0.606129
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          0.071908,
+          0.045405,
+          0.002
+        ],
+        "expectedCenterOffsetLocal": [
+          0.071908,
+          0.045405,
+          0.002
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.085067,
+        "expectedCenterDistance": 0.085067,
+        "centerDistanceRange": [
+          0.083067,
+          0.087067
+        ],
         "headDistance": 0.238713,
         "unexpectedFaceRisk": false,
         "pass": true
       },
       "expected": {
-        "reachMax": 0.12,
+        "centerOffsetTolerance": 0.002,
+        "centerDistanceRange": [
+          0.083067,
+          0.087067
+        ],
         "unexpectedFaceRisk": false
       }
     },
@@ -1323,13 +3467,37 @@
             0.650729
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          0,
+          0.093595,
+          0.065301
+        ],
+        "expectedCenterOffsetLocal": [
+          0,
+          0.093595,
+          0.065301
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.114124,
+        "expectedCenterDistance": 0.114124,
+        "centerDistanceRange": [
+          0.112124,
+          0.116124
+        ],
         "headDistance": 0,
         "unexpectedFaceRisk": false,
         "pass": true
       },
       "expected": {
-        "reachMax": 0.12,
+        "centerOffsetTolerance": 0.002,
+        "centerDistanceRange": [
+          0.112124,
+          0.116124
+        ],
         "unexpectedFaceRisk": false
       }
     },
@@ -1353,13 +3521,37 @@
             0.474222
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          0.088,
+          0.065334,
+          0.002
+        ],
+        "expectedCenterOffsetLocal": [
+          0.088,
+          0.065334,
+          0.002
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.10962,
+        "expectedCenterDistance": 0.10962,
+        "centerDistanceRange": [
+          0.10762,
+          0.11162
+        ],
         "headDistance": 0.105874,
         "unexpectedFaceRisk": false,
         "pass": true
       },
       "expected": {
-        "reachMax": 0.12,
+        "centerOffsetTolerance": 0.002,
+        "centerDistanceRange": [
+          0.10762,
+          0.11162
+        ],
         "unexpectedFaceRisk": false
       }
     },
@@ -1383,13 +3575,37 @@
             0.482187
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          0.088,
+          0.049506,
+          -0.003
+        ],
+        "expectedCenterOffsetLocal": [
+          0.088,
+          0.049506,
+          -0.003
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.101014,
+        "expectedCenterDistance": 0.101014,
+        "centerDistanceRange": [
+          0.099014,
+          0.103014
+        ],
         "headDistance": 0.11775,
         "unexpectedFaceRisk": false,
         "pass": true
       },
       "expected": {
-        "reachMax": 0.12,
+        "centerOffsetTolerance": 0.002,
+        "centerDistanceRange": [
+          0.099014,
+          0.103014
+        ],
         "unexpectedFaceRisk": false
       }
     },
@@ -1413,13 +3629,37 @@
             0.487966
           ]
         },
-        "reach": 0,
+        "centerOffsetLocal": [
+          0.088,
+          0.018914,
+          0.07395
+        ],
+        "expectedCenterOffsetLocal": [
+          0.088,
+          0.018914,
+          0.07395
+        ],
+        "centerOffsetError": [
+          0,
+          0,
+          0
+        ],
+        "centerDistance": 0.116492,
+        "expectedCenterDistance": 0.116492,
+        "centerDistanceRange": [
+          0.114492,
+          0.118492
+        ],
         "headDistance": 0.052522,
         "unexpectedFaceRisk": false,
         "pass": true
       },
       "expected": {
-        "reachMax": 0.12,
+        "centerOffsetTolerance": 0.002,
+        "centerDistanceRange": [
+          0.114492,
+          0.118492
+        ],
         "unexpectedFaceRisk": false
       }
     },
@@ -1648,7 +3888,27 @@
           0.538883
         ]
       },
-      "reach": 0,
+      "centerOffsetLocal": [
+        -0.088,
+        0.042,
+        0.112
+      ],
+      "expectedCenterOffsetLocal": [
+        -0.088,
+        0.042,
+        0.112
+      ],
+      "centerOffsetError": [
+        0,
+        0,
+        0
+      ],
+      "centerDistance": 0.148499,
+      "expectedCenterDistance": 0.148499,
+      "centerDistanceRange": [
+        0.146499,
+        0.150499
+      ],
       "headDistance": 0.138112,
       "unexpectedFaceRisk": false,
       "pass": true,
@@ -1672,7 +3932,27 @@
           0.482187
         ]
       },
-      "reach": 0,
+      "centerOffsetLocal": [
+        0.088,
+        0.05687,
+        -0.003
+      ],
+      "expectedCenterOffsetLocal": [
+        0.088,
+        0.05687,
+        -0.003
+      ],
+      "centerOffsetError": [
+        0,
+        0,
+        0
+      ],
+      "centerDistance": 0.10482,
+      "expectedCenterDistance": 0.10482,
+      "centerDistanceRange": [
+        0.10282,
+        0.10682
+      ],
       "headDistance": 0.11775,
       "unexpectedFaceRisk": false,
       "pass": true
@@ -1694,7 +3974,27 @@
           0.486308
         ]
       },
-      "reach": 0,
+      "centerOffsetLocal": [
+        0.088,
+        0.043039,
+        0.002
+      ],
+      "expectedCenterOffsetLocal": [
+        0.088,
+        0.043039,
+        0.002
+      ],
+      "centerOffsetError": [
+        0,
+        0,
+        0
+      ],
+      "centerDistance": 0.097982,
+      "expectedCenterDistance": 0.097982,
+      "centerDistanceRange": [
+        0.095982,
+        0.099982
+      ],
       "headDistance": 0.112223,
       "unexpectedFaceRisk": false,
       "pass": true
@@ -1716,7 +4016,27 @@
           0.58865
         ]
       },
-      "reach": 0,
+      "centerOffsetLocal": [
+        -0.088,
+        0.022646,
+        -0.029366
+      ],
+      "expectedCenterOffsetLocal": [
+        -0.088,
+        0.022646,
+        -0.029366
+      ],
+      "centerOffsetError": [
+        0,
+        0,
+        0
+      ],
+      "centerDistance": 0.095495,
+      "expectedCenterDistance": 0.095495,
+      "centerDistanceRange": [
+        0.093495,
+        0.097495
+      ],
       "headDistance": 0.152063,
       "unexpectedFaceRisk": false,
       "pass": true
@@ -1738,7 +4058,27 @@
           0.606129
         ]
       },
-      "reach": 0,
+      "centerOffsetLocal": [
+        0.071908,
+        0.045405,
+        0.002
+      ],
+      "expectedCenterOffsetLocal": [
+        0.071908,
+        0.045405,
+        0.002
+      ],
+      "centerOffsetError": [
+        0,
+        0,
+        0
+      ],
+      "centerDistance": 0.085067,
+      "expectedCenterDistance": 0.085067,
+      "centerDistanceRange": [
+        0.083067,
+        0.087067
+      ],
       "headDistance": 0.238713,
       "unexpectedFaceRisk": false,
       "pass": true
@@ -1760,7 +4100,27 @@
           0.650729
         ]
       },
-      "reach": 0,
+      "centerOffsetLocal": [
+        0,
+        0.093595,
+        0.065301
+      ],
+      "expectedCenterOffsetLocal": [
+        0,
+        0.093595,
+        0.065301
+      ],
+      "centerOffsetError": [
+        0,
+        0,
+        0
+      ],
+      "centerDistance": 0.114124,
+      "expectedCenterDistance": 0.114124,
+      "centerDistanceRange": [
+        0.112124,
+        0.116124
+      ],
       "headDistance": 0,
       "unexpectedFaceRisk": false,
       "pass": true
@@ -1782,7 +4142,27 @@
           0.474222
         ]
       },
-      "reach": 0,
+      "centerOffsetLocal": [
+        0.088,
+        0.065334,
+        0.002
+      ],
+      "expectedCenterOffsetLocal": [
+        0.088,
+        0.065334,
+        0.002
+      ],
+      "centerOffsetError": [
+        0,
+        0,
+        0
+      ],
+      "centerDistance": 0.10962,
+      "expectedCenterDistance": 0.10962,
+      "centerDistanceRange": [
+        0.10762,
+        0.11162
+      ],
       "headDistance": 0.105874,
       "unexpectedFaceRisk": false,
       "pass": true
@@ -1804,7 +4184,27 @@
           0.482187
         ]
       },
-      "reach": 0,
+      "centerOffsetLocal": [
+        0.088,
+        0.049506,
+        -0.003
+      ],
+      "expectedCenterOffsetLocal": [
+        0.088,
+        0.049506,
+        -0.003
+      ],
+      "centerOffsetError": [
+        0,
+        0,
+        0
+      ],
+      "centerDistance": 0.101014,
+      "expectedCenterDistance": 0.101014,
+      "centerDistanceRange": [
+        0.099014,
+        0.103014
+      ],
       "headDistance": 0.11775,
       "unexpectedFaceRisk": false,
       "pass": true
@@ -1826,7 +4226,27 @@
           0.487966
         ]
       },
-      "reach": 0,
+      "centerOffsetLocal": [
+        0.088,
+        0.018914,
+        0.07395
+      ],
+      "expectedCenterOffsetLocal": [
+        0.088,
+        0.018914,
+        0.07395
+      ],
+      "centerOffsetError": [
+        0,
+        0,
+        0
+      ],
+      "centerDistance": 0.116492,
+      "expectedCenterDistance": 0.116492,
+      "centerDistanceRange": [
+        0.114492,
+        0.118492
+      ],
       "headDistance": 0.052522,
       "unexpectedFaceRisk": false,
       "pass": true
@@ -1835,11 +4255,31 @@
   "variantMeasurements": [
     {
       "id": "slim:round",
-      "totalHeightScene": 1.6347,
-      "effectiveHeadHeightScene": 0.661216,
-      "headCount": 2.472263,
+      "totalHeightScene": 1.619989,
+      "effectiveHeadHeightScene": 0.66122,
+      "headCount": 2.45,
+      "headWidthScene": 0.505479,
+      "chestWidthScene": 0.394776,
+      "hipWidthScene": 0.375068,
+      "bodyShoulderWidthScene": 0.394776,
+      "handWidthScene": 0.147391,
+      "bodySleeveWristWidthScene": 0.122439,
+      "thighDiameterScene": 0.175453,
+      "shoeWidthScene": 0.157912,
+      "shoeHeightScene": 0.14461,
+      "shoeLengthScene": 0.223698,
+      "ratios": {
+        "chestToHead": 0.780994,
+        "bodyShoulderToHead": 0.780994,
+        "thighToChest": 0.444437,
+        "handToHead": 0.291587,
+        "handToBodySleeve": 1.20379,
+        "shoeWidthToHead": 0.312401,
+        "shoeLengthToHeight": 0.138086,
+        "chestWidthToHeight": 0.243691
+      },
       "contact": {
-        "soleDelta": 0.0381,
+        "soleDelta": 0.004017,
         "seatButtDelta": 0.00844,
         "deskPalmDelta": 0.038338
       },
@@ -1861,7 +4301,27 @@
               0.512662
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
           "headDistance": 0.138033,
           "unexpectedFaceRisk": false,
           "pass": true,
@@ -1885,7 +4345,27 @@
               0.465037
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
           "headDistance": 0.116468,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -1907,7 +4387,27 @@
               0.468499
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
           "headDistance": 0.111204,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -1929,7 +4429,27 @@
               0.554466
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
           "headDistance": 0.152063,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -1951,7 +4471,27 @@
               0.569149
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
           "headDistance": 0.238713,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -1973,7 +4513,27 @@
               0.606612
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "expectedCenterOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
           "headDistance": 0,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -1995,7 +4555,27 @@
               0.458347
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
           "headDistance": 0.103637,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2017,7 +4597,27 @@
               0.465037
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
           "headDistance": 0.116468,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2039,7 +4639,27 @@
               0.469891
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
           "headDistance": 0.050567,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2059,35 +4679,88 @@
         "effectiveHeadHeightScene": 0.661224,
         "headCount": 2.45,
         "headWidthScene": 0.50544,
-        "chestWidthScene": 0.404942,
-        "hipWidthScene": 0.384695,
-        "shoulderEnvelopeWidthScene": 0.334825,
-        "handWidthScene": 0.151178,
-        "sleeveWristWidthScene": 0.031479,
+        "chestWidthScene": 0.39479,
+        "hipWidthScene": 0.37505,
+        "bodyShoulderWidthScene": 0.39479,
+        "handWidthScene": 0.147388,
+        "bodySleeveWristWidthScene": 0.122463,
         "thighDiameterScene": 0.175475,
-        "shoeWidthScene": 0.161977,
+        "shoeWidthScene": 0.157916,
         "shoeHeightScene": 0.144622,
-        "shoeLengthScene": 0.229467,
+        "shoeLengthScene": 0.223714,
         "ratios": {
-          "chestToHead": 0.801168,
-          "garmentShoulderToHead": 0.662442,
-          "thighToChest": 0.433333,
-          "handToHead": 0.299103,
-          "handToSleeve": 4.802482,
-          "shoeWidthToHead": 0.320467,
-          "shoeLengthToHeight": 0.141646
+          "chestToHead": 0.781081,
+          "bodyShoulderToHead": 0.781081,
+          "thighToChest": 0.444477,
+          "handToHead": 0.291604,
+          "handToBodySleeve": 1.203529,
+          "shoeWidthToHead": 0.312432,
+          "shoeLengthToHeight": 0.138095,
+          "chestWidthToHeight": 0.243697
         },
         "pass": true
+      },
+      "declaredCrossCheck": {
+        "pass": true,
+        "tolerance": 0.0005,
+        "differences": {
+          "totalHeightScene": 0.000011,
+          "effectiveHeadHeightScene": 0.000004,
+          "headWidthScene": 0.000039,
+          "chestWidthScene": 0.000014,
+          "hipWidthScene": 0.000018,
+          "bodyShoulderWidthScene": 0.000014,
+          "handWidthScene": 0.000003,
+          "bodySleeveWristWidthScene": 0.000024,
+          "thighDiameterScene": 0.000022,
+          "shoeWidthScene": 0.000004,
+          "shoeHeightScene": 0.000012,
+          "shoeLengthScene": 0.000016,
+          "ratios.chestToHead": 0.000087,
+          "ratios.bodyShoulderToHead": 0.000087,
+          "ratios.thighToChest": 0.00004,
+          "ratios.handToHead": 0.000017,
+          "ratios.handToBodySleeve": 0.000261,
+          "ratios.shoeWidthToHead": 0.000031,
+          "ratios.shoeLengthToHeight": 0.000009,
+          "ratios.chestWidthToHeight": 0.000006
+        }
+      },
+      "gateResults": {
+        "proportionPass": true,
+        "girthPass": true,
+        "contactPass": true,
+        "propAttachPass": true
       },
       "pass": true
     },
     {
       "id": "slim:soft-square",
-      "totalHeightScene": 1.614876,
-      "effectiveHeadHeightScene": 0.621568,
-      "headCount": 2.598068,
+      "totalHeightScene": 1.600164,
+      "effectiveHeadHeightScene": 0.621569,
+      "headCount": 2.574395,
+      "headWidthScene": 0.556027,
+      "chestWidthScene": 0.394776,
+      "hipWidthScene": 0.375068,
+      "bodyShoulderWidthScene": 0.394776,
+      "handWidthScene": 0.147391,
+      "bodySleeveWristWidthScene": 0.122439,
+      "thighDiameterScene": 0.175453,
+      "shoeWidthScene": 0.157912,
+      "shoeHeightScene": 0.14461,
+      "shoeLengthScene": 0.223698,
+      "ratios": {
+        "chestToHead": 0.709995,
+        "bodyShoulderToHead": 0.709995,
+        "thighToChest": 0.444437,
+        "handToHead": 0.265079,
+        "handToBodySleeve": 1.20379,
+        "shoeWidthToHead": 0.284001,
+        "shoeLengthToHeight": 0.139797,
+        "chestWidthToHeight": 0.24671
+      },
       "contact": {
-        "soleDelta": 0.0381,
+        "soleDelta": 0.004017,
         "seatButtDelta": 0.00844,
         "deskPalmDelta": 0.038338
       },
@@ -2109,7 +4782,27 @@
               0.512662
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
           "headDistance": 0.138033,
           "unexpectedFaceRisk": false,
           "pass": true,
@@ -2133,7 +4826,27 @@
               0.465037
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
           "headDistance": 0.116468,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2155,7 +4868,27 @@
               0.468499
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
           "headDistance": 0.111204,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2177,7 +4910,27 @@
               0.554466
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
           "headDistance": 0.152063,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2199,7 +4952,27 @@
               0.569149
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
           "headDistance": 0.238713,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2221,7 +4994,27 @@
               0.609226
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "expectedCenterOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
           "headDistance": 0,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2243,7 +5036,27 @@
               0.458347
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
           "headDistance": 0.103637,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2265,7 +5078,27 @@
               0.465037
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
           "headDistance": 0.116468,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2287,7 +5120,27 @@
               0.469891
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
           "headDistance": 0.050567,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2307,35 +5160,88 @@
         "effectiveHeadHeightScene": 0.621551,
         "headCount": 2.574468,
         "headWidthScene": 0.555984,
-        "chestWidthScene": 0.404942,
-        "hipWidthScene": 0.384695,
-        "shoulderEnvelopeWidthScene": 0.334825,
-        "handWidthScene": 0.151178,
-        "sleeveWristWidthScene": 0.031479,
+        "chestWidthScene": 0.39479,
+        "hipWidthScene": 0.37505,
+        "bodyShoulderWidthScene": 0.39479,
+        "handWidthScene": 0.147388,
+        "bodySleeveWristWidthScene": 0.122463,
         "thighDiameterScene": 0.175475,
-        "shoeWidthScene": 0.161977,
+        "shoeWidthScene": 0.157916,
         "shoeHeightScene": 0.144622,
-        "shoeLengthScene": 0.229467,
+        "shoeLengthScene": 0.223714,
         "ratios": {
-          "chestToHead": 0.728334,
-          "garmentShoulderToHead": 0.60222,
-          "thighToChest": 0.433333,
-          "handToHead": 0.271912,
-          "handToSleeve": 4.802482,
-          "shoeWidthToHead": 0.291334,
-          "shoeLengthToHeight": 0.143402
+          "chestToHead": 0.710074,
+          "bodyShoulderToHead": 0.710074,
+          "thighToChest": 0.444477,
+          "handToHead": 0.265094,
+          "handToBodySleeve": 1.203529,
+          "shoeWidthToHead": 0.284029,
+          "shoeLengthToHeight": 0.139807,
+          "chestWidthToHeight": 0.246718
         },
         "pass": true
+      },
+      "declaredCrossCheck": {
+        "pass": true,
+        "tolerance": 0.0005,
+        "differences": {
+          "totalHeightScene": 0.000001,
+          "effectiveHeadHeightScene": 0.000018,
+          "headWidthScene": 0.000043,
+          "chestWidthScene": 0.000014,
+          "hipWidthScene": 0.000018,
+          "bodyShoulderWidthScene": 0.000014,
+          "handWidthScene": 0.000003,
+          "bodySleeveWristWidthScene": 0.000024,
+          "thighDiameterScene": 0.000022,
+          "shoeWidthScene": 0.000004,
+          "shoeHeightScene": 0.000012,
+          "shoeLengthScene": 0.000016,
+          "ratios.chestToHead": 0.000079,
+          "ratios.bodyShoulderToHead": 0.000079,
+          "ratios.thighToChest": 0.00004,
+          "ratios.handToHead": 0.000015,
+          "ratios.handToBodySleeve": 0.000261,
+          "ratios.shoeWidthToHead": 0.000028,
+          "ratios.shoeLengthToHeight": 0.00001,
+          "ratios.chestWidthToHeight": 0.000008
+        }
+      },
+      "gateResults": {
+        "proportionPass": true,
+        "girthPass": true,
+        "contactPass": true,
+        "propAttachPass": true
       },
       "pass": true
     },
     {
       "id": "slim:capsule",
-      "totalHeightScene": 1.674317,
-      "effectiveHeadHeightScene": 0.74045,
-      "headCount": 2.261215,
+      "totalHeightScene": 1.659613,
+      "effectiveHeadHeightScene": 0.740467,
+      "headCount": 2.241306,
+      "headWidthScene": 0.454931,
+      "chestWidthScene": 0.394776,
+      "hipWidthScene": 0.375068,
+      "bodyShoulderWidthScene": 0.394776,
+      "handWidthScene": 0.147391,
+      "bodySleeveWristWidthScene": 0.122439,
+      "thighDiameterScene": 0.175453,
+      "shoeWidthScene": 0.157912,
+      "shoeHeightScene": 0.14461,
+      "shoeLengthScene": 0.223698,
+      "ratios": {
+        "chestToHead": 0.867771,
+        "bodyShoulderToHead": 0.867771,
+        "thighToChest": 0.444437,
+        "handToHead": 0.323985,
+        "handToBodySleeve": 1.20379,
+        "shoeWidthToHead": 0.347112,
+        "shoeLengthToHeight": 0.134789,
+        "chestWidthToHeight": 0.237872
+      },
       "contact": {
-        "soleDelta": 0.0381,
+        "soleDelta": 0.004017,
         "seatButtDelta": 0.00844,
         "deskPalmDelta": 0.038338
       },
@@ -2357,7 +5263,27 @@
               0.512662
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
           "headDistance": 0.138033,
           "unexpectedFaceRisk": false,
           "pass": true,
@@ -2381,7 +5307,27 @@
               0.465037
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
           "headDistance": 0.116468,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2403,7 +5349,27 @@
               0.468499
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
           "headDistance": 0.111204,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2425,7 +5391,27 @@
               0.554466
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
           "headDistance": 0.152063,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2447,7 +5433,27 @@
               0.569149
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
           "headDistance": 0.238713,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2469,7 +5475,27 @@
               0.602984
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "expectedCenterOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
           "headDistance": 0,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2491,7 +5517,27 @@
               0.458347
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
           "headDistance": 0.103637,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2513,7 +5559,27 @@
               0.465037
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
           "headDistance": 0.116468,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2535,7 +5601,27 @@
               0.469891
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
           "headDistance": 0.050567,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2555,35 +5641,88 @@
         "effectiveHeadHeightScene": 0.740571,
         "headCount": 2.241071,
         "headWidthScene": 0.454896,
-        "chestWidthScene": 0.404942,
-        "hipWidthScene": 0.384695,
-        "shoulderEnvelopeWidthScene": 0.334825,
-        "handWidthScene": 0.151178,
-        "sleeveWristWidthScene": 0.031479,
+        "chestWidthScene": 0.39479,
+        "hipWidthScene": 0.37505,
+        "bodyShoulderWidthScene": 0.39479,
+        "handWidthScene": 0.147388,
+        "bodySleeveWristWidthScene": 0.122463,
         "thighDiameterScene": 0.175475,
-        "shoeWidthScene": 0.161977,
+        "shoeWidthScene": 0.157916,
         "shoeHeightScene": 0.144622,
-        "shoeLengthScene": 0.229467,
+        "shoeLengthScene": 0.223714,
         "ratios": {
-          "chestToHead": 0.890187,
-          "garmentShoulderToHead": 0.736047,
-          "thighToChest": 0.433333,
-          "handToHead": 0.332336,
-          "handToSleeve": 4.802482,
-          "shoeWidthToHead": 0.356075,
-          "shoeLengthToHeight": 0.138261
+          "chestToHead": 0.867868,
+          "bodyShoulderToHead": 0.867868,
+          "thighToChest": 0.444477,
+          "handToHead": 0.324004,
+          "handToBodySleeve": 1.203529,
+          "shoeWidthToHead": 0.347147,
+          "shoeLengthToHeight": 0.134794,
+          "chestWidthToHeight": 0.237872
         },
         "pass": true
+      },
+      "declaredCrossCheck": {
+        "pass": true,
+        "tolerance": 0.0005,
+        "differences": {
+          "totalHeightScene": 0.00006,
+          "effectiveHeadHeightScene": 0.000104,
+          "headWidthScene": 0.000035,
+          "chestWidthScene": 0.000014,
+          "hipWidthScene": 0.000018,
+          "bodyShoulderWidthScene": 0.000014,
+          "handWidthScene": 0.000003,
+          "bodySleeveWristWidthScene": 0.000024,
+          "thighDiameterScene": 0.000022,
+          "shoeWidthScene": 0.000004,
+          "shoeHeightScene": 0.000012,
+          "shoeLengthScene": 0.000016,
+          "ratios.chestToHead": 0.000097,
+          "ratios.bodyShoulderToHead": 0.000097,
+          "ratios.thighToChest": 0.00004,
+          "ratios.handToHead": 0.000019,
+          "ratios.handToBodySleeve": 0.000261,
+          "ratios.shoeWidthToHead": 0.000035,
+          "ratios.shoeLengthToHeight": 0.000005,
+          "ratios.chestWidthToHeight": 0
+        }
+      },
+      "gateResults": {
+        "proportionPass": true,
+        "girthPass": true,
+        "contactPass": true,
+        "propAttachPass": true
       },
       "pass": true
     },
     {
       "id": "normal:round",
-      "totalHeightScene": 1.6347,
-      "effectiveHeadHeightScene": 0.661216,
-      "headCount": 2.472263,
+      "totalHeightScene": 1.619989,
+      "effectiveHeadHeightScene": 0.66122,
+      "headCount": 2.45,
+      "headWidthScene": 0.601761,
+      "chestWidthScene": 0.469972,
+      "hipWidthScene": 0.44651,
+      "bodyShoulderWidthScene": 0.469972,
+      "handWidthScene": 0.175465,
+      "bodySleeveWristWidthScene": 0.122439,
+      "thighDiameterScene": 0.208873,
+      "shoeWidthScene": 0.187991,
+      "shoeHeightScene": 0.14461,
+      "shoeLengthScene": 0.266307,
+      "ratios": {
+        "chestToHead": 0.780994,
+        "bodyShoulderToHead": 0.780994,
+        "thighToChest": 0.444437,
+        "handToHead": 0.291587,
+        "handToBodySleeve": 1.433083,
+        "shoeWidthToHead": 0.312401,
+        "shoeLengthToHeight": 0.164388,
+        "chestWidthToHeight": 0.290108
+      },
       "contact": {
-        "soleDelta": 0.0381,
+        "soleDelta": 0.004017,
         "seatButtDelta": 0.00844,
         "deskPalmDelta": 0.038338
       },
@@ -2605,7 +5744,27 @@
               0.538883
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
           "headDistance": 0.138112,
           "unexpectedFaceRisk": false,
           "pass": true,
@@ -2629,7 +5788,27 @@
               0.482187
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
           "headDistance": 0.11775,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2651,7 +5830,27 @@
               0.486308
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
           "headDistance": 0.112223,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2673,7 +5872,27 @@
               0.58865
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
           "headDistance": 0.152063,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2695,7 +5914,27 @@
               0.606129
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
           "headDistance": 0.238713,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2717,7 +5956,27 @@
               0.650729
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "expectedCenterOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
           "headDistance": 0,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2739,7 +5998,27 @@
               0.474222
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
           "headDistance": 0.105874,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2761,7 +6040,27 @@
               0.482187
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
           "headDistance": 0.11775,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2783,7 +6082,27 @@
               0.487966
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
           "headDistance": 0.052522,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2803,35 +6122,88 @@
         "effectiveHeadHeightScene": 0.661224,
         "headCount": 2.45,
         "headWidthScene": 0.601714,
-        "chestWidthScene": 0.482074,
-        "hipWidthScene": 0.45797,
-        "shoulderEnvelopeWidthScene": 0.398601,
-        "handWidthScene": 0.179974,
-        "sleeveWristWidthScene": 0.037475,
+        "chestWidthScene": 0.469988,
+        "hipWidthScene": 0.446488,
+        "bodyShoulderWidthScene": 0.469988,
+        "handWidthScene": 0.175462,
+        "bodySleeveWristWidthScene": 0.122463,
         "thighDiameterScene": 0.208899,
-        "shoeWidthScene": 0.19283,
+        "shoeWidthScene": 0.187995,
         "shoeHeightScene": 0.144622,
-        "shoeLengthScene": 0.273175,
+        "shoeLengthScene": 0.266326,
         "ratios": {
-          "chestToHead": 0.801168,
-          "garmentShoulderToHead": 0.662442,
-          "thighToChest": 0.433333,
-          "handToHead": 0.299103,
-          "handToSleeve": 4.802482,
-          "shoeWidthToHead": 0.320467,
-          "shoeLengthToHeight": 0.168627
+          "chestToHead": 0.781081,
+          "bodyShoulderToHead": 0.781081,
+          "thighToChest": 0.444477,
+          "handToHead": 0.291604,
+          "handToBodySleeve": 1.432772,
+          "shoeWidthToHead": 0.312432,
+          "shoeLengthToHeight": 0.164399,
+          "chestWidthToHeight": 0.290116
         },
         "pass": true
+      },
+      "declaredCrossCheck": {
+        "pass": true,
+        "tolerance": 0.0005,
+        "differences": {
+          "totalHeightScene": 0.000011,
+          "effectiveHeadHeightScene": 0.000004,
+          "headWidthScene": 0.000047,
+          "chestWidthScene": 0.000016,
+          "hipWidthScene": 0.000022,
+          "bodyShoulderWidthScene": 0.000016,
+          "handWidthScene": 0.000003,
+          "bodySleeveWristWidthScene": 0.000024,
+          "thighDiameterScene": 0.000026,
+          "shoeWidthScene": 0.000004,
+          "shoeHeightScene": 0.000012,
+          "shoeLengthScene": 0.000019,
+          "ratios.chestToHead": 0.000087,
+          "ratios.bodyShoulderToHead": 0.000087,
+          "ratios.thighToChest": 0.00004,
+          "ratios.handToHead": 0.000017,
+          "ratios.handToBodySleeve": 0.000311,
+          "ratios.shoeWidthToHead": 0.000031,
+          "ratios.shoeLengthToHeight": 0.000011,
+          "ratios.chestWidthToHeight": 0.000008
+        }
+      },
+      "gateResults": {
+        "proportionPass": true,
+        "girthPass": true,
+        "contactPass": true,
+        "propAttachPass": true
       },
       "pass": true
     },
     {
       "id": "normal:soft-square",
-      "totalHeightScene": 1.614876,
-      "effectiveHeadHeightScene": 0.621568,
-      "headCount": 2.598068,
+      "totalHeightScene": 1.600164,
+      "effectiveHeadHeightScene": 0.621569,
+      "headCount": 2.574395,
+      "headWidthScene": 0.661937,
+      "chestWidthScene": 0.469972,
+      "hipWidthScene": 0.44651,
+      "bodyShoulderWidthScene": 0.469972,
+      "handWidthScene": 0.175465,
+      "bodySleeveWristWidthScene": 0.122439,
+      "thighDiameterScene": 0.208873,
+      "shoeWidthScene": 0.187991,
+      "shoeHeightScene": 0.14461,
+      "shoeLengthScene": 0.266307,
+      "ratios": {
+        "chestToHead": 0.709995,
+        "bodyShoulderToHead": 0.709995,
+        "thighToChest": 0.444437,
+        "handToHead": 0.265079,
+        "handToBodySleeve": 1.433083,
+        "shoeWidthToHead": 0.284001,
+        "shoeLengthToHeight": 0.166425,
+        "chestWidthToHeight": 0.293702
+      },
       "contact": {
-        "soleDelta": 0.0381,
+        "soleDelta": 0.004017,
         "seatButtDelta": 0.00844,
         "deskPalmDelta": 0.038338
       },
@@ -2853,7 +6225,27 @@
               0.538883
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
           "headDistance": 0.138112,
           "unexpectedFaceRisk": false,
           "pass": true,
@@ -2877,7 +6269,27 @@
               0.482187
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
           "headDistance": 0.11775,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2899,7 +6311,27 @@
               0.486308
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
           "headDistance": 0.112223,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2921,7 +6353,27 @@
               0.58865
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
           "headDistance": 0.152063,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2943,7 +6395,27 @@
               0.606129
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
           "headDistance": 0.238713,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2965,7 +6437,27 @@
               0.65384
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "expectedCenterOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
           "headDistance": 0,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -2987,7 +6479,27 @@
               0.474222
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
           "headDistance": 0.105874,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3009,7 +6521,27 @@
               0.482187
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
           "headDistance": 0.11775,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3031,7 +6563,27 @@
               0.487966
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
           "headDistance": 0.052522,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3051,35 +6603,88 @@
         "effectiveHeadHeightScene": 0.621551,
         "headCount": 2.574468,
         "headWidthScene": 0.661886,
-        "chestWidthScene": 0.482074,
-        "hipWidthScene": 0.45797,
-        "shoulderEnvelopeWidthScene": 0.398601,
-        "handWidthScene": 0.179974,
-        "sleeveWristWidthScene": 0.037475,
+        "chestWidthScene": 0.469988,
+        "hipWidthScene": 0.446488,
+        "bodyShoulderWidthScene": 0.469988,
+        "handWidthScene": 0.175462,
+        "bodySleeveWristWidthScene": 0.122463,
         "thighDiameterScene": 0.208899,
-        "shoeWidthScene": 0.19283,
+        "shoeWidthScene": 0.187995,
         "shoeHeightScene": 0.144622,
-        "shoeLengthScene": 0.273175,
+        "shoeLengthScene": 0.266326,
         "ratios": {
-          "chestToHead": 0.728334,
-          "garmentShoulderToHead": 0.60222,
-          "thighToChest": 0.433333,
-          "handToHead": 0.271912,
-          "handToSleeve": 4.802482,
-          "shoeWidthToHead": 0.291334,
-          "shoeLengthToHeight": 0.170717
+          "chestToHead": 0.710074,
+          "bodyShoulderToHead": 0.710074,
+          "thighToChest": 0.444477,
+          "handToHead": 0.265094,
+          "handToBodySleeve": 1.432772,
+          "shoeWidthToHead": 0.284029,
+          "shoeLengthToHeight": 0.166437,
+          "chestWidthToHeight": 0.293712
         },
         "pass": true
+      },
+      "declaredCrossCheck": {
+        "pass": true,
+        "tolerance": 0.0005,
+        "differences": {
+          "totalHeightScene": 0.000001,
+          "effectiveHeadHeightScene": 0.000018,
+          "headWidthScene": 0.000051,
+          "chestWidthScene": 0.000016,
+          "hipWidthScene": 0.000022,
+          "bodyShoulderWidthScene": 0.000016,
+          "handWidthScene": 0.000003,
+          "bodySleeveWristWidthScene": 0.000024,
+          "thighDiameterScene": 0.000026,
+          "shoeWidthScene": 0.000004,
+          "shoeHeightScene": 0.000012,
+          "shoeLengthScene": 0.000019,
+          "ratios.chestToHead": 0.000079,
+          "ratios.bodyShoulderToHead": 0.000079,
+          "ratios.thighToChest": 0.00004,
+          "ratios.handToHead": 0.000015,
+          "ratios.handToBodySleeve": 0.000311,
+          "ratios.shoeWidthToHead": 0.000028,
+          "ratios.shoeLengthToHeight": 0.000012,
+          "ratios.chestWidthToHeight": 0.00001
+        }
+      },
+      "gateResults": {
+        "proportionPass": true,
+        "girthPass": true,
+        "contactPass": true,
+        "propAttachPass": true
       },
       "pass": true
     },
     {
       "id": "normal:capsule",
-      "totalHeightScene": 1.674317,
-      "effectiveHeadHeightScene": 0.74045,
-      "headCount": 2.261215,
+      "totalHeightScene": 1.659613,
+      "effectiveHeadHeightScene": 0.740467,
+      "headCount": 2.241306,
+      "headWidthScene": 0.541585,
+      "chestWidthScene": 0.469972,
+      "hipWidthScene": 0.44651,
+      "bodyShoulderWidthScene": 0.469972,
+      "handWidthScene": 0.175465,
+      "bodySleeveWristWidthScene": 0.122439,
+      "thighDiameterScene": 0.208873,
+      "shoeWidthScene": 0.187991,
+      "shoeHeightScene": 0.14461,
+      "shoeLengthScene": 0.266307,
+      "ratios": {
+        "chestToHead": 0.867771,
+        "bodyShoulderToHead": 0.867771,
+        "thighToChest": 0.444437,
+        "handToHead": 0.323985,
+        "handToBodySleeve": 1.433083,
+        "shoeWidthToHead": 0.347112,
+        "shoeLengthToHeight": 0.160463,
+        "chestWidthToHeight": 0.283181
+      },
       "contact": {
-        "soleDelta": 0.0381,
+        "soleDelta": 0.004017,
         "seatButtDelta": 0.00844,
         "deskPalmDelta": 0.038338
       },
@@ -3101,7 +6706,27 @@
               0.538883
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
           "headDistance": 0.138112,
           "unexpectedFaceRisk": false,
           "pass": true,
@@ -3125,7 +6750,27 @@
               0.482187
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
           "headDistance": 0.11775,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3147,7 +6792,27 @@
               0.486308
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
           "headDistance": 0.112223,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3169,7 +6834,27 @@
               0.58865
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
           "headDistance": 0.152063,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3191,7 +6876,27 @@
               0.606129
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
           "headDistance": 0.238713,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3213,7 +6918,27 @@
               0.646409
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "expectedCenterOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
           "headDistance": 0,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3235,7 +6960,27 @@
               0.474222
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
           "headDistance": 0.105874,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3257,7 +7002,27 @@
               0.482187
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
           "headDistance": 0.11775,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3279,7 +7044,27 @@
               0.487966
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
           "headDistance": 0.052522,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3299,35 +7084,88 @@
         "effectiveHeadHeightScene": 0.740571,
         "headCount": 2.241071,
         "headWidthScene": 0.541543,
-        "chestWidthScene": 0.482074,
-        "hipWidthScene": 0.45797,
-        "shoulderEnvelopeWidthScene": 0.398601,
-        "handWidthScene": 0.179974,
-        "sleeveWristWidthScene": 0.037475,
+        "chestWidthScene": 0.469988,
+        "hipWidthScene": 0.446488,
+        "bodyShoulderWidthScene": 0.469988,
+        "handWidthScene": 0.175462,
+        "bodySleeveWristWidthScene": 0.122463,
         "thighDiameterScene": 0.208899,
-        "shoeWidthScene": 0.19283,
+        "shoeWidthScene": 0.187995,
         "shoeHeightScene": 0.144622,
-        "shoeLengthScene": 0.273175,
+        "shoeLengthScene": 0.266326,
         "ratios": {
-          "chestToHead": 0.890187,
-          "garmentShoulderToHead": 0.736047,
-          "thighToChest": 0.433333,
-          "handToHead": 0.332336,
-          "handToSleeve": 4.802482,
-          "shoeWidthToHead": 0.356075,
-          "shoeLengthToHeight": 0.164596
+          "chestToHead": 0.867868,
+          "bodyShoulderToHead": 0.867868,
+          "thighToChest": 0.444477,
+          "handToHead": 0.324004,
+          "handToBodySleeve": 1.432772,
+          "shoeWidthToHead": 0.347147,
+          "shoeLengthToHeight": 0.160469,
+          "chestWidthToHeight": 0.283181
         },
         "pass": true
+      },
+      "declaredCrossCheck": {
+        "pass": true,
+        "tolerance": 0.0005,
+        "differences": {
+          "totalHeightScene": 0.00006,
+          "effectiveHeadHeightScene": 0.000104,
+          "headWidthScene": 0.000042,
+          "chestWidthScene": 0.000016,
+          "hipWidthScene": 0.000022,
+          "bodyShoulderWidthScene": 0.000016,
+          "handWidthScene": 0.000003,
+          "bodySleeveWristWidthScene": 0.000024,
+          "thighDiameterScene": 0.000026,
+          "shoeWidthScene": 0.000004,
+          "shoeHeightScene": 0.000012,
+          "shoeLengthScene": 0.000019,
+          "ratios.chestToHead": 0.000097,
+          "ratios.bodyShoulderToHead": 0.000097,
+          "ratios.thighToChest": 0.00004,
+          "ratios.handToHead": 0.000019,
+          "ratios.handToBodySleeve": 0.000311,
+          "ratios.shoeWidthToHead": 0.000035,
+          "ratios.shoeLengthToHeight": 0.000006,
+          "ratios.chestWidthToHeight": 0
+        }
+      },
+      "gateResults": {
+        "proportionPass": true,
+        "girthPass": true,
+        "contactPass": true,
+        "propAttachPass": true
       },
       "pass": true
     },
     {
       "id": "stocky:round",
-      "totalHeightScene": 1.6347,
-      "effectiveHeadHeightScene": 0.661216,
-      "headCount": 2.472263,
+      "totalHeightScene": 1.619989,
+      "effectiveHeadHeightScene": 0.66122,
+      "headCount": 2.45,
+      "headWidthScene": 0.710078,
+      "chestWidthScene": 0.554566,
+      "hipWidthScene": 0.526882,
+      "bodyShoulderWidthScene": 0.554566,
+      "handWidthScene": 0.207049,
+      "bodySleeveWristWidthScene": 0.122439,
+      "thighDiameterScene": 0.24647,
+      "shoeWidthScene": 0.221829,
+      "shoeHeightScene": 0.14461,
+      "shoeLengthScene": 0.314242,
+      "ratios": {
+        "chestToHead": 0.780994,
+        "bodyShoulderToHead": 0.780994,
+        "thighToChest": 0.444437,
+        "handToHead": 0.291587,
+        "handToBodySleeve": 1.691038,
+        "shoeWidthToHead": 0.312401,
+        "shoeLengthToHeight": 0.193978,
+        "chestWidthToHeight": 0.342327
+      },
       "contact": {
-        "soleDelta": 0.0381,
+        "soleDelta": 0.004017,
         "seatButtDelta": 0.00844,
         "deskPalmDelta": 0.038338
       },
@@ -3349,7 +7187,27 @@
               0.568382
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
           "headDistance": 0.138217,
           "unexpectedFaceRisk": false,
           "pass": true,
@@ -3373,7 +7231,27 @@
               0.501481
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
           "headDistance": 0.119438,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3395,7 +7273,27 @@
               0.506343
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
           "headDistance": 0.113568,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3417,7 +7315,27 @@
               0.627107
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
           "headDistance": 0.152063,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3439,7 +7357,27 @@
               0.647732
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
           "headDistance": 0.238713,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3461,7 +7399,27 @@
               0.70036
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "expectedCenterOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
           "headDistance": 0,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3483,7 +7441,27 @@
               0.492082
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
           "headDistance": 0.108785,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3505,7 +7483,27 @@
               0.501481
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
           "headDistance": 0.119438,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3527,7 +7525,27 @@
               0.5083
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
           "headDistance": 0.055019,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3547,35 +7565,88 @@
         "effectiveHeadHeightScene": 0.661224,
         "headCount": 2.45,
         "headWidthScene": 0.710023,
-        "chestWidthScene": 0.568848,
-        "hipWidthScene": 0.540405,
-        "shoulderEnvelopeWidthScene": 0.470349,
-        "handWidthScene": 0.21237,
-        "sleeveWristWidthScene": 0.044221,
+        "chestWidthScene": 0.554585,
+        "hipWidthScene": 0.526856,
+        "bodyShoulderWidthScene": 0.554585,
+        "handWidthScene": 0.207045,
+        "bodySleeveWristWidthScene": 0.122463,
         "thighDiameterScene": 0.246501,
-        "shoeWidthScene": 0.227539,
+        "shoeWidthScene": 0.221834,
         "shoeHeightScene": 0.144622,
-        "shoeLengthScene": 0.322347,
+        "shoeLengthScene": 0.314265,
         "ratios": {
-          "chestToHead": 0.801168,
-          "garmentShoulderToHead": 0.662442,
-          "thighToChest": 0.433333,
-          "handToHead": 0.299103,
-          "handToSleeve": 4.802482,
-          "shoeWidthToHead": 0.320467,
-          "shoeLengthToHeight": 0.19898
+          "chestToHead": 0.781081,
+          "bodyShoulderToHead": 0.781081,
+          "thighToChest": 0.444477,
+          "handToHead": 0.291604,
+          "handToBodySleeve": 1.690671,
+          "shoeWidthToHead": 0.312432,
+          "shoeLengthToHeight": 0.193991,
+          "chestWidthToHeight": 0.342337
         },
         "pass": true
+      },
+      "declaredCrossCheck": {
+        "pass": true,
+        "tolerance": 0.0005,
+        "differences": {
+          "totalHeightScene": 0.000011,
+          "effectiveHeadHeightScene": 0.000004,
+          "headWidthScene": 0.000055,
+          "chestWidthScene": 0.000019,
+          "hipWidthScene": 0.000026,
+          "bodyShoulderWidthScene": 0.000019,
+          "handWidthScene": 0.000004,
+          "bodySleeveWristWidthScene": 0.000024,
+          "thighDiameterScene": 0.000031,
+          "shoeWidthScene": 0.000005,
+          "shoeHeightScene": 0.000012,
+          "shoeLengthScene": 0.000023,
+          "ratios.chestToHead": 0.000087,
+          "ratios.bodyShoulderToHead": 0.000087,
+          "ratios.thighToChest": 0.00004,
+          "ratios.handToHead": 0.000017,
+          "ratios.handToBodySleeve": 0.000367,
+          "ratios.shoeWidthToHead": 0.000031,
+          "ratios.shoeLengthToHeight": 0.000013,
+          "ratios.chestWidthToHeight": 0.00001
+        }
+      },
+      "gateResults": {
+        "proportionPass": true,
+        "girthPass": true,
+        "contactPass": true,
+        "propAttachPass": true
       },
       "pass": true
     },
     {
       "id": "stocky:soft-square",
-      "totalHeightScene": 1.614876,
-      "effectiveHeadHeightScene": 0.621568,
-      "headCount": 2.598068,
+      "totalHeightScene": 1.600164,
+      "effectiveHeadHeightScene": 0.621569,
+      "headCount": 2.574395,
+      "headWidthScene": 0.781085,
+      "chestWidthScene": 0.554566,
+      "hipWidthScene": 0.526882,
+      "bodyShoulderWidthScene": 0.554566,
+      "handWidthScene": 0.207049,
+      "bodySleeveWristWidthScene": 0.122439,
+      "thighDiameterScene": 0.24647,
+      "shoeWidthScene": 0.221829,
+      "shoeHeightScene": 0.14461,
+      "shoeLengthScene": 0.314242,
+      "ratios": {
+        "chestToHead": 0.709995,
+        "bodyShoulderToHead": 0.709995,
+        "thighToChest": 0.444437,
+        "handToHead": 0.265079,
+        "handToBodySleeve": 1.691038,
+        "shoeWidthToHead": 0.284001,
+        "shoeLengthToHeight": 0.196381,
+        "chestWidthToHeight": 0.346568
+      },
       "contact": {
-        "soleDelta": 0.0381,
+        "soleDelta": 0.004017,
         "seatButtDelta": 0.00844,
         "deskPalmDelta": 0.038338
       },
@@ -3597,7 +7668,27 @@
               0.568382
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
           "headDistance": 0.138217,
           "unexpectedFaceRisk": false,
           "pass": true,
@@ -3621,7 +7712,27 @@
               0.501481
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
           "headDistance": 0.119438,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3643,7 +7754,27 @@
               0.506343
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
           "headDistance": 0.113568,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3665,7 +7796,27 @@
               0.627107
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
           "headDistance": 0.152063,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3687,7 +7838,27 @@
               0.647732
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
           "headDistance": 0.238713,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3709,7 +7880,27 @@
               0.704032
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "expectedCenterOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
           "headDistance": 0,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3731,7 +7922,27 @@
               0.492082
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
           "headDistance": 0.108785,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3753,7 +7964,27 @@
               0.501481
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
           "headDistance": 0.119438,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3775,7 +8006,27 @@
               0.5083
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
           "headDistance": 0.055019,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3795,35 +8046,88 @@
         "effectiveHeadHeightScene": 0.621551,
         "headCount": 2.574468,
         "headWidthScene": 0.781025,
-        "chestWidthScene": 0.568848,
-        "hipWidthScene": 0.540405,
-        "shoulderEnvelopeWidthScene": 0.470349,
-        "handWidthScene": 0.21237,
-        "sleeveWristWidthScene": 0.044221,
+        "chestWidthScene": 0.554585,
+        "hipWidthScene": 0.526856,
+        "bodyShoulderWidthScene": 0.554585,
+        "handWidthScene": 0.207045,
+        "bodySleeveWristWidthScene": 0.122463,
         "thighDiameterScene": 0.246501,
-        "shoeWidthScene": 0.227539,
+        "shoeWidthScene": 0.221834,
         "shoeHeightScene": 0.144622,
-        "shoeLengthScene": 0.322347,
+        "shoeLengthScene": 0.314265,
         "ratios": {
-          "chestToHead": 0.728334,
-          "garmentShoulderToHead": 0.60222,
-          "thighToChest": 0.433333,
-          "handToHead": 0.271912,
-          "handToSleeve": 4.802482,
-          "shoeWidthToHead": 0.291334,
-          "shoeLengthToHeight": 0.201446
+          "chestToHead": 0.710074,
+          "bodyShoulderToHead": 0.710074,
+          "thighToChest": 0.444477,
+          "handToHead": 0.265094,
+          "handToBodySleeve": 1.690671,
+          "shoeWidthToHead": 0.284029,
+          "shoeLengthToHeight": 0.196396,
+          "chestWidthToHeight": 0.34658
         },
         "pass": true
+      },
+      "declaredCrossCheck": {
+        "pass": true,
+        "tolerance": 0.0005,
+        "differences": {
+          "totalHeightScene": 0.000001,
+          "effectiveHeadHeightScene": 0.000018,
+          "headWidthScene": 0.00006,
+          "chestWidthScene": 0.000019,
+          "hipWidthScene": 0.000026,
+          "bodyShoulderWidthScene": 0.000019,
+          "handWidthScene": 0.000004,
+          "bodySleeveWristWidthScene": 0.000024,
+          "thighDiameterScene": 0.000031,
+          "shoeWidthScene": 0.000005,
+          "shoeHeightScene": 0.000012,
+          "shoeLengthScene": 0.000023,
+          "ratios.chestToHead": 0.000079,
+          "ratios.bodyShoulderToHead": 0.000079,
+          "ratios.thighToChest": 0.00004,
+          "ratios.handToHead": 0.000015,
+          "ratios.handToBodySleeve": 0.000367,
+          "ratios.shoeWidthToHead": 0.000028,
+          "ratios.shoeLengthToHeight": 0.000015,
+          "ratios.chestWidthToHeight": 0.000012
+        }
+      },
+      "gateResults": {
+        "proportionPass": true,
+        "girthPass": true,
+        "contactPass": true,
+        "propAttachPass": true
       },
       "pass": true
     },
     {
       "id": "stocky:capsule",
-      "totalHeightScene": 1.674317,
-      "effectiveHeadHeightScene": 0.74045,
-      "headCount": 2.261215,
+      "totalHeightScene": 1.659613,
+      "effectiveHeadHeightScene": 0.740467,
+      "headCount": 2.241306,
+      "headWidthScene": 0.63907,
+      "chestWidthScene": 0.554566,
+      "hipWidthScene": 0.526882,
+      "bodyShoulderWidthScene": 0.554566,
+      "handWidthScene": 0.207049,
+      "bodySleeveWristWidthScene": 0.122439,
+      "thighDiameterScene": 0.24647,
+      "shoeWidthScene": 0.221829,
+      "shoeHeightScene": 0.14461,
+      "shoeLengthScene": 0.314242,
+      "ratios": {
+        "chestToHead": 0.867771,
+        "bodyShoulderToHead": 0.867771,
+        "thighToChest": 0.444437,
+        "handToHead": 0.323985,
+        "handToBodySleeve": 1.691038,
+        "shoeWidthToHead": 0.347112,
+        "shoeLengthToHeight": 0.189347,
+        "chestWidthToHeight": 0.334154
+      },
       "contact": {
-        "soleDelta": 0.0381,
+        "soleDelta": 0.004017,
         "seatButtDelta": 0.00844,
         "deskPalmDelta": 0.038338
       },
@@ -3845,7 +8149,27 @@
               0.568382
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.042,
+            0.112
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.148499,
+          "expectedCenterDistance": 0.148499,
+          "centerDistanceRange": [
+            0.146499,
+            0.150499
+          ],
           "headDistance": 0.138217,
           "unexpectedFaceRisk": false,
           "pass": true,
@@ -3869,7 +8193,27 @@
               0.501481
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.05687,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10482,
+          "expectedCenterDistance": 0.10482,
+          "centerDistanceRange": [
+            0.10282,
+            0.10682
+          ],
           "headDistance": 0.119438,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3891,7 +8235,27 @@
               0.506343
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.043039,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.097982,
+          "expectedCenterDistance": 0.097982,
+          "centerDistanceRange": [
+            0.095982,
+            0.099982
+          ],
           "headDistance": 0.113568,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3913,7 +8277,27 @@
               0.627107
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "expectedCenterOffsetLocal": [
+            -0.088,
+            0.022646,
+            -0.029366
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.095495,
+          "expectedCenterDistance": 0.095495,
+          "centerDistanceRange": [
+            0.093495,
+            0.097495
+          ],
           "headDistance": 0.152063,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3935,7 +8319,27 @@
               0.647732
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.071908,
+            0.045405,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.085067,
+          "expectedCenterDistance": 0.085067,
+          "centerDistanceRange": [
+            0.083067,
+            0.087067
+          ],
           "headDistance": 0.238713,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3957,7 +8361,27 @@
               0.695263
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "expectedCenterOffsetLocal": [
+            0,
+            0.093595,
+            0.065301
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.114124,
+          "expectedCenterDistance": 0.114124,
+          "centerDistanceRange": [
+            0.112124,
+            0.116124
+          ],
           "headDistance": 0,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -3979,7 +8403,27 @@
               0.492082
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.065334,
+            0.002
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.10962,
+          "expectedCenterDistance": 0.10962,
+          "centerDistanceRange": [
+            0.10762,
+            0.11162
+          ],
           "headDistance": 0.108785,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -4001,7 +8445,27 @@
               0.501481
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.049506,
+            -0.003
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.101014,
+          "expectedCenterDistance": 0.101014,
+          "centerDistanceRange": [
+            0.099014,
+            0.103014
+          ],
           "headDistance": 0.119438,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -4023,7 +8487,27 @@
               0.5083
             ]
           },
-          "reach": 0,
+          "centerOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "expectedCenterOffsetLocal": [
+            0.088,
+            0.018914,
+            0.07395
+          ],
+          "centerOffsetError": [
+            0,
+            0,
+            0
+          ],
+          "centerDistance": 0.116492,
+          "expectedCenterDistance": 0.116492,
+          "centerDistanceRange": [
+            0.114492,
+            0.118492
+          ],
           "headDistance": 0.055019,
           "unexpectedFaceRisk": false,
           "pass": true
@@ -4043,25 +8527,58 @@
         "effectiveHeadHeightScene": 0.740571,
         "headCount": 2.241071,
         "headWidthScene": 0.639021,
-        "chestWidthScene": 0.568848,
-        "hipWidthScene": 0.540405,
-        "shoulderEnvelopeWidthScene": 0.470349,
-        "handWidthScene": 0.21237,
-        "sleeveWristWidthScene": 0.044221,
+        "chestWidthScene": 0.554585,
+        "hipWidthScene": 0.526856,
+        "bodyShoulderWidthScene": 0.554585,
+        "handWidthScene": 0.207045,
+        "bodySleeveWristWidthScene": 0.122463,
         "thighDiameterScene": 0.246501,
-        "shoeWidthScene": 0.227539,
+        "shoeWidthScene": 0.221834,
         "shoeHeightScene": 0.144622,
-        "shoeLengthScene": 0.322347,
+        "shoeLengthScene": 0.314265,
         "ratios": {
-          "chestToHead": 0.890187,
-          "garmentShoulderToHead": 0.736047,
-          "thighToChest": 0.433333,
-          "handToHead": 0.332336,
-          "handToSleeve": 4.802482,
-          "shoeWidthToHead": 0.356075,
-          "shoeLengthToHeight": 0.194223
+          "chestToHead": 0.867868,
+          "bodyShoulderToHead": 0.867868,
+          "thighToChest": 0.444477,
+          "handToHead": 0.324004,
+          "handToBodySleeve": 1.690671,
+          "shoeWidthToHead": 0.347147,
+          "shoeLengthToHeight": 0.189354,
+          "chestWidthToHeight": 0.334153
         },
         "pass": true
+      },
+      "declaredCrossCheck": {
+        "pass": true,
+        "tolerance": 0.0005,
+        "differences": {
+          "totalHeightScene": 0.00006,
+          "effectiveHeadHeightScene": 0.000104,
+          "headWidthScene": 0.000049,
+          "chestWidthScene": 0.000019,
+          "hipWidthScene": 0.000026,
+          "bodyShoulderWidthScene": 0.000019,
+          "handWidthScene": 0.000004,
+          "bodySleeveWristWidthScene": 0.000024,
+          "thighDiameterScene": 0.000031,
+          "shoeWidthScene": 0.000005,
+          "shoeHeightScene": 0.000012,
+          "shoeLengthScene": 0.000023,
+          "ratios.chestToHead": 0.000097,
+          "ratios.bodyShoulderToHead": 0.000097,
+          "ratios.thighToChest": 0.00004,
+          "ratios.handToHead": 0.000019,
+          "ratios.handToBodySleeve": 0.000367,
+          "ratios.shoeWidthToHead": 0.000035,
+          "ratios.shoeLengthToHeight": 0.000007,
+          "ratios.chestWidthToHeight": 0.000001
+        }
+      },
+      "gateResults": {
+        "proportionPass": true,
+        "girthPass": true,
+        "contactPass": true,
+        "propAttachPass": true
       },
       "pass": true
     }

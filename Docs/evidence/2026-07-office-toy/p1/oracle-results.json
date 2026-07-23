@@ -94,7 +94,7 @@
       "detail": "[]"
     },
     {
-      "name": "runtime garments consume the metrics proportion contract",
+      "name": "runtime garments consume the metrics contract while executable mesh contours own geometry",
       "pass": true,
       "detail": ""
     },
@@ -169,9 +169,9 @@
       "detail": ""
     },
     {
-      "name": "executable runtime oracle covers exact scales, blink/reduced-motion, prop precedence, and garments",
+      "name": "executable runtime oracle covers exact scales, blink/reduced-motion, prop precedence, and measured garment contours",
       "pass": true,
-      "detail": "PASS harness-character-toy-p1-runtime\n"
+      "detail": "GARMENT_CONTOURS [{\"id\":\"slim:round\",\"measurementSource\":\"runtime attachGarments POSITION vertices after bone and girth transforms\",\"shoulderWidthScene\":0.287645,\"shoulderWidthToHeight\":0.177559,\"sleeveCuffWidthScene\":0.037457,\"sleeveCuffWidthToHeight\":0.023121},{\"id\":\"slim:soft-square\",\"measurementSource\":\"runtime attachGarments POSITION vertices after bone and girth transforms\",\"shoulderWidthScene\":0.287645,\"shoulderWidthToHeight\":0.177559,\"sleeveCuffWidthScene\":0.037457,\"sleeveCuffWidthToHeight\":0.023121},{\"id\":\"slim:capsule\",\"measurementSource\":\"runtime attachGarments POSITION vertices after bone and girth transforms\",\"shoulderWidthScene\":0.287645,\"shoulderWidthToHeight\":0.177559,\"sleeveCuffWidthScene\":0.037457,\"sleeveCuffWidthToHeight\":0.023121},{\"id\":\"normal:round\",\"measurementSource\":\"runtime attachGarments POSITION vertices after bone and girth transforms\",\"shoulderWidthScene\":0.342434,\"shoulderWidthToHeight\":0.211379,\"sleeveCuffWidthScene\":0.037457,\"sleeveCuffWidthToHeight\":0.023121},{\"id\":\"normal:soft-square\",\"measurementSource\":\"runtime attachGarments POSITION vertices after bone and girth transforms\",\"shoulderWidthScene\":0.342434,\"shoulderWidthToHeight\":0.211379,\"sleeveCuffWidthScene\":0.037457,\"sleeveCuffWidthToHeight\":0.023121},{\"id\":\"normal:capsule\",\"measurementSource\":\"runtime attachGarments POSITION vertices after bone and girth transforms\",\"shoulderWidthScene\":0.342434,\"shoulderWidthToHeight\":0.211379,\"sleeveCuffWidthScene\":0.037457,\"sleeveCuffWidthToHeight\":0.023121},{\"id\":\"stocky:round\",\"measurementSource\":\"runtime attachGarments POSITION vertices after bone and girth transforms\",\"shoulderWidthScene\":0.404072,\"shoulderWidthToHeight\":0.249427,\"sleeveCuffWidthScene\":0.044178,\"sleeveCuffWidthToHeight\":0.02727},{\"id\":\"stocky:soft-square\",\"measurementSource\":\"runtime attachGarments POSITION vertices after bone and girth transforms\",\"shoulderWidthScene\":0.404072,\"shoulderWidthToHeight\":0.249427,\"sleeveCuffWidthScene\":0.044178,\"sleeveCuffWidthToHeight\":0.02727},{\"id\":\"stocky:capsule\",\"measurementSource\":\"runtime attachGarments POSITION vertices after bone and girth transforms\",\"shoulderWidthScene\":0.404072,\"shoulderWidthToHeight\":0.249427,\"sleeveCuffWidthScene\":0.044178,\"sleeveCuffWidthToHeight\":0.02727}]\nPASS harness-character-toy-p1-runtime\n"
     },
     {
       "name": "production Gltf wiring consumes the executable scale, eye, prop, and garment contracts",
