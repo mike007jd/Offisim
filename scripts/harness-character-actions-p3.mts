@@ -88,6 +88,7 @@ const QUATERNION_NORM_TOLERANCE = 2e-3;
 
 interface ProceduralAnimationManifest {
   readonly baseClip: string;
+  readonly poseReferenceTime?: number;
   readonly mode: 'loop' | 'hold';
   readonly durationSeconds: number;
   readonly modifiedJoints: readonly string[];
@@ -431,6 +432,14 @@ for (const clip of PROCEDURAL_CLIPS) {
     metadata.durationSeconds >= 0.75 && metadata.durationSeconds <= 3,
     `${clip}: duration ${metadata.durationSeconds}s is outside 0.75–3.0s`,
   );
+  if (clip === 'stretch') {
+    check(
+      typeof metadata.poseReferenceTime === 'number' &&
+        metadata.poseReferenceTime >= 0 &&
+        metadata.poseReferenceTime <= 1,
+      `stretch: normalized poseReferenceTime provenance is missing (${metadata.poseReferenceTime})`,
+    );
+  }
 }
 
 const seatedTyping: CharacterPerformanceState = {
@@ -761,8 +770,9 @@ let identityStep = requestCharacterPlayback(
   { reducedMotion: false },
 );
 check(
-  identityStep.command?.selection.clip === 'sit.idle',
-  'same-clip semantic change did not restart exactly once',
+  identityStep.command == null &&
+    identityStep.state.activeSelection?.semantic === clipForPerformance(seatedRest).semantic,
+  'same-clip loop semantic change restarted or failed to retarget identity',
 );
 identityMachine = identityStep.state;
 identityStep = requestCharacterPlayback(
@@ -777,9 +787,17 @@ identityStep = requestCharacterPlayback(
   { reducedMotion: false },
 );
 check(
-  identityStep.command?.selection.clip === 'sit.idle' &&
-    identityStep.command.selection.variant === 1,
-  'same-clip variant change did not restart exactly once',
+  identityStep.command == null &&
+    identityStep.state.activeSelection?.clip === 'sit.idle' &&
+    identityStep.state.activeSelection.variant === 1,
+  'same-clip loop variant change restarted or failed to retarget identity',
+);
+identityStep = requestCharacterPlayback(identityStep.state, typingTarget, {
+  reducedMotion: false,
+});
+check(
+  identityStep.command?.selection.clip === 'sit.type',
+  'switching from a retargeted loop to a new clip did not start normally',
 );
 
 let machine = createCharacterPlaybackState('sit');
@@ -910,6 +928,22 @@ check(
 check(
   shouldPromoteSitExit('sit-exit', createCharacterPlaybackState('stand').actualPosture, false),
   'already-standing settled actor did not promote directly to walk',
+);
+
+machine = createCharacterPlaybackState('stand');
+const headshake = {
+  posture: 'stand' as const,
+  selection: selectionForClip('blocked.headshake'),
+};
+machine = requestCharacterPlayback(machine, headshake, { reducedMotion: false }).state;
+step = requestCharacterPlayback(
+  machine,
+  { ...headshake, selection: { ...headshake.selection, variant: 1 } },
+  { reducedMotion: false },
+);
+check(
+  step.command?.selection.clip === 'blocked.headshake' && step.command.selection.variant === 1,
+  'same-clip one-shot retrigger did not restart',
 );
 
 machine = createCharacterPlaybackState('stand');

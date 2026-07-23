@@ -200,7 +200,7 @@ export function performanceForBeat(beat: SceneBeat): CharacterPerformanceState {
     case 'cancelled':
       // Neutral stopped state (PRD): the actor simply returns to rest — no
       // worried/blocked tell, no celebration.
-      return { ...IDLE_PERFORMANCE, variant };
+      return { ...IDLE_PERFORMANCE, variant: 0 };
     case 'join':
       return {
         locomotion: 'idle',

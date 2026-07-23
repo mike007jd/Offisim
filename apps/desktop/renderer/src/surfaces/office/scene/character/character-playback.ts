@@ -22,7 +22,7 @@ export interface CharacterPlaybackState {
   readonly actualPosture: Posture;
   readonly desired: CharacterPlaybackTarget | null;
   readonly activeClip: ClipName | null;
-  /** Full identity of the clip currently owned by the mixer. */
+  /** Latest semantic identity of the clip action currently owned by the mixer. */
   readonly activeSelection: ClipSelection | null;
   readonly transition: ActivePostureTransition | null;
   /** One-shot already returned to rest; suppress replay until semantics change. */
@@ -134,6 +134,17 @@ export function requestCharacterPlayback(
       transition: null,
       completedSelection: null,
     };
+    if (state.activeSelection?.clip === desired.selection.clip && desired.selection.loop) {
+      return {
+        state: {
+          ...state,
+          activeClip: desired.selection.clip,
+          activeSelection: desired.selection,
+        },
+        command: null,
+        completedTransition: null,
+      };
+    }
     if (sameSelectionIdentity(state.activeSelection, desired.selection) && !options.forceRestart) {
       return { state, command: null, completedTransition: null };
     }
@@ -155,6 +166,22 @@ export function requestCharacterPlayback(
       completedSelection: null,
     };
     return play(state, selectionForClip(transitionClip), false);
+  }
+
+  // Three.js caches one AnimationAction per clip. A new loop variant is only
+  // semantic metadata for the already-running action: restarting it would
+  // reset the shared action and jump to the variant's entry phase. Keep the
+  // current mixer time and silently retarget ownership instead.
+  if (state.activeSelection?.clip === desired.selection.clip && desired.selection.loop) {
+    return {
+      state: {
+        ...state,
+        activeClip: desired.selection.clip,
+        activeSelection: desired.selection,
+      },
+      command: null,
+      completedTransition: null,
+    };
   }
 
   if (

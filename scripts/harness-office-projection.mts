@@ -273,12 +273,16 @@ console.log('\n[work states] plan / review / compute / complete / cancelled');
     office2,
   );
   const stopped = cancelledStaging.find((s) => s.employeeId === 'stopped');
+  const cancelledWithNonzeroVariant = stopped
+    ? performanceForBeat({ ...stopped.beat, variant: 3 })
+    : null;
   check(
     'cancelled: actor rests in the neutral IDLE performance (no celebration, no worry, no staging)',
     stopped?.beat.kind === 'cancelled' &&
       JSON.stringify(stopped.performance) === JSON.stringify(IDLE_PERFORMANCE) &&
+      JSON.stringify(cancelledWithNonzeroVariant) === JSON.stringify(IDLE_PERFORMANCE) &&
       stopped.staging === null,
-    JSON.stringify(stopped?.performance),
+    JSON.stringify({ projected: stopped?.performance, variant3: cancelledWithNonzeroVariant }),
   );
 }
 

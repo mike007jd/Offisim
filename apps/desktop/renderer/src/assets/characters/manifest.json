@@ -854,6 +854,7 @@
     "stretch": {
       "baseClip": "idle",
       "poseReferenceClip": "celebrate.yes",
+      "poseReferenceTime": 0.15,
       "mode": "hold",
       "durationSeconds": 2.2,
       "sampleRate": 30,

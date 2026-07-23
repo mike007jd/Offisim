@@ -419,6 +419,7 @@ function authorDerivedClip(document, name, spec) {
   return {
     baseClip: spec.baseClip,
     poseReferenceClip: spec.poseReferenceClip,
+    ...(name === 'stretch' ? { poseReferenceTime: spec.poseReferenceTime } : {}),
     mode: spec.mode,
     durationSeconds: spec.durationSeconds,
     sampleRate: SAMPLE_RATE,
