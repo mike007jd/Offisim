@@ -2,7 +2,15 @@ import type { AmbientModePolicy } from './modes.js';
 import type { CharacterPerformanceState } from './performance.js';
 import type { ActorStaging, StagingPrefab } from './staging.js';
 
-export type AmbientRoutineKind = 'refreshment' | 'library' | 'social' | 'phone' | 'seated-shift';
+export type AmbientRoutineKind =
+  | 'refreshment'
+  | 'library'
+  | 'social'
+  | 'phone'
+  | 'seated-shift'
+  | 'desk-fidget'
+  | 'look-around'
+  | 'stretch';
 export type AmbientActivityPhase = 'outbound' | 'dwell' | 'return';
 
 export interface AmbientActorAvailability {
@@ -49,7 +57,7 @@ export interface AmbientActivity {
 }
 
 export interface AmbientSchedulerState {
-  readonly version: 'office-ambient-v1';
+  readonly version: 'office-ambient-v2';
   readonly seed: string;
   readonly startedAt: number;
   readonly lastAdvancedAt: number;
