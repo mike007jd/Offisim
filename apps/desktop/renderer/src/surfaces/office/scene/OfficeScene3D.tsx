@@ -104,6 +104,12 @@ import {
   type SceneEmployeeDrop,
   useEmployeeDrag,
 } from './use-employee-drag.js';
+import {
+  type LocalChatterVisibleBubble,
+  localChatterLifecycleScope,
+  resolveRawChatterLocale,
+  useLocalChatter,
+} from './use-local-chatter.js';
 import { useSceneStagingInputs } from './use-scene-staging-inputs.js';
 import { WorkBench } from './work-bench/WorkBench.js';
 
@@ -309,6 +315,7 @@ function EmployeeUnit({
   pathfinder,
   entryFrom,
   returnFromDrop,
+  chatter = null,
   onSelect,
   onDrilldown,
   onHoverChange,
@@ -344,6 +351,8 @@ function EmployeeUnit({
   /** A non-zone drop re-seeds the real actor at the visible ghost position;
    *  it then walks back to its unchanged semantic seat. */
   returnFromDrop: SceneEmployeeReturn | null;
+  /** Optional presentation-only local chatter bubble (independent of the name tag). */
+  chatter?: LocalChatterVisibleBubble | null;
   onSelect: () => void;
   onDrilldown: () => void;
   onHoverChange: (hovered: boolean) => void;
@@ -767,6 +776,24 @@ function EmployeeUnit({
           </div>
         </SceneAnnotation>
       ) : null}
+      {!dragging && chatter ? (
+        // Independent ambient annotation above the name tag — never nested in
+        // the interactive label, and never changes selection/drag/status truth.
+        <SceneAnnotation
+          position={[labelX, labelY + 0.42, labelZ]}
+          priority="ambient"
+          interactive={false}
+          exclude={unitRef}
+        >
+          <div
+            aria-hidden
+            data-scene-chatter=""
+            className={`off-scene-chatter is-${chatter.kind} is-${chatter.motion}`}
+          >
+            {chatter.text}
+          </div>
+        </SceneAnnotation>
+      ) : null}
     </group>
   );
 }
@@ -925,13 +952,25 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
   // bubbles, and selection all come from here — along with the shared
   // actorById index; hover + drag feed its input state so the cues carry
   // them. Only world geometry stays local.
-  const { frame, actorById, pace } = useSceneCueFrame({
+  const { frame, actorById, pace, ambientActorIds } = useSceneCueFrame({
     prefabs: stagingPrefabs,
     actorPositions: placementsByEmployee,
     routeFor,
     routeSignature,
     hoveredEmployeeId,
     draggingEmployeeId: employeeDrag?.employeeId ?? null,
+  });
+  const chatterScopeKey = localChatterLifecycleScope(companyId, projectId);
+  const chatterEnabled = !pip && sceneInputsReady && !emptyOffice && Boolean(companyId?.trim());
+  const chatterByActor = useLocalChatter({
+    enabled: chatterEnabled,
+    scopeKey: chatterScopeKey,
+    locale: resolveRawChatterLocale(
+      typeof navigator !== 'undefined' ? navigator.language : undefined,
+    ),
+    reducedMotion,
+    frame,
+    ambientActorIds,
   });
   const companionActorPositions = useMemo(
     () =>
@@ -1153,6 +1192,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
                   pace={pace}
                   zones={zoneDefs}
                   pathfinder={pathfinder}
+                  chatter={chatterByActor.get(employee.id) ?? null}
                   entryFrom={
                     entryPoint
                       ? {
