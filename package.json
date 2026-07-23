@@ -79,6 +79,7 @@
     "harness:character-actions-p3": "node scripts/run-harnesses.mjs --only character-actions-p3",
     "harness:office-visual-language-p4": "node scripts/run-harnesses.mjs --only office-visual-language-p4",
     "harness:office-ambient-p5": "node scripts/run-harnesses.mjs --only office-ambient-p5",
+    "harness:office-local-chatter": "node scripts/run-harnesses.mjs --only office-local-chatter",
     "harness:office-companion": "node scripts/run-harnesses.mjs --only office-companion",
     "harness:office-diorama-p6": "node scripts/run-harnesses.mjs --only office-diorama-p6",
     "harness:office-scene-quality": "node scripts/run-harnesses.mjs --only office-scene-quality",

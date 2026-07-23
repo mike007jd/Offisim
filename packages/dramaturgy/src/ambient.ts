@@ -46,21 +46,24 @@ export type {
 import { IDLE_PERFORMANCE, performanceForRoutine } from './performance.js';
 import { worldAnchorsFor } from './staging.js';
 
-export const AMBIENT_SCHEDULER_VERSION = 'office-ambient-v1' as const;
+export const AMBIENT_SCHEDULER_VERSION = 'office-ambient-v2' as const;
 
 export const AMBIENT_TIMING = {
-  firstDueMinMs: 45_000,
-  firstDueMaxMs: 120_000,
-  nextDueMinMs: 45_000,
-  nextDueMaxMs: 240_000,
+  firstDueMinMs: 3_000,
+  firstDueMaxMs: 9_000,
+  nextDueMinMs: 20_000,
+  nextDueMaxMs: 75_000,
   suspensionLatenessMs: 5_000,
-  outboundMs: 12_000,
-  refreshmentDwellMs: 10_000,
-  libraryDwellMs: 12_000,
-  socialDwellMs: 30_000,
-  phoneDwellMs: 15_000,
-  returnMs: 12_000,
-  seatedShiftMs: 8_000,
+  outboundMs: 4_000,
+  refreshmentDwellMs: 7_000,
+  libraryDwellMs: 8_000,
+  socialDwellMs: 12_000,
+  phoneDwellMs: 9_000,
+  returnMs: 4_000,
+  seatedShiftMs: 5_000,
+  deskFidgetMs: 6_000,
+  lookAroundMs: 8_000,
+  stretchMs: 7_000,
   postureTransitionBufferMs: 3_000,
 } as const;
 
@@ -77,8 +80,12 @@ const ROUTINE_MIX: readonly AmbientRoutineKind[] = [
   'library',
   'social',
   'phone',
+  'desk-fidget',
+  'desk-fidget',
+  'look-around',
+  'look-around',
+  'stretch',
   'seated-shift',
-  'phone',
 ];
 
 /** Deterministic locale-independent comparator shared by every dramaturgy sort. */
@@ -299,39 +306,45 @@ function activityForMovement(
 }
 
 function activityForInPlace(
-  routine: Extract<AmbientRoutineKind, 'phone' | 'seated-shift'>,
+  routine: Extract<
+    AmbientRoutineKind,
+    'phone' | 'seated-shift' | 'desk-fidget' | 'look-around' | 'stretch'
+  >,
   employeeId: string,
   sequence: number,
   home: AmbientActorHome | undefined,
   now: number,
 ): AmbientActivity {
-  const resolvedRoutine =
-    routine === 'seated-shift' && (home?.posture ?? 'standing') !== 'sitting' ? 'phone' : routine;
-  if (resolvedRoutine === 'seated-shift') {
-    const endsAt = now + AMBIENT_TIMING.seatedShiftMs;
-    return {
-      moverId: employeeId,
-      partnerId: null,
-      routine: 'seated-shift',
-      sequence,
-      away: false,
-      destination: null,
-      homePosture: 'sitting',
-      startedAt: now,
-      outboundEndsAt: now,
-      dwellEndsAt: endsAt,
-      endsAt,
-    };
+  const homePosture = home?.posture ?? 'standing';
+  let resolvedRoutine = routine;
+  if (routine === 'seated-shift' && homePosture !== 'sitting') {
+    resolvedRoutine = 'phone';
+  } else if (routine === 'desk-fidget' && homePosture !== 'sitting') {
+    resolvedRoutine = 'look-around';
   }
-  const endsAt = now + AMBIENT_TIMING.phoneDwellMs;
+
+  const durationMs =
+    resolvedRoutine === 'seated-shift'
+      ? AMBIENT_TIMING.seatedShiftMs
+      : resolvedRoutine === 'desk-fidget'
+        ? AMBIENT_TIMING.deskFidgetMs
+        : resolvedRoutine === 'look-around'
+          ? AMBIENT_TIMING.lookAroundMs
+          : resolvedRoutine === 'stretch'
+            ? AMBIENT_TIMING.stretchMs
+            : AMBIENT_TIMING.phoneDwellMs;
+  const endsAt = now + durationMs;
   return {
     moverId: employeeId,
     partnerId: null,
-    routine: 'phone',
+    routine: resolvedRoutine,
     sequence,
     away: false,
     destination: null,
-    homePosture: home?.posture ?? 'standing',
+    homePosture:
+      resolvedRoutine === 'seated-shift' || resolvedRoutine === 'desk-fidget'
+        ? 'sitting'
+        : homePosture,
     startedAt: now,
     outboundEndsAt: now,
     dwellEndsAt: endsAt,
@@ -388,6 +401,12 @@ function destinationPerformance(activity: AmbientActivity): CharacterPerformance
       return performanceForRoutine('phone');
     case 'seated-shift':
       return performanceForRoutine('seated-shift');
+    case 'desk-fidget':
+      return performanceForRoutine('desk-fidget');
+    case 'look-around':
+      return performanceForRoutine('look-around');
+    case 'stretch':
+      return performanceForRoutine('stretch');
   }
 }
 
@@ -745,7 +764,19 @@ export function advanceAmbientScheduler(
     }
 
     if (!activity && canAddActors(1)) {
-      const fallback = (home?.posture ?? 'standing') === 'sitting' ? 'seated-shift' : 'phone';
+      const fallback: Extract<
+        AmbientRoutineKind,
+        'phone' | 'seated-shift' | 'desk-fidget' | 'look-around' | 'stretch'
+      > =
+        preferred === 'phone' ||
+        preferred === 'seated-shift' ||
+        preferred === 'desk-fidget' ||
+        preferred === 'look-around' ||
+        preferred === 'stretch'
+          ? preferred
+          : (home?.posture ?? 'standing') === 'sitting'
+            ? 'seated-shift'
+            : 'phone';
       activity = activityForInPlace(fallback, clock.employeeId, clock.sequence, home, input.now);
     }
 
