@@ -46,6 +46,16 @@ export const harnessManifest = Object.freeze([
     command: 'node scripts/harness-claude-agent-host.mjs',
   },
   {
+    id: 'runtime-model-picker',
+    file: 'scripts/harness-runtime-model-picker.mts',
+    runner: 'tsx',
+    cwdFilter: '@offisim/platform',
+    tsconfig: '../../apps/desktop/renderer/tsconfig.json',
+    composite: false,
+    command:
+      'pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-runtime-model-picker.mts',
+  },
+  {
     id: 'codex-runtime-conformance',
     file: 'apps/desktop/src-tauri/Cargo.toml',
     runner: 'cargo',
@@ -1119,6 +1129,7 @@ export const validateHarnessIds = Object.freeze([
   'renderer-engine-authority',
   'pi-agent-host',
   'claude-agent-host',
+  'runtime-model-picker',
   'pi-loop-until-green',
   'conversation-run-controller',
   'chat-attachment-roundtrip',

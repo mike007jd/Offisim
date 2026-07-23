@@ -12,6 +12,8 @@ import {
 import type {
   AiModelCatalogEntry,
   AiRuntimeStatus,
+  OrchestrationEngineRunOptions,
+  OrchestrationEngineState,
   RuntimeEngineCapabilityManifest,
 } from '@offisim/shared-types';
 import { useQuery } from '@tanstack/react-query';
@@ -38,6 +40,20 @@ export interface AgentRuntimeModelOption {
   reasoningEfforts: readonly ThinkingLevel[];
   defaultReasoningEffort?: ThinkingLevel;
   capabilities: RuntimeEngineCapabilityManifest;
+}
+
+export interface OrchestrationEngineDirectoryEntry {
+  engineId: string;
+  displayName: string;
+  state: OrchestrationEngineState;
+  statusReason?: string;
+  loginCommand?: string;
+  runOptions?: OrchestrationEngineRunOptions;
+}
+
+interface AgentRuntimeModelSnapshot {
+  readonly status: AiRuntimeStatus;
+  readonly options: readonly AgentRuntimeModelOption[];
 }
 
 const API_RUNTIME_CAPABILITIES: RuntimeEngineCapabilityManifest = {
@@ -80,17 +96,20 @@ function isRuntimeStatus(value: unknown): value is AiRuntimeStatus {
   );
 }
 
-async function loadModels(): Promise<AgentRuntimeModelOption[]> {
+async function loadModels(): Promise<AgentRuntimeModelSnapshot> {
   const rawStatus: unknown = await invokeCommand('agent_runtime_status', { includeUsage: false });
   if (!isRuntimeStatus(rawStatus)) {
     throw new Error('The desktop runtime returned an invalid model catalog.');
   }
 
-  return projectRunnableModelOptions(rawStatus);
+  return {
+    status: rawStatus,
+    options: projectRunnableModelOptions(rawStatus),
+  };
 }
 
 /** Safe picker projection: catalog rows are runnable only with a live executable account. */
-function projectRunnableModelOptions(
+export function projectRunnableModelOptions(
   rawStatus: AiRuntimeStatus,
   nowMs = Date.now(),
 ): AgentRuntimeModelOption[] {
@@ -188,6 +207,20 @@ function projectRunnableModelOptions(
   return [...apiModels, ...orchestrationEngines];
 }
 
+/** Status directory for every orchestration engine, independent of run readiness. */
+export function projectOrchestrationEngineDirectory(
+  status: AiRuntimeStatus,
+): OrchestrationEngineDirectoryEntry[] {
+  return status.orchestrationEngines.map((engine) => ({
+    engineId: engine.engineId,
+    displayName: engine.displayName,
+    state: engine.state,
+    ...(engine.statusReason ? { statusReason: engine.statusReason } : {}),
+    ...(engine.loginCommand ? { loginCommand: engine.loginCommand } : {}),
+    ...(engine.runOptions ? { runOptions: engine.runOptions } : {}),
+  }));
+}
+
 async function loadThreadExecutionAuthority(
   threadId: string,
 ): Promise<DurableThreadExecutionAuthority | null> {
@@ -212,6 +245,7 @@ export function useAgentRuntimeModels() {
     enabled: isTauriRuntime(),
     staleTime: 5 * 60_000,
     retry: false,
+    select: (snapshot) => snapshot.options,
   });
   const [catalogClockMs, setCatalogClockMs] = useState(() => Date.now());
   const nextExpiryAt = useMemo(
@@ -243,6 +277,19 @@ export function useAgentRuntimeModels() {
     [query.data, catalogClockMs],
   );
   return { ...query, data };
+}
+
+/** All orchestration engines and their official run-option declarations. */
+export function useOrchestrationEngineDirectory() {
+  const query = useQuery({
+    queryKey: queryKeys.agentRuntimeModels(),
+    queryFn: loadModels,
+    enabled: isTauriRuntime(),
+    staleTime: 5 * 60_000,
+    retry: false,
+    select: (snapshot) => projectOrchestrationEngineDirectory(snapshot.status),
+  });
+  return { ...query, entries: query.data ?? [] };
 }
 
 /** Durable engine/account/selector binding for an already-started task. */

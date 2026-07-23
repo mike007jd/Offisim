@@ -71,6 +71,7 @@ fn runtime_status_keeps_api_catalog_when_codex_inspection_fails() {
         .find(|account| account["engineId"] == "codex")
         .expect("safe Codex unavailable engine");
     assert_eq!(fallback["state"], "unavailable");
+    assert_eq!(fallback["runOptions"]["models"][0]["id"], "gpt-5.6-sol");
     assert!(!fallback.to_string().contains("/Users/person"));
 }
 
@@ -87,6 +88,7 @@ fn runtime_status_keeps_codex_catalog_when_api_inspection_fails() {
         source_url: String::new(),
         checked_at: "2026-07-15T01:00:00Z".into(),
         capabilities: serde_json::json!({"stop": true}),
+        run_options: Some(crate::codex_agent_host::codex_run_options()),
     };
     let merged = merge_runtime_status(
         Err("secret API_KEY=should-not-leak".into()),
@@ -101,6 +103,9 @@ fn runtime_status_keeps_codex_catalog_when_api_inspection_fails() {
         .orchestration_engines
         .iter()
         .any(|engine| engine["engineId"] == "codex" && engine["state"] == "ready"));
+    assert!(merged.orchestration_engines.iter().any(|engine| {
+        engine["engineId"] == "codex" && engine["runOptions"]["models"][0]["id"] == "gpt-5.6-sol"
+    }));
     let fallback = merged
         .accounts
         .iter()
@@ -133,6 +138,12 @@ fn runtime_status_projects_both_generic_lanes_when_both_inspections_fail() {
         .orchestration_engines
         .iter()
         .all(|engine| engine["state"] == "unavailable"));
+    let codex = merged
+        .orchestration_engines
+        .iter()
+        .find(|engine| engine["engineId"] == "codex")
+        .expect("Codex fallback");
+    assert_eq!(codex["runOptions"]["checkedAt"], "2026-07-24");
     let projection = serde_json::to_string(&merged).unwrap();
     assert!(!projection.contains("api secret"));
     assert!(!projection.contains("codex secret"));

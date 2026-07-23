@@ -291,6 +291,7 @@ fn codex_unavailable_account() -> serde_json::Value {
         "loginCommand": "codex login",
         "docsUrl": "https://developers.openai.com/codex/auth",
         "checkedAt": "1970-01-01T00:00:00Z",
+        "runOptions": crate::codex_agent_host::codex_run_options(),
         "capabilities": {
             "stop": true,
             "steer": false,

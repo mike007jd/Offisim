@@ -24,6 +24,38 @@ const MODEL_ID = 'engine-managed';
 const CLAUDE_ADAPTER = Object.freeze({ id: 'claude-cli', version: '1' });
 const CLAUDE_CLI_SOURCE_URL = 'https://code.claude.com/docs/en/cli-usage';
 const CLAUDE_AUTH_DOCS_URL = 'https://code.claude.com/docs/en/authentication';
+const CLAUDE_RUN_OPTIONS = Object.freeze({
+  models: [
+    {
+      id: 'sonnet',
+      displayName: 'Sonnet (claude-sonnet-5)',
+      isDefault: true,
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      speedModes: ['standard'],
+    },
+    {
+      id: 'opus',
+      displayName: 'Opus (claude-opus-4-8)',
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      speedModes: ['standard', 'fast'],
+      fastModeNote: 'Fast mode bills usage credits beyond your subscription',
+    },
+    {
+      id: 'haiku',
+      displayName: 'Haiku (claude-haiku-4-5)',
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      speedModes: ['standard'],
+    },
+    {
+      id: 'fable',
+      displayName: 'Fable (claude-fable-5)',
+      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      speedModes: ['standard'],
+    },
+  ],
+  sourceUrl: 'https://code.claude.com/docs/en/cli-reference',
+  checkedAt: '2026-07-24',
+});
 const MAX_CAPTURE_BYTES = 1_000_000;
 const MAX_DETAIL_CHARS = 2_000;
 
@@ -209,6 +241,7 @@ function statusProjection({ state, version, statusReason, checkedAt }) {
     sourceUrl: CLAUDE_CLI_SOURCE_URL,
     checkedAt,
     capabilities: orchestrationCapabilities(),
+    runOptions: CLAUDE_RUN_OPTIONS,
   };
 }
 
