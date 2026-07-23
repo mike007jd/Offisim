@@ -68,6 +68,8 @@ export function useSceneCueFrame(options: SceneCueFrameOptions): {
   readonly frame: SceneCueFrame;
   readonly actorById: Map<string, ActorCue>;
   readonly pace: PaceSignal;
+  /** Employee ids currently carrying a visible ambient direction (incl. partners). */
+  readonly ambientActorIds: ReadonlySet<string>;
 } {
   const {
     prefabs,
@@ -210,6 +212,14 @@ export function useSceneCueFrame(options: SceneCueFrameOptions): {
       ),
     [ambientDirections, unavailableEmployeeIds, unavailableAmbientAnchorIds],
   );
+  const ambientActorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const direction of visibleAmbientDirections) {
+      ids.add(direction.employeeId);
+      if (direction.partnerId) ids.add(direction.partnerId);
+    }
+    return ids as ReadonlySet<string>;
+  }, [visibleAmbientDirections]);
   const ambientFrame = useMemo(
     () => applyAmbientCues(baseFrame, visibleAmbientDirections),
     [baseFrame, visibleAmbientDirections],
@@ -232,5 +242,8 @@ export function useSceneCueFrame(options: SceneCueFrameOptions): {
     [frame],
   );
 
-  return useMemo(() => ({ frame, actorById, pace }), [frame, actorById, pace]);
+  return useMemo(
+    () => ({ frame, actorById, pace, ambientActorIds }),
+    [frame, actorById, pace, ambientActorIds],
+  );
 }
