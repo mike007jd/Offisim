@@ -5,6 +5,7 @@ import {
   loadAiAccountUsage,
 } from '@/data/ai-account-usage.js';
 import { queryKeys } from '@/data/query-keys.js';
+import { formatAmount } from '@/data/run-cost.js';
 import { EngineMark, engineKindFromId } from '@/design-system/grammar/EngineMark.js';
 import { CapsLabel, StatusPill } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -216,10 +217,10 @@ function costHeadline(account: AccountView): string {
   if (account.cost?.kind === 'unavailable') {
     return account.cost.knownAmountUsd === undefined
       ? 'Unavailable'
-      : `$${account.cost.knownAmountUsd.toFixed(6)} known`;
+      : `${formatAmount(account.cost.knownAmountUsd)} known`;
   }
   if (!account.cost) return 'No recorded cost';
-  const amount = `$${account.cost.amountUsd.toFixed(6)}`;
+  const amount = formatAmount(account.cost.amountUsd);
   return account.cost.kind === 'estimate' ? `~${amount}` : amount;
 }
 
@@ -251,10 +252,10 @@ function providerActivityMeta(account: AccountView | undefined): string | null {
   if (account.cost) {
     if (account.cost.kind === 'unavailable') {
       if (account.cost.knownAmountUsd !== undefined) {
-        parts.push(`$${account.cost.knownAmountUsd.toFixed(6)} known`);
+        parts.push(`${formatAmount(account.cost.knownAmountUsd)} known`);
       }
     } else {
-      const amount = `$${account.cost.amountUsd.toFixed(6)}`;
+      const amount = formatAmount(account.cost.amountUsd);
       parts.push(account.cost.kind === 'estimate' ? `~${amount}` : amount);
     }
   }
@@ -471,10 +472,7 @@ function OrchestrationEngineCard({ engine }: { engine: OrchestrationEngineStatus
             </StatusPill>
           )}
         </div>
-        <div className="off-set-pv-meta">
-          {engine.version ? `Version ${engine.version} · ` : ''}Subscription included · No API cost
-          · checked {checkedAtLabel(engine.checkedAt)}
-        </div>
+        {engine.version ? <div className="off-set-pv-meta">Version {engine.version}</div> : null}
         {engine.statusReason ? <div className="off-set-pv-meta">{engine.statusReason}</div> : null}
       </div>
       <div className="off-set-engine-actions">
@@ -729,12 +727,18 @@ export function AiAccountsPane() {
 
       <section className="off-set-account-section">
         <div className="off-set-sec-head">
-          <CapsLabel>Subscription engines</CapsLabel>
-          <span>Use Codex or Claude Code with the subscription you already have.</span>
+          <div>
+            <CapsLabel>Subscription engines</CapsLabel>
+            <div className="off-set-sec-hint">
+              Use Codex or Claude Code with the subscription you already have.
+            </div>
+          </div>
         </div>
         <div className="off-set-callout is-muted">
           <Icon icon={Info} size="sm" />
-          Sign-in and model choices stay inside each tool. Offisim only checks whether it is ready.
+          {
+            'Sign-in, model choices, and billing stay inside each tool — subscription included, no API cost.'
+          }
         </div>
         {orchestrationEngines.map((engine) => (
           <OrchestrationEngineCard key={engine.engineId} engine={engine} />
@@ -748,8 +752,12 @@ export function AiAccountsPane() {
 
       <section className="off-set-account-section">
         <div className="off-set-sec-head">
-          <CapsLabel>API providers</CapsLabel>
-          <span>Add providers and choose the exact models available to employees.</span>
+          <div>
+            <CapsLabel>API providers</CapsLabel>
+            <div className="off-set-sec-hint">
+              Add providers and choose the exact models available to employees.
+            </div>
+          </div>
         </div>
         <section className="off-set-provider-card">
           <div className="off-set-provider-detail">

@@ -2,6 +2,7 @@ import { useUiState } from '@/app/ui-state.js';
 import { isTauriRuntime } from '@/data/adapters.js';
 import { useEmployees } from '@/data/queries.js';
 import { queryKeys } from '@/data/query-keys.js';
+import { CapsLabel, CardBlock, StatusPill } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
 import { safeErrorMessage } from '@/lib/error-message.js';
@@ -23,17 +24,7 @@ import type {
   RuntimeInteractionRouteSource,
 } from '@offisim/shared-types';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import {
-  CheckCircle2,
-  Copy,
-  ExternalLink,
-  MonitorSmartphone,
-  PlugZap,
-  RefreshCw,
-  ShieldCheck,
-  UsersRound,
-  Wrench,
-} from 'lucide-react';
+import { Copy, ExternalLink, PlugZap, RefreshCw, ShieldCheck, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { resolveComputerRoute } from './computer-route.js';
@@ -75,14 +66,10 @@ async function copyText(value: string, label: string) {
 }
 
 interface ComputerSetupPanelProps {
-  compact?: boolean;
   onManageToolAccess?: () => void;
 }
 
-export function ComputerSetupPanel({
-  compact = false,
-  onManageToolAccess,
-}: ComputerSetupPanelProps) {
+export function ComputerSetupPanel({ onManageToolAccess }: ComputerSetupPanelProps) {
   const desktopAvailable = isTauriRuntime();
   const queryClient = useQueryClient();
   const companyId = useUiState((state) => state.companyId);
@@ -162,117 +149,125 @@ export function ComputerSetupPanel({
   }
 
   const stateLabel = !desktopAvailable
-    ? 'Desktop unavailable'
+    ? 'Desktop app required'
     : ready
       ? 'Ready'
       : !status
         ? 'Checking'
         : !status.installed
-          ? 'Desktop driver not installed'
+          ? 'Driver not installed'
           : !status.daemonRunning
-            ? 'Desktop driver not running'
+            ? 'Driver not running'
             : !computerServer
-              ? 'Driver not linked to Offisim'
+              ? 'Not linked'
               : computerServer.status !== 'connected'
-                ? 'Driver link disconnected'
+                ? 'Link disconnected'
                 : 'Ready';
-
-  // In compact placements (waiting viewport) the panel is a setup nudge only;
-  // once the driver is fully ready there is nothing left to set up.
-  if (compact && ready) return null;
+  const stateTone = !desktopAvailable || !status ? 'muted' : ready ? 'ok' : 'warn';
 
   return (
-    <section className={cn('off-computer-setup', compact && 'is-compact')}>
-      <div className="off-computer-setup-head">
-        <Icon icon={ready ? CheckCircle2 : MonitorSmartphone} size="sm" />
-        <div>
-          <strong>{stateLabel}</strong>
-          <span>
-            {status?.version ?? status?.binaryPath ?? 'Cua Driver powers native desktop actions.'}
-          </span>
+    <div className="off-set-pane">
+      <div className="off-set-panehead off-set-panehead-row">
+        <div className="min-w-0">
+          <div className="off-set-panetitle">Computer Access</div>
+          <div className="off-set-panedesc">
+            Let employees drive this Mac&apos;s screen. Requires the Cua desktop driver, installed
+            once.
+          </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!desktopAvailable || loadingStatus}
-          onClick={() => void refresh()}
-        >
-          <Icon icon={RefreshCw} size="sm" />
-          Refresh
-        </Button>
-      </div>
-
-      {!compact && !ready ? (
-        <p className="off-computer-setup-copy">
-          Computer Use lets teammates drive this Mac&apos;s screen. It needs the Cua desktop driver
-          installed once.
-        </p>
-      ) : null}
-
-      {!desktopAvailable ? (
-        <p className="off-computer-setup-copy">Driver status is only visible in the desktop app.</p>
-      ) : null}
-
-      {status && !status.installed ? (
-        <CommandRow
-          label="Install"
-          value={CUA_DRIVER_INSTALL_COMMAND}
-          actionLabel="Copy install command"
-        />
-      ) : null}
-
-      {status?.installed && !status.daemonRunning ? (
-        <>
-          <CommandRow
-            label="Start driver"
-            value={CUA_DRIVER_DAEMON_COMMAND}
-            actionLabel="Copy start command"
-          />
-          <CommandRow
-            label="Grant access"
-            value={CUA_DRIVER_PERMISSIONS_COMMAND}
-            actionLabel="Copy permission command"
-          />
-        </>
-      ) : null}
-
-      {status?.daemonRunning ? (
-        <div className="off-computer-setup-actions">
+        <div className="off-set-panehead-aside">
           <Button
             type="button"
+            variant="outline"
             size="sm"
-            disabled={busy || ready}
-            onClick={() => void registerOrConnect()}
+            disabled={!desktopAvailable || loadingStatus}
+            onClick={() => void refresh()}
           >
-            <Icon icon={PlugZap} size="sm" />
-            {computerServer ? 'Connect MCP' : 'Register MCP'}
+            <Icon icon={RefreshCw} size="sm" className={loadingStatus ? 'off-spin' : undefined} />
+            {loadingStatus ? 'Refreshing…' : 'Refresh'}
           </Button>
-          <a
-            href={CUA_DRIVER_DOCS_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="off-computer-doc-link"
-          >
-            <Icon icon={ExternalLink} size="sm" />
-            Cua docs
-          </a>
         </div>
-      ) : null}
+      </div>
 
-      {ready ? (
-        <p className="off-computer-setup-copy">
-          Offisim local Computer Use is connected for this Mac. Engine-native routes are used only
-          when the selected runtime explicitly declares them.
-        </p>
-      ) : null}
+      <section className="off-set-sec">
+        <div className="off-set-sec-head">
+          <div>
+            <CapsLabel>Desktop driver</CapsLabel>
+            <div className="off-set-sec-hint">
+              {status?.version ?? status?.binaryPath ?? 'Cua Driver powers native desktop actions.'}
+            </div>
+          </div>
+          <StatusPill tone={stateTone}>{stateLabel}</StatusPill>
+        </div>
+        <CardBlock>
+          <div className="flex flex-col gap-[var(--off-sp-3)]">
+            {!desktopAvailable ? (
+              <p className="off-computer-muted">
+                Driver status is only visible in the desktop app.
+              </p>
+            ) : null}
+
+            {status && !status.installed ? (
+              <CommandRow
+                label="Install"
+                value={CUA_DRIVER_INSTALL_COMMAND}
+                actionLabel="Copy install command"
+              />
+            ) : null}
+
+            {status?.installed && !status.daemonRunning ? (
+              <>
+                <CommandRow
+                  label="Start driver"
+                  value={CUA_DRIVER_DAEMON_COMMAND}
+                  actionLabel="Copy start command"
+                />
+                <CommandRow
+                  label="Grant access"
+                  value={CUA_DRIVER_PERMISSIONS_COMMAND}
+                  actionLabel="Copy permission command"
+                />
+              </>
+            ) : null}
+
+            {status?.daemonRunning ? (
+              <div className="flex items-center gap-[var(--off-sp-2)]">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy || ready}
+                  onClick={() => void registerOrConnect()}
+                >
+                  <Icon icon={PlugZap} size="sm" />
+                  {computerServer ? 'Connect MCP' : 'Register MCP'}
+                </Button>
+                <a
+                  href={CUA_DRIVER_DOCS_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="off-computer-doc-link"
+                >
+                  <Icon icon={ExternalLink} size="sm" />
+                  Cua docs
+                </a>
+              </div>
+            ) : null}
+
+            {ready ? (
+              <p className="off-computer-muted">
+                Offisim local Computer Use is connected for this Mac.
+              </p>
+            ) : null}
+          </div>
+        </CardBlock>
+      </section>
 
       <ComputerRouteSettings capabilities={engineCapabilities} localDriverReady={ready} />
 
       {ready && computerServer ? (
         <ComputerAccessPolicy server={computerServer} onManageToolAccess={onManageToolAccess} />
       ) : null}
-    </section>
+    </div>
   );
 }
 
@@ -291,20 +286,13 @@ function ComputerRouteSettings({
   });
   if (!rows.length) return null;
   return (
-    <section className="off-computer-settings" aria-labelledby="off-computer-routes-title">
-      <div className="off-computer-settings-head">
-        <div>
-          <Icon icon={MonitorSmartphone} size="sm" />
-          <span>
-            <strong id="off-computer-routes-title">Computer routes</strong>
-            <small>Resolved per engine lane; never inferred from the brand.</small>
-          </span>
-        </div>
+    <section className="off-set-sec">
+      <div className="off-set-sec-head">
+        <CapsLabel>Computer routes</CapsLabel>
       </div>
       <div className="off-computer-route-list">
         {rows.map(({ engineId, resolution }) => {
           const effective = resolution.effective;
-          const native = resolution.routes.find((route) => route.source === 'engine-native');
           return (
             <div className="off-computer-route-row" key={engineId}>
               <span
@@ -328,13 +316,8 @@ function ComputerRouteSettings({
                       ? 'Setup required'
                       : 'Unsupported'}
                 </small>
-                {effective.reason ? <small>{effective.reason}</small> : null}
-                {native && native.id !== effective.id ? (
-                  <small>
-                    Engine native:{' '}
-                    {native.availability === 'available' ? 'Available' : 'Unavailable'}
-                    {native.reason ? ` — ${native.reason}` : ''}
-                  </small>
+                {effective.availability === 'setup-required' && effective.reason ? (
+                  <small>{effective.reason}</small>
                 ) : null}
               </div>
               <span className="off-computer-route-source">
@@ -432,16 +415,13 @@ function ComputerAccessPolicy({
   }
 
   return (
-    <div className="off-computer-settings">
-      <div className="off-computer-settings-head">
+    <section className="off-set-sec">
+      <div className="off-set-sec-head">
         <div>
-          <Icon icon={UsersRound} size="sm" />
-          <span>
-            <strong>Access policy</strong>
-            <small>
-              Machine availability is global; runtime grants remain the enforcement layer.
-            </small>
-          </span>
+          <CapsLabel>Access policy</CapsLabel>
+          <div className="off-set-sec-hint">
+            Access is granted per employee. Manage details in Tools &amp; Integrations.
+          </div>
         </div>
       </div>
 
@@ -488,7 +468,7 @@ function ComputerAccessPolicy({
           <Icon icon={ExternalLink} size="sm" />
         </button>
       ) : null}
-    </div>
+    </section>
   );
 }
 
