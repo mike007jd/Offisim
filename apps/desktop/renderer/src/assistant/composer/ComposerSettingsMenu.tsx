@@ -44,6 +44,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { resolveComposerDefaultOption } from './composer-default-selection.js';
 import {
   type AgentRuntimeModelOption,
   type OrchestrationEngineDirectoryEntry,
@@ -127,11 +128,14 @@ const SPEED_META: Record<'standard' | 'fast', { label: string; meta: string }> =
 export function ComposerSettingsMenu({
   threadId,
   contextLabel,
+  defaultModelSelector,
   showMode = true,
 }: {
   threadId: string;
   /** Quiet menu heading (e.g. the project name); omitted when empty. */
   contextLabel?: string;
+  /** Employee-bound runtime selector used only while the thread has no durable authority. */
+  defaultModelSelector?: string;
   /** Permission mode applies to Office runs; Connect uses its Chat/Read-only profile instead. */
   showMode?: boolean;
 }) {
@@ -212,7 +216,10 @@ export function ComposerSettingsMenu({
       : undefined;
     const stableDefault = authority
       ? durable
-      : list.find((option) => option.availability === 'available');
+      : resolveComposerDefaultOption(
+          list,
+          [defaultModelSelector].filter((selector): selector is string => Boolean(selector)),
+        );
     const effective = perThreadModel && !selected ? undefined : (selected ?? stableDefault);
     const groups = new Map<string, { account: string; items: typeof list }>();
     for (const option of list) {
@@ -249,6 +256,7 @@ export function ComposerSettingsMenu({
     threadAuthority.data,
     thinkingOverride,
     catalogUnavailable,
+    defaultModelSelector,
   ]);
 
   useEffect(() => {
@@ -487,7 +495,16 @@ export function ComposerSettingsMenu({
                     disabled={!defaultModel}
                     onSelect={(event) => event.preventDefault()}
                   >
-                    {defaultModel ? `Default · ${defaultModel.name}` : 'Default model unavailable'}
+                    {defaultModel
+                      ? `Default · ${
+                          defaultModel.selectionKind === 'orchestration-engine' &&
+                          defaultModel.modelId === 'engine-managed'
+                            ? `Engine default (${engineShortLabel(
+                                engineKindFromId(defaultModel.engineId, defaultModel.name),
+                              )})`
+                            : defaultModel.name
+                        }`
+                      : 'Default model unavailable'}
                   </DropdownMenuRadioItem>
                 ) : null}
                 {accounts.length ? (
