@@ -1,5 +1,10 @@
 use serde_json::{json, Value};
 
+// This table is an advisory declaration of the CLI's official run options
+// (source + checkedAt below), not an Offisim model catalog: it constrains only
+// explicit Offisim-side selections, and the engine-managed default lane always
+// stays available so a CLI-side model the table does not list yet keeps working
+// through the engine default until the table is refreshed.
 const SOURCE_URL: &str = "https://learn.chatgpt.com/docs/config-file/config-reference";
 const CHECKED_AT: &str = "2026-07-24";
 const STANDARD_EFFORTS: &[&str] = &["minimal", "low", "medium", "high", "xhigh"];

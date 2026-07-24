@@ -45,7 +45,9 @@ import {
   validateExecutionTarget,
 } from './execution-provenance.js';
 import {
+  MODEL_PASSTHROUGH_ENGINES,
   type ResolvedRuntimeExecutionSelection,
+  declaredReasoningEffort,
   isSameExecutionTarget,
   parseRuntimeExecutionSelector,
   resolveRuntimeExecutionSelection,
@@ -2217,14 +2219,6 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             .join('\n\n')
         : systemPromptAppend;
       throwIfRunAborted(signal);
-      // The gateway already froze the task's engine/account/model before entering
-      // this adapter. Employee settings may still supply a thinking level, but
-      // must never replace that exact model with a binding from another engine.
-      if (commandName === 'agent_runtime_execute' && input.employeeId) {
-        resolvedThinkingLevel = runtimeSelection.thinkingLevel;
-        runtimeContext.thinkingLevel = resolvedThinkingLevel ?? null;
-        this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
-      }
       const exactTarget = validateExecutionTarget(input.executionTarget);
       const exactRuntimeModelRef = input.runtimeModelRef?.trim();
       if (!exactTarget || !exactRuntimeModelRef) {
@@ -2238,12 +2232,36 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       }
       executionTarget = exactTarget;
       resolvedModel = exactRuntimeModelRef;
+      const delegatedThinkingLevel =
+        commandName === 'agent_runtime_execute' && input.employeeId
+          ? runtimeSelection.thinkingLevel
+          : undefined;
       const rosterModels = this.config.supportsOffisimDelegation
         ? roster.map((entry) => entry.model?.trim()).filter(Boolean)
         : [];
-      const runtimeStatus = rosterModels.length
-        ? await invokeCommand('agent_runtime_status', { includeUsage: false })
-        : undefined;
+      const runtimeStatus =
+        rosterModels.length ||
+        (delegatedThinkingLevel && MODEL_PASSTHROUGH_ENGINES.has(this.engineId))
+          ? await invokeCommand('agent_runtime_status', { includeUsage: false })
+          : undefined;
+      // The gateway already froze the task's engine/account/model before entering
+      // this adapter. Employee settings may still supply a thinking level, but
+      // must never replace that exact model with a binding from another engine —
+      // and an inherited level the frozen model does not declare (Pi's `off`, or
+      // a stale employee `xhigh` on a model without it) degrades to the engine
+      // default instead of hard-failing the host's closed-set validation.
+      if (commandName === 'agent_runtime_execute' && input.employeeId) {
+        resolvedThinkingLevel = MODEL_PASSTHROUGH_ENGINES.has(this.engineId)
+          ? declaredReasoningEffort(
+              runtimeStatus,
+              this.engineId,
+              exactTarget.modelId,
+              delegatedThinkingLevel,
+            )
+          : delegatedThinkingLevel;
+        runtimeContext.thinkingLevel = resolvedThinkingLevel ?? null;
+        this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
+      }
       // One root run owns one engine/account/billing lane. Employees bound to a
       // different lane stay visible in Offisim but are not exposed as Pi child
       // candidates; their presence must never reject otherwise valid root work.

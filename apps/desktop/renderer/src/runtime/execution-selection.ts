@@ -36,6 +36,34 @@ export const MODEL_PASSTHROUGH_ENGINES: ReadonlySet<string> = new Set(['codex'])
 
 const ENGINE_MANAGED_MODEL_ID = 'engine-managed';
 
+/**
+ * Keep a requested reasoning effort only when the engine's declared run-option
+ * table lists it for the resolved model. Delegation inherits thinking levels
+ * from other lanes (e.g. Pi's `off`) and stale employee settings can pair an
+ * effort with a model that does not support it; an undeclared effort must
+ * degrade to the engine default instead of hard-failing the host's closed-set
+ * validation with an error the user never chose.
+ */
+export function declaredReasoningEffort(
+  statusValue: unknown,
+  engineId: string,
+  modelId: string,
+  requested: string | undefined,
+): string | undefined {
+  if (!requested) return undefined;
+  const status = statusValue as Partial<AiRuntimeStatus> | undefined;
+  const engines: readonly OrchestrationEngineStatus[] = Array.isArray(status?.orchestrationEngines)
+    ? status.orchestrationEngines
+    : [];
+  const models = engines.find((engine) => engine.engineId === engineId)?.runOptions?.models;
+  if (!Array.isArray(models) || !models.length) return undefined;
+  const resolved =
+    modelId === ENGINE_MANAGED_MODEL_ID
+      ? models.find((model) => model.isDefault)
+      : models.find((model) => model.id === modelId);
+  return resolved?.reasoningEfforts?.includes(requested) ? requested : undefined;
+}
+
 export function serializeRuntimeExecutionSelector(selector: RuntimeExecutionSelector): string {
   if (selector.kind === 'api-model') {
     const runtimeModelRef = selector.runtimeModelRef.trim();

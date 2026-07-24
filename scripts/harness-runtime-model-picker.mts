@@ -10,6 +10,7 @@ import {
   projectOrchestrationEngineDirectory,
   projectRunnableModelOptions,
 } from '../apps/desktop/renderer/src/assistant/composer/usePiAgentModels.js';
+import { declaredReasoningEffort } from '../apps/desktop/renderer/src/runtime/execution-selection.js';
 
 const capabilities: RuntimeEngineCapabilityManifest = {
   stop: true,
@@ -275,5 +276,55 @@ assert.deepEqual(directory[0]?.runOptions?.models[0], {
   fastModeNote: 'Uses extra subscription capacity.',
   note: 'Default Codex model',
 });
+
+// A drifted declaration (wrong shapes from the untyped Rust/sidecar producers)
+// must degrade to "undeclared" — engine expansion drops, directory keeps the
+// engine without runOptions — instead of crashing projections downstream.
+const malformedRunOptions = {
+  ...runOptions,
+  models: [
+    ...runOptions.models,
+    { id: 'gpt-broken', displayName: 'Broken', reasoningEfforts: 'high', speedModes: ['standard'] },
+  ],
+} as unknown as OrchestrationEngineRunOptions;
+assert.deepEqual(
+  projectRunnableModelOptions(
+    runtimeStatus([orchestrationEngine('codex', 'ready', { runOptions: malformedRunOptions })]),
+    0,
+  ).map((option) => option.engineId),
+  ['api'],
+  'a drifted run-option declaration must drop the engine expansion, not crash the picker',
+);
+const malformedDirectory = projectOrchestrationEngineDirectory(
+  runtimeStatus([orchestrationEngine('codex', 'ready', { runOptions: malformedRunOptions })]),
+);
+assert.equal(malformedDirectory[0]?.state, 'ready', 'the engine itself stays listed');
+assert.equal(
+  malformedDirectory[0]?.runOptions,
+  undefined,
+  'a drifted declaration projects as undeclared',
+);
+
+// Delegated runs may inherit thinking levels from other lanes or stale employee
+// settings; only efforts the resolved model declares survive to the engine.
+const effortStatus = runtimeStatus([ready]);
+assert.equal(declaredReasoningEffort(effortStatus, 'codex', 'gpt-5.6-sol', 'xhigh'), 'xhigh');
+assert.equal(declaredReasoningEffort(effortStatus, 'codex', 'engine-managed', 'high'), 'high');
+assert.equal(
+  declaredReasoningEffort(effortStatus, 'codex', 'gpt-5.4-mini', 'xhigh'),
+  undefined,
+  'an effort the resolved model does not declare degrades to engine default',
+);
+assert.equal(
+  declaredReasoningEffort(effortStatus, 'codex', 'gpt-5.6-sol', 'off'),
+  undefined,
+  "another lane's thinking vocabulary (Pi `off`) must not reach the engine",
+);
+assert.equal(declaredReasoningEffort(effortStatus, 'codex', 'gpt-5.6-sol', undefined), undefined);
+assert.equal(
+  declaredReasoningEffort(undefined, 'codex', 'gpt-5.6-sol', 'high'),
+  undefined,
+  'missing status degrades to engine default instead of passing an unvalidated effort',
+);
 
 console.log('Runtime model picker and orchestration directory harness passed.');
