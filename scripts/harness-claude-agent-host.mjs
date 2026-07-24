@@ -437,23 +437,14 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   assert.ok(invokedArgs.includes('stream-json'));
   assert.ok(invokedArgs.includes('--settings'));
   assert.ok(invokedArgs.includes('--session-id'));
-  assert.equal(
-    invokedArgs[invokedArgs.indexOf('--allowedTools') + 1],
-    'mcp__offisim_browser__*',
-  );
+  assert.equal(invokedArgs[invokedArgs.indexOf('--allowedTools') + 1], 'mcp__offisim_browser__*');
   const mcpConfig = JSON.parse(invokedArgs[invokedArgs.indexOf('--mcp-config') + 1]);
-  assert.equal(
-    mcpConfig.mcpServers.offisim_browser.url,
-    'http://127.0.0.1:49152/mcp',
-  );
+  assert.equal(mcpConfig.mcpServers.offisim_browser.url, 'http://127.0.0.1:49152/mcp');
   assert.equal(
     mcpConfig.mcpServers.offisim_browser.headers.Authorization,
     'Bearer ${OFFISIM_BROWSER_MCP_TOKEN}',
   );
-  assert.doesNotMatch(
-    JSON.stringify(invokedArgs),
-    /fixture-browser-token-must-not-enter-argv/u,
-  );
+  assert.doesNotMatch(JSON.stringify(invokedArgs), /fixture-browser-token-must-not-enter-argv/u);
   assert.equal(invokedArgs[invokedArgs.indexOf('--plugin-dir') + 1], skillPluginDir);
   assert.ok(!invokedArgs.includes('--model'));
   assert.ok(!invokedArgs.includes('--effort'));

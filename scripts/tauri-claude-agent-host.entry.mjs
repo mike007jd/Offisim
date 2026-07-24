@@ -449,7 +449,10 @@ function browserMcpConfig() {
   const rawUrl = nonEmpty(process.env[BROWSER_MCP_URL_ENV]);
   const token = nonEmpty(process.env[BROWSER_MCP_TOKEN_ENV]);
   if (!rawUrl || !token) {
-    throw hostError('Claude execute requires an active Offisim browser MCP gateway.', 'host-unavailable');
+    throw hostError(
+      'Claude execute requires an active Offisim browser MCP gateway.',
+      'host-unavailable',
+    );
   }
   let url;
   try {
@@ -497,12 +500,7 @@ function cliArgs(payload, sessionId) {
     '',
   ];
   if (payload.mode === 'execute') {
-    args.push(
-      '--mcp-config',
-      browserMcpConfig(),
-      '--allowedTools',
-      'mcp__offisim_browser__*',
-    );
+    args.push('--mcp-config', browserMcpConfig(), '--allowedTools', 'mcp__offisim_browser__*');
   }
   if (payload.model) args.push('--model', payload.model);
   if (payload.effort) args.push('--effort', payload.effort);
