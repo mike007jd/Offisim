@@ -75,14 +75,18 @@ area; spacing belongs inside panels, rails, and toolbar regions.
   as Pi providers.
 - Settings is an engine-neutral AI Accounts surface with two sections. API
   engines expose safe Pi-managed provider/model editing; orchestration engines
-  expose only CLI install/login/version status and official guidance. External
-  CLI credentials, model choice, subscription usage, and account health remain
-  CLI-owned.
+  expose CLI install/login/version status, official guidance, and their declared
+  official run-option table (model/effort/speed with sourceUrl + checkedAt) that
+  Offisim only passes through. External CLI credentials, default model choice,
+  subscription usage, and account health remain CLI-owned.
 - Pi `models.json` is the dynamic API-model truth; user-configured providers and
   models are selectable without an Offisim allowlist, and their source metadata
-  is optional. Orchestration engines do not expose an Offisim model catalog or
-  API-price projection; runs record reported tokens and duration as
-  subscription-included with no API cost.
+  is optional. Orchestration engines never get an API-price projection; the
+  declared run-option table is advisory official guidance, not an Offisim model
+  catalog, and the engine-managed default lane always stays available. Runs
+  record reported tokens and duration; standard runs are subscription-included
+  with no API cost, while fast runs are marked as billing usage credits (still
+  no price projection).
 - Product and runtime boundaries follow
   `Docs/architecture/2026-07-13-engine-neutral-ai-accounts.md`. The older
   Pi-only ADR is historical implementation context, not the current target.
