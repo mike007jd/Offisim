@@ -14,6 +14,7 @@ import {
 } from '@/design-system/primitives/dropdown-menu.js';
 import {
   type ConversationTargetKey,
+  type ConversationTargetRunDefaultUpdate,
   canSeedConversationRunDefaults,
   useConversationTargetDefaultsStore,
 } from '@/runtime/conversation-target-defaults-store.js';
@@ -50,6 +51,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { planConversationRunDefaultSeed } from './composer-default-seeding.js';
 import { resolveComposerDefaultOption } from './composer-default-selection.js';
 import { matchesComposerModelSearch, orderComposerModelGroups } from './composer-model-filter.js';
 import {
@@ -156,50 +158,29 @@ function useConversationRunDefaultSeeding(
       return;
     }
 
-    seededTargetsRef.current.add(seedKey);
     const modelStore = usePiThreadModelStore.getState();
     const thinkingStore = usePiThreadThinkingStore.getState();
     const speedStore = usePiThreadSpeedStore.getState();
     const modeStore = usePiThreadModeStore.getState();
-    const existingModel = modelStore.byThread[threadId];
-    const targetModel = targetDefaults.model
-      ? options.find((option) => option.value === targetDefaults.model)
-      : undefined;
+    const plan = planConversationRunDefaultSeed({
+      options,
+      targetDefaults,
+      defaultModelSelector,
+      existingModelValue: modelStore.byThread[threadId],
+      hasModelPick: threadId in modelStore.byThread,
+      hasThinkingPick: threadId in thinkingStore.byThread,
+      hasSpeedPick: threadId in speedStore.byThread,
+      hasModePick: threadId in modeStore.byThread,
+    });
+    // No landing model (e.g. every candidate is stale) must not consume the
+    // seed — a later catalog refresh gets another chance to seed this thread.
+    if (!plan) return;
+    seededTargetsRef.current.add(seedKey);
 
-    if (!(threadId in modelStore.byThread) && targetModel) {
-      modelStore.setThreadModel(threadId, targetModel.value);
-    }
-
-    const landingModel = existingModel
-      ? options.find((option) => option.value === existingModel)
-      : (targetModel ??
-        resolveComposerDefaultOption(
-          options,
-          [defaultModelSelector].filter((selector): selector is string => Boolean(selector)),
-        ));
-    if (!landingModel) return;
-
-    if (
-      !(threadId in thinkingStore.byThread) &&
-      targetDefaults.thinking &&
-      landingModel.reasoningEfforts.includes(targetDefaults.thinking)
-    ) {
-      thinkingStore.setThreadThinking(threadId, targetDefaults.thinking);
-    }
-    if (
-      !(threadId in speedStore.byThread) &&
-      targetDefaults.speed === 'fast' &&
-      landingModel.speedModes.includes('fast')
-    ) {
-      speedStore.setThreadSpeed(threadId, 'fast');
-    }
-    if (
-      !(threadId in modeStore.byThread) &&
-      targetDefaults.mode &&
-      landingModel.capabilities.permissionModes.includes(targetDefaults.mode)
-    ) {
-      modeStore.setThreadMode(threadId, targetDefaults.mode);
-    }
+    if (plan.model) modelStore.setThreadModel(threadId, plan.model);
+    if (plan.thinking) thinkingStore.setThreadThinking(threadId, plan.thinking);
+    if (plan.speed) speedStore.setThreadSpeed(threadId, plan.speed);
+    if (plan.mode) modeStore.setThreadMode(threadId, plan.mode);
   }, [
     defaultModelSelector,
     models.data,
@@ -253,6 +234,9 @@ export function ComposerSettingsMenu({
   const setTargetRunDefault = useConversationTargetDefaultsStore(
     (state) => state.setTargetRunDefault,
   );
+  const recordTargetDefault = targetKey
+    ? (update: ConversationTargetRunDefaultUpdate) => setTargetRunDefault(targetKey, update)
+    : undefined;
   useConversationRunDefaultSeeding(threadId, targetKey, defaultModelSelector);
 
   const [layer, setLayer] = useState<PickerLayer>('root');
@@ -618,6 +602,9 @@ export function ComposerSettingsMenu({
                 spellCheck={false}
                 onChange={(event) => setModelSearchQuery(event.target.value)}
                 onKeyDown={(event) => {
+                  // Tab must reach the menu's focus management; the fallback
+                  // stopPropagation below would trap it inside the input.
+                  if (event.key === 'Tab') return;
                   if (event.key === 'Escape') {
                     if (modelSearchQuery) {
                       event.preventDefault();
@@ -665,13 +652,7 @@ export function ComposerSettingsMenu({
                 value={modelRadioValue}
                 onValueChange={(value) => {
                   setThreadModel(threadId, value);
-                  if (targetKey) {
-                    setTargetRunDefault(
-                      targetKey,
-                      { axis: 'model', value: value || undefined },
-                      Date.now(),
-                    );
-                  }
+                  recordTargetDefault?.({ axis: 'model', value: value || undefined });
                   setLayer('root');
                 }}
               >
@@ -837,13 +818,10 @@ export function ComposerSettingsMenu({
                 const resetsToDefault = selectedLevel === defaultReasoningEffort;
                 if (resetsToDefault) clearThreadThinking(threadId);
                 else setThreadThinking(threadId, selectedLevel);
-                if (targetKey) {
-                  setTargetRunDefault(
-                    targetKey,
-                    { axis: 'thinking', value: resetsToDefault ? undefined : selectedLevel },
-                    Date.now(),
-                  );
-                }
+                recordTargetDefault?.({
+                  axis: 'thinking',
+                  value: resetsToDefault ? undefined : selectedLevel,
+                });
                 setLayer('root');
               }}
             >
@@ -869,13 +847,7 @@ export function ComposerSettingsMenu({
                 <DropdownMenuItem
                   onSelect={() => {
                     clearThreadThinking(threadId);
-                    if (targetKey) {
-                      setTargetRunDefault(
-                        targetKey,
-                        { axis: 'thinking', value: undefined },
-                        Date.now(),
-                      );
-                    }
+                    recordTargetDefault?.({ axis: 'thinking', value: undefined });
                     setLayer('root');
                   }}
                 >
@@ -900,13 +872,10 @@ export function ComposerSettingsMenu({
               onValueChange={(value) => {
                 if (value === 'fast') setThreadSpeed(threadId, 'fast');
                 else clearThreadSpeedOverride(threadId);
-                if (targetKey) {
-                  setTargetRunDefault(
-                    targetKey,
-                    { axis: 'speed', value: value === 'fast' ? 'fast' : undefined },
-                    Date.now(),
-                  );
-                }
+                recordTargetDefault?.({
+                  axis: 'speed',
+                  value: value === 'fast' ? 'fast' : undefined,
+                });
                 setLayer('root');
               }}
             >
@@ -944,13 +913,7 @@ export function ComposerSettingsMenu({
               value={mode}
               onValueChange={(value) => {
                 setThreadMode(threadId, value as PermissionMode);
-                if (targetKey) {
-                  setTargetRunDefault(
-                    targetKey,
-                    { axis: 'mode', value: value as PermissionMode },
-                    Date.now(),
-                  );
-                }
+                recordTargetDefault?.({ axis: 'mode', value: value as PermissionMode });
                 setLayer('root');
               }}
             >

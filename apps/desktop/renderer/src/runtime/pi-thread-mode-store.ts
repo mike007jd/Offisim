@@ -17,7 +17,7 @@ export const DEFAULT_PERMISSION_MODE: PermissionMode = 'auto';
 
 const STORAGE_KEY = 'offisim:pi-agent:thread-modes';
 
-function isPermissionMode(value: unknown): value is PermissionMode {
+export function isPermissionMode(value: unknown): value is PermissionMode {
   return typeof value === 'string' && (PERMISSION_MODES as readonly string[]).includes(value);
 }
 

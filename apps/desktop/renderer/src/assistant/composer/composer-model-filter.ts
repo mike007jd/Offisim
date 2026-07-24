@@ -8,10 +8,9 @@ export interface ComposerModelGroup {
 }
 
 function isFreeComposerModel(option: AgentRuntimeModelOption): boolean {
-  return (
-    option.selectionKind === 'api-model' &&
-    (option.modelId.toLowerCase().endsWith(':free') || option.availability === 'expiring')
-  );
+  // Only an explicit `:free` suffix marks a free model; a paid model nearing
+  // its expiration date must not sink into the collapsed free group.
+  return option.selectionKind === 'api-model' && option.modelId.toLowerCase().endsWith(':free');
 }
 
 export function matchesComposerModelSearch(
