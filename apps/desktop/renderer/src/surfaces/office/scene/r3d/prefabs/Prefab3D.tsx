@@ -14,6 +14,7 @@ import { DecorativeMesh3D } from './DecorativeMesh3D.js';
 import { InfrastructureMesh3D } from './InfrastructureMesh3D.js';
 import { MeetingTableMesh3D } from './MeetingTableMesh3D.js';
 import { RestAreaMesh3D } from './RestAreaMesh3D.js';
+import { RestDiningMesh3D } from './RestDiningMesh3D.js';
 import { ServerRackMesh3D, ServerRackUnit3D } from './ServerRackMesh3D.js';
 import { WhiteboardMesh3D } from './WhiteboardMesh3D.js';
 import { WorkstationMesh3D, WorkstationUnit3D } from './WorkstationMesh3D.js';
@@ -41,12 +42,29 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
   if (prefabId === 'sofa-set') {
     return <RestAreaMesh3D position={position} rotation={rotation} state={state} />;
   }
+  if (prefabId === 'sofa-single' || prefabId === 'lounge-bench') {
+    return (
+      <RestAreaMesh3D position={position} rotation={rotation} state={state} template={prefabId} />
+    );
+  }
+  if (prefabId === 'dining-table-4' || prefabId === 'cafe-table-2') {
+    return (
+      <RestDiningMesh3D position={position} rotation={rotation} state={state} template={prefabId} />
+    );
+  }
   if (
     prefabId === 'coffee-table' ||
     prefabId === 'vending-machine' ||
     prefabId === 'water-cooler' ||
     prefabId === 'chair-standalone' ||
-    prefabId === 'status-board'
+    prefabId === 'status-board' ||
+    prefabId === 'coffee-machine' ||
+    prefabId === 'pantry-counter' ||
+    prefabId === 'snack-shelf' ||
+    prefabId === 'fridge' ||
+    prefabId === 'magazine-rack' ||
+    prefabId === 'floor-lamp' ||
+    prefabId === 'plant-medium'
   ) {
     return (
       <DecorativeMesh3D position={position} rotation={rotation} state={state} template={prefabId} />
