@@ -3,16 +3,19 @@ import { createHarness } from './lib/harness-runner.mjs';
 const h = createHarness();
 
 /**
- * MCP bridge extension oracle (Epic B, B3) — the agent-facing 3 meta tools + the
- * write-tool execute-time confirm gate.
+ * MCP bridge extension oracle (Epic B, B3) — the agent-facing 3 meta tools,
+ * first-class built-in Browser proxies, and the write-tool execute-time gate.
  *
  * Drives the REAL {@link createMcpBridgeExtensionFactory} over a fake `pi`
  * (capturing registerTool) and a fake `requestMcpResult` / `ctx.ui.confirm`.
- * No Pi SDK, no host process. Proves: the registered schema is
- * ALWAYS exactly 3 tools (token-proxy invariant) regardless of tool count;
+ * No Pi SDK, no host process. Proves: arbitrary external MCP catalogs stay
+ * behind exactly 3 token-proxy tools regardless of tool count; fixed
+ * offisim-browser descriptors are additionally registered as direct Pi tools;
  * search/describe shapes; mcp_call routes to requestMcpResult; a write-class tool
  * pauses for confirm; a deny blocks it; a read-only tool never prompts; write
  * execution fails closed unless Pi provides the tool execution UI context.
+ * Offisim Browser navigate/back are the alignment exception: they only pause in
+ * ask mode — auto/full auto-allow and plan is rejected by the native gateway.
  *
  * Inject-proof (run manually, then revert): make the execute path confirm EVERY mcp_call
  * (drop the isWriteMcpTool check) → check (8) read-tool-no-prompt fails; OR make
@@ -23,7 +26,7 @@ const h = createHarness();
 import assert from 'node:assert/strict';
 import { parseToolRichDetail } from '../packages/shared-types/src/index.js';
 import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
-const TOTAL = 31;
+const TOTAL = 34;
 const check = h.checkAsync;
 
 type Tool = Record<string, unknown> & { name: string };
@@ -69,6 +72,20 @@ const COMPUTER_TOOL = {
   category: 'computer-use',
   description: 'Click a coordinate in a target app.',
   annotations: { readOnlyHint: true },
+};
+const BROWSER_NAVIGATE_TOOL = {
+  name: 'browser_navigate',
+  server: 'offisim-browser',
+  category: 'browser',
+  description: 'Open an absolute http/https URL in the Offisim browser.',
+  write: true,
+};
+const BROWSER_READ_TOOL = {
+  name: 'browser_read_page',
+  server: 'offisim-browser',
+  category: 'browser',
+  description: 'Read the current rendered page.',
+  write: false,
 };
 
 function build(
@@ -116,6 +133,36 @@ async function main(): Promise<void> {
     }));
     const { registered } = build(many, noop);
     assert.equal(registered.length, 3, 'token-proxy: schema is independent of tool count');
+  });
+
+  await check('(2b) built-in Browser descriptors register as direct Pi tools', () => {
+    const { registered } = build([BROWSER_NAVIGATE_TOOL, BROWSER_READ_TOOL], noop);
+    assert.deepEqual(registered.map((tool) => tool.name).sort(), [
+      'browser_navigate',
+      'browser_read_page',
+      'mcp_call',
+      'mcp_describe_tool',
+      'mcp_search_tools',
+    ]);
+  });
+
+  await check('(2c) direct Browser proxy preserves the injected server/tool/input', async () => {
+    const calls: Array<[string, string, object]> = [];
+    const { tool } = build(
+      [BROWSER_NAVIGATE_TOOL],
+      async (server: string, name: string, input: object) => {
+        calls.push([server, name, input]);
+        return { ok: true, content: [{ type: 'text', text: 'opened' }] };
+      },
+      { confirmMcpToolCall: async () => true },
+    );
+    const result = await tool('browser_navigate').execute('browser-1', {
+      url: 'https://example.com',
+    });
+    assert.deepEqual(calls, [
+      ['offisim-browser', 'browser_navigate', { url: 'https://example.com' }],
+    ]);
+    assert.equal(result.content[0]?.text, 'opened');
   });
 
   await check('(3) mcp_search_tools lists matches / all / none', async () => {
@@ -719,6 +766,18 @@ async function main(): Promise<void> {
       isWriteMcpTool({ category: 'computer-use', annotations: { readOnlyHint: true } }),
       true,
     );
+    assert.equal(
+      isWriteMcpTool({ name: 'browser_navigate', category: 'browser', write: false }),
+      true,
+      'browser navigation stays state-changing even if a malformed descriptor says read',
+    );
+    for (const name of ['browser_read_page', 'browser_screenshot', 'browser_status']) {
+      assert.equal(
+        isWriteMcpTool({ name, category: 'browser', write: true }),
+        false,
+        `${name} remains available in plan mode`,
+      );
+    }
     assert.equal(isWriteMcpTool({}), false, 'unknown annotations fall back to read');
   });
 
@@ -886,6 +945,45 @@ async function main(): Promise<void> {
     assert.ok(preview.includes('user admin'), 'benign text must survive');
     assert.ok(!preview.includes('hunter2'), 'password value must be masked');
     assert.ok(!preview.includes('ghp_abcdef1234567890'), 'token value must be masked');
+  });
+
+  await check('(19) browser navigate approval aligns with the permission mode', async () => {
+    // auto/full/plan never pre-prompt for browser_navigate: auto/full
+    // auto-allow it, and plan is rejected by the native gateway instead.
+    for (const mode of [undefined, 'auto', 'full', 'plan']) {
+      let prompted = false;
+      const { tool } = build(
+        [BROWSER_NAVIGATE_TOOL],
+        async () => ({ ok: true, content: [{ type: 'text', text: 'opened' }] }),
+        {
+          permissionMode: mode,
+          confirmMcpToolCall: async () => {
+            prompted = true;
+            return true;
+          },
+        },
+      );
+      const res = await tool('browser_navigate').execute(`nav-${mode ?? 'default'}`, {
+        url: 'https://example.com',
+      });
+      assert.equal(prompted, false, `mode ${mode ?? 'default'} must not prompt for navigate`);
+      assert.equal(res.isError, undefined);
+    }
+    // ask mode keeps the operator approval for browser navigate/back.
+    let asked = false;
+    const { tool } = build(
+      [BROWSER_NAVIGATE_TOOL],
+      async () => ({ ok: true, content: [{ type: 'text', text: 'opened' }] }),
+      {
+        permissionMode: 'ask',
+        confirmMcpToolCall: async () => {
+          asked = true;
+          return true;
+        },
+      },
+    );
+    await tool('browser_navigate').execute('nav-ask', { url: 'https://example.com' });
+    assert.equal(asked, true, 'ask mode keeps the browser navigate approval');
   });
 
   console.log(

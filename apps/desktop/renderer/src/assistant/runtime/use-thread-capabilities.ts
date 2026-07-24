@@ -45,7 +45,7 @@ import { useMemo } from 'react';
 export type CapabilityStatus = 'available' | 'needs-setup' | 'disabled' | 'unavailable';
 
 /** Where a capability physically comes from, shown as a source label per row. */
-type CapabilitySource = 'Project' | 'MCP grant' | 'Workspace' | 'Settings';
+type CapabilitySource = 'Project' | 'MCP grant' | 'Workspace' | 'Settings' | 'Offisim';
 
 interface CapabilitySetup {
   /** Action-oriented label, e.g. "Open Settings › MCP". */
@@ -64,23 +64,6 @@ export interface ThreadCapability {
   readonly detail: string;
   /** Present only when the capability is not fully available. */
   readonly setup?: CapabilitySetup;
-}
-
-const BROWSER_TOOL_HINT = /browser|navigate|playwright|chromium|\bpage[_-]|screenshot/i;
-
-/** Detect a first-class browser tool from connected MCP servers. Browser is a
- *  distinct capability from Computer Use, so computer-use drivers are excluded.
- *  A conservative signal (server connected + a browser-shaped tool name) — a
- *  miss falls back to the honest needs-setup state, never a false positive. */
-function detectBrowserServer(servers: readonly McpServer[]): McpServer | null {
-  return (
-    servers.find(
-      (server) =>
-        server.status === 'connected' &&
-        server.category !== 'computer-use' &&
-        server.tools.some((tool) => BROWSER_TOOL_HINT.test(tool.name)),
-    ) ?? null
-  );
 }
 
 function findComputerServer(servers: readonly McpServer[]): McpServer | null {
@@ -173,27 +156,14 @@ export function useThreadCapabilities(
     }
 
     // ── Browser ──────────────────────────────────────────────────────────────
-    const browserServer = detectBrowserServer(servers);
-    if (browserServer) {
-      capabilities.push({
-        id: 'browser',
-        label: 'Browser',
-        icon: Globe,
-        status: 'available',
-        source: 'MCP grant',
-        detail: `Rendered-page control via ${browserServer.name}`,
-      });
-    } else {
-      capabilities.push({
-        id: 'browser',
-        label: 'Browser',
-        icon: Globe,
-        status: 'needs-setup',
-        source: 'MCP grant',
-        detail: 'Connect a browser tool to open, inspect, and verify web pages',
-        setup: { label: 'Open Settings › MCP', action: () => openSettings('mcp') },
-      });
-    }
+    capabilities.push({
+      id: 'browser',
+      label: 'Browser',
+      icon: Globe,
+      status: 'available',
+      source: 'Offisim',
+      detail: 'Private rendered-page browser included with every AI engine',
+    });
 
     // ── Computer Use ───────────────────────────────────────────────────────────
     const computerServer = findComputerServer(servers);

@@ -1,5 +1,9 @@
 import { type StageOpenTab, type StageSessionScope, useUiState } from '@/app/ui-state.js';
-import { type NativeStageSessionScope, invokeCommand } from '@/lib/tauri-commands.js';
+import {
+  type BrowserSessionSnapshot,
+  type NativeStageSessionScope,
+  invokeCommand,
+} from '@/lib/tauri-commands.js';
 import { useEffect, useRef } from 'react';
 
 export type NativeStageSessionKind = 'browser' | 'terminal';
@@ -131,7 +135,9 @@ export interface StageSessionReconciliationPlan {
 
 export interface StageSessionReconciliationCommands {
   listTerminals(scope: StageSessionScope): Promise<readonly { sessionId: string }[]>;
-  listBrowsers(scope: StageSessionScope): Promise<readonly { sessionId: string }[]>;
+  listBrowsers(
+    scope: StageSessionScope,
+  ): Promise<readonly Pick<BrowserSessionSnapshot, 'agent' | 'sessionId'>[]>;
   closeTerminal(scope: StageSessionScope, sessionId: string): Promise<boolean>;
   closeBrowser(scope: StageSessionScope, sessionId: string): Promise<boolean>;
   setBrowserVisible(
@@ -148,7 +154,7 @@ export function stageSessionReconciliationRetryDelay(attempt: number): number {
 export function planStageSessionReconciliation(input: {
   tabs: readonly StageOpenTab[];
   nativeTerminalIds: readonly string[];
-  nativeBrowserIds: readonly string[];
+  nativeBrowsers: readonly Pick<BrowserSessionSnapshot, 'agent' | 'sessionId'>[];
   visibleTabIds: ReadonlySet<string>;
 }): StageSessionReconciliationPlan {
   const terminalIds = new Set(
@@ -163,12 +169,18 @@ export function planStageSessionReconciliation(input: {
   );
   return {
     closeTerminalIds: input.nativeTerminalIds.filter((sessionId) => !terminalIds.has(sessionId)),
-    closeBrowserIds: input.nativeBrowserIds.filter(
-      (sessionId) => !browserTabBySession.has(sessionId),
+    closeBrowserIds: input.nativeBrowsers.flatMap((session) =>
+      !session.agent && !browserTabBySession.has(session.sessionId) ? [session.sessionId] : [],
     ),
-    browserVisibility: input.nativeBrowserIds.flatMap((sessionId) => {
-      const tabId = browserTabBySession.get(sessionId);
-      return tabId ? [{ sessionId, visible: input.visibleTabIds.has(tabId) }] : [];
+    browserVisibility: input.nativeBrowsers.flatMap((session) => {
+      const tabId = browserTabBySession.get(session.sessionId);
+      if (tabId) {
+        return [{ sessionId: session.sessionId, visible: input.visibleTabIds.has(tabId) }];
+      }
+      // Agent browsers belong to the run, not a tab: they are never closed for
+      // lacking a spectator tab, but they must be explicitly hidden so a stale
+      // visible flag cannot leave an untracked session painting off-tab.
+      return session.agent ? [{ sessionId: session.sessionId, visible: false }] : [];
     }),
   };
 }
@@ -192,7 +204,7 @@ export async function reconcileStageSessionScope(
   const plan = planStageSessionReconciliation({
     tabs: input.tabs,
     nativeTerminalIds: listed[0].value.map((session) => session.sessionId),
-    nativeBrowserIds: listed[1].value.map((session) => session.sessionId),
+    nativeBrowsers: listed[1].value,
     visibleTabIds: input.visibleTabIds,
   });
   const operations = await Promise.allSettled([

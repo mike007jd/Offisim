@@ -7,12 +7,21 @@ import {
   invokeCommand,
 } from '@/lib/tauri-commands.js';
 import { cn } from '@/lib/utils.js';
+import { BROWSER_SESSION_EVENT } from '@/surfaces/office/stage-browser/use-agent-browser-sessions.js';
 import {
   type NativeStageSessionLease,
   acquireNativeStageSessionLease,
 } from '@/surfaces/office/stage-viewer/StageSessionReconciler.js';
 import { type UnlistenFn, listen } from '@tauri-apps/api/event';
-import { ArrowLeft, ArrowRight, Globe2, LockKeyhole, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Eye,
+  Globe2,
+  LockKeyhole,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import './browser-session.css';
 import { newestBrowserSnapshot } from './browser-session-state.js';
@@ -26,7 +35,17 @@ import {
 
 type BrowserTarget = Extract<StageViewTarget, { kind: 'browser-session' }>;
 
-const BROWSER_EVENT = 'offisim-browser-session-event-v1';
+// Mirrors agent_bounds() in apps/desktop/src-tauri/src/browser_agent_tools.rs:
+// agent browser WebViews park outside the window's drawable area. A closing
+// spectator must restore this parking spot — set_visible(false) alone leaves
+// the view positioned on-screen, and the hidden-screenshot fallback would
+// then flash the page at the spectator's rect.
+const AGENT_BROWSER_OFFSCREEN_BOUNDS: BrowserSessionBounds = {
+  x: 16_384,
+  y: 16_384,
+  width: 1_280,
+  height: 720,
+};
 
 function nativeScope(target: BrowserTarget): NativeStageSessionScope {
   return target.scope;
@@ -57,6 +76,8 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
   const [error, setError] = useState<string | null>(null);
   const visibleUrl = snapshot?.url || address || target.initialUrl;
   const isSecurePage = visibleUrl.startsWith('https://');
+  const spectatorMode = Boolean(target.agent) || snapshot?.agent === true;
+  const employeeName = target.agent?.employeeName ?? 'Employee';
 
   useEffect(() => {
     if (!snapshot?.url || document.activeElement === addressRef.current) return;
@@ -108,14 +129,32 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
         if (!bounds || !visible) return;
         created = true;
         try {
-          const initial = await lease.runIfCurrent(() =>
-            invokeCommand('browser_session_create', {
-              sessionId: target.sessionId,
-              scope,
-              url: normalizeAddress(target.initialUrl),
-              bounds,
-            }),
-          );
+          const initial = target.agent
+            ? await lease.runIfCurrent(async () => {
+                const attached = await invokeCommand('browser_session_snapshot', {
+                  sessionId: target.sessionId,
+                  scope,
+                });
+                await invokeCommand('browser_session_set_bounds', {
+                  sessionId: target.sessionId,
+                  scope,
+                  bounds,
+                });
+                await invokeCommand('browser_session_set_visible', {
+                  sessionId: target.sessionId,
+                  scope,
+                  visible: true,
+                });
+                return attached;
+              })
+            : await lease.runIfCurrent(() =>
+                invokeCommand('browser_session_create', {
+                  sessionId: target.sessionId,
+                  scope,
+                  url: normalizeAddress(target.initialUrl),
+                  bounds,
+                }),
+              );
           if (!lease.isCurrent()) return;
           if (initial) acceptSnapshot(initial);
           lastSentBounds = bounds;
@@ -210,9 +249,12 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
 
     void (async () => {
       try {
-        const nextUnlisten = await listen<BrowserSessionSnapshot>(BROWSER_EVENT, ({ payload }) => {
-          acceptSnapshot(payload);
-        });
+        const nextUnlisten = await listen<BrowserSessionSnapshot>(
+          BROWSER_SESSION_EVENT,
+          ({ payload }) => {
+            acceptSnapshot(payload);
+          },
+        );
         if (!lease.isCurrent()) {
           nextUnlisten();
           return;
@@ -237,13 +279,23 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
       if (sessionLeaseRef.current === lease) sessionLeaseRef.current = null;
       lease.release();
       void lease
-        .runIfLatest(() =>
-          invokeCommand('browser_session_set_visible', {
+        .runIfLatest(async () => {
+          // Agent sessions outlive the spectator: re-park the native WebView
+          // off-screen before hiding so the off-screen invariant is restored
+          // rather than relying on visibility alone.
+          if (target.agent) {
+            await invokeCommand('browser_session_set_bounds', {
+              sessionId: target.sessionId,
+              scope,
+              bounds: AGENT_BROWSER_OFFSCREEN_BOUNDS,
+            });
+          }
+          await invokeCommand('browser_session_set_visible', {
             sessionId: target.sessionId,
             scope,
             visible: false,
-          }),
-        )
+          });
+        })
         .catch(() => {});
     };
   }, [target]);
@@ -251,15 +303,17 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
   useEffect(() => {
     const focusLocation = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'l') return;
+      if (spectatorMode) return;
       event.preventDefault();
       addressRef.current?.focus();
       addressRef.current?.select();
     };
     document.addEventListener('keydown', focusLocation);
     return () => document.removeEventListener('keydown', focusLocation);
-  }, []);
+  }, [spectatorMode]);
 
   const navigate = async () => {
+    if (spectatorMode) return;
     const lease = sessionLeaseRef.current;
     if (!lease?.isCurrent()) return;
     try {
@@ -282,6 +336,7 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
   const control = async (
     command: 'browser_session_back' | 'browser_session_forward' | 'browser_session_reload',
   ) => {
+    if (spectatorMode) return;
     const lease = sessionLeaseRef.current;
     if (!lease?.isCurrent()) return;
     try {
@@ -301,7 +356,12 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
 
   const loading = snapshot?.status === 'creating' || snapshot?.status === 'loading';
   return (
-    <section className="off-browser-session" aria-label="Built-in Browser">
+    <section
+      className="off-browser-session"
+      aria-label={
+        spectatorMode ? `${employeeName}'s browser, read-only spectator` : 'Built-in Browser'
+      }
+    >
       <div className="off-browser-chrome">
         <div className="off-browser-toolbar">
           <div className="off-browser-nav" aria-label="Browser navigation">
@@ -309,9 +369,9 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
               type="button"
               className="off-focusable"
               onClick={() => void control('browser_session_back')}
-              disabled={!snapshot?.canGoBack}
+              disabled={spectatorMode || !snapshot?.canGoBack}
               aria-label="Back"
-              title="Back"
+              title={spectatorMode ? 'Read-only while the employee is browsing' : 'Back'}
             >
               <Icon icon={ArrowLeft} size="sm" />
             </button>
@@ -319,9 +379,9 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
               type="button"
               className="off-focusable"
               onClick={() => void control('browser_session_forward')}
-              disabled={!snapshot?.canGoForward}
+              disabled={spectatorMode || !snapshot?.canGoForward}
               aria-label="Forward"
-              title="Forward"
+              title={spectatorMode ? 'Read-only while the employee is browsing' : 'Forward'}
             >
               <Icon icon={ArrowRight} size="sm" />
             </button>
@@ -329,8 +389,9 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
               type="button"
               className={cn('off-focusable', loading && 'is-loading')}
               onClick={() => void control('browser_session_reload')}
+              disabled={spectatorMode}
               aria-label="Reload"
-              title="Reload"
+              title={spectatorMode ? 'Read-only while the employee is browsing' : 'Reload'}
             >
               <Icon icon={RefreshCw} size="sm" />
             </button>
@@ -338,8 +399,11 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
           <form
             className="off-browser-address"
             data-secure={isSecurePage ? 'true' : 'false'}
+            data-readonly={spectatorMode ? 'true' : 'false'}
+            title={spectatorMode ? 'Read-only while the employee is browsing' : undefined}
             onSubmit={(event) => {
               event.preventDefault();
+              if (spectatorMode) return;
               addressRef.current?.blur();
               void navigate();
             }}
@@ -348,6 +412,8 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
             <input
               ref={addressRef}
               value={address}
+              readOnly={spectatorMode}
+              aria-readonly={spectatorMode}
               onChange={(event) => setAddress(event.currentTarget.value)}
               onBlur={() => {
                 if (snapshot?.url) setAddress(snapshot.url);
@@ -363,13 +429,24 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
               autoCorrect="off"
             />
           </form>
-          <span
-            className="off-browser-isolation"
-            title="This page has no Offisim local permissions"
-          >
-            <Icon icon={ShieldCheck} size="sm" />
-            No local access
-          </span>
+          <div className="off-browser-badges">
+            {spectatorMode ? (
+              <span
+                className="off-browser-employee"
+                title="Employee is browsing. Navigation is locked to avoid competing for control."
+              >
+                <Icon icon={Eye} size="sm" />
+                {employeeName} is browsing
+              </span>
+            ) : null}
+            <span
+              className="off-browser-isolation"
+              title="This page has no Offisim local permissions"
+            >
+              <Icon icon={ShieldCheck} size="sm" />
+              No local access
+            </span>
+          </div>
         </div>
         {loading || error ? (
           <output className={cn('off-browser-status', error && 'is-error')} aria-live="polite">

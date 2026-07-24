@@ -34,7 +34,8 @@ use crate::workspace_recovery::{WorkspaceRecoveryReason, WorkspaceRecoverySource
 
 use super::bridge::{
     handle_mcp_call, handle_verify_call, handle_worktree_call, pi_stdin_guard,
-    register_execution_prepared, write_mcp_result, PiMcpResult, StdinGuard, PI_MCP_CALL_TIMEOUT,
+    register_execution_prepared, write_mcp_result, PiBrowserToolContext, PiMcpResult, StdinGuard,
+    PI_MCP_CALL_TIMEOUT,
 };
 use super::payload::{
     app_pi_agent_dir, app_pi_session_dir, collaborate_payload, enhance_payload, pi_env,
@@ -274,6 +275,8 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
         stream_request_id,
     } = run;
     let mcp_profile = mcp_bridge_profile(workspace_binding, &payload);
+    let browser_context =
+        workspace_binding.map(|binding| PiBrowserToolContext::from_binding(binding, &payload));
     let authorized_process = workspace_binding
         .map(|binding| {
             AuthorizedProcessCwd::from_authority(&binding.authorized_root(), cwd)
@@ -445,7 +448,15 @@ pub(super) async fn run_pi_sidecar_jsonl_inner<R: tauri::Runtime>(
                         }
                         result = tokio::time::timeout(
                             PI_MCP_CALL_TIMEOUT,
-                            handle_mcp_call(app, register_stdin, id, server, tool, arguments),
+                            handle_mcp_call(
+                                app,
+                                register_stdin,
+                                browser_context.as_ref(),
+                                id,
+                                server,
+                                tool,
+                                arguments,
+                            ),
                         ) => {
                             match result {
                                 Ok(result) => result?,
