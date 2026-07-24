@@ -335,6 +335,7 @@ export function useEmployeeSkills(employeeId: string | null) {
           name: row.name,
           description: row.description,
           scope: row.scope === 'employee' ? 'employee' : 'company',
+          vault_path: row.vault_path,
           runtimeInjected: (await vault.stat(row.vault_path).catch(() => null)) !== null,
         })),
       );
@@ -345,6 +346,7 @@ export function useEmployeeSkills(employeeId: string | null) {
           name: skill.name,
           description: skill.description,
           scope: 'project',
+          relativePath: skill.relativePath,
           source: skill.source,
           location: skill.relativePath,
           readOnly: true,

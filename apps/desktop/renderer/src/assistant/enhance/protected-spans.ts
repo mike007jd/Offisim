@@ -3,7 +3,7 @@
  *
  * "Protected" spans are substrings of the user's message that MUST survive
  * enhancement byte-for-byte — @mentions, {{variables}}, fenced code, file paths,
- * attachment ids, and Loop reference tokens. The extractor is pure and the
+ * attachment ids, and Loop/Skill reference tokens. The extractor is pure and the
  * validator is a plain substring-presence check: if any span's `source` is missing
  * from the enhanced text the result is INVALID and Apply is blocked. No model is
  * involved in either step — that is the whole point (the model can rephrase, but
@@ -17,12 +17,12 @@ import type { MentionEmployee } from '../composer/composer-triggers.js';
 import { ENHANCE_SPAN_LOST_WARNING, type ProtectedSpan } from './contract.js';
 
 /**
- * The stable chip-token form for a Loop reference. PR-10 ("Office references a
- * Loop") will mint these when a user inserts a Loop into a message; PR-06 detects
- * them now so the protected-span pipeline already guards them and PR-10 is purely
- * additive. Shape: `[[loop:<id>]]` where id is url-safe. Frozen with the contract.
+ * Stable chip-token form for a Loop reference. Shape: `[[loop:<id>]]` where id is
+ * url-safe. Frozen with the contract.
  */
 const LOOP_REF_RE = /\[\[loop:[A-Za-z0-9._-]+\]\]/g;
+/** Skill ids may be project-qualified paths; the closing bracket terminates the id. */
+const SKILL_REF_RE = /\[\[skill:[^\]]+\]\]/g;
 /** `{{variable}}` template tokens (single set of braces, no nesting needed). */
 const VARIABLE_RE = /\{\{[^{}\n]+\}\}/g;
 /** Fenced code blocks (``` … ```), the whole block including fences. */
@@ -94,11 +94,12 @@ export function extractProtectedSpans(
   roster: readonly MentionEmployee[] = [],
 ): ProtectedSpan[] {
   const raw: SpanHit[] = [];
-  // Priority: code fences, then loop refs / attachments / variables (token forms),
-  // then inline code, then mentions, then loose paths. Higher-priority kinds claim
-  // their range first; overlapping lower-priority hits are discarded.
+  // Priority: code fences, then structured refs / attachments / variables (token
+  // forms), then inline code, mentions, and loose paths. Higher-priority kinds
+  // claim their range first; overlapping lower-priority hits are discarded.
   pushMatches(text, CODE_FENCE_RE, 'code', raw);
   pushMatches(text, LOOP_REF_RE, 'loop_ref', raw);
+  pushMatches(text, SKILL_REF_RE, 'skill_ref', raw);
   pushMatches(text, ATTACHMENT_RE, 'attachment', raw);
   pushMatches(text, VARIABLE_RE, 'variable', raw);
   pushMatches(text, INLINE_CODE_RE, 'code', raw);
