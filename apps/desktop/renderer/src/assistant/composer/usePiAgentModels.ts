@@ -111,7 +111,9 @@ function isDeclaredModelOption(value: unknown): value is OrchestrationEngineMode
     optionalString(model.defaultReasoningEffort) &&
     Array.isArray(model.speedModes) &&
     model.speedModes.length > 0 &&
-    model.speedModes.every((mode) => typeof mode === 'string' && RUN_OPTION_SPEED_MODES.has(mode)) &&
+    model.speedModes.every(
+      (mode) => typeof mode === 'string' && RUN_OPTION_SPEED_MODES.has(mode),
+    ) &&
     optionalString(model.fastModeNote) &&
     optionalString(model.note)
   );
