@@ -952,7 +952,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
   // bubbles, and selection all come from here — along with the shared
   // actorById index; hover + drag feed its input state so the cues carry
   // them. Only world geometry stays local.
-  const { frame, actorById, pace, ambientActorIds } = useSceneCueFrame({
+  const { frame, actorById, pace, ambientActorIds, ambientDirections } = useSceneCueFrame({
     prefabs: stagingPrefabs,
     actorPositions: placementsByEmployee,
     routeFor,
@@ -971,6 +971,7 @@ export function OfficeScene3D({ pip = false }: { pip?: boolean }) {
     reducedMotion,
     frame,
     ambientActorIds,
+    ambientDirections,
   });
   const companionActorPositions = useMemo(
     () =>

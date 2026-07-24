@@ -52,7 +52,8 @@ export interface AmbientActivity {
   readonly destination: AmbientDestination | null;
   readonly partnerDestination: AmbientDestination | null;
   readonly homePosture: 'sitting' | 'standing';
-  readonly partnerHomePosture: 'sitting' | 'standing';
+  /** Only assigned for `break` activities; `null` for every other routine. */
+  readonly partnerHomePosture: 'sitting' | 'standing' | null;
   readonly startedAt: number;
   readonly outboundEndsAt: number;
   readonly dwellEndsAt: number;
