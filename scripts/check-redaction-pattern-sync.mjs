@@ -17,10 +17,7 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, '..');
 const EMIT_PATH = resolve(REPO_ROOT, 'scripts/pi-mcp-bridge-extension.mjs');
 const PARSE_PATH = resolve(REPO_ROOT, 'packages/shared-types/src/events/agent-run.ts');
-const ACTIVITY_PATH = resolve(
-  REPO_ROOT,
-  'apps/desktop/renderer/src/data/board/activity-data.ts',
-);
+const ACTIVITY_PATH = resolve(REPO_ROOT, 'apps/desktop/renderer/src/data/board/activity-data.ts');
 
 const PATTERN_SPECS = [
   { name: 'SENSITIVE_KEY_VALUE_PATTERN', files: [EMIT_PATH, PARSE_PATH] },

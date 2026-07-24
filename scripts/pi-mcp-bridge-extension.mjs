@@ -636,7 +636,9 @@ function emitMcpAuditLine({
         ...(computerDetail ? { computer: safe.computer } : {}),
         isError: result?.ok === true ? result.isError === true : true,
         error:
-          result?.ok === true ? null : redactSensitiveText(String(result?.error ?? 'unknown error')),
+          result?.ok === true
+            ? null
+            : redactSensitiveText(String(result?.error ?? 'unknown error')),
         latencyMs,
         write,
         approvalStatus,

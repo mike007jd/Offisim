@@ -455,11 +455,17 @@ async function main(): Promise<void> {
       const livePreview =
         (res as { computer?: { textPreview?: string } }).computer?.textPreview ?? '';
       assert.equal(livePreview, 'Hunter2!SuperSecret', 'live result keeps the typed preview');
-      const payload = (emitted[0] as {
-        payload?: { arguments?: { text?: string }; computer?: { textPreview?: string } };
-      }).payload;
+      const payload = (
+        emitted[0] as {
+          payload?: { arguments?: { text?: string }; computer?: { textPreview?: string } };
+        }
+      ).payload;
       assert.equal(payload?.arguments?.text, '•••', 'audit arguments must not carry typed text');
-      assert.equal(payload?.computer?.textPreview, '•••', 'audit preview must not carry typed text');
+      assert.equal(
+        payload?.computer?.textPreview,
+        '•••',
+        'audit preview must not carry typed text',
+      );
     },
   );
 
