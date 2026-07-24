@@ -7,6 +7,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import type { AmbientActorDirection } from '@offisim/shared-types';
 import {
   type LocalChatterClock,
   type LocalChatterMachineInput,
@@ -88,6 +89,30 @@ function frameOf(
       recentCount: 0,
     },
     attention: over.attention ?? null,
+  };
+}
+
+function ambientDirection(
+  employeeId: string,
+  partnerId: string | null,
+  over: Partial<AmbientActorDirection> = {},
+): AmbientActorDirection {
+  return {
+    employeeId,
+    routine: over.routine ?? 'break',
+    phase: over.phase ?? 'dwell',
+    away: over.away ?? true,
+    partnerId,
+    performance: over.performance ?? {
+      locomotion: 'idle',
+      posture: 'sit',
+      workGesture: 'none',
+      socialGesture: 'listen',
+      expression: 'happy',
+      intensity: 0,
+      variant: 0,
+    },
+    staging: over.staging ?? null,
   };
 }
 
@@ -400,11 +425,20 @@ section('[eligibility] ambient / idle / busy / safe window');
         performance: { kind: 'ambient' },
         staging: { anchorId: 'rest-a' },
       }),
+      actorCue('ben', {
+        performance: { kind: 'ambient' },
+        staging: { anchorId: 'rest-b' },
+      }),
       actorCue('cy'),
       actorCue('dia', { status: 'working', running: true }),
       actorCue('eli', { selected: true }),
     ]),
     ambientIds,
+    [
+      ambientDirection('ava', 'ben'),
+      ambientDirection('ben', 'ava'),
+      ambientDirection('cy', null, { routine: 'refreshment' }),
+    ],
   );
   const byId = new Map(actors.map((a) => [a.actorId, a]));
   check(
@@ -416,10 +450,40 @@ section('[eligibility] ambient / idle / busy / safe window');
   check('selected actor loses safe visual window', byId.get('eli')?.safeVisualWindow === false);
   check('unselected idle keeps safe visual window', byId.get('cy')?.safeVisualWindow === true);
   check(
+    'reciprocal paired break dwell actors share the canonical pairHint',
+    byId.get('ava')?.pairHint === 'ava|ben' && byId.get('ben')?.pairHint === 'ava|ben',
+  );
+  check('non-break ambient actor has null pairHint', byId.get('cy')?.pairHint === null);
+  check(
     'local idle predicate matches actorAcceptsAmbientCue shape',
     localChatterActorAcceptsIdle(actorCue('cy')) &&
       !localChatterActorAcceptsIdle(actorCue('ava', { performance: { kind: 'x' } })) &&
       !localChatterActorAcceptsIdle(actorCue('ava', { running: true })),
+  );
+
+  const outbound = deriveLocalChatterActors(
+    frameOf([actorCue('ava'), actorCue('ben')]),
+    ambientIds,
+    [
+      ambientDirection('ava', 'ben', { phase: 'outbound' }),
+      ambientDirection('ben', 'ava', { phase: 'outbound' }),
+    ],
+  );
+  check(
+    'paired break outside dwell has null pairHint',
+    outbound.every((actor) => actor.pairHint === null),
+    JSON.stringify(outbound),
+  );
+
+  const oneSided = deriveLocalChatterActors(
+    frameOf([actorCue('ava'), actorCue('ben')]),
+    ambientIds,
+    [ambientDirection('ava', 'ben')],
+  );
+  check(
+    'incomplete direction pair fails closed to null pairHint',
+    oneSided.every((actor) => actor.pairHint === null),
+    JSON.stringify(oneSided),
   );
 }
 
@@ -711,6 +775,12 @@ section('[boundary] integration source contracts');
   check(
     'scene-cue-react returns ambientActorIds from visibleAmbientDirections',
     /ambientActorIds/.test(cueReact) && /visibleAmbientDirections/.test(cueReact),
+  );
+  check(
+    'scene-cue-react returns the same visible directions to OfficeScene3D chatter',
+    /ambientDirections:\s*visibleAmbientDirections/.test(cueReact) &&
+      /\bambientDirections\b/.test(scene3d) &&
+      /\bambientDirections\b/.test(hook),
   );
   check(
     'only OfficeScene3D consumes useLocalChatter',

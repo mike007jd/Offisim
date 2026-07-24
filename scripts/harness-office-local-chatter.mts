@@ -12,6 +12,7 @@ import {
   CHATTER_COPY_MAX_CHARS_ZH,
   type ChatterCopyKey,
   PAIR_DIALOGUE_SCRIPTS,
+  REST_PAIR_DIALOGUE_SCRIPTS,
   SOLO_COMPLAINT_COPY_KEYS,
   SOLO_PLAYFUL_COPY_KEYS,
   allChatterCopyKeys,
@@ -64,6 +65,7 @@ function actor(
     actorId,
     presentationState: over.presentationState ?? 'idle',
     safeVisualWindow: over.safeVisualWindow ?? true,
+    ...(over.pairHint !== undefined ? { pairHint: over.pairHint } : {}),
   };
 }
 
@@ -449,6 +451,145 @@ section('[paths] pair rotation');
   );
 }
 
+section('[paths] paired break dwell priority and deterministic rest rotation');
+{
+  const nowMs = 5_500_000;
+  const restPairKey = pairKeyFor('ava', 'ben');
+  const restActors = [
+    actor('ava', { presentationState: 'ambient', pairHint: restPairKey }),
+    actor('ben', { presentationState: 'ambient', pairHint: restPairKey }),
+    actor('cy', { presentationState: 'ambient', pairHint: null }),
+    actor('dia', { presentationState: 'idle', pairHint: 'mismatch|pair' }),
+  ];
+  const first = selectLocalChatter(
+    baseInput({
+      actors: restActors,
+      seed: 'rest-pair-priority',
+      nowMs,
+    }),
+  );
+  const firstRest = mustChatter(first, 'matching pairHint pair is playable');
+  check(
+    'matching pairHint pair wins before deterministic candidate selection',
+    json(firstRest.presentation.actorIds) === json(['ava', 'ben']),
+    json(firstRest.presentation),
+  );
+  check(
+    'matching pairHint pair uses only the rest script family',
+    REST_PAIR_DIALOGUE_SCRIPTS.some((script) => script.id === firstRest.presentation.pairScriptId),
+    String(firstRest.presentation.pairScriptId),
+  );
+  const replay = selectLocalChatter(
+    baseInput({
+      actors: [...restActors].reverse(),
+      seed: 'rest-pair-priority',
+      nowMs,
+    }),
+  );
+  check(
+    'rest-pair replay is byte deterministic and actor-order invariant',
+    json(first) === json(replay),
+    `first=${json(first)} replay=${json(replay)}`,
+  );
+
+  const second = mustChatter(
+    selectLocalChatter(
+      baseInput({
+        actors: restActors,
+        seed: 'rest-pair-priority',
+        nowMs: nowMs + CHATTER_PAIR_COOLDOWN_MS,
+        history: firstRest.nextHistory,
+      }),
+    ),
+    'rest pair rotates after pair cooldown',
+  );
+  check(
+    'rest scripts rotate through the existing perPair index',
+    second.presentation.pairScriptId !== firstRest.presentation.pairScriptId &&
+      REST_PAIR_DIALOGUE_SCRIPTS.some((script) => script.id === second.presentation.pairScriptId),
+    `first=${firstRest.presentation.pairScriptId} second=${second.presentation.pairScriptId}`,
+  );
+
+  const mismatchedHints = mustChatter(
+    selectLocalChatter(
+      baseInput({
+        actors: [actor('ava', { pairHint: 'ava|ben' }), actor('ben', { pairHint: 'ben|cy' })],
+        seed: 'rest-mismatch-generic',
+        nowMs,
+      }),
+    ),
+    'mismatched pair hints remain playable',
+  );
+  check(
+    'mismatched pairHint pair stays on the general script family',
+    PAIR_DIALOGUE_SCRIPTS.some((script) => script.id === mismatchedHints.presentation.pairScriptId),
+    String(mismatchedHints.presentation.pairScriptId),
+  );
+
+  const coolingRestPair = mustChatter(
+    selectLocalChatter(
+      baseInput({
+        actors: restActors.slice(0, 2),
+        seed: 'rest-cooldown',
+        nowMs,
+        history: historyWith({
+          lastGlobalAtMs: nowMs - CHATTER_GLOBAL_COOLDOWN_MS,
+          perPair: {
+            [restPairKey]: {
+              lastAtMs: nowMs - CHATTER_PAIR_COOLDOWN_MS + 1,
+              nextScriptIndex: 1,
+              lastScriptId: 'pair.sofa',
+            },
+          },
+        }),
+      }),
+    ),
+    'cooling rest pair falls back to solo',
+  );
+  check(
+    'rest pair keeps the unchanged pair cooldown invariant',
+    coolingRestPair.presentation.kind.startsWith('solo'),
+    json(coolingRestPair.presentation),
+  );
+  check(
+    'rest pair keeps the unchanged max-visible invariant',
+    suppressedReason(
+      selectLocalChatter(
+        baseInput({
+          actors: restActors,
+          seed: 'rest-max-visible',
+          nowMs,
+          activeChatterCount: CHATTER_MAX_VISIBLE_DEFAULT,
+          maxVisible: CHATTER_MAX_VISIBLE_DEFAULT,
+        }),
+      ),
+    ) === 'max-visible',
+  );
+}
+
+section('[regression] no rest pair stays byte-identical to the baseline');
+{
+  const actual = selectLocalChatter(
+    baseInput({
+      nowMs: 2_000_000,
+      seed: 'rest-regression-baseline',
+      locale: 'en-US',
+      actors: [
+        actor('ava', { presentationState: 'ambient' }),
+        actor('ben'),
+        actor('cy', { presentationState: 'ambient' }),
+      ],
+    }),
+  );
+  const baselineBytes =
+    '{"status":"chatter","presentation":{"id":"chatter:4f584e8","kind":"pair-dialogue","locale":"en","actorIds":["ava","cy"],"utterances":[{"actorId":"ava","copyKey":"pair.coffee.a","text":"Coffee run?"},{"actorId":"cy","copyKey":"pair.coffee.b","text":"Spiritually, yes."}],"startAtMs":2000000,"holdMs":2400,"utteranceGapMs":450,"priority":"local-chatter","motion":"animated","pairScriptId":"pair.coffee"},"nextHistory":{"lastGlobalAtMs":2000000,"lastActorAtMs":{"ava":2000000,"cy":2000000},"perPair":{"ava|cy":{"lastAtMs":2000000,"nextScriptIndex":1,"lastScriptId":"pair.coffee"}},"recentCopyKeys":["pair.coffee.a","pair.coffee.b"]}}';
+  check(
+    'no pairHint output is byte-identical to the pre-linkage fixture',
+    json(actual) === baselineBytes,
+    json(actual),
+  );
+}
+
 section('[paths] mixed initial pair scripts');
 {
   const nowMs = 5_000_000;
@@ -716,6 +857,10 @@ section('[copy] catalog integrity and safety');
   check(
     'pair script keys registered',
     PAIR_DIALOGUE_SCRIPTS.every((script) => script.keys.every((k) => keys.includes(k))),
+  );
+  check(
+    'rest pair script keys registered',
+    REST_PAIR_DIALOGUE_SCRIPTS.every((script) => script.keys.every((k) => keys.includes(k))),
   );
 
   const forbiddenEn =

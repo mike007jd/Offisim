@@ -12,6 +12,7 @@ import {
   type ChatterCopyKey,
   type ChatterLocale,
   PAIR_DIALOGUE_SCRIPTS,
+  REST_PAIR_DIALOGUE_SCRIPTS,
   SOLO_COMPLAINT_COPY_KEYS,
   SOLO_PLAYFUL_COPY_KEYS,
   normalizeChatterLocale,
@@ -54,6 +55,8 @@ export interface LocalChatterActor {
   readonly presentationState: ChatterActorPresentationState;
   /** Caller-supplied safe visual window (camera/occlusion/UI). */
   readonly safeVisualWindow: boolean;
+  /** Canonical paired-break participant key (`a|b` sorted), when dwelling. */
+  readonly pairHint?: string | null;
 }
 
 export interface LocalChatterPairHistory {
@@ -185,6 +188,7 @@ type PairCandidate = {
   readonly copyKeys: readonly [ChatterCopyKey, ChatterCopyKey];
   readonly pairScriptId: string;
   readonly pairKey: string;
+  readonly restPair: boolean;
 };
 
 type ChatterCandidate = SoloCandidate | PairCandidate;
@@ -240,13 +244,14 @@ function buildPairCandidates(
         anyPairOnCooldown = true;
         continue;
       }
+      const restPair = a.pairHint != null && a.pairHint === pairKey && b.pairHint === a.pairHint;
+      const scripts = restPair ? REST_PAIR_DIALOGUE_SCRIPTS : PAIR_DIALOGUE_SCRIPTS;
       const scriptIndex =
         pairHistory?.nextScriptIndex ??
-        pickIndex(`${seed}|${timeBucket}|${pairKey}|initial-script`, PAIR_DIALOGUE_SCRIPTS.length);
+        pickIndex(`${seed}|${timeBucket}|${pairKey}|initial-script`, scripts.length);
       const normalizedScriptIndex =
-        ((scriptIndex % PAIR_DIALOGUE_SCRIPTS.length) + PAIR_DIALOGUE_SCRIPTS.length) %
-        PAIR_DIALOGUE_SCRIPTS.length;
-      const script = PAIR_DIALOGUE_SCRIPTS[normalizedScriptIndex];
+        ((scriptIndex % scripts.length) + scripts.length) % scripts.length;
+      const script = scripts[normalizedScriptIndex];
       if (!script) continue;
       pairs.push({
         kind: 'pair-dialogue',
@@ -254,6 +259,7 @@ function buildPairCandidates(
         copyKeys: script.keys,
         pairScriptId: script.id,
         pairKey,
+        restPair,
       });
     }
   }
@@ -337,10 +343,13 @@ function nextHistoryFrom(
   }
   const perPair: Record<string, LocalChatterPairHistory> = { ...history.perPair };
   if (pairKey != null && pairScriptId != null) {
-    const scriptIndex = PAIR_DIALOGUE_SCRIPTS.findIndex((script) => script.id === pairScriptId);
+    const scripts = REST_PAIR_DIALOGUE_SCRIPTS.some((script) => script.id === pairScriptId)
+      ? REST_PAIR_DIALOGUE_SCRIPTS
+      : PAIR_DIALOGUE_SCRIPTS;
+    const scriptIndex = scripts.findIndex((script) => script.id === pairScriptId);
     perPair[pairKey] = {
       lastAtMs: nowMs,
-      nextScriptIndex: (scriptIndex + 1) % PAIR_DIALOGUE_SCRIPTS.length,
+      nextScriptIndex: (scriptIndex + 1) % scripts.length,
       lastScriptId: pairScriptId,
     };
   }
@@ -408,7 +417,8 @@ export function selectLocalChatter(input: LocalChatterInput): LocalChatterResult
       timeBucket,
     );
     if (pairs.length > 0) {
-      candidates = pairs;
+      const restPairs = pairs.filter((pair) => pair.restPair);
+      candidates = restPairs.length > 0 ? restPairs : pairs;
     } else {
       candidates = buildSoloCandidates(eligibleAfterActorCd, input.history.recentCopyKeys);
       if (candidates.length === 0 && input.history.recentCopyKeys.length > 0) {
