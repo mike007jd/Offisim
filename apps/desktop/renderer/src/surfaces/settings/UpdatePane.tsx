@@ -58,10 +58,10 @@ export function UpdatePane() {
   return (
     <div className="off-set-pane">
       <div className="off-set-panehead">
-        <div className="off-set-panetitle">App updates</div>
+        <div className="off-set-panetitle">App Updates</div>
         <div className="off-set-panedesc">
           Updates come from the private Offisim GitHub repository through your existing GitHub CLI
-          login. Offisim never reads, copies, or stores its token.
+          login.
         </div>
       </div>
 
@@ -121,12 +121,8 @@ export function UpdatePane() {
             <dd>{status?.latestVersion ?? '—'}</dd>
           </div>
           <div>
-            <dt>Release</dt>
-            <dd>{status?.releaseTag ?? '—'}</dd>
-          </div>
-          <div>
             <dt>GitHub CLI</dt>
-            <dd>{status?.ghPath ?? 'Not found'}</dd>
+            <dd title={status?.ghPath ?? undefined}>{status?.ghPath ? 'Found' : 'Not found'}</dd>
           </div>
         </dl>
       </section>

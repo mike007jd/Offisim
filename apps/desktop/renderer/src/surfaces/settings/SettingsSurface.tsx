@@ -4,7 +4,7 @@ import { Icon } from '@/design-system/icons/Icon.js';
 import { cn } from '@/lib/utils.js';
 import { ComputerSetupPanel } from '@/surfaces/office/computer/ComputerSetupPanel.js';
 import {
-  Bot,
+  type Bot,
   Cable,
   Cpu,
   Download,
@@ -43,124 +43,6 @@ const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> 
   { key: 'updates', label: 'App Updates', icon: Download },
   { key: 'advanced', label: 'Service Connections', icon: Cable },
 ];
-
-function SettingsCompanion({ tab }: { tab: SettingsTab }) {
-  if (tab === 'runtime') {
-    return (
-      <aside className="off-set-companion" aria-label="Usage and storage summary">
-        <div className="off-set-comp-card">
-          <div className="off-set-comp-main">
-            <Icon icon={Cpu} size="sm" />
-            Usage &amp; storage
-          </div>
-          <p className="off-set-comp-copy">
-            Set usage alerts and manage local data or diagnostics.
-          </p>
-        </div>
-      </aside>
-    );
-  }
-
-  if (tab === 'mcp') {
-    return (
-      <aside className="off-set-companion" aria-label="Tools and integrations summary">
-        <div className="off-set-comp-card">
-          <div className="off-set-comp-main">
-            <Icon icon={Plug} size="sm" />
-            Tools &amp; integrations
-          </div>
-          <p className="off-set-comp-copy">Connect tool servers and manage employee access.</p>
-        </div>
-      </aside>
-    );
-  }
-
-  if (tab === 'updates') {
-    return (
-      <aside className="off-set-companion" aria-label="App update summary">
-        <div className="off-set-comp-card">
-          <div className="off-set-comp-main">
-            <Icon icon={Download} size="sm" />
-            Private release channel
-          </div>
-          <p className="off-set-comp-copy">
-            Uses the signed-in GitHub CLI without copying credentials.
-          </p>
-        </div>
-      </aside>
-    );
-  }
-
-  if (tab === 'computer') {
-    return (
-      <aside className="off-set-companion" aria-label="Computer Use summary">
-        <div className="off-set-comp-card">
-          <div className="off-set-comp-main">
-            <Icon icon={MonitorSmartphone} size="sm" />
-            Computer access
-          </div>
-          <p className="off-set-comp-copy">
-            Check computer control readiness and manage employee access.
-          </p>
-        </div>
-      </aside>
-    );
-  }
-
-  if (tab === 'external') {
-    return (
-      <aside className="off-set-companion" aria-label="Connected employees summary">
-        <div className="off-set-comp-card">
-          <div className="off-set-comp-main">
-            <Icon icon={Users} size="sm" />
-            Connected employees
-          </div>
-          <p className="off-set-comp-copy">Manage employees connected from external services.</p>
-        </div>
-      </aside>
-    );
-  }
-
-  if (tab === 'companion') {
-    return (
-      <aside className="off-set-companion" aria-label="Codex pets summary">
-        <div className="off-set-comp-card">
-          <div className="off-set-comp-main">
-            <Icon icon={PawPrint} size="sm" />
-            Local Codex pets
-          </div>
-          <p className="off-set-comp-copy">Read-only sync from your local Codex installation.</p>
-        </div>
-      </aside>
-    );
-  }
-
-  if (tab === 'advanced') {
-    return (
-      <aside className="off-set-companion" aria-label="Advanced connection summary">
-        <div className="off-set-comp-card">
-          <div className="off-set-comp-main">
-            <Icon icon={Cable} size="sm" />
-            Service connections
-          </div>
-          <p className="off-set-comp-copy">Configure self-hosted endpoints and access tokens.</p>
-        </div>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className="off-set-companion" aria-label="AI account summary">
-      <div className="off-set-comp-card">
-        <div className="off-set-comp-main">
-          <Icon icon={Bot} size="sm" />
-          Accounts &amp; models
-        </div>
-        <p className="off-set-comp-copy">Review exact models, native usage, and cost reporting.</p>
-      </div>
-    </aside>
-  );
-}
 
 export function SettingsSurface() {
   // Appearance (theme/density) is applied app-wide by useLoadPersistedAppearance
@@ -210,7 +92,6 @@ export function SettingsSurface() {
               {tab === 'updates' ? <UpdatePane /> : null}
               {tab === 'advanced' ? <AdvancedConnectionsPane /> : null}
             </div>
-            <SettingsCompanion tab={tab} />
           </div>
         </div>
       </div>
