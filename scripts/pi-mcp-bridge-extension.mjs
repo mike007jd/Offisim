@@ -123,26 +123,43 @@ function cappedText(value, max = 160) {
 }
 
 const SENSITIVE_KEY_VALUE_PATTERN =
-  /\b(password|passwd|pwd|passphrase|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|private[_-]?key|bearer|authorization)\b(\s*[:=]\s*|\s+)(\S+)/gi;
+  /\b(password|passwd|pwd|passphrase|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|private[_-]?key|bearer|authorization)\b(?:(\s*[:=]\s*)(\S+)|(\s+)((?=\S*[0-9~!@#$%^&*_+=\/\\-])\S{8,}))/gi;
 const SENSITIVE_TOKEN_PATTERN =
   /\b(sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{8,}|gho_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|xox[baprs]-[A-Za-z0-9-]{8,}|AKIA[0-9A-Z]{12,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,})\b/g;
+const SENSITIVE_KEY_NAME_PATTERN =
+  /^(?:authorization|bearer|tokens?|api[_-]?keys?|secrets?|passwo?r?ds?|passphrases?|pwd|access[_-]?(?:tokens?|keys?)|client[_-]?secrets?|private[_-]?keys?|credentials?)$/i;
 
 // Mask credential-shaped content before computer previews or persisted MCP audit
-// payloads leave the host. Pattern literals are mirrored in shared-types
-// agent-run.ts (parse side) and gated by check-redaction-pattern-sync.mjs.
+// payloads leave the host. SENSITIVE_KEY_VALUE_PATTERN / SENSITIVE_TOKEN_PATTERN
+// are mirrored in shared-types agent-run.ts (parse side) and
+// SENSITIVE_KEY_NAME_PATTERN in renderer activity-data.ts (projection side);
+// all three are gated by check-redaction-pattern-sync.mjs.
 function redactSensitiveText(text) {
   if (!text) return text;
   return text
-    .replace(SENSITIVE_KEY_VALUE_PATTERN, (_match, key, sep) => `${key}${sep}•••`)
+    .replace(
+      SENSITIVE_KEY_VALUE_PATTERN,
+      (_match, key, eqSep, _eqValue, wsSep) => `${key}${eqSep ?? wsSep}•••`,
+    )
     .replace(SENSITIVE_TOKEN_PATTERN, '•••');
 }
 
-function redactSensitiveStructure(value) {
+// Depth cap so a pathologically nested MCP result cannot blow the stack while
+// building the audit line; anything deeper is collapsed rather than emitted raw.
+const MAX_REDACTION_DEPTH = 64;
+
+function redactSensitiveStructure(value, depth = 0) {
+  if (depth >= MAX_REDACTION_DEPTH) return '•••';
   if (typeof value === 'string') return redactSensitiveText(value);
-  if (Array.isArray(value)) return value.map((item) => redactSensitiveStructure(item));
+  if (Array.isArray(value)) return value.map((item) => redactSensitiveStructure(item, depth + 1));
   if (value && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value).map(([key, nested]) => [key, redactSensitiveStructure(nested)]),
+      Object.entries(value).map(([key, nested]) => [
+        key,
+        // A key that names a credential masks its value whole — a bare password
+        // in a `password`/`token`/… field has no shape a pattern could catch.
+        SENSITIVE_KEY_NAME_PATTERN.test(key) ? '•••' : redactSensitiveStructure(nested, depth + 1),
+      ]),
     );
   }
   return value;
@@ -563,6 +580,28 @@ export function createMcpBridgeExtensionFactory({
   };
 }
 
+// Typed text has no credential shape a pattern could recognise — a password
+// typed into a login field is just a word. The live tool result keeps the
+// pattern-redacted preview (the model already produced the text), but the
+// persisted audit line must not carry typed content at all.
+const TYPED_TEXT_ARG_KEYS = ['text', 'value', 'input'];
+
+function auditSafeComputerCall(args, computerDetail) {
+  const action = computerDetail?.computer?.action;
+  if (action !== 'type' && action !== 'key') {
+    return { args, computer: computerDetail?.computer };
+  }
+  const maskedArgs = { ...args };
+  for (const key of TYPED_TEXT_ARG_KEYS) {
+    if (typeof maskedArgs[key] === 'string' && maskedArgs[key]) maskedArgs[key] = '•••';
+  }
+  const computer = { ...computerDetail.computer };
+  if (typeof computer.textPreview === 'string' && computer.textPreview) {
+    computer.textPreview = '•••';
+  }
+  return { args: maskedArgs, computer };
+}
+
 function emitMcpAuditLine({
   emit,
   threadId,
@@ -578,6 +617,7 @@ function emitMcpAuditLine({
   computerDetail,
 }) {
   if (typeof emit !== 'function' || !threadId || !rootRunId) return;
+  const safe = auditSafeComputerCall(args, computerDetail);
   emit(
     agentRunLine({
       threadId,
@@ -588,14 +628,15 @@ function emitMcpAuditLine({
       payload: {
         server,
         tool: toolName,
-        arguments: redactSensitiveStructure(args),
+        arguments: redactSensitiveStructure(safe.args),
         result:
           result?.ok === true
             ? { content: redactSensitiveStructure(result.content ?? null) }
             : null,
-        ...(computerDetail ? { computer: computerDetail.computer } : {}),
+        ...(computerDetail ? { computer: safe.computer } : {}),
         isError: result?.ok === true ? result.isError === true : true,
-        error: result?.ok === true ? null : (result?.error ?? 'unknown error'),
+        error:
+          result?.ok === true ? null : redactSensitiveText(String(result?.error ?? 'unknown error')),
         latencyMs,
         write,
         approvalStatus,

@@ -176,9 +176,10 @@ export const MAX_MCP_VALUE_CHARS = 4000;
 // An object key that names a credential — its VALUE is masked whole, regardless
 // of the value's shape, so a secret in a `password`/`token`/… field is caught
 // even when it's a plain word, a bare hex/base64 string, or a number that no
-// token pattern would match.
-const SECRET_KEY_NAME_RE =
-  /^(?:authorization|bearer|tokens?|api[_-]?keys?|secrets?|passwo?r?d|access[_-]?tokens?|client[_-]?secrets?|private[_-]?keys?|credentials?)$/i;
+// token pattern would match. The literal is mirrored on the emit side in
+// scripts/pi-mcp-bridge-extension.mjs and gated by check-redaction-pattern-sync.mjs.
+const SENSITIVE_KEY_NAME_PATTERN =
+  /^(?:authorization|bearer|tokens?|api[_-]?keys?|secrets?|passwo?r?ds?|passphrases?|pwd|access[_-]?(?:tokens?|keys?)|client[_-]?secrets?|private[_-]?keys?|credentials?)$/i;
 
 export { redactSecrets } from '@/data/redact-secrets.js';
 
@@ -192,7 +193,7 @@ function redactStructured(value: ActivityPayloadValue): ActivityPayloadValue {
     for (const [key, child] of Object.entries(value)) {
       // Redact the key itself (a secret can be used as a dynamic key), and mask
       // the whole value when the key names a credential.
-      out[redactSecrets(key)] = SECRET_KEY_NAME_RE.test(key)
+      out[redactSecrets(key)] = SENSITIVE_KEY_NAME_PATTERN.test(key)
         ? '[REDACTED]'
         : redactStructured(child);
     }

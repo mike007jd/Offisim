@@ -1,7 +1,13 @@
 #!/usr/bin/env node
-// Redaction-pattern sync check for the MCP audit emit path and agent-run parse path.
-// The two regex literals must remain byte-for-byte identical so neither boundary
-// silently accepts credential shapes that the other boundary misses.
+// Redaction-pattern sync check across the MCP audit emit path, the agent-run
+// parse path, and the renderer activity projection. Mirrored regex literals must
+// remain byte-for-byte identical so no boundary silently accepts credential
+// shapes that another boundary misses.
+//
+// Intentionally NOT in scope: apps/desktop/renderer/src/data/redact-secrets.ts.
+// That is the display-layer ruleset (stricter token thresholds, URL userinfo
+// credentials, personal-information heuristics) applied on top of already
+// emit-redacted data; it is allowed to diverge from the disk-boundary patterns.
 
 import { readFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
@@ -11,7 +17,16 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, '..');
 const EMIT_PATH = resolve(REPO_ROOT, 'scripts/pi-mcp-bridge-extension.mjs');
 const PARSE_PATH = resolve(REPO_ROOT, 'packages/shared-types/src/events/agent-run.ts');
-const PATTERN_NAMES = ['SENSITIVE_KEY_VALUE_PATTERN', 'SENSITIVE_TOKEN_PATTERN'];
+const ACTIVITY_PATH = resolve(
+  REPO_ROOT,
+  'apps/desktop/renderer/src/data/board/activity-data.ts',
+);
+
+const PATTERN_SPECS = [
+  { name: 'SENSITIVE_KEY_VALUE_PATTERN', files: [EMIT_PATH, PARSE_PATH] },
+  { name: 'SENSITIVE_TOKEN_PATTERN', files: [EMIT_PATH, PARSE_PATH] },
+  { name: 'SENSITIVE_KEY_NAME_PATTERN', files: [EMIT_PATH, ACTIVITY_PATH] },
+];
 
 function fail(message) {
   console.error(`FAIL — redaction-pattern-sync: ${message}`);
@@ -45,22 +60,21 @@ function extractRegexLiteral(source, filePath, patternName) {
 }
 
 function main() {
-  const emitSource = readSource(EMIT_PATH);
-  const parseSource = readSource(PARSE_PATH);
-
-  for (const patternName of PATTERN_NAMES) {
-    const emitLiteral = extractRegexLiteral(emitSource, EMIT_PATH, patternName);
-    const parseLiteral = extractRegexLiteral(parseSource, PARSE_PATH, patternName);
-    if (emitLiteral !== parseLiteral) {
-      fail(
-        `${patternName} differs byte-for-byte between ${displayPath(EMIT_PATH)} (${emitLiteral}) and ${displayPath(PARSE_PATH)} (${parseLiteral}). Edit both mirrored literals together.`,
-      );
+  for (const { name, files } of PATTERN_SPECS) {
+    const [referencePath, ...mirrorPaths] = files;
+    const referenceLiteral = extractRegexLiteral(readSource(referencePath), referencePath, name);
+    for (const mirrorPath of mirrorPaths) {
+      const mirrorLiteral = extractRegexLiteral(readSource(mirrorPath), mirrorPath, name);
+      if (referenceLiteral !== mirrorLiteral) {
+        fail(
+          `${name} differs byte-for-byte between ${displayPath(referencePath)} (${referenceLiteral}) and ${displayPath(mirrorPath)} (${mirrorLiteral}). Edit both mirrored literals together.`,
+        );
+      }
     }
   }
 
   console.log(
-    `OK — redaction-pattern-sync: ${PATTERN_NAMES.join(', ')} match byte-for-byte between ` +
-      `${displayPath(EMIT_PATH)} and ${displayPath(PARSE_PATH)}.`,
+    `OK — redaction-pattern-sync: ${PATTERN_SPECS.map((spec) => spec.name).join(', ')} match byte-for-byte across their mirrored files.`,
   );
 }
 
