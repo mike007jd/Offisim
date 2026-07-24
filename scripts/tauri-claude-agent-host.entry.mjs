@@ -43,7 +43,9 @@ const CLAUDE_RUN_OPTIONS = Object.freeze({
     {
       id: 'haiku',
       displayName: 'Haiku (claude-haiku-4-5)',
-      reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      // Checked 2026-07-24: the model-config effort table lists no Haiku entry;
+      // models not listed there do not support --effort.
+      reasoningEfforts: [],
       speedModes: ['standard'],
     },
     {
@@ -298,7 +300,6 @@ function validateTarget(target) {
     target.engineId !== ENGINE_ID ||
     target.accountId !== ACCOUNT_ID ||
     target.billingMode !== BILLING_MODE ||
-    target.modelId !== MODEL_ID ||
     !isRecord(target.modelSource) ||
     target.modelSource.kind !== 'native' ||
     'sourceUrl' in target.modelSource ||
@@ -309,11 +310,20 @@ function validateTarget(target) {
       'execution-target-mismatch',
     );
   }
+  if (
+    target.modelId !== MODEL_ID &&
+    !CLAUDE_RUN_OPTIONS.models.some((model) => model.id === target.modelId)
+  ) {
+    throw hostError(
+      `The saved Claude model "${String(target.modelId)}" is no longer available.`,
+      'execution-target-mismatch',
+    );
+  }
   return {
     engineId: ENGINE_ID,
     accountId: ACCOUNT_ID,
     billingMode: BILLING_MODE,
-    modelId: MODEL_ID,
+    modelId: target.modelId,
     modelSource: { kind: 'native' },
   };
 }
@@ -328,6 +338,52 @@ async function validatePayload(payload) {
     throw hostError('Claude requestId and text are required.', 'request-invalid');
   }
   const target = validateTarget(payload.expectedTarget);
+  const expectedModel = target.modelId === MODEL_ID ? undefined : target.modelId;
+  // Enhance carries no model field; it follows the frozen target so an explicit
+  // model choice also applies to prompt enhancement.
+  const model = payload.mode === 'enhance' ? expectedModel : nonEmpty(payload.model);
+  if (payload.mode === 'execute' && model !== expectedModel) {
+    throw hostError(
+      'Claude model payload does not match the exact execution target.',
+      'execution-target-mismatch',
+    );
+  }
+  const runOptionModel =
+    target.modelId === MODEL_ID
+      ? CLAUDE_RUN_OPTIONS.models.find((candidate) => candidate.isDefault)
+      : CLAUDE_RUN_OPTIONS.models.find((candidate) => candidate.id === target.modelId);
+  if (!runOptionModel) {
+    throw hostError('Claude run options do not declare one default model.', 'request-invalid');
+  }
+  const effort = nonEmpty(payload.effort);
+  if (
+    (payload.effort !== undefined && payload.effort !== null && !effort) ||
+    (effort && !runOptionModel.reasoningEfforts.includes(effort))
+  ) {
+    throw hostError(
+      runOptionModel.reasoningEfforts.length
+        ? `Claude effort must be one of: ${runOptionModel.reasoningEfforts.join(', ')}.`
+        : `Claude model "${runOptionModel.id}" does not support reasoning effort.`,
+      'request-invalid',
+    );
+  }
+  const speedMode = nonEmpty(payload.speedMode);
+  if (
+    payload.speedMode !== undefined &&
+    payload.speedMode !== null &&
+    (!speedMode || !runOptionModel.speedModes.includes(speedMode))
+  ) {
+    if (speedMode === 'fast') {
+      throw hostError(
+        'Claude fast mode requires the explicit opus model; engine-managed and other models are not accepted.',
+        'request-invalid',
+      );
+    }
+    throw hostError(
+      `Claude speedMode must be one of: ${runOptionModel.speedModes.join(', ')}.`,
+      'request-invalid',
+    );
+  }
   const cwd = await realpath(nonEmpty(payload.cwd) ?? process.cwd());
   const actualCwd = await realpath(process.cwd());
   if (cwd !== actualCwd) {
@@ -342,7 +398,17 @@ async function validatePayload(payload) {
   if (payload.mode === 'enhance' && !nonEmpty(payload.systemPrompt)) {
     throw hostError('Claude enhance requires systemPrompt.', 'request-invalid');
   }
-  return { ...payload, requestId, text, target, cwd };
+  return {
+    ...payload,
+    requestId,
+    text,
+    target,
+    cwd,
+    model,
+    effort,
+    speedMode,
+    runOptionModel,
+  };
 }
 
 function permissionMode(value) {
@@ -389,9 +455,13 @@ function cliArgs(payload, sessionId) {
     '--setting-sources',
     '',
   ];
+  if (payload.model) args.push('--model', payload.model);
+  if (payload.effort) args.push('--effort', payload.effort);
+  const settings = hasWorkspace ? JSON.parse(hookSettings(payload.cwd)) : {};
+  if (payload.speedMode === 'fast') settings.fastMode = true;
+  if (Object.keys(settings).length) args.push('--settings', JSON.stringify(settings));
   if (hasWorkspace) {
     args.push('--permission-mode', permissionMode(payload.permissionMode));
-    args.push('--settings', hookSettings(payload.cwd));
     const systemPrompt = nonEmpty(payload.systemPromptAppend);
     if (systemPrompt) args.push('--append-system-prompt', systemPrompt);
     const skillPluginDir = nonEmpty(payload.skillPluginDir);
@@ -419,7 +489,7 @@ function summarizeToolInput(input) {
   return Object.keys(input).length ? clampText(input) : undefined;
 }
 
-function usageProjection(frame, durationMs) {
+function usageProjection(frame, durationMs, modelId, speedMode) {
   const usage = isRecord(frame.usage) ? frame.usage : {};
   const cacheCreation = finiteCount(usage.cache_creation_input_tokens);
   const cacheRead = finiteCount(usage.cache_read_input_tokens);
@@ -432,7 +502,7 @@ function usageProjection(frame, durationMs) {
       kind: 'subscription-run-diagnostic',
       engineId: ENGINE_ID,
       accountId: ACCOUNT_ID,
-      modelId: MODEL_ID,
+      modelId,
     },
     ...(input !== undefined ? { input } : {}),
     ...(output !== undefined ? { output } : {}),
@@ -449,7 +519,10 @@ function usageProjection(frame, durationMs) {
     },
     cost: {
       kind: 'unavailable',
-      reason: '订阅内 · 无 API 成本',
+      // Checked 2026-07-24: fast mode on subscription plans bills usage credits
+      // from the first token and is NOT included in subscription rate limits, so
+      // a fast run must not claim it had no cost. No price projection either way.
+      reason: speedMode === 'fast' ? 'Fast 模式 · 消耗 usage credits' : '订阅内 · 无 API 成本',
     },
   };
 }
@@ -549,6 +622,15 @@ async function runClaude(payloadValue) {
   const sessionId = nonEmpty(payload.nativeSessionId) ?? randomUUID();
   const runId = nonEmpty(payload.rootRunId) ?? payload.requestId;
   const identity = responseProvenance(payload.target, runId);
+  // Engine-managed runs must not claim the declared default alias as the model
+  // name: the CLI default depends on the user's plan and config. The init frame
+  // reports the actual model; until it arrives the name stays neutral.
+  let model = {
+    id: payload.model ? `${ENGINE_ID}:${payload.model}` : ENGINE_ID,
+    name: payload.model ? payload.runOptionModel.displayName : 'Engine default',
+    api: CLAUDE_ADAPTER.id,
+    reasoning: payload.runOptionModel.reasoningEfforts.length > 0,
+  };
   emit(
     executionPreparedLine({
       prepareId: randomUUID(),
@@ -591,7 +673,11 @@ async function runClaude(payloadValue) {
     if (frame.type === 'system' && frame.subtype === 'init') {
       if (!state.started) {
         state.started = true;
-        emit(startedLine({ sessionId: nonEmpty(frame.session_id) ?? sessionId }));
+        const reportedModel = nonEmpty(frame.model);
+        if (!payload.model && reportedModel) {
+          model = { ...model, name: reportedModel };
+        }
+        emit(startedLine({ sessionId: nonEmpty(frame.session_id) ?? sessionId, model }));
       }
     } else if (frame.type === 'stream_event') {
       consumeStreamEvent(frame, state);
@@ -622,7 +708,9 @@ async function runClaude(payloadValue) {
       'upstream',
     );
   }
-  if (!state.started) emit(startedLine({ sessionId: nonEmpty(result.session_id) ?? sessionId }));
+  if (!state.started) {
+    emit(startedLine({ sessionId: nonEmpty(result.session_id) ?? sessionId, model }));
+  }
   const text = nonEmpty(result.result) ?? state.text;
   emit(messageEndLine({ text, stopReason: nonEmpty(result.stop_reason) ?? result.subtype }));
   const durationMs = Math.max(0, Date.now() - startedAt);
@@ -634,7 +722,7 @@ async function runClaude(payloadValue) {
         ? { sessionId: nonEmpty(result.session_id) ?? sessionId }
         : {}),
       provenance: identity,
-      usage: usageProjection(result, durationMs),
+      usage: usageProjection(result, durationMs, payload.target.modelId, payload.speedMode),
     }),
   );
 }

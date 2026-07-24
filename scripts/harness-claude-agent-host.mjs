@@ -66,6 +66,7 @@ assert.match(entry, /allowUnsandboxedCommands: false/);
 assert.match(entry, /failIfUnavailable: true/);
 assert.match(entry, /subscription-run-diagnostic/);
 assert.match(entry, /订阅内 · 无 API 成本/);
+assert.match(entry, /Fast 模式 · 消耗 usage credits/);
 assert.doesNotMatch(entry, /OFFISIM_CLAUDE_EXECUTABLE/);
 assert.ok(entryLines.has(`const CLAUDE_CLI_SOURCE_URL = '${SOURCE_URL}';`));
 assert.ok(entryLines.has(`const CLAUDE_AUTH_DOCS_URL = '${AUTH_URL}';`));
@@ -97,6 +98,34 @@ function body(source, pattern, label) {
   return match[1];
 }
 
+// The Rust host's model closed set and the sidecar's CLAUDE_RUN_OPTIONS are two
+// hand-written copies of the same list, each covered by a different CI lane.
+// Bind them here so adding a model to one side without the other fails the
+// node lane instead of surfacing as a runtime rejection.
+{
+  const declarationBlock = body(
+    entry,
+    /const CLAUDE_RUN_OPTIONS = Object\.freeze\(\{([\s\S]*?)\n\}\);/u,
+    'sidecar CLAUDE_RUN_OPTIONS declaration',
+  );
+  const declaredModelIds = [...declarationBlock.matchAll(/^\s*id: '([^']+)',$/gmu)].map(
+    (match) => match[1],
+  );
+  const rustClosedSet = body(
+    rust,
+    /matches!\(\s*target\.model_id\.as_str\(\),\s*([^)]+)\)/u,
+    'Rust Claude model closed set',
+  )
+    .split('|')
+    .map((token) => token.trim().replaceAll('"', ''))
+    .filter(Boolean);
+  assert.deepEqual(
+    rustClosedSet,
+    ['engine-managed', ...declaredModelIds],
+    'the Rust model closed set must mirror the sidecar CLAUDE_RUN_OPTIONS model ids',
+  );
+}
+
 function tsFields(name) {
   return [
     ...body(tauriCommands, new RegExp(`interface ${name} \\{([\\s\\S]*?)\\n\\}`), name).matchAll(
@@ -122,6 +151,8 @@ assert.deepEqual(
   rustFields('ClaudeAgentExecuteRequest'),
   'renderer and Rust Claude execute fields must remain lockstep',
 );
+assert.ok(tsFields('ClaudeAgentExecuteRequest').includes('effort'));
+assert.ok(tsFields('ClaudeAgentExecuteRequest').includes('speedMode'));
 assert.deepEqual(
   tsFields('ClaudeAgentEnhanceRequest'),
   rustFields('ClaudeAgentEnhanceRequest'),
@@ -261,7 +292,7 @@ writeFileSync(process.env.OFFISIM_CLAUDE_ARGS_LOG, JSON.stringify(args));
 if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   const session = args.includes('--resume') ? args[args.indexOf('--resume') + 1] : args[args.indexOf('--session-id') + 1];
   const send = (value) => console.log(JSON.stringify(value));
-  send({ type: 'system', subtype: 'init', session_id: session });
+  send({ type: 'system', subtype: 'init', session_id: session, model: 'claude-opus-4-8' });
   send({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: 'Inspecting workspace' }, { type: 'tool_use', id: 'tool-1', name: 'Read', input: { file_path: 'README.md' } }, { type: 'text', text: 'done' }] } });
   send({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tool-1', content: 'ok' }] } });
   send({ type: 'result', subtype: 'success', is_error: false, session_id: session, result: 'done', num_turns: 1, total_cost_usd: 99, usage: { input_tokens: 11, output_tokens: 7, cache_read_input_tokens: 3 } });
@@ -317,7 +348,19 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
     'Fast mode bills usage credits beyond your subscription',
   );
   assert.deepEqual(projection.runOptions.models[2].speedModes, ['standard']);
+  assert.deepEqual(
+    projection.runOptions.models[2].reasoningEfforts,
+    [],
+    'Haiku is absent from the official effort table and must not declare effort levels',
+  );
   assert.deepEqual(projection.runOptions.models[3].speedModes, ['standard']);
+  assert.deepEqual(projection.runOptions.models[3].reasoningEfforts, [
+    'low',
+    'medium',
+    'high',
+    'xhigh',
+    'max',
+  ]);
   assert.deepEqual(projection.capabilities.permissionModes, ['plan', 'auto', 'full']);
   assert.equal(projection.capabilities.interactions.userInput, false);
   assert.deepEqual(
@@ -389,11 +432,136 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   assert.ok(invokedArgs.includes('--session-id'));
   assert.equal(invokedArgs[invokedArgs.indexOf('--plugin-dir') + 1], skillPluginDir);
   assert.ok(!invokedArgs.includes('--model'));
+  assert.ok(!invokedArgs.includes('--effort'));
   assert.ok(!invokedArgs.includes('--dangerously-skip-permissions'));
+  assert.equal(invokedArgs.filter((arg) => arg === '--settings').length, 1);
   const settings = JSON.parse(invokedArgs[invokedArgs.indexOf('--settings') + 1]);
   assert.equal(settings.sandbox.failIfUnavailable, true);
   assert.equal(settings.sandbox.allowUnsandboxedCommands, false);
   assert.ok(settings.hooks.PreToolUse[0].hooks[0].args.includes('--workspace-hook'));
+  assert.equal(settings.fastMode, undefined);
+  const defaultStarted = execute.frames.find((frame) => frame.kind === 'started');
+  assert.equal(defaultStarted?.model?.id, 'claude');
+  assert.equal(
+    defaultStarted?.model?.name,
+    'claude-opus-4-8',
+    'engine-managed runs adopt the CLI-reported model instead of claiming the declared default alias',
+  );
+  assert.equal(defaultStarted?.model?.reasoning, true);
+  assert.equal(response.usage.scope.modelId, 'engine-managed');
+
+  const opusTarget = { ...target, modelId: 'opus' };
+  const explicitResume = await runHost({
+    cwd: workspace,
+    env,
+    payload: {
+      mode: 'execute',
+      requestId: 'request-opus-fast',
+      text: 'resume with explicit options',
+      cwd: workspace,
+      workspaceAvailability: 'bound',
+      permissionMode: 'auto',
+      model: 'opus',
+      effort: 'xhigh',
+      speedMode: 'fast',
+      systemPromptAppend: null,
+      skillPluginDir,
+      rootRunId: 'run-opus-fast',
+      nativeSessionId: 'opaque-resume',
+      expectedTarget: opusTarget,
+    },
+  });
+  assert.equal(explicitResume.code, 0, explicitResume.errorOutput || explicitResume.output);
+  const explicitArgs = JSON.parse(await readFile(argsLog, 'utf8'));
+  assert.equal(explicitArgs[explicitArgs.indexOf('--model') + 1], 'opus');
+  assert.equal(explicitArgs[explicitArgs.indexOf('--effort') + 1], 'xhigh');
+  assert.equal(explicitArgs[explicitArgs.indexOf('--resume') + 1], 'opaque-resume');
+  assert.ok(!explicitArgs.includes('--session-id'));
+  assert.equal(explicitArgs.filter((arg) => arg === '--settings').length, 1);
+  const explicitSettings = JSON.parse(explicitArgs[explicitArgs.indexOf('--settings') + 1]);
+  assert.equal(explicitSettings.fastMode, true);
+  assert.equal(explicitSettings.sandbox.failIfUnavailable, true);
+  assert.ok(explicitSettings.hooks.PreToolUse[0].hooks[0].args.includes('--workspace-hook'));
+  const explicitStarted = explicitResume.frames.find((frame) => frame.kind === 'started');
+  assert.equal(explicitStarted?.model?.id, 'claude:opus');
+  assert.equal(explicitStarted?.model?.name, 'Opus (claude-opus-4-8)');
+  assert.equal(explicitStarted?.model?.reasoning, true);
+  const explicitResponse = explicitResume.frames.at(-1)?.response;
+  assert.equal(explicitResponse.provenance.modelId, 'opus');
+  assert.equal(explicitResponse.usage.scope.modelId, 'opus');
+  assert.deepEqual(
+    explicitResponse.usage.cost,
+    { kind: 'unavailable', reason: 'Fast 模式 · 消耗 usage credits' },
+    'a fast run bills usage credits and must not claim it had no cost',
+  );
+
+  const unboundFast = await runHost({
+    cwd: workspace,
+    env,
+    payload: {
+      mode: 'execute',
+      requestId: 'request-opus-fast-unbound',
+      text: 'run without workspace hooks',
+      cwd: workspace,
+      workspaceAvailability: 'unavailable',
+      permissionMode: 'plan',
+      model: 'opus',
+      effort: 'low',
+      speedMode: 'fast',
+      rootRunId: 'run-opus-fast-unbound',
+      nativeSessionId: null,
+      expectedTarget: opusTarget,
+    },
+  });
+  assert.equal(unboundFast.code, 0, unboundFast.errorOutput || unboundFast.output);
+  const unboundArgs = JSON.parse(await readFile(argsLog, 'utf8'));
+  assert.equal(unboundArgs.filter((arg) => arg === '--settings').length, 1);
+  assert.deepEqual(JSON.parse(unboundArgs[unboundArgs.indexOf('--settings') + 1]), {
+    fastMode: true,
+  });
+
+  const invalidFast = await runHost({
+    cwd: workspace,
+    env,
+    payload: {
+      mode: 'execute',
+      requestId: 'request-sonnet-fast',
+      text: 'reject unsupported fast mode',
+      cwd: workspace,
+      workspaceAvailability: 'bound',
+      permissionMode: 'auto',
+      model: 'sonnet',
+      speedMode: 'fast',
+      rootRunId: 'run-sonnet-fast',
+      nativeSessionId: null,
+      expectedTarget: { ...target, modelId: 'sonnet' },
+    },
+  });
+  assert.notEqual(invalidFast.code, 0);
+  assert.equal(invalidFast.frames.at(-1)?.kind, 'error');
+  assert.equal(invalidFast.frames.at(-1)?.code, 'request-invalid');
+  assert.match(invalidFast.frames.at(-1)?.message ?? '', /explicit opus/u);
+
+  const invalidEffort = await runHost({
+    cwd: workspace,
+    env,
+    payload: {
+      mode: 'execute',
+      requestId: 'request-invalid-effort',
+      text: 'reject invalid effort',
+      cwd: workspace,
+      workspaceAvailability: 'bound',
+      permissionMode: 'auto',
+      model: 'opus',
+      effort: 'ultra',
+      rootRunId: 'run-invalid-effort',
+      nativeSessionId: null,
+      expectedTarget: opusTarget,
+    },
+  });
+  assert.notEqual(invalidEffort.code, 0);
+  assert.equal(invalidEffort.frames.at(-1)?.code, 'request-invalid');
+  assert.match(invalidEffort.frames.at(-1)?.message ?? '', /low, medium, high, xhigh, max/u);
 
   const stopped = await runHost({
     cwd: workspace,

@@ -347,6 +347,7 @@ checks += 1;
     new URL('../apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts', import.meta.url),
     'utf8',
   );
+  assert.match(executionSelection, /new Set\(\['codex', 'claude'\]\)/u);
   assert.match(executionSelection, /readonly modelId\?: string/u);
   assert.match(executionSelection, /const separator = value\.indexOf\(':'\)/u);
   assert.match(executionSelection, /saved model is no longer available/u);
@@ -354,7 +355,26 @@ checks += 1;
     threadAuthority,
     /target\.modelId === 'engine-managed'[\s\S]*target\.engineId[\s\S]*`\$\{target\.engineId\}:\$\{target\.modelId\}`/u,
   );
-  assert.match(desktopRuntime, /this\.engineId === 'codex'[\s\S]*resolveThreadSpeedOverride/u);
+  assert.match(
+    desktopRuntime,
+    /this\.engineId === 'codex' \|\| this\.engineId === 'claude'[\s\S]*resolveThreadSpeedOverride/u,
+  );
+  const claudeBranch = desktopRuntime.slice(
+    desktopRuntime.indexOf("} else if (this.engineId === 'claude') {"),
+    desktopRuntime.indexOf(
+      '} else {',
+      desktopRuntime.indexOf("} else if (this.engineId === 'claude') {"),
+    ),
+  );
+  assert.match(
+    claudeBranch,
+    /\.\.\.\(resolvedThinkingLevel \? \{ effort: resolvedThinkingLevel \} : \{\}\)/u,
+  );
+  assert.match(
+    claudeBranch,
+    /\.\.\.\(resolvedSpeedMode === 'fast' \? \{ speedMode: 'fast' \} : \{\}\)/u,
+  );
+  assert.match(executionSelection, /`\$\{selector\.kind\}:\$\{engineId\}:\$\{modelId\}`/u);
   assert.match(
     desktopRuntime,
     /\.\.\.\(resolvedThinkingLevel \? \{ effort: resolvedThinkingLevel \} : \{\}\)/u,
