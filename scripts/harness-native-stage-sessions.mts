@@ -160,10 +160,19 @@ const nativePlan = planStageSessionReconciliation({
 });
 assert.deepEqual(nativePlan.closeTerminalIds, ['terminal-orphan']);
 assert.deepEqual(nativePlan.closeBrowserIds, ['browser-orphan']);
-assert.deepEqual(nativePlan.browserVisibility, [{ sessionId: 'browser-a', visible: true }]);
+assert.deepEqual(nativePlan.browserVisibility, [
+  { sessionId: 'browser-a', visible: true },
+  { sessionId: 'agent-thread-a', visible: false },
+]);
 assert.ok(
   !nativePlan.closeBrowserIds.includes('agent-thread-a'),
   'Stage reconciliation never closes an agent browser merely because no spectator tab is open',
+);
+assert.ok(
+  nativePlan.browserVisibility.some(
+    (entry) => entry.sessionId === 'agent-thread-a' && entry.visible === false,
+  ),
+  'an agent browser with no spectator tab is explicitly hidden, restoring the off-screen invariant',
 );
 assert.notEqual(
   stageSessionScopeKey({ ...scope, threadId: null }),

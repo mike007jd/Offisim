@@ -118,6 +118,21 @@ export function isWriteMcpTool(tool) {
   return ann?.readOnlyHint === false || ann?.destructiveHint === true;
 }
 
+/**
+ * Whether a tool call must pause for operator approval at execute time.
+ * Offisim Browser's state-changing tools (navigate/back) are the exception:
+ * auto/full let the employee browse without a prompt, and plan mode must not
+ * pre-prompt — the native gateway rejects those calls there. Only ask mode
+ * keeps an approval for them. Other write-class MCP tools always confirm in
+ * the modes that expose them (plan never receives them — the catalog is
+ * filtered upstream).
+ */
+export function needsMcpToolApproval(tool, permissionMode) {
+  if (!isWriteMcpTool(tool)) return false;
+  if (isOffisimBrowserMcpTool(tool)) return permissionMode === 'ask';
+  return true;
+}
+
 function textResult(text, isError = false) {
   return { content: [{ type: 'text', text }], ...(isError ? { isError: true } : {}) };
 }
@@ -407,7 +422,7 @@ function requestApprovalWithTimeout(request, { timeoutMs, signal }) {
 
 /**
  * Build the MCP bridge extension factory.
- * @param {{ mcpTools: Array<{name:string, server:string, description?:string, inputSchema?:object, annotations?:object, write?:boolean, category?:string}>, requestMcpResult: (server:string, tool:string, args:object) => Promise<{id:string, ok:boolean, content?:unknown, isError?:boolean, error?:string, artifactPaths?:string[]}>, confirmMcpToolCall?: (input: { server:string, toolName:string, args:object, tool: object }) => Promise<boolean> | boolean, emit?: (line: object) => void, threadId?: string, rootRunId?: string, employeeId?: string, mcpCallTimeoutMs?: number, mcpApprovalTimeoutMs?: number }} deps
+ * @param {{ mcpTools: Array<{name:string, server:string, description?:string, inputSchema?:object, annotations?:object, write?:boolean, category?:string}>, requestMcpResult: (server:string, tool:string, args:object) => Promise<{id:string, ok:boolean, content?:unknown, isError?:boolean, error?:string, artifactPaths?:string[]}>, confirmMcpToolCall?: (input: { server:string, toolName:string, args:object, tool: object }) => Promise<boolean> | boolean, emit?: (line: object) => void, threadId?: string, rootRunId?: string, employeeId?: string, permissionMode?: string, mcpCallTimeoutMs?: number, mcpApprovalTimeoutMs?: number }} deps
  */
 export function createMcpBridgeExtensionFactory({
   mcpTools,
@@ -417,6 +432,7 @@ export function createMcpBridgeExtensionFactory({
   threadId,
   rootRunId,
   employeeId,
+  permissionMode,
   mcpCallTimeoutMs,
   mcpApprovalTimeoutMs,
 }) {
@@ -445,7 +461,10 @@ export function createMcpBridgeExtensionFactory({
   const invokeScopedTool = async (tool, args, signal, ctx) => {
     const name = tool.name;
     const write = isWriteMcpTool(tool);
-    if (write) {
+    // Browser navigate/back skip this prompt outside ask mode (auto/full
+    // auto-allow; plan is rejected by the native gateway, never pre-prompted).
+    const needsApproval = needsMcpToolApproval(tool, permissionMode);
+    if (needsApproval) {
       const approved = await requestApprovalWithTimeout(
         () =>
           typeof confirmMcpToolCall === 'function'
@@ -502,7 +521,7 @@ export function createMcpBridgeExtensionFactory({
       result,
       latencyMs,
       write,
-      approvalStatus: write ? 'human_approved' : 'not_required',
+      approvalStatus: needsApproval ? 'human_approved' : 'not_required',
       computerDetail,
     });
     if (!result || result.ok !== true) {

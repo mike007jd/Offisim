@@ -1,7 +1,7 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
 import { workbenchOf } from '@/data/git-workbench.js';
-import { useDeliverables, useEmployees, useGitWorkbench } from '@/data/queries.js';
+import { useDeliverables, useEmployees, useGitWorkbench, useThreads } from '@/data/queries.js';
 import type { Deliverable } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
@@ -164,10 +164,17 @@ export function StageViewMenu() {
   const deliverables = useDeliverables(selectedThreadId);
   const git = useGitWorkbench(projectId);
   const employees = useEmployees();
+  const threads = useThreads(projectId);
   const runs = useActiveConversationRuns();
   const run = runs.runs.find((candidate) => candidate.threadId === selectedThreadId) ?? null;
-  const employeeName = run?.employeeId
-    ? (employees.data?.find((employee) => employee.id === run.employeeId)?.name ?? run.employeeId)
+  // Once the run ends it leaves the active-run list; fall back to the thread
+  // record's assignee so the spectator label keeps the employee's name.
+  const employeeId =
+    run?.employeeId ??
+    threads.data?.find((thread) => thread.id === selectedThreadId)?.employeeId ??
+    null;
+  const employeeName = employeeId
+    ? (employees.data?.find((employee) => employee.id === employeeId)?.name ?? employeeId)
     : 'Employee';
   const latestBrowser = run ? latestBrowserDetail(run.activity) : null;
   const latestBrowserRichDetail =

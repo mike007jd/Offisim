@@ -14,9 +14,7 @@ use tokio_util::sync::CancellationToken;
 use crate::agent_host_runtime::HostError;
 use crate::task_workspace_binding::{test_task_workspace_binding, TaskWorkspaceBindingRegistry};
 
-use super::bridge::{
-    authorize_browser_tool, confirm_execution_impl, register_execution_prepared, PiUiResponse,
-};
+use super::bridge::{confirm_execution_impl, register_execution_prepared, PiUiResponse};
 use super::merge_runtime_status;
 use super::payload::{
     collaborate_payload, enhance_payload, pi_session_dir_under, sidecar_payload,
@@ -45,12 +43,25 @@ use super::wire::{
 
 #[test]
 fn pi_browser_plan_mode_matches_gateway_semantics() {
+    // Both lanes authorize through the one shared core in browser_agent_tools;
+    // this test pins the Pi lane to that exact function (no per-lane copy).
+    use crate::browser_agent_tools::authorize_browser_tool;
     assert!(authorize_browser_tool("browser_navigate", true).is_err());
     assert!(authorize_browser_tool("browser_back", true).is_err());
     assert!(authorize_browser_tool("browser_read_page", true).is_ok());
     assert!(authorize_browser_tool("browser_screenshot", true).is_ok());
     assert!(authorize_browser_tool("browser_status", true).is_ok());
     assert!(authorize_browser_tool("browser_navigate", false).is_ok());
+}
+
+#[test]
+fn pi_browser_screenshot_cap_is_the_shared_gateway_cap() {
+    // The Pi bridge lane no longer carries its own MAX_BROWSER_SCREENSHOT_BYTES;
+    // both lanes enforce the one cap from the shared core.
+    assert_eq!(
+        crate::browser_agent_tools::MAX_SCREENSHOT_BYTES,
+        4 * 1024 * 1024
+    );
 }
 
 #[test]

@@ -35,6 +35,18 @@ import {
 
 type BrowserTarget = Extract<StageViewTarget, { kind: 'browser-session' }>;
 
+// Mirrors agent_bounds() in apps/desktop/src-tauri/src/browser_agent_tools.rs:
+// agent browser WebViews park outside the window's drawable area. A closing
+// spectator must restore this parking spot — set_visible(false) alone leaves
+// the view positioned on-screen, and the hidden-screenshot fallback would
+// then flash the page at the spectator's rect.
+const AGENT_BROWSER_OFFSCREEN_BOUNDS: BrowserSessionBounds = {
+  x: 16_384,
+  y: 16_384,
+  width: 1_280,
+  height: 720,
+};
+
 function nativeScope(target: BrowserTarget): NativeStageSessionScope {
   return target.scope;
 }
@@ -267,13 +279,23 @@ export function BrowserSessionView({ target }: { target: BrowserTarget }) {
       if (sessionLeaseRef.current === lease) sessionLeaseRef.current = null;
       lease.release();
       void lease
-        .runIfLatest(() =>
-          invokeCommand('browser_session_set_visible', {
+        .runIfLatest(async () => {
+          // Agent sessions outlive the spectator: re-park the native WebView
+          // off-screen before hiding so the off-screen invariant is restored
+          // rather than relying on visibility alone.
+          if (target.agent) {
+            await invokeCommand('browser_session_set_bounds', {
+              sessionId: target.sessionId,
+              scope,
+              bounds: AGENT_BROWSER_OFFSCREEN_BOUNDS,
+            });
+          }
+          await invokeCommand('browser_session_set_visible', {
             sessionId: target.sessionId,
             scope,
             visible: false,
-          }),
-        )
+          });
+        })
         .catch(() => {});
     };
   }, [target]);

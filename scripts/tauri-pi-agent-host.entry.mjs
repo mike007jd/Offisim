@@ -60,6 +60,7 @@ import {
   createMcpBridgeExtensionFactory,
   isOffisimBrowserMcpTool,
   isWriteMcpTool,
+  needsMcpToolApproval,
 } from './pi-mcp-bridge-extension.mjs';
 import { createMissionBridgeExtensionFactory } from './pi-mission-bridge-extension.mjs';
 import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-extension.mjs';
@@ -1684,8 +1685,13 @@ async function runPrompt(payload) {
         ...(mcpHasCatalog ? ['mcp_call'] : []),
       ];
   // A write-class MCP tool pauses for ctx.ui.confirm, which needs the forwarding
-  // UI context bound — the same bind `ask` mode already does.
-  const mcpNeedsUi = !workspaceUnavailable && mcpHasCatalog && scopedMcpTools.some(isWriteMcpTool);
+  // UI context bound — the same bind `ask` mode already does. Browser
+  // navigate/back only count in ask mode: auto/full auto-allow them and plan
+  // must not pre-prompt (the native gateway rejects them there).
+  const mcpNeedsUi =
+    !workspaceUnavailable &&
+    mcpHasCatalog &&
+    scopedMcpTools.some((tool) => needsMcpToolApproval(tool, permissionMode));
   // When the conversation does not carry an explicit override, Pi chooses the
   // real root model during createAgentSession. The delegation supervisor reads
   // this live binding later, when delegate executes, so unbound employees inherit
@@ -1877,6 +1883,7 @@ async function runPrompt(payload) {
           threadId,
           rootRunId,
           employeeId: asNonEmptyString(payload.employeeId),
+          permissionMode,
         }),
       );
     }

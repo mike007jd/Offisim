@@ -174,9 +174,13 @@ export function planStageSessionReconciliation(input: {
     ),
     browserVisibility: input.nativeBrowsers.flatMap((session) => {
       const tabId = browserTabBySession.get(session.sessionId);
-      return tabId
-        ? [{ sessionId: session.sessionId, visible: input.visibleTabIds.has(tabId) }]
-        : [];
+      if (tabId) {
+        return [{ sessionId: session.sessionId, visible: input.visibleTabIds.has(tabId) }];
+      }
+      // Agent browsers belong to the run, not a tab: they are never closed for
+      // lacking a spectator tab, but they must be explicitly hidden so a stale
+      // visible flag cannot leave an untracked session painting off-tab.
+      return session.agent ? [{ sessionId: session.sessionId, visible: false }] : [];
     }),
   };
 }

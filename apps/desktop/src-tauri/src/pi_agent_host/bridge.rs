@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
@@ -41,7 +40,6 @@ static EXECUTION_PREPARATIONS: Lazy<Mutex<HashMap<(String, String), ExecutionPre
 const EXECUTION_PREPARATION_REPLAY_TTL: Duration = Duration::from_secs(30 * 60);
 pub(super) const PI_MCP_CALL_TIMEOUT: Duration = Duration::from_secs(75);
 const OFFISIM_BROWSER_SERVER: &str = "offisim-browser";
-const MAX_BROWSER_SCREENSHOT_BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Clone)]
 pub(super) struct PiBrowserToolContext {
@@ -66,15 +64,6 @@ impl PiBrowserToolContext {
                 == Some("plan"),
         }
     }
-}
-
-pub(super) fn authorize_browser_tool(tool: &str, plan_mode: bool) -> Result<(), String> {
-    if plan_mode && matches!(tool, "browser_navigate" | "browser_back") {
-        return Err(format!(
-            "{tool} is unavailable in plan mode because it changes remote browser state"
-        ));
-    }
-    Ok(())
 }
 
 pub(super) fn pi_stdin_guard(
@@ -323,6 +312,11 @@ pub(super) async fn handle_mcp_call<R: tauri::Runtime>(
     write_mcp_result(request_id, &response).await
 }
 
+/// Thin shell over `browser_agent_tools::run_browser_tool`: the plan gate, url
+/// validation, 4 MiB screenshot cap, content assembly, and the unknown-tool
+/// error all live in the shared core so this lane and the loopback MCP
+/// gateway cannot drift. This wrapper only maps the outcome onto the Pi
+/// bridge's `mcpResult` wire shape (Pi consumes content blocks only).
 async fn invoke_browser_tool<R: tauri::Runtime>(
     app: &AppHandle<R>,
     context: Option<&PiBrowserToolContext>,
@@ -334,84 +328,21 @@ async fn invoke_browser_tool<R: tauri::Runtime>(
         let context = context.ok_or_else(|| {
             "Offisim browser tools require an authorized bound-work run".to_string()
         })?;
-        authorize_browser_tool(tool, context.plan_mode)?;
-        match tool {
-            "browser_navigate" => {
-                let url = arguments
-                    .as_object()
-                    .and_then(|arguments| arguments.get("url"))
-                    .and_then(serde_json::Value::as_str)
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty())
-                    .ok_or_else(|| "browser_navigate requires a non-empty url".to_string())?;
-                let value = crate::browser_agent_tools::agent_browser_navigate(
-                    app,
-                    context.scope.clone(),
-                    url.to_string(),
-                )
-                .await?;
-                browser_text_content(value)
-            }
-            "browser_read_page" => {
-                let value = crate::browser_agent_tools::agent_browser_read_page(
-                    app,
-                    context.scope.clone(),
-                )
-                .await?;
-                browser_text_content(value)
-            }
-            "browser_screenshot" => {
-                let bytes = crate::browser_agent_tools::agent_browser_screenshot(
-                    app,
-                    context.scope.clone(),
-                )
-                .await?;
-                if bytes.len() > MAX_BROWSER_SCREENSHOT_BYTES {
-                    return Err(format!(
-                        "browser_screenshot produced {} bytes, exceeding the 4 MiB MCP response limit; use browser_read_page or reduce page complexity",
-                        bytes.len()
-                    ));
-                }
-                Ok(serde_json::json!([
-                    {
-                        "type": "text",
-                        "text": format!(
-                            "Captured a {} byte PNG from the Offisim browser.",
-                            bytes.len()
-                        )
-                    },
-                    {
-                        "type": "image",
-                        "data": BASE64_STANDARD.encode(bytes),
-                        "mimeType": "image/png"
-                    }
-                ]))
-            }
-            "browser_back" => {
-                let value = crate::browser_agent_tools::agent_browser_back(
-                    app,
-                    context.scope.clone(),
-                )
-                .await?;
-                browser_text_content(value)
-            }
-            "browser_status" => {
-                let value = crate::browser_agent_tools::agent_browser_status(
-                    app,
-                    context.scope.clone(),
-                )
-                .await?;
-                browser_text_content(value)
-            }
-            _ => Err(format!("unknown Offisim browser tool: {tool}")),
-        }
+        crate::browser_agent_tools::run_browser_tool(
+            app,
+            context.scope.clone(),
+            context.plan_mode,
+            tool,
+            arguments,
+        )
+        .await
     }
     .await;
     match outcome {
-        Ok(content) => PiMcpResult {
+        Ok(outcome) => PiMcpResult {
             id,
             ok: true,
-            content: Some(content),
+            content: Some(outcome.content),
             is_error: Some(false),
             error: None,
         },
@@ -423,12 +354,6 @@ async fn invoke_browser_tool<R: tauri::Runtime>(
             error: Some(error),
         },
     }
-}
-
-fn browser_text_content<T: Serialize>(value: T) -> Result<serde_json::Value, String> {
-    serde_json::to_value(value)
-        .map(|value| serde_json::json!([{ "type": "text", "text": value.to_string() }]))
-        .map_err(|error| format!("encode browser tool response: {error}"))
 }
 
 pub(super) async fn handle_worktree_call<R: tauri::Runtime>(

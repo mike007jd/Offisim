@@ -3,10 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use base64::{
-    engine::general_purpose::{STANDARD as BASE64_STANDARD, URL_SAFE_NO_PAD},
-    Engine as _,
-};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use http_body_util::{BodyExt as _, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::header::{AUTHORIZATION, CONTENT_LENGTH, CONTENT_TYPE, WWW_AUTHENTICATE};
@@ -23,6 +20,9 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::browser_agent_tools;
+use crate::browser_agent_tools::{
+    TOOL_BACK, TOOL_NAVIGATE, TOOL_READ_PAGE, TOOL_SCREENSHOT, TOOL_STATUS,
+};
 use crate::browser_session::BrowserSessionScope;
 
 pub(crate) const BROWSER_MCP_TOKEN_ENV: &str = "OFFISIM_BROWSER_MCP_TOKEN";
@@ -30,13 +30,6 @@ pub(crate) const BROWSER_MCP_URL_ENV: &str = "OFFISIM_BROWSER_MCP_URL";
 
 const MCP_PATH: &str = "/mcp";
 const MAX_REQUEST_BYTES: usize = 1024 * 1024;
-const MAX_SCREENSHOT_BYTES: usize = 4 * 1024 * 1024;
-
-const TOOL_NAVIGATE: &str = "browser_navigate";
-const TOOL_READ_PAGE: &str = "browser_read_page";
-const TOOL_SCREENSHOT: &str = "browser_screenshot";
-const TOOL_BACK: &str = "browser_back";
-const TOOL_STATUS: &str = "browser_status";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct BrowserAgentRunScope {
@@ -76,13 +69,8 @@ impl BrowserAgentRunScope {
         }
     }
 
-    fn authorize_tool(&self, tool: &str) -> Result<(), String> {
-        if self.plan_mode && matches!(tool, TOOL_NAVIGATE | TOOL_BACK) {
-            return Err(format!(
-                "{tool} is unavailable in plan mode because it changes remote browser state"
-            ));
-        }
-        Ok(())
+    pub(crate) fn plan_mode(&self) -> bool {
+        self.plan_mode
     }
 }
 
@@ -229,8 +217,11 @@ async fn serve<R: Runtime>(
             () = cancellation.cancelled() => break,
             accepted = listener.accept() => accepted,
         };
-        let Ok((stream, peer)) = accepted else {
-            break;
+        let (stream, peer) = match accepted {
+            Ok(accepted) => accepted,
+            // A transient accept failure (fd pressure, an aborted handshake)
+            // must not kill the gateway for the rest of the run.
+            Err(_) => continue,
         };
         if !peer.ip().is_loopback() {
             continue;
@@ -462,82 +453,37 @@ fn empty_object_schema() -> Value {
     })
 }
 
+/// Thin shell over `browser_agent_tools::run_browser_tool`: the plan gate, url
+/// validation, screenshot cap, and content assembly all live in the shared
+/// core so this lane and the Pi bridge cannot drift. This wrapper only maps
+/// the outcome onto the gateway's MCP result envelope.
 async fn call_tool<R: Runtime>(
     app: &AppHandle<R>,
     scope: &BrowserAgentRunScope,
     name: &str,
     arguments: Value,
 ) -> Value {
-    if let Err(error) = scope.authorize_tool(name) {
-        return tool_error(error);
-    }
-    let browser_scope = scope.browser_scope();
-    let outcome: Result<Value, String> = match name {
-        TOOL_NAVIGATE => {
-            let url = arguments
-                .as_object()
-                .and_then(|arguments| arguments.get("url"))
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .ok_or_else(|| "browser_navigate requires a non-empty url".to_string());
-            match url {
-                Ok(url) => {
-                    browser_agent_tools::agent_browser_navigate(app, browser_scope, url.to_string())
-                        .await
-                        .and_then(to_json_value)
-                }
-                Err(error) => Err(error),
+    match browser_agent_tools::run_browser_tool(
+        app,
+        scope.browser_scope(),
+        scope.plan_mode(),
+        name,
+        arguments,
+    )
+    .await
+    {
+        Ok(outcome) => {
+            let mut result = json!({
+                "content": outcome.content,
+                "isError": false
+            });
+            if let Some(structured) = outcome.structured {
+                result["structuredContent"] = structured;
             }
+            result
         }
-        TOOL_READ_PAGE => browser_agent_tools::agent_browser_read_page(app, browser_scope)
-            .await
-            .and_then(to_json_value),
-        TOOL_SCREENSHOT => {
-            match browser_agent_tools::agent_browser_screenshot(app, browser_scope).await {
-                Ok(bytes) if bytes.len() <= MAX_SCREENSHOT_BYTES => {
-                    return json!({
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": format!("Captured a {} byte PNG from the Offisim browser.", bytes.len())
-                            },
-                            {
-                                "type": "image",
-                                "data": BASE64_STANDARD.encode(bytes),
-                                "mimeType": "image/png"
-                            }
-                        ],
-                        "isError": false
-                    });
-                }
-                Ok(bytes) => Err(format!(
-                    "browser_screenshot produced {} bytes, exceeding the 4 MiB MCP response limit; use browser_read_page or reduce page complexity",
-                    bytes.len()
-                )),
-                Err(error) => Err(error),
-            }
-        }
-        TOOL_BACK => browser_agent_tools::agent_browser_back(app, browser_scope)
-            .await
-            .and_then(to_json_value),
-        TOOL_STATUS => browser_agent_tools::agent_browser_status(app, browser_scope)
-            .await
-            .and_then(to_json_value),
-        _ => Err(format!("unknown Offisim browser tool: {name}")),
-    };
-    match outcome {
-        Ok(value) => json!({
-            "content": [{ "type": "text", "text": value.to_string() }],
-            "structuredContent": value,
-            "isError": false
-        }),
         Err(error) => tool_error(error),
     }
-}
-
-fn to_json_value<T: serde::Serialize>(value: T) -> Result<Value, String> {
-    serde_json::to_value(value).map_err(|error| format!("encode browser tool response: {error}"))
 }
 
 fn tool_error(message: impl Into<String>) -> Value {
@@ -616,13 +562,18 @@ mod tests {
 
     #[test]
     fn plan_mode_blocks_remote_state_mutations_but_allows_observation() {
+        // The gateway authorizes through the shared core — the same function
+        // the Pi bridge lane reaches via run_browser_tool.
+        let authorize = |scope: &BrowserAgentRunScope, tool: &str| {
+            browser_agent_tools::authorize_browser_tool(tool, scope.plan_mode())
+        };
         let plan = scope(Some("plan"));
-        assert!(plan.authorize_tool(TOOL_NAVIGATE).is_err());
-        assert!(plan.authorize_tool(TOOL_BACK).is_err());
-        assert!(plan.authorize_tool(TOOL_READ_PAGE).is_ok());
-        assert!(plan.authorize_tool(TOOL_SCREENSHOT).is_ok());
-        assert!(plan.authorize_tool(TOOL_STATUS).is_ok());
-        assert!(scope(Some("auto")).authorize_tool(TOOL_NAVIGATE).is_ok());
+        assert!(authorize(&plan, TOOL_NAVIGATE).is_err());
+        assert!(authorize(&plan, TOOL_BACK).is_err());
+        assert!(authorize(&plan, TOOL_READ_PAGE).is_ok());
+        assert!(authorize(&plan, TOOL_SCREENSHOT).is_ok());
+        assert!(authorize(&plan, TOOL_STATUS).is_ok());
+        assert!(authorize(&scope(Some("auto")), TOOL_NAVIGATE).is_ok());
     }
 
     #[tokio::test]
