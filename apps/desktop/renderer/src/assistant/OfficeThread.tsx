@@ -31,6 +31,7 @@ import {
 import { DraftRecipientRow } from './composer/ComposerControls.js';
 import { ComposerLoopChip } from './composer/ComposerLoopChip.js';
 import { ComposerSettingsMenu } from './composer/ComposerSettingsMenu.js';
+import { ComposerSkillChip } from './composer/ComposerSkillChip.js';
 import { ComposerTriggers } from './composer/ComposerTriggers.js';
 import { LoopPicker } from './composer/LoopPicker.js';
 import { StagedAttachments } from './composer/StagedAttachments.js';
@@ -48,6 +49,11 @@ import {
   loopReferenceToken,
   useComposerLoopReferenceStore,
 } from './composer/composer-loop-reference-store.js';
+import {
+  type ComposerSkillReference,
+  skillReferenceToken,
+  useComposerSkillReferenceStore,
+} from './composer/composer-skill-reference-store.js';
 import { OfficeEnhanceButton } from './enhance/OfficeEnhanceButton.js';
 import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
 import { PermissionApprovalBar } from './parts/PermissionApprovalBar.js';
@@ -100,23 +106,25 @@ interface OfficeThreadProps {
   onMessageFocusConsumed: () => void;
 }
 
+const EMPTY_SKILL_REFERENCES: ComposerSkillReference[] = [];
+
 /**
- * Send affordance supporting a Loop-chip-only message (PR-10: "empty text + Loop
- * chip → allow Send"). assistant-ui's `ComposerPrimitive.Send` disables on an empty
- * composer, so when the only content is a Loop chip we render a small custom Send
- * that seeds the loop token (clearing the non-empty gate) and sends; `onNew` strips
- * the seeded token and re-appends it once. With typed text it defers to the
- * standard `ComposerPrimitive.Send` (the no-Loop / has-text path is unchanged).
+ * Send affordance supporting reference-only messages. assistant-ui disables its
+ * primitive Send on an empty composer, so a Loop or Skill-only turn briefly seeds
+ * protected tokens; send-time projection rebuilds the persisted and engine text.
  */
 function LoopAwareSend({
   threadId,
   hasAttachments,
 }: { threadId: string; hasAttachments: boolean }) {
   const reference = useComposerLoopReferenceStore((s) => s.byThread[threadId]);
+  const skillReferences = useComposerSkillReferenceStore(
+    (s) => s.byThread[threadId] ?? EMPTY_SKILL_REFERENCES,
+  );
   const text = useComposer((c) => c.text);
   const composer = useComposerRuntime();
 
-  if (text.trim().length > 0 || (!reference && !hasAttachments)) {
+  if (text.trim().length > 0 || (!reference && skillReferences.length === 0 && !hasAttachments)) {
     return (
       <ComposerPrimitive.Send className="off-composer-send off-focusable" aria-label="Send">
         <span>Send</span>
@@ -131,7 +139,10 @@ function LoopAwareSend({
       className="off-composer-send off-focusable"
       aria-label={reference ? 'Run Loop' : 'Send'}
       onClick={() => {
-        composer.setText(reference ? loopReferenceToken(reference) : ATTACHMENT_ONLY_PROMPT);
+        const referenceTokens = reference
+          ? loopReferenceToken(reference)
+          : skillReferences.map(skillReferenceToken).join(' ');
+        composer.setText(referenceTokens || ATTACHMENT_ONLY_PROMPT);
         composer.send();
       }}
     >
@@ -191,11 +202,13 @@ function OfficeComposerInput({
 
 function ActiveRunControls({
   hasAttachments,
+  hasSkillReferences,
   sending,
   editRevision,
   onSend,
 }: {
   hasAttachments: boolean;
+  hasSkillReferences: boolean;
   sending: AgentQueueBehavior | null;
   editRevision: { current: number };
   onSend: (text: string, behavior: AgentQueueBehavior) => Promise<boolean>;
@@ -213,7 +226,7 @@ function ActiveRunControls({
       <button
         type="button"
         className="off-composer-send off-focusable"
-        disabled={(!text.trim() && !hasAttachments) || sending !== null}
+        disabled={(!text.trim() && !hasAttachments && !hasSkillReferences) || sending !== null}
         title="Apply after the current tool call"
         onClick={() => void send('steer')}
       >
@@ -222,7 +235,7 @@ function ActiveRunControls({
       <button
         type="button"
         className="off-composer-send off-focusable"
-        disabled={(!text.trim() && !hasAttachments) || sending !== null}
+        disabled={(!text.trim() && !hasAttachments && !hasSkillReferences) || sending !== null}
         title="Run after the current turn"
         onClick={() => void send('followUp')}
       >
@@ -277,6 +290,9 @@ function OfficeComposer({
     (s.stagedByScope[composerAttachmentScopeKey(attachmentScope)] ?? []).some(
       (attachment) => attachment.status === 'attached',
     ),
+  );
+  const hasSkillReferences = useComposerSkillReferenceStore(
+    (state) => (state.byThread[threadId]?.length ?? 0) > 0,
   );
   const fileInput = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLFormElement>(null);
@@ -433,6 +449,7 @@ function OfficeComposer({
               <DraftRecipientRow scopeEmployeeId={scopeEmployeeId} employees={employees} />
             ) : null}
             <ComposerLoopChip threadId={threadId} />
+            <ComposerSkillChip threadId={threadId} />
             <div className="off-composer-input-wrap">
               <OfficeComposerInput
                 isRunning={isRunning}
@@ -483,6 +500,7 @@ function OfficeComposer({
                 {isRunning ? (
                   <ActiveRunControls
                     hasAttachments={hasAttachments}
+                    hasSkillReferences={hasSkillReferences}
                     sending={activeSendPending}
                     editRevision={composerEditRevision}
                     onSend={sendWhileRunning}

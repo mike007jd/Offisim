@@ -6,6 +6,13 @@ import type {
   Unstable_Mention,
   Unstable_SlashCommand,
 } from '@assistant-ui/react';
+import { toast } from 'sonner';
+import { resolveLoopReference } from './composer-loop-reference-store.js';
+import {
+  type ComposerSkillSource,
+  resolveSkillReferences,
+  useComposerSkillReferenceStore,
+} from './composer-skill-reference-store.js';
 import { openLoopPicker } from './loop-picker-store.js';
 
 /**
@@ -153,6 +160,9 @@ interface SlashSkillItem {
   readonly id: string;
   readonly name: string;
   readonly description?: string;
+  readonly source: ComposerSkillSource;
+  readonly vault_path?: string;
+  readonly relativePath?: string;
 }
 
 interface SlashToolItem {
@@ -164,6 +174,8 @@ interface SlashToolItem {
 }
 
 export interface BuildSlashCommandsOptions {
+  /** Current thread receiving structured composer references. */
+  readonly threadId?: string;
   /** Skills the thread's employee can run right now. */
   readonly skills?: readonly SlashSkillItem[];
   /** MCP tools granted to the thread's employee right now. */
@@ -190,13 +202,11 @@ const MODE_COMMANDS: ReadonlyArray<{ mode: PermissionMode; label: string; descri
  * Loop picker that inserts a structured, pinned-revision chip. `@` stays
  * people-only (employee mentions); the two never overload.
  *
- * `/skill …` and `/tool …` expand the items actually available to the thread's
- * employee and insert an executable directive into the composer; the
- * management routes stay as explicit "Manage …" entries instead of being the
- * only outcome.
+ * Skill entries insert structured references; `/tool …` keeps the existing
+ * plain-text directive path. Management routes remain explicit trailing items.
  */
 export function buildSlashCommands(options: BuildSlashCommandsOptions = {}): OfficeSlashCommand[] {
-  const { skills = [], tools = [], insertText, setMode } = options;
+  const { threadId, skills = [], tools = [], insertText, setMode } = options;
   const commands: OfficeSlashCommand[] = [
     {
       id: 'new',
@@ -210,7 +220,15 @@ export function buildSlashCommands(options: BuildSlashCommandsOptions = {}): Off
       category: 'commands',
       label: 'Reference a Loop',
       description: 'Insert a saved Loop to run when you Send',
-      execute: () => openLoopPicker(),
+      execute: () => {
+        if (threadId && resolveSkillReferences(threadId).length) {
+          toast.message('A Loop cannot be combined with Skill references.', {
+            description: 'Remove the Skill chips before adding a Loop.',
+          });
+          return;
+        }
+        openLoopPicker();
+      },
     },
   ];
 
@@ -218,15 +236,39 @@ export function buildSlashCommands(options: BuildSlashCommandsOptions = {}): Off
     commands.push({
       id: `skill:${skill.name}`,
       category: 'skills',
-      label: `/skill ${skill.name}`,
-      description: skill.description || 'Insert this skill directive',
-      execute: () => insertText?.(`/skill ${skill.name} `),
+      label: skill.name,
+      description: skill.description || 'Reference this Skill',
+      execute: () => {
+        if (!threadId) return;
+        if (resolveLoopReference(threadId)) {
+          toast.message('Skill references cannot be combined with a Loop.', {
+            description: 'Remove the Loop chip before adding a Skill.',
+          });
+          return;
+        }
+        const result = useComposerSkillReferenceStore.getState().insertReference(threadId, {
+          skillId: skill.id,
+          name: skill.name,
+          description: skill.description ?? '',
+          source: skill.source,
+          ...(skill.vault_path ? { vault_path: skill.vault_path } : {}),
+          ...(skill.relativePath ? { relativePath: skill.relativePath } : {}),
+        });
+        if (result.ok) return;
+        if (result.reason === 'already-present') {
+          toast.message(`"${skill.name}" is already referenced in this message.`);
+        } else {
+          toast.message(`A message can reference up to ${result.limit} Skills.`, {
+            description: 'Remove a Skill chip before adding another.',
+          });
+        }
+      },
     });
   }
   commands.push({
     id: 'skill',
     category: 'skills',
-    label: skills.length ? 'Manage skills' : 'Skills',
+    label: 'Manage skills',
     description: skills.length
       ? 'Browse and assign skills in Personnel'
       : 'Browse the skills employees can run',
