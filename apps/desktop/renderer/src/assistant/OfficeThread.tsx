@@ -2,6 +2,7 @@ import { isTauriRuntime } from '@/data/adapters.js';
 import type { ChatMessage, Deliverable, Employee, RunState } from '@/data/types.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import type { ConversationTargetKey } from '@/runtime/conversation-target-defaults-store.js';
 import type { AgentQueueBehavior } from '@/runtime/desktop-agent-runtime.js';
 import { CapabilityManifest } from '@/surfaces/office/rail/CapabilityManifest.js';
 import { ConvOutputs } from '@/surfaces/office/rail/ConvOutputs.js';
@@ -242,6 +243,7 @@ function ActiveRunControls({
 function OfficeComposer({
   attachmentScope,
   threadId,
+  projectId,
   projectName,
   deliverables,
   sourceMessages,
@@ -254,6 +256,7 @@ function OfficeComposer({
 }: {
   attachmentScope: ComposerAttachmentScope;
   threadId: string;
+  projectId: string | null;
   projectName: string;
   deliverables: Deliverable[];
   sourceMessages: readonly ChatMessage[];
@@ -269,6 +272,11 @@ function OfficeComposer({
   onSendWhileRunning: (text: string, behavior: AgentQueueBehavior) => Promise<boolean>;
 }) {
   const employees = useMemo(() => Array.from(employeesById.values()), [employeesById]);
+  const targetKey: ConversationTargetKey | undefined = scopeEmployeeId
+    ? `employee:${scopeEmployeeId}`
+    : projectId
+      ? `team:${projectId}`
+      : undefined;
   const initialPrompt = useFirstRunState((state) => state.draftPrompts[threadId] ?? null);
   const consumePrompt = useFirstRunState((state) => state.consumePrompt);
   const composer = useComposerRuntime();
@@ -486,6 +494,7 @@ function OfficeComposer({
                   threadId={threadId}
                   contextLabel={projectName}
                   defaultModelSelector={defaultModelSelector}
+                  targetKey={targetKey}
                 />
                 {isRunning ? (
                   <ActiveRunControls
@@ -598,6 +607,7 @@ export function OfficeThread({
         <OfficeComposer
           attachmentScope={attachmentScope}
           threadId={threadId}
+          projectId={projectId}
           projectName={projectName}
           deliverables={deliverables}
           sourceMessages={messages}
