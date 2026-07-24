@@ -4963,6 +4963,30 @@
 
 .off-composer-model-menu {
   width: min(360px, calc(100vw - var(--off-sp-8)));
+  max-height: min(560px, calc(100vh - var(--off-sp-8)));
+  overflow-y: auto;
+}
+
+.off-composer-model-search-wrap {
+  width: auto;
+  height: var(--off-control-h-sm);
+  margin: var(--off-sp-2) var(--off-sp-3) var(--off-sp-3);
+  background: var(--off-surface-1);
+}
+
+.off-composer-model-search::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.off-composer-free-model-toggle {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-meta);
+}
+
+.off-composer-model-empty {
+  padding: var(--off-sp-4) var(--off-sp-5);
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
 }
 
 .off-composer-model-menu .off-composer-menu-row {

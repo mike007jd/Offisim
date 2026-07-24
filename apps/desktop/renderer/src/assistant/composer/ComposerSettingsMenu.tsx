@@ -43,6 +43,7 @@ import {
   type LucideIcon,
   MessageCircleQuestion,
   RefreshCw,
+  Search,
   ShieldCheck,
   SlidersHorizontal,
   TriangleAlert,
@@ -50,6 +51,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolveComposerDefaultOption } from './composer-default-selection.js';
+import { matchesComposerModelSearch, orderComposerModelGroups } from './composer-model-filter.js';
 import {
   type AgentRuntimeModelOption,
   type OrchestrationEngineDirectoryEntry,
@@ -254,12 +256,21 @@ export function ComposerSettingsMenu({
   useConversationRunDefaultSeeding(threadId, targetKey, defaultModelSelector);
 
   const [layer, setLayer] = useState<PickerLayer>('root');
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
+  const [expandedFreeLaneKeys, setExpandedFreeLaneKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const contentRef = useRef<HTMLDivElement>(null);
+  const modelSearchInputRef = useRef<HTMLInputElement>(null);
 
-  // Move focus to the first actionable row after a drill-in/back switch.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: layer is the re-run trigger, not a referenced value
+  // Search is the model layer's keyboard entry point. Other drill-in layers
+  // retain the menu's normal first-row focus behavior.
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
+      if (layer === 'model') {
+        modelSearchInputRef.current?.focus();
+        return;
+      }
       const first = contentRef.current?.querySelector<HTMLElement>(
         '[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"])',
       );
@@ -326,6 +337,9 @@ export function ComposerSettingsMenu({
       if (existing) existing.items.push(option);
       else groups.set(laneKey, { account: option.accountName, items: [option] });
     }
+    const effectiveLaneKey = effective
+      ? aiAccountLaneKey(effective.engineId, effective.accountId, effective.billingMode)
+      : undefined;
     const exactLevels = effective?.reasoningEfforts ?? [];
     const nativeDefault = effective?.defaultReasoningEffort ?? exactLevels[0];
     const effectiveLevel =
@@ -333,7 +347,7 @@ export function ComposerSettingsMenu({
         ? thinkingOverride
         : (nativeDefault ?? DEFAULT_THINKING_LEVEL);
     return {
-      accounts: [...groups].map(([laneKey, group]) => ({ laneKey, ...group })),
+      accounts: orderComposerModelGroups(groups, effectiveLaneKey, Boolean(authority)),
       defaultModel: stableDefault,
       durableModel: durable,
       effectiveModel: effective,
@@ -407,6 +421,23 @@ export function ComposerSettingsMenu({
     orchestrationSelected && effectiveModel?.modelId === 'engine-managed';
   const defaultSourceLabel = engineManagedSelected ? 'Engine default' : 'Model default';
   const showPermissionMode = showMode && supportedModes.length > 0;
+  const normalizedModelSearchQuery = modelSearchQuery.trim().toLowerCase();
+  const filteredAccounts = useMemo(
+    () =>
+      accounts
+        .map((group) => ({
+          ...group,
+          regularItems: group.regularItems.filter((option) =>
+            matchesComposerModelSearch(option, normalizedModelSearchQuery),
+          ),
+          freeItems: group.freeItems.filter((option) =>
+            matchesComposerModelSearch(option, normalizedModelSearchQuery),
+          ),
+        }))
+        .filter((group) => group.regularItems.length || group.freeItems.length),
+    [accounts, normalizedModelSearchQuery],
+  );
+  const hasFilteredModels = filteredAccounts.length > 0;
 
   const summary = [
     effectiveModel?.name ??
@@ -458,7 +489,11 @@ export function ComposerSettingsMenu({
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        if (open) setLayer('root');
+        if (open) {
+          setLayer('root');
+          setModelSearchQuery('');
+          setExpandedFreeLaneKeys(new Set());
+        }
       }}
     >
       <DropdownMenuTrigger asChild>
@@ -478,6 +513,12 @@ export function ComposerSettingsMenu({
         className={
           layer === 'model' ? 'off-composer-menu off-composer-model-menu' : 'off-composer-menu'
         }
+        onEscapeKeyDown={(event) => {
+          if (layer === 'model' && modelSearchQuery) {
+            event.preventDefault();
+            setModelSearchQuery('');
+          }
+        }}
         onKeyDown={(event) => {
           if (event.key === 'ArrowLeft' && layer !== 'root') {
             event.preventDefault();
@@ -564,6 +605,44 @@ export function ComposerSettingsMenu({
               </span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <div className="off-search-input-wrap off-composer-model-search-wrap">
+              <Search className="off-search-input-icon" aria-hidden="true" />
+              <input
+                ref={modelSearchInputRef}
+                type="search"
+                value={modelSearchQuery}
+                className="off-input off-search-input off-composer-model-search"
+                placeholder="Search models"
+                aria-label="Search models"
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => setModelSearchQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    if (modelSearchQuery) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setModelSearchQuery('');
+                    }
+                    return;
+                  }
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const options = contentRef.current?.querySelectorAll<HTMLElement>(
+                      '[role="menuitemradio"]:not([aria-disabled="true"])',
+                    );
+                    const target =
+                      event.key === 'ArrowDown'
+                        ? options?.item(0)
+                        : options?.item(options.length - 1);
+                    target?.focus();
+                    return;
+                  }
+                  event.stopPropagation();
+                }}
+              />
+            </div>
             {lockedAuthority ? (
               <DropdownMenuLabel className="off-composer-menu-provider">
                 Locked to {durableModel?.accountName ?? 'AI engine'} ·{' '}
@@ -596,7 +675,7 @@ export function ComposerSettingsMenu({
                   setLayer('root');
                 }}
               >
-                {selectedModelUnavailable ? (
+                {selectedModelUnavailable && !normalizedModelSearchQuery ? (
                   <DropdownMenuRadioItem
                     value={perThreadModel}
                     disabled
@@ -605,7 +684,7 @@ export function ComposerSettingsMenu({
                     Selected model unavailable · choose another
                   </DropdownMenuRadioItem>
                 ) : null}
-                {!lockedAuthority ? (
+                {!lockedAuthority && !normalizedModelSearchQuery ? (
                   <DropdownMenuRadioItem
                     value=""
                     disabled={!defaultModel}
@@ -623,14 +702,14 @@ export function ComposerSettingsMenu({
                       : 'Default model unavailable'}
                   </DropdownMenuRadioItem>
                 ) : null}
-                {accounts.length ? (
-                  accounts.map((group) => (
+                {hasFilteredModels ? (
+                  filteredAccounts.map((group) => (
                     <div key={group.laneKey}>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel className="off-composer-menu-provider">
                         {group.account}
                       </DropdownMenuLabel>
-                      {group.items.map((option) => {
+                      {group.regularItems.map((option) => {
                         const optionMeta = modelOptionMeta(option);
                         return (
                           <DropdownMenuRadioItem
@@ -649,8 +728,63 @@ export function ComposerSettingsMenu({
                           </DropdownMenuRadioItem>
                         );
                       })}
+                      {group.freeItems.length ? (
+                        <>
+                          {!normalizedModelSearchQuery ? (
+                            <DropdownMenuItem
+                              className="off-composer-free-model-toggle"
+                              onSelect={(event) => {
+                                event.preventDefault();
+                                setExpandedFreeLaneKeys((current) => {
+                                  const next = new Set(current);
+                                  if (next.has(group.laneKey)) next.delete(group.laneKey);
+                                  else next.add(group.laneKey);
+                                  return next;
+                                });
+                              }}
+                            >
+                              <Icon
+                                icon={
+                                  expandedFreeLaneKeys.has(group.laneKey)
+                                    ? ChevronDown
+                                    : ChevronRight
+                                }
+                                size="sm"
+                              />
+                              {expandedFreeLaneKeys.has(group.laneKey)
+                                ? `Hide ${group.freeItems.length} free models`
+                                : `Show ${group.freeItems.length} free models`}
+                            </DropdownMenuItem>
+                          ) : null}
+                          {normalizedModelSearchQuery || expandedFreeLaneKeys.has(group.laneKey)
+                            ? group.freeItems.map((option) => {
+                                const optionMeta = modelOptionMeta(option);
+                                return (
+                                  <DropdownMenuRadioItem
+                                    key={option.value}
+                                    value={option.value}
+                                    onSelect={(event) => event.preventDefault()}
+                                  >
+                                    <span className="off-composer-menu-row">
+                                      <span className="off-composer-menu-name">{option.name}</span>
+                                      {optionMeta && optionMeta !== option.name ? (
+                                        <span className="off-composer-menu-meta" title={optionMeta}>
+                                          {optionMeta}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </DropdownMenuRadioItem>
+                                );
+                              })
+                            : null}
+                        </>
+                      ) : null}
                     </div>
                   ))
+                ) : normalizedModelSearchQuery ? (
+                  <output className="off-composer-model-empty">
+                    No models match “{modelSearchQuery.trim()}”
+                  </output>
                 ) : (
                   <DropdownMenuItem disabled>
                     {models.isLoading ? 'Loading models…' : 'No available models'}
@@ -658,7 +792,7 @@ export function ComposerSettingsMenu({
                 )}
               </DropdownMenuRadioGroup>
             )}
-            {pendingEngines.length ? (
+            {pendingEngines.length && !normalizedModelSearchQuery ? (
               <>
                 {pendingEngines.map((engine) => (
                   <div key={engine.engineId}>
