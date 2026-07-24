@@ -201,11 +201,13 @@ export function McpServersPane() {
                   <StatusPill tone={statusTone(busy ? 'connecting' : server.status)} running={busy}>
                     {busy ? MCP_STATUS_LABELS.connecting : MCP_STATUS_LABELS[server.status]}
                   </StatusPill>
-                  <span className="off-set-chip-mini">{server.source}</span>
+                  <span className="off-set-chip-mini">
+                    {userOwned ? 'Added by you' : 'Managed'}
+                  </span>
                   {server.category === 'computer-use' ? (
                     <span className="off-set-chip-mini">computer</span>
                   ) : null}
-                  {typeof server.toolCount === 'number' ? (
+                  {server.status === 'connected' && typeof server.toolCount === 'number' ? (
                     <span className="off-set-chip-mini">{server.toolCount} tools</span>
                   ) : null}
                 </div>
@@ -292,7 +294,7 @@ export function McpServersPane() {
                 }
               >
                 <Icon icon={MonitorSmartphone} size="sm" />
-                Computer Use
+                Set up Computer Use
               </Button>
               <Button size="sm" onClick={() => setShowForm(true)}>
                 <Icon icon={Plus} size="sm" />
