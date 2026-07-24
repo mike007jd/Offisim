@@ -213,6 +213,8 @@ pub(crate) struct AgentHostCliStatusResponse {
     pub(crate) source_url: String,
     pub(crate) checked_at: String,
     pub(crate) capabilities: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) run_options: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -970,6 +972,7 @@ pub(crate) async fn inspect_codex_cli(
             source_url: String::new(),
             checked_at,
             capabilities,
+            run_options: Some(crate::codex_agent_host::codex_run_options()),
         };
     };
 
@@ -994,6 +997,7 @@ pub(crate) async fn inspect_codex_cli(
             source_url: String::new(),
             checked_at,
             capabilities,
+            run_options: Some(crate::codex_agent_host::codex_run_options()),
         };
     }
 
@@ -1024,6 +1028,7 @@ pub(crate) async fn inspect_codex_cli(
         source_url: String::new(),
         checked_at,
         capabilities,
+        run_options: Some(crate::codex_agent_host::codex_run_options()),
     }
 }
 
@@ -1211,10 +1216,21 @@ mod tests {
             source_url: String::new(),
             checked_at: "2026-07-19T00:00:00Z".into(),
             capabilities: json!({"stop": true}),
+            run_options: Some(json!({
+                "models": [{
+                    "id": "gpt-5.6-sol",
+                    "displayName": "GPT-5.6 Sol",
+                    "reasoningEfforts": ["minimal", "low", "medium", "high", "xhigh"],
+                    "speedModes": ["standard", "fast"]
+                }],
+                "sourceUrl": "https://learn.chatgpt.com/docs/config-file/config-reference",
+                "checkedAt": "2026-07-24"
+            })),
         };
         let codex_json = serde_json::to_value(codex).expect("serialize Codex CLI status");
         assert_eq!(codex_json["engineId"], "codex");
         assert!(codex_json.get("sourceUrl").is_none());
+        assert_eq!(codex_json["runOptions"]["models"][0]["id"], "gpt-5.6-sol");
 
         let claude: AgentHostCliStatusResponse = serde_json::from_value(json!({
             "engineId": "claude",
@@ -1225,12 +1241,31 @@ mod tests {
             "docsUrl": "https://code.claude.com/docs/en/authentication",
             "sourceUrl": "https://code.claude.com/docs/en/cli-usage",
             "checkedAt": "2026-07-19T00:00:00.000Z",
-            "capabilities": {"stop": true}
+            "capabilities": {"stop": true},
+            "runOptions": {
+                "models": [{
+                    "id": "sonnet",
+                    "displayName": "Sonnet (claude-sonnet-5)",
+                    "reasoningEfforts": ["low", "medium", "high", "xhigh", "max"],
+                    "speedModes": ["standard"]
+                }],
+                "sourceUrl": "https://code.claude.com/docs/en/cli-reference",
+                "checkedAt": "2026-07-24"
+            }
         }))
         .expect("deserialize Claude sidecar status");
         assert_eq!(
             claude.source_url,
             "https://code.claude.com/docs/en/cli-usage"
+        );
+        assert_eq!(
+            claude.run_options.as_ref().expect("Claude run options")["models"][0]["id"],
+            "sonnet"
+        );
+        let round_trip = serde_json::to_value(claude).expect("serialize Claude sidecar status");
+        assert_eq!(
+            round_trip["runOptions"]["sourceUrl"],
+            "https://code.claude.com/docs/en/cli-reference"
         );
     }
 
@@ -1246,6 +1281,21 @@ mod tests {
             "capabilities": {"stop": true}
         });
         assert!(serde_json::from_value::<AgentHostCliStatusResponse>(without_source).is_err());
+
+        let without_run_options = json!({
+            "engineId": "claude",
+            "displayName": "Claude",
+            "state": "ready",
+            "loginCommand": "claude auth login",
+            "docsUrl": "https://code.claude.com/docs/en/authentication",
+            "sourceUrl": "https://code.claude.com/docs/en/cli-usage",
+            "checkedAt": "2026-07-19T00:00:00.000Z",
+            "capabilities": {"stop": true}
+        });
+        let parsed_without_run_options =
+            serde_json::from_value::<AgentHostCliStatusResponse>(without_run_options)
+                .expect("older sidecar status remains accepted");
+        assert!(parsed_without_run_options.run_options.is_none());
 
         let with_unknown = json!({
             "engineId": "claude",

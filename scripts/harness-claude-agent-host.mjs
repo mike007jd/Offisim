@@ -296,6 +296,28 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   assert.equal(projection.docsUrl, AUTH_URL);
   assert.equal(projection.sourceUrl, SOURCE_URL);
   assert.ok(Number.isFinite(Date.parse(projection.checkedAt)));
+  assert.equal(projection.runOptions.sourceUrl, 'https://code.claude.com/docs/en/cli-reference');
+  assert.equal(projection.runOptions.checkedAt, '2026-07-24');
+  assert.deepEqual(
+    projection.runOptions.models.map((model) => model.id),
+    ['sonnet', 'opus', 'haiku', 'fable'],
+  );
+  assert.equal(projection.runOptions.models[0].isDefault, true);
+  assert.deepEqual(projection.runOptions.models[0].reasoningEfforts, [
+    'low',
+    'medium',
+    'high',
+    'xhigh',
+    'max',
+  ]);
+  assert.equal(projection.runOptions.models[0].defaultReasoningEffort, undefined);
+  assert.deepEqual(projection.runOptions.models[1].speedModes, ['standard', 'fast']);
+  assert.equal(
+    projection.runOptions.models[1].fastModeNote,
+    'Fast mode bills usage credits beyond your subscription',
+  );
+  assert.deepEqual(projection.runOptions.models[2].speedModes, ['standard']);
+  assert.deepEqual(projection.runOptions.models[3].speedModes, ['standard']);
   assert.deepEqual(projection.capabilities.permissionModes, ['plan', 'auto', 'full']);
   assert.equal(projection.capabilities.interactions.userInput, false);
   assert.deepEqual(
@@ -405,6 +427,10 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   });
   assert.equal(missing.code, 0);
   assert.equal(missing.frames.at(-1)?.response?.state, 'not-installed');
+  assert.deepEqual(
+    missing.frames.at(-1)?.response?.runOptions?.models.map((model) => model.id),
+    ['sonnet', 'opus', 'haiku', 'fable'],
+  );
 } finally {
   await rm(fixtureRoot, { recursive: true, force: true });
 }

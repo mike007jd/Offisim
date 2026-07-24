@@ -44,7 +44,9 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type AgentRuntimeModelOption,
+  type OrchestrationEngineDirectoryEntry,
   useAgentRuntimeModels,
+  useOrchestrationEngineDirectory,
   useThreadExecutionAuthority,
 } from './usePiAgentModels.js';
 
@@ -58,6 +60,20 @@ const MODE_META: Record<PermissionMode, { label: string; icon: LucideIcon; meta:
   auto: { label: 'Auto', icon: ShieldCheck, meta: 'Runs in the Project — asks when needed' },
   full: { label: 'Full', icon: Zap, meta: 'No restrictions' },
 };
+
+const ENGINE_STATE_LABEL: Record<OrchestrationEngineDirectoryEntry['state'], string> = {
+  ready: 'Ready',
+  'not-installed': 'Not installed',
+  'not-signed-in': 'Not signed in',
+  unavailable: 'Unavailable',
+};
+
+function pendingEngineMeta(engine: OrchestrationEngineDirectoryEntry): string {
+  if (engine.state === 'not-signed-in' && engine.loginCommand) {
+    return `Run \`${engine.loginCommand}\` to sign in`;
+  }
+  return engine.statusReason?.trim() || 'Finish setup in Settings to select this engine';
+}
 
 function catalogDateLabel(value: string): string {
   const timestamp = Date.parse(value);
@@ -110,6 +126,7 @@ export function ComposerSettingsMenu({
   const perThreadModel = usePiThreadModelStore((s) => s.byThread[threadId] ?? '');
   const setThreadModel = usePiThreadModelStore((s) => s.setThreadModel);
   const models = useAgentRuntimeModels();
+  const engineDirectory = useOrchestrationEngineDirectory();
   const setSurface = useUiState((s) => s.setSurface);
   const mode = usePiThreadModeStore((s) => s.byThread[threadId] ?? DEFAULT_PERMISSION_MODE);
   const setThreadMode = usePiThreadModeStore((s) => s.setThreadMode);
@@ -237,6 +254,11 @@ export function ComposerSettingsMenu({
 
   const supportsReasoning = reasoningLevels.length > 0;
   const lockedAuthority = threadAuthority.data ?? null;
+  // Engines that exist but cannot run yet stay visible with setup guidance
+  // instead of disappearing; a locked thread hides them (its lane is fixed).
+  const pendingEngines = lockedAuthority
+    ? []
+    : engineDirectory.entries.filter((engine) => engine.state !== 'ready');
   const modelRadioValue = perThreadModel || durableModel?.value || '';
   const orchestrationSelected = effectiveModel?.selectionKind === 'orchestration-engine';
   const showPermissionMode = showMode && supportedModes.length > 0;
@@ -455,6 +477,33 @@ export function ComposerSettingsMenu({
                 )}
               </DropdownMenuRadioGroup>
             )}
+            {pendingEngines.length ? (
+              <>
+                {pendingEngines.map((engine) => (
+                  <div key={engine.engineId}>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="off-composer-menu-provider">
+                      {engine.displayName}
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem disabled>
+                      <span className="off-composer-menu-row">
+                        <span className="off-composer-menu-name">
+                          {ENGINE_STATE_LABEL[engine.state]}
+                        </span>
+                        <span className="off-composer-menu-meta" title={pendingEngineMeta(engine)}>
+                          {pendingEngineMeta(engine)}
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+                  </div>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setSurface('settings')}>
+                  <Icon icon={SlidersHorizontal} size="sm" />
+                  Set up engines in Settings…
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </>
         ) : null}
 

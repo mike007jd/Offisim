@@ -41,6 +41,25 @@ export type RuntimeSpeedMode = 'standard' | 'fast';
 
 export type RuntimeInteractionRouteSource = 'engine-native' | 'offisim-local' | 'mcp';
 
+export interface OrchestrationEngineModelOption {
+  readonly id: string;
+  readonly displayName: string;
+  readonly isDefault?: boolean;
+  readonly note?: string;
+  readonly reasoningEfforts: readonly string[];
+  readonly defaultReasoningEffort?: string;
+  readonly speedModes: readonly RuntimeSpeedMode[];
+  readonly fastModeNote?: string;
+}
+
+export interface OrchestrationEngineRunOptions {
+  readonly models: readonly OrchestrationEngineModelOption[];
+  readonly sourceUrl: string;
+  readonly checkedAt: string;
+}
+
+export type OrchestrationEngineState = 'not-installed' | 'not-signed-in' | 'ready' | 'unavailable';
+
 /** One interaction path an engine lane can expose. `runtime-determined` means
  * the engine supports the route but live machine state (for example the local
  * desktop driver) decides whether it is ready for this run. */
@@ -91,7 +110,7 @@ export interface RuntimeEngineCapabilityManifest {
 export interface OrchestrationEngineStatus {
   readonly engineId: string;
   readonly displayName: string;
-  readonly state: 'not-installed' | 'not-signed-in' | 'ready' | 'unavailable';
+  readonly state: OrchestrationEngineState;
   readonly version?: string;
   readonly statusReason?: string;
   readonly loginCommand: string;
@@ -100,6 +119,7 @@ export interface OrchestrationEngineStatus {
   readonly sourceUrl?: string;
   readonly checkedAt: string;
   readonly capabilities: RuntimeEngineCapabilityManifest;
+  readonly runOptions?: OrchestrationEngineRunOptions;
 }
 
 export interface AiModelCapabilities {
