@@ -6,10 +6,18 @@ import type {
   OrchestrationEngineStatus,
   RuntimeEngineCapabilityManifest,
 } from '@offisim/shared-types';
+import { planConversationRunDefaultSeed } from '../apps/desktop/renderer/src/assistant/composer/composer-default-seeding.js';
+import { resolveComposerDefaultOption } from '../apps/desktop/renderer/src/assistant/composer/composer-default-selection.js';
+import { orderComposerModelGroups } from '../apps/desktop/renderer/src/assistant/composer/composer-model-filter.js';
 import {
   projectOrchestrationEngineDirectory,
   projectRunnableModelOptions,
 } from '../apps/desktop/renderer/src/assistant/composer/usePiAgentModels.js';
+import type { AgentRuntimeModelOption } from '../apps/desktop/renderer/src/assistant/composer/usePiAgentModels.js';
+import {
+  canSeedConversationRunDefaults,
+  normalizeTargetRunDefaults,
+} from '../apps/desktop/renderer/src/runtime/conversation-target-defaults-store.js';
 import { declaredReasoningEffort } from '../apps/desktop/renderer/src/runtime/execution-selection.js';
 
 const capabilities: RuntimeEngineCapabilityManifest = {
@@ -411,5 +419,250 @@ assert.equal(
   undefined,
   'missing status degrades to engine default instead of passing an unvalidated effort',
 );
+
+// ---------------------------------------------------------------------------
+// Composer pure-function contracts (default selection, group ordering, seed
+// gates, and target-defaults normalization).
+// ---------------------------------------------------------------------------
+
+function composerOption(
+  overrides: Partial<AgentRuntimeModelOption> & { value: string; modelId: string },
+): AgentRuntimeModelOption {
+  return {
+    selectionKind: 'api-model',
+    name: overrides.modelId,
+    accountName: 'Fixture API',
+    accountId: 'api:fixture',
+    engineId: 'api',
+    billingMode: 'api',
+    availability: 'available',
+    reasoning: false,
+    reasoningEfforts: [],
+    speedModes: ['standard'],
+    capabilities,
+    ...overrides,
+  };
+}
+
+// composer-default-selection: a preferred selector hit wins; a miss falls back
+// to the first available model; nothing available means no default.
+const defaultPickList = [
+  composerOption({ value: 'api-model:fixture:alpha', modelId: 'alpha' }),
+  composerOption({ value: 'api-model:fixture:beta', modelId: 'beta', availability: 'expiring' }),
+];
+assert.equal(
+  resolveComposerDefaultOption(defaultPickList, ['api-model:fixture:beta'])?.modelId,
+  'beta',
+  'a preferred selector hit must win over the availability fallback',
+);
+assert.equal(
+  resolveComposerDefaultOption(defaultPickList, ['api-model:fixture:missing'])?.modelId,
+  'alpha',
+  'a missed selector falls back to the first available model',
+);
+assert.equal(
+  resolveComposerDefaultOption(
+    [
+      composerOption({
+        value: 'api-model:fixture:beta',
+        modelId: 'beta',
+        availability: 'expiring',
+      }),
+    ],
+    [],
+  ),
+  undefined,
+  'no available model means no default option',
+);
+assert.equal(resolveComposerDefaultOption([], ['api-model:fixture:alpha']), undefined);
+
+// orderComposerModelGroups: the effective lane pins to the top; only a `:free`
+// modelId suffix sinks into the collapsed free group — an expiring *paid*
+// model stays a regular item.
+const paidExpiring = composerOption({
+  value: 'api-model:fixture:paid-expiring',
+  modelId: 'paid-expiring',
+  availability: 'expiring',
+});
+const freeModel = composerOption({
+  value: 'api-model:fixture:tiny:free',
+  modelId: 'tiny:free',
+});
+const regularModel = composerOption({
+  value: 'api-model:fixture:regular',
+  modelId: 'regular',
+});
+const effectiveLaneModel = composerOption({
+  value: 'api-model:fixture:effective',
+  modelId: 'effective',
+});
+const unorderedGroups = new Map([
+  ['lane-other', { account: 'Other', items: [paidExpiring, freeModel, regularModel] }],
+  ['lane-effective', { account: 'Effective', items: [effectiveLaneModel] }],
+]);
+const orderedGroups = orderComposerModelGroups(unorderedGroups, 'lane-effective', false);
+assert.deepEqual(
+  orderedGroups.map((group) => group.laneKey),
+  ['lane-effective', 'lane-other'],
+  'the effective lane must sort to the top',
+);
+assert.deepEqual(
+  orderedGroups[1]?.regularItems.map((option) => option.modelId),
+  ['paid-expiring', 'regular'],
+  'an expiring paid model must stay in the regular group',
+);
+assert.deepEqual(
+  orderedGroups[1]?.freeItems.map((option) => option.modelId),
+  ['tiny:free'],
+  'only `:free`-suffixed models sink into the free group',
+);
+const preservedGroups = orderComposerModelGroups(unorderedGroups, 'lane-effective', true);
+assert.deepEqual(
+  preservedGroups.map((group) => group.laneKey),
+  ['lane-other', 'lane-effective'],
+  'a locked thread preserves lane order and skips the free split',
+);
+assert.deepEqual(preservedGroups[0]?.freeItems, []);
+
+// Seed gate: only an explicitly fetched `null` authority with a catalog opens
+// seeding; unfetched and durable authorities stay closed.
+assert.equal(
+  canSeedConversationRunDefaults({ authorityIsFetched: false, authority: null, hasCatalog: true }),
+  false,
+  'an unfetched authority must not seed',
+);
+assert.equal(
+  canSeedConversationRunDefaults({
+    authorityIsFetched: true,
+    authority: { target: 'durable' },
+    hasCatalog: true,
+  }),
+  false,
+  'a durable authority must not seed',
+);
+assert.equal(
+  canSeedConversationRunDefaults({ authorityIsFetched: true, authority: null, hasCatalog: false }),
+  false,
+  'an empty catalog must not seed',
+);
+assert.equal(
+  canSeedConversationRunDefaults({ authorityIsFetched: true, authority: null, hasCatalog: true }),
+  true,
+);
+
+// planConversationRunDefaultSeed: a stale target model skips only the model
+// axis; a stale existing thread selector resolves no landing model at all.
+const seedOptions = [
+  composerOption({
+    value: 'api-model:fixture:alpha',
+    modelId: 'alpha',
+    reasoningEfforts: ['low', 'high'],
+    speedModes: ['standard', 'fast'],
+  }),
+];
+const seedFlags = {
+  hasModelPick: false,
+  hasThinkingPick: false,
+  hasSpeedPick: false,
+  hasModePick: false,
+} as const;
+assert.deepEqual(
+  planConversationRunDefaultSeed({
+    options: seedOptions,
+    targetDefaults: {
+      model: 'api-model:fixture:gone',
+      thinking: 'high',
+      speed: 'fast',
+      mode: 'plan',
+    },
+    defaultModelSelector: undefined,
+    existingModelValue: undefined,
+    ...seedFlags,
+  }),
+  { thinking: 'high', speed: 'fast', mode: 'plan' },
+  'a stale target model skips the model axis while the rest still seeds',
+);
+assert.deepEqual(
+  planConversationRunDefaultSeed({
+    options: seedOptions,
+    targetDefaults: {
+      model: 'api-model:fixture:alpha',
+      thinking: 'high',
+      speed: 'fast',
+      mode: 'plan',
+    },
+    defaultModelSelector: undefined,
+    existingModelValue: undefined,
+    ...seedFlags,
+  }),
+  { model: 'api-model:fixture:alpha', thinking: 'high', speed: 'fast', mode: 'plan' },
+  'a fresh target model seeds all four axes',
+);
+assert.equal(
+  planConversationRunDefaultSeed({
+    options: seedOptions,
+    targetDefaults: { model: 'api-model:fixture:alpha' },
+    defaultModelSelector: undefined,
+    existingModelValue: 'api-model:fixture:vanished',
+    ...seedFlags,
+    hasModelPick: true,
+  }),
+  undefined,
+  'a stale existing selector must not consume the seed',
+);
+assert.deepEqual(
+  planConversationRunDefaultSeed({
+    options: seedOptions,
+    targetDefaults: { thinking: 'xhigh', speed: 'fast', mode: 'plan' },
+    defaultModelSelector: undefined,
+    existingModelValue: undefined,
+    ...seedFlags,
+    hasSpeedPick: true,
+  }),
+  { mode: 'plan' },
+  'axes the thread already picked or the landing model cannot run are skipped',
+);
+assert.equal(
+  planConversationRunDefaultSeed({
+    options: [],
+    targetDefaults: { model: 'api-model:fixture:alpha' },
+    defaultModelSelector: undefined,
+    existingModelValue: undefined,
+    ...seedFlags,
+  }),
+  undefined,
+  'an empty catalog resolves no landing model',
+);
+
+// normalizeTargetRunDefaults: persisted entries narrow to the validated four
+// axes — extra fields (like legacy updatedAt), unknown keys, out-of-vocabulary
+// values, and axis-less entries all drop.
+assert.deepEqual(
+  normalizeTargetRunDefaults({
+    'employee:ada': {
+      model: ' api-model:fixture:alpha ',
+      thinking: 'high',
+      speed: 'fast',
+      mode: 'plan',
+      updatedAt: 123,
+    },
+    'team:core': { updatedAt: 5 },
+    'random-key': { model: 'api-model:fixture:alpha' },
+    'employee:bob': { model: '', thinking: 'NO SPACES', speed: 'slow', mode: 'yolo' },
+    'employee:carol': 'nope',
+  }),
+  {
+    'employee:ada': {
+      model: 'api-model:fixture:alpha',
+      thinking: 'high',
+      speed: 'fast',
+      mode: 'plan',
+    },
+  },
+  'loadMap normalization keeps only validated axes under valid target keys',
+);
+assert.deepEqual(normalizeTargetRunDefaults(null), {});
+assert.deepEqual(normalizeTargetRunDefaults(42), {});
+assert.deepEqual(normalizeTargetRunDefaults({}), {});
 
 console.log('Runtime model picker and orchestration directory harness passed.');
