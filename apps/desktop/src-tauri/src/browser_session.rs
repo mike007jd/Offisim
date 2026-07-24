@@ -11,6 +11,8 @@ use url::Url;
 
 const BROWSER_EVENT: &str = "offisim-browser-session-event-v1";
 const BROWSER_LABEL_PREFIX: &str = "browser-";
+// Safari freezes its UA; manually bump only Version/ with each annual Safari major release.
+pub(crate) const BROWSER_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
 const MAX_TOMBSTONES: usize = 256;
 const MAX_TITLE_CHARS: usize = 512;
 const MAX_ERROR_CHARS: usize = 512;
@@ -898,6 +900,7 @@ pub async fn browser_session_create<R: Runtime>(
     let load_id = session_id.clone();
     let label = browser_label(&session_id)?;
     let builder = WebviewBuilder::new(label, WebviewUrl::External(url.clone()))
+        .user_agent(BROWSER_USER_AGENT)
         .accept_first_mouse(true)
         // The browser chrome lives in the main renderer WebView. A child that
         // claims focus during creation makes the address field look fake and
