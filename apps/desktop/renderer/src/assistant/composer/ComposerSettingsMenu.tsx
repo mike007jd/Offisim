@@ -20,6 +20,7 @@ import {
   usePiThreadModeStore,
 } from '@/runtime/pi-thread-mode-store.js';
 import { usePiThreadModelStore } from '@/runtime/pi-thread-model-store.js';
+import { usePiThreadSpeedStore } from '@/runtime/pi-thread-speed-store.js';
 import {
   DEFAULT_THINKING_LEVEL,
   type ThinkingLevel,
@@ -33,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Gauge,
   type LucideIcon,
   MessageCircleQuestion,
   RefreshCw,
@@ -86,7 +88,12 @@ function catalogDateLabel(value: string): string {
 
 function modelOptionMeta(option: AgentRuntimeModelOption): string {
   if (option.selectionKind === 'orchestration-engine') {
-    return 'External CLI · model managed by the engine';
+    if (option.modelId === 'engine-managed') {
+      return 'External CLI · model managed by the engine';
+    }
+    const parts: string[] = [option.modelId];
+    if (option.note) parts.push(option.note);
+    return parts.join(' · ');
   }
   // The row's primary line is the model name; when name === modelId the meta
   // line must not repeat it — only genuinely additional facts appear below.
@@ -103,7 +110,12 @@ function modelLeafId(option: AgentRuntimeModelOption): string {
   return option.modelId.split('/').at(-1) || option.modelId;
 }
 
-type PickerLayer = 'root' | 'model' | 'reasoning' | 'mode';
+type PickerLayer = 'root' | 'model' | 'reasoning' | 'speed' | 'mode';
+
+const SPEED_META: Record<'standard' | 'fast', { label: string; meta: string }> = {
+  standard: { label: 'Standard', meta: 'Included speed — no extra cost' },
+  fast: { label: 'Fast', meta: 'Higher speed at a higher cost' },
+};
 
 /**
  * Single composer chip consolidating the per-conversation run settings —
@@ -133,6 +145,9 @@ export function ComposerSettingsMenu({
   const thinkingOverride = usePiThreadThinkingStore((s) => s.byThread[threadId]);
   const setThreadThinking = usePiThreadThinkingStore((s) => s.setThreadThinking);
   const clearThreadThinking = usePiThreadThinkingStore((s) => s.clearThreadThinking);
+  const speedOverride = usePiThreadSpeedStore((s) => s.byThread[threadId]);
+  const setThreadSpeed = usePiThreadSpeedStore((s) => s.setThreadSpeed);
+  const clearThreadSpeedOverride = usePiThreadSpeedStore((s) => s.clearThreadSpeed);
   const threadAuthority = useThreadExecutionAuthority(threadId);
   const catalogUnavailable = models.isError && !models.data?.length;
 
@@ -179,7 +194,14 @@ export function ComposerSettingsMenu({
       ? serializeRuntimeExecutionSelector(
           authority.target.engineId === 'api'
             ? { kind: 'api-model', runtimeModelRef: authority.runtimeModelRef }
-            : { kind: 'orchestration-engine', engineId: authority.target.engineId },
+            : {
+                kind: 'orchestration-engine',
+                engineId: authority.target.engineId,
+                // Explicit-model freezes must round-trip: without the modelId
+                // the serialized selector never matches an explicit-model row,
+                // so the durable projection reads "Model unavailable".
+                modelId: authority.target.modelId,
+              },
         )
       : undefined;
     const durable = authority
@@ -247,6 +269,17 @@ export function ComposerSettingsMenu({
     }
   }, [clearThreadThinking, reasoningLevels, thinkingOverride, threadId]);
 
+  const supportsFast = Boolean(effectiveModel?.speedModes.includes('fast'));
+  const speed: 'standard' | 'fast' = supportsFast && speedOverride === 'fast' ? 'fast' : 'standard';
+
+  // Fast is model-bound (e.g. Opus-only): switching to a model without fast
+  // support drops the override instead of silently carrying it along.
+  useEffect(() => {
+    if (effectiveModel && speedOverride === 'fast' && !supportsFast) {
+      clearThreadSpeedOverride(threadId);
+    }
+  }, [clearThreadSpeedOverride, effectiveModel, speedOverride, supportsFast, threadId]);
+
   useEffect(() => {
     if (!supportedModes.length || supportedModes.includes(mode)) return;
     setThreadMode(threadId, supportedModes[0] ?? DEFAULT_PERMISSION_MODE);
@@ -273,17 +306,20 @@ export function ComposerSettingsMenu({
             ? 'Selected model unavailable — reselect'
             : 'Model unavailable'),
     supportsReasoning ? thinkingLevelMeta(level).label : null,
+    supportsFast && speed === 'fast' ? SPEED_META.fast.label : null,
     showPermissionMode ? MODE_META[mode].label : null,
   ]
     .filter(Boolean)
     .join(' · ');
 
   // API lane trigger: the exact model leaf id only. Orchestration lane: the
-  // engine's short name (no Offisim model selection exists there). Full
-  // details stay one hover away via `title`.
+  // engine's short name for the engine-managed default, the exact model id
+  // once one is chosen. Full details stay one hover away via `title`.
   const triggerLabel = effectiveModel
     ? orchestrationSelected
-      ? engineShortLabel(engineKindFromId(effectiveModel.engineId, effectiveModel.name))
+      ? effectiveModel.modelId === 'engine-managed'
+        ? engineShortLabel(engineKindFromId(effectiveModel.engineId, effectiveModel.name))
+        : modelLeafId(effectiveModel)
       : modelLeafId(effectiveModel)
     : models.isLoading
       ? 'Loading…'
@@ -364,6 +400,18 @@ export function ComposerSettingsMenu({
                 <span className="off-composer-menu-row">
                   <span className="off-composer-menu-name">Reasoning</span>
                   <span className="off-composer-menu-meta">{thinkingLevelMeta(level).label}</span>
+                </span>
+                <span className="off-composer-menu-caret">
+                  <Icon icon={ChevronRight} size="sm" />
+                </span>
+              </DropdownMenuItem>
+            ) : null}
+            {supportsFast ? (
+              <DropdownMenuItem onSelect={drill('speed')}>
+                <Icon icon={Gauge} size="sm" />
+                <span className="off-composer-menu-row">
+                  <span className="off-composer-menu-name">Speed</span>
+                  <span className="off-composer-menu-meta">{SPEED_META[speed].label}</span>
                 </span>
                 <span className="off-composer-menu-caret">
                   <Icon icon={ChevronRight} size="sm" />
@@ -531,6 +579,56 @@ export function ComposerSettingsMenu({
                   <span className="off-composer-menu-row">
                     <span className="off-composer-menu-name">{thinkingLevelMeta(value).label}</span>
                     <span className="off-composer-menu-meta">{thinkingLevelMeta(value).meta}</span>
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            {thinkingOverride ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    clearThreadThinking(threadId);
+                    setLayer('root');
+                  }}
+                >
+                  <Icon icon={RefreshCw} size="sm" />
+                  Reset to engine default
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </>
+        ) : null}
+
+        {layer === 'speed' ? (
+          <>
+            <DropdownMenuItem onSelect={drill('root')} className="off-composer-menu-back">
+              <Icon icon={ChevronLeft} size="sm" />
+              <span className="off-composer-menu-name">Speed</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Response speed</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={speed}
+              onValueChange={(value) => {
+                if (value === 'fast') setThreadSpeed(threadId, 'fast');
+                else clearThreadSpeedOverride(threadId);
+                setLayer('root');
+              }}
+            >
+              {(['standard', 'fast'] as const).map((value) => (
+                <DropdownMenuRadioItem
+                  key={value}
+                  value={value}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  <span className="off-composer-menu-row">
+                    <span className="off-composer-menu-name">{SPEED_META[value].label}</span>
+                    <span className="off-composer-menu-meta">
+                      {value === 'fast'
+                        ? (effectiveModel?.fastModeNote ?? SPEED_META.fast.meta)
+                        : SPEED_META.standard.meta}
+                    </span>
                   </span>
                 </DropdownMenuRadioItem>
               ))}

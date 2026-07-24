@@ -21,6 +21,7 @@ import {
   type RunFailureKind,
   type RuntimeEngineCapabilityManifest,
   type RuntimeEvent,
+  type RuntimeSpeedMode,
   type WorkspaceDiagnosticsUpdatedPayload,
   classifyRunFailure,
 } from '@offisim/shared-types';
@@ -44,7 +45,9 @@ import {
   validateExecutionTarget,
 } from './execution-provenance.js';
 import {
+  MODEL_PASSTHROUGH_ENGINES,
   type ResolvedRuntimeExecutionSelection,
+  declaredReasoningEffort,
   isSameExecutionTarget,
   parseRuntimeExecutionSelector,
   resolveRuntimeExecutionSelection,
@@ -158,6 +161,7 @@ export {
   trustedNativeSessionPrestartCode,
 } from './run-context.js';
 import { resolveThreadMode } from './pi-thread-mode-store.js';
+import { resolveThreadSpeedOverride } from './pi-thread-speed-store.js';
 import { resolveThreadThinkingOverride } from './pi-thread-thinking-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
 
@@ -280,6 +284,8 @@ export interface DesktopAgentRunInput {
    * the model's reasoning capabilities; this only forwards the string.
    */
   thinkingLevel?: string;
+  /** Explicit per-thread Codex service tier. Omitted means the engine's standard default. */
+  speedMode?: RuntimeSpeedMode;
   /** Explicit recovery from a backend-proven broken native Conversation
    * session. Ordinary turns always stay `tracked`; only the in-thread
    * Start-fresh action may request `fresh`. */
@@ -1003,6 +1009,10 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         thinkingLevel:
           typeof context?.thinkingLevel === 'string' && context.thinkingLevel.trim()
             ? context.thinkingLevel.trim()
+            : undefined,
+        speedMode:
+          context?.speedMode === 'standard' || context?.speedMode === 'fast'
+            ? context.speedMode
             : undefined,
         ...(context?.conversationProjection
           ? { conversationProjection: context.conversationProjection }
@@ -1841,6 +1851,10 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
     let resolvedModel = input.model?.trim() || undefined;
     let resolvedThinkingLevel =
       input.thinkingLevel?.trim() || resolveThreadThinkingOverride(input.threadId);
+    const resolvedSpeedMode =
+      this.engineId === 'codex'
+        ? (input.speedMode ?? resolveThreadSpeedOverride(input.threadId))
+        : undefined;
     const runtimeContext: PersistedRunContext = {
       requestId,
       streamCursor: 0,
@@ -1863,6 +1877,7 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       provenance: null,
       permissionMode,
       thinkingLevel: resolvedThinkingLevel ?? null,
+      ...(this.engineId === 'codex' ? { speedMode: resolvedSpeedMode ?? null } : {}),
       projectId,
       conversationProjection: input.conversationProjection ?? null,
       recoveryLane: input.missionId
@@ -2204,14 +2219,6 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             .join('\n\n')
         : systemPromptAppend;
       throwIfRunAborted(signal);
-      // The gateway already froze the task's engine/account/model before entering
-      // this adapter. Employee settings may still supply a thinking level, but
-      // must never replace that exact model with a binding from another engine.
-      if (commandName === 'agent_runtime_execute' && input.employeeId) {
-        resolvedThinkingLevel = runtimeSelection.thinkingLevel;
-        runtimeContext.thinkingLevel = resolvedThinkingLevel ?? null;
-        this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
-      }
       const exactTarget = validateExecutionTarget(input.executionTarget);
       const exactRuntimeModelRef = input.runtimeModelRef?.trim();
       if (!exactTarget || !exactRuntimeModelRef) {
@@ -2225,12 +2232,36 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       }
       executionTarget = exactTarget;
       resolvedModel = exactRuntimeModelRef;
+      const delegatedThinkingLevel =
+        commandName === 'agent_runtime_execute' && input.employeeId
+          ? runtimeSelection.thinkingLevel
+          : undefined;
       const rosterModels = this.config.supportsOffisimDelegation
         ? roster.map((entry) => entry.model?.trim()).filter(Boolean)
         : [];
-      const runtimeStatus = rosterModels.length
-        ? await invokeCommand('agent_runtime_status', { includeUsage: false })
-        : undefined;
+      const runtimeStatus =
+        rosterModels.length ||
+        (delegatedThinkingLevel && MODEL_PASSTHROUGH_ENGINES.has(this.engineId))
+          ? await invokeCommand('agent_runtime_status', { includeUsage: false })
+          : undefined;
+      // The gateway already froze the task's engine/account/model before entering
+      // this adapter. Employee settings may still supply a thinking level, but
+      // must never replace that exact model with a binding from another engine —
+      // and an inherited level the frozen model does not declare (Pi's `off`, or
+      // a stale employee `xhigh` on a model without it) degrades to the engine
+      // default instead of hard-failing the host's closed-set validation.
+      if (commandName === 'agent_runtime_execute' && input.employeeId) {
+        resolvedThinkingLevel = MODEL_PASSTHROUGH_ENGINES.has(this.engineId)
+          ? declaredReasoningEffort(
+              runtimeStatus,
+              this.engineId,
+              exactTarget.modelId,
+              delegatedThinkingLevel,
+            )
+          : delegatedThinkingLevel;
+        runtimeContext.thinkingLevel = resolvedThinkingLevel ?? null;
+        this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
+      }
       // One root run owns one engine/account/billing lane. Employees bound to a
       // different lane stay visible in Offisim but are not exposed as Pi child
       // candidates; their presence must never reject otherwise valid root work.
@@ -2341,6 +2372,8 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
             workspaceRequirement,
             nativeSessionMode,
             permissionMode,
+            ...(resolvedThinkingLevel ? { effort: resolvedThinkingLevel } : {}),
+            ...(resolvedSpeedMode === 'fast' ? { speedMode: 'fast' } : {}),
             systemPromptAppend: effectiveSystemPromptAppend ?? undefined,
             projectExperience: projectExperience ?? undefined,
             skillPaths,

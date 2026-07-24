@@ -6,9 +6,15 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 const json = (path) => JSON.parse(read(path));
-const rustFiles = ['manager.rs', 'protocol.rs', 'stream.rs', 'types.rs'].map((name) =>
-  read(`apps/desktop/src-tauri/src/codex_agent_host/${name}`),
-);
+const managerRust = read('apps/desktop/src-tauri/src/codex_agent_host/manager.rs');
+const runOptionsRust = read('apps/desktop/src-tauri/src/codex_agent_host/run_options.rs');
+const rustFiles = [
+  managerRust,
+  read('apps/desktop/src-tauri/src/codex_agent_host/protocol.rs'),
+  runOptionsRust,
+  read('apps/desktop/src-tauri/src/codex_agent_host/stream.rs'),
+  read('apps/desktop/src-tauri/src/codex_agent_host/types.rs'),
+];
 const agentHostRuntime = read('apps/desktop/src-tauri/src/agent_host_runtime.rs');
 const rustHost = [...rustFiles, agentHostRuntime].join('\n');
 // Strip every `#[cfg(test)]` item (brace-balanced), not just a tail split:
@@ -37,6 +43,7 @@ const stripCfgTest = (source) => {
   }
 };
 const rustProduction = [...rustFiles, agentHostRuntime].map(stripCfgTest).join('\n');
+const managerProduction = stripCfgTest(managerRust);
 const shared = read('packages/shared-types/src/runtime/ai-account.ts');
 const runtime = read('apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts');
 const provenance = read('apps/desktop/renderer/src/runtime/execution-provenance.ts');
@@ -91,6 +98,33 @@ assert.match(rustProduction, /subscription-run-diagnostic/u);
 assert.match(rustProduction, /input\.saturating_sub\(cache_read\)/u);
 assert.match(rustProduction, /"kind": "adapter"/u);
 assert.match(rustProduction, /Subscription-included orchestration task; no API cost/u);
+assert.match(runOptionsRust, /struct CodexRunOptionModel/u);
+assert.match(runOptionsRust, /CODEX_RUN_OPTION_MODELS/u);
+assert.match(runOptionsRust, /fn codex_run_option_model/u);
+assert.match(runOptionsRust, /fn validate_codex_run_selection/u);
+assert.doesNotMatch(
+  managerProduction,
+  /gpt-5\.[0-9]/u,
+  'manager production code must not copy Codex catalog model ids',
+);
+assert.match(
+  rustProduction,
+  /#\[serde\(default\)\]\s*pub effort:\s*Option<String>/u,
+  'Codex execute effort must remain an optional strict request field',
+);
+assert.match(
+  rustProduction,
+  /#\[serde\(default\)\]\s*pub speed_mode:\s*Option<String>/u,
+  'Codex execute speedMode must remain an optional strict request field',
+);
+assert.match(managerProduction, /validate_codex_run_selection\(/u);
+assert.match(managerProduction, /"model": requested_model/u);
+assert.match(managerProduction, /"effort": effort/u);
+assert.match(managerProduction, /"serviceTier": service_tier/u);
+assert.match(managerProduction, /turn_collaboration_mode\(policy, actual_model\)/u);
+assert.match(managerProduction, /requested_model_id:\s*requested_model\.map\(str::to_string\)/u);
+assert.match(managerProduction, /"pace":\s*\{\s*"speedReport":\s*"unreported"\s*\}/u);
+assert.doesNotMatch(rustProduction, /executionSpeed|execution_speed/u);
 
 for (const field of [
   'RuntimeEngineCapabilityManifest',

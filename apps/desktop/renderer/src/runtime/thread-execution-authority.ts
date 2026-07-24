@@ -24,7 +24,9 @@ function durableExecutionAuthority(
     const target = validateExecutionTarget(parsed.executionTarget) ?? undefined;
     const runtimeModelRef =
       target?.modelSource?.kind === 'native'
-        ? target.engineId
+        ? target.modelId === 'engine-managed'
+          ? target.engineId
+          : `${target.engineId}:${target.modelId}`
         : typeof parsed.model === 'string'
           ? parsed.model.trim()
           : '';

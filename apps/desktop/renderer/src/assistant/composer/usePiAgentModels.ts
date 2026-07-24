@@ -2,7 +2,10 @@ import { isTauriRuntime } from '@/data/adapters.js';
 import { aiAccountLaneKey } from '@/data/ai-model-presentation.js';
 import { queryKeys } from '@/data/query-keys.js';
 import { invokeCommand } from '@/lib/tauri-commands.js';
-import { serializeRuntimeExecutionSelector } from '@/runtime/execution-selection.js';
+import {
+  MODEL_PASSTHROUGH_ENGINES,
+  serializeRuntimeExecutionSelector,
+} from '@/runtime/execution-selection.js';
 import { THINKING_LEVELS, type ThinkingLevel } from '@/runtime/pi-thread-thinking-store.js';
 import { getRepos } from '@/runtime/repos.js';
 import {
@@ -12,9 +15,12 @@ import {
 import type {
   AiModelCatalogEntry,
   AiRuntimeStatus,
+  OrchestrationEngineModelOption,
   OrchestrationEngineRunOptions,
   OrchestrationEngineState,
+  OrchestrationEngineStatus,
   RuntimeEngineCapabilityManifest,
+  RuntimeSpeedMode,
 } from '@offisim/shared-types';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -39,6 +45,9 @@ export interface AgentRuntimeModelOption {
   reasoning: boolean;
   reasoningEfforts: readonly ThinkingLevel[];
   defaultReasoningEffort?: ThinkingLevel;
+  speedModes: readonly RuntimeSpeedMode[];
+  fastModeNote?: string;
+  note?: string;
   capabilities: RuntimeEngineCapabilityManifest;
 }
 
@@ -84,6 +93,58 @@ const API_RUNTIME_CAPABILITIES: RuntimeEngineCapabilityManifest = {
     ],
   },
 };
+
+const RUN_OPTION_SPEED_MODES: ReadonlySet<string> = new Set(['standard', 'fast']);
+
+function isDeclaredModelOption(value: unknown): value is OrchestrationEngineModelOption {
+  if (!value || typeof value !== 'object') return false;
+  const model = value as Partial<OrchestrationEngineModelOption>;
+  const optionalString = (field: unknown) => field === undefined || typeof field === 'string';
+  return (
+    typeof model.id === 'string' &&
+    model.id.trim().length > 0 &&
+    typeof model.displayName === 'string' &&
+    model.displayName.trim().length > 0 &&
+    (model.isDefault === undefined || typeof model.isDefault === 'boolean') &&
+    Array.isArray(model.reasoningEfforts) &&
+    model.reasoningEfforts.every((effort) => typeof effort === 'string' && effort.trim()) &&
+    optionalString(model.defaultReasoningEffort) &&
+    Array.isArray(model.speedModes) &&
+    model.speedModes.length > 0 &&
+    model.speedModes.every(
+      (mode) => typeof mode === 'string' && RUN_OPTION_SPEED_MODES.has(mode),
+    ) &&
+    optionalString(model.fastModeNote) &&
+    optionalString(model.note)
+  );
+}
+
+/**
+ * Narrow runtime guard over the declaration seam. The run-option table crosses
+ * two untyped producers (a Rust `json!` block and a hand-written sidecar JS
+ * object), so a drifted declaration must degrade to "undeclared" here — the
+ * engine keeps its engine-managed default lane — instead of crashing pickers or
+ * leaking malformed rows into run parameters two layers away from the source.
+ * The table itself is advisory official guidance, not an Offisim allowlist:
+ * consumers must keep the engine-managed default path working regardless.
+ */
+function declaredRunOptions(
+  engine: OrchestrationEngineStatus,
+): OrchestrationEngineRunOptions | undefined {
+  const runOptions = engine.runOptions as Partial<OrchestrationEngineRunOptions> | undefined;
+  if (
+    !runOptions ||
+    typeof runOptions !== 'object' ||
+    !Array.isArray(runOptions.models) ||
+    !runOptions.models.length ||
+    !runOptions.models.every(isDeclaredModelOption) ||
+    typeof runOptions.sourceUrl !== 'string' ||
+    typeof runOptions.checkedAt !== 'string'
+  ) {
+    return undefined;
+  }
+  return runOptions as OrchestrationEngineRunOptions;
+}
 
 function isRuntimeStatus(value: unknown): value is AiRuntimeStatus {
   if (!value || typeof value !== 'object') return false;
@@ -180,29 +241,73 @@ export function projectRunnableModelOptions(
         reasoning: model.capabilities.reasoning,
         reasoningEfforts,
         ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}),
+        speedModes: ['standard'],
         capabilities: API_RUNTIME_CAPABILITIES,
       };
     });
 
   const orchestrationEngines: AgentRuntimeModelOption[] = rawStatus.orchestrationEngines
     .filter((engine) => engine.state === 'ready')
-    .map((engine) => ({
-      selectionKind: 'orchestration-engine',
-      value: serializeRuntimeExecutionSelector({
-        kind: 'orchestration-engine',
+    .flatMap((engine) => {
+      const base = {
+        selectionKind: 'orchestration-engine' as const,
+        // Expanded engines group their model rows under the engine's own name;
+        // a lone engine-managed row keeps the generic group label.
+        accountName: MODEL_PASSTHROUGH_ENGINES.has(engine.engineId)
+          ? engine.displayName
+          : 'Orchestration engines',
+        accountId: `${engine.engineId}:local`,
         engineId: engine.engineId,
-      }),
-      name: engine.displayName,
-      accountName: 'Orchestration engines',
-      accountId: `${engine.engineId}:local`,
-      engineId: engine.engineId,
-      modelId: 'engine-managed',
-      billingMode: 'subscription',
-      availability: 'available',
-      reasoning: false,
-      reasoningEfforts: [],
-      capabilities: engine.capabilities,
-    }));
+        billingMode: 'subscription' as const,
+        availability: 'available' as const,
+        capabilities: engine.capabilities,
+      };
+      if (!MODEL_PASSTHROUGH_ENGINES.has(engine.engineId)) {
+        return [
+          {
+            ...base,
+            value: serializeRuntimeExecutionSelector({
+              kind: 'orchestration-engine',
+              engineId: engine.engineId,
+            }),
+            name: engine.displayName,
+            modelId: 'engine-managed',
+            reasoning: false,
+            reasoningEfforts: [],
+            speedModes: ['standard'] as const,
+          },
+        ];
+      }
+      const runOptions = declaredRunOptions(engine);
+      const defaultModels = runOptions?.models.filter((model) => model.isDefault) ?? [];
+      const defaultModel = defaultModels.length === 1 ? defaultModels[0] : undefined;
+      if (!runOptions || !defaultModel) return [];
+      const projectModel = (
+        model: OrchestrationEngineModelOption,
+        engineDefault: boolean,
+      ): AgentRuntimeModelOption => ({
+        ...base,
+        value: serializeRuntimeExecutionSelector({
+          kind: 'orchestration-engine',
+          engineId: engine.engineId,
+          ...(engineDefault ? {} : { modelId: model.id }),
+        }),
+        name: engineDefault ? 'Engine default' : model.displayName,
+        modelId: engineDefault ? 'engine-managed' : model.id,
+        reasoning: model.reasoningEfforts.length > 0,
+        reasoningEfforts: model.reasoningEfforts,
+        ...(model.defaultReasoningEffort
+          ? { defaultReasoningEffort: model.defaultReasoningEffort }
+          : {}),
+        speedModes: model.speedModes,
+        ...(model.fastModeNote ? { fastModeNote: model.fastModeNote } : {}),
+        ...(model.note ? { note: model.note } : {}),
+      });
+      return [
+        projectModel(defaultModel, true),
+        ...runOptions.models.map((model) => projectModel(model, false)),
+      ];
+    });
 
   return [...apiModels, ...orchestrationEngines];
 }
@@ -211,14 +316,17 @@ export function projectRunnableModelOptions(
 export function projectOrchestrationEngineDirectory(
   status: AiRuntimeStatus,
 ): OrchestrationEngineDirectoryEntry[] {
-  return status.orchestrationEngines.map((engine) => ({
-    engineId: engine.engineId,
-    displayName: engine.displayName,
-    state: engine.state,
-    ...(engine.statusReason ? { statusReason: engine.statusReason } : {}),
-    ...(engine.loginCommand ? { loginCommand: engine.loginCommand } : {}),
-    ...(engine.runOptions ? { runOptions: engine.runOptions } : {}),
-  }));
+  return status.orchestrationEngines.map((engine) => {
+    const runOptions = declaredRunOptions(engine);
+    return {
+      engineId: engine.engineId,
+      displayName: engine.displayName,
+      state: engine.state,
+      ...(engine.statusReason ? { statusReason: engine.statusReason } : {}),
+      ...(engine.loginCommand ? { loginCommand: engine.loginCommand } : {}),
+      ...(runOptions ? { runOptions } : {}),
+    };
+  });
 }
 
 async function loadThreadExecutionAuthority(

@@ -122,6 +122,10 @@ pub struct CodexAgentExecuteRequest {
     #[serde(default)]
     pub permission_mode: Option<String>,
     #[serde(default)]
+    pub effort: Option<String>,
+    #[serde(default)]
+    pub speed_mode: Option<String>,
+    #[serde(default)]
     pub system_prompt_append: Option<String>,
     #[serde(default)]
     pub project_experience: Option<String>,

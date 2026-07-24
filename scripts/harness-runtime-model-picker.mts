@@ -10,6 +10,7 @@ import {
   projectOrchestrationEngineDirectory,
   projectRunnableModelOptions,
 } from '../apps/desktop/renderer/src/assistant/composer/usePiAgentModels.js';
+import { declaredReasoningEffort } from '../apps/desktop/renderer/src/runtime/execution-selection.js';
 
 const capabilities: RuntimeEngineCapabilityManifest = {
   stop: true,
@@ -35,6 +36,16 @@ const runOptions: OrchestrationEngineRunOptions = {
       reasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
       defaultReasoningEffort: 'medium',
       speedModes: ['standard', 'fast'],
+      fastModeNote: 'Uses extra subscription capacity.',
+      note: 'Default Codex model',
+    },
+    {
+      id: 'gpt-5.4-mini',
+      displayName: 'GPT-5.4 Mini',
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+      defaultReasoningEffort: 'low',
+      speedModes: ['standard'],
+      note: 'Compact',
     },
   ],
   sourceUrl: 'https://learn.chatgpt.com/docs/config-file/config-reference',
@@ -100,7 +111,8 @@ function runtimeStatus(
 }
 
 const ready = orchestrationEngine('codex', 'ready', { runOptions });
-const notSignedIn = orchestrationEngine('claude', 'not-signed-in', {
+const readyClaude = orchestrationEngine('claude', 'ready', { runOptions });
+const notSignedIn = orchestrationEngine('claude-pending', 'not-signed-in', {
   statusReason: 'Sign in first.',
 });
 const notInstalled = orchestrationEngine('missing-engine', 'not-installed', {
@@ -110,9 +122,9 @@ const unavailable = orchestrationEngine('unavailable-engine', 'unavailable', {
   statusReason: 'Status inspection failed.',
 });
 
-const readyOnlyOptions = projectRunnableModelOptions(runtimeStatus([ready]), 0);
+const readyOnlyOptions = projectRunnableModelOptions(runtimeStatus([ready, readyClaude]), 0);
 const allStatesOptions = projectRunnableModelOptions(
-  runtimeStatus([ready, notSignedIn, notInstalled, unavailable]),
+  runtimeStatus([ready, readyClaude, notSignedIn, notInstalled, unavailable]),
   0,
 );
 assert.deepEqual(
@@ -123,34 +135,126 @@ assert.deepEqual(
 assert.deepEqual(
   allStatesOptions.map((option) => ({
     selectionKind: option.selectionKind,
+    value: option.value,
+    name: option.name,
     engineId: option.engineId,
     modelId: option.modelId,
+    reasoning: option.reasoning,
     reasoningEfforts: option.reasoningEfforts,
+    defaultReasoningEffort: option.defaultReasoningEffort,
+    speedModes: option.speedModes,
+    fastModeNote: option.fastModeNote,
+    note: option.note,
   })),
   [
     {
       selectionKind: 'api-model',
+      value: 'api-model:fixture:model',
+      name: 'Fixture Model',
       engineId: 'api',
       modelId: 'fixture-model',
+      reasoning: false,
       reasoningEfforts: [],
+      defaultReasoningEffort: undefined,
+      speedModes: ['standard'],
+      fastModeNote: undefined,
+      note: undefined,
     },
     {
       selectionKind: 'orchestration-engine',
+      value: 'orchestration-engine:codex',
+      name: 'Engine default',
       engineId: 'codex',
       modelId: 'engine-managed',
+      reasoning: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+      defaultReasoningEffort: 'medium',
+      speedModes: ['standard', 'fast'],
+      fastModeNote: 'Uses extra subscription capacity.',
+      note: 'Default Codex model',
+    },
+    {
+      selectionKind: 'orchestration-engine',
+      value: 'orchestration-engine:codex:gpt-5.6-sol',
+      name: 'GPT-5.6 Sol',
+      engineId: 'codex',
+      modelId: 'gpt-5.6-sol',
+      reasoning: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+      defaultReasoningEffort: 'medium',
+      speedModes: ['standard', 'fast'],
+      fastModeNote: 'Uses extra subscription capacity.',
+      note: 'Default Codex model',
+    },
+    {
+      selectionKind: 'orchestration-engine',
+      value: 'orchestration-engine:codex:gpt-5.4-mini',
+      name: 'GPT-5.4 Mini',
+      engineId: 'codex',
+      modelId: 'gpt-5.4-mini',
+      reasoning: true,
+      reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+      defaultReasoningEffort: 'low',
+      speedModes: ['standard'],
+      fastModeNote: undefined,
+      note: 'Compact',
+    },
+    {
+      selectionKind: 'orchestration-engine',
+      value: 'orchestration-engine:claude',
+      name: 'claude display',
+      engineId: 'claude',
+      modelId: 'engine-managed',
+      reasoning: false,
       reasoningEfforts: [],
+      defaultReasoningEffort: undefined,
+      speedModes: ['standard'],
+      fastModeNote: undefined,
+      note: undefined,
     },
   ],
 );
 
+assert.deepEqual(
+  projectRunnableModelOptions(
+    runtimeStatus([
+      orchestrationEngine('codex', 'ready', {
+        runOptions: {
+          ...runOptions,
+          models: runOptions.models.map((model) => ({ ...model, isDefault: true })),
+        },
+      }),
+    ]),
+    0,
+  ).map((option) => option.engineId),
+  ['api'],
+  'duplicate orchestration defaults must fail closed',
+);
+assert.deepEqual(
+  projectRunnableModelOptions(
+    runtimeStatus([
+      orchestrationEngine('codex', 'ready', {
+        runOptions: {
+          ...runOptions,
+          models: runOptions.models.map(({ isDefault: _isDefault, ...model }) => model),
+        },
+      }),
+    ]),
+    0,
+  ).map((option) => option.engineId),
+  ['api'],
+  'missing orchestration defaults must fail closed',
+);
+
 const directory = projectOrchestrationEngineDirectory(
-  runtimeStatus([ready, notSignedIn, notInstalled, unavailable]),
+  runtimeStatus([ready, readyClaude, notSignedIn, notInstalled, unavailable]),
 );
 assert.deepEqual(
   directory.map((entry) => [entry.engineId, entry.state]),
   [
     ['codex', 'ready'],
-    ['claude', 'not-signed-in'],
+    ['claude', 'ready'],
+    ['claude-pending', 'not-signed-in'],
     ['missing-engine', 'not-installed'],
     ['unavailable-engine', 'unavailable'],
   ],
@@ -158,9 +262,10 @@ assert.deepEqual(
 assert.equal(directory[0]?.displayName, 'codex display');
 assert.equal(directory[0]?.loginCommand, 'codex login');
 assert.deepEqual(directory[0]?.runOptions, runOptions);
-assert.equal(directory[1]?.statusReason, 'Sign in first.');
-assert.equal(directory[2]?.statusReason, 'Install the CLI.');
-assert.equal(directory[3]?.statusReason, 'Status inspection failed.');
+assert.deepEqual(directory[1]?.runOptions, runOptions);
+assert.equal(directory[2]?.statusReason, 'Sign in first.');
+assert.equal(directory[3]?.statusReason, 'Install the CLI.');
+assert.equal(directory[4]?.statusReason, 'Status inspection failed.');
 assert.deepEqual(directory[0]?.runOptions?.models[0], {
   id: 'gpt-5.6-sol',
   displayName: 'GPT-5.6 Sol',
@@ -168,6 +273,58 @@ assert.deepEqual(directory[0]?.runOptions?.models[0], {
   reasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
   defaultReasoningEffort: 'medium',
   speedModes: ['standard', 'fast'],
+  fastModeNote: 'Uses extra subscription capacity.',
+  note: 'Default Codex model',
 });
+
+// A drifted declaration (wrong shapes from the untyped Rust/sidecar producers)
+// must degrade to "undeclared" — engine expansion drops, directory keeps the
+// engine without runOptions — instead of crashing projections downstream.
+const malformedRunOptions = {
+  ...runOptions,
+  models: [
+    ...runOptions.models,
+    { id: 'gpt-broken', displayName: 'Broken', reasoningEfforts: 'high', speedModes: ['standard'] },
+  ],
+} as unknown as OrchestrationEngineRunOptions;
+assert.deepEqual(
+  projectRunnableModelOptions(
+    runtimeStatus([orchestrationEngine('codex', 'ready', { runOptions: malformedRunOptions })]),
+    0,
+  ).map((option) => option.engineId),
+  ['api'],
+  'a drifted run-option declaration must drop the engine expansion, not crash the picker',
+);
+const malformedDirectory = projectOrchestrationEngineDirectory(
+  runtimeStatus([orchestrationEngine('codex', 'ready', { runOptions: malformedRunOptions })]),
+);
+assert.equal(malformedDirectory[0]?.state, 'ready', 'the engine itself stays listed');
+assert.equal(
+  malformedDirectory[0]?.runOptions,
+  undefined,
+  'a drifted declaration projects as undeclared',
+);
+
+// Delegated runs may inherit thinking levels from other lanes or stale employee
+// settings; only efforts the resolved model declares survive to the engine.
+const effortStatus = runtimeStatus([ready]);
+assert.equal(declaredReasoningEffort(effortStatus, 'codex', 'gpt-5.6-sol', 'xhigh'), 'xhigh');
+assert.equal(declaredReasoningEffort(effortStatus, 'codex', 'engine-managed', 'high'), 'high');
+assert.equal(
+  declaredReasoningEffort(effortStatus, 'codex', 'gpt-5.4-mini', 'xhigh'),
+  undefined,
+  'an effort the resolved model does not declare degrades to engine default',
+);
+assert.equal(
+  declaredReasoningEffort(effortStatus, 'codex', 'gpt-5.6-sol', 'off'),
+  undefined,
+  "another lane's thinking vocabulary (Pi `off`) must not reach the engine",
+);
+assert.equal(declaredReasoningEffort(effortStatus, 'codex', 'gpt-5.6-sol', undefined), undefined);
+assert.equal(
+  declaredReasoningEffort(undefined, 'codex', 'gpt-5.6-sol', 'high'),
+  undefined,
+  'missing status degrades to engine default instead of passing an unvalidated effort',
+);
 
 console.log('Runtime model picker and orchestration directory harness passed.');

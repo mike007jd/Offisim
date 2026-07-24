@@ -26,13 +26,58 @@ export type ResolvedRuntimeExecutionSelection = ResolvedApiExecutionSelection;
 
 export type RuntimeExecutionSelector =
   | { readonly kind: 'api-model'; readonly runtimeModelRef: string }
-  | { readonly kind: 'orchestration-engine'; readonly engineId: string };
+  | {
+      readonly kind: 'orchestration-engine';
+      readonly engineId: string;
+      readonly modelId?: string;
+    };
+
+export const MODEL_PASSTHROUGH_ENGINES: ReadonlySet<string> = new Set(['codex']);
+
+const ENGINE_MANAGED_MODEL_ID = 'engine-managed';
+
+/**
+ * Keep a requested reasoning effort only when the engine's declared run-option
+ * table lists it for the resolved model. Delegation inherits thinking levels
+ * from other lanes (e.g. Pi's `off`) and stale employee settings can pair an
+ * effort with a model that does not support it; an undeclared effort must
+ * degrade to the engine default instead of hard-failing the host's closed-set
+ * validation with an error the user never chose.
+ */
+export function declaredReasoningEffort(
+  statusValue: unknown,
+  engineId: string,
+  modelId: string,
+  requested: string | undefined,
+): string | undefined {
+  if (!requested) return undefined;
+  const status = statusValue as Partial<AiRuntimeStatus> | undefined;
+  const engines: readonly OrchestrationEngineStatus[] = Array.isArray(status?.orchestrationEngines)
+    ? status.orchestrationEngines
+    : [];
+  const models = engines.find((engine) => engine.engineId === engineId)?.runOptions?.models;
+  if (!Array.isArray(models) || !models.length) return undefined;
+  const resolved =
+    modelId === ENGINE_MANAGED_MODEL_ID
+      ? models.find((model) => model.isDefault)
+      : models.find((model) => model.id === modelId);
+  return resolved?.reasoningEfforts?.includes(requested) ? requested : undefined;
+}
 
 export function serializeRuntimeExecutionSelector(selector: RuntimeExecutionSelector): string {
-  const value =
-    selector.kind === 'api-model' ? selector.runtimeModelRef.trim() : selector.engineId.trim();
-  if (!value) throw new Error('AI execution selectors require a non-empty value.');
-  return `${selector.kind}:${value}`;
+  if (selector.kind === 'api-model') {
+    const runtimeModelRef = selector.runtimeModelRef.trim();
+    if (!runtimeModelRef) throw new Error('AI execution selectors require a non-empty value.');
+    return `${selector.kind}:${runtimeModelRef}`;
+  }
+  const engineId = selector.engineId.trim();
+  const modelId = selector.modelId?.trim();
+  if (!engineId || engineId.includes(':') || (selector.modelId !== undefined && !modelId)) {
+    throw new Error('Orchestration selectors require a valid engine and model.');
+  }
+  return modelId && modelId !== ENGINE_MANAGED_MODEL_ID
+    ? `${selector.kind}:${engineId}:${modelId}`
+    : `${selector.kind}:${engineId}`;
 }
 
 export function parseRuntimeExecutionSelector(
@@ -46,7 +91,18 @@ export function parseRuntimeExecutionSelector(
   }
   const enginePrefix = 'orchestration-engine:';
   if (encoded.startsWith(enginePrefix) && encoded.length > enginePrefix.length) {
-    return { kind: 'orchestration-engine', engineId: encoded.slice(enginePrefix.length) };
+    const value = encoded.slice(enginePrefix.length);
+    const separator = value.indexOf(':');
+    const engineId = (separator < 0 ? value : value.slice(0, separator)).trim();
+    const modelId = separator < 0 ? undefined : value.slice(separator + 1).trim();
+    if (!engineId || engineId.includes(':') || (separator >= 0 && !modelId)) {
+      throw new Error('The saved AI selector is invalid. Choose an engine or model again.');
+    }
+    return {
+      kind: 'orchestration-engine',
+      engineId,
+      ...(modelId ? { modelId } : {}),
+    };
   }
   throw new Error('The saved AI selector is invalid. Choose an engine or model again.');
 }
@@ -86,14 +142,21 @@ function availableApiModel(status: AiRuntimeStatus, model: AiModelCatalogEntry):
   );
 }
 
-function orchestrationExecutionTarget(engineId: string): AiExecutionTarget {
+function orchestrationExecutionTarget(
+  engineId: string,
+  modelId = ENGINE_MANAGED_MODEL_ID,
+): AiExecutionTarget {
   return {
     engineId,
     accountId: `${engineId}:local`,
     billingMode: 'subscription',
-    modelId: 'engine-managed',
+    modelId,
     modelSource: { kind: 'native' },
   };
+}
+
+function orchestrationRuntimeModelRef(engineId: string, modelId: string): string {
+  return modelId === ENGINE_MANAGED_MODEL_ID ? engineId : `${engineId}:${modelId}`;
 }
 
 function readyOrchestrationEngine(
@@ -105,8 +168,19 @@ function readyOrchestrationEngine(
   );
 }
 
-function isCanonicalOrchestrationTarget(target: AiExecutionTarget): boolean {
-  return isSameExecutionTarget(target, orchestrationExecutionTarget(target.engineId));
+function isDeclaredOrchestrationModel(engine: OrchestrationEngineStatus, modelId: string): boolean {
+  return Boolean(engine.runOptions?.models.some((model) => model.id === modelId));
+}
+
+function isCanonicalOrchestrationTarget(
+  target: AiExecutionTarget,
+  engine: OrchestrationEngineStatus,
+): boolean {
+  return (
+    isSameExecutionTarget(target, orchestrationExecutionTarget(target.engineId, target.modelId)) &&
+    (target.modelId === ENGINE_MANAGED_MODEL_ID ||
+      isDeclaredOrchestrationModel(engine, target.modelId))
+  );
 }
 
 /** Resolve one globally unique model/account/engine before the gateway crosses
@@ -141,17 +215,33 @@ export function resolveRuntimeExecutionSelection(
     const frozenEngine = readyOrchestrationEngine(runtimeStatus, validTarget.engineId);
     if (frozenEngine) {
       if (
-        !isCanonicalOrchestrationTarget(validTarget) ||
-        frozenRuntimeModelRef?.trim() !== frozenEngine.engineId ||
+        validTarget.modelId !== ENGINE_MANAGED_MODEL_ID &&
+        !isDeclaredOrchestrationModel(frozenEngine, validTarget.modelId)
+      ) {
+        throw new Error("The task's saved model is no longer available.");
+      }
+      const frozenModelId = validTarget.modelId;
+      const expectedRuntimeModelRef = orchestrationRuntimeModelRef(
+        frozenEngine.engineId,
+        frozenModelId,
+      );
+      const requestedModelId =
+        requestedSelection?.kind === 'orchestration-engine'
+          ? requestedSelection.modelId?.trim() || ENGINE_MANAGED_MODEL_ID
+          : undefined;
+      if (
+        !isCanonicalOrchestrationTarget(validTarget, frozenEngine) ||
+        frozenRuntimeModelRef?.trim() !== expectedRuntimeModelRef ||
         (requestedSelection &&
           (requestedSelection.kind !== 'orchestration-engine' ||
-            requestedSelection.engineId !== frozenEngine.engineId))
+            requestedSelection.engineId !== frozenEngine.engineId ||
+            requestedModelId !== frozenModelId))
       ) {
         throw new Error("The task's saved orchestration engine is no longer available.");
       }
       return {
-        target: orchestrationExecutionTarget(frozenEngine.engineId),
-        runtimeModelRef: frozenEngine.engineId,
+        target: orchestrationExecutionTarget(frozenEngine.engineId, frozenModelId),
+        runtimeModelRef: expectedRuntimeModelRef,
       };
     }
     const frozenSelector = frozenRuntimeModelRef?.trim();
@@ -180,9 +270,16 @@ export function resolveRuntimeExecutionSelection(
         `The selected orchestration engine is unavailable: ${requestedSelection.engineId}.`,
       );
     }
+    const requestedModelId = requestedSelection.modelId?.trim() || ENGINE_MANAGED_MODEL_ID;
+    if (
+      requestedModelId !== ENGINE_MANAGED_MODEL_ID &&
+      !isDeclaredOrchestrationModel(requestedEngine, requestedModelId)
+    ) {
+      throw new Error(`The selected orchestration model is unavailable: ${requestedModelId}.`);
+    }
     return {
-      target: orchestrationExecutionTarget(requestedEngine.engineId),
-      runtimeModelRef: requestedEngine.engineId,
+      target: orchestrationExecutionTarget(requestedEngine.engineId, requestedModelId),
+      runtimeModelRef: orchestrationRuntimeModelRef(requestedEngine.engineId, requestedModelId),
     };
   }
   let selected: AiModelCatalogEntry | undefined;

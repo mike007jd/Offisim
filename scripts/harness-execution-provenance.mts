@@ -5,12 +5,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
+import type { AiExecutionTarget, AiRuntimeStatus } from '@offisim/shared-types';
 import {
   type TurnExecutionProvenance,
   assertSameExecutionAccount,
   requireTurnExecutionProvenance,
   validateTurnExecutionProvenance,
 } from '../apps/desktop/renderer/src/runtime/execution-provenance.js';
+import {
+  parseRuntimeExecutionSelector,
+  resolveRuntimeExecutionSelection,
+  serializeRuntimeExecutionSelector,
+} from '../apps/desktop/renderer/src/runtime/execution-selection.js';
 import { executionProvenance as hostExecutionProvenance } from './pi-execution-provenance.mjs';
 
 let checks = 0;
@@ -151,6 +157,165 @@ check('native orchestration provenance rejects fabricated catalog fields', () =>
     /incomplete execution provenance/u,
   );
 });
+
+const codexRuntimeStatus = {
+  accounts: [],
+  models: [],
+  orchestrationEngines: [
+    {
+      engineId: 'codex',
+      displayName: 'Codex',
+      state: 'ready',
+      loginCommand: 'codex login',
+      docsUrl: 'https://developers.openai.com/codex',
+      checkedAt: '2026-07-24',
+      capabilities: {
+        stop: true,
+        steer: false,
+        resume: true,
+        attachmentInput: { textFiles: true, images: 'supported' },
+        permissionModes: ['plan', 'ask', 'auto', 'full'],
+        interactions: { approval: true, userInput: true },
+        processEvents: { reasoning: true, toolCalls: true, fileChanges: true },
+        pace: { speedReport: 'unreported' },
+        interactionRoutes: { browser: [], computer: [] },
+      },
+      runOptions: {
+        models: [
+          {
+            id: 'gpt-5.6-sol',
+            displayName: 'GPT-5.6 Sol',
+            isDefault: true,
+            reasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+            defaultReasoningEffort: 'medium',
+            speedModes: ['standard', 'fast'],
+          },
+          {
+            id: 'vendor:model:preview',
+            displayName: 'Colon Model',
+            reasoningEfforts: ['low', 'high'],
+            defaultReasoningEffort: 'low',
+            speedModes: ['standard'],
+          },
+        ],
+        sourceUrl: 'https://learn.chatgpt.com/docs/config-file/config-reference',
+        checkedAt: '2026-07-24',
+      },
+    },
+  ],
+  checkedAt: '2026-07-24',
+} satisfies AiRuntimeStatus;
+
+check('orchestration selectors round-trip engine defaults and explicit model ids', () => {
+  assert.equal(
+    serializeRuntimeExecutionSelector({ kind: 'orchestration-engine', engineId: 'codex' }),
+    'orchestration-engine:codex',
+  );
+  assert.equal(
+    serializeRuntimeExecutionSelector({
+      kind: 'orchestration-engine',
+      engineId: 'codex',
+      modelId: 'engine-managed',
+    }),
+    'orchestration-engine:codex',
+  );
+  assert.deepEqual(parseRuntimeExecutionSelector('orchestration-engine:codex'), {
+    kind: 'orchestration-engine',
+    engineId: 'codex',
+  });
+  const explicitSelector = parseRuntimeExecutionSelector(
+    'orchestration-engine:codex:vendor:model:preview',
+  );
+  assert.deepEqual(explicitSelector, {
+    kind: 'orchestration-engine',
+    engineId: 'codex',
+    modelId: 'vendor:model:preview',
+  });
+  assert.ok(explicitSelector);
+  assert.equal(
+    serializeRuntimeExecutionSelector(explicitSelector),
+    'orchestration-engine:codex:vendor:model:preview',
+  );
+  assert.throws(
+    () =>
+      serializeRuntimeExecutionSelector({
+        kind: 'orchestration-engine',
+        engineId: 'codex:invalid',
+      }),
+    /valid engine and model/u,
+  );
+});
+
+const explicitCodexTarget: AiExecutionTarget = {
+  engineId: 'codex',
+  accountId: 'codex:local',
+  billingMode: 'subscription',
+  modelId: 'gpt-5.6-sol',
+  modelSource: { kind: 'native' },
+};
+
+check('fresh and frozen orchestration selections preserve exact model authority', () => {
+  assert.deepEqual(
+    resolveRuntimeExecutionSelection(codexRuntimeStatus, {
+      kind: 'orchestration-engine',
+      engineId: 'codex',
+    }),
+    {
+      target: {
+        engineId: 'codex',
+        accountId: 'codex:local',
+        billingMode: 'subscription',
+        modelId: 'engine-managed',
+        modelSource: { kind: 'native' },
+      },
+      runtimeModelRef: 'codex',
+    },
+  );
+  const explicit = resolveRuntimeExecutionSelection(codexRuntimeStatus, {
+    kind: 'orchestration-engine',
+    engineId: 'codex',
+    modelId: 'gpt-5.6-sol',
+  });
+  assert.deepEqual(explicit, {
+    target: explicitCodexTarget,
+    runtimeModelRef: 'codex:gpt-5.6-sol',
+  });
+  assert.deepEqual(
+    resolveRuntimeExecutionSelection(
+      codexRuntimeStatus,
+      undefined,
+      explicit.target,
+      explicit.runtimeModelRef,
+    ),
+    explicit,
+  );
+});
+
+check(
+  'a removed saved orchestration model fails closed instead of using the engine default',
+  () => {
+    const removedStatus: AiRuntimeStatus = {
+      ...codexRuntimeStatus,
+      orchestrationEngines: codexRuntimeStatus.orchestrationEngines.map((engine) => ({
+        ...engine,
+        runOptions: {
+          ...engine.runOptions,
+          models: engine.runOptions.models.filter((model) => model.id !== 'gpt-5.6-sol'),
+        },
+      })),
+    };
+    assert.throws(
+      () =>
+        resolveRuntimeExecutionSelection(
+          removedStatus,
+          undefined,
+          explicitCodexTarget,
+          'codex:gpt-5.6-sol',
+        ),
+      /saved model is no longer available/u,
+    );
+  },
+);
 
 const isolatedJob = { ...orchestrationTurn, runId: 'title-job-1' };
 check('an isolated text job may have its own run id', () => {
@@ -324,6 +489,15 @@ check('root runs persist their exact target before execution and retain host pro
   assert.match(desktopRuntimeSource, /requireTurnExecutionProvenance/u);
   assert.match(desktopRuntimeSource, /runtimeContext\.executionTarget = executionTarget/u);
   assert.match(desktopRuntimeSource, /runtimeContext\.model = resolvedModel/u);
+  assert.match(desktopRuntimeSource, /const resolvedSpeedMode =[\s\S]*this\.engineId === 'codex'/u);
+  assert.match(
+    desktopRuntimeSource,
+    /\.\.\.\(resolvedThinkingLevel \? \{ effort: resolvedThinkingLevel \} : \{\}\)/u,
+  );
+  assert.match(
+    desktopRuntimeSource,
+    /\.\.\.\(resolvedSpeedMode === 'fast' \? \{ speedMode: 'fast' \} : \{\}\)/u,
+  );
   assert.match(
     desktopRuntimeSource,
     /assertDurableExecutionTarget\(\s*runScope\.runId,\s*executionTarget,\s*commandName === 'agent_runtime_execute' \? requestId : undefined,\s*\)/u,
