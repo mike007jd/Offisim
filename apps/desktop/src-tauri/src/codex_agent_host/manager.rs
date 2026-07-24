@@ -11,6 +11,7 @@ use tauri::{ipc::Channel, AppHandle, Manager};
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 
 use crate::agent_host_runtime::{codex_binary_path, inspect_codex_cli, AgentHostLane, HostError};
+use crate::browser_agent_gateway::{BrowserAgentGateway, BrowserAgentRunScope};
 use crate::engine_skill_overlay::{
     materialize_engine_context_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
 };
@@ -422,6 +423,22 @@ async fn execute_claimed(
     } else {
         None
     };
+    let browser_scope = BrowserAgentRunScope::new(
+        req.company_id.clone(),
+        req.project_id
+            .clone()
+            .ok_or_else(|| "projectId is required for the browser gateway".to_string())?,
+        req.thread_id.clone(),
+        req.permission_mode.as_deref(),
+    )?;
+    let browser_gateway = match BrowserAgentGateway::start(app.clone(), browser_scope).await {
+        Ok(gateway) => gateway,
+        Err(error) => {
+            revoke_prestart_binding(&app, workspace.binding_ref.as_deref(), false).await;
+            stream.finish_failed("browser_gateway_unavailable", error.clone());
+            return Err(error);
+        }
+    };
     let connection = match CodexConnection::spawn_trusted(
         &binary,
         workspace.process_cwd.as_ref(),
@@ -429,6 +446,7 @@ async fn execute_claimed(
         Some(Arc::clone(&stream)),
         Some(&startup_cancellation),
         skill_overlay.as_ref().map(|overlay| overlay.load_path()),
+        Some(browser_gateway),
     )
     .await
     {
@@ -635,6 +653,7 @@ async fn enhance_claimed(
         &neutral,
         Some(Arc::clone(&stream)),
         Some(&startup_cancellation),
+        None,
         None,
     )
     .await

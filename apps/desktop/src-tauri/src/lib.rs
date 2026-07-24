@@ -2,8 +2,7 @@ mod agent_host_runtime;
 mod agent_host_stream;
 mod app_update;
 mod attachment_store;
-// Core-only in this stacked PR; engine/gateway wiring intentionally follows.
-#[allow(dead_code)]
+mod browser_agent_gateway;
 mod browser_agent_tools;
 mod browser_session;
 mod builtin_tools;

@@ -60,6 +60,8 @@ const CLAUDE_RUN_OPTIONS = Object.freeze({
 });
 const MAX_CAPTURE_BYTES = 1_000_000;
 const MAX_DETAIL_CHARS = 2_000;
+const BROWSER_MCP_URL_ENV = 'OFFISIM_BROWSER_MCP_URL';
+const BROWSER_MCP_TOKEN_ENV = 'OFFISIM_BROWSER_MCP_TOKEN';
 
 let activeChild;
 let terminating = false;
@@ -95,7 +97,7 @@ function redact(value) {
     .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/giu, 'Bearer [redacted]')
     .replace(/\b(?:sk-ant|sk-proj|sk-or-v1)-[A-Za-z0-9_-]+\b/gu, '[redacted]')
     .replace(
-      /\b(?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|CLAUDE_CODE_OAUTH_TOKEN)\s*=\s*\S+/giu,
+      /\b(?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|CLAUDE_CODE_OAUTH_TOKEN|OFFISIM_BROWSER_MCP_TOKEN)\s*=\s*\S+/giu,
       '$1=[redacted]',
     );
 }
@@ -443,6 +445,48 @@ function hookSettings(workspaceRoot) {
   });
 }
 
+function browserMcpConfig() {
+  const rawUrl = nonEmpty(process.env[BROWSER_MCP_URL_ENV]);
+  const token = nonEmpty(process.env[BROWSER_MCP_TOKEN_ENV]);
+  if (!rawUrl || !token) {
+    throw hostError(
+      'Claude execute requires an active Offisim browser MCP gateway.',
+      'host-unavailable',
+    );
+  }
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw hostError('Offisim browser MCP gateway URL is invalid.', 'host-unavailable');
+  }
+  if (
+    url.protocol !== 'http:' ||
+    url.hostname !== '127.0.0.1' ||
+    url.pathname !== '/mcp' ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw hostError(
+      'Offisim browser MCP gateway must use an authenticated 127.0.0.1 HTTP endpoint.',
+      'host-unavailable',
+    );
+  }
+  return JSON.stringify({
+    mcpServers: {
+      offisim_browser: {
+        type: 'http',
+        url: rawUrl,
+        headers: {
+          Authorization: `Bearer \${${BROWSER_MCP_TOKEN_ENV}}`,
+        },
+      },
+    },
+  });
+}
+
 function cliArgs(payload, sessionId) {
   const hasWorkspace = payload.mode === 'execute' && payload.workspaceAvailability === 'bound';
   const args = [
@@ -455,6 +499,9 @@ function cliArgs(payload, sessionId) {
     '--setting-sources',
     '',
   ];
+  if (payload.mode === 'execute') {
+    args.push('--mcp-config', browserMcpConfig(), '--allowedTools', 'mcp__offisim_browser__*');
+  }
   if (payload.model) args.push('--model', payload.model);
   if (payload.effort) args.push('--effort', payload.effort);
   const settings = hasWorkspace ? JSON.parse(hookSettings(payload.cwd)) : {};
