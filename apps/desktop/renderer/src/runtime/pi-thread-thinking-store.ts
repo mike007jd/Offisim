@@ -30,9 +30,9 @@ export const THINKING_LEVELS: readonly ThinkingLevel[] = [
 export const DEFAULT_THINKING_LEVEL: ThinkingLevel = 'medium';
 
 const STORAGE_KEY = 'offisim:pi-agent:thread-thinking';
-const THINKING_LEVEL_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
+export const THINKING_LEVEL_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
 
-function isThinkingLevel(value: unknown): value is ThinkingLevel {
+export function isThinkingLevel(value: unknown): value is ThinkingLevel {
   return typeof value === 'string' && THINKING_LEVEL_PATTERN.test(value);
 }
 

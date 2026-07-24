@@ -14,6 +14,7 @@ import {
 } from '@/design-system/primitives/dropdown-menu.js';
 import {
   type ConversationTargetKey,
+  type ConversationTargetRunDefaultUpdate,
   canSeedConversationRunDefaults,
   useConversationTargetDefaultsStore,
 } from '@/runtime/conversation-target-defaults-store.js';
@@ -43,13 +44,16 @@ import {
   type LucideIcon,
   MessageCircleQuestion,
   RefreshCw,
+  Search,
   ShieldCheck,
   SlidersHorizontal,
   TriangleAlert,
   Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { planConversationRunDefaultSeed } from './composer-default-seeding.js';
 import { resolveComposerDefaultOption } from './composer-default-selection.js';
+import { matchesComposerModelSearch, orderComposerModelGroups } from './composer-model-filter.js';
 import {
   type AgentRuntimeModelOption,
   type OrchestrationEngineDirectoryEntry,
@@ -154,50 +158,29 @@ function useConversationRunDefaultSeeding(
       return;
     }
 
-    seededTargetsRef.current.add(seedKey);
     const modelStore = usePiThreadModelStore.getState();
     const thinkingStore = usePiThreadThinkingStore.getState();
     const speedStore = usePiThreadSpeedStore.getState();
     const modeStore = usePiThreadModeStore.getState();
-    const existingModel = modelStore.byThread[threadId];
-    const targetModel = targetDefaults.model
-      ? options.find((option) => option.value === targetDefaults.model)
-      : undefined;
+    const plan = planConversationRunDefaultSeed({
+      options,
+      targetDefaults,
+      defaultModelSelector,
+      existingModelValue: modelStore.byThread[threadId],
+      hasModelPick: threadId in modelStore.byThread,
+      hasThinkingPick: threadId in thinkingStore.byThread,
+      hasSpeedPick: threadId in speedStore.byThread,
+      hasModePick: threadId in modeStore.byThread,
+    });
+    // No landing model (e.g. every candidate is stale) must not consume the
+    // seed — a later catalog refresh gets another chance to seed this thread.
+    if (!plan) return;
+    seededTargetsRef.current.add(seedKey);
 
-    if (!(threadId in modelStore.byThread) && targetModel) {
-      modelStore.setThreadModel(threadId, targetModel.value);
-    }
-
-    const landingModel = existingModel
-      ? options.find((option) => option.value === existingModel)
-      : (targetModel ??
-        resolveComposerDefaultOption(
-          options,
-          [defaultModelSelector].filter((selector): selector is string => Boolean(selector)),
-        ));
-    if (!landingModel) return;
-
-    if (
-      !(threadId in thinkingStore.byThread) &&
-      targetDefaults.thinking &&
-      landingModel.reasoningEfforts.includes(targetDefaults.thinking)
-    ) {
-      thinkingStore.setThreadThinking(threadId, targetDefaults.thinking);
-    }
-    if (
-      !(threadId in speedStore.byThread) &&
-      targetDefaults.speed === 'fast' &&
-      landingModel.speedModes.includes('fast')
-    ) {
-      speedStore.setThreadSpeed(threadId, 'fast');
-    }
-    if (
-      !(threadId in modeStore.byThread) &&
-      targetDefaults.mode &&
-      landingModel.capabilities.permissionModes.includes(targetDefaults.mode)
-    ) {
-      modeStore.setThreadMode(threadId, targetDefaults.mode);
-    }
+    if (plan.model) modelStore.setThreadModel(threadId, plan.model);
+    if (plan.thinking) thinkingStore.setThreadThinking(threadId, plan.thinking);
+    if (plan.speed) speedStore.setThreadSpeed(threadId, plan.speed);
+    if (plan.mode) modeStore.setThreadMode(threadId, plan.mode);
   }, [
     defaultModelSelector,
     models.data,
@@ -251,15 +234,27 @@ export function ComposerSettingsMenu({
   const setTargetRunDefault = useConversationTargetDefaultsStore(
     (state) => state.setTargetRunDefault,
   );
+  const recordTargetDefault = targetKey
+    ? (update: ConversationTargetRunDefaultUpdate) => setTargetRunDefault(targetKey, update)
+    : undefined;
   useConversationRunDefaultSeeding(threadId, targetKey, defaultModelSelector);
 
   const [layer, setLayer] = useState<PickerLayer>('root');
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
+  const [expandedFreeLaneKeys, setExpandedFreeLaneKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const contentRef = useRef<HTMLDivElement>(null);
+  const modelSearchInputRef = useRef<HTMLInputElement>(null);
 
-  // Move focus to the first actionable row after a drill-in/back switch.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: layer is the re-run trigger, not a referenced value
+  // Search is the model layer's keyboard entry point. Other drill-in layers
+  // retain the menu's normal first-row focus behavior.
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
+      if (layer === 'model') {
+        modelSearchInputRef.current?.focus();
+        return;
+      }
       const first = contentRef.current?.querySelector<HTMLElement>(
         '[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"])',
       );
@@ -326,6 +321,9 @@ export function ComposerSettingsMenu({
       if (existing) existing.items.push(option);
       else groups.set(laneKey, { account: option.accountName, items: [option] });
     }
+    const effectiveLaneKey = effective
+      ? aiAccountLaneKey(effective.engineId, effective.accountId, effective.billingMode)
+      : undefined;
     const exactLevels = effective?.reasoningEfforts ?? [];
     const nativeDefault = effective?.defaultReasoningEffort ?? exactLevels[0];
     const effectiveLevel =
@@ -333,7 +331,7 @@ export function ComposerSettingsMenu({
         ? thinkingOverride
         : (nativeDefault ?? DEFAULT_THINKING_LEVEL);
     return {
-      accounts: [...groups].map(([laneKey, group]) => ({ laneKey, ...group })),
+      accounts: orderComposerModelGroups(groups, effectiveLaneKey, Boolean(authority)),
       defaultModel: stableDefault,
       durableModel: durable,
       effectiveModel: effective,
@@ -407,6 +405,23 @@ export function ComposerSettingsMenu({
     orchestrationSelected && effectiveModel?.modelId === 'engine-managed';
   const defaultSourceLabel = engineManagedSelected ? 'Engine default' : 'Model default';
   const showPermissionMode = showMode && supportedModes.length > 0;
+  const normalizedModelSearchQuery = modelSearchQuery.trim().toLowerCase();
+  const filteredAccounts = useMemo(
+    () =>
+      accounts
+        .map((group) => ({
+          ...group,
+          regularItems: group.regularItems.filter((option) =>
+            matchesComposerModelSearch(option, normalizedModelSearchQuery),
+          ),
+          freeItems: group.freeItems.filter((option) =>
+            matchesComposerModelSearch(option, normalizedModelSearchQuery),
+          ),
+        }))
+        .filter((group) => group.regularItems.length || group.freeItems.length),
+    [accounts, normalizedModelSearchQuery],
+  );
+  const hasFilteredModels = filteredAccounts.length > 0;
 
   const summary = [
     effectiveModel?.name ??
@@ -458,7 +473,11 @@ export function ComposerSettingsMenu({
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        if (open) setLayer('root');
+        if (open) {
+          setLayer('root');
+          setModelSearchQuery('');
+          setExpandedFreeLaneKeys(new Set());
+        }
       }}
     >
       <DropdownMenuTrigger asChild>
@@ -478,6 +497,12 @@ export function ComposerSettingsMenu({
         className={
           layer === 'model' ? 'off-composer-menu off-composer-model-menu' : 'off-composer-menu'
         }
+        onEscapeKeyDown={(event) => {
+          if (layer === 'model' && modelSearchQuery) {
+            event.preventDefault();
+            setModelSearchQuery('');
+          }
+        }}
         onKeyDown={(event) => {
           if (event.key === 'ArrowLeft' && layer !== 'root') {
             event.preventDefault();
@@ -564,6 +589,47 @@ export function ComposerSettingsMenu({
               </span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <div className="off-search-input-wrap off-composer-model-search-wrap">
+              <Search className="off-search-input-icon" aria-hidden="true" />
+              <input
+                ref={modelSearchInputRef}
+                type="search"
+                value={modelSearchQuery}
+                className="off-input off-search-input off-composer-model-search"
+                placeholder="Search models"
+                aria-label="Search models"
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => setModelSearchQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  // Tab must reach the menu's focus management; the fallback
+                  // stopPropagation below would trap it inside the input.
+                  if (event.key === 'Tab') return;
+                  if (event.key === 'Escape') {
+                    if (modelSearchQuery) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setModelSearchQuery('');
+                    }
+                    return;
+                  }
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const options = contentRef.current?.querySelectorAll<HTMLElement>(
+                      '[role="menuitemradio"]:not([aria-disabled="true"])',
+                    );
+                    const target =
+                      event.key === 'ArrowDown'
+                        ? options?.item(0)
+                        : options?.item(options.length - 1);
+                    target?.focus();
+                    return;
+                  }
+                  event.stopPropagation();
+                }}
+              />
+            </div>
             {lockedAuthority ? (
               <DropdownMenuLabel className="off-composer-menu-provider">
                 Locked to {durableModel?.accountName ?? 'AI engine'} ·{' '}
@@ -586,17 +652,11 @@ export function ComposerSettingsMenu({
                 value={modelRadioValue}
                 onValueChange={(value) => {
                   setThreadModel(threadId, value);
-                  if (targetKey) {
-                    setTargetRunDefault(
-                      targetKey,
-                      { axis: 'model', value: value || undefined },
-                      Date.now(),
-                    );
-                  }
+                  recordTargetDefault?.({ axis: 'model', value: value || undefined });
                   setLayer('root');
                 }}
               >
-                {selectedModelUnavailable ? (
+                {selectedModelUnavailable && !normalizedModelSearchQuery ? (
                   <DropdownMenuRadioItem
                     value={perThreadModel}
                     disabled
@@ -605,7 +665,7 @@ export function ComposerSettingsMenu({
                     Selected model unavailable · choose another
                   </DropdownMenuRadioItem>
                 ) : null}
-                {!lockedAuthority ? (
+                {!lockedAuthority && !normalizedModelSearchQuery ? (
                   <DropdownMenuRadioItem
                     value=""
                     disabled={!defaultModel}
@@ -623,14 +683,14 @@ export function ComposerSettingsMenu({
                       : 'Default model unavailable'}
                   </DropdownMenuRadioItem>
                 ) : null}
-                {accounts.length ? (
-                  accounts.map((group) => (
+                {hasFilteredModels ? (
+                  filteredAccounts.map((group) => (
                     <div key={group.laneKey}>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel className="off-composer-menu-provider">
                         {group.account}
                       </DropdownMenuLabel>
-                      {group.items.map((option) => {
+                      {group.regularItems.map((option) => {
                         const optionMeta = modelOptionMeta(option);
                         return (
                           <DropdownMenuRadioItem
@@ -649,8 +709,63 @@ export function ComposerSettingsMenu({
                           </DropdownMenuRadioItem>
                         );
                       })}
+                      {group.freeItems.length ? (
+                        <>
+                          {!normalizedModelSearchQuery ? (
+                            <DropdownMenuItem
+                              className="off-composer-free-model-toggle"
+                              onSelect={(event) => {
+                                event.preventDefault();
+                                setExpandedFreeLaneKeys((current) => {
+                                  const next = new Set(current);
+                                  if (next.has(group.laneKey)) next.delete(group.laneKey);
+                                  else next.add(group.laneKey);
+                                  return next;
+                                });
+                              }}
+                            >
+                              <Icon
+                                icon={
+                                  expandedFreeLaneKeys.has(group.laneKey)
+                                    ? ChevronDown
+                                    : ChevronRight
+                                }
+                                size="sm"
+                              />
+                              {expandedFreeLaneKeys.has(group.laneKey)
+                                ? `Hide ${group.freeItems.length} free models`
+                                : `Show ${group.freeItems.length} free models`}
+                            </DropdownMenuItem>
+                          ) : null}
+                          {normalizedModelSearchQuery || expandedFreeLaneKeys.has(group.laneKey)
+                            ? group.freeItems.map((option) => {
+                                const optionMeta = modelOptionMeta(option);
+                                return (
+                                  <DropdownMenuRadioItem
+                                    key={option.value}
+                                    value={option.value}
+                                    onSelect={(event) => event.preventDefault()}
+                                  >
+                                    <span className="off-composer-menu-row">
+                                      <span className="off-composer-menu-name">{option.name}</span>
+                                      {optionMeta && optionMeta !== option.name ? (
+                                        <span className="off-composer-menu-meta" title={optionMeta}>
+                                          {optionMeta}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </DropdownMenuRadioItem>
+                                );
+                              })
+                            : null}
+                        </>
+                      ) : null}
                     </div>
                   ))
+                ) : normalizedModelSearchQuery ? (
+                  <output className="off-composer-model-empty">
+                    No models match “{modelSearchQuery.trim()}”
+                  </output>
                 ) : (
                   <DropdownMenuItem disabled>
                     {models.isLoading ? 'Loading models…' : 'No available models'}
@@ -658,7 +773,7 @@ export function ComposerSettingsMenu({
                 )}
               </DropdownMenuRadioGroup>
             )}
-            {pendingEngines.length ? (
+            {pendingEngines.length && !normalizedModelSearchQuery ? (
               <>
                 {pendingEngines.map((engine) => (
                   <div key={engine.engineId}>
@@ -703,13 +818,10 @@ export function ComposerSettingsMenu({
                 const resetsToDefault = selectedLevel === defaultReasoningEffort;
                 if (resetsToDefault) clearThreadThinking(threadId);
                 else setThreadThinking(threadId, selectedLevel);
-                if (targetKey) {
-                  setTargetRunDefault(
-                    targetKey,
-                    { axis: 'thinking', value: resetsToDefault ? undefined : selectedLevel },
-                    Date.now(),
-                  );
-                }
+                recordTargetDefault?.({
+                  axis: 'thinking',
+                  value: resetsToDefault ? undefined : selectedLevel,
+                });
                 setLayer('root');
               }}
             >
@@ -735,13 +847,7 @@ export function ComposerSettingsMenu({
                 <DropdownMenuItem
                   onSelect={() => {
                     clearThreadThinking(threadId);
-                    if (targetKey) {
-                      setTargetRunDefault(
-                        targetKey,
-                        { axis: 'thinking', value: undefined },
-                        Date.now(),
-                      );
-                    }
+                    recordTargetDefault?.({ axis: 'thinking', value: undefined });
                     setLayer('root');
                   }}
                 >
@@ -766,13 +872,10 @@ export function ComposerSettingsMenu({
               onValueChange={(value) => {
                 if (value === 'fast') setThreadSpeed(threadId, 'fast');
                 else clearThreadSpeedOverride(threadId);
-                if (targetKey) {
-                  setTargetRunDefault(
-                    targetKey,
-                    { axis: 'speed', value: value === 'fast' ? 'fast' : undefined },
-                    Date.now(),
-                  );
-                }
+                recordTargetDefault?.({
+                  axis: 'speed',
+                  value: value === 'fast' ? 'fast' : undefined,
+                });
                 setLayer('root');
               }}
             >
@@ -810,13 +913,7 @@ export function ComposerSettingsMenu({
               value={mode}
               onValueChange={(value) => {
                 setThreadMode(threadId, value as PermissionMode);
-                if (targetKey) {
-                  setTargetRunDefault(
-                    targetKey,
-                    { axis: 'mode', value: value as PermissionMode },
-                    Date.now(),
-                  );
-                }
+                recordTargetDefault?.({ axis: 'mode', value: value as PermissionMode });
                 setLayer('root');
               }}
             >
