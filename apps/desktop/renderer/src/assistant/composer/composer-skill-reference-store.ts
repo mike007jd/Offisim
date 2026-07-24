@@ -99,3 +99,13 @@ export function stripSkillTokens(text: string): string {
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
+
+/** Skill ids carried by the protected tokens in a persisted text, deduped, in order. */
+export function skillTokenIds(text: string): string[] {
+  const ids: string[] = [];
+  for (const match of text.matchAll(SKILL_TOKEN_RE)) {
+    const id = match[0].slice('[[skill:'.length, -']]'.length);
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}

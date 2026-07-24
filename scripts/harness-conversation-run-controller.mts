@@ -9,9 +9,11 @@ import {
   ConversationRunAlreadyActiveError,
   type ConversationRunController,
   ConversationRunMutationLockedError,
+  conversationEngineText,
   createConversationRunController,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
 import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
+import { mergeMessages } from '../apps/desktop/renderer/src/assistant/runtime/office-thread-messages.js';
 import type {
   ChatAttachment,
   ChatMessage,
@@ -19,6 +21,7 @@ import type {
 } from '../apps/desktop/renderer/src/data/types.js';
 import type { TaskWorkspaceBindingClaim } from '../apps/desktop/renderer/src/lib/tauri-commands.js';
 import {
+  type AgentQueuedMessage,
   AgentTerminalCheckpointError,
   type DesktopAgentRunInput,
   type DesktopAgentRunResult,
@@ -178,6 +181,12 @@ class FakeRuntime {
     return this.onResume(runId, signal);
   }
 
+  queuedMessages: Array<{ threadId: string; message: AgentQueuedMessage }> = [];
+
+  async queueMessage(threadId: string, message: AgentQueuedMessage): Promise<void> {
+    this.queuedMessages.push({ threadId, message });
+  }
+
   async dispose(): Promise<void> {}
 
   emitContent(input: DesktopAgentRunInput, content: string): void {
@@ -263,8 +272,22 @@ class FakeRepos {
   runRows = new Map<string, AgentRunRow>();
   activeRows = new Map<string, ActiveInteractionRow>();
   historyRows: HistoryRow[] = [];
+  skillRows = new Map<
+    string,
+    {
+      skill_id: string;
+      name: string;
+      description: string;
+      scope: string;
+      vault_path: string;
+    }
+  >();
   failActiveInteractionUpsert = false;
   failActiveInteractionDelete = 0;
+
+  skills = {
+    findById: async (skillId: string) => this.skillRows.get(skillId) ?? null,
+  };
 
   agentRuns = {
     findById: async (runId: string) => this.runRows.get(runId) ?? null,
@@ -396,6 +419,7 @@ function makeEnv(
     failActiveInteractionUpsert?: boolean;
     isMissionThreadRunning?: (threadId: string) => boolean;
     beforeLoadMessagesByIds?: () => Promise<void>;
+    threadMessages?: ChatMessage[];
   } = {},
 ): HarnessEnv {
   const eventBus = new InMemoryEventBus();
@@ -448,6 +472,7 @@ function makeEnv(
         .filter((call) => call.message.threadId === threadId && wanted.has(call.message.id))
         .map((call) => call.message);
     },
+    ...(options.threadMessages ? { loadMessages: async () => options.threadMessages ?? [] } : {}),
     appendEvent: async (call) => {
       appendedEvents.push(call);
     },
@@ -675,6 +700,50 @@ const scenarios: Array<{
   criteria: string;
   run: () => Promise<ScenarioEvidence>;
 }> = [
+  {
+    name: 'engineText runs only in the engine while text remains the durable user message',
+    criteria:
+      'Pass when nullish engine selection falls back to text, an explicit engine projection reaches execute/materialization, and the visible boss message persists only the chip token projection.',
+    run: async () => {
+      assert.equal(
+        conversationEngineText({ text: 'visible text' }),
+        'visible text',
+        'missing engineText falls back to text',
+      );
+      assert.equal(
+        conversationEngineText({ text: 'visible text', engineText: 'engine directive' }),
+        'engine directive',
+        'explicit engineText wins',
+      );
+      const env = makeEnv();
+      await submitDefault(env.controller, {
+        threadId: 'engine-text-thread',
+        text: 'Summarize this. [[skill:research-summary]]',
+        engineText:
+          'Summarize this.\n\nUse the "research-summary" skill for this task: locate it among your available skills, read its SKILL.md, and follow it. (Summarize source material.)',
+      });
+      await waitFor(
+        'engine text completion',
+        () => env.controller.getSnapshot('engine-text-thread').phase === 'completed',
+      );
+      assert.equal(
+        env.runtime.executeCalls[0]?.text,
+        'Summarize this.\n\nUse the "research-summary" skill for this task: locate it among your available skills, read its SKILL.md, and follow it. (Summarize source material.)',
+      );
+      const durableUser = env.persisted.find(
+        (call) => call.message.threadId === 'engine-text-thread' && call.message.author === 'boss',
+      )?.message;
+      assert.equal(durableUser?.body, 'Summarize this. [[skill:research-summary]]');
+      assert.equal(
+        env.controller.getSnapshot('engine-text-thread').liveMessages[0]?.body,
+        'Summarize this. [[skill:research-summary]]',
+      );
+      return {
+        engineText: env.runtime.executeCalls[0]?.text,
+        persistedText: durableUser?.body,
+      };
+    },
+  },
   {
     name: 'renderer reload hydrates live run before durable terminal projection',
     criteria:
@@ -3176,6 +3245,160 @@ const scenarios: Array<{
         recoveredWorkspaceActivities: workspaceItems.length,
         recoveredDetail: workspaceItems[0]?.detail,
         reloadedProvenance: reloaded.workspaceProvenance,
+      };
+    },
+  },
+  {
+    name: 'restored live run strips skill tokens from engine-bound restored text',
+    criteria:
+      'Pass when a renderer reload hydrates a run whose durable bodies carry [[skill:id]] chip tokens and every engine-bound restored text (queued turn delivery) is stripped and rebuilt with an explicit invocation directive, while the durable projection keeps the token.',
+    run: async () => {
+      const row = conversationRow({
+        runId: 'restore-skill-root',
+        threadId: 'restore-skill-thread',
+        status: 'running',
+        userMessageId: 'restore-skill-user',
+        assistantMessageId: 'restore-skill-assistant',
+      });
+      row.objective = 'Summarize this. [[skill:research-summary]]';
+      const queued: ChatMessage = {
+        id: 'restore-skill-queued',
+        threadId: row.thread_id,
+        author: 'boss',
+        employeeId: null,
+        body: 'Also queue this. [[skill:research-summary]]',
+        at: Date.parse('2026-06-20T00:00:01.000Z'),
+        attachments: [],
+        attemptId: row.run_id,
+        queueBehavior: 'followUp',
+        queueState: 'pending',
+        status: 'complete',
+      };
+      const env = makeEnv({ threadMessages: [queued] });
+      env.repos.skillRows.set('research-summary', {
+        skill_id: 'research-summary',
+        name: 'Research Summary',
+        description: 'Summarize source material.',
+        scope: 'company',
+        vault_path: 'companies/co/skills/research/SKILL.md',
+      });
+      seedConversationProjection(env, row, 'restore-skill-user', 'restore-skill-assistant');
+
+      await env.controller.bootstrapLiveRuns('co');
+      await waitFor('restored queued delivery', () => env.runtime.queuedMessages.length === 1);
+      const delivered = env.runtime.queuedMessages[0]?.message.text ?? '';
+      assert.ok(
+        !delivered.includes('[[skill:'),
+        `engine-bound queued text must not carry a raw skill token: ${delivered}`,
+      );
+      assert.match(delivered, /^Also queue this\./u);
+      assert.ok(
+        delivered.includes('Use the "Research Summary" skill for this task:'),
+        'the restored queued turn rebuilds the invocation directive from skills data',
+      );
+      const durableUser = env.controller
+        .getSnapshot(row.thread_id)
+        .liveMessages.find((message) => message.id === 'restore-skill-user');
+      assert.equal(
+        durableUser?.body,
+        'Summarize this. [[skill:research-summary]]',
+        'the durable projection keeps the protected chip token',
+      );
+      return {
+        delivered,
+        durableUserBody: durableUser?.body,
+      };
+    },
+  },
+  {
+    name: 'fresh-session recovery strips skill tokens from the engine prompt',
+    criteria:
+      'Pass when a reloaded failed Turn whose durable body carries a [[skill:id]] chip token executes Start fresh session with a token-free engine prompt that rebuilds the invocation directive from skills data.',
+    run: async () => {
+      const env = makeEnv();
+      env.repos.skillRows.set('research-summary', {
+        skill_id: 'research-summary',
+        name: 'Research Summary',
+        description: 'Summarize source material.',
+        scope: 'company',
+        vault_path: 'companies/co/skills/research/SKILL.md',
+      });
+      seedFreshSessionSource(env, {
+        runId: 'fresh-skill-source',
+        threadId: 'fresh-skill-thread',
+        recoveryLane: 'conversation',
+        userBody: 'Continue this. [[skill:research-summary]]',
+      });
+
+      await env.controller.hydrateFreshSessionAction('co', 'fresh-skill-thread');
+      const hydrated = env.controller.getSnapshot('fresh-skill-thread');
+      assert.equal(hydrated.phase, 'failed');
+      assert.equal(hydrated.error?.recoveryAction?.label, 'Start fresh session');
+      hydrated.error?.recoveryAction?.run();
+      await waitFor(
+        'fresh-skill completion',
+        () => env.controller.getSnapshot('fresh-skill-thread').phase === 'completed',
+      );
+      const text = env.runtime.executeCalls[0]?.text ?? '';
+      assert.ok(
+        !text.includes('[[skill:'),
+        `engine prompt must not carry a raw skill token: ${text}`,
+      );
+      assert.match(text, /^Continue this\./u);
+      assert.ok(
+        text.includes('Use the "Research Summary" skill for this task:'),
+        'the fresh-session prompt rebuilds the invocation directive from skills data',
+      );
+      return { executeText: text };
+    },
+  },
+  {
+    name: 'terminated run merge prefers persisted seed while keeping live-only ids',
+    criteria:
+      'Pass when an inactive run phase lets the persisted seed win per id — a stale live copy cannot overwrite durable metadata — while live-only ids are still appended, and an active phase lets the live projection win.',
+    run: async () => {
+      const message = (input: Partial<ChatMessage> & Pick<ChatMessage, 'id'>): ChatMessage => ({
+        threadId: 'merge-thread',
+        author: 'employee',
+        employeeId: 'emp-1',
+        body: input.id,
+        at: 0,
+        status: 'complete',
+        ...input,
+      });
+      const seed = [
+        message({ id: 'm1', author: 'boss', employeeId: null, at: 1, queueState: 'consumed' }),
+        message({ id: 'm2', body: 'durable answer', at: 2 }),
+      ];
+      const live = [
+        message({ id: 'm2', body: 'stale partial', at: 2, status: 'streaming' }),
+        message({ id: 'm3', body: 'live only', at: 3, status: 'streaming' }),
+      ];
+      const terminated = mergeMessages(seed, live, false);
+      assert.deepEqual(
+        terminated.map((entry) => entry.id),
+        ['m1', 'm2', 'm3'],
+        'live-only ids are still appended after the run terminates',
+      );
+      assert.equal(
+        terminated.find((entry) => entry.id === 'm2')?.body,
+        'durable answer',
+        'persisted seed wins per id once the run is terminal',
+      );
+      assert.equal(
+        terminated.find((entry) => entry.id === 'm1')?.queueState,
+        'consumed',
+        'stale live copies cannot overwrite durable metadata',
+      );
+      const active = mergeMessages(seed, live, true);
+      assert.equal(
+        active.find((entry) => entry.id === 'm2')?.body,
+        'stale partial',
+        'the live projection still wins while the run is active',
+      );
+      return {
+        terminated: terminated.map((entry) => [entry.id, entry.body, entry.status]),
+        activeSharedId: active.find((entry) => entry.id === 'm2')?.body,
       };
     },
   },

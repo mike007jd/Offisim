@@ -140,6 +140,16 @@ export const harnessManifest = Object.freeze([
       'pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-conversation-run-controller.mts',
   },
   {
+    id: 'skill-office-invocation',
+    file: 'scripts/harness-skill-office-invocation.mts',
+    runner: 'tsx',
+    cwdFilter: '@offisim/platform',
+    tsconfig: '../../apps/desktop/renderer/tsconfig.json',
+    composite: false,
+    command:
+      'pnpm --filter @offisim/platform exec tsx --tsconfig ../../apps/desktop/renderer/tsconfig.json ../../scripts/harness-skill-office-invocation.mts',
+  },
+  {
     id: 'conversation-deletion',
     file: 'scripts/harness-conversation-deletion.mts',
     runner: 'tsx',
@@ -1132,6 +1142,7 @@ export const validateHarnessIds = Object.freeze([
   'runtime-model-picker',
   'pi-loop-until-green',
   'conversation-run-controller',
+  'skill-office-invocation',
   'chat-attachment-roundtrip',
   'workspace-chat-presentation',
   'chat-persistence',
