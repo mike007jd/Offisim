@@ -4,6 +4,20 @@
  * Units match the 3D scene world units (not pixels, not grid cells).
  */
 
+import {
+  CAFE_TABLE_2_DIMENSIONS,
+  COFFEE_MACHINE_DIMENSIONS,
+  DINING_TABLE_4_DIMENSIONS,
+  FLOOR_LAMP_DIMENSIONS,
+  FRIDGE_DIMENSIONS,
+  LOUNGE_BENCH_DIMENSIONS,
+  MAGAZINE_RACK_DIMENSIONS,
+  PANTRY_COUNTER_DIMENSIONS,
+  PLANT_MEDIUM_DIMENSIONS,
+  SNACK_SHELF_DIMENSIONS,
+  SOFA_SINGLE_DIMENSIONS,
+} from './rest-prefab-dimensions.js';
+
 /** Axis-aligned bounding box on the XZ plane, local to prefab center. */
 export interface PrefabFootprint {
   /** Box center offset from prefab origin along local X axis. */
@@ -105,6 +119,17 @@ export const BUILTIN_PREFAB_IDS = Object.freeze([
   'reading-table',
   'chair-standalone',
   'status-board',
+  'coffee-machine',
+  'pantry-counter',
+  'snack-shelf',
+  'fridge',
+  'dining-table-4',
+  'cafe-table-2',
+  'sofa-single',
+  'lounge-bench',
+  'magazine-rack',
+  'floor-lamp',
+  'plant-medium',
 ] as const);
 
 export type BuiltinPrefabId = (typeof BUILTIN_PREFAB_IDS)[number];
@@ -143,6 +168,64 @@ export const BUILTIN_PREFAB_FOOTPRINTS = Object.freeze({
   'reading-table': footprint(1.42, 0.84, 0.14),
   'chair-standalone': footprint(0.58, 0.68, 0.12),
   'status-board': footprint(1.28, 0.22, 0.12),
+  // Rest & dining expansion — half-extents are the mesh's outer XZ dimensions,
+  // sourced from rest-prefab-dimensions.ts so collision can never drift from
+  // the rendered geometry.
+  'coffee-machine': footprint(
+    COFFEE_MACHINE_DIMENSIONS.footprintHalfW,
+    COFFEE_MACHINE_DIMENSIONS.footprintHalfD,
+    COFFEE_MACHINE_DIMENSIONS.footprintPadding,
+  ),
+  'pantry-counter': footprint(
+    PANTRY_COUNTER_DIMENSIONS.footprintHalfW,
+    PANTRY_COUNTER_DIMENSIONS.footprintHalfD,
+    PANTRY_COUNTER_DIMENSIONS.footprintPadding,
+  ),
+  'snack-shelf': footprint(
+    SNACK_SHELF_DIMENSIONS.footprintHalfW,
+    SNACK_SHELF_DIMENSIONS.footprintHalfD,
+    SNACK_SHELF_DIMENSIONS.footprintPadding,
+  ),
+  fridge: footprint(
+    FRIDGE_DIMENSIONS.footprintHalfW,
+    FRIDGE_DIMENSIONS.footprintHalfD,
+    FRIDGE_DIMENSIONS.footprintPadding,
+  ),
+  'dining-table-4': footprint(
+    DINING_TABLE_4_DIMENSIONS.footprintHalfW,
+    DINING_TABLE_4_DIMENSIONS.footprintHalfD,
+    DINING_TABLE_4_DIMENSIONS.footprintPadding,
+  ),
+  'cafe-table-2': footprint(
+    CAFE_TABLE_2_DIMENSIONS.footprintHalfW,
+    CAFE_TABLE_2_DIMENSIONS.footprintHalfD,
+    CAFE_TABLE_2_DIMENSIONS.footprintPadding,
+  ),
+  'sofa-single': footprint(
+    SOFA_SINGLE_DIMENSIONS.footprintHalfW,
+    SOFA_SINGLE_DIMENSIONS.footprintHalfD,
+    SOFA_SINGLE_DIMENSIONS.footprintPadding,
+  ),
+  'lounge-bench': footprint(
+    LOUNGE_BENCH_DIMENSIONS.footprintHalfW,
+    LOUNGE_BENCH_DIMENSIONS.footprintHalfD,
+    LOUNGE_BENCH_DIMENSIONS.footprintPadding,
+  ),
+  'magazine-rack': footprint(
+    MAGAZINE_RACK_DIMENSIONS.footprintHalfW,
+    MAGAZINE_RACK_DIMENSIONS.footprintHalfD,
+    MAGAZINE_RACK_DIMENSIONS.footprintPadding,
+  ),
+  'floor-lamp': footprint(
+    FLOOR_LAMP_DIMENSIONS.footprintHalfW,
+    FLOOR_LAMP_DIMENSIONS.footprintHalfD,
+    FLOOR_LAMP_DIMENSIONS.footprintPadding,
+  ),
+  'plant-medium': footprint(
+    PLANT_MEDIUM_DIMENSIONS.footprintHalfW,
+    PLANT_MEDIUM_DIMENSIONS.footprintHalfD,
+    PLANT_MEDIUM_DIMENSIONS.footprintPadding,
+  ),
 } satisfies Readonly<Record<BuiltinPrefabId, PrefabFootprint>>);
 
 const PREFAB_BOUNDS_EPSILON = 1e-6;
