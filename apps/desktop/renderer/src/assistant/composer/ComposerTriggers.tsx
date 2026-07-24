@@ -85,8 +85,8 @@ function slashIcon(id: string) {
  *
  * The `/` palette is grouped — Commands / Skills / Tools & MCP / Modes /
  * Navigation — via quiet headers between category runs; filtering still works
- * across the whole list. `/skill` and `/tool` expand the employee's currently
- * available items and insert executable directives into the composer.
+ * across the whole list. Skill rows insert structured references while `/tool`
+ * keeps the existing plain-text directive path.
  */
 export function ComposerTriggers({
   employees,
@@ -115,10 +115,14 @@ export function ComposerTriggers({
   const slashCommands = useMemo(
     () =>
       buildSlashCommands({
+        threadId,
         skills: (skills.data ?? []).map((skill) => ({
           id: skill.id,
           name: skill.name,
+          source: skill.scope,
           ...(skill.description ? { description: skill.description } : {}),
+          ...(skill.vault_path ? { vault_path: skill.vault_path } : {}),
+          ...(skill.relativePath ? { relativePath: skill.relativePath } : {}),
         })),
         tools: (mcpTools.data ?? []).map((tool) => ({
           id: tool.id,
