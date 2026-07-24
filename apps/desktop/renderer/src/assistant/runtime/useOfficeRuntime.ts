@@ -1,5 +1,4 @@
 import { autoTitleThreadFromFirstMessage } from '@/data/auto-title.js';
-import { persistChatMessage } from '@/data/chat-message-events.js';
 import { queryKeys } from '@/data/query-keys.js';
 import type { ChatMessage, Employee, StagedAttachment } from '@/data/types.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
@@ -11,7 +10,7 @@ import {
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   type ComposerAttachmentScope,
@@ -117,47 +116,6 @@ export function useOfficeRuntime({
     (state) => state.stagedByScope[attachmentScopeKey] ?? EMPTY_STAGED_ATTACHMENTS,
   );
   const consumeStaged = useComposerAttachmentStore((state) => state.consumeStaged);
-  const pendingDisplayBodies = useRef<
-    Array<{ id: string; engineText: string; persistedText: string; messageId?: string }>
-  >([]);
-  const displayBodies = useRef(new Map<string, string>());
-  const [displayBodyByMessageId, setDisplayBodyByMessageId] = useState<Record<string, string>>({});
-  const persistWithDisplayBody = useCallback(
-    async (message: ChatMessage, displayBody?: string) => {
-      const projected = displayBody ? { ...message, body: displayBody } : message;
-      if (persistMessage) {
-        await persistMessage(projected);
-      } else {
-        await persistChatMessage({ message: projected, companyId, projectId });
-      }
-      if (displayBody) {
-        displayBodies.current.set(message.id, displayBody);
-        setDisplayBodyByMessageId((current) =>
-          current[message.id] === displayBody ? current : { ...current, [message.id]: displayBody },
-        );
-      }
-    },
-    [companyId, persistMessage, projectId],
-  );
-  const persistQueuedMessage = useCallback(
-    async (message: ChatMessage) => {
-      let displayBody = displayBodies.current.get(message.id);
-      let pendingDisplay = pendingDisplayBodies.current.find(
-        (candidate) => candidate.messageId === message.id,
-      );
-      if (message.author === 'boss' && !displayBody) {
-        pendingDisplay ??= pendingDisplayBodies.current.find(
-          (candidate) => !candidate.messageId && candidate.engineText === message.body,
-        );
-        if (pendingDisplay) {
-          pendingDisplay.messageId = message.id;
-          displayBody = pendingDisplay.persistedText;
-        }
-      }
-      await persistWithDisplayBody(message, displayBody);
-    },
-    [persistWithDisplayBody],
-  );
   const messages = useMemo(
     () => mergeMessages(seedMessages, run.liveMessages, isConversationRunActive(run.phase)),
     [run.liveMessages, run.phase, seedMessages],
@@ -213,11 +171,6 @@ export function useOfficeRuntime({
         (loopReference ? loopReference.titleSnapshot : (skillReferences[0]?.name ?? persistedText));
 
       const stagedIdsForTurn = staged.map((attachment) => attachment.id);
-      const pendingDisplay =
-        behavior && persistedText !== controllerText
-          ? { id: crypto.randomUUID(), engineText: controllerText, persistedText }
-          : null;
-      if (pendingDisplay) pendingDisplayBodies.current.push(pendingDisplay);
       try {
         const roster = toMentionRoster(employeesById.values());
         const turnEmployeeId =
@@ -251,24 +204,6 @@ export function useOfficeRuntime({
             });
           }
         }
-        let directUserMessageId: string | null = null;
-        const persistRunMessage = behavior
-          ? persistQueuedMessage
-          : async (message: ChatMessage) => {
-              if (
-                message.author === 'boss' &&
-                !message.queueBehavior &&
-                (!directUserMessageId || directUserMessageId === message.id)
-              ) {
-                directUserMessageId = message.id;
-                await persistWithDisplayBody(
-                  message,
-                  persistedText !== controllerText ? persistedText : undefined,
-                );
-                return;
-              }
-              await persistQueuedMessage(message);
-            };
         const submitInput = {
           companyId,
           projectId,
@@ -301,11 +236,6 @@ export function useOfficeRuntime({
         }
         return true;
       } catch (error) {
-        if (pendingDisplay) {
-          pendingDisplayBodies.current = pendingDisplayBodies.current.filter(
-            (candidate) => candidate.id !== pendingDisplay.id,
-          );
-        }
         toast.error(
           loopReference
             ? 'Could not send this Loop run'
@@ -324,8 +254,7 @@ export function useOfficeRuntime({
       consumeStaged,
       employeesById,
       materializeThread,
-      persistQueuedMessage,
-      persistWithDisplayBody,
+      persistMessage,
       projectId,
       queryClient,
       staged,
