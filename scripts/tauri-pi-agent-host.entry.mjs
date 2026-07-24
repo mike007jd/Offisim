@@ -56,7 +56,11 @@ import {
 import { createMcpCallChannel } from './pi-host-mcp-channel.mjs';
 import { createVerifyCallChannel } from './pi-host-verify-channel.mjs';
 import { createWorktreeCallChannel } from './pi-host-worktree-channel.mjs';
-import { createMcpBridgeExtensionFactory, isWriteMcpTool } from './pi-mcp-bridge-extension.mjs';
+import {
+  createMcpBridgeExtensionFactory,
+  isOffisimBrowserMcpTool,
+  isWriteMcpTool,
+} from './pi-mcp-bridge-extension.mjs';
 import { createMissionBridgeExtensionFactory } from './pi-mission-bridge-extension.mjs';
 import { createPublishArtifactExtensionFactory } from './pi-publish-artifact-extension.mjs';
 import {
@@ -725,6 +729,18 @@ const DELEGATION_FLOW_GUIDANCE = [
   '4. Review — delegate a check of the result (access: review); revise if needed.',
   'Iterate only while it moves the goal forward. Stop when the goal is met or the',
   'result is good enough — do not delegate busywork.',
+].join('\n');
+
+const OFFISIM_BROWSER_TOOL_GUIDANCE = [
+  '## Offisim Browser',
+  'The `browser_navigate`, `browser_status`, `browser_read_page`,',
+  '`browser_screenshot`, and `browser_back` tools are available in this session.',
+  'For any request to open, browse, inspect, or read a web page, use those Browser',
+  'tools. Never substitute `bash`, `curl`, `wget`, or another command-line network',
+  'client. Project experience may describe an older session where Browser was',
+  'unavailable; this current capability declaration overrides that stale advice.',
+  'In plan mode the tools remain visible, but the native gateway rejects',
+  '`browser_navigate` and `browser_back` because they change browser state.',
 ].join('\n');
 
 function asNonEmptyString(value) {
@@ -1635,12 +1651,19 @@ async function runPrompt(payload) {
   // actionable "none granted yet, enable them in Settings" state instead of the
   // apology in screenshot 1. The execution path (mcp_call) is only exposed when a
   // grant-scoped catalog exists, so discovery never becomes an ungated call path:
-  // the per-employee grant catalog stays the trust boundary. Plan mode keeps only
-  // read-class MCP tools; write-class tools are filtered out of the catalog.
+  // the per-employee grant catalog stays the trust boundary.
   const mcpTools = !workspaceUnavailable && Array.isArray(payload.mcpTools) ? payload.mcpTools : [];
+  // Plan keeps Browser descriptors visible, while Rust rejects the
+  // state-changing navigate/back calls at the gateway. Other write-class MCP
+  // tools remain absent from the plan catalog.
   const scopedMcpTools =
-    permissionMode === 'plan' ? mcpTools.filter((tool) => !isWriteMcpTool(tool)) : mcpTools;
+    permissionMode === 'plan'
+      ? mcpTools.filter((tool) => isOffisimBrowserMcpTool(tool) || !isWriteMcpTool(tool))
+      : mcpTools;
   const mcpHasCatalog = scopedMcpTools.length > 0;
+  const directBrowserToolNames = scopedMcpTools
+    .filter(isOffisimBrowserMcpTool)
+    .map((tool) => tool.name);
   // `tools` is an EXPLICIT allowlist on every run (never left undefined). Passing
   // undefined would let Pi auto-activate whatever tools any disk-loaded CLI/global
   // Pi extension registered; Offisim deliberately keeps a controlled tool surface
@@ -1655,6 +1678,7 @@ async function runPrompt(payload) {
         ...(delegationEnabled ? ['delegate'] : []),
         ...(publishArtifactEnabled ? ['publish_artifact'] : []),
         ...(missionEnabled ? ['submit_for_evaluation', 'query_mission_state'] : []),
+        ...directBrowserToolNames,
         'mcp_search_tools',
         'mcp_describe_tool',
         ...(mcpHasCatalog ? ['mcp_call'] : []),
@@ -1861,6 +1885,9 @@ async function runPrompt(payload) {
     const appendSystemPrompt = [];
     if (systemPromptAppend) appendSystemPrompt.push(systemPromptAppend);
     if (projectExperience) appendSystemPrompt.push(projectExperience);
+    if (directBrowserToolNames.length > 0) {
+      appendSystemPrompt.push(OFFISIM_BROWSER_TOOL_GUIDANCE);
+    }
     if (delegationEnabled) appendSystemPrompt.push(DELEGATION_FLOW_GUIDANCE);
     if (workspaceUnavailable) {
       appendSystemPrompt.push(workspaceUnavailableSystemPrompt(workspaceState.reasonCode));

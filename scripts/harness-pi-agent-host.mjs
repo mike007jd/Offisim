@@ -1125,6 +1125,10 @@ const desktopAgentRuntimeSource = readFileSync(
   'apps/desktop/renderer/src/runtime/desktop-agent-runtime.ts',
   'utf8',
 );
+const threadCapabilitySource = readFileSync(
+  'apps/desktop/renderer/src/assistant/runtime/use-thread-capabilities.ts',
+  'utf8',
+);
 const hostEventDispatchSource = readFileSync(
   'apps/desktop/renderer/src/runtime/host-event-dispatch.ts',
   'utf8',
@@ -1201,6 +1205,28 @@ assert(
     rustHostSource,
   ),
   'execute request must deserialize mcpTools so Office runs can receive employee MCP grants',
+);
+assert(
+  /const mcpTools = \[[\s\S]*\.\.\.OFFISIM_BROWSER_MCP_TOOLS[\s\S]*this\.config\.supportsOffisimDelegation[\s\S]*buildMcpScope/.test(
+    desktopAgentRuntimeSource,
+  ) &&
+    /tools\.filter\(isOffisimBrowserMcpTool\)/.test(mcpBridgeSource) &&
+    /name: tool\.name/.test(mcpBridgeSource),
+  'the built-in Browser catalog must bypass delegation gating and register as first-class Pi tools',
+);
+assert(
+  /id: 'browser'[\s\S]*status: 'available'[\s\S]*source: 'Offisim'/.test(threadCapabilitySource) &&
+    !/detectBrowserServer/.test(threadCapabilitySource),
+  'Thread capabilities must report the built-in Browser ready without external MCP setup',
+);
+assert(
+  /const OFFISIM_BROWSER_TOOL_GUIDANCE = \[[\s\S]*browser_navigate[\s\S]*browser_read_page[\s\S]*Never substitute `bash`, `curl`, `wget`/.test(
+    nodeHostSource,
+  ) &&
+    /if \(projectExperience\) appendSystemPrompt\.push\(projectExperience\);[\s\S]*if \(directBrowserToolNames\.length > 0\) \{[\s\S]*appendSystemPrompt\.push\(OFFISIM_BROWSER_TOOL_GUIDANCE\)/.test(
+      nodeHostSource,
+    ),
+  'current Browser capability truth must override stale project experience that recommends curl or wget',
 );
 assert(
   /fn sidecar_payload\([\s\S]*agent_dir: Option<&Path>[\s\S]*"mode": "execute"[\s\S]*"mcpTools": mcp_tools/.test(
@@ -1512,7 +1538,7 @@ assert(
   /const baseTools = workspaceUnavailable \? \[\] : toolAllowlistForMode\(permissionMode\)/.test(
     nodeHostSource,
   ) &&
-    /const scopedMcpTools =[\s\S]*permissionMode === 'plan'[\s\S]*mcpTools\.filter\(\(tool\) => !isWriteMcpTool\(tool\)\)[\s\S]*: mcpTools/.test(
+    /const scopedMcpTools =[\s\S]*permissionMode === 'plan'[\s\S]*isOffisimBrowserMcpTool\(tool\) \|\| !isWriteMcpTool\(tool\)[\s\S]*: mcpTools/.test(
       nodeHostSource,
     ) &&
     /const mcpHasCatalog = scopedMcpTools\.length > 0/.test(nodeHostSource) &&
@@ -1522,7 +1548,7 @@ assert(
     /export const WORK_TOOL_ALLOWLIST[\s\S]*'read'[\s\S]*'write'[\s\S]*'edit'[\s\S]*'grep'[\s\S]*'find'[\s\S]*'ls'[\s\S]*'bash'/.test(
       permissionModesSource,
     ),
-  'bound execute hosts must expose MCP discovery in the explicit allowlist, while workspace-unavailable turns expose only their deterministic control tool',
+  'bound execute hosts must expose MCP discovery and direct Browser tools, while workspace-unavailable turns expose only their deterministic control tool',
 );
 assert(
   /permissionMode,\s*resolveModel/.test(nodeHostSource) &&

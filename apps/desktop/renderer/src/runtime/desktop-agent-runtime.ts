@@ -2415,12 +2415,12 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
       if (commandName === 'agent_runtime_execute') {
         this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
       }
-      const mcpTools = this.config.supportsOffisimDelegation
-        ? [
-            ...OFFISIM_BROWSER_MCP_TOOLS,
-            ...(await buildMcpScope(this.repos, this.companyId, input.employeeId, projectId)),
-          ]
-        : [];
+      const mcpTools = [
+        ...OFFISIM_BROWSER_MCP_TOOLS,
+        ...(this.config.supportsOffisimDelegation
+          ? await buildMcpScope(this.repos, this.companyId, input.employeeId, projectId)
+          : []),
+      ];
       throwIfRunAborted(signal);
 
       await this.assertDurableExecutionTarget(

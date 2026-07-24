@@ -1,13 +1,14 @@
-// MCP bridge extension — registers a FIXED set of 3 meta tools on the root Pi
-// session so the agent can discover and call MCP tools from connected servers
-// (filesystem, github, …) without paying per-tool context cost.
+// MCP bridge extension — registers 3 meta tools on the root Pi session so the
+// agent can discover and call arbitrary tools from connected servers
+// (filesystem, github, …) without paying per-tool context cost. Offisim Browser
+// is the fixed exception: its five built-in tools are registered directly.
 //
-// Token-proxy pattern (borrowed from pi-mcp-adapter): no matter how many MCP
-// tools are scoped to this run, the agent always sees exactly three tools —
-// `mcp_search_tools` (find), `mcp_describe_tool` (inspect inputs), `mcp_call`
-// (invoke). The full tool catalog lives in the `mcpTools` payload, searched at
-// call time, not registered as individual Pi tools. This also sidesteps the
-// JSON-Schema → TypeBox conversion fidelity problem for arbitrary tool schemas.
+// Token-proxy pattern (borrowed from pi-mcp-adapter): external catalogs always
+// contribute exactly three tools — `mcp_search_tools` (find),
+// `mcp_describe_tool` (inspect inputs), `mcp_call` (invoke). Their full catalog
+// lives in the `mcpTools` payload, searched at call time, not registered as
+// individual Pi tools. This also sidesteps the JSON-Schema → TypeBox conversion
+// fidelity problem for arbitrary tool schemas.
 //
 // Invocation routes through the Rust host's in-process mcpCall interception
 // (B2): `mcp_call`'s execute calls the injected `requestMcpResult`, which emits a
@@ -25,6 +26,7 @@ import { agentRunLine } from './pi-agent-host-wire.mjs';
 
 const DEFAULT_MCP_CALL_TIMEOUT_MS = 90_000;
 const DEFAULT_MCP_APPROVAL_TIMEOUT_MS = 75_000;
+export const OFFISIM_BROWSER_MCP_SERVER = 'offisim-browser';
 
 const SearchParams = Type.Object({
   query: Type.Optional(
@@ -83,6 +85,22 @@ const CallParams = Type.Object({
     ),
   ),
 });
+
+const BrowserNavigateParams = Type.Object(
+  {
+    url: Type.String({ description: 'Absolute http:// or https:// URL to open.' }),
+  },
+  { additionalProperties: false },
+);
+const EmptyBrowserParams = Type.Object({}, { additionalProperties: false });
+
+export function isOffisimBrowserMcpTool(tool) {
+  return tool?.server === OFFISIM_BROWSER_MCP_SERVER && /^browser_/.test(tool?.name ?? '');
+}
+
+function directBrowserParameters(toolName) {
+  return toolName === 'browser_navigate' ? BrowserNavigateParams : EmptyBrowserParams;
+}
 
 /**
  * A tool is WRITE-class (needs operator approval) if the renderer flagged it so,
@@ -424,8 +442,102 @@ export function createMcpBridgeExtensionFactory({
   const approvalTimeoutMs = normalizeTimeoutMs(
     mcpApprovalTimeoutMs ?? DEFAULT_MCP_APPROVAL_TIMEOUT_MS,
   );
+  const invokeScopedTool = async (tool, args, signal, ctx) => {
+    const name = tool.name;
+    const write = isWriteMcpTool(tool);
+    if (write) {
+      const approved = await requestApprovalWithTimeout(
+        () =>
+          typeof confirmMcpToolCall === 'function'
+            ? confirmMcpToolCall({ server: tool.server, toolName: name, args, tool })
+            : ctx?.ui?.confirm?.(
+                'Approve MCP tool call?',
+                `${tool.server} → ${name} can modify data outside this chat. Approve to run it.`,
+              ),
+        {
+          server: tool.server,
+          toolName: name,
+          timeoutMs: approvalTimeoutMs,
+          signal,
+        },
+      );
+      if (approved !== true) {
+        const result = { ok: false, error: 'mcp_write_tool_rejected' };
+        emitMcpAuditLine({
+          emit,
+          threadId,
+          rootRunId,
+          employeeId,
+          server: tool.server,
+          toolName: name,
+          args,
+          result,
+          latencyMs: 0,
+          write: true,
+          approvalStatus: 'human_denied',
+        });
+        return textResult(`MCP write tool "${name}" rejected by operator.`, true);
+      }
+    }
+    const startedAt = Date.now();
+    const result = await requestMcpResultWithTimeout(
+      () => requestMcpResult(tool.server, name, args),
+      {
+        server: tool.server,
+        toolName: name,
+        timeoutMs: callTimeoutMs,
+        signal,
+      },
+    );
+    const latencyMs = Math.max(0, Date.now() - startedAt);
+    const computerDetail = computerDetailForMcpTool(tool, name, args, result);
+    emitMcpAuditLine({
+      emit,
+      threadId,
+      rootRunId,
+      employeeId,
+      server: tool.server,
+      toolName: name,
+      args,
+      result,
+      latencyMs,
+      write,
+      approvalStatus: write ? 'human_approved' : 'not_required',
+      computerDetail,
+    });
+    if (!result || result.ok !== true) {
+      return {
+        ...textResult(`MCP call failed: ${result?.error ?? 'unknown error'}`, true),
+        ...(computerDetail ?? {}),
+      };
+    }
+    const content = Array.isArray(result.content)
+      ? result.content
+      : [{ type: 'text', text: JSON.stringify(result.content ?? null) }];
+    return { content, ...(result.isError ? { isError: true } : {}), ...(computerDetail ?? {}) };
+  };
 
   return (pi) => {
+    // Offisim Browser is a fixed built-in product capability, not an arbitrary
+    // external MCP catalog. Register its injected descriptors as first-class Pi
+    // tools so smaller/free models can use the requested browser directly
+    // without first discovering the token-proxy meta tools.
+    for (const tool of tools.filter(isOffisimBrowserMcpTool)) {
+      pi.registerTool({
+        name: tool.name,
+        label: tool.name
+          .replace(/^browser_/, 'Browser ')
+          .replaceAll('_', ' ')
+          .replace(/\b\w/g, (character) => character.toUpperCase()),
+        description: tool.description ?? `Use Offisim Browser tool ${tool.name}.`,
+        parameters: directBrowserParameters(tool.name),
+        async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+          const args = params && typeof params === 'object' && !Array.isArray(params) ? params : {};
+          return invokeScopedTool(tool, args, signal, ctx);
+        },
+      });
+    }
+
     pi.registerTool({
       name: 'mcp_search_tools',
       label: 'Search MCP tools',
@@ -504,80 +616,7 @@ export function createMcpBridgeExtensionFactory({
       async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
         const resolved = resolveCatalogTool(params?.name, params?.server, byIdentity, byName);
         if (!resolved.tool) return textResult(resolved.error, true);
-        const tool = resolved.tool;
-        const name = tool.name;
-        const args = normalizedCallArgs(params);
-        const write = isWriteMcpTool(tool);
-        if (write) {
-          const approved = await requestApprovalWithTimeout(
-            () =>
-              typeof confirmMcpToolCall === 'function'
-                ? confirmMcpToolCall({ server: tool.server, toolName: name, args, tool })
-                : ctx?.ui?.confirm?.(
-                    'Approve MCP tool call?',
-                    `${tool.server} → ${name} can modify data outside this chat. Approve to run it.`,
-                  ),
-            {
-              server: tool.server,
-              toolName: name,
-              timeoutMs: approvalTimeoutMs,
-              signal: _signal,
-            },
-          );
-          if (approved !== true) {
-            const result = { ok: false, error: 'mcp_write_tool_rejected' };
-            emitMcpAuditLine({
-              emit,
-              threadId,
-              rootRunId,
-              employeeId,
-              server: tool.server,
-              toolName: name,
-              args,
-              result,
-              latencyMs: 0,
-              write: true,
-              approvalStatus: 'human_denied',
-            });
-            return textResult(`MCP write tool "${name}" rejected by operator.`, true);
-          }
-        }
-        const startedAt = Date.now();
-        const result = await requestMcpResultWithTimeout(
-          () => requestMcpResult(tool.server, name, args),
-          {
-            server: tool.server,
-            toolName: name,
-            timeoutMs: callTimeoutMs,
-            signal: _signal,
-          },
-        );
-        const latencyMs = Math.max(0, Date.now() - startedAt);
-        const computerDetail = computerDetailForMcpTool(tool, name, args, result);
-        emitMcpAuditLine({
-          emit,
-          threadId,
-          rootRunId,
-          employeeId,
-          server: tool.server,
-          toolName: name,
-          args,
-          result,
-          latencyMs,
-          write,
-          approvalStatus: write ? 'human_approved' : 'not_required',
-          computerDetail,
-        });
-        if (!result || result.ok !== true) {
-          return {
-            ...textResult(`MCP call failed: ${result?.error ?? 'unknown error'}`, true),
-            ...(computerDetail ?? {}),
-          };
-        }
-        const content = Array.isArray(result.content)
-          ? result.content
-          : [{ type: 'text', text: JSON.stringify(result.content ?? null) }];
-        return { content, ...(result.isError ? { isError: true } : {}), ...(computerDetail ?? {}) };
+        return invokeScopedTool(resolved.tool, normalizedCallArgs(params), _signal, ctx);
       },
     });
   };

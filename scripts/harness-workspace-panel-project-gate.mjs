@@ -204,8 +204,10 @@ for (const obsoleteCapabilityCopy of [
 }
 assert.match(
   capabilities,
-  /type CapabilitySource = 'Project' \| 'MCP grant' \| 'Workspace' \| 'Settings';/u,
+  /type CapabilitySource = 'Project' \| 'MCP grant' \| 'Workspace' \| 'Settings' \| 'Offisim';/u,
 );
+assert.match(capabilities, /id: 'browser'[\s\S]*status: 'available'[\s\S]*source: 'Offisim'/u);
+assert.doesNotMatch(capabilities, /detectBrowserServer/u);
 assert.equal((capabilities.match(/source: 'Project'/gu) ?? []).length, 4);
 assert.equal((capabilities.match(/setup: \{ label: 'Choose folder'/gu) ?? []).length, 2);
 assert.match(capabilities, /label: 'Project files'/u);

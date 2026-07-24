@@ -27,6 +27,20 @@ const resourceLoader = new DefaultResourceLoader({
     createMcpBridgeExtensionFactory({
       mcpTools: [
         {
+          name: 'browser_navigate',
+          server: 'offisim-browser',
+          category: 'browser',
+          description: 'Open an absolute http/https URL in the Offisim browser.',
+          write: true,
+        },
+        {
+          name: 'browser_read_page',
+          server: 'offisim-browser',
+          category: 'browser',
+          description: 'Read the current rendered page.',
+          write: false,
+        },
+        {
           name: 'list_apps',
           server: 'cua-driver',
           category: 'computer-use',
@@ -63,7 +77,13 @@ const { session } = await createAgentSession({
   settingsManager,
   resourceLoader,
   sessionManager: SessionManager.inMemory(cwd),
-  tools: ['mcp_search_tools', 'mcp_describe_tool', 'mcp_call'],
+  tools: [
+    'browser_navigate',
+    'browser_read_page',
+    'mcp_search_tools',
+    'mcp_describe_tool',
+    'mcp_call',
+  ],
 });
 
 try {
@@ -105,6 +125,11 @@ try {
 
   const tool = session.state.tools.find((entry) => entry.name === 'mcp_call');
   assert(tool, 'mcp_call must be active on the Pi Agent session');
+  assert.deepEqual(
+    session.state.tools.map((entry) => entry.name).sort(),
+    ['browser_navigate', 'browser_read_page', 'mcp_call', 'mcp_describe_tool', 'mcp_search_tools'],
+    'fixed Browser tools must be first-class entries in the real Pi SDK session',
+  );
 
   const result = await tool.execute('call-sdk', {
     name: 'list_apps',
