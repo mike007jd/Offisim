@@ -5,6 +5,7 @@
  * state, and timers. This hook derives the current frame inputs, bridges React
  * lifecycle to Date.now/window timers, and projects the visible bubble map.
  */
+import type { AmbientActorDirection } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type LocalChatterMachine,
@@ -15,7 +16,7 @@ import {
   presentationSpeakersEligible,
   visibleBubblesFromPresentation,
 } from './local-chatter-machine.js';
-import type { LocalChatterActor } from './local-chatter.js';
+import { type LocalChatterActor, pairKeyFor } from './local-chatter.js';
 
 export {
   LOCAL_CHATTER_FIRST_ATTEMPT_MS,
@@ -142,11 +143,33 @@ function deriveLocalChatterActorPresentationState(
 export function deriveLocalChatterActors(
   frame: LocalChatterFrameSlice,
   ambientActorIds: ReadonlySet<string>,
+  ambientDirections: readonly AmbientActorDirection[] = [],
 ): LocalChatterActor[] {
+  const pairedBreakDwellByActor = new Map(
+    ambientDirections
+      .filter(
+        (direction) =>
+          direction.routine === 'break' &&
+          direction.phase === 'dwell' &&
+          direction.partnerId != null,
+      )
+      .map((direction) => [direction.employeeId, direction] as const),
+  );
+  const pairHints = new Map<string, string>();
+  for (const direction of pairedBreakDwellByActor.values()) {
+    const partnerId = direction.partnerId;
+    if (!partnerId) continue;
+    const partnerDirection = pairedBreakDwellByActor.get(partnerId);
+    if (partnerDirection?.partnerId !== direction.employeeId) continue;
+    const pairHint = pairKeyFor(direction.employeeId, partnerId);
+    pairHints.set(direction.employeeId, pairHint);
+    pairHints.set(partnerId, pairHint);
+  }
   return frame.actors.map((actor) => ({
     actorId: actor.employeeId,
     presentationState: deriveLocalChatterActorPresentationState(actor, ambientActorIds),
     safeVisualWindow: !(actor.selected || actor.hovered || actor.dragging),
+    pairHint: pairHints.get(actor.employeeId) ?? null,
   }));
 }
 
@@ -157,6 +180,7 @@ export interface UseLocalChatterOptions {
   readonly reducedMotion: boolean;
   readonly frame: LocalChatterFrameSlice;
   readonly ambientActorIds: ReadonlySet<string>;
+  readonly ambientDirections: readonly AmbientActorDirection[];
 }
 
 /**
@@ -167,14 +191,15 @@ export interface UseLocalChatterOptions {
 export function useLocalChatter(
   options: UseLocalChatterOptions,
 ): ReadonlyMap<string, LocalChatterVisibleBubble> {
-  const { enabled, scopeKey, locale, reducedMotion, frame, ambientActorIds } = options;
+  const { enabled, scopeKey, locale, reducedMotion, frame, ambientActorIds, ambientDirections } =
+    options;
   const statusExplanationActive = deriveStatusExplanationActive(frame);
   const runtimeTruthActive = deriveRuntimeTruthActive(frame, ambientActorIds);
   const suppressed = !enabled || runtimeTruthActive || statusExplanationActive;
 
   const actors = useMemo(
-    () => deriveLocalChatterActors(frame, ambientActorIds),
-    [frame, ambientActorIds],
+    () => deriveLocalChatterActors(frame, ambientActorIds, ambientDirections),
+    [frame, ambientActorIds, ambientDirections],
   );
   const frameActorIds = useMemo(
     () => new Set(frame.actors.map((actor) => actor.employeeId)),
