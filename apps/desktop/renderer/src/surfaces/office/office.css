@@ -6078,8 +6078,9 @@
   font-size: var(--off-fs-label);
   color: var(--off-ink-4);
 }
-/* transcript Loop badge */
-.off-msg-loop-ref {
+/* transcript structured-reference badges */
+.off-msg-loop-ref,
+.off-msg-skill-ref {
   display: inline-flex;
   align-items: center;
   gap: var(--off-sp-1);

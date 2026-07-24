@@ -2,6 +2,7 @@ import type {
   ActorStaging,
   AmbientActivity,
   AmbientActivityPhase,
+  AmbientActorAvailability,
   AmbientActorDirection,
   AmbientActorHome,
   AmbientDestination,
@@ -46,7 +47,7 @@ export type {
 import { IDLE_PERFORMANCE, performanceForRoutine } from './performance.js';
 import { worldAnchorsFor } from './staging.js';
 
-export const AMBIENT_SCHEDULER_VERSION = 'office-ambient-v2' as const;
+export const AMBIENT_SCHEDULER_VERSION = 'office-ambient-v3' as const;
 
 export const AMBIENT_TIMING = {
   firstDueMinMs: 3_000,
@@ -58,6 +59,8 @@ export const AMBIENT_TIMING = {
   refreshmentDwellMs: 7_000,
   libraryDwellMs: 8_000,
   socialDwellMs: 12_000,
+  breakDwellMs: 18_000,
+  breakSegmentMs: 4_500,
   phoneDwellMs: 9_000,
   returnMs: 4_000,
   seatedShiftMs: 5_000,
@@ -67,18 +70,26 @@ export const AMBIENT_TIMING = {
   postureTransitionBufferMs: 3_000,
 } as const;
 
-const MOVEMENT_ROUTINES: readonly AmbientRoutineKind[] = ['refreshment', 'library', 'social'];
+const MOVEMENT_ROUTINES: readonly AmbientRoutineKind[] = [
+  'refreshment',
+  'library',
+  'social',
+  'break',
+];
 /** At-destination dwell per movement routine (phone = standing desk-side call). */
 const MOVEMENT_DWELL_MS = {
   refreshment: AMBIENT_TIMING.refreshmentDwellMs,
   library: AMBIENT_TIMING.libraryDwellMs,
   social: AMBIENT_TIMING.socialDwellMs,
+  break: AMBIENT_TIMING.breakDwellMs,
   phone: AMBIENT_TIMING.phoneDwellMs,
 } as const;
 const ROUTINE_MIX: readonly AmbientRoutineKind[] = [
   'refreshment',
   'library',
   'social',
+  'break',
+  'break',
   'phone',
   'desk-fidget',
   'desk-fidget',
@@ -211,7 +222,7 @@ function worldDestination(anchor: WorldAnchor): AmbientDestination {
     x: anchor.x,
     z: anchor.z,
     facing: anchor.facing,
-    posture: 'standing',
+    posture: anchor.posture,
   };
 }
 
@@ -287,6 +298,86 @@ function phoneDestinations(
   );
 }
 
+interface BreakFixtureCandidate {
+  readonly instanceId: string;
+  readonly moverAnchor: WorldAnchor;
+  readonly partnerAnchor: WorldAnchor;
+}
+
+function breakFixtureCandidates(
+  mover: AmbientActorHome,
+  partner: AmbientActorHome,
+  anchors: readonly WorldAnchor[],
+  reservedAnchorIds: ReadonlySet<string>,
+  reservedFixtureIds: ReadonlySet<string>,
+): BreakFixtureCandidate[] {
+  const byFixture = new Map<string, WorldAnchor[]>();
+  for (const anchor of anchors) {
+    if (
+      anchor.kind !== 'social-seat' ||
+      anchor.posture !== 'sitting' ||
+      reservedAnchorIds.has(anchor.anchorId) ||
+      reservedFixtureIds.has(anchor.instanceId)
+    ) {
+      continue;
+    }
+    const group = byFixture.get(anchor.instanceId) ?? [];
+    group.push(anchor);
+    byFixture.set(anchor.instanceId, group);
+  }
+
+  const midpointX = (mover.x + partner.x) / 2;
+  const midpointZ = (mover.z + partner.z) / 2;
+  return [...byFixture.entries()]
+    .filter(([, group]) => group.length >= 2)
+    .map(([instanceId, group]) => {
+      const ordered = [...group].sort((a, b) => cmpString(a.anchorId, b.anchorId));
+      const first = ordered[0] as WorldAnchor;
+      const second = ordered[1] as WorldAnchor;
+      const pair = [first, second].sort((a, b) => {
+        const aDistance = (a.x - mover.x) ** 2 + (a.z - mover.z) ** 2;
+        const bDistance = (b.x - mover.x) ** 2 + (b.z - mover.z) ** 2;
+        return aDistance - bDistance || cmpString(a.anchorId, b.anchorId);
+      });
+      const fixtureX = group.reduce((sum, anchor) => sum + anchor.x, 0) / group.length;
+      const fixtureZ = group.reduce((sum, anchor) => sum + anchor.z, 0) / group.length;
+      return {
+        instanceId,
+        moverAnchor: pair[0] as WorldAnchor,
+        partnerAnchor: pair[1] as WorldAnchor,
+        midpointDistance: (fixtureX - midpointX) ** 2 + (fixtureZ - midpointZ) ** 2,
+      };
+    })
+    .sort(
+      (a, b) => a.midpointDistance - b.midpointDistance || cmpString(a.instanceId, b.instanceId),
+    )
+    .map(({ instanceId, moverAnchor, partnerAnchor }) => ({
+      instanceId,
+      moverAnchor,
+      partnerAnchor,
+    }));
+}
+
+function movementTravelMs(distance: number, floorMs: number): number {
+  // NOTE: the posture-transition buffer sits inside the Math.max with the
+  // floor here, while pairedMovementTravelMs adds it after the floor. That
+  // asymmetry is an intentional, behaviour-locked relaxation (solo movers may
+  // absorb the buffer into the floor; paired movers always pay it) — do not
+  // "unify" the two formulas.
+  return Math.max(
+    floorMs,
+    Math.ceil((distance / CHARACTER_WALK_SPEED_UNITS_PER_SECOND) * 1_000) +
+      AMBIENT_TIMING.postureTransitionBufferMs,
+  );
+}
+
+function pairedMovementTravelMs(distances: readonly [number, number], floorMs: number): number {
+  const routeTravelMs = Math.ceil(
+    (Math.max(...distances) / CHARACTER_WALK_SPEED_UNITS_PER_SECOND) * 1_000,
+  );
+  return Math.max(floorMs, routeTravelMs) + AMBIENT_TIMING.postureTransitionBufferMs;
+}
+
 function activityForMovement(
   routine: Extract<AmbientRoutineKind, 'refreshment' | 'library' | 'social' | 'phone'>,
   moverId: string,
@@ -299,16 +390,8 @@ function activityForMovement(
   now: number,
 ): AmbientActivity {
   const dwellMs = MOVEMENT_DWELL_MS[routine];
-  const outboundTravelMs = Math.max(
-    AMBIENT_TIMING.outboundMs,
-    Math.ceil((outboundDistance / CHARACTER_WALK_SPEED_UNITS_PER_SECOND) * 1_000) +
-      AMBIENT_TIMING.postureTransitionBufferMs,
-  );
-  const returnTravelMs = Math.max(
-    AMBIENT_TIMING.returnMs,
-    Math.ceil((returnDistance / CHARACTER_WALK_SPEED_UNITS_PER_SECOND) * 1_000) +
-      AMBIENT_TIMING.postureTransitionBufferMs,
-  );
+  const outboundTravelMs = movementTravelMs(outboundDistance, AMBIENT_TIMING.outboundMs);
+  const returnTravelMs = movementTravelMs(returnDistance, AMBIENT_TIMING.returnMs);
   const outboundEndsAt = now + outboundTravelMs;
   const dwellEndsAt = outboundEndsAt + dwellMs;
   return {
@@ -318,7 +401,40 @@ function activityForMovement(
     sequence,
     away: true,
     destination,
+    partnerDestination: null,
     homePosture: home.posture ?? 'sitting',
+    partnerHomePosture: null,
+    startedAt: now,
+    outboundEndsAt,
+    dwellEndsAt,
+    endsAt: dwellEndsAt + returnTravelMs,
+  };
+}
+
+function activityForBreak(
+  mover: AmbientActorHome,
+  partner: AmbientActorHome,
+  sequence: number,
+  destination: AmbientDestination,
+  partnerDestination: AmbientDestination,
+  outboundDistances: readonly [number, number],
+  returnDistances: readonly [number, number],
+  now: number,
+): AmbientActivity {
+  const outboundTravelMs = pairedMovementTravelMs(outboundDistances, AMBIENT_TIMING.outboundMs);
+  const returnTravelMs = pairedMovementTravelMs(returnDistances, AMBIENT_TIMING.returnMs);
+  const outboundEndsAt = now + outboundTravelMs;
+  const dwellEndsAt = outboundEndsAt + AMBIENT_TIMING.breakDwellMs;
+  return {
+    moverId: mover.employeeId,
+    partnerId: partner.employeeId,
+    routine: 'break',
+    sequence,
+    away: true,
+    destination,
+    partnerDestination,
+    homePosture: mover.posture ?? 'sitting',
+    partnerHomePosture: partner.posture ?? 'sitting',
     startedAt: now,
     outboundEndsAt,
     dwellEndsAt,
@@ -362,10 +478,12 @@ function activityForInPlace(
     sequence,
     away: false,
     destination: null,
+    partnerDestination: null,
     homePosture:
       resolvedRoutine === 'seated-shift' || resolvedRoutine === 'desk-fidget'
         ? 'sitting'
         : homePosture,
+    partnerHomePosture: null,
     startedAt: now,
     outboundEndsAt: now,
     dwellEndsAt: endsAt,
@@ -384,42 +502,73 @@ function routeDistance(
   return route && Number.isFinite(route.distance) && route.distance >= 0 ? route.distance : null;
 }
 
+/**
+ * Seated, non-busy, non-participating partner candidates for paired routines
+ * (break / social), ordered by squared distance from the mover's home with an
+ * employeeId tiebreak. Shared by the break and social branches so partner
+ * selection cannot drift between them.
+ */
+function seatedPartnersByDistance(
+  homes: readonly AmbientActorHome[],
+  home: AmbientActorHome,
+  moverId: string,
+  actorById: ReadonlyMap<string, AmbientActorAvailability>,
+  activeParticipants: ReadonlySet<string>,
+): AmbientActorHome[] {
+  return homes
+    .filter(
+      (candidate) =>
+        candidate.employeeId !== moverId &&
+        (candidate.posture ?? 'sitting') === 'sitting' &&
+        !actorById.get(candidate.employeeId)?.busy &&
+        !activeParticipants.has(candidate.employeeId),
+    )
+    .sort((a, b) => {
+      const aDistance = (a.x - home.x) ** 2 + (a.z - home.z) ** 2;
+      const bDistance = (b.x - home.x) ** 2 + (b.z - home.z) ** 2;
+      return aDistance - bDistance || cmpString(a.employeeId, b.employeeId);
+    });
+}
+
 export function ambientActivityPhase(activity: AmbientActivity, now: number): AmbientActivityPhase {
   if (now < activity.outboundEndsAt) return 'outbound';
   if (now < activity.dwellEndsAt) return 'dwell';
   return 'return';
 }
 
-function stagingFor(activity: AmbientActivity, phase: AmbientActivityPhase): ActorStaging | null {
-  if (phase === 'return' || !activity.destination) return null;
+function stagingFor(
+  activity: AmbientActivity,
+  phase: AmbientActivityPhase,
+  participant: 'mover' | 'partner' = 'mover',
+): ActorStaging | null {
+  const destination =
+    participant === 'partner' ? activity.partnerDestination : activity.destination;
+  if (phase === 'return' || !destination) return null;
   return {
-    actorId: activity.moverId,
+    actorId:
+      participant === 'partner' ? (activity.partnerId ?? activity.moverId) : activity.moverId,
     affordance:
       activity.routine === 'refreshment'
         ? 'refreshment'
         : activity.routine === 'library'
           ? 'library-inspect'
-          : activity.routine === 'social'
+          : activity.routine === 'social' || activity.routine === 'break'
             ? 'social-seat'
             : 'standing-review',
-    anchorId: activity.destination.anchorId,
-    x: activity.destination.x,
-    z: activity.destination.z,
-    facing: activity.destination.facing,
-    posture: activity.destination.posture,
+    anchorId: destination.anchorId,
+    x: destination.x,
+    z: destination.z,
+    facing: destination.facing,
+    posture: destination.posture,
   };
 }
 
 function destinationPerformance(
   activity: AmbientActivity,
   seed: string,
+  employeeId = activity.moverId,
 ): CharacterPerformanceState {
-  const variant = performanceVariantFor(
-    seed,
-    activity.moverId,
-    activity.sequence,
-    activity.routine,
-  );
+  const variant = performanceVariantFor(seed, employeeId, activity.sequence, activity.routine);
   switch (activity.routine) {
     case 'refreshment':
       return performanceForRoutine('consume', variant);
@@ -427,6 +576,8 @@ function destinationPerformance(
       return performanceForRoutine('inspect', variant);
     case 'social':
       return performanceForRoutine('social', variant);
+    case 'break':
+      return { ...IDLE_PERFORMANCE, posture: 'sit', variant };
     case 'phone':
       return performanceForRoutine('phone', variant);
     case 'seated-shift':
@@ -440,6 +591,46 @@ function destinationPerformance(
   }
 }
 
+/**
+ * Invariant: the break dwell must divide into exactly 4 segments. The rank
+ * branches in breakDwellPerformance (social for the first half, idle on the
+ * second-to-last segment, desk-fidget otherwise) are tuned for that count;
+ * changing breakDwellMs / breakSegmentMs to yield anything else is a
+ * behaviour change and must fail loudly here rather than drift silently.
+ */
+const BREAK_DWELL_SEGMENT_COUNT = Math.ceil(
+  AMBIENT_TIMING.breakDwellMs / AMBIENT_TIMING.breakSegmentMs,
+);
+if (BREAK_DWELL_SEGMENT_COUNT !== 4) {
+  throw new Error(
+    `breakDwellPerformance assumes exactly 4 dwell segments, got ${BREAK_DWELL_SEGMENT_COUNT} ` +
+      `(breakDwellMs=${AMBIENT_TIMING.breakDwellMs}, breakSegmentMs=${AMBIENT_TIMING.breakSegmentMs})`,
+  );
+}
+
+function breakDwellPerformance(
+  activity: AmbientActivity,
+  employeeId: string,
+  now: number,
+  seed: string,
+): CharacterPerformanceState {
+  const segment = Math.floor((now - activity.outboundEndsAt) / AMBIENT_TIMING.breakSegmentMs);
+  const segmentCount = BREAK_DWELL_SEGMENT_COUNT;
+  const rankedSegments = Array.from({ length: segmentCount }, (_, index) => ({
+    index,
+    unit: seededUnit(seed, employeeId, activity.sequence, `break-segment:${index}`),
+  })).sort((a, b) => a.unit - b.unit || a.index - b.index);
+  const rank = rankedSegments.findIndex((candidate) => candidate.index === segment);
+  const variant = performanceVariantFor(seed, employeeId, activity.sequence, 'break');
+  if (rank < Math.ceil(segmentCount / 2)) {
+    return { ...performanceForRoutine('social', variant), posture: 'sit' };
+  }
+  if (rank === segmentCount - 2) {
+    return { ...IDLE_PERFORMANCE, posture: 'sit', variant };
+  }
+  return performanceForRoutine('desk-fidget', variant);
+}
+
 function directionsFor(
   activities: readonly AmbientActivity[],
   now: number,
@@ -448,6 +639,32 @@ function directionsFor(
   const directions: AmbientActorDirection[] = [];
   for (const activity of activities) {
     const phase = ambientActivityPhase(activity, now);
+    if (activity.routine === 'break' && activity.partnerId && activity.partnerDestination) {
+      for (const participant of ['mover', 'partner'] as const) {
+        const employeeId = participant === 'mover' ? activity.moverId : activity.partnerId;
+        const homePosture =
+          participant === 'mover' ? activity.homePosture : activity.partnerHomePosture;
+        const performance =
+          phase === 'return'
+            ? {
+                ...IDLE_PERFORMANCE,
+                posture: homePosture === 'sitting' ? ('sit' as const) : ('stand' as const),
+              }
+            : phase === 'dwell'
+              ? breakDwellPerformance(activity, employeeId, now, seed)
+              : destinationPerformance(activity, seed, employeeId);
+        directions.push({
+          employeeId,
+          routine: 'break',
+          phase,
+          away: true,
+          partnerId: participant === 'mover' ? activity.partnerId : activity.moverId,
+          performance,
+          staging: stagingFor(activity, phase, participant),
+        });
+      }
+      continue;
+    }
     const performance =
       phase === 'return'
         ? {
@@ -500,6 +717,15 @@ function nextBoundary(
     for (const boundary of [activity.outboundEndsAt, activity.dwellEndsAt, activity.endsAt]) {
       if (boundary > now && boundary < next) next = boundary;
     }
+    if (activity.routine === 'break') {
+      for (
+        let boundary = activity.outboundEndsAt + AMBIENT_TIMING.breakSegmentMs;
+        boundary < activity.dwellEndsAt;
+        boundary += AMBIENT_TIMING.breakSegmentMs
+      ) {
+        if (boundary > now && boundary < next) next = boundary;
+      }
+    }
   }
   return next;
 }
@@ -542,6 +768,17 @@ function geometrySignature(
       .sort((a, b) => cmpString(String(a[0]), String(b[0]))),
     routeSignature: routeSignature ?? 'unversioned-route',
   });
+}
+
+function destinationsForActivity(activity: AmbientActivity): AmbientDestination[] {
+  return [activity.destination, activity.partnerDestination].filter(
+    (destination): destination is AmbientDestination => destination !== null,
+  );
+}
+
+function awayActorCount(activity: AmbientActivity): number {
+  if (!activity.away) return 0;
+  return activity.partnerDestination === null ? 1 : 2;
 }
 
 /**
@@ -601,9 +838,7 @@ export function advanceAmbientScheduler(
     (a, b) => a.startedAt - b.startedAt || cmpString(a.moverId, b.moverId),
   )) {
     const participants = [activity.moverId, ...(activity.partnerId ? [activity.partnerId] : [])];
-    const destinationAnchor = activity.destination
-      ? anchorById.get(activity.destination.anchorId)
-      : undefined;
+    const destinations = destinationsForActivity(activity);
     const invalid =
       !input.policy.enabled ||
       geometryChanged ||
@@ -615,15 +850,18 @@ export function advanceAmbientScheduler(
           actorById.get(employeeId)?.busy ||
           retainedParticipants.has(employeeId),
       ) ||
-      (activity.destination !== null &&
-        (blockedAnchorIds.has(activity.destination.anchorId) ||
-          (destinationAnchor !== undefined &&
-            blockedFixtureIds.has(destinationAnchor.instanceId)))) ||
-      (activity.away && retainedAway >= input.policy.maxAway) ||
+      destinations.some((destination) => {
+        const destinationAnchor = anchorById.get(destination.anchorId);
+        return (
+          blockedAnchorIds.has(destination.anchorId) ||
+          (destinationAnchor !== undefined && blockedFixtureIds.has(destinationAnchor.instanceId))
+        );
+      }) ||
+      retainedAway + awayActorCount(activity) > input.policy.maxAway ||
       retainedParticipants.size + participants.length > input.policy.maxActiveActors;
     if (invalid) continue;
     retained.push(activity);
-    if (activity.away) retainedAway += 1;
+    retainedAway += awayActorCount(activity);
     for (const employeeId of participants) retainedParticipants.add(employeeId);
   }
 
@@ -632,9 +870,9 @@ export function advanceAmbientScheduler(
   const reservedAnchorIds = new Set(blockedAnchorIds);
   const reservedFixtureIds = new Set(blockedFixtureIds);
   for (const activity of activities) {
-    if (activity.destination) {
-      reservedAnchorIds.add(activity.destination.anchorId);
-      const anchor = anchorById.get(activity.destination.anchorId);
+    for (const destination of destinationsForActivity(activity)) {
+      reservedAnchorIds.add(destination.anchorId);
+      const anchor = anchorById.get(destination.anchorId);
       if (anchor) reservedFixtureIds.add(anchor.instanceId);
     }
   }
@@ -725,23 +963,74 @@ export function advanceAmbientScheduler(
       for (let offset = 0; offset < MOVEMENT_ROUTINES.length && !activity; offset += 1) {
         const routine = MOVEMENT_ROUTINES[(start + offset) % MOVEMENT_ROUTINES.length] as Extract<
           AmbientRoutineKind,
-          'refreshment' | 'library' | 'social'
+          'refreshment' | 'library' | 'social' | 'break'
         >;
-        if (routine === 'social') {
+        if (routine === 'break') {
+          if (!canAddActors(2) || awayCount + 2 > input.policy.maxAway) {
+            continue;
+          }
+          const partners = seatedPartnersByDistance(
+            homes,
+            home,
+            clock.employeeId,
+            actorById,
+            activeParticipants,
+          );
+          for (const partner of partners) {
+            for (const fixture of breakFixtureCandidates(
+              home,
+              partner,
+              anchors,
+              reservedAnchorIds,
+              reservedFixtureIds,
+            )) {
+              const destination = worldDestination(fixture.moverAnchor);
+              const partnerDestination = worldDestination(fixture.partnerAnchor);
+              const moverOutbound = routeDistance(input.routeFor, home, destination, true);
+              const moverReturn = routeDistance(input.routeFor, destination, home, true);
+              const partnerOutbound = routeDistance(
+                input.routeFor,
+                partner,
+                partnerDestination,
+                true,
+              );
+              const partnerReturn = routeDistance(
+                input.routeFor,
+                partnerDestination,
+                partner,
+                true,
+              );
+              if (
+                moverOutbound === null ||
+                moverReturn === null ||
+                partnerOutbound === null ||
+                partnerReturn === null
+              ) {
+                continue;
+              }
+              activity = activityForBreak(
+                home,
+                partner,
+                clock.sequence,
+                destination,
+                partnerDestination,
+                [moverOutbound, partnerOutbound],
+                [moverReturn, partnerReturn],
+                input.now,
+              );
+              break;
+            }
+            if (activity) break;
+          }
+        } else if (routine === 'social') {
           if (!canAddActors(2)) continue;
-          const partners = homes
-            .filter(
-              (candidate) =>
-                candidate.employeeId !== clock.employeeId &&
-                (candidate.posture ?? 'sitting') === 'sitting' &&
-                !actorById.get(candidate.employeeId)?.busy &&
-                !activeParticipants.has(candidate.employeeId),
-            )
-            .sort((a, b) => {
-              const aDistance = (a.x - home.x) ** 2 + (a.z - home.z) ** 2;
-              const bDistance = (b.x - home.x) ** 2 + (b.z - home.z) ** 2;
-              return aDistance - bDistance || cmpString(a.employeeId, b.employeeId);
-            });
+          const partners = seatedPartnersByDistance(
+            homes,
+            home,
+            clock.employeeId,
+            actorById,
+            activeParticipants,
+          );
           for (const partner of partners) {
             const destinations = socialDestinations(
               input.seed,
@@ -825,10 +1114,10 @@ export function advanceAmbientScheduler(
     activities = [...activities, activity];
     activeParticipants.add(activity.moverId);
     activeActorCount += 1;
-    if (activity.away) awayCount += 1;
-    if (activity.destination) {
-      reservedAnchorIds.add(activity.destination.anchorId);
-      const anchor = anchorById.get(activity.destination.anchorId);
+    awayCount += awayActorCount(activity);
+    for (const destination of destinationsForActivity(activity)) {
+      reservedAnchorIds.add(destination.anchorId);
+      const anchor = anchorById.get(destination.anchorId);
       if (anchor) reservedFixtureIds.add(anchor.instanceId);
     }
     updateClock(consumeAttempt(input.seed, clock, input.now));
