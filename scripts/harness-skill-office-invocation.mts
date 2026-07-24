@@ -3,6 +3,7 @@ import type { ComposerSkillReference } from '../apps/desktop/renderer/src/assist
 import {
   buildSkillOfficeInvocationLines,
   buildSkillOfficeInvocationText,
+  restoreSkillInvocationText,
 } from '../apps/desktop/renderer/src/assistant/runtime/skill-office-invocation.ts';
 import { createHarness } from './lib/harness-runner.mjs';
 
@@ -45,9 +46,37 @@ description: Canonical vault skill
     ],
   );
   assert.deepEqual(lines, [
-    'Use the "research-summary" skill for this task: locate it among your available skills, read its SKILL.md, and follow it. (Summarize source material.)',
+    'Use the "research-summary" skill for this task: locate it among your available skills, read its SKILL.md, and follow it. (Canonical vault skill)',
   ]);
 });
+
+await check(
+  'vault chip description falls back to the DB value when frontmatter omits it',
+  async () => {
+    const lines = await buildSkillOfficeInvocationLines(
+      {
+        readVaultFile: async () => `---
+name: research-summary
+---
+
+# Research Summary
+`,
+      },
+      [
+        reference({
+          skillId: 'vault-research',
+          name: 'Research Summary',
+          description: 'Summarize source material.',
+          source: 'company',
+          vault_path: 'companies/co/skills/research/SKILL.md',
+        }),
+      ],
+    );
+    assert.deepEqual(lines, [
+      'Use the "research-summary" skill for this task: locate it among your available skills, read its SKILL.md, and follow it. (Summarize source material.)',
+    ]);
+  },
+);
 
 await check(
   'project chip uses its already-discovered frontmatter name without vault I/O',
@@ -154,5 +183,65 @@ await check(
     assert.ok(lines[1]?.endsWith('(Second project.)'));
   },
 );
+
+await check(
+  'restored engine text strips tokens and rebuilds directives for resolvable ids',
+  async () => {
+    const text = await restoreSkillInvocationText(
+      {
+        readVaultFile: async () => {
+          throw new Error('vault unavailable in this check');
+        },
+        resolveReference: async (skillId) =>
+          skillId === 'research-summary'
+            ? reference({
+                skillId,
+                name: 'Research Summary',
+                description: 'Summarize source material.',
+                source: 'company',
+                vault_path: 'companies/co/skills/research/SKILL.md',
+              })
+            : null,
+      },
+      'Summarize this. [[skill:research-summary]]',
+    );
+    assert.equal(
+      text,
+      'Summarize this.\n\nUse the "Research Summary" skill for this task: locate it among your available skills, read its SKILL.md, and follow it. (Summarize source material.)',
+    );
+  },
+);
+
+await check(
+  'restored engine text degrades to a plain strip when the id no longer resolves',
+  async () => {
+    const text = await restoreSkillInvocationText(
+      {
+        readVaultFile: async () => {
+          throw new Error('must not read the vault for unresolvable ids');
+        },
+        resolveReference: async () => null,
+      },
+      'Summarize this. [[skill:deleted-skill]]',
+    );
+    assert.equal(text, 'Summarize this.');
+  },
+);
+
+await check('restored engine text leaves token-free text byte-identical', async () => {
+  const source = 'First line.\n\nSecond paragraph with  double spaces.';
+  const text = await restoreSkillInvocationText(
+    {
+      readVaultFile: async () => {
+        throw new Error('must not read the vault for token-free text');
+      },
+      resolveReference: async () => {
+        throw new Error('must not resolve for token-free text');
+      },
+    },
+    source,
+  );
+  assert.equal(text, source);
+});
 
 h.report();

@@ -3,12 +3,14 @@ import {
   loadPersistedChatMessagesByIdsWithRepositories,
   persistChatMessage,
 } from '@/data/chat-message-events.js';
+import { discoverProjectSkills } from '@/data/project-skills.js';
 import {
   claimSemanticTitleJob,
   generateSemanticThreadTitle,
 } from '@/data/semantic-thread-title.js';
 import { appendThreadMessageEvent } from '@/data/thread-message-events.js';
 import type { ChatMessage, ChatToolCall, RunError, StagedAttachment } from '@/data/types.js';
+import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import {
   AGENT_LIFECYCLE_EVENT,
   AGENT_UI_REQUEST_EVENT,
@@ -57,6 +59,7 @@ import type {
   WorkKind,
   WorkspaceProvenance,
 } from '@offisim/shared-types';
+import type { ComposerSkillReference } from '../composer/composer-skill-reference-store.js';
 import { formatWorkspaceProvenance } from '../presentation/workspace-provenance.js';
 import {
   buildRunError,
@@ -66,6 +69,7 @@ import {
   rehydratePersistedChatTurn,
   upsertChatToolCall,
 } from './desktop-chat-runtime.js';
+import { restoreSkillInvocationText } from './skill-office-invocation.js';
 
 const CHECKPOINT_INTERVAL_MS = 3_000;
 const ACTIVE_PHASES = new Set<ConversationRunPhase>(['preparing', 'running', 'awaiting-approval']);
@@ -367,6 +371,17 @@ interface ConversationRunControllerDeps {
   loadMessagesByIds: typeof loadPersistedChatMessagesByIdsWithRepositories;
   loadMessages: typeof loadPersistedChatMessages;
   appendEvent: typeof appendThreadMessageEvent;
+  /**
+   * Rebuild the engine-bound projection of a restored persisted text: protected
+   * `[[skill:id]]` chip tokens must never reach an engine lane raw — they are
+   * stripped and, when the skill identity still resolves, replaced with explicit
+   * invocation directives. Texts without tokens pass through untouched.
+   */
+  restoreEngineText: (input: {
+    companyId: string;
+    projectId: string | null;
+    text: string;
+  }) => Promise<string>;
   now: () => number;
   randomUUID: () => string;
   /** Renderer-owned Mission loops share chat threads but not Conversation UI.
@@ -1304,7 +1319,14 @@ export class ConversationRunController {
       input,
       userMessage,
       assistantMessageId: current.projection.assistantMessageId,
-      promptText: current.row.objective?.trim() || userMessage.body,
+      // The engine-bound retry prompt must not carry raw `[[skill:id]]` tokens
+      // from the durable body; rebuild it through the strip-and-reinvoke
+      // projection a fresh Send would have produced.
+      promptText: await this.deps.restoreEngineText({
+        companyId,
+        projectId: current.projectId,
+        text: current.row.objective?.trim() || userMessage.body,
+      }),
       images: [],
       messagePersisted: true,
       clearRestoredApproval: false,
@@ -1660,7 +1682,13 @@ export class ConversationRunController {
       const queuedTurns = await Promise.all(
         queuedMessages.map(async (message): Promise<QueuedTurn> => {
           const materialized = await rehydratePersistedChatTurn({
-            text: message.body,
+            // The durable body holds only protected chip tokens; the engine gets
+            // them stripped with invocation directives rebuilt when resolvable.
+            text: await this.deps.restoreEngineText({
+              companyId: row.company_id,
+              projectId: row.project_id,
+              text: message.body,
+            }),
             attachments: message.attachments ?? [],
           });
           return {
@@ -1687,6 +1715,14 @@ export class ConversationRunController {
         permissionMode: projection.permissionMode,
         thinkingLevel: projection.thinkingLevel,
       };
+      // `input.text` stays the durable projection. The engine-bound prompt must
+      // not carry raw `[[skill:id]]` tokens, so rebuild it through the same
+      // strip-and-reinvoke projection a fresh Send would have produced.
+      const restoredPromptText = await this.deps.restoreEngineText({
+        companyId: row.company_id,
+        projectId: row.project_id,
+        text: row.objective ?? userMessage.body,
+      });
       const run: ActiveRun = {
         input,
         threadId: row.thread_id,
@@ -1695,7 +1731,7 @@ export class ConversationRunController {
         userMessages: [userMessage, ...queuedMessages],
         assistantMessageId: projection.assistantMessageId,
         assistantMessage,
-        promptText: row.objective ?? userMessage.body,
+        promptText: restoredPromptText,
         images: [],
         queuedTurns,
         queueChain: Promise.resolve(),
@@ -3036,15 +3072,66 @@ export class ConversationRunController {
 export function createConversationRunController(
   deps: Partial<ConversationRunControllerDeps> = {},
 ): ConversationRunController {
+  const reposFactory = deps.reposFactory ?? getRepos;
   return new ConversationRunController({
     eventBus: deps.eventBus ?? runtimeEventBus,
     runtimeFactory: deps.runtimeFactory ?? getDesktopAgentRuntime,
-    reposFactory: deps.reposFactory ?? getRepos,
+    reposFactory,
     materializeTurn: deps.materializeTurn ?? materializeChatTurn,
     persistMessage: deps.persistMessage ?? persistChatMessage,
     loadMessagesByIds: deps.loadMessagesByIds ?? loadPersistedChatMessagesByIdsWithRepositories,
     loadMessages: deps.loadMessages ?? loadPersistedChatMessages,
     appendEvent: deps.appendEvent ?? appendThreadMessageEvent,
+    restoreEngineText:
+      deps.restoreEngineText ??
+      (async ({ companyId, projectId, text }) => {
+        const resolveReference = async (
+          skillId: string,
+        ): Promise<ComposerSkillReference | null> => {
+          try {
+            const repos = await reposFactory();
+            const row = await repos.skills.findById(skillId);
+            if (row) {
+              return {
+                id: `restored-${skillId}`,
+                skillId,
+                name: row.name,
+                description: row.description,
+                source: row.scope === 'employee' ? 'employee' : 'company',
+                vault_path: row.vault_path,
+                insertedAt: 0,
+              };
+            }
+            if (projectId && skillId.startsWith('project:')) {
+              const skill = (await discoverProjectSkills(projectId)).find(
+                (candidate) => candidate.id === skillId,
+              );
+              if (skill) {
+                return {
+                  id: `restored-${skillId}`,
+                  skillId,
+                  name: skill.name,
+                  description: skill.description,
+                  source: 'project',
+                  relativePath: skill.relativePath,
+                  insertedAt: 0,
+                };
+              }
+            }
+          } catch (error) {
+            console.warn('[conversation-run] restored skill reference lookup failed', {
+              companyId,
+              skillId,
+              error,
+            });
+          }
+          return null;
+        };
+        return restoreSkillInvocationText(
+          { readVaultFile: createTauriVaultFileSystem().readFile, resolveReference },
+          text,
+        );
+      }),
     now: deps.now ?? (() => Date.now()),
     randomUUID: deps.randomUUID ?? (() => crypto.randomUUID()),
     isMissionThreadRunning:

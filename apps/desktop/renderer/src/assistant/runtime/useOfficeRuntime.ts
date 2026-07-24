@@ -1,5 +1,4 @@
 import { autoTitleThreadFromFirstMessage } from '@/data/auto-title.js';
-import { persistChatMessage } from '@/data/chat-message-events.js';
 import { queryKeys } from '@/data/query-keys.js';
 import type { ChatMessage, Employee, StagedAttachment } from '@/data/types.js';
 import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
@@ -36,30 +35,13 @@ import { conversationRunController } from './conversation-run-controller.js';
 import { isConversationRunActive, useConversationRun } from './conversation-run-react.js';
 import { ATTACHMENT_ONLY_PROMPT, appendText } from './desktop-chat-runtime.js';
 import { buildLoopSendExecution } from './loop-send-execution.js';
+import { mergeMessages, messageAt } from './office-thread-messages.js';
 import { buildSkillOfficeInvocationText } from './skill-office-invocation.js';
 
 const EMPTY_STAGED_ATTACHMENTS: StagedAttachment[] = [];
 
 function safeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
-}
-
-function mergeMessages(
-  seedMessages: readonly ChatMessage[],
-  liveMessages: readonly ChatMessage[],
-  preferLiveMessages: boolean,
-) {
-  const byId = new Map<string, ChatMessage>();
-  for (const message of seedMessages) byId.set(message.id, message);
-  for (const message of liveMessages) {
-    if (!preferLiveMessages && byId.has(message.id)) continue;
-    byId.set(message.id, message);
-  }
-  return Array.from(byId.values()).sort((a, b) => messageAt(a) - messageAt(b));
-}
-
-function messageAt(message: ChatMessage): number {
-  return typeof message.at === 'number' && Number.isFinite(message.at) ? message.at : Date.now();
 }
 
 /** Map an Offisim chat message into the assistant-ui thread model. The original
@@ -134,16 +116,6 @@ export function useOfficeRuntime({
     (state) => state.stagedByScope[attachmentScopeKey] ?? EMPTY_STAGED_ATTACHMENTS,
   );
   const consumeStaged = useComposerAttachmentStore((state) => state.consumeStaged);
-  const persistRunMessage = useCallback(
-    async (message: ChatMessage) => {
-      if (persistMessage) {
-        await persistMessage(message);
-      } else {
-        await persistChatMessage({ message, companyId, projectId });
-      }
-    },
-    [companyId, persistMessage, projectId],
-  );
   const messages = useMemo(
     () => mergeMessages(seedMessages, run.liveMessages, isConversationRunActive(run.phase)),
     [run.liveMessages, run.phase, seedMessages],
@@ -242,7 +214,9 @@ export function useOfficeRuntime({
           stagedAttachments: stagedForTurn,
           model: resolveThreadModel(threadId),
           source: 'office' as const,
-          persistMessage: persistRunMessage,
+          // No wrapper fallback here: when the surface does not inject a persister,
+          // the controller's own default persists with this input's company/project.
+          ...(persistMessage ? { persistMessage } : {}),
           onMessagePersisted: () => consumeStaged(attachmentScope, stagedIdsForTurn),
           onThreadTitleUpdated: () => {
             void Promise.all([
@@ -280,7 +254,7 @@ export function useOfficeRuntime({
       consumeStaged,
       employeesById,
       materializeThread,
-      persistRunMessage,
+      persistMessage,
       projectId,
       queryClient,
       staged,
