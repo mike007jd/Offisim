@@ -11,6 +11,8 @@ use url::Url;
 
 const BROWSER_EVENT: &str = "offisim-browser-session-event-v1";
 const BROWSER_LABEL_PREFIX: &str = "browser-";
+// Safari freezes its UA; manually bump only Version/ with each annual Safari major release.
+pub(crate) const BROWSER_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
 const MAX_TOMBSTONES: usize = 256;
 const MAX_TITLE_CHARS: usize = 512;
 const MAX_ERROR_CHARS: usize = 512;
@@ -137,6 +139,7 @@ async fn bounds_in_parent_window<R: Runtime>(
 pub struct BrowserSessionSnapshot {
     pub session_id: String,
     pub scope: BrowserSessionScope,
+    pub agent: bool,
     pub status: String,
     pub url: String,
     pub title: Option<String>,
@@ -149,16 +152,37 @@ pub struct BrowserSessionSnapshot {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum AuditOrigin {
-    Manual,
+pub(crate) enum AuditOrigin {
+    Human,
+    Agent,
     Page,
 }
 
 impl AuditOrigin {
     fn as_str(self) -> &'static str {
         match self {
-            Self::Manual => "manual",
+            Self::Human => "human",
+            Self::Agent => "agent",
             Self::Page => "page",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BrowserSessionOwner {
+    Human,
+    Agent,
+}
+
+impl BrowserSessionOwner {
+    fn is_agent(self) -> bool {
+        self == Self::Agent
+    }
+
+    fn audit_origin(self) -> AuditOrigin {
+        match self {
+            Self::Human => AuditOrigin::Human,
+            Self::Agent => AuditOrigin::Agent,
         }
     }
 }
@@ -200,6 +224,25 @@ enum ReserveOutcome {
     Existing(Box<SessionAccess>),
 }
 
+struct BrowserSessionCreateOptions {
+    owner: BrowserSessionOwner,
+    incognito: bool,
+    initially_visible: bool,
+    reattach_existing: bool,
+}
+
+#[allow(dead_code)]
+pub(crate) struct BrowserSessionCreation {
+    pub snapshot: BrowserSessionSnapshot,
+    pub created: bool,
+}
+
+#[allow(dead_code)]
+pub(crate) struct AgentBrowserSessionAccess<R: Runtime> {
+    pub snapshot: BrowserSessionSnapshot,
+    pub webview: Webview<R>,
+}
+
 enum SessionMutation {
     NavigationStarted(String),
     UrlObserved(String),
@@ -228,12 +271,17 @@ impl BrowserSessionRegistry {
         url: String,
         bounds: BrowserBounds,
         host_webview_label: String,
+        owner: BrowserSessionOwner,
+        visible: bool,
     ) -> Result<ReserveOutcome, String> {
         let label = browser_label(&session_id)?;
         let mut inner = self.lock();
         if let Some(record) = inner.sessions.get(&session_id) {
             if record.snapshot.scope != scope {
                 return Err("browser session scope mismatch".to_string());
+            }
+            if record.snapshot.agent != owner.is_agent() {
+                return Err("browser session owner mismatch".to_string());
             }
             if record.snapshot.status == "closed" {
                 return Err("browser session is closed".to_string());
@@ -247,13 +295,14 @@ impl BrowserSessionRegistry {
         let snapshot = BrowserSessionSnapshot {
             session_id: session_id.clone(),
             scope,
+            agent: owner.is_agent(),
             status: "loading".to_string(),
             url,
             title: None,
             can_go_back: false,
             can_go_forward: false,
             sequence: 1,
-            visible: true,
+            visible,
             error: None,
         };
         inner.sessions.insert(
@@ -263,7 +312,7 @@ impl BrowserSessionRegistry {
                 host_webview_label,
                 bounds,
                 snapshot: snapshot.clone(),
-                pending_navigation_origin: Some(AuditOrigin::Manual),
+                pending_navigation_origin: Some(owner.audit_origin()),
             },
         );
         Ok(ReserveOutcome::Created)
@@ -469,7 +518,7 @@ impl BrowserSessionRegistry {
             {
                 if was_active {
                     emit_snapshot(app, &closed.host_webview_label, &closed.snapshot);
-                    append_audit(app, &closed.snapshot, "close", AuditOrigin::Manual, None);
+                    append_audit(app, &closed.snapshot, "close", AuditOrigin::Human, None);
                 }
             }
         }
@@ -633,7 +682,16 @@ fn append_audit<R: Runtime>(
     origin: AuditOrigin,
     url: Option<&Url>,
 ) {
-    let event = serde_json::json!({
+    crate::stage_audit::append(&audit_event(snapshot, action, origin, url));
+}
+
+fn audit_event(
+    snapshot: &BrowserSessionSnapshot,
+    action: &str,
+    origin: AuditOrigin,
+    url: Option<&Url>,
+) -> serde_json::Value {
+    serde_json::json!({
         "sessionId": snapshot.session_id,
         "scope": snapshot.scope,
         "lane": "browser",
@@ -642,8 +700,7 @@ fn append_audit<R: Runtime>(
         "origin": origin.as_str(),
         "url": url.and_then(sanitized_audit_url),
         "atUnixMs": now_unix_ms(),
-    });
-    crate::stage_audit::append(&event);
+    })
 }
 
 fn now_unix_ms() -> u64 {
@@ -835,55 +892,91 @@ fn webview_for<R: Runtime>(
         .ok_or_else(|| "native browser WebView is unavailable".to_string())
 }
 
+pub(crate) fn access_agent_browser_session<R: Runtime>(
+    app: &AppHandle<R>,
+    session_id: &str,
+    scope: &BrowserSessionScope,
+) -> Result<AgentBrowserSessionAccess<R>, String> {
+    let access = registry(app).active_access(session_id, scope)?;
+    if !access.snapshot.agent {
+        return Err("browser session is not agent-owned".to_string());
+    }
+    Ok(AgentBrowserSessionAccess {
+        webview: webview_for(app, &access)?,
+        snapshot: access.snapshot,
+    })
+}
+
+#[allow(dead_code)]
+pub(crate) fn append_agent_browser_audit<R: Runtime>(
+    app: &AppHandle<R>,
+    snapshot: &BrowserSessionSnapshot,
+    action: &str,
+    url: Option<&Url>,
+) {
+    append_audit(app, snapshot, action, AuditOrigin::Agent, url);
+}
+
 fn command_failed<R: Runtime>(app: &AppHandle<R>, session_id: &str, message: String) -> String {
     let mutation = registry(app).mutate(session_id, SessionMutation::Error(message.clone()));
     emit_mutation(app, mutation);
     message
 }
 
-#[tauri::command]
-pub async fn browser_session_create<R: Runtime>(
-    app: AppHandle<R>,
-    caller: Webview<R>,
-    registry: State<'_, BrowserSessionRegistry>,
+async fn create_browser_session<R: Runtime>(
+    app: &AppHandle<R>,
+    caller: &Webview<R>,
+    registry: &BrowserSessionRegistry,
     session_id: String,
     scope: BrowserSessionScope,
     url: String,
     bounds: BrowserBounds,
-) -> Result<BrowserSessionSnapshot, String> {
+    options: BrowserSessionCreateOptions,
+) -> Result<BrowserSessionCreation, String> {
     browser_label(&session_id)?;
-    validate_scope(&crate::local_db::get_offisim_pool(&app)?, &scope).await?;
+    validate_scope(&crate::local_db::get_offisim_pool(app)?, &scope).await?;
     let url = validated_navigation_url(&url)?;
     let bounds = bounds.validate()?;
-    let native_bounds = bounds_in_parent_window(&caller, bounds).await?;
+    let native_bounds = bounds_in_parent_window(caller, bounds).await?;
     let reservation = registry.reserve(
         session_id.clone(),
         scope.clone(),
         url.to_string(),
         bounds,
         caller.label().to_string(),
+        options.owner,
+        options.initially_visible,
     )?;
 
     if let ReserveOutcome::Existing(access) = reservation {
-        let webview = webview_for(&app, &access)?;
-        webview
-            .set_bounds(native_bounds.native_rect())
-            .map_err(|error| format!("reattach browser bounds: {error}"))?;
-        webview
-            .show()
-            .map_err(|error| format!("reattach browser visibility: {error}"))?;
-        let mutation =
-            registry.reattach(&session_id, &scope, bounds, caller.label().to_string())?;
-        append_audit(
-            &app,
-            &mutation.snapshot,
-            "reattach",
-            AuditOrigin::Manual,
-            Url::parse(&mutation.snapshot.url).ok().as_ref(),
-        );
-        emit_snapshot(&app, &mutation.host_webview_label, &mutation.snapshot);
-        let _ = refresh_history(&app, &session_id, webview).await;
-        return Ok(registry.current(&session_id).unwrap_or(mutation.snapshot));
+        if options.reattach_existing {
+            let webview = webview_for(app, &access)?;
+            webview
+                .set_bounds(native_bounds.native_rect())
+                .map_err(|error| format!("reattach browser bounds: {error}"))?;
+            webview
+                .show()
+                .map_err(|error| format!("reattach browser visibility: {error}"))?;
+            let mutation =
+                registry.reattach(&session_id, &scope, bounds, caller.label().to_string())?;
+            append_audit(
+                app,
+                &mutation.snapshot,
+                "reattach",
+                options.owner.audit_origin(),
+                Url::parse(&mutation.snapshot.url).ok().as_ref(),
+            );
+            emit_snapshot(app, &mutation.host_webview_label, &mutation.snapshot);
+            let _ = refresh_history(app, &session_id, webview).await;
+            return Ok(BrowserSessionCreation {
+                snapshot: registry.current(&session_id).unwrap_or(mutation.snapshot),
+                created: false,
+            });
+        }
+        return Ok(BrowserSessionCreation {
+            snapshot: access.snapshot,
+            created: false,
+        });
     }
 
     let navigation_app = app.clone();
@@ -898,12 +991,13 @@ pub async fn browser_session_create<R: Runtime>(
     let load_id = session_id.clone();
     let label = browser_label(&session_id)?;
     let builder = WebviewBuilder::new(label, WebviewUrl::External(url.clone()))
+        .user_agent(BROWSER_USER_AGENT)
         .accept_first_mouse(true)
         // The browser chrome lives in the main renderer WebView. A child that
         // claims focus during creation makes the address field look fake and
         // swallows the first keyboard interaction.
         .focused(false)
-        .incognito(false)
+        .incognito(options.incognito)
         .on_navigation(move |target| handle_navigation(&navigation_app, &navigation_id, target))
         .on_new_window(move |target, _features| {
             handle_blocked_page_action(
@@ -945,18 +1039,129 @@ pub async fn browser_session_create<R: Runtime>(
             return Err(format!("create browser WebView: {error}"));
         }
     };
+    if !options.initially_visible {
+        if let Err(error) = webview.hide() {
+            let _ = webview.close();
+            registry.abandon(&session_id);
+            return Err(format!("hide browser WebView after creation: {error}"));
+        }
+    }
     let Some(snapshot) = registry.current(&session_id) else {
         let _ = webview.close();
         return Err("browser session disappeared during creation".to_string());
     };
     if snapshot.status == "closed" {
         let _ = webview.close();
-        return Ok(snapshot);
+        return Ok(BrowserSessionCreation {
+            snapshot,
+            created: true,
+        });
     }
-    append_audit(&app, &snapshot, "create", AuditOrigin::Manual, Some(&url));
-    emit_snapshot(&app, caller.label(), &snapshot);
-    let _ = refresh_history(&app, &session_id, webview).await;
-    Ok(registry.current(&session_id).unwrap_or(snapshot))
+    append_audit(
+        app,
+        &snapshot,
+        "create",
+        options.owner.audit_origin(),
+        Some(&url),
+    );
+    emit_snapshot(app, caller.label(), &snapshot);
+    let _ = refresh_history(app, &session_id, webview).await;
+    Ok(BrowserSessionCreation {
+        snapshot: registry.current(&session_id).unwrap_or(snapshot),
+        created: true,
+    })
+}
+
+#[tauri::command]
+pub async fn browser_session_create<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Webview<R>,
+    registry: State<'_, BrowserSessionRegistry>,
+    session_id: String,
+    scope: BrowserSessionScope,
+    url: String,
+    bounds: BrowserBounds,
+) -> Result<BrowserSessionSnapshot, String> {
+    Ok(create_browser_session(
+        &app,
+        &caller,
+        &registry,
+        session_id,
+        scope,
+        url,
+        bounds,
+        BrowserSessionCreateOptions {
+            owner: BrowserSessionOwner::Human,
+            incognito: false,
+            initially_visible: true,
+            reattach_existing: true,
+        },
+    )
+    .await?
+    .snapshot)
+}
+
+#[allow(dead_code)]
+pub(crate) async fn create_agent_browser_session<R: Runtime>(
+    app: &AppHandle<R>,
+    host: &Webview<R>,
+    session_id: String,
+    scope: BrowserSessionScope,
+    url: String,
+    bounds: BrowserBounds,
+) -> Result<BrowserSessionCreation, String> {
+    let registry = registry(app);
+    create_browser_session(
+        app,
+        host,
+        &registry,
+        session_id,
+        scope,
+        url,
+        bounds,
+        BrowserSessionCreateOptions {
+            owner: BrowserSessionOwner::Agent,
+            incognito: true,
+            initially_visible: false,
+            reattach_existing: false,
+        },
+    )
+    .await
+}
+
+async fn navigate_browser_session<R: Runtime>(
+    app: &AppHandle<R>,
+    registry: &BrowserSessionRegistry,
+    session_id: String,
+    scope: BrowserSessionScope,
+    url: String,
+    origin: AuditOrigin,
+) -> Result<BrowserSessionSnapshot, String> {
+    let access = registry.active_access(&session_id, &scope)?;
+    let target = match validated_navigation_url(&url) {
+        Ok(url) => url,
+        Err(error) => {
+            append_audit(
+                app,
+                &access.snapshot,
+                "navigation-blocked",
+                origin,
+                Url::parse(url.trim()).ok().as_ref(),
+            );
+            return Err(error);
+        }
+    };
+    registry.set_pending_origin(&session_id, origin);
+    append_audit(app, &access.snapshot, "navigate", origin, Some(&target));
+    if let Err(error) = webview_for(app, &access)?.navigate(target) {
+        registry.clear_pending_origin(&session_id);
+        return Err(command_failed(
+            app,
+            &session_id,
+            format!("navigate browser: {error}"),
+        ));
+    }
+    Ok(registry.current(&session_id).unwrap_or(access.snapshot))
 }
 
 #[tauri::command]
@@ -967,67 +1172,63 @@ pub async fn browser_session_navigate<R: Runtime>(
     scope: BrowserSessionScope,
     url: String,
 ) -> Result<BrowserSessionSnapshot, String> {
+    navigate_browser_session(&app, &registry, session_id, scope, url, AuditOrigin::Human).await
+}
+
+#[allow(dead_code)]
+pub(crate) async fn navigate_agent_browser_session<R: Runtime>(
+    app: &AppHandle<R>,
+    session_id: String,
+    scope: BrowserSessionScope,
+    url: String,
+) -> Result<BrowserSessionSnapshot, String> {
+    let registry = registry(app);
     let access = registry.active_access(&session_id, &scope)?;
-    let target = match validated_navigation_url(&url) {
-        Ok(url) => url,
-        Err(error) => {
-            append_audit(
-                &app,
-                &access.snapshot,
-                "navigation-blocked",
-                AuditOrigin::Manual,
-                Url::parse(url.trim()).ok().as_ref(),
-            );
-            return Err(error);
-        }
-    };
-    registry.set_pending_origin(&session_id, AuditOrigin::Manual);
-    append_audit(
-        &app,
-        &access.snapshot,
-        "navigate",
-        AuditOrigin::Manual,
-        Some(&target),
-    );
-    if let Err(error) = webview_for(&app, &access)?.navigate(target) {
-        registry.clear_pending_origin(&session_id);
-        return Err(command_failed(
-            &app,
-            &session_id,
-            format!("navigate browser: {error}"),
-        ));
+    if !access.snapshot.agent {
+        return Err("browser session is not agent-owned".to_string());
     }
-    Ok(registry.current(&session_id).unwrap_or(access.snapshot))
+    navigate_browser_session(app, &registry, session_id, scope, url, AuditOrigin::Agent).await
 }
 
 async fn history_command<R: Runtime>(
-    app: AppHandle<R>,
-    registry: State<'_, BrowserSessionRegistry>,
+    app: &AppHandle<R>,
+    registry: &BrowserSessionRegistry,
     session_id: String,
     scope: BrowserSessionScope,
     action: NativeHistoryAction,
     audit_action: &'static str,
+    origin: AuditOrigin,
+    audit_noop: bool,
 ) -> Result<BrowserSessionSnapshot, String> {
     let access = registry.active_access(&session_id, &scope)?;
-    let webview = webview_for(&app, &access)?;
-    registry.set_pending_origin(&session_id, AuditOrigin::Manual);
+    let webview = webview_for(app, &access)?;
+    registry.set_pending_origin(&session_id, origin);
     let history = native_history(webview, action).await.map_err(|error| {
         registry.clear_pending_origin(&session_id);
-        command_failed(&app, &session_id, error)
+        command_failed(app, &session_id, error)
     })?;
     if !history.performed {
         registry.clear_pending_origin(&session_id);
+        if audit_noop {
+            append_audit(
+                app,
+                &access.snapshot,
+                audit_action,
+                origin,
+                Url::parse(&access.snapshot.url).ok().as_ref(),
+            );
+        }
         return Ok(access.snapshot);
     }
     append_audit(
-        &app,
+        app,
         &access.snapshot,
         audit_action,
-        AuditOrigin::Manual,
+        origin,
         Url::parse(&access.snapshot.url).ok().as_ref(),
     );
     emit_mutation(
-        &app,
+        app,
         registry.history_if_changed(&session_id, history.back, history.forward),
     );
     Ok(registry.current(&session_id).unwrap_or(access.snapshot))
@@ -1041,12 +1242,14 @@ pub async fn browser_session_back<R: Runtime>(
     scope: BrowserSessionScope,
 ) -> Result<BrowserSessionSnapshot, String> {
     history_command(
-        app,
-        registry,
+        &app,
+        &registry,
         session_id,
         scope,
         NativeHistoryAction::Back,
         "back",
+        AuditOrigin::Human,
+        false,
     )
     .await
 }
@@ -1059,12 +1262,38 @@ pub async fn browser_session_forward<R: Runtime>(
     scope: BrowserSessionScope,
 ) -> Result<BrowserSessionSnapshot, String> {
     history_command(
-        app,
-        registry,
+        &app,
+        &registry,
         session_id,
         scope,
         NativeHistoryAction::Forward,
         "forward",
+        AuditOrigin::Human,
+        false,
+    )
+    .await
+}
+
+#[allow(dead_code)]
+pub(crate) async fn back_agent_browser_session<R: Runtime>(
+    app: &AppHandle<R>,
+    session_id: String,
+    scope: BrowserSessionScope,
+) -> Result<BrowserSessionSnapshot, String> {
+    let registry = registry(app);
+    let access = registry.active_access(&session_id, &scope)?;
+    if !access.snapshot.agent {
+        return Err("browser session is not agent-owned".to_string());
+    }
+    history_command(
+        app,
+        &registry,
+        session_id,
+        scope,
+        NativeHistoryAction::Back,
+        "back",
+        AuditOrigin::Agent,
+        true,
     )
     .await
 }
@@ -1077,12 +1306,12 @@ pub async fn browser_session_reload<R: Runtime>(
     scope: BrowserSessionScope,
 ) -> Result<BrowserSessionSnapshot, String> {
     let access = registry.active_access(&session_id, &scope)?;
-    registry.set_pending_origin(&session_id, AuditOrigin::Manual);
+    registry.set_pending_origin(&session_id, AuditOrigin::Human);
     append_audit(
         &app,
         &access.snapshot,
         "reload",
-        AuditOrigin::Manual,
+        AuditOrigin::Human,
         Url::parse(&access.snapshot.url).ok().as_ref(),
     );
     emit_mutation(
@@ -1155,10 +1384,9 @@ pub async fn browser_session_set_visible<R: Runtime>(
     Ok(registry.current(&session_id).unwrap_or(access.snapshot))
 }
 
-#[tauri::command]
-pub async fn browser_session_snapshot<R: Runtime>(
-    app: AppHandle<R>,
-    registry: State<'_, BrowserSessionRegistry>,
+async fn inspect_browser_session<R: Runtime>(
+    app: &AppHandle<R>,
+    registry: &BrowserSessionRegistry,
     session_id: String,
     scope: BrowserSessionScope,
 ) -> Result<BrowserSessionSnapshot, String> {
@@ -1166,19 +1394,43 @@ pub async fn browser_session_snapshot<R: Runtime>(
     if access.snapshot.status == "closed" {
         return Ok(access.snapshot);
     }
-    let webview = webview_for(&app, &access)?;
+    let webview = webview_for(app, &access)?;
     if let Ok(url) = webview.url() {
         if url.as_str() != access.snapshot.url {
             emit_mutation(
-                &app,
+                app,
                 registry.mutate(&session_id, SessionMutation::UrlObserved(url.to_string())),
             );
         }
     }
-    refresh_history(&app, &session_id, webview).await?;
+    refresh_history(app, &session_id, webview).await?;
     registry
         .current(&session_id)
         .ok_or_else(|| "browser session disappeared".to_string())
+}
+
+#[tauri::command]
+pub async fn browser_session_snapshot<R: Runtime>(
+    app: AppHandle<R>,
+    registry: State<'_, BrowserSessionRegistry>,
+    session_id: String,
+    scope: BrowserSessionScope,
+) -> Result<BrowserSessionSnapshot, String> {
+    inspect_browser_session(&app, &registry, session_id, scope).await
+}
+
+#[allow(dead_code)]
+pub(crate) async fn inspect_agent_browser_session<R: Runtime>(
+    app: &AppHandle<R>,
+    session_id: String,
+    scope: BrowserSessionScope,
+) -> Result<BrowserSessionSnapshot, String> {
+    let registry = registry(app);
+    let access = registry.active_access(&session_id, &scope)?;
+    if !access.snapshot.agent {
+        return Err("browser session is not agent-owned".to_string());
+    }
+    inspect_browser_session(app, &registry, session_id, scope).await
 }
 
 #[tauri::command]
@@ -1209,7 +1461,7 @@ pub async fn browser_session_close<R: Runtime>(
             &app,
             &closed.snapshot,
             "close",
-            AuditOrigin::Manual,
+            AuditOrigin::Human,
             Url::parse(&closed.snapshot.url).ok().as_ref(),
         );
         emit_snapshot(&app, &closed.host_webview_label, &closed.snapshot);
@@ -1234,6 +1486,7 @@ mod tests {
         BrowserSessionSnapshot {
             session_id: "session-1".to_string(),
             scope: scope(),
+            agent: false,
             status: "loading".to_string(),
             url: "https://example.com".to_string(),
             title: None,
@@ -1403,6 +1656,8 @@ mod tests {
                     height: 600.0,
                 },
                 "main".to_string(),
+                BrowserSessionOwner::Human,
+                true,
             )
             .unwrap();
         let mut forged = scope();
@@ -1432,6 +1687,8 @@ mod tests {
                     "https://example.com".to_string(),
                     initial_bounds,
                     "main".to_string(),
+                    BrowserSessionOwner::Human,
+                    true,
                 )
                 .unwrap(),
             ReserveOutcome::Created
@@ -1446,6 +1703,8 @@ mod tests {
                     "https://ignored.example.com".to_string(),
                     initial_bounds,
                     "replacement-main".to_string(),
+                    BrowserSessionOwner::Human,
+                    true,
                 )
                 .unwrap(),
             ReserveOutcome::Existing(_)
@@ -1469,5 +1728,88 @@ mod tests {
         let inner = registry.lock();
         assert_eq!(inner.sessions.len(), 1);
         assert_eq!(inner.sessions["session-1"].bounds, new_bounds);
+    }
+
+    #[test]
+    fn agent_reservation_is_idempotent_and_scope_bound() {
+        let registry = BrowserSessionRegistry::default();
+        let bounds = BrowserBounds {
+            x: 16_384.0,
+            y: 16_384.0,
+            width: 1_280.0,
+            height: 720.0,
+        };
+        assert!(matches!(
+            registry
+                .reserve(
+                    "agent-thread-1".to_string(),
+                    scope(),
+                    "https://example.com".to_string(),
+                    bounds,
+                    "main".to_string(),
+                    BrowserSessionOwner::Agent,
+                    false,
+                )
+                .unwrap(),
+            ReserveOutcome::Created
+        ));
+        assert!(matches!(
+            registry
+                .reserve(
+                    "agent-thread-1".to_string(),
+                    scope(),
+                    "https://ignored.example.com".to_string(),
+                    bounds,
+                    "main".to_string(),
+                    BrowserSessionOwner::Agent,
+                    false,
+                )
+                .unwrap(),
+            ReserveOutcome::Existing(_)
+        ));
+        let mut forged = scope();
+        forged.project_id = "project-2".to_string();
+        let error = match registry.reserve(
+            "agent-thread-1".to_string(),
+            forged,
+            "https://example.com".to_string(),
+            bounds,
+            "main".to_string(),
+            BrowserSessionOwner::Agent,
+            false,
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("forged scope was accepted"),
+        };
+        assert_eq!(error, "browser session scope mismatch");
+        let listed = registry.list_scoped(&scope());
+        assert_eq!(listed.len(), 1);
+        assert!(listed[0].agent);
+        assert_eq!(listed[0].session_id, "agent-thread-1");
+        let inner = registry.lock();
+        assert_eq!(inner.sessions.len(), 1);
+        assert!(inner.sessions["agent-thread-1"].snapshot.agent);
+        assert!(!inner.sessions["agent-thread-1"].snapshot.visible);
+    }
+
+    #[test]
+    fn agent_audit_event_has_agent_origin() {
+        let mut value = snapshot();
+        value.agent = true;
+        value.session_id = "agent-thread-1".to_string();
+        let event = audit_event(
+            &value,
+            "read-page",
+            AuditOrigin::Agent,
+            Url::parse("https://example.com/private?token=secret")
+                .ok()
+                .as_ref(),
+        );
+        assert_eq!(event["origin"], "agent");
+        assert_eq!(event["action"], "read-page");
+        assert_eq!(event["sessionId"], "agent-thread-1");
+        assert_eq!(event["url"]["scheme"], "https");
+        assert_eq!(event["url"]["host"], "example.com");
+        assert!(!event.to_string().contains("secret"));
     }
 }

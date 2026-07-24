@@ -8,7 +8,7 @@ import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { cn, relativeTime } from '@/lib/utils.js';
 import { MessagePrimitive } from '@assistant-ui/react';
-import { ChevronRight, Repeat, Terminal } from 'lucide-react';
+import { ChevronRight, Repeat, Sparkles, Terminal } from 'lucide-react';
 import { useState } from 'react';
 import { AttachmentPreviewChip } from './AttachmentPreviewChip.js';
 
@@ -21,6 +21,16 @@ function loopRevisionIdsInBody(body: string): string[] {
     if (m[1] && !ids.includes(m[1])) ids.push(m[1]);
   }
   TRANSCRIPT_LOOP_TOKEN_RE.lastIndex = 0;
+  return ids;
+}
+
+const TRANSCRIPT_SKILL_TOKEN_RE = /\[\[skill:([^\]]+)\]\]/g;
+function skillIdsInBody(body: string): string[] {
+  const ids: string[] = [];
+  for (let m = TRANSCRIPT_SKILL_TOKEN_RE.exec(body); m; m = TRANSCRIPT_SKILL_TOKEN_RE.exec(body)) {
+    if (m[1] && !ids.includes(m[1])) ids.push(m[1]);
+  }
+  TRANSCRIPT_SKILL_TOKEN_RE.lastIndex = 0;
   return ids;
 }
 
@@ -118,6 +128,7 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
   const meta = authorMeta(message, employeesById);
   const reasoningStreaming = isReasoningStreaming(message);
   const loopRevisionIds = loopRevisionIdsInBody(message.body ?? '');
+  const skillIds = skillIdsInBody(message.body ?? '');
   return (
     <MessagePrimitive.Root asChild>
       <article
@@ -150,6 +161,14 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
           <div key={revisionId} className="off-msg-loop-ref">
             <Icon icon={Repeat} size="sm" />
             <span className="off-msg-loop-ref-label">Loop run</span>
+          </div>
+        ))}
+        {skillIds.map((skillId) => (
+          <div key={skillId} className="off-msg-skill-ref" data-skill-id={skillId}>
+            <Icon icon={Sparkles} size="sm" />
+            <span className="off-msg-loop-ref-label" title={skillId}>
+              Skill
+            </span>
           </div>
         ))}
         {message.attachments?.map((attachment) => (
