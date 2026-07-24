@@ -10,12 +10,16 @@ import {
   useThreads,
 } from '@/data/queries.js';
 import { queryKeys } from '@/data/query-keys.js';
+import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
+import { motionPresets } from '@/styles/motion-tokens.js';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   Check,
+  ChevronDown,
+  ChevronUp,
   Circle,
   Cpu,
   FileCheck2,
@@ -23,6 +27,7 @@ import {
   Sparkles,
   UserPlus,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { resolveFirstRunProgress } from './first-run-progress.js';
@@ -71,11 +76,14 @@ const COPY: readonly GuideCopy[] = [
 
 export function FirstRunGuide() {
   const status = useFirstRunState((state) => state.status);
+  const collapsed = useFirstRunState((state) => state.collapsed);
+  const setCollapsed = useFirstRunState((state) => state.setCollapsed);
   const initialize = useFirstRunState((state) => state.initialize);
   const skip = useFirstRunState((state) => state.skip);
   const complete = useFirstRunState((state) => state.complete);
   const stagePrompt = useFirstRunState((state) => state.stagePrompt);
   const companyId = useUiState((state) => state.companyId);
+  const surface = useUiState((state) => state.surface);
   const projectId = useUiState((state) => state.projectId);
   const selectedThreadId = useUiState((state) => state.selectedThreadId);
   const stagePrimaryTab = useUiState((state) => state.stagePrimaryTab);
@@ -180,6 +188,9 @@ export function FirstRunGuide() {
     useUiState.getState().setSurface('office');
     const threadId = useUiState.getState().openDraftThread(employee.id);
     stagePrompt(threadId, FIRST_RUN_EXAMPLE_PROMPT);
+    // The next action is typing in the bottom-right composer, so the card
+    // folds into its pill to stay out of the way.
+    setCollapsed(true);
   };
 
   const copy = activeStep < COPY.length ? COPY[activeStep] : null;
@@ -232,45 +243,86 @@ export function FirstRunGuide() {
         : null;
 
   return (
-    <section className="off-first-run" aria-label="First-run guide">
-      <div
-        className="off-first-run-progress"
-        aria-label={`${activeStep} of ${STEPS.length} steps complete`}
-      >
-        {STEPS.map((item, index) => (
-          <span
-            key={item.label}
-            className={`off-first-run-step${index < activeStep ? ' is-done' : ''}${index === activeStep ? ' is-current' : ''}`}
+    <div className={`off-first-run-float${surface === 'lifecycle' ? ' is-lifecycle' : ''}`}>
+      <AnimatePresence initial={false} mode="wait">
+        {collapsed ? (
+          <motion.button
+            key="first-run-pill"
+            type="button"
+            className="off-first-run-pill off-focusable"
+            aria-expanded={false}
+            aria-label={`Expand setup guide, ${activeStep} of ${STEPS.length} steps complete`}
+            onClick={() => setCollapsed(false)}
+            {...motionPresets.overlayCard}
           >
-            <Icon
-              icon={index < activeStep ? Check : index === activeStep ? item.icon : Circle}
-              size="sm"
-            />
-            <span>{item.label}</span>
-          </span>
-        ))}
-      </div>
-      <div className="off-first-run-copy">
-        <strong>{copy?.title ?? 'First order delivered'}</strong>
-        <span>
-          {copy?.why ?? 'Your company is open, staffed, connected, and ready for the next card.'}
-        </span>
-        {noEngineDetail ? <small>{noEngineDetail}</small> : null}
-      </div>
-      <div className="off-first-run-actions">
-        {primary ? (
-          <Button size="sm" onClick={primary.onClick} disabled={primary.disabled}>
-            {primary.label}
-          </Button>
-        ) : null}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void (activeStep === STEPS.length ? complete() : skip())}
-        >
-          {activeStep === STEPS.length ? 'Finish' : 'Skip guide'}
-        </Button>
-      </div>
-    </section>
+            <Icon icon={Sparkles} size="sm" />
+            <span>
+              Setup {activeStep}/{STEPS.length}
+            </span>
+            <Icon icon={ChevronUp} size="sm" />
+          </motion.button>
+        ) : (
+          <motion.section
+            key="first-run-card"
+            className="off-first-run"
+            aria-label="First-run guide"
+            {...motionPresets.overlayCard}
+          >
+            <header className="off-first-run-head">
+              <strong>Setup guide</strong>
+              <span className="off-first-run-count">
+                {activeStep}/{STEPS.length}
+              </span>
+              <IconButton
+                icon={ChevronDown}
+                label="Collapse guide"
+                size="iconSm"
+                side="left"
+                onClick={() => setCollapsed(true)}
+              />
+            </header>
+            <ol
+              className="off-first-run-progress"
+              aria-label={`${activeStep} of ${STEPS.length} steps complete`}
+            >
+              {STEPS.map((item, index) => (
+                <li
+                  key={item.label}
+                  className={`off-first-run-step${index < activeStep ? ' is-done' : ''}${index === activeStep ? ' is-current' : ''}`}
+                >
+                  <Icon
+                    icon={index < activeStep ? Check : index === activeStep ? item.icon : Circle}
+                    size="sm"
+                  />
+                  <span>{item.label}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="off-first-run-copy">
+              <strong>{copy?.title ?? 'First order delivered'}</strong>
+              <span>
+                {copy?.why ??
+                  'Your company is open, staffed, connected, and ready for the next card.'}
+              </span>
+              {noEngineDetail ? <small>{noEngineDetail}</small> : null}
+            </div>
+            <div className="off-first-run-actions">
+              {primary ? (
+                <Button size="sm" onClick={primary.onClick} disabled={primary.disabled}>
+                  {primary.label}
+                </Button>
+              ) : null}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void (activeStep === STEPS.length ? complete() : skip())}
+              >
+                {activeStep === STEPS.length ? 'Finish' : 'Skip guide'}
+              </Button>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

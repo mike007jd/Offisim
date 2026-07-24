@@ -4,7 +4,6 @@ import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { RunStatePill } from '@/design-system/grammar/RunStatePill.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import { cn, relativeTime } from '@/lib/utils.js';
-import { openFirstRunGuide } from '@/surfaces/onboarding/first-run-state.js';
 import {
   EmptyState,
   ErrorState,
@@ -79,11 +78,11 @@ export function ThreadList() {
               query ? 'Try a different search term.' : 'Message the team or one employee.'
             }
             action={
-              query
+              query || !projectId
                 ? undefined
                 : {
                     label: 'Start first request',
-                    onClick: openFirstRunGuide,
+                    onClick: () => openDraftThread(),
                   }
             }
           />
