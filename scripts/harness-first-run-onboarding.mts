@@ -29,7 +29,6 @@ const sourceFiles = await Promise.all(
   [
     'apps/desktop/renderer/src/surfaces/personnel/PersonnelSurface.tsx',
     'apps/desktop/renderer/src/surfaces/office/workspace-panel/ProjectsTab.tsx',
-    'apps/desktop/renderer/src/surfaces/office/rail/ThreadList.tsx',
     'apps/desktop/renderer/src/surfaces/settings/AiAccountsPane.tsx',
   ].map((path) => readFile(resolve(root, path), 'utf8')),
 );
@@ -41,10 +40,20 @@ for (const [index, source] of sourceFiles.entries()) {
   );
 }
 assert.match(
-  sourceFiles[3] ?? '',
+  sourceFiles[2] ?? '',
   /No engine is ready\. Sign in to a detected coding tool, or add a Pi API provider below\./u,
 );
-assert.match(sourceFiles[3] ?? '', /account\.capabilities\.execute\.status === 'available'/u);
+assert.match(sourceFiles[2] ?? '', /account\.capabilities\.execute\.status === 'available'/u);
+
+// ThreadList's "Start first request" empty-state action must do what it says:
+// open a draft conversation directly (same as the header "+" button), not
+// summon the first-run guide.
+const threadListSource = await readFile(
+  resolve(root, 'apps/desktop/renderer/src/surfaces/office/rail/ThreadList.tsx'),
+  'utf8',
+);
+assert.match(threadListSource, /openDraftThread/u);
+assert.doesNotMatch(threadListSource, /openFirstRunGuide/u);
 
 const guideSource = await readFile(
   resolve(root, 'apps/desktop/renderer/src/surfaces/onboarding/FirstRunGuide.tsx'),

@@ -8,6 +8,11 @@ import { Check, PawPrint, RefreshCw, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+/** Display-only: collapse the user's home directory prefix to `~`. */
+function collapseHomePrefix(path: string): string {
+  return path.replace(/^\/(?:Users|home)\/[^/]+/, '~');
+}
+
 export function CompanionPane() {
   const enabled = useUiState((state) => state.officeCompanionEnabled);
   const setEnabled = useUiState((state) => state.setOfficeCompanionEnabled);
@@ -38,7 +43,7 @@ export function CompanionPane() {
   return (
     <div className="off-set-pane">
       <div className="off-set-panehead">
-        <div className="off-set-panetitle">Codex pets</div>
+        <div className="off-set-panetitle">Codex Pets</div>
         <div className="off-set-panedesc">
           Offisim reads the pets already installed by Codex. It never changes those files.
         </div>
@@ -49,7 +54,7 @@ export function CompanionPane() {
           <div>
             <CapsLabel>Local catalog</CapsLabel>
             <div className="off-set-sec-hint off-set-pet-source">
-              {catalog?.sourcePath ?? '~/.codex/pets'}
+              {catalog?.sourcePath ? collapseHomePrefix(catalog.sourcePath) : '~/.codex/pets'}
             </div>
           </div>
           <Button variant="outline" size="md" disabled={refreshing} onClick={handleRefresh}>

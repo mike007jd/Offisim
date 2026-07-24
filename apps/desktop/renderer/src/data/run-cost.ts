@@ -228,7 +228,7 @@ function summarizeCosts(costs: CostRecord[]): CostSummary | undefined {
   };
 }
 
-function formatAmount(amount: number): string {
+export function formatAmount(amount: number): string {
   if (amount > 0 && amount < 0.01) return `$${amount.toFixed(4)}`;
   return `$${amount.toFixed(2)}`;
 }

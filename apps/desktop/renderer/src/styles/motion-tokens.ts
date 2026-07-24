@@ -49,4 +49,25 @@ export const motionPresets = {
       },
     },
   },
+  // Fixed bottom-right overlays (first-run guide card/pill). WKWebView drops
+  // the compositing layer of a fixed element that enters through an offscreen
+  // translate, so entry is an in-place fade with only a tiny inner scale —
+  // no positional movement. The pinned wrapper owns the layer (see
+  // `.off-first-run-float` in onboarding.css).
+  overlayCard: {
+    initial: { opacity: 0, scale: 0.98 },
+    animate: { opacity: 1, scale: 1 },
+    transition: {
+      duration: MOTION_DURATION.base,
+      ease: MOTION_EASE.spring,
+    },
+    exit: {
+      opacity: 0,
+      scale: 0.98,
+      transition: {
+        duration: MOTION_DURATION.fast,
+        ease: MOTION_EASE.ease,
+      },
+    },
+  },
 } as const;

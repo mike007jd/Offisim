@@ -1,43 +1,66 @@
-.off-first-run-lifecycle {
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--off-bg);
+/* First-run guide: fixed bottom-right overlay. The card never participates in
+   document flow, so activating the guide can no longer push the app layout
+   down (the old top banner behaviour). Rendered once at the App root for both
+   the lifecycle wizard and the normal app shell. */
+.off-first-run-float {
+  position: fixed;
+  right: var(--off-sp-5);
+  bottom: var(--off-sp-5);
+  z-index: var(--off-z-overlay);
+  /* WKWebView layer pin — same ship-channel finding as [data-sonner-toaster]
+     in surfaces.css: a fixed overlay entering through an offscreen transform
+     loses its compositing layer in release builds (DOM correct, never drawn).
+     Pin the container on its own stable layer; entry animations must be pure
+     in-place opacity (+ a small inner scale on the motion child), never a
+     translate from offscreen. */
+  transform: translateZ(0);
+  will-change: transform;
 }
 
-.off-first-run-lifecycle > .off-wiz,
-.off-first-run-lifecycle > .off-lc-boot,
-.off-first-run-lifecycle > .off-lc-error-wrap {
-  min-height: 0;
-  flex: 1;
+/* Lifecycle: lift the card above the company-creation wizard's full-width
+   footer bar (.off-wiz-foot ≈74px; the Create CTA sits at its right end).
+   74px is the measured footer height in lifecycle.css — kept as a literal
+   because the wizard footer has no token of its own. */
+.off-first-run-float.is-lifecycle {
+  bottom: calc(74px + var(--off-sp-5));
 }
 
 .off-first-run {
-  width: 100%;
+  width: min(320px, calc(100vw - 2 * var(--off-sp-5)));
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, auto) minmax(var(--off-menu-min-w), 1fr) auto;
-  align-items: center;
-  gap: var(--off-sp-6);
-  padding: var(--off-sp-3) var(--off-sp-5);
+  gap: var(--off-sp-4);
+  padding: var(--off-sp-4);
   border: 1px solid var(--off-line);
-  border-radius: var(--off-r-md);
+  border-radius: var(--off-r-lg);
   background: var(--off-surface-1);
-  box-shadow: var(--off-elev-1);
+  box-shadow: var(--off-elev-3);
   pointer-events: auto;
 }
 
-.off-first-run-lifecycle > .off-first-run {
-  border-width: 0 0 1px;
-  border-radius: 0;
-  box-shadow: none;
+.off-first-run-head {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+}
+
+.off-first-run-head strong {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--off-fs-sm);
+}
+
+.off-first-run-count {
+  color: var(--off-ink-4);
+  font-size: var(--off-fs-meta);
+  font-variant-numeric: tabular-nums;
 }
 
 .off-first-run-progress {
-  display: flex;
-  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
   gap: var(--off-sp-2);
 }
 
@@ -85,4 +108,29 @@
   align-items: center;
   gap: var(--off-sp-2);
   white-space: nowrap;
+}
+
+/* Collapsed state: a quiet pill anchored bottom-right. Height 28px matches the
+   topbar control row (see .off-scope-seg in shell.css) — no dedicated token
+   exists for control height. */
+.off-first-run-pill {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-1);
+  padding: 0 var(--off-sp-3);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-pill);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-2);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-meta);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--off-motion-fast) var(--off-motion-ease);
+}
+
+.off-first-run-pill:hover {
+  color: var(--off-ink-1);
 }
