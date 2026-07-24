@@ -377,6 +377,7 @@ export function ComposerSettingsMenu({
 
   const supportsFast = Boolean(effectiveModel?.speedModes.includes('fast'));
   const speed: 'standard' | 'fast' = supportsFast && speedOverride === 'fast' ? 'fast' : 'standard';
+  const speedIsCustom = Boolean(speedOverride && supportsFast);
 
   // Fast is model-bound (e.g. Opus-only): switching to a model without fast
   // support drops the override instead of silently carrying it along.
@@ -392,6 +393,8 @@ export function ComposerSettingsMenu({
   }, [mode, setThreadMode, supportedModes, threadId]);
 
   const supportsReasoning = reasoningLevels.length > 0;
+  const defaultReasoningEffort = effectiveModel?.defaultReasoningEffort ?? reasoningLevels[0];
+  const reasoningIsCustom = Boolean(thinkingOverride && reasoningLevels.includes(thinkingOverride));
   const lockedAuthority = threadAuthority.data ?? null;
   // Engines that exist but cannot run yet stay visible with setup guidance
   // instead of disappearing; a locked thread hides them (its lane is fixed).
@@ -400,6 +403,9 @@ export function ComposerSettingsMenu({
     : engineDirectory.entries.filter((engine) => engine.state !== 'ready');
   const modelRadioValue = perThreadModel || durableModel?.value || '';
   const orchestrationSelected = effectiveModel?.selectionKind === 'orchestration-engine';
+  const engineManagedSelected =
+    orchestrationSelected && effectiveModel?.modelId === 'engine-managed';
+  const defaultSourceLabel = engineManagedSelected ? 'Engine default' : 'Model default';
   const showPermissionMode = showMode && supportedModes.length > 0;
 
   const summary = [
@@ -505,7 +511,10 @@ export function ComposerSettingsMenu({
                 <Icon icon={Brain} size="sm" />
                 <span className="off-composer-menu-row">
                   <span className="off-composer-menu-name">Reasoning</span>
-                  <span className="off-composer-menu-meta">{thinkingLevelMeta(level).label}</span>
+                  <span className="off-composer-menu-meta">
+                    {thinkingLevelMeta(level).label} ·{' '}
+                    {reasoningIsCustom ? 'Custom' : defaultSourceLabel}
+                  </span>
                 </span>
                 <span className="off-composer-menu-caret">
                   <Icon icon={ChevronRight} size="sm" />
@@ -517,7 +526,9 @@ export function ComposerSettingsMenu({
                 <Icon icon={Gauge} size="sm" />
                 <span className="off-composer-menu-row">
                   <span className="off-composer-menu-name">Speed</span>
-                  <span className="off-composer-menu-meta">{SPEED_META[speed].label}</span>
+                  <span className="off-composer-menu-meta">
+                    {SPEED_META[speed].label} · {speedIsCustom ? 'Custom' : defaultSourceLabel}
+                  </span>
                 </span>
                 <span className="off-composer-menu-caret">
                   <Icon icon={ChevronRight} size="sm" />
@@ -688,11 +699,14 @@ export function ComposerSettingsMenu({
             <DropdownMenuRadioGroup
               value={level}
               onValueChange={(value) => {
-                setThreadThinking(threadId, value as ThinkingLevel);
+                const selectedLevel = value as ThinkingLevel;
+                const resetsToDefault = selectedLevel === defaultReasoningEffort;
+                if (resetsToDefault) clearThreadThinking(threadId);
+                else setThreadThinking(threadId, selectedLevel);
                 if (targetKey) {
                   setTargetRunDefault(
                     targetKey,
-                    { axis: 'thinking', value: value as ThinkingLevel },
+                    { axis: 'thinking', value: resetsToDefault ? undefined : selectedLevel },
                     Date.now(),
                   );
                 }
@@ -707,12 +721,15 @@ export function ComposerSettingsMenu({
                 >
                   <span className="off-composer-menu-row">
                     <span className="off-composer-menu-name">{thinkingLevelMeta(value).label}</span>
-                    <span className="off-composer-menu-meta">{thinkingLevelMeta(value).meta}</span>
+                    <span className="off-composer-menu-meta">
+                      {thinkingLevelMeta(value).meta}
+                      {value === defaultReasoningEffort ? ` · ${defaultSourceLabel}` : ''}
+                    </span>
                   </span>
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-            {thinkingOverride ? (
+            {reasoningIsCustom ? (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -729,7 +746,7 @@ export function ComposerSettingsMenu({
                   }}
                 >
                   <Icon icon={RefreshCw} size="sm" />
-                  Reset to engine default
+                  Reset to {defaultSourceLabel.toLowerCase()}
                 </DropdownMenuItem>
               </>
             ) : null}
@@ -770,7 +787,9 @@ export function ComposerSettingsMenu({
                     <span className="off-composer-menu-meta">
                       {value === 'fast'
                         ? (effectiveModel?.fastModeNote ?? SPEED_META.fast.meta)
-                        : SPEED_META.standard.meta}
+                        : `${SPEED_META.standard.meta}${
+                            speedIsCustom ? ` · Reset to ${defaultSourceLabel.toLowerCase()}` : ''
+                          }`}
                     </span>
                   </span>
                 </DropdownMenuRadioItem>
