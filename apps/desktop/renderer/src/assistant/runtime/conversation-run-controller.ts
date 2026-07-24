@@ -289,6 +289,8 @@ export interface SubmitConversationRun {
   /** Optional caller-owned root run id; competitive attempts use this as attemptId. */
   runId?: string;
   employeeId: string | null;
+  /** Engine-only Send projection. The visible and durable user message remains `text`. */
+  engineText?: string;
   text: string;
   stagedAttachments: readonly StagedAttachment[];
   model?: string;
@@ -315,6 +317,12 @@ export interface SubmitConversationRun {
   directDelegation?: DirectDelegationInput;
   delegationLimits?: DesktopAgentRunInput['delegationLimits'];
   competitiveDraft?: CompetitiveDraftContext;
+}
+
+export function conversationEngineText(
+  input: Pick<SubmitConversationRun, 'text' | 'engineText'>,
+): string {
+  return input.engineText ?? input.text;
 }
 
 interface PreparedLoopExecution {
@@ -680,6 +688,8 @@ export class ConversationRunController {
   async submit(input: SubmitConversationRun): Promise<ConversationRunHandle> {
     const trimmed = input.text.trim();
     if (!trimmed) throw new Error('Cannot submit an empty conversation run.');
+    const trimmedEngineText = conversationEngineText(input).trim();
+    if (!trimmedEngineText) throw new Error('Cannot submit an empty engine conversation run.');
     if (this.mutationLocks.has(input.threadId))
       throw new ConversationRunMutationLockedError(input.threadId);
     if (this.activeRuns.has(input.threadId))
@@ -709,7 +719,11 @@ export class ConversationRunController {
       status: 'complete',
     };
     const run = this.beginRun(
-      { ...input, text: trimmed },
+      {
+        ...input,
+        text: trimmed,
+        ...(input.engineText !== undefined ? { engineText: trimmedEngineText } : {}),
+      },
       attemptId,
       userMessage,
       null,
@@ -734,7 +748,7 @@ export class ConversationRunController {
           throw new Error('The active run ended before this message could be queued.');
         }
         const materialized = await this.deps.materializeTurn({
-          text: input.text,
+          text: conversationEngineText(input),
           companyId: input.companyId,
           threadId: input.threadId,
           staged: input.stagedAttachments,
@@ -1349,6 +1363,9 @@ export class ConversationRunController {
     run.executionAbortController = new AbortController();
     this.patchSnapshot(run.threadId, { phase: 'preparing', approval: null, error: null });
     try {
+      // `engineText` is a Send-only projection. Resume/steer continues the exact
+      // native session identified by runtime_context_json, where the skill was
+      // already loaded; re-injecting the directive here would duplicate the task.
       const response = await runtime.resume(runId, run.executionAbortController.signal);
       if (!this.isActiveRun(run) || run.stopped) return;
       const reasoning = (response.reasoning || run.reasoningText).trim();
@@ -1831,7 +1848,7 @@ export class ConversationRunController {
         run.clearRestoredApproval = false;
       }
       const materialized = await this.deps.materializeTurn({
-        text: run.input.text,
+        text: conversationEngineText(run.input),
         companyId: run.input.companyId,
         threadId: run.threadId,
         staged: run.input.stagedAttachments,
@@ -1982,7 +1999,7 @@ export class ConversationRunController {
       run.executionAbortController = new AbortController();
       const execution = run.runtime.execute(
         {
-          text: run.promptText ?? run.input.text,
+          text: run.promptText ?? conversationEngineText(run.input),
           images: run.images,
           threadId: run.threadId,
           employeeId: run.input.employeeId,
@@ -2971,7 +2988,7 @@ export class ConversationRunController {
       input: retryInput,
       userMessage: run.userMessage,
       assistantMessageId: run.assistantMessageId,
-      promptText: run.promptText ?? run.input.text,
+      promptText: run.promptText ?? conversationEngineText(run.input),
       images: run.images,
       messagePersisted: run.messagePersistedNotified,
       clearRestoredApproval: run.clearRestoredApproval,

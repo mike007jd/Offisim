@@ -9,6 +9,7 @@ import {
   ConversationRunAlreadyActiveError,
   type ConversationRunController,
   ConversationRunMutationLockedError,
+  conversationEngineText,
   createConversationRunController,
 } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-controller.js';
 import { projectEmployeeWorkloads } from '../apps/desktop/renderer/src/assistant/runtime/conversation-run-projections.js';
@@ -675,6 +676,50 @@ const scenarios: Array<{
   criteria: string;
   run: () => Promise<ScenarioEvidence>;
 }> = [
+  {
+    name: 'engineText runs only in the engine while text remains the durable user message',
+    criteria:
+      'Pass when nullish engine selection falls back to text, an explicit engine projection reaches execute/materialization, and the visible boss message persists only the chip token projection.',
+    run: async () => {
+      assert.equal(
+        conversationEngineText({ text: 'visible text' }),
+        'visible text',
+        'missing engineText falls back to text',
+      );
+      assert.equal(
+        conversationEngineText({ text: 'visible text', engineText: 'engine directive' }),
+        'engine directive',
+        'explicit engineText wins',
+      );
+      const env = makeEnv();
+      await submitDefault(env.controller, {
+        threadId: 'engine-text-thread',
+        text: 'Summarize this. [[skill:research-summary]]',
+        engineText:
+          'Summarize this.\n\nUse the "research-summary" skill for this task: locate it among your available skills, read its SKILL.md, and follow it. (Summarize source material.)',
+      });
+      await waitFor(
+        'engine text completion',
+        () => env.controller.getSnapshot('engine-text-thread').phase === 'completed',
+      );
+      assert.equal(
+        env.runtime.executeCalls[0]?.text,
+        'Summarize this.\n\nUse the "research-summary" skill for this task: locate it among your available skills, read its SKILL.md, and follow it. (Summarize source material.)',
+      );
+      const durableUser = env.persisted.find(
+        (call) => call.message.threadId === 'engine-text-thread' && call.message.author === 'boss',
+      )?.message;
+      assert.equal(durableUser?.body, 'Summarize this. [[skill:research-summary]]');
+      assert.equal(
+        env.controller.getSnapshot('engine-text-thread').liveMessages[0]?.body,
+        'Summarize this. [[skill:research-summary]]',
+      );
+      return {
+        engineText: env.runtime.executeCalls[0]?.text,
+        persistedText: durableUser?.body,
+      };
+    },
+  },
   {
     name: 'renderer reload hydrates live run before durable terminal projection',
     criteria:

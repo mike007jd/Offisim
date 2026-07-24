@@ -2,6 +2,7 @@ import { autoTitleThreadFromFirstMessage } from '@/data/auto-title.js';
 import { persistChatMessage } from '@/data/chat-message-events.js';
 import { queryKeys } from '@/data/query-keys.js';
 import type { ChatMessage, Employee, StagedAttachment } from '@/data/types.js';
+import { createTauriVaultFileSystem } from '@/lib/tauri-vault-fs.js';
 import type { AgentQueueBehavior } from '@/runtime/desktop-agent-runtime.js';
 import { resolveThreadModel } from '@/runtime/pi-thread-model-store.js';
 import {
@@ -10,7 +11,7 @@ import {
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   type ComposerAttachmentScope,
@@ -35,6 +36,7 @@ import { conversationRunController } from './conversation-run-controller.js';
 import { isConversationRunActive, useConversationRun } from './conversation-run-react.js';
 import { ATTACHMENT_ONLY_PROMPT, appendText } from './desktop-chat-runtime.js';
 import { buildLoopSendExecution } from './loop-send-execution.js';
+import { buildSkillOfficeInvocationText } from './skill-office-invocation.js';
 
 const EMPTY_STAGED_ATTACHMENTS: StagedAttachment[] = [];
 
@@ -45,15 +47,13 @@ function safeErrorMessage(error: unknown): string {
 function mergeMessages(
   seedMessages: readonly ChatMessage[],
   liveMessages: readonly ChatMessage[],
-  displayBodyByMessageId: Readonly<Record<string, string>>,
   preferLiveMessages: boolean,
 ) {
   const byId = new Map<string, ChatMessage>();
   for (const message of seedMessages) byId.set(message.id, message);
   for (const message of liveMessages) {
     if (!preferLiveMessages && byId.has(message.id)) continue;
-    const displayBody = displayBodyByMessageId[message.id];
-    byId.set(message.id, displayBody ? { ...message, body: displayBody } : message);
+    byId.set(message.id, message);
   }
   return Array.from(byId.values()).sort((a, b) => messageAt(a) - messageAt(b));
 }
@@ -134,56 +134,19 @@ export function useOfficeRuntime({
     (state) => state.stagedByScope[attachmentScopeKey] ?? EMPTY_STAGED_ATTACHMENTS,
   );
   const consumeStaged = useComposerAttachmentStore((state) => state.consumeStaged);
-  const pendingDisplayBodies = useRef<
-    Array<{ id: string; engineText: string; persistedText: string; messageId?: string }>
-  >([]);
-  const displayBodies = useRef(new Map<string, string>());
-  const [displayBodyByMessageId, setDisplayBodyByMessageId] = useState<Record<string, string>>({});
-  const persistWithDisplayBody = useCallback(
-    async (message: ChatMessage, displayBody?: string) => {
-      const projected = displayBody ? { ...message, body: displayBody } : message;
+  const persistRunMessage = useCallback(
+    async (message: ChatMessage) => {
       if (persistMessage) {
-        await persistMessage(projected);
+        await persistMessage(message);
       } else {
-        await persistChatMessage({ message: projected, companyId, projectId });
-      }
-      if (displayBody) {
-        displayBodies.current.set(message.id, displayBody);
-        setDisplayBodyByMessageId((current) =>
-          current[message.id] === displayBody ? current : { ...current, [message.id]: displayBody },
-        );
+        await persistChatMessage({ message, companyId, projectId });
       }
     },
     [companyId, persistMessage, projectId],
   );
-  const persistQueuedMessage = useCallback(
-    async (message: ChatMessage) => {
-      let displayBody = displayBodies.current.get(message.id);
-      let pendingDisplay = pendingDisplayBodies.current.find(
-        (candidate) => candidate.messageId === message.id,
-      );
-      if (message.author === 'boss' && !displayBody) {
-        pendingDisplay ??= pendingDisplayBodies.current.find(
-          (candidate) => !candidate.messageId && candidate.engineText === message.body,
-        );
-        if (pendingDisplay) {
-          pendingDisplay.messageId = message.id;
-          displayBody = pendingDisplay.persistedText;
-        }
-      }
-      await persistWithDisplayBody(message, displayBody);
-    },
-    [persistWithDisplayBody],
-  );
   const messages = useMemo(
-    () =>
-      mergeMessages(
-        seedMessages,
-        run.liveMessages,
-        displayBodyByMessageId,
-        isConversationRunActive(run.phase),
-      ),
-    [displayBodyByMessageId, run.liveMessages, run.phase, seedMessages],
+    () => mergeMessages(seedMessages, run.liveMessages, isConversationRunActive(run.phase)),
+    [run.liveMessages, run.phase, seedMessages],
   );
   const sendTurn = useCallback(
     async (rawText: string, behavior?: AgentQueueBehavior): Promise<boolean> => {
@@ -219,29 +182,27 @@ export function useOfficeRuntime({
       ];
       const baseText = typedText || (stagedForTurn.length > 0 ? ATTACHMENT_ONLY_PROMPT : '');
       const persistedText = [baseText, ...tokens].filter(Boolean).join(' ');
-      // This PR preserves the existing plain `/skill <name>` engine behavior. Skill
-      // contents are not injected here; the next PR owns that engine seam.
-      const skillDirectiveText = skillReferences
-        .map((reference) => `/skill ${reference.name}`)
-        .join(' ');
-      const engineText = [baseText, skillDirectiveText].filter(Boolean).join(' ');
-      // Loop execution keeps its existing token-bearing controller input; ordinary
-      // Skill turns send token-free legacy text while persistence keeps the chips.
-      const controllerText = loopReference ? persistedText : engineText;
+      const skillInvocationText = loopReference
+        ? ''
+        : await buildSkillOfficeInvocationText(
+            { readVaultFile: createTauriVaultFileSystem().readFile },
+            skillReferences,
+          );
+      // A Loop owns its separate Mission prompt and skill bindings. Ordinary Skill
+      // turns keep tokens only in the durable text and receive explicit, token-free
+      // engine instructions in stable chip order.
+      const engineText = loopReference
+        ? persistedText
+        : [baseText, skillInvocationText].filter(Boolean).join('\n\n');
       const titleSeed =
         typedText ||
-        (loopReference ? loopReference.titleSnapshot : skillDirectiveText || controllerText);
+        (loopReference ? loopReference.titleSnapshot : (skillReferences[0]?.name ?? persistedText));
 
       const stagedIdsForTurn = staged.map((attachment) => attachment.id);
-      const pendingDisplay =
-        behavior && persistedText !== controllerText
-          ? { id: crypto.randomUUID(), engineText: controllerText, persistedText }
-          : null;
-      if (pendingDisplay) pendingDisplayBodies.current.push(pendingDisplay);
       try {
         const roster = toMentionRoster(employeesById.values());
         const turnEmployeeId =
-          extractMentionedEmployeeIds(controllerText, roster)[0] ?? assigneeId ?? null;
+          extractMentionedEmployeeIds(persistedText, roster)[0] ?? assigneeId ?? null;
 
         // Build the Loop-backed execution BEFORE submitting so a build failure (no
         // desktop repos) is surfaced and the turn never half-sends. The controller
@@ -271,30 +232,13 @@ export function useOfficeRuntime({
             });
           }
         }
-        let directUserMessageId: string | null = null;
-        const persistRunMessage = behavior
-          ? persistQueuedMessage
-          : async (message: ChatMessage) => {
-              if (
-                message.author === 'boss' &&
-                !message.queueBehavior &&
-                (!directUserMessageId || directUserMessageId === message.id)
-              ) {
-                directUserMessageId = message.id;
-                await persistWithDisplayBody(
-                  message,
-                  persistedText !== controllerText ? persistedText : undefined,
-                );
-                return;
-              }
-              await persistQueuedMessage(message);
-            };
         const submitInput = {
           companyId,
           projectId,
           threadId,
           employeeId: turnEmployeeId,
-          text: controllerText,
+          text: persistedText,
+          ...(engineText !== persistedText ? { engineText } : {}),
           stagedAttachments: stagedForTurn,
           model: resolveThreadModel(threadId),
           source: 'office' as const,
@@ -318,11 +262,6 @@ export function useOfficeRuntime({
         }
         return true;
       } catch (error) {
-        if (pendingDisplay) {
-          pendingDisplayBodies.current = pendingDisplayBodies.current.filter(
-            (candidate) => candidate.id !== pendingDisplay.id,
-          );
-        }
         toast.error(
           loopReference
             ? 'Could not send this Loop run'
@@ -341,8 +280,7 @@ export function useOfficeRuntime({
       consumeStaged,
       employeesById,
       materializeThread,
-      persistQueuedMessage,
-      persistWithDisplayBody,
+      persistRunMessage,
       projectId,
       queryClient,
       staged,
