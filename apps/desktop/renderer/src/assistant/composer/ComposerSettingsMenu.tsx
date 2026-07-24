@@ -194,7 +194,14 @@ export function ComposerSettingsMenu({
       ? serializeRuntimeExecutionSelector(
           authority.target.engineId === 'api'
             ? { kind: 'api-model', runtimeModelRef: authority.runtimeModelRef }
-            : { kind: 'orchestration-engine', engineId: authority.target.engineId },
+            : {
+                kind: 'orchestration-engine',
+                engineId: authority.target.engineId,
+                // Explicit-model freezes must round-trip: without the modelId
+                // the serialized selector never matches an explicit-model row,
+                // so the durable projection reads "Model unavailable".
+                modelId: authority.target.modelId,
+              },
         )
       : undefined;
     const durable = authority

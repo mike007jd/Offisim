@@ -15,8 +15,10 @@ import {
 import type {
   AiModelCatalogEntry,
   AiRuntimeStatus,
+  OrchestrationEngineModelOption,
   OrchestrationEngineRunOptions,
   OrchestrationEngineState,
+  OrchestrationEngineStatus,
   RuntimeEngineCapabilityManifest,
   RuntimeSpeedMode,
 } from '@offisim/shared-types';
@@ -91,6 +93,56 @@ const API_RUNTIME_CAPABILITIES: RuntimeEngineCapabilityManifest = {
     ],
   },
 };
+
+const RUN_OPTION_SPEED_MODES: ReadonlySet<string> = new Set(['standard', 'fast']);
+
+function isDeclaredModelOption(value: unknown): value is OrchestrationEngineModelOption {
+  if (!value || typeof value !== 'object') return false;
+  const model = value as Partial<OrchestrationEngineModelOption>;
+  const optionalString = (field: unknown) => field === undefined || typeof field === 'string';
+  return (
+    typeof model.id === 'string' &&
+    model.id.trim().length > 0 &&
+    typeof model.displayName === 'string' &&
+    model.displayName.trim().length > 0 &&
+    (model.isDefault === undefined || typeof model.isDefault === 'boolean') &&
+    Array.isArray(model.reasoningEfforts) &&
+    model.reasoningEfforts.every((effort) => typeof effort === 'string' && effort.trim()) &&
+    optionalString(model.defaultReasoningEffort) &&
+    Array.isArray(model.speedModes) &&
+    model.speedModes.length > 0 &&
+    model.speedModes.every((mode) => typeof mode === 'string' && RUN_OPTION_SPEED_MODES.has(mode)) &&
+    optionalString(model.fastModeNote) &&
+    optionalString(model.note)
+  );
+}
+
+/**
+ * Narrow runtime guard over the declaration seam. The run-option table crosses
+ * two untyped producers (a Rust `json!` block and a hand-written sidecar JS
+ * object), so a drifted declaration must degrade to "undeclared" here — the
+ * engine keeps its engine-managed default lane — instead of crashing pickers or
+ * leaking malformed rows into run parameters two layers away from the source.
+ * The table itself is advisory official guidance, not an Offisim allowlist:
+ * consumers must keep the engine-managed default path working regardless.
+ */
+function declaredRunOptions(
+  engine: OrchestrationEngineStatus,
+): OrchestrationEngineRunOptions | undefined {
+  const runOptions = engine.runOptions as Partial<OrchestrationEngineRunOptions> | undefined;
+  if (
+    !runOptions ||
+    typeof runOptions !== 'object' ||
+    !Array.isArray(runOptions.models) ||
+    !runOptions.models.length ||
+    !runOptions.models.every(isDeclaredModelOption) ||
+    typeof runOptions.sourceUrl !== 'string' ||
+    typeof runOptions.checkedAt !== 'string'
+  ) {
+    return undefined;
+  }
+  return runOptions as OrchestrationEngineRunOptions;
+}
 
 function isRuntimeStatus(value: unknown): value is AiRuntimeStatus {
   if (!value || typeof value !== 'object') return false;
@@ -224,11 +276,12 @@ export function projectRunnableModelOptions(
           },
         ];
       }
-      const defaultModels = engine.runOptions?.models.filter((model) => model.isDefault) ?? [];
+      const runOptions = declaredRunOptions(engine);
+      const defaultModels = runOptions?.models.filter((model) => model.isDefault) ?? [];
       const defaultModel = defaultModels.length === 1 ? defaultModels[0] : undefined;
-      if (!defaultModel || !engine.runOptions?.models.length) return [];
+      if (!runOptions || !defaultModel) return [];
       const projectModel = (
-        model: (typeof engine.runOptions.models)[number],
+        model: OrchestrationEngineModelOption,
         engineDefault: boolean,
       ): AgentRuntimeModelOption => ({
         ...base,
@@ -250,7 +303,7 @@ export function projectRunnableModelOptions(
       });
       return [
         projectModel(defaultModel, true),
-        ...engine.runOptions.models.map((model) => projectModel(model, false)),
+        ...runOptions.models.map((model) => projectModel(model, false)),
       ];
     });
 
@@ -261,14 +314,17 @@ export function projectRunnableModelOptions(
 export function projectOrchestrationEngineDirectory(
   status: AiRuntimeStatus,
 ): OrchestrationEngineDirectoryEntry[] {
-  return status.orchestrationEngines.map((engine) => ({
-    engineId: engine.engineId,
-    displayName: engine.displayName,
-    state: engine.state,
-    ...(engine.statusReason ? { statusReason: engine.statusReason } : {}),
-    ...(engine.loginCommand ? { loginCommand: engine.loginCommand } : {}),
-    ...(engine.runOptions ? { runOptions: engine.runOptions } : {}),
-  }));
+  return status.orchestrationEngines.map((engine) => {
+    const runOptions = declaredRunOptions(engine);
+    return {
+      engineId: engine.engineId,
+      displayName: engine.displayName,
+      state: engine.state,
+      ...(engine.statusReason ? { statusReason: engine.statusReason } : {}),
+      ...(engine.loginCommand ? { loginCommand: engine.loginCommand } : {}),
+      ...(runOptions ? { runOptions } : {}),
+    };
+  });
 }
 
 async function loadThreadExecutionAuthority(
