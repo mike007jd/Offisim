@@ -248,6 +248,7 @@ function OfficeComposer({
   employeesById,
   employeeName,
   scopeEmployeeId,
+  defaultModelSelector,
   isDraft,
   onSendWhileRunning,
 }: {
@@ -261,6 +262,8 @@ function OfficeComposer({
   employeeName: string | null;
   /** Current conversation scope target (null = team thread). */
   scopeEmployeeId: string | null;
+  /** Runtime selector bound to the scoped employee; absent for team threads. */
+  defaultModelSelector?: string;
   /** A draft (pre-first-message) thread can still retarget its scope. */
   isDraft: boolean;
   onSendWhileRunning: (text: string, behavior: AgentQueueBehavior) => Promise<boolean>;
@@ -479,7 +482,11 @@ function OfficeComposer({
                 />
               </div>
               <div className="off-composer-controls">
-                <ComposerSettingsMenu threadId={threadId} contextLabel={projectName} />
+                <ComposerSettingsMenu
+                  threadId={threadId}
+                  contextLabel={projectName}
+                  defaultModelSelector={defaultModelSelector}
+                />
                 {isRunning ? (
                   <ActiveRunControls
                     hasAttachments={hasAttachments}
@@ -597,6 +604,9 @@ export function OfficeThread({
           employeesById={employeesById}
           employeeName={employeeId ? (employeesById.get(employeeId)?.name ?? null) : null}
           scopeEmployeeId={employeeId}
+          defaultModelSelector={
+            employeeId ? employeesById.get(employeeId)?.model?.trim() || undefined : undefined
+          }
           isDraft={isDraft}
           onSendWhileRunning={sendWhileRunning}
         />
