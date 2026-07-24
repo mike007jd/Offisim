@@ -307,6 +307,10 @@ export interface Skill {
   name: string;
   description: string;
   scope: 'company' | 'employee' | 'project';
+  /** Vault-owned SKILL.md path for company/employee skills. */
+  vault_path?: string;
+  /** Project-relative SKILL.md path for project-owned skills. */
+  relativePath?: string;
   source?: 'claude' | 'agents' | 'opencode';
   location?: string;
   readOnly?: boolean;

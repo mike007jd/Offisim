@@ -241,6 +241,98 @@ console.log('\n[scale] anchor offset scales with the prefab');
   );
 }
 
+// ── Rest & dining prefab anchors: kinds, counts, rotation/scale transform ────
+console.log('\n[rest-prefabs] anchors expose the right kinds and transform with the prefab');
+{
+  const kinds = (prefabId: string, rotation: 0 | 90 | 180 | 270 = 0, scale?: number) =>
+    worldAnchorsFor([prefab('p', prefabId, 0, 0, rotation, scale)]);
+
+  check(
+    'vending-machine now exposes 1 standing refreshment anchor',
+    (() => {
+      const anchors = kinds('vending-machine');
+      return (
+        anchors.length === 1 &&
+        anchors[0]?.kind === 'refreshment' &&
+        anchors[0]?.posture === 'standing'
+      );
+    })(),
+  );
+  check('coffee-table stays purely decorative (no anchors)', kinds('coffee-table').length === 0);
+  check(
+    'floor-lamp and plant-medium expose no anchors',
+    kinds('floor-lamp').length === 0 && kinds('plant-medium').length === 0,
+  );
+  check(
+    'pantry-counter exposes 2 standing refreshment anchors',
+    kinds('pantry-counter').filter((w) => w.kind === 'refreshment').length === 2,
+  );
+  check(
+    'coffee-machine / snack-shelf / fridge each expose 1 refreshment anchor',
+    ['coffee-machine', 'snack-shelf', 'fridge'].every(
+      (id) => kinds(id).filter((w) => w.kind === 'refreshment').length === 1,
+    ),
+  );
+  check(
+    'magazine-rack exposes 1 standing library-inspect anchor',
+    (() => {
+      const anchors = kinds('magazine-rack');
+      return (
+        anchors.length === 1 &&
+        anchors[0]?.kind === 'library-inspect' &&
+        anchors[0]?.posture === 'standing'
+      );
+    })(),
+  );
+  check(
+    'dining-table-4 exposes 4 sitting social-seat anchors (one per side)',
+    (() => {
+      const anchors = kinds('dining-table-4');
+      return (
+        anchors.filter((w) => w.kind === 'social-seat').length === 4 &&
+        anchors.every((w) => w.posture === 'sitting')
+      );
+    })(),
+  );
+  check(
+    'cafe-table-2 / sofa-single expose their sitting social seats',
+    kinds('cafe-table-2').filter((w) => w.kind === 'social-seat').length === 2 &&
+      kinds('sofa-single').filter((w) => w.kind === 'social-seat').length === 1,
+  );
+  check(
+    'lounge-bench exposes 2 sitting social-seat anchors',
+    kinds('lounge-bench').filter((w) => w.kind === 'social-seat').length === 2,
+  );
+
+  // dining-table-4 side seats rotate with the prefab: local [0, 1.14] at rot90
+  // lands on +x with facing (180+90)%360 = 270.
+  const rotated = worldAnchorsFor([prefab('dt', 'dining-table-4', 2, 3, 90)]);
+  const sideA = rotated[0];
+  check(
+    'dining-table-4 rot90: +z seat rotates to +x, facing 270',
+    Math.abs((sideA?.x ?? 0) - 3.14) < 1e-9 &&
+      Math.abs((sideA?.z ?? 0) - 3) < 1e-9 &&
+      sideA?.facing === 270,
+  );
+  // The same seat scales onto the scaled furniture: z = 3 + 1.14*2 = 5.28.
+  const scaled = worldAnchorsFor([prefab('dt', 'dining-table-4', 2, 3, 0, 2)]);
+  check(
+    'dining-table-4 scale 2: seat offset scales with the prefab',
+    Math.abs((scaled[0]?.z ?? 0) - 5.28) < 1e-9 && Math.abs((scaled[0]?.x ?? 0) - 2) < 1e-9,
+  );
+
+  // End-to-end: four actors seat at one dining table, a fifth stays home.
+  const staged = reserveStaging(
+    [prefab('dt', 'dining-table-4', 0, 0)],
+    ['a', 'b', 'c', 'd', 'e'].map((id) => req(id, 'social-seat')),
+  );
+  check(
+    'dining-table-4 seats exactly 4 actors, overflow stays home',
+    staged.filter((s) => s.anchorId !== null).length === 4 &&
+      staged.filter((s) => s.anchorId === null).length === 1,
+  );
+}
+
 // ── performanceForBeat totality + activity refinement ───────────────────────
 console.log('\n[performance] layered state for every beat kind');
 {

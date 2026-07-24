@@ -83,6 +83,7 @@ const PREFABS: readonly StagingPrefab[] = [
   { instanceId: 'water-a', prefabId: 'water-cooler', x: 7, z: -4, rotation: 0 },
   { instanceId: 'shelf-a', prefabId: 'bookshelf-double', x: -7, z: -4, rotation: 0 },
   { instanceId: 'shelf-b', prefabId: 'bookshelf-double', x: 0, z: 6, rotation: 180 },
+  { instanceId: 'sofa-a', prefabId: 'sofa-set', x: 5, z: 5, rotation: 0 },
 ];
 const STRAIGHT_ROUTE_FOR: AmbientRoutePlanner = ({ from, to }) => ({
   distance: Math.hypot(to.x - from.x, to.z - from.z),
@@ -172,14 +173,14 @@ check(
   json(ambientPolicyForMode('focus')),
 );
 check(
-  'office owns the hard two-away / four-active budget',
-  json(OFFICE_POLICY) === json({ enabled: true, maxAway: 2, maxActiveActors: 4 }),
+  'office admits a paired break plus one mover within a five-active budget',
+  json(OFFICE_POLICY) === json({ enabled: true, maxAway: 3, maxActiveActors: 5 }),
   json(OFFICE_POLICY),
 );
 check(
   'cinematic relaxation is explicit and bounded',
   json(ambientPolicyForMode('cinematic')) ===
-    json({ enabled: true, maxAway: 3, maxActiveActors: 6 }),
+    json({ enabled: true, maxAway: 4, maxActiveActors: 7 }),
   json(ambientPolicyForMode('cinematic')),
 );
 check(
@@ -226,11 +227,26 @@ const uninterrupted = step(initial.state, firstDue);
 const restoredState = JSON.parse(json(initial.state)) as AmbientSchedulerState;
 const restored = step(restoredState, firstDue);
 check('JSON restart continues byte-identically', json(uninterrupted) === json(restored));
+const deterministicStateRuns: string[][] = [];
+for (let run = 0; run < 2; run += 1) {
+  let snapshot = step(null, START, { seed: 'p5-byte-replay' });
+  const states = [json(snapshot.state)];
+  while (snapshot.nextWakeAt <= START + 120_000) {
+    snapshot = step(snapshot.state, snapshot.nextWakeAt, { seed: 'p5-byte-replay' });
+    states.push(json(snapshot.state));
+  }
+  deterministicStateRuns.push(states);
+}
+check(
+  'same seed replays the full two-minute advance sequence state byte-for-byte',
+  deterministicStateRuns.length === 2 &&
+    json(deterministicStateRuns[0]) === json(deterministicStateRuns[1]),
+);
 
 console.log('\n[cadence] due/attempt contract without catch-up');
 check(
-  'scheduler state version is office-ambient-v2',
-  initial.state.version === 'office-ambient-v2' &&
+  'scheduler state version is office-ambient-v3',
+  initial.state.version === 'office-ambient-v3' &&
     initial.state.version === AMBIENT_SCHEDULER_VERSION,
   json(initial.state.version),
 );
@@ -256,7 +272,9 @@ check(
 check(
   'the first actual routine is a physical movement routine',
   uninterrupted.state.activities.length > 0 &&
-    ['refreshment', 'library', 'social'].includes(uninterrupted.state.activities[0]?.routine ?? ''),
+    ['refreshment', 'library', 'social', 'break'].includes(
+      uninterrupted.state.activities[0]?.routine ?? '',
+    ),
   json(uninterrupted.state.activities),
 );
 check(
@@ -265,7 +283,7 @@ check(
     (direction) =>
       direction.away &&
       direction.phase === 'outbound' &&
-      ['refreshment', 'library', 'social'].includes(direction.routine),
+      ['refreshment', 'library', 'social', 'break'].includes(direction.routine),
   ),
   json(uninterrupted.directions),
 );
@@ -331,7 +349,7 @@ const clipByRoutine = {
   stretch: clipForPerformance(performanceForRoutine('stretch', 0)).clip,
 };
 check(
-  'all eight semantic routines reach their shipped clips',
+  'all eight fixed-clip semantic routines reach their shipped clips',
   json(clipByRoutine) ===
     json({
       refreshment: 'consume',
@@ -429,6 +447,184 @@ for (const kind of ['refreshment', 'library', 'social'] as const) {
   }
 }
 
+const breakFound = firstActivity('break', {
+  routeFor: ({ from, to, allowBlockedTarget }) =>
+    allowBlockedTarget ? { distance: Math.hypot(to.x - from.x, to.z - from.z) } : null,
+});
+const pairedBreak = breakFound.activity;
+const breakAnchors = worldAnchorsFor(PREFABS).filter(
+  (anchor) =>
+    anchor.anchorId === pairedBreak.destination?.anchorId ||
+    anchor.anchorId === pairedBreak.partnerDestination?.anchorId,
+);
+const breakFixtureIds = new Set(breakAnchors.map((anchor) => anchor.instanceId));
+check(
+  'break admits both outbound and return legs through furniture-target routing',
+  pairedBreak.routine === 'break' &&
+    pairedBreak.away &&
+    pairedBreak.partnerId !== null &&
+    pairedBreak.destination !== null &&
+    pairedBreak.partnerDestination !== null &&
+    Number(pairedBreak.away) * (1 + Number(pairedBreak.partnerDestination !== null)) === 2,
+  json(pairedBreak),
+);
+check(
+  'break reserves adjacent sitting seats on one fixture and preserves anchor posture',
+  breakAnchors.length === 2 &&
+    breakFixtureIds.size === 1 &&
+    breakAnchors.every(
+      (anchor) =>
+        anchor.kind === 'social-seat' &&
+        anchor.posture === 'sitting' &&
+        (pairedBreak.destination?.posture === 'sitting' ||
+          pairedBreak.partnerDestination?.posture === 'sitting'),
+    ) &&
+    json(breakAnchors.map((anchor) => anchor.anchorId).sort()) ===
+      json([`${breakAnchors[0]?.instanceId}#0`, `${breakAnchors[0]?.instanceId}#1`]),
+  json({ activity: pairedBreak, breakAnchors }),
+);
+const breakFixtureId = breakAnchors[0]?.instanceId;
+const breakFixtureReservations = breakFound.snapshot.state.activities.flatMap((activity) =>
+  [activity.destination, activity.partnerDestination]
+    .filter((destination) => destination !== null)
+    .map((destination) =>
+      worldAnchorsFor(PREFABS).find((anchor) => anchor.anchorId === destination.anchorId),
+    )
+    .filter((anchor) => anchor?.instanceId === breakFixtureId),
+);
+check(
+  'the selected sofa fixture is exclusive to the paired break',
+  breakFixtureReservations.length === 2 &&
+    breakFixtureReservations.every((anchor) => anchor?.instanceId === breakFixtureId),
+  json(breakFixtureReservations),
+);
+const breakOutboundDirections = breakFound.snapshot.directions.filter(
+  (direction) =>
+    direction.routine === 'break' &&
+    (direction.employeeId === pairedBreak.moverId ||
+      direction.employeeId === pairedBreak.partnerId),
+);
+check(
+  'both break participants receive full outbound legs toward sitting staging',
+  breakOutboundDirections.length === 2 &&
+    breakOutboundDirections.every(
+      (direction) =>
+        direction.phase === 'outbound' &&
+        direction.away &&
+        direction.staging?.posture === 'sitting',
+    ),
+  json(breakOutboundDirections),
+);
+
+const breakBoundaryState: AmbientSchedulerState = {
+  ...breakFound.snapshot.state,
+  clocks: breakFound.snapshot.state.clocks.map((clock) => ({
+    ...clock,
+    nextDueAt: pairedBreak.endsAt + 60_000,
+  })),
+};
+let breakSegmentSnapshot = step(breakBoundaryState, pairedBreak.outboundEndsAt, {
+  seed: breakFound.snapshot.state.seed,
+});
+const breakSegmentFrames: string[] = [];
+const breakClipSequences = new Map<string, string[]>();
+let breakSegmentsValid = true;
+for (let segment = 0; segment < 4; segment += 1) {
+  const pair = breakSegmentSnapshot.directions.filter(
+    (direction) =>
+      direction.routine === 'break' &&
+      (direction.employeeId === pairedBreak.moverId ||
+        direction.employeeId === pairedBreak.partnerId),
+  );
+  const clips = pair.map((direction) => clipForPerformance(direction.performance).clip);
+  for (const direction of pair) {
+    const sequence = breakClipSequences.get(direction.employeeId) ?? [];
+    sequence.push(clipForPerformance(direction.performance).clip);
+    breakClipSequences.set(direction.employeeId, sequence);
+  }
+  breakSegmentsValid =
+    breakSegmentsValid &&
+    pair.length === 2 &&
+    pair.every(
+      (direction) =>
+        direction.phase === 'dwell' && direction.away && direction.staging?.posture === 'sitting',
+    ) &&
+    clips.every((clip) => ['sit.talk', 'sit.idle', 'sit.fidget'].includes(clip));
+  breakSegmentFrames.push(json(pair));
+  const expectedNext =
+    segment === 3
+      ? pairedBreak.dwellEndsAt
+      : pairedBreak.outboundEndsAt + (segment + 1) * AMBIENT_TIMING.breakSegmentMs;
+  breakSegmentsValid = breakSegmentsValid && breakSegmentSnapshot.nextWakeAt === expectedNext;
+  if (segment < 3) {
+    breakSegmentSnapshot = step(breakSegmentSnapshot.state, breakSegmentSnapshot.nextWakeAt, {
+      seed: breakFound.snapshot.state.seed,
+    });
+  }
+}
+let replayBreakSegmentSnapshot = step(breakBoundaryState, pairedBreak.outboundEndsAt, {
+  seed: breakFound.snapshot.state.seed,
+});
+const replayBreakSegmentFrames: string[] = [];
+for (let segment = 0; segment < 4; segment += 1) {
+  replayBreakSegmentFrames.push(
+    json(
+      replayBreakSegmentSnapshot.directions.filter(
+        (direction) =>
+          direction.routine === 'break' &&
+          (direction.employeeId === pairedBreak.moverId ||
+            direction.employeeId === pairedBreak.partnerId),
+      ),
+    ),
+  );
+  if (segment < 3) {
+    replayBreakSegmentSnapshot = step(
+      replayBreakSegmentSnapshot.state,
+      replayBreakSegmentSnapshot.nextWakeAt,
+      { seed: breakFound.snapshot.state.seed },
+    );
+  }
+}
+check(
+  'break dwell runs four deterministic seated performance segments and wakes on each boundary',
+  breakSegmentsValid &&
+    pairedBreak.dwellEndsAt - pairedBreak.outboundEndsAt === AMBIENT_TIMING.breakDwellMs &&
+    json(breakSegmentFrames) === json(replayBreakSegmentFrames) &&
+    [...breakClipSequences.values()].every(
+      (sequence) =>
+        sequence.filter((clip) => clip === 'sit.talk').length === 2 &&
+        sequence.filter((clip) => clip === 'sit.idle').length === 1 &&
+        sequence.filter((clip) => clip === 'sit.fidget').length === 1,
+    ),
+  json({
+    activity: pairedBreak,
+    frames: breakSegmentFrames,
+    nextWakeAt: breakSegmentSnapshot.nextWakeAt,
+  }),
+);
+const serializedBreakContinuation = step(
+  JSON.parse(
+    json(
+      step(breakBoundaryState, pairedBreak.outboundEndsAt, {
+        seed: breakFound.snapshot.state.seed,
+      }).state,
+    ),
+  ) as AmbientSchedulerState,
+  pairedBreak.outboundEndsAt + AMBIENT_TIMING.breakSegmentMs,
+  { seed: breakFound.snapshot.state.seed },
+);
+const directBreakContinuation = step(
+  step(breakBoundaryState, pairedBreak.outboundEndsAt, {
+    seed: breakFound.snapshot.state.seed,
+  }).state,
+  pairedBreak.outboundEndsAt + AMBIENT_TIMING.breakSegmentMs,
+  { seed: breakFound.snapshot.state.seed },
+);
+check(
+  'JSON-serialized break state continues byte-identically at a dwell subsegment',
+  json(serializedBreakContinuation) === json(directBreakContinuation),
+);
+
 for (const kind of ['desk-fidget', 'look-around', 'stretch'] as const) {
   const found = firstActivity(kind);
   const { activity } = found;
@@ -489,7 +685,7 @@ for (const kind of ['desk-fidget', 'look-around', 'stretch'] as const) {
 }
 
 const seenRoutines = new Set<AmbientRoutineKind>();
-for (let seedIndex = 0; seedIndex < 40 && seenRoutines.size < 8; seedIndex += 1) {
+for (let seedIndex = 0; seedIndex < 40 && seenRoutines.size < 9; seedIndex += 1) {
   const seed = `p5-coverage-${seedIndex}`;
   let snapshot = step(null, START, { seed });
   const end = START + 45 * 60_000;
@@ -501,8 +697,8 @@ for (let seedIndex = 0; seedIndex < 40 && seenRoutines.size < 8; seedIndex += 1)
   }
 }
 check(
-  'seeded production sequence reaches all eight routine families',
-  seenRoutines.size === 8,
+  'seeded production sequence reaches all nine routine families',
+  seenRoutines.size === 9,
   json([...seenRoutines].sort()),
 );
 
@@ -786,9 +982,13 @@ while (standing.nextWakeAt <= START + 10 * 60_000 && standingGuard < 10_000) {
   standingGuard += 1;
 }
 check(
-  'standing homes never become a seated social partner, seated-shift, or desk-fidget actor',
+  'standing homes never become a seated pair partner or seated desk-micro actor',
   ![...standingSeen].some(
-    (routine) => routine === 'social' || routine === 'seated-shift' || routine === 'desk-fidget',
+    (routine) =>
+      routine === 'social' ||
+      routine === 'break' ||
+      routine === 'seated-shift' ||
+      routine === 'desk-fidget',
   ) && standingPostureOk,
   json([...standingSeen].sort()),
 );
@@ -895,7 +1095,11 @@ while (stress.nextWakeAt <= stressEnd && stressFrames < 20_000) {
     homes: stressHomes,
     seed: 'p5-stress',
   });
-  const away = stress.state.activities.filter((activity) => activity.away).length;
+  const away = stress.state.activities.reduce(
+    (count, activity) =>
+      count + (activity.away ? (activity.partnerDestination === null ? 1 : 2) : 0),
+    0,
+  );
   const activeIds = new Set<string>();
   const anchorIds = new Set<string>();
   const destinationPoints = new Set<string>();
@@ -906,6 +1110,13 @@ while (stress.nextWakeAt <= stressEnd && stressFrames < 20_000) {
       if (anchorIds.has(activity.destination.anchorId)) uniquenessOk = false;
       anchorIds.add(activity.destination.anchorId);
       const point = `${activity.destination.x.toFixed(4)}:${activity.destination.z.toFixed(4)}`;
+      if (destinationPoints.has(point)) uniquenessOk = false;
+      destinationPoints.add(point);
+    }
+    if (activity.partnerDestination) {
+      if (anchorIds.has(activity.partnerDestination.anchorId)) uniquenessOk = false;
+      anchorIds.add(activity.partnerDestination.anchorId);
+      const point = `${activity.partnerDestination.x.toFixed(4)}:${activity.partnerDestination.z.toFixed(4)}`;
       if (destinationPoints.has(point)) uniquenessOk = false;
       destinationPoints.add(point);
     }
@@ -931,8 +1142,8 @@ check(
   stressFrames > 100 && stressFrames < 20_000,
   String(stressFrames),
 );
-check('office never exceeds two away employees', maxAway <= 2, String(maxAway));
-check('office never exceeds four ambient-active employees', maxActive <= 4, String(maxActive));
+check('office never exceeds three away employees', maxAway <= 3, String(maxAway));
+check('office never exceeds five ambient-active employees', maxActive <= 5, String(maxActive));
 check('active anchors and destinations never double-book', uniquenessOk);
 check('every observed attempt advances once into a 20–75 second future due', cadenceOk);
 check(
@@ -946,17 +1157,63 @@ let liveMaxAway = 0;
 let liveMovementSeen = false;
 while (liveWindow.nextWakeAt <= START + 120_000) {
   liveWindow = step(liveWindow.state, liveWindow.nextWakeAt, { seed: 'p5-release-eight' });
-  const away = liveWindow.state.activities.filter((activity) => activity.away).length;
+  const away = liveWindow.state.activities.reduce(
+    (count, activity) =>
+      count + (activity.away ? (activity.partnerDestination === null ? 1 : 2) : 0),
+    0,
+  );
   liveMaxAway = Math.max(liveMaxAway, away);
   liveMovementSeen = liveMovementSeen || away > 0;
 }
 check(
   'an eight-person release fixture shows movement within the real two-minute window',
-  liveMovementSeen && liveMaxAway >= 1 && liveMaxAway <= 2,
+  liveMovementSeen && liveMaxAway >= 1 && liveMaxAway <= 3,
   json({ liveMovementSeen, liveMaxAway }),
 );
 
 console.log('\n[preemption] runtime facts win synchronously');
+const busyBreakPartnerActors = employees(8).map((actor) => ({
+  ...actor,
+  busy: actor.employeeId === pairedBreak.partnerId,
+}));
+const preemptedBreak = step(breakFound.snapshot.state, pairedBreak.startedAt + 1, {
+  seed: breakFound.snapshot.state.seed,
+  actors: busyBreakPartnerActors,
+});
+check(
+  'a busy break partner cancels both walking legs immediately',
+  !preemptedBreak.state.activities.some(
+    (activity) =>
+      activity.moverId === pairedBreak.moverId || activity.partnerId === pairedBreak.partnerId,
+  ) &&
+    !preemptedBreak.directions.some(
+      (direction) =>
+        direction.employeeId === pairedBreak.moverId ||
+        direction.employeeId === pairedBreak.partnerId,
+    ),
+  json(preemptedBreak),
+);
+for (const blockedDestination of [pairedBreak.destination, pairedBreak.partnerDestination]) {
+  if (!blockedDestination) throw new Error('Paired break must own two destinations');
+  const blockedBreak = step(breakFound.snapshot.state, pairedBreak.startedAt + 1, {
+    seed: breakFound.snapshot.state.seed,
+    blockedAnchorIds: [blockedDestination.anchorId],
+  });
+  check(
+    `blocking ${blockedDestination.anchorId} cancels the whole break group`,
+    !blockedBreak.state.activities.some(
+      (activity) =>
+        activity.moverId === pairedBreak.moverId || activity.partnerId === pairedBreak.partnerId,
+    ) &&
+      !blockedBreak.directions.some(
+        (direction) =>
+          direction.employeeId === pairedBreak.moverId ||
+          direction.employeeId === pairedBreak.partnerId,
+      ),
+    json(blockedBreak),
+  );
+}
+
 const socialFound = firstActivity('social');
 const social = socialFound.activity;
 const busyPartnerActors = employees(8).map((actor) => ({
@@ -1006,6 +1263,22 @@ check(
     reduced.nextWakeAt === Number.POSITIVE_INFINITY &&
     json(focused.state.clocks) === json(socialFound.snapshot.state.clocks) &&
     json(reduced.state.clocks) === json(socialFound.snapshot.state.clocks),
+);
+const focusedBreak = step(breakFound.snapshot.state, pairedBreak.startedAt + 1, {
+  seed: breakFound.snapshot.state.seed,
+  policy: ambientPolicyForMode('focus'),
+});
+const freshFocus = step(null, START, {
+  seed: 'p5-focus-no-break',
+  policy: ambientPolicyForMode('focus'),
+});
+check(
+  'focus policy never creates or retains a paired break',
+  focusedBreak.state.activities.length === 0 &&
+    focusedBreak.directions.length === 0 &&
+    freshFocus.state.activities.length === 0 &&
+    freshFocus.directions.length === 0,
+  json({ focusedBreak, freshFocus }),
 );
 
 const projectionInput: SceneCueInput = {

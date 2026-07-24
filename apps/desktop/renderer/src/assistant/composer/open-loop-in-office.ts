@@ -7,6 +7,7 @@ import {
   resolveLoopReference,
   useComposerLoopReferenceStore,
 } from './composer-loop-reference-store.js';
+import { resolveSkillReferences } from './composer-skill-reference-store.js';
 
 /**
  * The Loop → Office insert API (PR-10). ONE function — `openLoopInOffice` — is
@@ -94,6 +95,12 @@ export function insertLoopReferenceFromPicker(
   threadId: string,
   candidate: LoopReferenceCandidate,
 ): { ok: boolean } {
+  if (resolveSkillReferences(threadId).length) {
+    toast.message('A Loop cannot be combined with Skill references.', {
+      description: 'Remove the Skill chips before adding a Loop.',
+    });
+    return { ok: false };
+  }
   const result = applyLoopReference(threadId, candidate);
   if (!result.ok) {
     const existing = resolveLoopReference(threadId);
