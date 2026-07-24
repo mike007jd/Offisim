@@ -12,9 +12,11 @@ type FirstRunStatus = 'booting' | 'dormant' | 'active' | 'skipped' | 'completed'
 interface FirstRunState {
   status: FirstRunStatus;
   initialized: boolean;
+  collapsed: boolean;
   draftPrompts: Record<string, string>;
   initialize: (companyCount: number) => Promise<void>;
   open: () => void;
+  setCollapsed: (collapsed: boolean) => void;
   skip: () => Promise<void>;
   complete: () => Promise<void>;
   stagePrompt: (threadId: string, prompt: string) => void;
@@ -29,6 +31,9 @@ async function persistStatus(status: 'skipped' | 'completed') {
 export const useFirstRunState = create<FirstRunState>((set, get) => ({
   status: 'booting',
   initialized: false,
+  // Collapse-to-pill is session-only (status alone is persisted): every launch
+  // starts expanded, which is the safer first-run default.
+  collapsed: false,
   draftPrompts: {},
   initialize: async (companyCount) => {
     if (get().initialized) return;
@@ -46,7 +51,10 @@ export const useFirstRunState = create<FirstRunState>((set, get) => ({
               : 'dormant',
     });
   },
-  open: () => set({ status: 'active' }),
+  // open() must reset collapsed: every "Show/Resume setup guide" entry point
+  // (Settings, Personnel, Projects) must expand the card even from pill state.
+  open: () => set({ status: 'active', collapsed: false }),
+  setCollapsed: (collapsed) => set({ collapsed }),
   skip: async () => {
     await persistStatus('skipped');
     set({ status: 'skipped' });

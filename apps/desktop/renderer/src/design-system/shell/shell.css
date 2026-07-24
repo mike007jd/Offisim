@@ -9,32 +9,6 @@
   background: var(--off-bg);
 }
 
-.off-main-stack {
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
-}
-
-/* Resume tray row between the topbar and the surface host. A real grid row so
-   it can never overlap surface controls (e.g. the Office thread search). The
-   empty-state rule collapses it to zero height when there is no banner.
-   pointer-events none keeps the row from blocking clicks while a banner is
-   showing; `.off-resume` (office.css) re-enables events on the widget itself. */
-.off-banner-slot {
-  min-width: 0;
-  display: flex;
-  padding: var(--off-sp-2) var(--off-sp-5) 0;
-  pointer-events: none;
-}
-
-/* :empty only fires when React renders null into the slot (no DOM node at
-   all). Whitespace, comments, or wrapper nodes inside the slot defeat it. */
-.off-banner-slot:empty {
-  padding: 0;
-}
-
 .off-topbar {
   position: relative;
   z-index: var(--off-z-overlay);
