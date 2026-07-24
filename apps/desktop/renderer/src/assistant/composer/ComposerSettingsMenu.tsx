@@ -12,6 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
+import {
+  type ConversationTargetKey,
+  canSeedConversationRunDefaults,
+  useConversationTargetDefaultsStore,
+} from '@/runtime/conversation-target-defaults-store.js';
 import { serializeRuntimeExecutionSelector } from '@/runtime/execution-selection.js';
 import {
   DEFAULT_PERMISSION_MODE,
@@ -118,6 +123,92 @@ const SPEED_META: Record<'standard' | 'fast', { label: string; meta: string }> =
   fast: { label: 'Fast', meta: 'Higher speed at a higher cost' },
 };
 
+function useConversationRunDefaultSeeding(
+  threadId: string,
+  targetKey: ConversationTargetKey | undefined,
+  defaultModelSelector: string | undefined,
+): void {
+  const targetDefaults = useConversationTargetDefaultsStore((state) =>
+    targetKey ? state.byTarget[targetKey] : undefined,
+  );
+  const models = useAgentRuntimeModels();
+  const threadAuthority = useThreadExecutionAuthority(threadId);
+  const seededTargetsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!targetKey || !targetDefaults) return;
+    const seedKey = `${threadId}\0${targetKey}`;
+    if (seededTargetsRef.current.has(seedKey)) return;
+
+    // A resumed thread can report no authority while its first query is still
+    // pending. Only an explicitly fetched `null` is permission to seed a new
+    // conversation; undefined/error states and durable authorities are closed.
+    const options = models.data ?? [];
+    if (
+      !canSeedConversationRunDefaults({
+        authorityIsFetched: threadAuthority.isFetched,
+        authority: threadAuthority.data,
+        hasCatalog: Boolean(options?.length),
+      })
+    ) {
+      return;
+    }
+
+    seededTargetsRef.current.add(seedKey);
+    const modelStore = usePiThreadModelStore.getState();
+    const thinkingStore = usePiThreadThinkingStore.getState();
+    const speedStore = usePiThreadSpeedStore.getState();
+    const modeStore = usePiThreadModeStore.getState();
+    const existingModel = modelStore.byThread[threadId];
+    const targetModel = targetDefaults.model
+      ? options.find((option) => option.value === targetDefaults.model)
+      : undefined;
+
+    if (!(threadId in modelStore.byThread) && targetModel) {
+      modelStore.setThreadModel(threadId, targetModel.value);
+    }
+
+    const landingModel = existingModel
+      ? options.find((option) => option.value === existingModel)
+      : (targetModel ??
+        resolveComposerDefaultOption(
+          options,
+          [defaultModelSelector].filter((selector): selector is string => Boolean(selector)),
+        ));
+    if (!landingModel) return;
+
+    if (
+      !(threadId in thinkingStore.byThread) &&
+      targetDefaults.thinking &&
+      landingModel.reasoningEfforts.includes(targetDefaults.thinking)
+    ) {
+      thinkingStore.setThreadThinking(threadId, targetDefaults.thinking);
+    }
+    if (
+      !(threadId in speedStore.byThread) &&
+      targetDefaults.speed === 'fast' &&
+      landingModel.speedModes.includes('fast')
+    ) {
+      speedStore.setThreadSpeed(threadId, 'fast');
+    }
+    if (
+      !(threadId in modeStore.byThread) &&
+      targetDefaults.mode &&
+      landingModel.capabilities.permissionModes.includes(targetDefaults.mode)
+    ) {
+      modeStore.setThreadMode(threadId, targetDefaults.mode);
+    }
+  }, [
+    defaultModelSelector,
+    models.data,
+    targetDefaults,
+    targetKey,
+    threadAuthority.data,
+    threadAuthority.isFetched,
+    threadId,
+  ]);
+}
+
 /**
  * Single composer chip consolidating the per-conversation run settings —
  * Model, Reasoning (thinking level), and Permission mode — behind one menu
@@ -129,6 +220,7 @@ export function ComposerSettingsMenu({
   threadId,
   contextLabel,
   defaultModelSelector,
+  targetKey,
   showMode = true,
 }: {
   threadId: string;
@@ -136,6 +228,8 @@ export function ComposerSettingsMenu({
   contextLabel?: string;
   /** Employee-bound runtime selector used only while the thread has no durable authority. */
   defaultModelSelector?: string;
+  /** Office conversation target whose last manual run settings seed new threads. */
+  targetKey?: ConversationTargetKey;
   /** Permission mode applies to Office runs; Connect uses its Chat/Read-only profile instead. */
   showMode?: boolean;
 }) {
@@ -154,6 +248,10 @@ export function ComposerSettingsMenu({
   const clearThreadSpeedOverride = usePiThreadSpeedStore((s) => s.clearThreadSpeed);
   const threadAuthority = useThreadExecutionAuthority(threadId);
   const catalogUnavailable = models.isError && !models.data?.length;
+  const setTargetRunDefault = useConversationTargetDefaultsStore(
+    (state) => state.setTargetRunDefault,
+  );
+  useConversationRunDefaultSeeding(threadId, targetKey, defaultModelSelector);
 
   const [layer, setLayer] = useState<PickerLayer>('root');
   const contentRef = useRef<HTMLDivElement>(null);
@@ -477,6 +575,13 @@ export function ComposerSettingsMenu({
                 value={modelRadioValue}
                 onValueChange={(value) => {
                   setThreadModel(threadId, value);
+                  if (targetKey) {
+                    setTargetRunDefault(
+                      targetKey,
+                      { axis: 'model', value: value || undefined },
+                      Date.now(),
+                    );
+                  }
                   setLayer('root');
                 }}
               >
@@ -584,6 +689,13 @@ export function ComposerSettingsMenu({
               value={level}
               onValueChange={(value) => {
                 setThreadThinking(threadId, value as ThinkingLevel);
+                if (targetKey) {
+                  setTargetRunDefault(
+                    targetKey,
+                    { axis: 'thinking', value: value as ThinkingLevel },
+                    Date.now(),
+                  );
+                }
                 setLayer('root');
               }}
             >
@@ -606,6 +718,13 @@ export function ComposerSettingsMenu({
                 <DropdownMenuItem
                   onSelect={() => {
                     clearThreadThinking(threadId);
+                    if (targetKey) {
+                      setTargetRunDefault(
+                        targetKey,
+                        { axis: 'thinking', value: undefined },
+                        Date.now(),
+                      );
+                    }
                     setLayer('root');
                   }}
                 >
@@ -630,6 +749,13 @@ export function ComposerSettingsMenu({
               onValueChange={(value) => {
                 if (value === 'fast') setThreadSpeed(threadId, 'fast');
                 else clearThreadSpeedOverride(threadId);
+                if (targetKey) {
+                  setTargetRunDefault(
+                    targetKey,
+                    { axis: 'speed', value: value === 'fast' ? 'fast' : undefined },
+                    Date.now(),
+                  );
+                }
                 setLayer('root');
               }}
             >
@@ -665,6 +791,13 @@ export function ComposerSettingsMenu({
               value={mode}
               onValueChange={(value) => {
                 setThreadMode(threadId, value as PermissionMode);
+                if (targetKey) {
+                  setTargetRunDefault(
+                    targetKey,
+                    { axis: 'mode', value: value as PermissionMode },
+                    Date.now(),
+                  );
+                }
                 setLayer('root');
               }}
             >
