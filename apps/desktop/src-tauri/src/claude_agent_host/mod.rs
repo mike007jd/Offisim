@@ -11,6 +11,10 @@ use crate::agent_host_runtime::{
     append_sidecar_audit, base_env, dev_workspace_root, required_text, sidecar_script_path,
     AgentHostCliStatusResponse, AgentHostLane, HostError, SidecarAudit, TRUSTED_HOST_ENV_WHITELIST,
 };
+use crate::browser_agent_gateway::{
+    BrowserAgentGateway, BrowserAgentGatewayConfig, BrowserAgentRunScope, BROWSER_MCP_TOKEN_ENV,
+    BROWSER_MCP_URL_ENV,
+};
 use crate::engine_skill_overlay::{
     materialize_engine_context_overlay, resolve_engine_skill_paths, EngineSkillOverlayKind,
 };
@@ -319,6 +323,16 @@ fn claude_env(workspace_root: Option<&std::path::PathBuf>) -> HashMap<String, St
     base_env(TRUSTED_HOST_ENV_WHITELIST, workspace_root)
 }
 
+fn claude_run_env(
+    workspace_root: Option<&std::path::PathBuf>,
+    gateway: &BrowserAgentGatewayConfig,
+) -> HashMap<String, String> {
+    let mut env = claude_env(workspace_root);
+    env.insert(BROWSER_MCP_URL_ENV.into(), gateway.url().into());
+    env.insert(BROWSER_MCP_TOKEN_ENV.into(), gateway.token().into());
+    env
+}
+
 fn execute_payload(
     req: &ClaudeAgentExecuteRequest,
     cwd: &std::path::Path,
@@ -544,6 +558,17 @@ async fn do_execute<R: tauri::Runtime>(
             overlay.system_prompt_with_project_experience(req.system_prompt_append.as_deref())
         })
         .or_else(|| req.system_prompt_append.clone());
+    let browser_scope = BrowserAgentRunScope::new(
+        req.company_id.clone(),
+        project_id.to_string(),
+        req.thread_id.clone(),
+        req.permission_mode.as_deref(),
+    )
+    .map_err(HostError::Request)?;
+    let mut browser_gateway = BrowserAgentGateway::start(app.clone(), browser_scope)
+        .await
+        .map_err(HostError::Request)?;
+    let run_env = claude_run_env(binding.as_ref().map(|_| &cwd), browser_gateway.config());
     let payload = execute_payload(
         &req,
         &cwd,
@@ -563,7 +588,7 @@ async fn do_execute<R: tauri::Runtime>(
             &cwd,
             &script_path,
             payload,
-            claude_env(Some(&cwd)),
+            run_env,
         )
         .await
     } else {
@@ -573,7 +598,7 @@ async fn do_execute<R: tauri::Runtime>(
                 script_path: &script_path,
                 cwd: &cwd,
                 workspace_binding: None,
-                env: claude_env(None),
+                env: run_env,
                 payload,
                 token: token.clone(),
                 on_event: Some(on_event),
@@ -583,6 +608,7 @@ async fn do_execute<R: tauri::Runtime>(
         )
         .await
     };
+    browser_gateway.shutdown().await;
 
     let verification_error = if raw.is_ok() {
         match (binding.as_deref(), req.competitive_draft.as_ref()) {

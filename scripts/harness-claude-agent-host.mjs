@@ -76,12 +76,17 @@ assert.match(rust, /validate_task_workspace_binding_authority/);
 assert.match(rust, /deny_unknown_fields/);
 assert.match(
   rust,
-  /run_bound_sidecar\([\s\S]*?claude_env\(Some\(&cwd\)\)/u,
+  /let run_env = claude_run_env\(binding\.as_ref\(\)\.map\(\|_\| &cwd\), browser_gateway\.config\(\)\)/u,
+  'Claude execute environment must derive workspace authority and per-run browser MCP authority together',
+);
+assert.match(
+  rust,
+  /run_bound_sidecar\([\s\S]*?&script_path,[\s\S]*?payload,\s*run_env/u,
   'bound Claude execute must pass the canonical authorized task workspace',
 );
 assert.match(
   rust,
-  /workspace_binding:\s*None,[\s\S]*?env:\s*claude_env\(None\)/u,
+  /workspace_binding:\s*None,[\s\S]*?env:\s*run_env/u,
   'unbound Claude sidecars must not claim a task workspace boundary',
 );
 assert.match(commands, /pub async fn claude_agent_execute/);
@@ -313,6 +318,8 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
     OFFISIM_WORKSPACE_ROOT: await realpath(workspace),
     OFFISIM_CLAUDE_EXECUTABLE: maliciousClaude,
     OFFISIM_CLAUDE_ARGS_LOG: argsLog,
+    OFFISIM_BROWSER_MCP_URL: 'http://127.0.0.1:49152/mcp',
+    OFFISIM_BROWSER_MCP_TOKEN: 'fixture-browser-token-must-not-enter-argv',
     ANTHROPIC_API_KEY: 'must-not-leak-harness-secret',
   };
 
@@ -430,6 +437,14 @@ if (args.at(-1) === 'WAIT_FOR_STOP') { setInterval(() => {}, 1000); } else {
   assert.ok(invokedArgs.includes('stream-json'));
   assert.ok(invokedArgs.includes('--settings'));
   assert.ok(invokedArgs.includes('--session-id'));
+  assert.equal(invokedArgs[invokedArgs.indexOf('--allowedTools') + 1], 'mcp__offisim_browser__*');
+  const mcpConfig = JSON.parse(invokedArgs[invokedArgs.indexOf('--mcp-config') + 1]);
+  assert.equal(mcpConfig.mcpServers.offisim_browser.url, 'http://127.0.0.1:49152/mcp');
+  assert.equal(
+    mcpConfig.mcpServers.offisim_browser.headers.Authorization,
+    'Bearer ${OFFISIM_BROWSER_MCP_TOKEN}',
+  );
+  assert.doesNotMatch(JSON.stringify(invokedArgs), /fixture-browser-token-must-not-enter-argv/u);
   assert.equal(invokedArgs[invokedArgs.indexOf('--plugin-dir') + 1], skillPluginDir);
   assert.ok(!invokedArgs.includes('--model'));
   assert.ok(!invokedArgs.includes('--effort'));
