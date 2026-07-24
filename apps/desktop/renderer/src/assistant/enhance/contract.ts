@@ -27,13 +27,12 @@ export type PromptEnhanceProfile =
  * validator checks that every `source` still appears intact in the enhanced
  * output; a single drop → the result is INVALID and the UI disables Apply.
  *
- * `loop_ref` is reserved for PR-10 (Office references a Loop): the extractor
- * already detects the stable chip token form so PR-10 slots in without a contract
- * change.
+ * Structured composer references use dedicated kinds so Enhance must preserve
+ * their stable token forms byte-for-byte.
  */
 export interface ProtectedSpan {
   id: string;
-  kind: 'mention' | 'loop_ref' | 'variable' | 'code' | 'path' | 'attachment';
+  kind: 'mention' | 'loop_ref' | 'skill_ref' | 'variable' | 'code' | 'path' | 'attachment';
   /** The exact substring that must reappear, unmangled, in the enhanced text. */
   source: string;
 }

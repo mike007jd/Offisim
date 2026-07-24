@@ -360,6 +360,131 @@ const statusBoard = def({
   bindingSlots: Object.freeze([]),
 });
 
+// ── Rest & dining (no bindings) ─────────────────────────────────
+// 2D does not draw furniture; render2D reuses the nearest existing template
+// key. The 3D meshes dispatch on prefabId in Prefab3D.
+
+const coffeeMachine = def({
+  prefabId: 'coffee-machine',
+  name: 'Coffee Machine',
+  description: 'Countertop espresso machine on a stand — the rest-area caffeine stop.',
+  category: 'decorative',
+  gridSize: Object.freeze([1, 1]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('water-cooler'),
+  bindingSlots: Object.freeze([]),
+});
+
+const pantryCounter = def({
+  prefabId: 'pantry-counter',
+  name: 'Pantry Counter',
+  description: 'Low serving counter with a kettle, cup rack, and fruit bowl.',
+  category: 'decorative',
+  gridSize: Object.freeze([3, 1]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('coffee-table'),
+  bindingSlots: Object.freeze([]),
+});
+
+const snackShelf = def({
+  prefabId: 'snack-shelf',
+  name: 'Snack Shelf',
+  description: 'Open shelving stocked with colorful snacks.',
+  category: 'decorative',
+  gridSize: Object.freeze([1, 2]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('bookshelf'),
+  bindingSlots: Object.freeze([]),
+});
+
+const fridge = def({
+  prefabId: 'fridge',
+  name: 'Fridge',
+  description: 'Rounded single-door refrigerator for the rest area.',
+  category: 'decorative',
+  gridSize: Object.freeze([1, 1]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('vending-machine'),
+  bindingSlots: Object.freeze([]),
+});
+
+const diningTable4 = def({
+  prefabId: 'dining-table-4',
+  name: 'Dining Table (4 seats)',
+  description: 'Square warm-wood dining table with four chairs.',
+  category: 'decorative',
+  gridSize: Object.freeze([3, 3]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('meeting-table'),
+  bindingSlots: Object.freeze([]),
+});
+
+const cafeTable2 = def({
+  prefabId: 'cafe-table-2',
+  name: 'Cafe Table (2 seats)',
+  description: 'Small round cafe table with two facing chairs.',
+  category: 'decorative',
+  gridSize: Object.freeze([2, 2]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('coffee-table'),
+  bindingSlots: Object.freeze([]),
+});
+
+const sofaSingle = def({
+  prefabId: 'sofa-single',
+  name: 'Armchair Sofa',
+  description: 'Single-seat armchair sofa in the rest-area visual language.',
+  category: 'decorative',
+  gridSize: Object.freeze([1, 1]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('sofa'),
+  bindingSlots: Object.freeze([]),
+});
+
+const loungeBench = def({
+  prefabId: 'lounge-bench',
+  name: 'Lounge Bench',
+  description: 'Padded two-seat bench for informal breaks.',
+  category: 'decorative',
+  gridSize: Object.freeze([2, 1]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('sofa'),
+  bindingSlots: Object.freeze([]),
+});
+
+const magazineRack = def({
+  prefabId: 'magazine-rack',
+  name: 'Magazine Rack',
+  description: 'Standing rack with browsable magazines.',
+  category: 'decorative',
+  gridSize: Object.freeze([1, 1]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('bookshelf'),
+  bindingSlots: Object.freeze([]),
+});
+
+const floorLamp = def({
+  prefabId: 'floor-lamp',
+  name: 'Floor Lamp',
+  description: 'Free-standing warm floor lamp.',
+  category: 'decorative',
+  gridSize: Object.freeze([1, 1]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('plant'),
+  bindingSlots: Object.freeze([]),
+});
+
+const plantMedium = def({
+  prefabId: 'plant-medium',
+  name: 'Medium Plant',
+  description: 'Mid-sized potted plant, between the desk and corner variants.',
+  category: 'decorative',
+  gridSize: Object.freeze([1, 1]) as readonly [number, number],
+  composite: false,
+  render2D: tpl('plant'),
+  bindingSlots: Object.freeze([]),
+});
+
 // ── Catalog index ───────────────────────────────────────────────
 
 const ALL_PREFABS: readonly PrefabDefinition[] = Object.freeze([
@@ -394,6 +519,18 @@ const ALL_PREFABS: readonly PrefabDefinition[] = Object.freeze([
   readingTable,
   chairStandalone,
   statusBoard,
+  // rest & dining (11)
+  coffeeMachine,
+  pantryCounter,
+  snackShelf,
+  fridge,
+  diningTable4,
+  cafeTable2,
+  sofaSingle,
+  loungeBench,
+  magazineRack,
+  floorLamp,
+  plantMedium,
 ]);
 
 const PREFAB_INDEX = new Map<string, PrefabDefinition>(ALL_PREFABS.map((p) => [p.prefabId, p]));

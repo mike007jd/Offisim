@@ -12,10 +12,20 @@
 
 import {
   type ActorStaging,
+  CAFE_TABLE_2_DIMENSIONS,
+  COFFEE_MACHINE_DIMENSIONS,
+  DINING_TABLE_4_DIMENSIONS,
+  FRIDGE_DIMENSIONS,
   type InteractionAnchor,
   type InteractionAnchorKind,
+  LOUNGE_BENCH_DIMENSIONS,
+  MAGAZINE_RACK_DIMENSIONS,
+  PANTRY_COUNTER_DIMENSIONS,
+  SNACK_SHELF_DIMENSIONS,
+  SOFA_SINGLE_DIMENSIONS,
   type StagingPrefab,
   type StagingRequest,
+  VENDING_MACHINE_APPROACH_OFFSET,
   type WorldAnchor,
   normalizeRotation,
   rotateLocalXZ,
@@ -108,6 +118,38 @@ export const BUILTIN_PREFAB_AFFORDANCES: Readonly<Record<string, readonly Intera
     a('social-seat', [1.2, 0.4], 180, 'sitting'),
   ],
   'chair-standalone': [a('social-seat', [0, 0], 0, 'sitting')],
+  // ── Rest & dining expansion ─────────────────────────────────────────────
+  // Offsets come from rest-prefab-dimensions.ts — the same constants that size
+  // the 3D meshes — so a staged actor always lands exactly on the seat or in
+  // front of the appliance front (+z), facing back toward it (rotation 180).
+  'vending-machine': [a('refreshment', [...VENDING_MACHINE_APPROACH_OFFSET], 180, 'standing')],
+  'coffee-machine': [
+    a('refreshment', [...COFFEE_MACHINE_DIMENSIONS.approachOffset], 180, 'standing'),
+  ],
+  'pantry-counter': PANTRY_COUNTER_DIMENSIONS.approachOffsets.map((offset) =>
+    a('refreshment', [...offset], 180, 'standing'),
+  ),
+  'snack-shelf': [a('refreshment', [...SNACK_SHELF_DIMENSIONS.approachOffset], 180, 'standing')],
+  fridge: [a('refreshment', [...FRIDGE_DIMENSIONS.approachOffset], 180, 'standing')],
+  'dining-table-4': [
+    a('social-seat', [...DINING_TABLE_4_DIMENSIONS.seatFrontOffset], 180, 'sitting'),
+    a('social-seat', [...DINING_TABLE_4_DIMENSIONS.seatBackOffset], 0, 'sitting'),
+    a('social-seat', [...DINING_TABLE_4_DIMENSIONS.seatRightOffset], 270, 'sitting'),
+    a('social-seat', [...DINING_TABLE_4_DIMENSIONS.seatLeftOffset], 90, 'sitting'),
+  ],
+  'cafe-table-2': [
+    a('social-seat', [...CAFE_TABLE_2_DIMENSIONS.seatFrontOffset], 180, 'sitting'),
+    a('social-seat', [...CAFE_TABLE_2_DIMENSIONS.seatBackOffset], 0, 'sitting'),
+  ],
+  'sofa-single': [a('social-seat', [...SOFA_SINGLE_DIMENSIONS.seatOffset], 180, 'sitting')],
+  'lounge-bench': LOUNGE_BENCH_DIMENSIONS.seatOffsets.map((offset) =>
+    a('social-seat', [...offset], 180, 'sitting'),
+  ),
+  'magazine-rack': [
+    a('library-inspect', [...MAGAZINE_RACK_DIMENSIONS.approachOffset], 180, 'standing'),
+  ],
+  // floor-lamp / plant-medium are atmosphere only — no interaction anchors.
+  // coffee-table stays purely decorative (no anchor) by design.
 };
 
 export function builtinPrefabAffordances(prefabId: string): readonly InteractionAnchor[] {
