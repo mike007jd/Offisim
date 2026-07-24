@@ -719,6 +719,18 @@ async function main(): Promise<void> {
       isWriteMcpTool({ category: 'computer-use', annotations: { readOnlyHint: true } }),
       true,
     );
+    assert.equal(
+      isWriteMcpTool({ name: 'browser_navigate', category: 'browser', write: false }),
+      true,
+      'browser navigation stays state-changing even if a malformed descriptor says read',
+    );
+    for (const name of ['browser_read_page', 'browser_screenshot', 'browser_status']) {
+      assert.equal(
+        isWriteMcpTool({ name, category: 'browser', write: true }),
+        false,
+        `${name} remains available in plan mode`,
+      );
+    }
     assert.equal(isWriteMcpTool({}), false, 'unknown annotations fall back to read');
   });
 

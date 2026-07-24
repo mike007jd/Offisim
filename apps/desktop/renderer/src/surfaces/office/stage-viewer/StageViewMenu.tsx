@@ -1,13 +1,14 @@
 import { useUiState } from '@/app/ui-state.js';
 import { useActiveConversationRuns } from '@/assistant/runtime/conversation-run-react.js';
 import { workbenchOf } from '@/data/git-workbench.js';
-import { useDeliverables, useGitWorkbench } from '@/data/queries.js';
+import { useDeliverables, useEmployees, useGitWorkbench } from '@/data/queries.js';
 import type { Deliverable } from '@/data/types.js';
 import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/design-system/primitives/popover.js';
 import { cn } from '@/lib/utils.js';
 import { useCodexPet } from '@/surfaces/office/scene/office-companion/CodexPetProvider.js';
+import { useAgentBrowserSessions } from '@/surfaces/office/stage-browser/use-agent-browser-sessions.js';
 import type { DramaturgyMode, ToolRichDetail } from '@offisim/shared-types';
 import {
   Clapperboard,
@@ -154,10 +155,20 @@ export function StageViewMenu() {
   const stagePrimaryTab = useUiState((s) => s.stagePrimaryTab);
   const setStagePrimaryTab = useUiState((s) => s.setStagePrimaryTab);
   const openStageView = useUiState((s) => s.openStageView);
+  const persistedSessionThreadId = selectedThreadId === draftThreadId ? null : selectedThreadId;
+  const browserScope =
+    companyId && projectId && persistedSessionThreadId
+      ? { companyId, projectId, threadId: persistedSessionThreadId }
+      : null;
+  const agentBrowserSessions = useAgentBrowserSessions(browserScope);
   const deliverables = useDeliverables(selectedThreadId);
   const git = useGitWorkbench(projectId);
+  const employees = useEmployees();
   const runs = useActiveConversationRuns();
   const run = runs.runs.find((candidate) => candidate.threadId === selectedThreadId) ?? null;
+  const employeeName = run?.employeeId
+    ? (employees.data?.find((employee) => employee.id === run.employeeId)?.name ?? run.employeeId)
+    : 'Employee';
   const latestBrowser = run ? latestBrowserDetail(run.activity) : null;
   const latestBrowserRichDetail =
     latestBrowser?.richDetail?.family === 'browser' ? latestBrowser.richDetail : null;
@@ -170,7 +181,24 @@ export function StageViewMenu() {
     stageView.kind === 'preview' && stageView.ref.source === 'workspace-file'
       ? { target: stageView, path: stageView.ref.path }
       : null;
-  const persistedSessionThreadId = selectedThreadId === draftThreadId ? null : selectedThreadId;
+  const agentBrowserItems: StageMenuItem[] = agentBrowserSessions.map((session) => ({
+    id: `agent-browser-${session.sessionId}`,
+    label: `${employeeName}'s Browser`,
+    meta: 'Employee is browsing · Read-only spectator',
+    isActive: stageView.kind === 'browser-session' && stageView.sessionId === session.sessionId,
+    icon: Globe,
+    onSelect: () => {
+      if (!browserScope) return;
+      openStageView({
+        kind: 'browser-session',
+        sessionId: session.sessionId,
+        scope: browserScope,
+        initialUrl: session.url,
+        title: `${employeeName} · Browser`,
+        agent: { employeeName },
+      });
+    },
+  }));
 
   const items: StageMenuItem[] = [
     {
@@ -202,11 +230,12 @@ export function StageViewMenu() {
         });
       },
     },
+    ...agentBrowserItems,
     {
       id: 'browser',
-      label: 'Browser',
+      label: agentBrowserItems.length ? 'New Browser' : 'Browser',
       meta: 'Navigate the web in Stage',
-      isActive: stageView.kind === 'browser-session',
+      isActive: stageView.kind === 'browser-session' && !stageView.agent,
       icon: Globe,
       onSelect: () => {
         if (!companyId || !projectId) return;

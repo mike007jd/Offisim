@@ -3,7 +3,11 @@ import {
   loadPersistedChatMessageWithRepositories,
   persistConversationStreamCheckpointWithRepositories,
 } from '@/data/chat-message-events.js';
-import { buildDelegationContext, buildMcpScope } from '@/data/employee-persona.js';
+import {
+  type McpScopedTool,
+  buildDelegationContext,
+  buildMcpScope,
+} from '@/data/employee-persona.js';
 import {
   type CommandArgs,
   type TaskWorkspaceBindingClaim,
@@ -164,6 +168,100 @@ import { resolveThreadMode } from './pi-thread-mode-store.js';
 import { resolveThreadSpeedOverride } from './pi-thread-speed-store.js';
 import { resolveThreadThinkingOverride } from './pi-thread-thinking-store.js';
 import { getRepos, runtimeEventBus } from './repos.js';
+
+const EMPTY_BROWSER_INPUT_SCHEMA = {
+  type: 'object',
+  properties: {},
+  additionalProperties: false,
+} as const;
+
+const OFFISIM_BROWSER_MCP_TOOLS = [
+  {
+    name: 'browser_navigate',
+    server: 'offisim-browser',
+    category: 'browser',
+    description:
+      "Open an absolute http/https URL in this conversation's private incognito Offisim browser. This changes remote browser state. Poll browser_status until loading is false before reading the page.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          description: 'Absolute http:// or https:// URL to open.',
+        },
+      },
+      required: ['url'],
+      additionalProperties: false,
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+    write: true,
+  },
+  {
+    name: 'browser_read_page',
+    server: 'offisim-browser',
+    category: 'browser',
+    description:
+      "Read the current page URL, title, and visible body text from this conversation's Offisim browser. Text is capped at 256 KiB and reports whether it was truncated.",
+    inputSchema: EMPTY_BROWSER_INPUT_SCHEMA,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    write: false,
+  },
+  {
+    name: 'browser_screenshot',
+    server: 'offisim-browser',
+    category: 'browser',
+    description:
+      "Capture the current page as a PNG image from this conversation's Offisim browser. The gateway rejects captures larger than 4 MiB with a clear error.",
+    inputSchema: EMPTY_BROWSER_INPUT_SCHEMA,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    write: false,
+  },
+  {
+    name: 'browser_back',
+    server: 'offisim-browser',
+    category: 'browser',
+    description:
+      "Go back once in this conversation's Offisim browser history. This changes remote browser state and is unavailable in plan mode.",
+    inputSchema: EMPTY_BROWSER_INPUT_SCHEMA,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+    write: true,
+  },
+  {
+    name: 'browser_status',
+    server: 'offisim-browser',
+    category: 'browser',
+    description:
+      "Return the current URL, loading state, and back/forward availability for this conversation's Offisim browser. Poll until loading is false after navigation.",
+    inputSchema: EMPTY_BROWSER_INPUT_SCHEMA,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    write: false,
+  },
+] as const satisfies readonly McpScopedTool[];
 
 /**
  * Frozen, additive capability profile for the agent runtime request (PR-03).
@@ -2318,7 +2416,10 @@ class DesktopNativeAgentRuntime implements RuntimeEngineAdapter {
         this.enqueuePersist(() => this.persistRunContextPatch(runScope.runId, runtimeContext));
       }
       const mcpTools = this.config.supportsOffisimDelegation
-        ? await buildMcpScope(this.repos, this.companyId, input.employeeId, projectId)
+        ? [
+            ...OFFISIM_BROWSER_MCP_TOOLS,
+            ...(await buildMcpScope(this.repos, this.companyId, input.employeeId, projectId)),
+          ]
         : [];
       throwIfRunAborted(signal);
 

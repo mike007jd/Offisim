@@ -14,7 +14,9 @@ use tokio_util::sync::CancellationToken;
 use crate::agent_host_runtime::HostError;
 use crate::task_workspace_binding::{test_task_workspace_binding, TaskWorkspaceBindingRegistry};
 
-use super::bridge::{confirm_execution_impl, register_execution_prepared, PiUiResponse};
+use super::bridge::{
+    authorize_browser_tool, confirm_execution_impl, register_execution_prepared, PiUiResponse,
+};
 use super::merge_runtime_status;
 use super::payload::{
     collaborate_payload, enhance_payload, pi_session_dir_under, sidecar_payload,
@@ -40,6 +42,16 @@ use super::wire::{
     consume_ready_handshake, decode_sidecar_line, parse_response, PiSidecarLine,
     PI_HOST_PROTOCOL_VERSION, PI_KNOWN_WIRE_KINDS,
 };
+
+#[test]
+fn pi_browser_plan_mode_matches_gateway_semantics() {
+    assert!(authorize_browser_tool("browser_navigate", true).is_err());
+    assert!(authorize_browser_tool("browser_back", true).is_err());
+    assert!(authorize_browser_tool("browser_read_page", true).is_ok());
+    assert!(authorize_browser_tool("browser_screenshot", true).is_ok());
+    assert!(authorize_browser_tool("browser_status", true).is_ok());
+    assert!(authorize_browser_tool("browser_navigate", false).is_ok());
+}
 
 #[test]
 fn runtime_status_keeps_api_catalog_when_codex_inspection_fails() {

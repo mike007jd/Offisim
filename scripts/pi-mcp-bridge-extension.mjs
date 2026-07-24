@@ -88,10 +88,13 @@ const CallParams = Type.Object({
  * A tool is WRITE-class (needs operator approval) if the renderer flagged it so,
  * else if its MCP annotations say it is not read-only or is destructive. Unknown
  * annotations fall back to read (the renderer's grant system is the real gate).
- * @param {{ write?: boolean, annotations?: { readOnlyHint?: boolean, destructiveHint?: boolean } }} tool
+ * @param {{ name?: string, category?: string, write?: boolean, annotations?: { readOnlyHint?: boolean, destructiveHint?: boolean } }} tool
  */
 export function isWriteMcpTool(tool) {
   if (tool?.category === 'computer-use') return true;
+  if (tool?.category === 'browser') {
+    return !['browser_read_page', 'browser_screenshot', 'browser_status'].includes(tool.name);
+  }
   if (typeof tool?.write === 'boolean') return tool.write;
   const ann = tool?.annotations;
   return ann?.readOnlyHint === false || ann?.destructiveHint === true;
