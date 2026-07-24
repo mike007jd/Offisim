@@ -21,14 +21,15 @@ export const DEFAULT_MAX_WALKERS = 4;
 
 const AMBIENT_MODE_POLICIES: Readonly<Record<DramaturgyMode, AmbientModePolicy>> = {
   focus: { enabled: false, maxAway: 0, maxActiveActors: 0 },
-  office: { enabled: true, maxAway: 2, maxActiveActors: 4 },
-  cinematic: { enabled: true, maxAway: 3, maxActiveActors: 6 },
+  office: { enabled: true, maxAway: 3, maxActiveActors: 5 },
+  cinematic: { enabled: true, maxAway: 4, maxActiveActors: 7 },
 };
 
 /**
  * Ambient life is presentation only. Focus and reduced-motion suppress the
- * whole low-frequency layer; office keeps the hard two-away contract, while
- * cinematic may use one extra mover without changing any runtime fact.
+ * whole low-frequency layer; office admits one paired break alongside one
+ * independent mover, while cinematic may use one extra mover without changing
+ * any runtime fact.
  */
 export function ambientPolicyForMode(
   mode: DramaturgyMode,
