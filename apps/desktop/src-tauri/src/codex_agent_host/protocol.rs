@@ -14,6 +14,7 @@ use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{oneshot, Mutex as AsyncMutex, Notify};
 
 use crate::agent_host_runtime::TrustedCodexExecutable;
+use crate::browser_agent_gateway::{BrowserAgentGateway, BROWSER_MCP_TOKEN_ENV};
 use crate::process_group::{configure_process_group, signal_process_group};
 use crate::sidecar_stderr::{read_capped_line, MAX_SIDECAR_OUTPUT_BYTES};
 use crate::task_workspace_binding::AuthorizedProcessCwd;
@@ -226,6 +227,7 @@ pub(super) struct CodexConnection {
     codex_home_for_redaction: Mutex<Option<String>>,
     runtime_user_agent: Mutex<Option<String>>,
     stream_projections: Mutex<HashMap<String, PendingStreamProjection>>,
+    browser_gateway: AsyncMutex<Option<BrowserAgentGateway>>,
 }
 
 impl CodexConnection {
@@ -246,6 +248,7 @@ impl CodexConnection {
             stream,
             startup_cancellation,
             isolated_home,
+            None,
         )
         .await
     }
@@ -257,6 +260,7 @@ impl CodexConnection {
         stream: Option<Arc<RunStream>>,
         startup_cancellation: Option<&StartupCancellation>,
         isolated_home: Option<&Path>,
+        browser_gateway: Option<BrowserAgentGateway>,
     ) -> Result<Arc<Self>, CodexHostError> {
         let prefix = binary.command_prefix_args();
         Self::spawn_with_prefix(
@@ -267,6 +271,7 @@ impl CodexConnection {
             stream,
             startup_cancellation,
             isolated_home,
+            browser_gateway,
         )
         .await
     }
@@ -279,6 +284,7 @@ impl CodexConnection {
         stream: Option<Arc<RunStream>>,
         startup_cancellation: Option<&StartupCancellation>,
         isolated_home: Option<&Path>,
+        browser_gateway: Option<BrowserAgentGateway>,
     ) -> Result<Arc<Self>, CodexHostError> {
         if startup_cancellation.is_some_and(StartupCancellation::is_cancelled) {
             return Err(CodexHostError::Request(
@@ -287,7 +293,11 @@ impl CodexConnection {
         }
         validate_binary(binary)?;
         let mut command = Command::new(binary);
-        command.args(prefix).args(["app-server", "--stdio"]);
+        command.args(prefix);
+        if let Some(gateway) = browser_gateway.as_ref() {
+            command.args(["-c", &gateway.config().codex_config_override()]);
+        }
+        command.args(["app-server", "--stdio"]);
         if let Some(isolated_home) = isolated_home {
             configure_codex_process_env_with_home(
                 &mut command,
@@ -296,6 +306,9 @@ impl CodexConnection {
             )?;
         } else {
             configure_codex_process_env(&mut command, std::env::vars_os())?;
+        }
+        if let Some(gateway) = browser_gateway.as_ref() {
+            command.env(BROWSER_MCP_TOKEN_ENV, gateway.config().token());
         }
         command
             .stdin(Stdio::piped())
@@ -329,6 +342,7 @@ impl CodexConnection {
             codex_home_for_redaction: Mutex::new(None),
             runtime_user_agent: Mutex::new(None),
             stream_projections: Mutex::new(HashMap::new()),
+            browser_gateway: AsyncMutex::new(browser_gateway),
         });
 
         let stdout_connection = Arc::clone(&connection);
@@ -1240,6 +1254,9 @@ impl CodexConnection {
 
     pub(super) async fn terminate(&self) {
         let was_alive = self.alive.swap(false, Ordering::AcqRel);
+        if let Some(mut gateway) = self.browser_gateway.lock().await.take() {
+            gateway.shutdown().await;
+        }
         if let Some(stream) = self.stream.as_ref() {
             self.flush_all_stream_projections(stream);
         }

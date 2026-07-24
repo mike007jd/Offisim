@@ -37,7 +37,7 @@ serde = { version = "1", features = ["derive"] }
 # reconstructs positional columns from key order — it must match the SELECT
 # projection (same contract tauri-plugin-sql provided via IndexMap).
 serde_json = { version = "1", features = ["preserve_order"] }
-tokio = { version = "1", features = ["process", "io-util", "sync", "time", "macros"] }
+tokio = { version = "1", features = ["process", "io-util", "sync", "time", "macros", "net"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 thiserror = "1"
 rand = "0.8"
@@ -54,6 +54,12 @@ libc = "0.2"
 # rustls-tls (matches Tauri's own TLS choice), and json.
 reqwest = { version = "0.13.4", default-features = false, features = ["stream", "rustls", "json"] }
 futures-util = "0.3"
+# The per-run browser MCP gateway reuses Hyper, hyper-util, and http-body-util,
+# already present in Tauri's locked HTTP graph. Direct dependencies expose only
+# the HTTP/1 server + Tokio adapter needed for the loopback listener.
+hyper = { version = "1.11.0", default-features = false, features = ["http1", "server"] }
+hyper-util = { version = "0.1.20", default-features = false, features = ["http1", "server", "tokio"] }
+http-body-util = "0.1.4"
 once_cell = "1"
 dirs = "6"
 sha2 = "0.10"
