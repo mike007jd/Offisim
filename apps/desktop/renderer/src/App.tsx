@@ -36,15 +36,15 @@ export function App() {
   return (
     <CodexPetProvider>
       {isLifecycle ? (
-        <div className="off-first-run-lifecycle">
-          <FirstRunGuide />
-          <LifecycleSurface />
-        </div>
+        <LifecycleSurface />
       ) : (
-        <AppFrame banner={<FirstRunGuide />}>
+        <AppFrame>
           <SurfaceRouter />
         </AppFrame>
       )}
+      {/* Fixed bottom-right overlay (not document flow): mounted once for both
+          the lifecycle wizard and the app shell. */}
+      <FirstRunGuide />
       <CommandPalette />
       <DeepLinkInstallNavigator />
       <LoopScheduler />
