@@ -55,11 +55,9 @@ export function assembleAssistantContent(
       ? {}
       : { result: { ok: tool.status === 'completed', durationMs: tool.durationMs } }),
   }));
-  // Strip Loop reference tokens from the DISPLAYED text (PR-10). The persisted body
-  // keeps the `[[loop:<id>]]` token (it pins the executed revision in history and is
-  // the Enhance-protected anchor), but the transcript shows the Loop as a chip
-  // (rendered separately in MessageItem), not raw token text.
-  const body = stripDisplayLoopTokens(message.body ?? '');
+  // Persisted structured-reference tokens stay in history, while the transcript
+  // renders them as chips in MessageItem instead of raw body text.
+  const body = stripDisplayReferenceTokens(message.body ?? '');
   const hasThinkingParts = !!reasoning || toolParts.length > 0;
   return [
     ...(reasoning ? [{ type: 'reasoning' as const, text: reasoning }] : []),
@@ -69,12 +67,14 @@ export function assembleAssistantContent(
 }
 
 const DISPLAY_LOOP_TOKEN_RE = /\[\[loop:[A-Za-z0-9._-]+\]\]/g;
+const DISPLAY_SKILL_TOKEN_RE = /\[\[skill:[^\]]+\]\]/g;
 
-/** Remove loop tokens from text for display (collapsing the surrounding space). */
-function stripDisplayLoopTokens(text: string): string {
-  if (!text.includes('[[loop:')) return text;
+/** Remove structured-reference tokens for display, collapsing surrounding space. */
+function stripDisplayReferenceTokens(text: string): string {
+  if (!text.includes('[[loop:') && !text.includes('[[skill:')) return text;
   return text
     .replace(DISPLAY_LOOP_TOKEN_RE, '')
+    .replace(DISPLAY_SKILL_TOKEN_RE, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }

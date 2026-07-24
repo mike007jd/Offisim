@@ -611,6 +611,23 @@ export {
   normalizeRotation,
 } from './prefab-spatial.js';
 
+export {
+  REST_SEAT_TOP_Y,
+  REST_TABLE_SURFACE_Y,
+  COFFEE_MACHINE_DIMENSIONS,
+  PANTRY_COUNTER_DIMENSIONS,
+  SNACK_SHELF_DIMENSIONS,
+  FRIDGE_DIMENSIONS,
+  DINING_TABLE_4_DIMENSIONS,
+  CAFE_TABLE_2_DIMENSIONS,
+  SOFA_SINGLE_DIMENSIONS,
+  LOUNGE_BENCH_DIMENSIONS,
+  MAGAZINE_RACK_DIMENSIONS,
+  FLOOR_LAMP_DIMENSIONS,
+  PLANT_MEDIUM_DIMENSIONS,
+  VENDING_MACHINE_APPROACH_OFFSET,
+} from './rest-prefab-dimensions.js';
+
 export type { ZoneRect } from './zone-overlap.js';
 export { zonesOverlap, findOverlaps, computeOverlapMap } from './zone-overlap.js';
 

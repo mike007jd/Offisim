@@ -6,6 +6,7 @@ export type AmbientRoutineKind =
   | 'refreshment'
   | 'library'
   | 'social'
+  | 'break'
   | 'phone'
   | 'seated-shift'
   | 'desk-fidget'
@@ -39,7 +40,7 @@ export interface AmbientDestination {
   readonly x: number;
   readonly z: number;
   readonly facing: number;
-  readonly posture: 'standing';
+  readonly posture: 'sitting' | 'standing';
 }
 
 export interface AmbientActivity {
@@ -49,7 +50,10 @@ export interface AmbientActivity {
   readonly sequence: number;
   readonly away: boolean;
   readonly destination: AmbientDestination | null;
+  readonly partnerDestination: AmbientDestination | null;
   readonly homePosture: 'sitting' | 'standing';
+  /** Only assigned for `break` activities; `null` for every other routine. */
+  readonly partnerHomePosture: 'sitting' | 'standing' | null;
   readonly startedAt: number;
   readonly outboundEndsAt: number;
   readonly dwellEndsAt: number;
@@ -57,7 +61,7 @@ export interface AmbientActivity {
 }
 
 export interface AmbientSchedulerState {
-  readonly version: 'office-ambient-v2';
+  readonly version: 'office-ambient-v3';
   readonly seed: string;
   readonly startedAt: number;
   readonly lastAdvancedAt: number;
