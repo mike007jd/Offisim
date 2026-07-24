@@ -25,6 +25,7 @@ import { useEmployees, useThreads } from '@/data/queries.js';
 import { type PaceSignal, worldAnchorsFor } from '@offisim/dramaturgy';
 import type {
   AmbientActorAvailability,
+  AmbientActorDirection,
   AmbientActorHome,
   AmbientRoutePlanner,
   StagingPrefab,
@@ -70,6 +71,8 @@ export function useSceneCueFrame(options: SceneCueFrameOptions): {
   readonly pace: PaceSignal;
   /** Employee ids currently carrying a visible ambient direction (incl. partners). */
   readonly ambientActorIds: ReadonlySet<string>;
+  /** Preempted directions removed; shared by scene rendering and local chatter. */
+  readonly ambientDirections: readonly AmbientActorDirection[];
 } {
   const {
     prefabs,
@@ -243,7 +246,13 @@ export function useSceneCueFrame(options: SceneCueFrameOptions): {
   );
 
   return useMemo(
-    () => ({ frame, actorById, pace, ambientActorIds }),
-    [frame, actorById, pace, ambientActorIds],
+    () => ({
+      frame,
+      actorById,
+      pace,
+      ambientActorIds,
+      ambientDirections: visibleAmbientDirections,
+    }),
+    [frame, actorById, pace, ambientActorIds, visibleAmbientDirections],
   );
 }

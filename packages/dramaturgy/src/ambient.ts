@@ -2,6 +2,7 @@ import type {
   ActorStaging,
   AmbientActivity,
   AmbientActivityPhase,
+  AmbientActorAvailability,
   AmbientActorDirection,
   AmbientActorHome,
   AmbientDestination,
@@ -358,6 +359,11 @@ function breakFixtureCandidates(
 }
 
 function movementTravelMs(distance: number, floorMs: number): number {
+  // NOTE: the posture-transition buffer sits inside the Math.max with the
+  // floor here, while pairedMovementTravelMs adds it after the floor. That
+  // asymmetry is an intentional, behaviour-locked relaxation (solo movers may
+  // absorb the buffer into the floor; paired movers always pay it) — do not
+  // "unify" the two formulas.
   return Math.max(
     floorMs,
     Math.ceil((distance / CHARACTER_WALK_SPEED_UNITS_PER_SECOND) * 1_000) +
@@ -397,7 +403,7 @@ function activityForMovement(
     destination,
     partnerDestination: null,
     homePosture: home.posture ?? 'sitting',
-    partnerHomePosture: 'sitting',
+    partnerHomePosture: null,
     startedAt: now,
     outboundEndsAt,
     dwellEndsAt,
@@ -477,7 +483,7 @@ function activityForInPlace(
       resolvedRoutine === 'seated-shift' || resolvedRoutine === 'desk-fidget'
         ? 'sitting'
         : homePosture,
-    partnerHomePosture: 'sitting',
+    partnerHomePosture: null,
     startedAt: now,
     outboundEndsAt: now,
     dwellEndsAt: endsAt,
@@ -494,6 +500,34 @@ function routeDistance(
   if (!routeFor) return null;
   const route = routeFor({ from, to, allowBlockedTarget });
   return route && Number.isFinite(route.distance) && route.distance >= 0 ? route.distance : null;
+}
+
+/**
+ * Seated, non-busy, non-participating partner candidates for paired routines
+ * (break / social), ordered by squared distance from the mover's home with an
+ * employeeId tiebreak. Shared by the break and social branches so partner
+ * selection cannot drift between them.
+ */
+function seatedPartnersByDistance(
+  homes: readonly AmbientActorHome[],
+  home: AmbientActorHome,
+  moverId: string,
+  actorById: ReadonlyMap<string, AmbientActorAvailability>,
+  activeParticipants: ReadonlySet<string>,
+): AmbientActorHome[] {
+  return homes
+    .filter(
+      (candidate) =>
+        candidate.employeeId !== moverId &&
+        (candidate.posture ?? 'sitting') === 'sitting' &&
+        !actorById.get(candidate.employeeId)?.busy &&
+        !activeParticipants.has(candidate.employeeId),
+    )
+    .sort((a, b) => {
+      const aDistance = (a.x - home.x) ** 2 + (a.z - home.z) ** 2;
+      const bDistance = (b.x - home.x) ** 2 + (b.z - home.z) ** 2;
+      return aDistance - bDistance || cmpString(a.employeeId, b.employeeId);
+    });
 }
 
 export function ambientActivityPhase(activity: AmbientActivity, now: number): AmbientActivityPhase {
@@ -557,6 +591,23 @@ function destinationPerformance(
   }
 }
 
+/**
+ * Invariant: the break dwell must divide into exactly 4 segments. The rank
+ * branches in breakDwellPerformance (social for the first half, idle on the
+ * second-to-last segment, desk-fidget otherwise) are tuned for that count;
+ * changing breakDwellMs / breakSegmentMs to yield anything else is a
+ * behaviour change and must fail loudly here rather than drift silently.
+ */
+const BREAK_DWELL_SEGMENT_COUNT = Math.ceil(
+  AMBIENT_TIMING.breakDwellMs / AMBIENT_TIMING.breakSegmentMs,
+);
+if (BREAK_DWELL_SEGMENT_COUNT !== 4) {
+  throw new Error(
+    `breakDwellPerformance assumes exactly 4 dwell segments, got ${BREAK_DWELL_SEGMENT_COUNT} ` +
+      `(breakDwellMs=${AMBIENT_TIMING.breakDwellMs}, breakSegmentMs=${AMBIENT_TIMING.breakSegmentMs})`,
+  );
+}
+
 function breakDwellPerformance(
   activity: AmbientActivity,
   employeeId: string,
@@ -564,7 +615,7 @@ function breakDwellPerformance(
   seed: string,
 ): CharacterPerformanceState {
   const segment = Math.floor((now - activity.outboundEndsAt) / AMBIENT_TIMING.breakSegmentMs);
-  const segmentCount = Math.ceil(AMBIENT_TIMING.breakDwellMs / AMBIENT_TIMING.breakSegmentMs);
+  const segmentCount = BREAK_DWELL_SEGMENT_COUNT;
   const rankedSegments = Array.from({ length: segmentCount }, (_, index) => ({
     index,
     unit: seededUnit(seed, employeeId, activity.sequence, `break-segment:${index}`),
@@ -918,19 +969,13 @@ export function advanceAmbientScheduler(
           if (!canAddActors(2) || awayCount + 2 > input.policy.maxAway) {
             continue;
           }
-          const partners = homes
-            .filter(
-              (candidate) =>
-                candidate.employeeId !== clock.employeeId &&
-                (candidate.posture ?? 'sitting') === 'sitting' &&
-                !actorById.get(candidate.employeeId)?.busy &&
-                !activeParticipants.has(candidate.employeeId),
-            )
-            .sort((a, b) => {
-              const aDistance = (a.x - home.x) ** 2 + (a.z - home.z) ** 2;
-              const bDistance = (b.x - home.x) ** 2 + (b.z - home.z) ** 2;
-              return aDistance - bDistance || cmpString(a.employeeId, b.employeeId);
-            });
+          const partners = seatedPartnersByDistance(
+            homes,
+            home,
+            clock.employeeId,
+            actorById,
+            activeParticipants,
+          );
           for (const partner of partners) {
             for (const fixture of breakFixtureCandidates(
               home,
@@ -979,19 +1024,13 @@ export function advanceAmbientScheduler(
           }
         } else if (routine === 'social') {
           if (!canAddActors(2)) continue;
-          const partners = homes
-            .filter(
-              (candidate) =>
-                candidate.employeeId !== clock.employeeId &&
-                (candidate.posture ?? 'sitting') === 'sitting' &&
-                !actorById.get(candidate.employeeId)?.busy &&
-                !activeParticipants.has(candidate.employeeId),
-            )
-            .sort((a, b) => {
-              const aDistance = (a.x - home.x) ** 2 + (a.z - home.z) ** 2;
-              const bDistance = (b.x - home.x) ** 2 + (b.z - home.z) ** 2;
-              return aDistance - bDistance || cmpString(a.employeeId, b.employeeId);
-            });
+          const partners = seatedPartnersByDistance(
+            homes,
+            home,
+            clock.employeeId,
+            actorById,
+            activeParticipants,
+          );
           for (const partner of partners) {
             const destinations = socialDestinations(
               input.seed,
