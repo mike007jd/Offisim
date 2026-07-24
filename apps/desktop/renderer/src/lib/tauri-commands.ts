@@ -324,6 +324,7 @@ export interface BrowserSessionBounds {
 export interface BrowserSessionSnapshot {
   sessionId: string;
   scope: NativeStageSessionScope;
+  agent: boolean;
   status: 'creating' | 'loading' | 'ready' | 'hidden' | 'error' | 'closed';
   url: string;
   title?: string | null;

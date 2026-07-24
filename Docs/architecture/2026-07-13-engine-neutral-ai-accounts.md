@@ -45,6 +45,12 @@ it does not expose a preference control until runtime dispatch can actually
 honour that choice.
 
 Offisim Browser is an Offisim-owned native child WebView for every engine lane.
+It is granted and reported `available` by default: it has no local-driver setup,
+external MCP connection, or account configuration dependency. The Pi lane
+receives the fixed `offisim-browser` descriptors as first-class session tools;
+arbitrary employee MCP grants remain behind their normal connection, grant, and
+workspace boundaries. Plan mode keeps the Browser tools visible but the native
+gateway rejects `browser_navigate` and `browser_back`.
 Its renderer canvas is exactly the dedicated host grid track below app-owned
 chrome; no component measures or subtracts chrome height. Rust converts that
 viewport rect to the native parent-window coordinate system. On macOS the

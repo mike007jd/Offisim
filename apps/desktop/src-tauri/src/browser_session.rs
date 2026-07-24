@@ -231,13 +231,11 @@ struct BrowserSessionCreateOptions {
     reattach_existing: bool,
 }
 
-#[allow(dead_code)]
 pub(crate) struct BrowserSessionCreation {
     pub snapshot: BrowserSessionSnapshot,
     pub created: bool,
 }
 
-#[allow(dead_code)]
 pub(crate) struct AgentBrowserSessionAccess<R: Runtime> {
     pub snapshot: BrowserSessionSnapshot,
     pub webview: Webview<R>,
@@ -907,7 +905,6 @@ pub(crate) fn access_agent_browser_session<R: Runtime>(
     })
 }
 
-#[allow(dead_code)]
 pub(crate) fn append_agent_browser_audit<R: Runtime>(
     app: &AppHandle<R>,
     snapshot: &BrowserSessionSnapshot,
@@ -915,6 +912,24 @@ pub(crate) fn append_agent_browser_audit<R: Runtime>(
     url: Option<&Url>,
 ) {
     append_audit(app, snapshot, action, AuditOrigin::Agent, url);
+}
+
+/// Force an agent browser's native view back to its off-screen parking spot.
+/// The spectator view moves the session on-screen while attached, so the
+/// hidden-screenshot fallback must re-park before its brief `show()` — the
+/// page can never be allowed to flash at the spectator's on-screen rect.
+pub(crate) async fn park_agent_browser_offscreen<R: Runtime>(
+    app: &AppHandle<R>,
+    webview: &Webview<R>,
+    bounds: BrowserBounds,
+) -> Result<(), String> {
+    let host = app
+        .get_webview(crate::MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "agent browser host WebView is unavailable".to_string())?;
+    let native_bounds = bounds_in_parent_window(&host, bounds).await?;
+    webview
+        .set_bounds(native_bounds.native_rect())
+        .map_err(|error| format!("park agent browser off-screen: {error}"))
 }
 
 fn command_failed<R: Runtime>(app: &AppHandle<R>, session_id: &str, message: String) -> String {
@@ -1101,7 +1116,6 @@ pub async fn browser_session_create<R: Runtime>(
     .snapshot)
 }
 
-#[allow(dead_code)]
 pub(crate) async fn create_agent_browser_session<R: Runtime>(
     app: &AppHandle<R>,
     host: &Webview<R>,
@@ -1175,7 +1189,6 @@ pub async fn browser_session_navigate<R: Runtime>(
     navigate_browser_session(&app, &registry, session_id, scope, url, AuditOrigin::Human).await
 }
 
-#[allow(dead_code)]
 pub(crate) async fn navigate_agent_browser_session<R: Runtime>(
     app: &AppHandle<R>,
     session_id: String,
@@ -1274,7 +1287,6 @@ pub async fn browser_session_forward<R: Runtime>(
     .await
 }
 
-#[allow(dead_code)]
 pub(crate) async fn back_agent_browser_session<R: Runtime>(
     app: &AppHandle<R>,
     session_id: String,
@@ -1419,7 +1431,6 @@ pub async fn browser_session_snapshot<R: Runtime>(
     inspect_browser_session(&app, &registry, session_id, scope).await
 }
 
-#[allow(dead_code)]
 pub(crate) async fn inspect_agent_browser_session<R: Runtime>(
     app: &AppHandle<R>,
     session_id: String,

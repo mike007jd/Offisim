@@ -12,6 +12,7 @@ use tokio::sync::Mutex as AsyncMutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_host_runtime::HostError;
+use crate::browser_session::BrowserSessionScope;
 use crate::task_workspace_binding::{
     validate_task_workspace_binding_authority, IssueTaskWorkspaceBinding, TaskWorkspaceAccess,
     TaskWorkspaceBinding,
@@ -38,6 +39,32 @@ static EXECUTION_PREPARATIONS: Lazy<Mutex<HashMap<(String, String), ExecutionPre
     Lazy::new(|| Mutex::new(HashMap::new()));
 const EXECUTION_PREPARATION_REPLAY_TTL: Duration = Duration::from_secs(30 * 60);
 pub(super) const PI_MCP_CALL_TIMEOUT: Duration = Duration::from_secs(75);
+const OFFISIM_BROWSER_SERVER: &str = "offisim-browser";
+
+#[derive(Clone)]
+pub(super) struct PiBrowserToolContext {
+    scope: BrowserSessionScope,
+    plan_mode: bool,
+}
+
+impl PiBrowserToolContext {
+    pub(super) fn from_binding(
+        binding: &TaskWorkspaceBinding,
+        payload: &serde_json::Value,
+    ) -> Self {
+        Self {
+            scope: BrowserSessionScope {
+                company_id: binding.company_id.clone(),
+                project_id: binding.project_id.clone(),
+                thread_id: Some(binding.thread_id.clone()),
+            },
+            plan_mode: payload
+                .get("permissionMode")
+                .and_then(serde_json::Value::as_str)
+                == Some("plan"),
+        }
+    }
+}
 
 pub(super) fn pi_stdin_guard(
 ) -> std::sync::MutexGuard<'static, HashMap<String, Arc<AsyncMutex<ChildStdin>>>> {
@@ -233,6 +260,7 @@ struct PiVerifyResult {
 pub(super) async fn handle_mcp_call<R: tauri::Runtime>(
     app: &AppHandle<R>,
     request_id: Option<&str>,
+    browser_context: Option<&PiBrowserToolContext>,
     id: String,
     server: String,
     tool: String,
@@ -243,41 +271,89 @@ pub(super) async fn handle_mcp_call<R: tauri::Runtime>(
         return Ok(());
     };
     let args = arguments.unwrap_or_else(|| serde_json::json!({}));
-    let response = match app.try_state::<crate::mcp_bridge::commands::ProcessRegistry>() {
-        Some(registry) => {
-            match crate::mcp_bridge::commands::invoke_mcp_tool(
-                registry.inner(),
-                &server,
-                &tool,
-                args,
-            )
-            .await
-            {
-                Ok(call) => PiMcpResult {
-                    id,
-                    ok: true,
-                    content: Some(call.content),
-                    is_error: Some(call.is_error),
-                    error: None,
-                },
-                Err(err) => PiMcpResult {
-                    id,
-                    ok: false,
-                    content: None,
-                    is_error: None,
-                    error: Some(err.to_string()),
-                },
+    let response = if server == OFFISIM_BROWSER_SERVER {
+        invoke_browser_tool(app, browser_context, id, &tool, args).await
+    } else {
+        match app.try_state::<crate::mcp_bridge::commands::ProcessRegistry>() {
+            Some(registry) => {
+                match crate::mcp_bridge::commands::invoke_mcp_tool(
+                    registry.inner(),
+                    &server,
+                    &tool,
+                    args,
+                )
+                .await
+                {
+                    Ok(call) => PiMcpResult {
+                        id,
+                        ok: true,
+                        content: Some(call.content),
+                        is_error: Some(call.is_error),
+                        error: None,
+                    },
+                    Err(err) => PiMcpResult {
+                        id,
+                        ok: false,
+                        content: None,
+                        is_error: None,
+                        error: Some(err.to_string()),
+                    },
+                }
             }
+            None => PiMcpResult {
+                id,
+                ok: false,
+                content: None,
+                is_error: None,
+                error: Some("MCP bridge is not available".into()),
+            },
         }
-        None => PiMcpResult {
+    };
+    write_mcp_result(request_id, &response).await
+}
+
+/// Thin shell over `browser_agent_tools::run_browser_tool`: the plan gate, url
+/// validation, 4 MiB screenshot cap, content assembly, and the unknown-tool
+/// error all live in the shared core so this lane and the loopback MCP
+/// gateway cannot drift. This wrapper only maps the outcome onto the Pi
+/// bridge's `mcpResult` wire shape (Pi consumes content blocks only).
+async fn invoke_browser_tool<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    context: Option<&PiBrowserToolContext>,
+    id: String,
+    tool: &str,
+    arguments: serde_json::Value,
+) -> PiMcpResult {
+    let outcome = async {
+        let context = context.ok_or_else(|| {
+            "Offisim browser tools require an authorized bound-work run".to_string()
+        })?;
+        crate::browser_agent_tools::run_browser_tool(
+            app,
+            context.scope.clone(),
+            context.plan_mode,
+            tool,
+            arguments,
+        )
+        .await
+    }
+    .await;
+    match outcome {
+        Ok(outcome) => PiMcpResult {
+            id,
+            ok: true,
+            content: Some(outcome.content),
+            is_error: Some(false),
+            error: None,
+        },
+        Err(error) => PiMcpResult {
             id,
             ok: false,
             content: None,
             is_error: None,
-            error: Some("MCP bridge is not available".into()),
+            error: Some(error),
         },
-    };
-    write_mcp_result(request_id, &response).await
+    }
 }
 
 pub(super) async fn handle_worktree_call<R: tauri::Runtime>(

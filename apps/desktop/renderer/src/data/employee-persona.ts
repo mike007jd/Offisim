@@ -181,7 +181,7 @@ function absoluteVaultSkillPath(root: string, vaultPath: string): string {
 export interface McpScopedTool {
   name: string;
   server: string;
-  category?: 'computer-use';
+  category?: 'browser' | 'computer-use';
   description?: string;
   inputSchema?: unknown;
   annotations?: Record<string, unknown>;

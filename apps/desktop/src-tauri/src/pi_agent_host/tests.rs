@@ -42,6 +42,29 @@ use super::wire::{
 };
 
 #[test]
+fn pi_browser_plan_mode_matches_gateway_semantics() {
+    // Both lanes authorize through the one shared core in browser_agent_tools;
+    // this test pins the Pi lane to that exact function (no per-lane copy).
+    use crate::browser_agent_tools::authorize_browser_tool;
+    assert!(authorize_browser_tool("browser_navigate", true).is_err());
+    assert!(authorize_browser_tool("browser_back", true).is_err());
+    assert!(authorize_browser_tool("browser_read_page", true).is_ok());
+    assert!(authorize_browser_tool("browser_screenshot", true).is_ok());
+    assert!(authorize_browser_tool("browser_status", true).is_ok());
+    assert!(authorize_browser_tool("browser_navigate", false).is_ok());
+}
+
+#[test]
+fn pi_browser_screenshot_cap_is_the_shared_gateway_cap() {
+    // The Pi bridge lane no longer carries its own MAX_BROWSER_SCREENSHOT_BYTES;
+    // both lanes enforce the one cap from the shared core.
+    assert_eq!(
+        crate::browser_agent_tools::MAX_SCREENSHOT_BYTES,
+        4 * 1024 * 1024
+    );
+}
+
+#[test]
 fn runtime_status_keeps_api_catalog_when_codex_inspection_fails() {
     let api = AiRuntimeStatusResponse {
         accounts: vec![serde_json::json!({

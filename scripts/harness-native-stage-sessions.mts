@@ -151,12 +151,29 @@ const nativePlan = planStageSessionReconciliation({
     { id: 'browser-session:browser-a', target: browser },
   ],
   nativeTerminalIds: ['terminal-a', 'terminal-orphan'],
-  nativeBrowserIds: ['browser-a', 'browser-orphan'],
+  nativeBrowsers: [
+    { sessionId: 'browser-a', agent: false },
+    { sessionId: 'browser-orphan', agent: false },
+    { sessionId: 'agent-thread-a', agent: true },
+  ],
   visibleTabIds: new Set(['browser-session:browser-a']),
 });
 assert.deepEqual(nativePlan.closeTerminalIds, ['terminal-orphan']);
 assert.deepEqual(nativePlan.closeBrowserIds, ['browser-orphan']);
-assert.deepEqual(nativePlan.browserVisibility, [{ sessionId: 'browser-a', visible: true }]);
+assert.deepEqual(nativePlan.browserVisibility, [
+  { sessionId: 'browser-a', visible: true },
+  { sessionId: 'agent-thread-a', visible: false },
+]);
+assert.ok(
+  !nativePlan.closeBrowserIds.includes('agent-thread-a'),
+  'Stage reconciliation never closes an agent browser merely because no spectator tab is open',
+);
+assert.ok(
+  nativePlan.browserVisibility.some(
+    (entry) => entry.sessionId === 'agent-thread-a' && entry.visible === false,
+  ),
+  'an agent browser with no spectator tab is explicitly hidden, restoring the off-screen invariant',
+);
 assert.notEqual(
   stageSessionScopeKey({ ...scope, threadId: null }),
   stageSessionScopeKey(scope),
@@ -209,7 +226,11 @@ const reconciliationCommands = {
     return [{ sessionId: 'terminal-orphan' }];
   },
   async listBrowsers() {
-    return [{ sessionId: 'browser-a' }, { sessionId: 'browser-orphan' }];
+    return [
+      { sessionId: 'browser-a', agent: false },
+      { sessionId: 'browser-orphan', agent: false },
+      { sessionId: 'agent-thread-a', agent: true },
+    ];
   },
   async closeTerminal(_scope: typeof scope, sessionId: string) {
     reconciliationCalls.push(`close-terminal:${sessionId}`);
@@ -330,6 +351,7 @@ assert.deepEqual(
 const browserBase = {
   sessionId: 'browser-a',
   scope,
+  agent: false,
   status: 'loading' as const,
   url: 'https://example.com/old',
   title: null,
@@ -415,9 +437,10 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(terminalSource, /localStorage|sessionStorage/);
 
-const browserSource = read(
-  'apps/desktop/renderer/src/surfaces/office/stage-browser/BrowserSessionView.tsx',
-);
+const browserSource = [
+  read('apps/desktop/renderer/src/surfaces/office/stage-browser/BrowserSessionView.tsx'),
+  read('apps/desktop/renderer/src/surfaces/office/stage-browser/use-agent-browser-sessions.ts'),
+].join('\n');
 const nativeBoundsSource = read(
   'apps/desktop/renderer/src/surfaces/office/stage-browser/native-bounds.ts',
 );

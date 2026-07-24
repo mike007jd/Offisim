@@ -94,6 +94,9 @@ export type StageViewTarget =
       scope: StageSessionScope;
       initialUrl: string;
       title?: string;
+      agent?: {
+        employeeName: string;
+      };
     }
   | {
       kind: 'terminal-session';
