@@ -37,7 +37,15 @@ type PairUtteranceCopyKey =
   | 'pair.snack.a'
   | 'pair.snack.b'
   | 'pair.stretch.a'
-  | 'pair.stretch.b';
+  | 'pair.stretch.b'
+  | 'pair.sofa.a'
+  | 'pair.sofa.b'
+  | 'pair.tea.a'
+  | 'pair.tea.b'
+  | 'pair.couchplan.a'
+  | 'pair.couchplan.b'
+  | 'pair.crumbs.a'
+  | 'pair.crumbs.b';
 
 export type ChatterCopyKey = SoloPlayfulCopyKey | SoloComplaintCopyKey | PairUtteranceCopyKey;
 
@@ -70,6 +78,14 @@ export const PAIR_DIALOGUE_SCRIPTS = [
   { id: 'pair.stretch', keys: ['pair.stretch.a', 'pair.stretch.b'] },
 ] as const satisfies readonly PairDialogueScript[];
 
+/** Rest-area two-turn dialogues. Order is stable for per-pair rotation. */
+export const REST_PAIR_DIALOGUE_SCRIPTS = [
+  { id: 'pair.sofa', keys: ['pair.sofa.a', 'pair.sofa.b'] },
+  { id: 'pair.tea', keys: ['pair.tea.a', 'pair.tea.b'] },
+  { id: 'pair.couchplan', keys: ['pair.couchplan.a', 'pair.couchplan.b'] },
+  { id: 'pair.crumbs', keys: ['pair.crumbs.a', 'pair.crumbs.b'] },
+] as const satisfies readonly PairDialogueScript[];
+
 const EN_COPY = {
   'solo.playful.plant': 'The desk plant blinked first.',
   'solo.playful.sticky': 'Sticky notes are plotting again.',
@@ -89,6 +105,14 @@ const EN_COPY = {
   'pair.snack.b': 'I hear it too.',
   'pair.stretch.a': 'Stretch break?',
   'pair.stretch.b': 'My shoulders vote yes.',
+  'pair.sofa.a': 'This sofa has strong opinions.',
+  'pair.sofa.b': 'Mostly about posture.',
+  'pair.tea.a': 'Tea refill?',
+  'pair.tea.b': 'Only if the kettle behaves.',
+  'pair.couchplan.a': 'Weekend plan?',
+  'pair.couchplan.b': 'Become one with the couch.',
+  'pair.crumbs.a': 'Whose crumbs are these?',
+  'pair.crumbs.b': 'A tiny snack mystery.',
 } as const satisfies Record<ChatterCopyKey, string>;
 
 const ZH_CN_COPY = {
@@ -110,6 +134,14 @@ const ZH_CN_COPY = {
   'pair.snack.b': '我也听见了。',
   'pair.stretch.a': '起来伸个懒腰？',
   'pair.stretch.b': '肩膀举双手赞成。',
+  'pair.sofa.a': '这沙发很有主见。',
+  'pair.sofa.b': '主要针对坐姿。',
+  'pair.tea.a': '去续杯茶？',
+  'pair.tea.b': '先看水壶配不配合。',
+  'pair.couchplan.a': '周末有安排？',
+  'pair.couchplan.b': '和沙发融为一体。',
+  'pair.crumbs.a': '这是谁的零食渣？',
+  'pair.crumbs.b': '休息室迷你悬案。',
 } as const satisfies Record<ChatterCopyKey, string>;
 
 const COPY_BY_LOCALE: Record<ChatterLocale, Readonly<Record<ChatterCopyKey, string>>> = {
