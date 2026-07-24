@@ -466,16 +466,21 @@ function cappedString(value: unknown, max: number): string | undefined {
 }
 
 const SENSITIVE_KEY_VALUE_PATTERN =
-  /\b(password|passwd|pwd|passphrase|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|private[_-]?key|bearer|authorization)\b(\s*[:=]\s*|\s+)(\S+)/gi;
+  /\b(password|passwd|pwd|passphrase|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|private[_-]?key|bearer|authorization)\b(?:(\s*[:=]\s*)(\S+)|(\s+)((?=\S*[0-9~!@#$%^&*_+=\/\\-])\S{8,}))/gi;
 const SENSITIVE_TOKEN_PATTERN =
   /\b(sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{8,}|gho_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|xox[baprs]-[A-Za-z0-9-]{8,}|AKIA[0-9A-Z]{12,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,})\b/g;
 
-/** Mask credential-shaped content in computer-use text previews; the raw typed
- * text must never reach the UI or exported traces. Mirrored in
- * `scripts/pi-mcp-bridge-extension.mjs` (emit side). */
+/** Mask credential-shaped content in parser-side computer-use text previews;
+ * emit-side audit payloads are already recursively redacted. Pattern literals
+ * are mirrored in `scripts/pi-mcp-bridge-extension.mjs` and gated by
+ * `scripts/check-redaction-pattern-sync.mjs`. */
 function redactSensitiveText(text: string): string {
   return text
-    .replace(SENSITIVE_KEY_VALUE_PATTERN, (_match, key: string, sep: string) => `${key}${sep}•••`)
+    .replace(
+      SENSITIVE_KEY_VALUE_PATTERN,
+      (_match, key: string, eqSep: string | undefined, _eqValue, wsSep: string | undefined) =>
+        `${key}${eqSep ?? wsSep}•••`,
+    )
     .replace(SENSITIVE_TOKEN_PATTERN, '•••');
 }
 
