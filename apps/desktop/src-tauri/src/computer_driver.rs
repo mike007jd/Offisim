@@ -28,25 +28,32 @@ pub async fn computer_driver_status() -> Result<ComputerDriverStatus, String> {
     // Checked 2026-07-24: the official CLI reference documents `cua-driver status`
     // as the authoritative daemon-running probe:
     // https://cua.ai/docs/reference/cua-driver/cli-reference
-    let status_probe_running = match binary.as_ref() {
-        Some(path) => command_stdout(path, &["status"]).await.is_some(),
-        None => false,
-    };
-    let daemon_running = if status_probe_running {
-        true
-    } else if process_probe_daemon_running().await {
-        true
-    } else {
-        // Checked 2026-07-24: the install guide says this command reads grants
-        // through the daemon and reports `unknown` when no daemon is running:
-        // https://cua.ai/docs/how-to-guides/driver/install
-        match binary.as_ref() {
-            Some(path) => command_stdout(path, &["permissions", "status"])
-                .await
-                .as_deref()
-                .map(permissions_status_indicates_daemon)
-                .unwrap_or(false),
-            None => false,
+    // Its verdict is authoritative in BOTH directions: a clean non-zero exit means
+    // "not running" and must not be overridden by the weaker fallbacks below —
+    // otherwise a half-dead daemon (process alive, socket dead) reads as running.
+    // Fallbacks only apply when the probe itself is unavailable (missing binary,
+    // timeout, spawn failure, killed by signal).
+    let status_probe = classify_status_probe(match binary.as_ref() {
+        Some(path) => command_exit_output(path, &["status"]).await,
+        None => None,
+    });
+    let daemon_running = match status_probe {
+        DaemonProbe::Running => true,
+        DaemonProbe::NotRunning => false,
+        DaemonProbe::Unavailable => {
+            process_probe_daemon_running().await || {
+                // Checked 2026-07-24: the install guide says this command reads
+                // grants through the daemon and reports `unknown` when no daemon
+                // is running: https://cua.ai/docs/how-to-guides/driver/install
+                match binary.as_ref() {
+                    Some(path) => command_stdout(path, &["permissions", "status"])
+                        .await
+                        .as_deref()
+                        .map(permissions_status_indicates_daemon)
+                        .unwrap_or(false),
+                    None => false,
+                }
+            }
         }
     };
 
@@ -68,6 +75,15 @@ fn first_line(value: String) -> String {
 }
 
 async fn command_stdout(path: &Path, args: &[&str]) -> Option<String> {
+    match command_exit_output(path, args).await {
+        Some((Some(0), output)) => Some(output),
+        _ => None,
+    }
+}
+
+/// `None` when the command could not run at all (timeout / spawn failure);
+/// otherwise the exit code (`None` inside = killed by a signal) plus combined output.
+async fn command_exit_output(path: &Path, args: &[&str]) -> Option<(Option<i32>, String)> {
     let output = timeout(
         Duration::from_secs(2),
         Command::new(path).args(args).output(),
@@ -75,12 +91,34 @@ async fn command_stdout(path: &Path, args: &[&str]) -> Option<String> {
     .await
     .ok()?
     .ok()?;
-    if !output.status.success() {
-        return None;
-    }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    Some(format!("{stdout}{stderr}"))
+    Some((output.status.code(), format!("{stdout}{stderr}")))
+}
+
+#[derive(Debug, PartialEq)]
+enum DaemonProbe {
+    Running,
+    NotRunning,
+    Unavailable,
+}
+
+fn classify_status_probe(result: Option<(Option<i32>, String)>) -> DaemonProbe {
+    match result {
+        // Probe itself could not run — no verdict either way.
+        None | Some((None, _)) => DaemonProbe::Unavailable,
+        Some((Some(0), output)) => {
+            // Belt over the exit-code contract: an exit-0 "not running" report from
+            // a future CLI must not silently become a false Ready.
+            let lower = output.to_ascii_lowercase();
+            if lower.contains("not running") || lower.contains("no daemon") {
+                DaemonProbe::NotRunning
+            } else {
+                DaemonProbe::Running
+            }
+        }
+        Some((Some(_), _)) => DaemonProbe::NotRunning,
+    }
 }
 
 fn permissions_status_indicates_daemon(output: &str) -> bool {
@@ -113,28 +151,39 @@ fn permissions_status_indicates_daemon(output: &str) -> bool {
 }
 
 fn pgrep_output_indicates_daemon(output: &str) -> bool {
+    // Each `pgrep -f -l` line is "PID <argv...>". A daemon match requires the
+    // executable (basename) to be exactly `cua-driver` AND its first argument to
+    // be `serve` — the daemon-mode discriminator. Plain CLI invocations such as
+    // `cua-driver permissions grant` (which the setup panel tells users to run,
+    // and which waits long-lived for the grant) or our own short-lived
+    // status/version probes must NOT read as a running daemon.
     output.lines().any(|line| {
         let mut fields = line.split_whitespace();
-        fields
+        let pid_is_numeric = fields
             .next()
             .map(|pid| !pid.is_empty() && pid.bytes().all(|byte| byte.is_ascii_digit()))
-            .unwrap_or(false)
-            && fields.next() == Some(CUA_DRIVER_PROCESS_NAME)
-            && fields.next().is_none()
+            .unwrap_or(false);
+        let executable_is_cua_driver = fields
+            .next()
+            .map(|executable| {
+                executable.rsplit('/').next().unwrap_or(executable) == CUA_DRIVER_PROCESS_NAME
+            })
+            .unwrap_or(false);
+        pid_is_numeric && executable_is_cua_driver && fields.next() == Some("serve")
     })
 }
 
 async fn process_probe_daemon_running() -> bool {
     // Checked 2026-07-24: the install guide names the executable `cua-driver`,
     // while the CLI reference defines `serve` as its long-running daemon mode.
-    // `pgrep -x` therefore uses the exact executable name instead of matching
-    // arbitrary command lines containing driver or serve text:
+    // `pgrep -f -l` prints the PID plus the full argument list, letting the
+    // parser require both the exact executable name and the `serve` argument:
     // https://cua.ai/docs/how-to-guides/driver/install
     // https://cua.ai/docs/reference/cua-driver/cli-reference
     let Ok(result) = timeout(
         Duration::from_secs(2),
         Command::new("pgrep")
-            .args(["-x", "-l", CUA_DRIVER_PROCESS_NAME])
+            .args(["-f", "-l", CUA_DRIVER_PROCESS_NAME])
             .output(),
     )
     .await
@@ -229,14 +278,61 @@ mod tests {
     }
 
     #[test]
-    fn exact_process_probe_accepts_only_cua_driver_process_name() {
-        assert!(pgrep_output_indicates_daemon("76213 cua-driver\n"));
-        assert!(!pgrep_output_indicates_daemon("launcher cua-driver\n"));
-        assert!(!pgrep_output_indicates_daemon("76213 CuaDriver\n"));
-        assert!(!pgrep_output_indicates_daemon("76213 cua-driver-helper\n",));
+    fn process_probe_requires_cua_driver_executable_in_serve_mode() {
+        assert!(pgrep_output_indicates_daemon("76213 cua-driver serve\n"));
+        assert!(pgrep_output_indicates_daemon(
+            "76213 /Applications/CuaDriver.app/Contents/MacOS/cua-driver serve\n",
+        ));
+        assert!(pgrep_output_indicates_daemon(
+            "76213 cua-driver serve --socket /tmp/cua.sock\n",
+        ));
+        // Non-daemon CLI invocations — including the long-lived `permissions
+        // grant` the setup panel tells users to run — must not read as a daemon.
+        assert!(!pgrep_output_indicates_daemon(
+            "76213 cua-driver permissions grant\n",
+        ));
+        assert!(!pgrep_output_indicates_daemon("76213 cua-driver status\n"));
+        assert!(!pgrep_output_indicates_daemon("76213 cua-driver\n"));
+        assert!(!pgrep_output_indicates_daemon("launcher cua-driver serve\n"));
+        assert!(!pgrep_output_indicates_daemon("76213 CuaDriver serve\n"));
+        assert!(!pgrep_output_indicates_daemon(
+            "76213 cua-driver-helper serve\n",
+        ));
         assert!(!pgrep_output_indicates_daemon(
             "76213 zsh cua-driver serve\n",
         ));
+        assert!(!pgrep_output_indicates_daemon(
+            "76213 /usr/bin/tail -f cua-driver-serve.log\n",
+        ));
+    }
+
+    #[test]
+    fn status_probe_classification_covers_all_verdicts() {
+        // Probe could not run at all → no verdict, fallbacks may apply.
+        assert_eq!(classify_status_probe(None), DaemonProbe::Unavailable);
+        // Killed by a signal → probe crashed, not a verdict.
+        assert_eq!(
+            classify_status_probe(Some((None, String::new()))),
+            DaemonProbe::Unavailable
+        );
+        // Clean exit 0 → running.
+        assert_eq!(
+            classify_status_probe(Some((
+                Some(0),
+                "Daemon is running\nSocket: /tmp/cua.sock\nPID: 76213\n".to_string(),
+            ))),
+            DaemonProbe::Running
+        );
+        // Exit 0 but the CLI says it is not running → believe the text.
+        assert_eq!(
+            classify_status_probe(Some((Some(0), "Daemon is not running\n".to_string()))),
+            DaemonProbe::NotRunning
+        );
+        // Clean non-zero exit → authoritative "not running".
+        assert_eq!(
+            classify_status_probe(Some((Some(1), "Daemon is not running\n".to_string()))),
+            DaemonProbe::NotRunning
+        );
     }
 
     #[test]
